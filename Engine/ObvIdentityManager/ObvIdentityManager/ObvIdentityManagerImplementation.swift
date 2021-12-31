@@ -1,0 +1,1598 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2021 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import Foundation
+import CoreData
+import os.log
+import OlvidUtils
+import ObvCrypto
+import ObvMetaManager
+import ObvEncoder
+import ObvTypes
+import JWS
+
+public final class ObvIdentityManagerImplementation {
+    
+    // MARK: Instance variables
+    
+    public var logSubsystem: String { return delegateManager.logSubsystem }
+    
+    public func prependLogSubsystem(with prefix: String) {
+        delegateManager.prependLogSubsystem(with: prefix)
+    }
+    
+    lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvIdentityManagerImplementation")
+    
+    public func applicationDidStartRunning(flowId: FlowIdentifier) {
+        deleteUnusedIdentityPhotos(flowId: flowId)
+        pruneOldKeycloakRevokedIdentityAndUncertifyExpiredSignedContactDetails(flowId: flowId)
+    }
+    public func applicationDidEnterBackground() {}
+
+    let prng: PRNGService
+    let identityPhotosDirectory: URL
+
+    private static let errorDomain = String(describing: ObvIdentityManagerImplementation.self)
+    
+    /// Strong reference to the delegate manager, which keeps strong references to all external and internal delegate requirements.
+    let delegateManager: ObvIdentityDelegateManager
+    
+    // MARK: Initialiser
+    public init(sharedContainerIdentifier: String, prng: PRNGService, identityPhotosDirectory: URL) {
+        self.prng = prng
+        self.identityPhotosDirectory = identityPhotosDirectory
+        self.delegateManager = ObvIdentityDelegateManager(sharedContainerIdentifier: sharedContainerIdentifier, identityPhotosDirectory: identityPhotosDirectory, prng: prng)
+    }
+    
+    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private func makeError(message: String) -> Error { Self.makeError(message: message) }
+
+}
+
+
+// MARK: - Implementing ObvIdentityDelegate
+
+extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
+    
+    public static var backupIdentifier: String {
+        return "identity_manager"
+    }
+    
+    public var backupIdentifier: String {
+        return ObvIdentityManagerImplementation.backupIdentifier
+    }
+    
+    public var backupSource: ObvBackupableObjectSource { .engine }
+    
+    public func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier, _ completionHandler: @escaping (Result<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) -> Void) {
+        let delegateManager = self.delegateManager
+        delegateManager.contextCreator.performBackgroundTask(flowId: backupRequestIdentifier) { (obvContext) in
+            let queue = DispatchQueue(label: "Queue for sending backup data from the identity manager")
+            let ownedIdentities: [OwnedIdentity]
+            do {
+                ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+            } catch {
+                queue.async {
+                    completionHandler(.failure(error))
+                }
+                return
+            }
+            let ownedIdentitiesBackupItems = Set(ownedIdentities.map { $0.backupItem })
+            let jsonEncoder = JSONEncoder()
+            let internalData: String
+            do {
+                let data = try jsonEncoder.encode(ownedIdentitiesBackupItems)
+                guard let json = String(data: data, encoding: .utf8) else {
+                    throw ObvIdentityManagerImplementation.makeError(message: "Could not convert json to UTF8 string during backup")
+                }
+                internalData = json
+            } catch let error {
+                completionHandler(.failure(error))
+                return
+            }
+            queue.async {
+                completionHandler(.success((internalData, ObvIdentityManagerImplementation.backupIdentifier, .engine)))
+            }
+        }
+    }
+    
+    
+    public func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String, _ completionHandler: @escaping (Error?) -> Void) {
+        let delegateManager = self.delegateManager
+        let log = self.log
+        let prng = self.prng
+        delegateManager.contextCreator.performBackgroundTask(flowId: backupRequestIdentifier) { (obvContext) in
+            let queue = DispatchQueue(label: "Queue for sending backup restore results from the identity manager")
+            let ownedIdentities: [OwnedIdentity]
+            do {
+                ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                guard ownedIdentities.isEmpty else {
+                    let error = ObvIdentityManagerImplementation.makeError(message: "📲 An owned identity is already present in database. The engine does not support multiple owned identities at this time")
+                    queue.async {
+                        completionHandler(error)
+                    }
+                    return
+                }
+            } catch {
+                queue.async {
+                    completionHandler(error)
+                }
+                return
+            }
+            // If we reach this point, we can try to restore the backup
+            let internalJsonData = internalJson.data(using: .utf8)!
+            let ownedIdentityBackupItems: [OwnedIdentityBackupItem]
+            do {
+                let jsonDecoder = JSONDecoder()
+                ownedIdentityBackupItems = try jsonDecoder.decode([OwnedIdentityBackupItem].self, from: internalJsonData)
+            } catch let error {
+                queue.async { completionHandler(error) }
+                return
+            }
+            
+            os_log("📲 The identity manager successfully parsed the internal json during the restore of the backup within flow %{public}@", log: log, type: .info, backupRequestIdentifier.debugDescription)
+
+            guard ownedIdentityBackupItems.count == 1 else {
+                os_log("📲 Unexpected number of owned identity to restore. We expect exactly one, we got %d", log: log, type: .fault, ownedIdentityBackupItems.count)
+                let error =  ObvIdentityManagerImplementation.makeError(message: "Unexpected number of owned identity to restore")
+                queue.async { completionHandler(error) }
+                return
+            }
+            
+            let ownedIdentityBackupItem = ownedIdentityBackupItems.first!
+            
+            os_log("📲 We have exactly one owned identity to restore within flow %{public}@. We restore it now.", log: log, type: .info, backupRequestIdentifier.debugDescription)
+
+            os_log("📲 Restoring the database owned identity instance within flow %{public}@...", log: log, type: .info, backupRequestIdentifier.debugDescription)
+            
+            let associationsForRelationships: BackupItemObjectAssociations
+            do {
+                var associations = BackupItemObjectAssociations()
+                try ownedIdentityBackupItem.restoreInstance(within: obvContext, associations: &associations, notificationDelegate: delegateManager.notificationDelegate)
+                associationsForRelationships = associations
+            } catch let error {
+                os_log("📲 Could not restore owned identity instance: %{public}@", log: log, type: .error, error.localizedDescription)
+                queue.async { completionHandler(error) }
+                return
+            }
+            
+            os_log("📲 The instances were re-created. We now recreate the relationships.", log: log, type: .info)
+            
+            do {
+                try ownedIdentityBackupItem.restoreRelationships(associations: associationsForRelationships, prng: prng, within: obvContext)
+            } catch let error {
+                os_log("📲 Could not recreate relationships: %{public}@", log: log, type: .error, error.localizedDescription)
+                queue.async { completionHandler(error) }
+                return
+            }
+            
+            os_log("📲 The relationships were recreated. Saving the context.", log: log, type: .info)
+
+            do {
+                try obvContext.save(logOnFailure: log)
+            } catch let error {
+                queue.async { completionHandler(error) }
+                return
+            }
+            
+            os_log("📲 Context saved. We successfully restored the owned identity. Yepee!", log: log, type: .info, backupRequestIdentifier.debugDescription)
+            queue.async { completionHandler(nil) }
+
+        }
+    }
+
+    
+    public func getAllOwnedIdentityWithMissingPhotoUrl(within obvContext: ObvContext) throws -> [(ObvCryptoIdentity, IdentityDetailsElements)] {
+        let details = try OwnedIdentityDetailsPublished.getAllWithMissingPhotoURL(within: obvContext)
+        let results = details.map { ($0.ownedIdentity.cryptoIdentity, $0.identityDetailsElements) }
+        return results
+    }
+    
+    
+    public func getAllGroupsWithMissingPhotoUrl(within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation)] {
+        let details = try ContactGroupDetails.getAllWithMissingPhotoURL(within: obvContext)
+        let groups = try details.map({ try $0.getContactGroup() })
+        var groupInfosPerOwnedIdentity = [ObvCryptoIdentity: Set<GroupInformation>]()
+        for group in groups {
+            if var currentGroupInformation = groupInfosPerOwnedIdentity[group.ownedIdentity.cryptoIdentity] {
+                currentGroupInformation.insert(try group.getPublishedGroupInformation())
+                groupInfosPerOwnedIdentity[group.ownedIdentity.cryptoIdentity] = currentGroupInformation
+            } else {
+                groupInfosPerOwnedIdentity[group.ownedIdentity.cryptoIdentity] = Set([try group.getPublishedGroupInformation()])
+            }
+        }
+        var results = [(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation)]()
+        for (ownedIdentity, groupInfos) in groupInfosPerOwnedIdentity {
+            for info in groupInfos {
+                results.append((ownedIdentity, info))
+            }
+        }
+        return results
+    }
+    
+    
+    public func getAllContactsWithMissingPhotoUrl(within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, identityDetailsElements: IdentityDetailsElements)] {
+        let details = try ContactIdentityDetails.getAllWithMissingPhotoURL(within: obvContext)
+        let results = details.map { ($0.contactIdentity.ownedIdentity.cryptoIdentity, $0.contactIdentity.cryptoIdentity, $0.identityDetailsElements) }
+        return results
+    }
+    
+
+    // MARK: API related to owned identities
+
+    
+    public func isOwned(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        return try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) != nil
+    }
+
+
+    public func isOwnedIdentityActive(ownedIdentity identity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> Bool {
+        var _isActive: Bool?
+        try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+            guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+                throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+            }
+            _isActive = ownedIdentity.isActive
+        }
+        guard let isActive = _isActive else {
+            assertionFailure()
+            throw makeError(message: "Bug in isOwnedIdentityActive. _isActive is not set although it should be.")
+        }
+        return isActive
+    }
+    
+    
+    public func deactivateOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("Deactivating owned identity %{public}@", log: log, type: .info, ownedIdentity.debugDescription)
+        guard let ownedIdentityObj = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            assertionFailure()
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        ownedIdentityObj.deactivate()
+    }
+    
+    
+    public func reactivateOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("Reactivating owned identity %{public}@", log: log, type: .info, ownedIdentity.debugDescription)
+        guard let ownedIdentityObj = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            assertionFailure()
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        ownedIdentityObj.reactivate()
+    }
+
+    public func generateOwnedIdentity(withApiKey apiKey: UUID, onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, accordingTo pkEncryptionImplemByteId: PublicKeyEncryptionImplementationByteId, and authEmplemByteId: AuthenticationImplementationByteId, keycloakState: ObvKeycloakState?, using prng: PRNGService, within obvContext: ObvContext) -> ObvCryptoIdentity? {
+        guard let ownedIdentity = OwnedIdentity(apiKey: apiKey,
+                                                serverURL: serverURL,
+                                                identityDetails: identityDetails,
+                                                accordingTo: pkEncryptionImplemByteId,
+                                                and: authEmplemByteId,
+                                                keycloakState: keycloakState,
+                                                using: prng,
+                                                delegateManager: delegateManager,
+                                                within: obvContext) else { return nil }
+        let ownedCryptoIdentity = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
+        return ownedCryptoIdentity
+    }
+
+    
+    public func getApiKeyOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return ownedIdentity.apiKey
+    }
+    
+    public func setAPIKey(_ apiKey: UUID, forOwnedIdentity identity: ObvCryptoIdentity, keycloakServerURL: URL?, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        try ownedIdentity.setAPIKey(to: apiKey, keycloakServerURL: keycloakServerURL)
+    }
+    
+    
+    public func deleteOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        if let identityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) {
+            try identityObj.delete(within: obvContext)
+        }
+    }
+
+    
+    public func getOwnedIdentities(within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        let cryptoIdentities = ownedIdentities.map { $0.ownedCryptoIdentity.getObvCryptoIdentity() }
+        return Set(cryptoIdentities)
+    }
+
+    
+    public func getIdentityDetailsOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails, isActive: Bool) {
+        guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return (ownedIdentityObj.publishedIdentityDetails.identityDetails, ownedIdentityObj.isActive)
+    }
+
+    
+    // Used within the protocol manager
+    public func getPublishedIdentityDetailsOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (ownedIdentityDetailsElements: IdentityDetailsElements, photoURL: URL?) {
+        
+        guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        let ownedIdentityDetailsElements = IdentityDetailsElements(
+            version: ownedIdentityObj.publishedIdentityDetails.version,
+            coreDetails: ownedIdentityObj.publishedIdentityDetails.identityDetails.coreDetails,
+            photoServerKeyAndLabel: ownedIdentityObj.publishedIdentityDetails.photoServerKeyAndLabel)
+        return (ownedIdentityDetailsElements, ownedIdentityObj.publishedIdentityDetails.photoURL)
+    }
+    
+    
+    public func setPhotoServerKeyAndLabelForPublishedIdentityDetailsOfOwnedIdentity(_ identity: ObvCryptoIdentity, withPhotoServerKeyAndLabel photoServerKeyAndLabel: PhotoServerKeyAndLabel, within obvContext: ObvContext) throws -> IdentityDetailsElements {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        ownedIdentity.publishedIdentityDetails.set(photoServerKeyAndLabel: photoServerKeyAndLabel)
+        _ = IdentityServerUserData.createForOwnedIdentityDetails(ownedIdentity: identity,
+                                                                 label: photoServerKeyAndLabel.label,
+                                                                 within: obvContext)
+        return ownedIdentity.publishedIdentityDetails.identityDetailsElements
+    }
+
+    
+    public func updateDownloadedPhotoOfOwnedIdentity(_ identity: ObvCryptoIdentity, version: Int, photo: Data, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        try ownedIdentity.updatePhoto(withData: photo, version: version, delegateManager: delegateManager, within: obvContext)
+    }
+
+
+    public func updatePublishedIdentityDetailsOfOwnedIdentity(_ identity: ObvCryptoIdentity, with newIdentityDetails: ObvIdentityDetails, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        try ownedIdentity.updatePublishedDetailsWithNewDetails(newIdentityDetails, delegateManager: delegateManager)
+    }
+    
+    
+    public func getDeterministicSeedForOwnedIdentity(_ identity: ObvCryptoIdentity, diversifiedUsing data: Data, within obvContext: ObvContext) throws -> Seed {
+        guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext)  else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        guard !data.isEmpty else {
+            throw ObvIdentityManagerError.diversificationDataCannotBeEmpty.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
+        let fixedByte = Data([0x55])
+        var hashInput = try MAC.compute(forData: fixedByte, withKey: ownedIdentityObj.ownedCryptoIdentity.secretMACKey)
+        hashInput.append(data)
+        let r = sha256.hash(hashInput)
+        guard let seed = Seed(with: r) else {
+            throw ObvIdentityManagerError.failedToTurnRandomIntoSeed.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return seed
+    }
+    
+    
+    public func getFreshMaskingUIDForPushNotifications(for identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UID {
+        guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        let maskingUID = try OwnedIdentityMaskingUID.getOrCreate(for: ownedIdentityObj, prng: self.prng)
+        return maskingUID
+    }
+    
+    
+    public func getOwnedIdentityAssociatedToMaskingUID(_ maskingUID: UID, within obvContext: ObvContext) throws -> ObvCryptoIdentity? {
+        let ownedIdentity = try OwnedIdentityMaskingUID.getOwnedIdentityAssociatedWithMaskingUID(maskingUID, within: obvContext)
+        return ownedIdentity?.cryptoIdentity
+    }
+    
+    public func computeTagForOwnedIdentity(_ identity: ObvCryptoIdentity, on data: Data, within obvContext: ObvContext) throws -> Data {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        let mac = ObvCryptoSuite.sharedInstance.mac()
+        let dataToMac = "OwnedIdentityTag".data(using: .utf8)! + data
+        return try mac.compute(forData: dataToMac, withKey: ownedIdentity.ownedCryptoIdentity.secretMACKey)
+    }
+
+    // MARK: - API related to keycloak management
+
+    public func isOwnedIdentityKeycloakManaged(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let ownedIdentity_ = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return ownedIdentity_.isKeycloakManaged
+    }
+
+    public func isContactCertifiedByOwnKeycloak(contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find contact")
+        }
+        return contactObj.isCertifiedByOwnKeycloak
+    }
+    
+    
+    public func getSignedContactDetails(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> SignedUserDetails? {
+        guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find contact")
+        }
+        return try contactObj.signedUserDetails
+    }
+
+
+    public func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedUserDetails?) {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        guard let obvKeycloakState = try ownedIdentity.keycloakServer?.toObvKeycloakState else {
+            return (nil, nil)
+        }
+        guard let signatureVerificationKey = obvKeycloakState.signatureVerificationKey, let signedDetails = ownedIdentity.publishedIdentityDetails.identityDetails.coreDetails.signedUserDetails else {
+            return (obvKeycloakState, nil)
+        }
+        let signedOwnedDetails = try? SignedUserDetails.verifySignedUserDetails(signedDetails, with: signatureVerificationKey)
+        assert(signedOwnedDetails != nil, "An invalid signature should not have been stored in the first place")
+        return (obvKeycloakState, signedOwnedDetails)
+    }
+
+    public func saveKeycloakAuthState(ownedIdentity: ObvCryptoIdentity, rawAuthState: Data, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        ownedIdentity.keycloakServer?.setAuthState(authState: rawAuthState)
+    }
+
+    public func saveKeycloakJwks(ownedIdentity: ObvCryptoIdentity, jwks: ObvJWKSet, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        assert(ownedIdentity.keycloakServer != nil)
+        try ownedIdentity.keycloakServer?.setJwks(jwks)
+    }
+    
+    public func getOwnedIdentityKeycloakUserId(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> String? {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        return ownedIdentity.keycloakServer?.keycloakUserId
+    }
+
+    public func setOwnedIdentityKeycloakUserId(ownedIdentity: ObvCryptoIdentity, keycloakUserId userId: String?, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        ownedIdentity.keycloakServer?.setKeycloakUserId(keycloakUserId: userId)
+    }
+
+    public func bindOwnedIdentityToKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, keycloakUserId userId: String, keycloakState: ObvKeycloakState, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+
+        try ownedIdentity.bindToKeycloak(keycloakState: keycloakState, delegateManager: delegateManager)
+        try setOwnedIdentityKeycloakUserId(ownedIdentity: ownedCryptoIdentity, keycloakUserId: userId, within: obvContext)
+        assert(ownedIdentity.isKeycloakManaged)
+
+        // Once our owned identity is bind, we create the updated list of the contact that are managed by the same keycloak than ours.
+        // This will be cached by the app.
+        let contactsCertifiedByOwnKeycloak = Set(ownedIdentity.contactIdentities.filter({ $0.isCertifiedByOwnKeycloak }).map({ $0.cryptoIdentity }))
+        
+        return contactsCertifiedByOwnKeycloak
+        
+    }
+    
+    
+    public func getContactsCertifiedByOwnKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        guard ownedIdentity.isKeycloakManaged else { return Set<ObvCryptoIdentity>() }
+        let contactsCertifiedByOwnKeycloak = Set(ownedIdentity.contactIdentities.filter({ $0.isCertifiedByOwnKeycloak }).map({ $0.cryptoIdentity }))
+        return contactsCertifiedByOwnKeycloak
+    }
+    
+    
+    public func unbindOwnedIdentityFromKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        try ownedIdentity.unbindFromKeycloak(delegateManager: delegateManager)
+        assert(!ownedIdentity.isKeycloakManaged)
+
+        let publishedDetails = ownedIdentity.publishedIdentityDetails.identityDetails
+        let publishedDetailsWithoutSignedDetails = try publishedDetails.removingSignedUserDetails()
+
+        try updatePublishedIdentityDetailsOfOwnedIdentity(ownedCryptoIdentity, with: publishedDetailsWithoutSignedDetails, within: obvContext)
+        
+    }
+    
+    
+    public func setOwnedIdentityKeycloakSelfRevocationTestNonce(ownedCryptoIdentity: ObvCryptoIdentity, newSelfRevocationTestNonce: String?, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        assert(ownedIdentity.isKeycloakManaged)
+        ownedIdentity.keycloakServer?.setSelfRevocationTestNonce(newSelfRevocationTestNonce)
+    }
+    
+    
+    public func getOwnedIdentityKeycloakSelfRevocationTestNonce(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> String? {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        assert(ownedIdentity.isKeycloakManaged)
+        return ownedIdentity.keycloakServer?.selfRevocationTestNonce
+    }
+    
+    
+    public func setOwnedIdentityKeycloakSignatureKey(ownedCryptoIdentity: ObvCryptoIdentity, keycloakServersignatureVerificationKey: ObvJWK?, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        assert(ownedIdentity.isKeycloakManaged)
+        try ownedIdentity.setOwnedIdentityKeycloakSignatureKey(keycloakServersignatureVerificationKey, delegateManager: delegateManager)
+    }
+    
+    
+    /// This method will process the signed revocations. In the process, certained contacts may be considered as compromised. This method returns these contacts, which will allow the engine to delete all the channels we have with this contact.
+    public func verifyAndAddRevocationList(ownedCryptoIdentity: ObvCryptoIdentity, signedRevocations: [String], revocationListTimetamp: Date, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        assert(ownedIdentity.isKeycloakManaged)
+        let compromisedContacts = try ownedIdentity.verifyAndAddRevocationList(signedRevocations: signedRevocations, revocationListTimetamp: revocationListTimetamp, delegateManager: delegateManager)
+        ownedIdentity.pruneOldKeycloakRevokedContacts(delegateManager: delegateManager)
+        ownedIdentity.uncertifyExpiredSignedContactDetails(delegateManager: delegateManager)
+        return compromisedContacts
+    }
+    
+    
+    public func updateKeycloakPushTopicsIfNeeded(ownedCryptoIdentity: ObvCryptoIdentity, pushTopics: Set<String>, within obvContext: ObvContext) throws -> Bool {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        assert(ownedIdentity.isKeycloakManaged)
+        let storedPushTopicsUpdated = ownedIdentity.updateKeycloakPushTopicsIfNeeded(pushTopics: pushTopics)
+        return storedPushTopicsUpdated
+    }
+    
+    
+    public func getKeycloakPushTopics(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<String> {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find Owned Identity in database")
+        }
+        return ownedIdentity.keycloakServer?.pushTopics ?? Set<String>()
+    }
+
+    
+    public func getCryptoIdentitiesOfManagedOwnedIdentitiesAssociatedWithThePushTopic(_ pushTopic: String, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        let appropriateOwnedIdentities = ownedIdentities
+            .filter({ $0.isKeycloakManaged })
+            .filter({ $0.keycloakServer?.pushTopics.contains(pushTopic) == true })
+        return Set(appropriateOwnedIdentities.map { $0.cryptoIdentity })
+    }
+    
+    // MARK: - API related to owned devices
+
+    public func getDeviceUidsOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID> {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        let devices = ownedIdentity.otherDevices.union([ownedIdentity.currentDevice])
+        return Set(devices.map { return $0.uid })
+    }
+
+    
+    public func getOwnedIdentityOfCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws -> ObvCryptoIdentity {
+        guard let currentDevice = OwnedDevice.get(currentDeviceUid: currentDeviceUid, delegateManager: delegateManager, within: obvContext) else { throw NSError() }
+        return currentDevice.identity.ownedCryptoIdentity.getObvCryptoIdentity()
+    }
+
+    
+    public func getOwnedIdentityOfRemoteDeviceUid(_ remoteDeviceUid: UID, within obvContext: ObvContext) -> ObvCryptoIdentity? {
+        let remoteDevice = OwnedDevice.get(remoteDeviceUid: remoteDeviceUid, delegateManager: delegateManager, within: obvContext)
+        return remoteDevice?.identity.ownedCryptoIdentity.getObvCryptoIdentity()
+    }
+
+    
+    public func getCurrentDeviceUidOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UID {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return ownedIdentity.currentDevice.uid
+    }
+
+    
+    public func getOtherDeviceUidsOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID> {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return Set(ownedIdentity.otherDevices.map { return $0.uid })
+    }
+
+    
+    public func addDeviceForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, withUid uid: UID, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        try ownedIdentity.addRemoteDeviceWith(uid: uid)
+    }
+
+    
+    public func isDevice(withUid deviceUid: UID, aRemoteDeviceOfOwnedIdentity identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        let ownedRemoteDeviceUids = ownedIdentityObj.otherDevices.map { return $0.uid }
+        return ownedRemoteDeviceUids.contains(deviceUid)
+    }
+
+    
+    public func getAllRemoteOwnedDevicesUidsAndContactDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
+        let ownedRemoteDevices = try OwnedDevice.getAllOwnedRemoteDeviceUids(within: obvContext)
+        let contactDevices = try ContactDevice.getAllContactDeviceUids(within: obvContext)
+        return ownedRemoteDevices.union(contactDevices)
+    }
+    
+    
+    // MARK: - API related to contact identities
+
+    public func addContactIdentity(_ contactIdentity: ObvCryptoIdentity, with identityCoreDetails: ObvIdentityCoreDetails, andTrustOrigin trustOrigin: TrustOrigin, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        guard ContactIdentity(cryptoIdentity: contactIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: ownedIdentity, delegateManager: delegateManager) != nil else {
+            throw makeError(message: "Could not create ContactIdentity instance")
+        }
+    }
+
+    public func addTrustOrigin(_ trustOrigin: TrustOrigin, toContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw NSError() }
+        try contactObj.addTrustOrigin(trustOrigin)
+    }
+    
+    public func getTrustOrigins(forContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [TrustOrigin] {
+        guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw NSError() }
+        return contactObj.trustOrigins
+    }
+    
+    public func getTrustLevel(forContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> TrustLevel {
+        guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw NSError() }
+        return contactObj.trustLevel
+    }
+    
+    public func getContactsOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        return Set(ownedIdentity.contactIdentities.map { return $0.cryptoIdentity })
+    }
+
+
+    public func getIdentityDetailsOfContactIdentity(_ contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails?, trustedIdentityDetails: ObvIdentityDetails) {
+        guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
+        return (contactObj.publishedIdentityDetails?.identityDetails, contactObj.trustedIdentityDetails.identityDetails)
+    }
+
+    
+    public func getPublishedIdentityDetailsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (contactIdentityDetailsElements: IdentityDetailsElements, photoURL: URL?)? {
+        
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
+        guard let publishedIdentityDetails = contactIdentity.publishedIdentityDetails else { return nil }
+        
+        let contactIdentityDetailsElements = IdentityDetailsElements(version: publishedIdentityDetails.version,
+                                                                     coreDetails: publishedIdentityDetails.identityDetails.coreDetails,
+                                                                     photoServerKeyAndLabel: publishedIdentityDetails.photoServerKeyAndLabel)
+        return (contactIdentityDetailsElements, publishedIdentityDetails.photoURL)
+    }
+
+    
+    public func getTrustedIdentityDetailsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (contactIdentityDetailsElements: IdentityDetailsElements, photoURL: URL?) {
+        
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
+        let trustedIdentityDetails = contactIdentity.trustedIdentityDetails
+        
+        let contactIdentityDetailsElements = IdentityDetailsElements(version: trustedIdentityDetails.version,
+                                                                     coreDetails: trustedIdentityDetails.identityDetails.coreDetails,
+                                                                     photoServerKeyAndLabel: trustedIdentityDetails.photoServerKeyAndLabel)
+        return (contactIdentityDetailsElements, trustedIdentityDetails.photoURL)
+    }
+
+    
+    public func updateTrustedIdentityDetailsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, with newContactIdentityDetails: ObvIdentityDetails, within obvContext: ObvContext) throws {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
+        try contactIdentity.updateTrustedDetailsWithPublishedDetails(newContactIdentityDetails, delegateManager: delegateManager)
+    }
+
+
+    public func updateDownloadedPhotoOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, version: Int, photo: Data, within obvContext: ObvContext) throws {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
+        try contactIdentity.updatePhoto(withData: photo, version: version, delegateManager: delegateManager, within: obvContext)
+    }
+
+
+    public func updatePublishedIdentityDetailsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, with newContactIdentityDetailsElements: IdentityDetailsElements, allowVersionDowngrade: Bool, within obvContext: ObvContext) throws {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
+        try contactIdentity.updatePublishedDetailsAndTryToAutoTrustThem(with: newContactIdentityDetailsElements, allowVersionDowngrade: allowVersionDowngrade, delegateManager: delegateManager)
+    }
+
+    public func isIdentity(_ contactIdentity: ObvCryptoIdentity, aContactIdentityOfTheOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        return try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) != nil
+    }
+
+    
+    public func deleteContactIdentity(_ contactIdentity: ObvCryptoIdentity, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, failIfContactIsPartOfAGroupJoined: Bool, within obvContext: ObvContext) throws {
+        if let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) {
+            if failIfContactIsPartOfAGroupJoined {
+                let contactGroupsJoined = try ContactGroup.getAllContactGroupWhereGroupMembersContainTheContact(contactIdentityObject, delegateManager: delegateManager)
+                guard contactGroupsJoined.isEmpty else {
+                    throw makeError(message: "Could not delete contact as she is part of at least one contact group joined")
+                }
+            }
+            for device in contactIdentityObject.devices {
+                device.delegateManager = delegateManager
+                device.prepareForDeletion()
+            }
+            contactIdentityObject.publishedIdentityDetails?.delegateManager = delegateManager
+            contactIdentityObject.trustedIdentityDetails.delegateManager = delegateManager
+            try contactIdentityObject.publishedIdentityDetails?.delete(within: obvContext)
+            try contactIdentityObject.trustedIdentityDetails.delete(within: obvContext)
+            obvContext.delete(contactIdentityObject)
+        }
+    }
+    
+    
+    public func contactIdentityBelongsToSomeContactGroup(_ contactIdentity: ObvCryptoIdentity, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
+        let contactGroupsJoined = try ContactGroup.getAllContactGroupWhereGroupMembersContainTheContact(contactIdentityObject, delegateManager: delegateManager)
+        return !contactGroupsJoined.isEmpty
+    }
+    
+    
+    public func isContactRevokedAsCompromised(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
+        return contactIdentityObject.isRevokedAsCompromised
+    }
+
+    
+    public func isContactIdentityActive(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
+        return contactIdentityObject.isActive
+    }
+    
+    
+    public func setContactForcefullyTrustedByUser(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, forcefullyTrustedByUser: Bool, within obvContext: ObvContext) throws {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
+        contactIdentityObject.setForcefullyTrustedByUser(to: forcefullyTrustedByUser, delegateManager: delegateManager)
+    }
+    
+    
+    // MARK: - API related to contact devices
+    
+    
+    public func addDeviceForContactIdentity(_ contactIdentity: ObvCryptoIdentity, withUid uid: UID, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: contactIdentity,
+                                                        ownedIdentity: ownedIdentity,
+                                                        delegateManager: delegateManager,
+                                                        within: obvContext)
+            else {
+                throw ObvIdentityManagerImplementation.makeError(message: "Could not get contact identity")
+        }
+        try contactIdentity.addIfNotExistDeviceWith(uid: uid, flowId: obvContext.flowId)
+    }
+    
+    public func removeDeviceForContactIdentity(_ contactIdentity: ObvCryptoIdentity, withUid uid: UID, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: contactIdentity,
+                                                        ownedIdentity: ownedIdentity,
+                                                        delegateManager: delegateManager,
+                                                        within: obvContext)
+            else {
+                throw ObvIdentityManagerImplementation.makeError(message: "Could not get contact identity")
+        }
+        try contactIdentity.removeIfExistsDeviceWith(uid: uid, flowId: obvContext.flowId)
+    }
+    
+    
+    public func getDeviceUidsOfContactIdentity(_ identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID> {
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerImplementation.makeError(message: "Could not find ContactIdentity object")
+        }
+        let deviceUids = contactIdentity.devices.map { $0.uid }
+        return Set(deviceUids)
+    }
+    
+    
+    public func isDevice(withUid deviceUid: UID, aDeviceOfContactIdentity identity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contactIdentityObj = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw NSError() }
+        let contactDeviceUids = contactIdentityObj.devices.map { return $0.uid }
+        return contactDeviceUids.contains(deviceUid)
+    }
+    
+    
+    public func deleteDevicesOfContactIdentity(contactIdentity: ObvCryptoIdentity, contactDeviceUids: Set<UID>, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contactIdentityObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerImplementation.makeError(message: "Could not get contact identity of owned identity")
+        }
+        let contactDevicesToDelete = contactIdentityObj.devices.filter { contactDeviceUids.contains($0.uid) }
+        for device in contactDevicesToDelete {
+            obvContext.delete(device)
+        }
+    }
+    
+    
+    public func deleteAllDevicesOfContactIdentity(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contactIdentityObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerImplementation.makeError(message: "Could not get contact identity of owned identity")
+        }
+        for device in contactIdentityObj.devices {
+            obvContext.delete(device)
+        }
+    }
+    
+    // MARK: - API related to contact groups
+        
+    /// This method returns the group information (and photo) corresponding to the published details of the joined group.
+    /// If a photoURL is present in the `GroupInformationWithPhoto`, this method will copy this photo and create server label/key for it.
+    public func createContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupInformationWithPhoto: GroupInformationWithPhoto, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, within obvContext: ObvContext) throws -> GroupInformationWithPhoto {
+        
+        guard groupInformationWithPhoto.groupOwnerIdentity == ownedIdentity else { throw makeError(message: "The group owner is not the owned identity") }
+        
+        let groupUid = groupInformationWithPhoto.groupUid
+        
+        // Since we are creating a group, we expect that the GroupInformationWithPhoto does not contain a server key/label
+        assert(groupInformationWithPhoto.groupDetailsElementsWithPhoto.photoServerKeyAndLabel == nil)
+        
+        // If the GroupInformationWithPhoto contains a photo, we need to generate a server key/label for it.
+        // We then update the GroupInformationWithPhoto in order for this server key/label to be stored in the created owned group
+        let updatedGroupInformationWithPhoto: GroupInformationWithPhoto
+        if groupInformationWithPhoto.photoURL == nil {
+            updatedGroupInformationWithPhoto = groupInformationWithPhoto
+        } else {
+            let photoServerKeyAndLabel = PhotoServerKeyAndLabel.generate(with: prng)
+            _ = GroupServerUserData.createForOwnedGroupDetails(ownedIdentity: ownedIdentity,
+                                                               label: photoServerKeyAndLabel.label,
+                                                               groupUid: groupUid,
+                                                               within: obvContext)
+            updatedGroupInformationWithPhoto = try groupInformationWithPhoto.withPhotoServerKeyAndLabel(photoServerKeyAndLabel)
+        }
+        
+        let groupOwned = try ContactGroupOwned(groupInformationWithPhoto: updatedGroupInformationWithPhoto,
+                                               ownedIdentity: ownedIdentity,
+                                               pendingGroupMembers: pendingGroupMembers,
+                                               delegateManager: delegateManager,
+                                               within: obvContext)
+        
+
+        
+        return try groupOwned.getPublishedOwnedGroupInformationWithPhoto()
+    }
+
+
+    public func createContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation, groupOwner: ObvCryptoIdentity, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, within obvContext: ObvContext) throws {
+        guard groupInformation.groupOwnerIdentity != ownedIdentity else { throw makeError(message: "The group owner is the owned identity") }
+        _ = try ContactGroupJoined(groupInformation: groupInformation,
+                                   ownedIdentity: ownedIdentity,
+                                   groupOwnerCryptoIdentity: groupOwner,
+                                   pendingGroupMembers: pendingGroupMembers,
+                                   delegateManager: delegateManager,
+                                   within: obvContext)
+    }
+    
+    
+    public func transferPendingMemberToGroupMembersOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, pendingMember: ObvCryptoIdentity, within obvContext: ObvContext, groupMembersChangedCallback: () throws -> Void) throws {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard let group = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard try isIdentity(pendingMember, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotContact.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard try isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: pendingMember, within: obvContext) else {
+            throw makeError(message: "Trying to transfer an inactive contact from pending to groups members of a group owned")
+        }
+        
+        guard let contactIdentity = try ContactIdentity.get(contactIdentity: pendingMember, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotContact.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        try group.transferPendingMemberToGroupMembersForGroupOwned(contactIdentity: contactIdentity)
+        
+        try groupMembersChangedCallback()
+    }
+    
+    
+    public func transferGroupMemberToPendingMembersOfContactGroupOwnedAndMarkPendingMemberAsDeclined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupMember: ObvCryptoIdentity, within obvContext: ObvContext, groupMembersChangedCallback: () throws -> Void) throws {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard let group = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard try isIdentity(groupMember, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotContact.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        try group.transferGroupMemberToPendingMembersForGroupOwned(contactCryptoIdentity: groupMember)
+        
+        try markPendingMemberAsDeclined(ownedIdentity: ownedIdentity, groupUid: groupUid, pendingMember: groupMember, within: obvContext)
+        
+        try groupMembersChangedCallback()
+        
+    }
+    
+    
+    public func addPendingMembersToContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, newPendingMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext, groupMembersChangedCallback: () throws -> Void) throws {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard let group = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        try group.add(newPendingMembers: newPendingMembers, delegateManager: delegateManager)
+        
+        try groupMembersChangedCallback()
+
+    }
+    
+    
+    public func removePendingAndMembersToContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, pendingOrMembersToRemove: Set<ObvCryptoIdentity>, within obvContext: ObvContext, groupMembersChangedCallback: () throws -> Void) throws {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard let group = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        try group.remove(pendingOrGroupMembers: pendingOrMembersToRemove)
+        
+        try groupMembersChangedCallback()
+
+    }
+    
+    
+    public func markPendingMemberAsDeclined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, pendingMember: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        try groupOwned.markPendingMemberAsDeclined(pendingGroupMember: pendingMember)
+        
+    }
+    
+    
+    public func unmarkDeclinedPendingMemberAsDeclined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, pendingMember: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+        
+        try groupOwned.unmarkDeclinedPendingMemberAsDeclined(pendingGroupMember: pendingMember)
+        
+    }
+
+
+    public func updatePublishedDetailsOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation, within obvContext: ObvContext) throws {
+
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupInformation.groupUid,
+                                                           groupOwnerCryptoIdentity: groupInformation.groupOwnerIdentity,
+                                                           ownedIdentity: ownedIdentityObject,
+                                                           delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        try groupJoined.updateDetailsPublished(with: groupInformation.groupDetailsElements, delegateManager: delegateManager)
+    }
+
+    
+    public func updateDownloadedPhotoOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity, groupUid: UID, version: Int, photo: Data, within obvContext: ObvContext) throws {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        try groupJoined.updatePhoto(withData: photo, ofDetailsWithVersion: version, delegateManager: delegateManager, within: obvContext)
+    }
+
+    
+    public func updateDownloadedPhotoOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, version: Int, photo: Data, within obvContext: ObvContext) throws {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        try groupOwned.updatePhoto(withData: photo, ofDetailsWithVersion: version, delegateManager: delegateManager, within: obvContext)
+    }
+    
+    
+    public func trustPublishedDetailsOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        
+        try groupJoined.trustDetailsPublished(within: obvContext, delegateManager: delegateManager)
+        
+    }
+
+    
+    public func updateLatestDetailsOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, with newGroupDetails: GroupDetailsElementsWithPhoto, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        try groupOwned.updateDetailsLatest(with: newGroupDetails, delegateManager: delegateManager)
+    }
+    
+
+    public func setPhotoServerKeyAndLabelForContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws -> PhotoServerKeyAndLabel {
+
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        
+        guard let publishedPhotoURL = groupOwned.publishedDetails.photoURL else {
+            throw makeError(message: "Cannot create Server key/label for the published details of an owned group if these details have no photoURL")
+        }
+        
+        let photoServerKeyAndLabel = PhotoServerKeyAndLabel.generate(with: prng)
+        groupOwned.publishedDetails.photoServerKeyAndLabel = photoServerKeyAndLabel
+        
+        if let latestPhotoURL = groupOwned.latestDetails.photoURL {
+            if FileManager.default.contentsEqual(atPath: latestPhotoURL.path, andPath: publishedPhotoURL.path) {
+                groupOwned.latestDetails.photoServerKeyAndLabel = photoServerKeyAndLabel
+            }
+        }
+        
+        _ = GroupServerUserData.createForOwnedGroupDetails(ownedIdentity: ownedIdentity,
+                                                           label: photoServerKeyAndLabel.label,
+                                                           groupUid: groupUid,
+                                                           within: obvContext)
+        
+        return photoServerKeyAndLabel
+    }
+
+    
+    public func discardLatestDetailsOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        try groupOwned.discardDetailsLatest(delegateManager: delegateManager)
+    }
+    
+    
+    public func publishLatestDetailsOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        try groupOwned.publishDetailsLatest(delegateManager: delegateManager)
+    }
+
+    
+    public func updatePendingMembersAndGroupMembersOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, groupMembers: Set<CryptoIdentityWithCoreDetails>, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, groupMembersVersion: Int, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        
+        try groupJoined.updatePendingMembersAndGroupMembers(groupMembersWithCoreDetails: groupMembers,
+                                                            pendingMembersWithCoreDetails: pendingGroupMembers,
+                                                            groupMembersVersion: groupMembersVersion,
+                                                            delegateManager: delegateManager,
+                                                            flowId: obvContext.flowId)
+
+    }
+    
+    
+    public func getGroupOwnedStructure(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws -> GroupStructure? {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            return nil
+        }
+        return try groupOwned.getOwnedGroupStructure()
+    }
+
+    
+    public func getGroupJoinedStructure(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> GroupStructure? {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            // When the group cannot be found, we return nil to indicate that this is the case.
+            return nil
+        }
+        return try groupJoined.getJoinedGroupStructure()
+    }
+    
+    
+    public func getAllGroupStructures(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<GroupStructure> {
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        let groups = try ContactGroup.getAll(ownedIdentity: ownedIdentityObject, delegateManager: delegateManager)
+        let groupStructures = Set(try groups.map({ try $0.getGroupStructure() }))
+        return groupStructures
+    }
+
+    
+    public func getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws -> GroupInformationWithPhoto {
+
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        let groupInformationWithPhoto = try groupOwned.getPublishedOwnedGroupInformationWithPhoto()
+        return groupInformationWithPhoto
+    }
+
+    
+    public func getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> GroupInformationWithPhoto {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+        
+        let groupInformationWithPhoto = try groupJoined.getPublishedJoinedGroupInformationWithPhoto()
+
+        return groupInformationWithPhoto
+        
+    }
+
+    public func leaveContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        try groupJoined.trustedDetails.delete(within: obvContext)
+        try groupJoined.publishedDetails.delete(within: obvContext)
+        obvContext.delete(groupJoined)
+        
+    }
+    
+    
+    public func deleteContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupOwned = try ContactGroupOwned.get(groupUid: groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        guard groupOwned.groupMembers.isEmpty && groupOwned.pendingGroupMembers.isEmpty else {
+            throw ObvIdentityManagerError.ownedContactGroupStillHasMembersOrPendingMembers.error(withDomain: errorDomain)
+        }
+        
+        try groupOwned.latestDetails.delete(within: obvContext)
+        try groupOwned.publishedDetails.delete(within: obvContext)
+        obvContext.delete(groupOwned)
+        
+    }
+
+    
+    /// This method is exclusively called from the ProcessInvitationStep of the GroupInvitationProtocol.
+    public func forceUpdateOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, authoritativeGroupInformation: GroupInformation, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: authoritativeGroupInformation.groupUid,
+                                                           groupOwnerCryptoIdentity: authoritativeGroupInformation.groupOwnerIdentity,
+                                                           ownedIdentity: ownedIdentityObject,
+                                                           delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        try groupJoined.resetGroupDetailsWithAuthoritativeDetailsIfRequired(
+            authoritativeGroupInformation.groupDetailsElements,
+            delegateManager: delegateManager,
+            within: obvContext)
+        
+    }
+    
+    
+    public func resetGroupMembersVersionOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        let errorDomain = ObvIdentityManagerImplementation.errorDomain
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: errorDomain)
+        }
+        
+        guard let groupJoined = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) else {
+            throw ObvIdentityManagerError.groupDoesNotExist.error(withDomain: errorDomain)
+        }
+
+        try groupJoined.resetGroupMembersVersionOfContactGroupJoined()
+        
+    }
+
+    // MARK: - User Data
+
+    public func getAllServerDataToSynchronizeWithServer(within obvContext: ObvContext) throws -> (toDelete: Set<UserData>, toRefresh: Set<UserData>) {
+        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        
+        let now = Date()
+        var toDelete = Set<UserData>()
+        var toRefresh = Set<UserData>()
+
+        for ownedIdentity in ownedIdentities {
+            let labelsToKeep = try getLabelsOfServerUserDataToKeepOnServer(ownedIdentity: ownedIdentity)
+            let serverUserDatas = try IdentityServerUserData.getAllServerUserDatas(for: ownedIdentity.cryptoIdentity, within: obvContext)
+            let toKeepForOwnedIdentity = Set(serverUserDatas.filter({ labelsToKeep.contains($0.label) }))
+            let toDeleteForOwnedIdentity = serverUserDatas.subtracting(toKeepForOwnedIdentity).compactMap({ $0.toUserData() })
+            let toRefreshForOwnedIdentity = toKeepForOwnedIdentity.filter({ $0.nextRefreshTimestamp < now }).compactMap({ $0.toUserData() })
+            toDelete.formUnion(toDeleteForOwnedIdentity)
+            toRefresh.formUnion(toRefreshForOwnedIdentity)
+        }
+        
+        return (toDelete: toDelete, toRefresh: toRefresh)
+    }
+    
+    
+    /// This method returns all the labels that should correspond to an uploaded server user data on the server for the given owned identity
+    ///
+    /// It comprises:
+    /// - The labels corresponding to owned identity profile pictures
+    /// - The labels corresponding to owned groups published profile pictures
+    private func getLabelsOfServerUserDataToKeepOnServer(ownedIdentity: OwnedIdentity) throws -> Set<String> {
+        let ownedIdentityPhotoServerLabels = try OwnedIdentityDetailsPublished.getAllPhotoServerLabels(ownedIdentity: ownedIdentity)
+        let ownedGroupPhotoServerLabels = try ContactGroupOwned.getAllContactGroupOwned(ownedIdentity: ownedIdentity, delegateManager: delegateManager)
+            .map({ $0.publishedDetails })
+            .compactMap({ $0.photoServerKeyAndLabel })
+            .map({ $0.label })
+        let labelsToKeep = ownedIdentityPhotoServerLabels.union(Set(ownedGroupPhotoServerLabels))
+        return labelsToKeep
+    }
+    
+    
+    public func getServerUserData(for ownedIdentity: ObvCryptoIdentity, with label: String, within obvContext: ObvContext) -> UserData? {
+        let serverUserData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext)
+        return serverUserData?.toUserData()
+    }
+
+    public func deleteUserData(for ownedIdentity: ObvCryptoIdentity, with label: String, within obvContext: ObvContext) {
+        guard let userData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext) else { return }
+        obvContext.delete(userData)
+    }
+
+    public func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: String, within obvContext: ObvContext) {
+        let userData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext)
+        userData?.updateNextRefreshTimestamp()
+    }
+
+}
+
+
+// MARK: - Implementing ObvKeyWrapperForIdentityDelegate
+
+
+extension ObvIdentityManagerImplementation: ObvKeyWrapperForIdentityDelegate {
+    
+    public func wrap(_ key: AuthenticatedEncryptionKey, for identity: ObvCryptoIdentity, randomizedWith prng: PRNGService) -> EncryptedData {
+        return PublicKeyEncryption.encrypt(key.encode().rawData, for: identity, randomizedWith: prng)
+    }
+    
+    public func unwrap(_ encryptedKey: EncryptedData, for identity: ObvCryptoIdentity, within obvContext: ObvContext) -> AuthenticatedEncryptionKey? {
+        
+        let ownedCryptoIdentity: ObvOwnedCryptoIdentity
+        
+        if let ownedIdentity = try? OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) {
+            ownedCryptoIdentity = ownedIdentity.ownedCryptoIdentity
+        } else {
+            os_log("Could not find a matching Owned Identity", log: log, type: .error)
+            return nil
+        }
+        
+        guard let rawEncodedKey = PublicKeyEncryption.decrypt(encryptedKey, for: ownedCryptoIdentity) else {
+            os_log("Could not decrypt the encrypted key", log: log, type: .error)
+            return nil
+        }
+        guard let encodedKey = ObvEncoded(withRawData: rawEncodedKey) else {
+            os_log("Could not parse the decrypted key", log: log, type: .error)
+            return nil
+        }
+        guard let key = try? AuthenticatedEncryptionKeyDecoder.decode(encodedKey) else {
+            os_log("Could not decode the decrypted key", log: log, type: .error)
+            return nil
+        }
+        return key
+    }
+}
+
+
+
+// MARK: - ObvSolveChallengeDelegate
+
+extension ObvIdentityManagerImplementation: ObvSolveChallengeDelegate {
+    
+    public func solveChallenge(_ challenge: Data, prefixedWith prefix: Data, for identity: ObvCryptoIdentity, using prng: PRNGService, within obvContext: ObvContext) throws -> Data {
+        
+        // Fetch the crypto owned identity from the database
+        let ownedCryptoIdentity: ObvOwnedCryptoIdentity
+        if let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) {
+            ownedCryptoIdentity = ownedIdentity.ownedCryptoIdentity
+        } else {
+            os_log("Could not find an appropriate owned identity", log: log, type: .fault)
+            throw makeError(message: "Could not find an appropriate owned identity")
+        }
+        
+        let serverAuth = ObvCryptoSuite.sharedInstance.authentication()
+        guard let response = serverAuth.solve(challenge,
+                                        prefixedWith: prefix,
+                                        with: ownedCryptoIdentity.privateKeyForAuthentication,
+                                        and: ownedCryptoIdentity.publicKeyForAuthentication,
+                                        using: prng) else {
+            os_log("Could not compute the challenge's response", log: log, type: .error)
+            throw makeError(message: "Could not compute the challenge's response")
+        }
+        return response
+
+    }
+    
+    
+    public func checkResponse(_ response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, from identity: ObvCryptoIdentity) -> Bool {
+        let serverAuth = ObvCryptoSuite.sharedInstance.authentication()
+        return serverAuth.check(response: response, toChallenge: challenge, prefixedWith: prefix, using: identity.publicKeyForAuthentication)
+    }
+    
+    
+    public func getApiKeyForOwnedIdentity(_ identity: ObvCryptoIdentity) throws -> UUID {
+        var apiKey: UUID!
+        var getError: Error? = nil
+        let randomFlowId = FlowIdentifier()
+        delegateManager.contextCreator.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
+            do {
+                apiKey = try OwnedIdentity.getApiKey(identity, within: obvContext)
+            } catch {
+                getError = error
+            }
+        }
+        guard getError == nil else {
+            throw getError!
+        }
+        return apiKey
+    }
+    
+}
+
+
+
+// MARK: - Implementing ObvManager
+
+
+extension ObvIdentityManagerImplementation {
+    
+    public var requiredDelegates: [ObvEngineDelegateType] {
+        return [ObvEngineDelegateType.ObvCreateContextDelegate,
+                ObvEngineDelegateType.ObvNotificationDelegate,
+                ObvEngineDelegateType.ObvNetworkFetchDelegate]
+    }
+        
+    public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
+        switch delegateType {
+        case .ObvCreateContextDelegate:
+            guard let delegate = delegate as? ObvCreateContextDelegate else { throw NSError() }
+            delegateManager.contextCreator = delegate
+        case .ObvNotificationDelegate:
+            guard let delegate = delegate as? ObvNotificationDelegate else { throw NSError() }
+            delegateManager.notificationDelegate = delegate
+        case .ObvNetworkFetchDelegate:
+            guard let delegate = delegate as? ObvNetworkFetchDelegate else { throw NSError() }
+            delegateManager.networkFetchDelegate = delegate
+        default:
+            throw NSError()
+        }
+    }
+        
+    public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
+
+}
+
+
+// MARK: - Bootstrap
+
+extension ObvIdentityManagerImplementation {
+    
+    private func deleteUnusedIdentityPhotos(flowId: FlowIdentifier) {
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); return }
+        
+        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+            
+            guard let _self = self else { return }
+            
+            let photoURLsInDatabase: Set<URL>
+            do {
+                photoURLsInDatabase = try _self.getAllUsedPhotoURL(within: obvContext)
+            } catch let error {
+                os_log("Unable to compute the Set of all used photoURL: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+            
+            let photoURLsOnDisk: Set<URL>
+            do {
+                photoURLsOnDisk = try _self.getAllPhotoURLOnDisk()
+            } catch let error {
+                os_log("Unable to compute the photo on disk: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+            
+            let photoURLsToDeleteFromDisk = photoURLsOnDisk.subtracting(photoURLsInDatabase)
+            let photoURLsMissingFromDisk = photoURLsInDatabase.subtracting(photoURLsOnDisk)
+
+            for photoURL in photoURLsToDeleteFromDisk {
+                do {
+                    try FileManager.default.removeItem(at: photoURL)
+                } catch {
+                    os_log("Cannot delete unused photo: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    return
+                }
+            }
+            
+            if !photoURLsMissingFromDisk.isEmpty {
+                os_log("There are %d photo URLs referenced in database that cannot be found on disk", log: _self.log, type: .fault, photoURLsMissingFromDisk.count)
+                assertionFailure()
+            }
+            
+        }
+        
+    }
+    
+    
+    private func getAllUsedPhotoURL(within obvContext: ObvContext) throws -> Set<URL> {
+        try OwnedIdentityDetailsPublished.getAllPhotoURLs(with: obvContext)
+            .union(try ContactIdentityDetails.getAllPhotoURLs(with: obvContext))
+            .union(try ContactGroupDetails.getAllPhotoURLs(with: obvContext))
+    }
+    
+    
+    private func getAllPhotoURLOnDisk() throws  -> Set<URL> {
+        Set(try FileManager.default.contentsOfDirectory(at: self.identityPhotosDirectory, includingPropertiesForKeys: nil))
+    }
+    
+    
+    private func pruneOldKeycloakRevokedIdentityAndUncertifyExpiredSignedContactDetails(flowId: FlowIdentifier) {
+        
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); return }
+        let log = self.log
+
+        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+            guard let _self = self else { return }
+            do {
+                let ownedIdentities = try OwnedIdentity.getAll(delegateManager: _self.delegateManager, within: obvContext)
+                let managedOwnedIdentities = ownedIdentities.filter({ $0.isKeycloakManaged })
+                managedOwnedIdentities.forEach { ownedIdentity in
+                    ownedIdentity.pruneOldKeycloakRevokedContacts(delegateManager: _self.delegateManager)
+                    ownedIdentity.uncertifyExpiredSignedContactDetails(delegateManager: _self.delegateManager)
+                }
+                try obvContext.save(logOnFailure: log)
+            } catch {
+                os_log("Core Data error during the bootstrap of the identity manager: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                // In production, continue
+            }
+            
+        }
+        
+    }
+
+}

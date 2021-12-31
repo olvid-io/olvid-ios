@@ -1,0 +1,107 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2021 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import Foundation
+import ObvEncoder
+import ObvCrypto
+import ObvTypes
+
+public struct CryptoIdentityWithCoreDetails {
+    
+    public let cryptoIdentity: ObvCryptoIdentity
+    public let coreDetails: ObvIdentityCoreDetails
+    
+    public init(cryptoIdentity: ObvCryptoIdentity, coreDetails: ObvIdentityCoreDetails) {
+        self.cryptoIdentity = cryptoIdentity
+        self.coreDetails = coreDetails
+    }
+    
+}
+
+
+// MARK: - ObvCodable
+
+extension CryptoIdentityWithCoreDetails: ObvCodable {
+    
+    public func encode() -> ObvEncoded {
+        let encodedCoreDetails = try! coreDetails.encode()
+        return [cryptoIdentity, encodedCoreDetails].encode()
+    }
+
+    
+    public init?(_ encoded: ObvEncoded) {
+        guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { return nil }
+        do {
+            self.cryptoIdentity = try encodedElements[0].decode()
+            let encodedCoreDetails: Data = try encodedElements[1].decode()
+            self.coreDetails = try ObvIdentityCoreDetails(encodedCoreDetails)
+        } catch {
+            return nil
+        }
+    }
+    
+    
+}
+
+
+// MARK: - Equatable
+
+extension CryptoIdentityWithCoreDetails: Equatable {
+    
+    public static func == (lhs: CryptoIdentityWithCoreDetails, rhs: CryptoIdentityWithCoreDetails) -> Bool {
+        return lhs.cryptoIdentity == rhs.cryptoIdentity
+    }
+    
+}
+
+// MARK: - Hashable
+
+extension CryptoIdentityWithCoreDetails: Hashable {
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.cryptoIdentity.getIdentity())
+    }
+    
+}
+
+
+// MARK: - Comparable
+
+extension CryptoIdentityWithCoreDetails: Comparable {
+    
+    public static func < (lhs: CryptoIdentityWithCoreDetails, rhs: CryptoIdentityWithCoreDetails) -> Bool {
+        return lhs.cryptoIdentity.getIdentity() < rhs.cryptoIdentity.getIdentity()
+    }
+    
+}
+
+
+extension Data: Comparable {
+    
+    public static func < (lhs: Data, rhs: Data) -> Bool {
+        guard lhs.count == rhs.count else { return lhs.count < rhs.count }
+        let bytesPair = zip(lhs, rhs)
+        for bytes in bytesPair {
+            guard bytes.0 != bytes.1 else { continue }
+            return bytes.0 < bytes.1
+        }
+        return false
+    }
+    
+}

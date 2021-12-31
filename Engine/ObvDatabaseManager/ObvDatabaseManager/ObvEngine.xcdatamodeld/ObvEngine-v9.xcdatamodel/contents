@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="14460.32" systemVersion="18B75" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvEngineModel-v9">
+    <entity name="ChannelCreationWithContactDeviceProtocolInstance" representedClassName="ChannelCreationWithContactDeviceProtocolInstance" syncable="YES">
+        <attribute name="contactDeviceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="contactIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <relationship name="protocolInstance" maxCount="1" deletionRule="Nullify" destinationEntity="ProtocolInstance" inverseName="channelCreationProtocolInstanceInWaitingState" inverseEntity="ProtocolInstance" syncable="YES"/>
+    </entity>
+    <entity name="ContactDevice" representedClassName="ContactDevice" syncable="YES">
+        <attribute name="uid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="contactIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="ContactIdentity" inverseName="devices" inverseEntity="ContactIdentity" syncable="YES"/>
+    </entity>
+    <entity name="ContactGroup" representedClassName="ContactGroup" syncable="YES">
+        <attribute name="groupName" attributeType="String" syncable="YES"/>
+        <attribute name="groupOwner" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="groupUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="contactIdentities" toMany="YES" deletionRule="Nullify" destinationEntity="ContactIdentity" inverseName="contactGroups" inverseEntity="ContactIdentity" syncable="YES"/>
+        <relationship name="ownedIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="contactGroups" inverseEntity="OwnedIdentity" syncable="YES"/>
+        <relationship name="pendingGroupMembers" toMany="YES" deletionRule="Cascade" destinationEntity="PendingGroupMember" inverseName="contactGroup" inverseEntity="PendingGroupMember" syncable="YES"/>
+    </entity>
+    <entity name="ContactIdentity" representedClassName="ContactIdentity" syncable="YES">
+        <attribute name="cryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="timestampOfLastUpdate" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="trustOrigins" attributeType="Binary" syncable="YES"/>
+        <relationship name="contactGroups" toMany="YES" deletionRule="Nullify" destinationEntity="ContactGroup" inverseName="contactIdentities" inverseEntity="ContactGroup" syncable="YES"/>
+        <relationship name="devices" toMany="YES" deletionRule="Cascade" destinationEntity="ContactDevice" inverseName="contactIdentity" inverseEntity="ContactDevice" syncable="YES"/>
+        <relationship name="ownedIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="contactIdentities" inverseEntity="OwnedIdentity" syncable="YES"/>
+        <relationship name="publishedIdentityDetails" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="ContactIdentityDetailsPublished" inverseName="contactIdentity" inverseEntity="ContactIdentityDetailsPublished" syncable="YES"/>
+        <relationship name="trustedIdentityDetails" maxCount="1" deletionRule="Cascade" destinationEntity="ContactIdentityDetailsTrusted" inverseName="contactIdentity" inverseEntity="ContactIdentityDetailsTrusted" syncable="YES"/>
+    </entity>
+    <entity name="ContactIdentityDetails" representedClassName="ContactIdentityDetails" isAbstract="YES" syncable="YES">
+        <attribute name="photoURL" optional="YES" attributeType="URI" syncable="YES"/>
+        <attribute name="serializedIdentityCoreDetails" attributeType="Binary" syncable="YES"/>
+    </entity>
+    <entity name="ContactIdentityDetailsPublished" representedClassName="ContactIdentityDetailsPublished" parentEntity="ContactIdentityDetails" syncable="YES">
+        <attribute name="photoServerKeyEncoded" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="photoServerLabel" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="version" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="contactIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="ContactIdentity" inverseName="publishedIdentityDetails" inverseEntity="ContactIdentity" syncable="YES"/>
+    </entity>
+    <entity name="ContactIdentityDetailsTrusted" representedClassName="ContactIdentityDetailsTrusted" parentEntity="ContactIdentityDetails" syncable="YES">
+        <relationship name="contactIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="ContactIdentity" inverseName="trustedIdentityDetails" inverseEntity="ContactIdentity" syncable="YES"/>
+    </entity>
+    <entity name="InboxAttachment" representedClassName="InboxAttachment" syncable="YES">
+        <attribute name="attachmentNumber" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="currentByteCountToDownload" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="downloadPaused" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="encodedAuthenticatedDecryptionKey" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="encodedChunkRangesToDownload" attributeType="Binary" syncable="YES"/>
+        <attribute name="expectedChunkLength" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="initialByteCountToDownload" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="isDownloaded" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="markedForDeletion" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="metadata" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="priorityCategory" optional="YES" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="timestampOfDownloadRequest" optional="YES" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="timestampOfNextFetchAttempt" optional="YES" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <relationship name="message" maxCount="1" deletionRule="Nullify" destinationEntity="InboxMessage" inverseName="dbAttachments" inverseEntity="InboxMessage" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="messageId"/>
+                <constraint value="attachmentNumber"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="InboxMessage" representedClassName="InboxMessage" syncable="YES">
+        <attribute name="encryptedContent" attributeType="Transformable" valueTransformerName="EncryptedDataTransformer" customClassName="EncryptedData" syncable="YES"/>
+        <attribute name="fromCryptoIdentity" optional="YES" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="markedForDeletion" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="messagePayload" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="serverTimestamp" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="toCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="wrappedKey" attributeType="Transformable" valueTransformerName="EncryptedDataTransformer" customClassName="EncryptedData" syncable="YES"/>
+        <relationship name="dbAttachments" optional="YES" toMany="YES" deletionRule="Cascade" ordered="YES" destinationEntity="InboxAttachment" inverseName="message" inverseEntity="InboxAttachment" syncable="YES"/>
+    </entity>
+    <entity name="KeyMaterial" representedClassName="KeyMaterial" syncable="YES">
+        <attribute name="cryptoKeyId" attributeType="Binary" syncable="YES"/>
+        <attribute name="encodedKey" attributeType="Binary" syncable="YES"/>
+        <attribute name="expirationTimestamp" optional="YES" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="selfRatchetingCount" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="provision" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Provision" inverseName="receiveKeys" inverseEntity="Provision" syncable="YES"/>
+    </entity>
+    <entity name="LinkBetweenProtocolInstances" representedClassName="LinkBetweenProtocolInstances" syncable="YES">
+        <attribute name="childProtocolInstanceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="expectedChildStateRawId" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="messageToSendRawId" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="parentProtocolInstance" maxCount="1" deletionRule="Nullify" destinationEntity="ProtocolInstance" inverseName="linkBetweenProtocolInstance" inverseEntity="ProtocolInstance" syncable="YES"/>
+    </entity>
+    <entity name="MessageHeader" representedClassName="MessageHeader" syncable="YES">
+        <attribute name="deviceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="toCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="wrappedKey" attributeType="Transformable" valueTransformerName="EncryptedDataTransformer" customClassName="EncryptedData" syncable="YES"/>
+        <relationship name="message" maxCount="1" deletionRule="Nullify" destinationEntity="OutboxMessage" inverseName="headers" inverseEntity="OutboxMessage" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="messageId"/>
+                <constraint value="deviceUid"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="ObvObliviousChannel" representedClassName="ObvObliviousChannel" syncable="YES">
+        <attribute name="aFullRatchetOfTheSendSeedIsInProgress" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="cryptoSuiteVersion" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="currentDeviceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="fullRatchetingCountOfLastProvision" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="isConfirmed" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="numberOfDecryptedMessagesSinceLastFullRatchetSentMessage" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="numberOfEncryptedMessages" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="numberOfEncryptedMessagesSinceLastFullRatchetSentMessage" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="remoteCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="remoteDeviceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="seedForNextSendKey" optional="YES" attributeType="Transformable" valueTransformerName="SeedTransformer" customClassName="Seed" syncable="YES"/>
+        <attribute name="timestampOfLastFullRatchet" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="timestampOfLastFullRatchetSentMessage" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <relationship name="provisions" toMany="YES" deletionRule="Cascade" destinationEntity="Provision" inverseName="obliviousChannel" inverseEntity="Provision" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="currentDeviceUid"/>
+                <constraint value="remoteCryptoIdentity"/>
+                <constraint value="remoteDeviceUid"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="OutboxAttachment" representedClassName="OutboxAttachment" syncable="YES">
+        <attribute name="acknowledged" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="attachmentLength" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="attachmentNumber" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="cancelExternallyRequested" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="ciphertextChunkLength" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="currentByteCountToUpload" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="deleteAfterSend" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="encodedAuthenticatedEncryptionKey" attributeType="Binary" syncable="YES"/>
+        <attribute name="encodedChunkRangesToUpload" attributeType="Binary" syncable="YES"/>
+        <attribute name="failedSendAttemptCount" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="fileURL" attributeType="URI" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="message" maxCount="1" deletionRule="Nullify" destinationEntity="OutboxMessage" inverseName="unsortedAttachments" inverseEntity="OutboxMessage" syncable="YES"/>
+    </entity>
+    <entity name="OutboxAttachmentUploadHistory" representedClassName="OutboxAttachmentUploadHistory" syncable="YES">
+        <attribute name="attachmentNumber" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="sentTimestamp" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+    </entity>
+    <entity name="OutboxMessage" representedClassName="OutboxMessage" syncable="YES">
+        <attribute name="cancelExternallyRequested" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="encryptedContent" attributeType="Transformable" valueTransformerName="EncryptedDataTransformer" customClassName="EncryptedData" syncable="YES"/>
+        <attribute name="failedSendAttemptCount" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="isAppMessage" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="messageIdFromServer" optional="YES" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="proofOfWorkEncodedSolution" optional="YES" attributeType="Transformable" valueTransformerName="ObvEncodedTransformer" customClassName="ObvEncoded" syncable="YES"/>
+        <attribute name="proofOfWorkUid" optional="YES" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="serverURL" attributeType="URI" syncable="YES"/>
+        <attribute name="uploaded" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="headers" toMany="YES" deletionRule="Cascade" destinationEntity="MessageHeader" inverseName="message" inverseEntity="MessageHeader" syncable="YES"/>
+        <relationship name="unsortedAttachments" toMany="YES" deletionRule="Cascade" destinationEntity="OutboxAttachment" inverseName="message" inverseEntity="OutboxAttachment" syncable="YES"/>
+    </entity>
+    <entity name="OutboxMessageUploadHistory" representedClassName="OutboxMessageUploadHistory" syncable="YES">
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="sentTimestamp" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+    </entity>
+    <entity name="OwnedDevice" representedClassName="OwnedDevice" syncable="YES">
+        <attribute name="uid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="currentDeviceIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="currentDevice" inverseEntity="OwnedIdentity" syncable="YES"/>
+        <relationship name="remoteDeviceIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="otherDevices" inverseEntity="OwnedIdentity" syncable="YES"/>
+    </entity>
+    <entity name="OwnedEphemeralIdentity" representedClassName="OwnedEphemeralIdentity" syncable="YES">
+        <attribute name="cryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="currentDeviceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="ownedCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvOwnedCryptoIdentityTransformer" customClassName="ObvOwnedCryptoIdentity" syncable="YES"/>
+        <attribute name="protocolInstanceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="associatedOwnedIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="ownedEphemeralIdentities" inverseEntity="OwnedIdentity" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="cryptoIdentity"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="OwnedIdentity" representedClassName="OwnedIdentity" syncable="YES">
+        <attribute name="apiKey" attributeType="UUID" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="cryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="ownedCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvOwnedCryptoIdentityTransformer" customClassName="ObvOwnedCryptoIdentity" syncable="YES"/>
+        <relationship name="contactGroups" toMany="YES" deletionRule="Cascade" destinationEntity="ContactGroup" inverseName="ownedIdentity" inverseEntity="ContactGroup" syncable="YES"/>
+        <relationship name="contactIdentities" toMany="YES" deletionRule="Cascade" destinationEntity="ContactIdentity" inverseName="ownedIdentity" inverseEntity="ContactIdentity" syncable="YES"/>
+        <relationship name="currentDevice" maxCount="1" deletionRule="Cascade" destinationEntity="OwnedDevice" inverseName="currentDeviceIdentity" inverseEntity="OwnedDevice" syncable="YES"/>
+        <relationship name="latestIdentityDetails" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="OwnedIdentityDetailsLatest" inverseName="ownedIdentity" inverseEntity="OwnedIdentityDetailsLatest" syncable="YES"/>
+        <relationship name="maskingUID" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="OwnedIdentityMaskingUID" inverseName="ownedIdentity" inverseEntity="OwnedIdentityMaskingUID" syncable="YES"/>
+        <relationship name="otherDevices" toMany="YES" deletionRule="Cascade" destinationEntity="OwnedDevice" inverseName="remoteDeviceIdentity" inverseEntity="OwnedDevice" syncable="YES"/>
+        <relationship name="ownedEphemeralIdentities" toMany="YES" deletionRule="Cascade" destinationEntity="OwnedEphemeralIdentity" inverseName="associatedOwnedIdentity" inverseEntity="OwnedEphemeralIdentity" syncable="YES"/>
+        <relationship name="publishedIdentityDetails" maxCount="1" deletionRule="Cascade" destinationEntity="OwnedIdentityDetailsPublished" inverseName="ownedIdentity" inverseEntity="OwnedIdentityDetailsPublished" syncable="YES"/>
+    </entity>
+    <entity name="OwnedIdentityDetails" representedClassName="OwnedIdentityDetails" isAbstract="YES" syncable="YES">
+        <attribute name="photoURL" optional="YES" attributeType="URI" syncable="YES"/>
+        <attribute name="serializedIdentityCoreDetails" attributeType="Binary" syncable="YES"/>
+    </entity>
+    <entity name="OwnedIdentityDetailsLatest" representedClassName="OwnedIdentityDetailsLatest" parentEntity="OwnedIdentityDetails" syncable="YES">
+        <relationship name="ownedIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="latestIdentityDetails" inverseEntity="OwnedIdentity" syncable="YES"/>
+    </entity>
+    <entity name="OwnedIdentityDetailsPublished" representedClassName="OwnedIdentityDetailsPublished" parentEntity="OwnedIdentityDetails" syncable="YES">
+        <attribute name="photoServerKeyEncoded" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="photoServerLabel" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="publicationDate" optional="YES" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="version" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="ownedIdentity" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="publishedIdentityDetails" inverseEntity="OwnedIdentity" syncable="YES"/>
+    </entity>
+    <entity name="OwnedIdentityMaskingUID" representedClassName="OwnedIdentityMaskingUID" syncable="YES">
+        <attribute name="maskingUID" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="ownedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="OwnedIdentity" inverseName="maskingUID" inverseEntity="OwnedIdentity" syncable="YES"/>
+    </entity>
+    <entity name="PendingDeleteFromServer" representedClassName="PendingDeleteFromServer" syncable="YES">
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="messageId"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PendingGroupMember" representedClassName="PendingGroupMember" syncable="YES">
+        <attribute name="cryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="serializedIdentityCoreDetails" attributeType="Binary" syncable="YES"/>
+        <relationship name="contactGroup" maxCount="1" deletionRule="Nullify" destinationEntity="ContactGroup" inverseName="pendingGroupMembers" inverseEntity="ContactGroup" syncable="YES"/>
+    </entity>
+    <entity name="PendingServerQuery" representedClassName="PendingServerQuery" syncable="YES">
+        <attribute name="encodedElements" attributeType="Binary" syncable="YES"/>
+        <attribute name="encodedQueryType" attributeType="Binary" syncable="YES"/>
+        <attribute name="encodedResponseType" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="ownedIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+    </entity>
+    <entity name="PersistedEngineDialog" representedClassName="PersistedEngineDialog" syncable="YES">
+        <attribute name="encodedObvDialog" attributeType="Transformable" valueTransformerName="ObvEncodedTransformer" customClassName="ObvEncoded" syncable="YES"/>
+        <attribute name="resendCounter" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="uuid" attributeType="UUID" usesScalarValueType="NO" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="uuid"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="ProtocolInstance" representedClassName="ProtocolInstance" syncable="YES">
+        <attribute name="cryptoProtocolRawId" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="currentStateRawId" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="encodedCurrentState" attributeType="Transformable" valueTransformerName="ObvEncodedTransformer" customClassName="ObvEncoded" syncable="YES"/>
+        <attribute name="ownedCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="uid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <relationship name="channelCreationProtocolInstanceInWaitingState" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="ChannelCreationWithContactDeviceProtocolInstance" inverseName="protocolInstance" inverseEntity="ChannelCreationWithContactDeviceProtocolInstance" syncable="YES"/>
+        <relationship name="linkBetweenProtocolInstance" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="LinkBetweenProtocolInstances" inverseName="parentProtocolInstance" inverseEntity="LinkBetweenProtocolInstances" syncable="YES"/>
+    </entity>
+    <entity name="Provision" representedClassName="Provision" syncable="YES">
+        <attribute name="cryptoSuiteVersion" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="fullRatchetingCount" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="seedForNextProvisionedReceiveKey" attributeType="Transformable" valueTransformerName="SeedTransformer" customClassName="Seed" syncable="YES"/>
+        <attribute name="selfRatchetingCount" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="obliviousChannel" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ObvObliviousChannel" inverseName="provisions" inverseEntity="ObvObliviousChannel" syncable="YES"/>
+        <relationship name="receiveKeys" toMany="YES" deletionRule="Cascade" destinationEntity="KeyMaterial" inverseName="provision" inverseEntity="KeyMaterial" syncable="YES"/>
+    </entity>
+    <entity name="ReceivedMessage" representedClassName="ReceivedMessage" syncable="YES">
+        <attribute name="associatedOwnedCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="encodedEncodedInputs" attributeType="Transformable" valueTransformerName="ObvEncodedTransformer" customClassName="ObvEncoded" syncable="YES"/>
+        <attribute name="encodedUserDialogResponse" optional="YES" attributeType="Transformable" valueTransformerName="ObvEncodedTransformer" customClassName="ObvEncoded" syncable="YES"/>
+        <attribute name="messageId" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="protocolInstanceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="protocolMessageRawId" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="protocolRawId" attributeType="Integer 64" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="receptionChannelInfo" attributeType="Binary" syncable="YES"/>
+        <attribute name="timestamp" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="toCryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="userDialogUuid" optional="YES" attributeType="UUID" usesScalarValueType="NO" syncable="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="messageId"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="RegisteredPushNotification" representedClassName="RegisteredPushNotification" syncable="YES">
+        <attribute name="creationDate" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="cryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="deviceUid" attributeType="Transformable" valueTransformerName="UIDTransformer" customClassName="UID" syncable="YES"/>
+        <attribute name="pollingIdentifier" optional="YES" attributeType="UUID" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="pushNotificationType" attributeType="Binary" syncable="YES"/>
+    </entity>
+    <entity name="ServerSession" representedClassName="ServerSession" syncable="YES">
+        <attribute name="cryptoIdentity" attributeType="Transformable" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity" syncable="YES"/>
+        <attribute name="nonce" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="response" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="token" optional="YES" attributeType="Binary" syncable="YES"/>
+    </entity>
+    <elements>
+        <element name="ChannelCreationWithContactDeviceProtocolInstance" positionX="-775.30859375" positionY="-262.85546875" width="128" height="90"/>
+        <element name="ContactDevice" positionX="577.65234375" positionY="483.84765625" width="128" height="75"/>
+        <element name="ContactGroup" positionX="-99.8984375" positionY="93.75" width="269.96875" height="135"/>
+        <element name="ContactIdentity" positionX="323.0390625" positionY="314.046875" width="175.41796875" height="165"/>
+        <element name="ContactIdentityDetails" positionX="-567" positionY="-369" width="128" height="75"/>
+        <element name="ContactIdentityDetailsPublished" positionX="-567" positionY="-369" width="128" height="105"/>
+        <element name="ContactIdentityDetailsTrusted" positionX="-576" positionY="-378" width="128" height="60"/>
+        <element name="InboxAttachment" positionX="-606.2734375" positionY="839.44140625" width="299.8359375" height="270"/>
+        <element name="InboxMessage" positionX="-161.9453125" positionY="975.4296875" width="192.21484375" height="180"/>
+        <element name="KeyMaterial" positionX="636.9296875" positionY="-162.421875" width="179.66015625" height="120"/>
+        <element name="LinkBetweenProtocolInstances" positionX="-306.61328125" positionY="-263.578125" width="128" height="105"/>
+        <element name="MessageHeader" positionX="493.9609375" positionY="906.4140625" width="128" height="120"/>
+        <element name="ObvObliviousChannel" positionX="-148.109375" positionY="-327.14453125" width="372.87890625" height="270"/>
+        <element name="OutboxAttachment" positionX="673.50390625" positionY="878.48828125" width="282.58984375" height="240"/>
+        <element name="OutboxAttachmentUploadHistory" positionX="-576" positionY="-378" width="128" height="90"/>
+        <element name="OutboxMessage" positionX="198.359375" positionY="907.1796875" width="195.1640625" height="225"/>
+        <element name="OutboxMessageUploadHistory" positionX="-576" positionY="-378" width="128" height="75"/>
+        <element name="OwnedDevice" positionX="-532.49609375" positionY="461.66015625" width="128" height="90"/>
+        <element name="OwnedEphemeralIdentity" positionX="40.5078125" positionY="642.8046875" width="175.38671875" height="120"/>
+        <element name="OwnedIdentity" positionX="-114.47265625" positionY="386.88671875" width="284.53125" height="210"/>
+        <element name="OwnedIdentityDetails" positionX="-576" positionY="-378" width="128" height="75"/>
+        <element name="OwnedIdentityDetailsLatest" positionX="-549" positionY="-351" width="128" height="60"/>
+        <element name="OwnedIdentityDetailsPublished" positionX="-558" positionY="-360" width="128" height="120"/>
+        <element name="OwnedIdentityMaskingUID" positionX="-567" positionY="-369" width="128" height="75"/>
+        <element name="PendingDeleteFromServer" positionX="864.33203125" positionY="-524.21484375" width="128" height="60"/>
+        <element name="PendingGroupMember" positionX="-576" positionY="-378" width="128" height="90"/>
+        <element name="PendingServerQuery" positionX="58.26953125" positionY="1007.87890625" width="128" height="105"/>
+        <element name="PersistedEngineDialog" positionX="-249.69921875" positionY="691.67578125" width="128" height="90"/>
+        <element name="ProtocolInstance" positionX="-552.60546875" positionY="-308.28125" width="128" height="150"/>
+        <element name="Provision" positionX="310.9375" positionY="-177.27734375" width="205.42578125" height="135"/>
+        <element name="ReceivedMessage" positionX="767.70703125" positionY="459.79296875" width="128" height="210"/>
+        <element name="RegisteredPushNotification" positionX="654.046875" positionY="702.1328125" width="128" height="120"/>
+        <element name="ServerSession" positionX="847.39453125" positionY="717.2421875" width="128" height="105"/>
+    </elements>
+</model>

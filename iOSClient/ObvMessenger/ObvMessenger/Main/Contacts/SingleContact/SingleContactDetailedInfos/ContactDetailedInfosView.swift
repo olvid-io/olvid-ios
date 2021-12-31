@@ -1,0 +1,187 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2021 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import SwiftUI
+import ObvTypes
+
+@available(iOS 13, *)
+struct ContactDetailedInfosView: View {
+
+    @ObservedObject var contact: PersistedObvContactIdentity
+    @State private var signedContactDetails: SignedUserDetails? = nil
+    
+    @Environment(\.presentationMode) var presentationMode
+
+    private var titlePart1: String? {
+        guard contact.customDisplayName == nil else { return nil }
+        return contact.identityCoreDetails.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var titlePart2: String? {
+        return (contact.customDisplayName ?? contact.identityCoreDetails.lastName)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var circledTextView: Text? {
+        let component = [titlePart1, titlePart2]
+            .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .filter({ !$0.isEmpty })
+            .first
+        if let char = component?.first {
+            return Text(String(char))
+        } else {
+            return nil
+        }
+    }
+    
+    private var profilePicture: UIImage? {
+        guard let url = contact.customPhotoURL ?? contact.photoURL else { return nil }
+        return UIImage(contentsOfFile: url.path)
+    }
+    
+    var body: some View {
+        ZStack {
+            Color(AppTheme.shared.colorScheme.systemBackground)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .edgesIgnoringSafeArea(.all)
+                
+            VStack {
+                                
+                ObvCardView(padding: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        
+                        CircleAndTitlesView(
+                            titlePart1: titlePart1,
+                            titlePart2: titlePart2,
+                            subtitle: contact.identityCoreDetails.position,
+                            subsubtitle: contact.identityCoreDetails.company,
+                            circleBackgroundColor: contact.cryptoId.colors.background,
+                            circleTextColor: contact.cryptoId.colors.text,
+                            circledTextView: circledTextView,
+                            imageSystemName: "person",
+                            profilePicture: .constant(profilePicture),
+                            changed: .constant(false),
+                            showGreenShield: contact.isCertifiedByOwnKeycloak,
+                            showRedShield: !contact.isActive,
+                            editionMode: .none,
+                            displayMode: .normal)
+                            .padding()
+
+                        OlvidButton(style: .blue, title: Text(CommonString.Word.Back), systemIcon: .arrowshapeTurnUpBackwardFill) {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom)
+
+                        HStack { Spacer() }
+
+                    }
+                    
+                }
+                .padding(16)
+
+                List {
+                    Section {
+                        ObvSimpleListItemView(
+                            title: Text("FORM_FIRST_NAME"),
+                            value: contact.identityCoreDetails.firstName)
+                        ObvSimpleListItemView(
+                            title: Text("FORM_LAST_NAME"),
+                            value: contact.identityCoreDetails.lastName)
+                        ObvSimpleListItemView(
+                            title: Text("FORM_POSITION"),
+                            value: contact.identityCoreDetails.position)
+                        ObvSimpleListItemView(
+                            title: Text("FORM_COMPANY"),
+                            value: contact.identityCoreDetails.company)
+                        ObvSimpleListItemView(
+                            title: Text("FORM_NICKNAME"),
+                            value: contact.customDisplayName)
+                        ObvSimpleListItemView(
+                            title: Text("Identity"),
+                            value: contact.cryptoId.getIdentity().hexString())
+                        ObvSimpleListItemView(
+                            title: Text("Active"),
+                            value: contact.isActive ? CommonString.Word.Yes : CommonString.Word.No)
+                        ObvSimpleListItemView(
+                            title: Text("CERTIFIED_BY_IDENTITY_PROVIDER"),
+                            value: contact.isCertifiedByOwnKeycloak ? CommonString.Word.Yes : CommonString.Word.No)
+                    } header: {
+                        Text("Details")
+                    }
+                    
+                    Section {
+                        if contact.devices.isEmpty {
+                            Text("None")
+                        } else {
+                            ForEach(contact.sortedDevices.indices) { index in
+                                ObvSimpleListItemView(
+                                    title: Text("DEVICE \(index+1)"),
+                                    value: contact.sortedDevices[index].identifier.hexString())
+                            }
+                        }
+                    } header: {
+                        Text("Devices")
+                    }
+
+                    if contact.isCertifiedByOwnKeycloak {
+                        Section {
+                            if let signedContactDetails = signedContactDetails {
+                                ObvSimpleListItemView(
+                                    title: Text("KEYCLOAK_ID"),
+                                    value: signedContactDetails.id)
+                                ObvSimpleListItemView(
+                                    title: Text("SIGNED_DETAILS_DATE"),
+                                    date: signedContactDetails.timestamp)
+                            } else {
+                                HStack {
+                                    Spacer()
+                                    ObvProgressView()
+                                    Spacer()
+                                }
+                            }
+                        } header: {
+                            Text("DETAILS_SIGNED_BY_IDENTITY_PROVIDER")
+                        }
+                    }
+
+                }
+                
+            }
+            .padding(.top, 32)
+
+        }
+        .onAppear {
+            guard let ownedIdentityCryptoId = contact.ownedIdentity?.cryptoId else { return }
+            if contact.isCertifiedByOwnKeycloak {
+                ObvMessengerInternalNotification.uiRequiresSignedContactDetails(
+                    ownedIdentityCryptoId: ownedIdentityCryptoId,
+                    contactCryptoId: contact.cryptoId,
+                    completion: { signedContactDetails in
+                        DispatchQueue.main.async {
+                            self.signedContactDetails = signedContactDetails
+                        }
+                    })
+                    .postOnDispatchQueue()
+            }
+        }
+    }
+
+
+}

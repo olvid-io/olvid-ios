@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097.2" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_5" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="Stack View standard spacing" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="BadConfigurationViewController" customModule="ObvMessenger" customModuleProvider="target">
+            <connections>
+                <outlet property="badBackgroundRefreshStatusButton" destination="bOo-uO-vg1" id="CJ9-wf-unF"/>
+                <outlet property="badBackgroundRefreshStatusExplanationLabel" destination="oD8-NL-hpv" id="QAy-2u-c1z"/>
+                <outlet property="badBackgroundRefreshStatusSolution" destination="EEJ-zx-7pI" id="H2W-c7-Jua"/>
+                <outlet property="badBackgroundRefreshStatusTitleLabel" destination="nnU-Rp-5cS" id="Glb-5c-mVO"/>
+                <outlet property="problemTitleLabel" destination="2DU-vv-nBe" id="Bf9-6F-1de"/>
+                <outlet property="roundedRectView" destination="J3Y-wW-zYJ" id="QYk-BM-Xdf"/>
+                <outlet property="solutionTitleLabel" destination="BEz-ax-vOn" id="H1L-T3-JuS"/>
+                <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="i5M-Pr-FkT">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="bkF-h9-Aeg">
+                    <rect key="frame" x="0.0" y="44" width="414" height="818"/>
+                    <subviews>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacingType="standard" translatesAutoresizingMaskIntoConstraints="NO" id="KU7-2U-bce">
+                            <rect key="frame" x="8" y="8" width="398" height="277.66666666666669"/>
+                            <subviews>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="J3Y-wW-zYJ" customClass="ObvRoundedRectView" customModule="ObvMessenger" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="0.0" width="398" height="239.66666666666666"/>
+                                    <subviews>
+                                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="top" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="rYg-5K-PwO">
+                                            <rect key="frame" x="8" y="8" width="382" height="223.66666666666666"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;BadPushNotification Title&gt;" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="2" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="nnU-Rp-5cS">
+                                                    <rect key="frame" x="0.0" y="0.0" width="269" height="73"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle2"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;Problem&gt;" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="2DU-vv-nBe">
+                                                    <rect key="frame" x="0.0" y="89" width="97" height="24"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle3"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;BadPushNotification Explanation&gt;" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="oD8-NL-hpv">
+                                                    <rect key="frame" x="0.0" y="129" width="256" height="19.333333333333343"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleCallout"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;Solution&gt;" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="BEz-ax-vOn">
+                                                    <rect key="frame" x="0.0" y="164.33333333333334" width="96.333333333333329" height="24"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle3"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;Solution Explanation&gt;" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="EEJ-zx-7pI">
+                                                    <rect key="frame" x="0.0" y="204.33333333333331" width="167.33333333333334" height="19.333333333333343"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleCallout"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                        </stackView>
+                                    </subviews>
+                                    <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <constraints>
+                                        <constraint firstItem="rYg-5K-PwO" firstAttribute="top" secondItem="J3Y-wW-zYJ" secondAttribute="top" constant="8" id="T6S-2m-0fN"/>
+                                        <constraint firstAttribute="bottom" secondItem="rYg-5K-PwO" secondAttribute="bottom" constant="8" id="ex3-Lt-l0W"/>
+                                        <constraint firstAttribute="trailing" secondItem="rYg-5K-PwO" secondAttribute="trailing" constant="8" id="sWU-Kt-aPv"/>
+                                        <constraint firstItem="rYg-5K-PwO" firstAttribute="leading" secondItem="J3Y-wW-zYJ" secondAttribute="leading" constant="8" id="vta-hc-Vzw"/>
+                                    </constraints>
+                                </view>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="bOo-uO-vg1" customClass="ObvButton" customModule="ObvMessenger" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="247.66666666666669" width="398" height="30"/>
+                                    <state key="normal" title="Button"/>
+                                    <connections>
+                                        <action selector="badBackgroundRefreshStatutButtonTapped:" destination="-1" eventType="touchUpInside" id="EiL-2X-bCG"/>
+                                    </connections>
+                                </button>
+                            </subviews>
+                            <constraints>
+                                <constraint firstAttribute="trailing" secondItem="J3Y-wW-zYJ" secondAttribute="trailing" id="8NP-G7-1Yi"/>
+                                <constraint firstItem="J3Y-wW-zYJ" firstAttribute="leading" secondItem="KU7-2U-bce" secondAttribute="leading" id="FJG-3v-sct"/>
+                            </constraints>
+                        </stackView>
+                    </subviews>
+                    <constraints>
+                        <constraint firstItem="KU7-2U-bce" firstAttribute="leading" secondItem="bkF-h9-Aeg" secondAttribute="leading" constant="8" id="3jD-lQ-Xof"/>
+                        <constraint firstAttribute="bottom" secondItem="KU7-2U-bce" secondAttribute="bottom" constant="8" id="jCx-nw-h9f"/>
+                        <constraint firstAttribute="trailing" secondItem="KU7-2U-bce" secondAttribute="trailing" constant="8" id="tSB-W5-piW"/>
+                        <constraint firstItem="KU7-2U-bce" firstAttribute="top" secondItem="bkF-h9-Aeg" secondAttribute="top" constant="8" id="xMY-5l-TcP"/>
+                    </constraints>
+                </scrollView>
+            </subviews>
+            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+            <constraints>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="bkF-h9-Aeg" secondAttribute="trailing" id="2Ya-Rc-b0s"/>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="width" secondItem="KU7-2U-bce" secondAttribute="width" constant="16" id="eLm-f8-PAu"/>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="bottom" secondItem="bkF-h9-Aeg" secondAttribute="bottom" id="gbc-g2-yY7"/>
+                <constraint firstItem="bkF-h9-Aeg" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="obH-K6-Aji"/>
+                <constraint firstItem="bkF-h9-Aeg" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="qN7-XE-nFy"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <point key="canvasLocation" x="39.200000000000003" y="46.326836581709152"/>
+        </view>
+    </objects>
+</document>

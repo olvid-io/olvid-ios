@@ -1,0 +1,54 @@
+import:
+  - Foundation
+  - CoreData
+  - PhotosUI
+notifications:
+- name: userWantsToReadReceivedMessagesThatRequiresUserAction
+  params:
+  - {name: persistedMessageObjectIDs, type: Set<NSManagedObjectID>}
+- name: userWantsToAddAttachmentsToDraft
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: itemProviders, type: [NSItemProvider]}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
+- name: userWantsToAddAttachmentsToDraftFromURLs
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: urls, type: [URL]}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
+- name: userWantsToDeleteAllAttachmentsToDraft
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: userWantsToReplyToMessage
+  params:
+  - {name: messageObjectID, type: TypeSafeManagedObjectID<PersistedMessage>}
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: userWantsToRemoveReplyToMessage
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: userDidTapOnReplyTo
+  params:
+  - {name: replyToMessageObjectID, type: NSManagedObjectID}
+- name: userWantsToSendDraft
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: textBody, type: String}
+- name: userWantsToSendDraftWithOneAttachement
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: attachementsURL, type: [URL]}
+- name: insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty
+  params:
+  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: markAsRead, type: Bool}
+- name: userWantsToUpdateDraftExpiration
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: value, type: "PersistedDiscussionSharedConfigurationValue?"}
+- name: userWantsToUpdateDraftBody
+  params:
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: body, type: String}
+- name: draftCouldNotBeSent
+  params:
+  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}

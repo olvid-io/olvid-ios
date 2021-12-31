@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16096" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16086"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="Stack View standard spacing" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="OwnedIdentityView" customModule="ObvMessenger" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="485" height="152"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <stackView opaque="NO" contentMode="scaleToFill" alignment="center" spacingType="standard" translatesAutoresizingMaskIntoConstraints="NO" id="sUD-PB-AEY">
+                    <rect key="frame" x="16" y="8" width="453" height="136"/>
+                    <subviews>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="q4o-Rr-wIe">
+                            <rect key="frame" x="0.0" y="28" width="80" height="80"/>
+                            <color key="backgroundColor" white="0.66666666666666663" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="80" id="NzX-oV-SuG"/>
+                                <constraint firstAttribute="width" secondItem="q4o-Rr-wIe" secondAttribute="height" multiplier="1:1" id="n69-wq-gKE"/>
+                            </constraints>
+                        </view>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacingType="standard" translatesAutoresizingMaskIntoConstraints="NO" id="SKy-BN-YI1">
+                            <rect key="frame" x="88" y="34" width="365" height="68"/>
+                            <subviews>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;Title&gt;" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="psM-kp-X7w">
+                                    <rect key="frame" x="0.0" y="0.0" width="365" height="33.5"/>
+                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle1"/>
+                                    <nil key="textColor"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;Subtitle&gt;" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="IHf-hy-hSE">
+                                    <rect key="frame" x="0.0" y="41.5" width="365" height="26.5"/>
+                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle2"/>
+                                    <nil key="textColor"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                            </subviews>
+                        </stackView>
+                    </subviews>
+                </stackView>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="jeI-12-L0Z">
+                    <rect key="frame" x="0.0" y="0.0" width="485" height="152"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                </view>
+            </subviews>
+            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+            <constraints>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="jeI-12-L0Z" secondAttribute="bottom" id="4Go-jT-6U8"/>
+                <constraint firstItem="sUD-PB-AEY" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="16" id="81p-67-fqd"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="sUD-PB-AEY" secondAttribute="trailing" constant="16" id="V8p-hK-Fju"/>
+                <constraint firstItem="jeI-12-L0Z" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" id="Vlb-VR-FcY"/>
+                <constraint firstItem="jeI-12-L0Z" firstAttribute="top" secondItem="vUN-kp-3ea" secondAttribute="top" id="XM3-3b-vKX"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" secondItem="jeI-12-L0Z" secondAttribute="trailing" id="e4K-ur-J4r"/>
+                <constraint firstItem="sUD-PB-AEY" firstAttribute="top" secondItem="vUN-kp-3ea" secondAttribute="top" constant="8" id="fcT-yh-hFZ"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="bottom" secondItem="sUD-PB-AEY" secondAttribute="bottom" constant="8" id="xpd-lt-gmK"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <connections>
+                <outlet property="circlePlaceholder" destination="q4o-Rr-wIe" id="rI6-sk-zV0"/>
+                <outlet property="subtitleLabel" destination="IHf-hy-hSE" id="bcy-B5-4vQ"/>
+                <outlet property="titleLabel" destination="psM-kp-X7w" id="mjw-2z-5Kh"/>
+                <outlet property="touchOverlayView" destination="jeI-12-L0Z" id="0Cp-9I-qSQ"/>
+            </connections>
+            <point key="canvasLocation" x="151" y="-83"/>
+        </view>
+    </objects>
+</document>

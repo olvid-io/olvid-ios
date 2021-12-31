@@ -1,0 +1,54 @@
+{
+  "identifier" : "D2AEBB39",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "98BEABAA",
+      "localizations" : [
+
+      ],
+      "name" : "io.olvid.group.premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "displayPrice" : "0.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C43ECCD9",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Access to all premium features.",
+              "displayName" : "Premium features",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "Accès à toutes les fonctionnalités premimum.",
+              "displayName" : "Fonctionnalités Premium",
+              "locale" : "fr"
+            }
+          ],
+          "productID" : "io.olvid.premium_2020_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Olvid Premium Features",
+          "subscriptionGroupID" : "98BEABAA",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 1,
+    "minor" : 1
+  }
+}

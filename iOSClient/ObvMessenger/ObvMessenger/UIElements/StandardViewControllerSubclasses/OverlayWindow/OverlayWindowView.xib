@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14460.31" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait">
+        <adaptation id="fullscreen"/>
+    </device>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB" customClass="OverlayWindowView" customModule="ObvMessenger" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Cgn-Ry-gaR">
+                    <rect key="frame" x="67" y="304" width="240" height="67"/>
+                    <color key="backgroundColor" white="0.66666666666666663" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="67" id="TMI-oS-Hmn"/>
+                        <constraint firstAttribute="width" constant="240" id="rDz-rQ-bag"/>
+                    </constraints>
+                </view>
+                <stackView opaque="NO" contentMode="scaleToFill" placeholderIntrinsicWidth="110" placeholderIntrinsicHeight="200" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="B6h-cf-Qmk">
+                    <rect key="frame" x="77" y="237.5" width="110" height="200"/>
+                </stackView>
+            </subviews>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="B6h-cf-Qmk" firstAttribute="centerY" secondItem="Cgn-Ry-gaR" secondAttribute="centerY" id="66S-aL-Cdf"/>
+                <constraint firstItem="vUN-kp-3ea" firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="B6h-cf-Qmk" secondAttribute="trailing" constant="16" id="DtD-e6-AP6"/>
+                <constraint firstItem="Cgn-Ry-gaR" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" constant="304" id="Kva-jJ-Viy"/>
+                <constraint firstItem="Cgn-Ry-gaR" firstAttribute="leading" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="67" id="QX2-AY-KFy"/>
+                <constraint firstItem="B6h-cf-Qmk" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="vUN-kp-3ea" secondAttribute="leading" constant="16" id="alW-WD-kJd"/>
+                <constraint firstItem="B6h-cf-Qmk" firstAttribute="centerX" secondItem="vUN-kp-3ea" secondAttribute="leading" priority="750" constant="132" id="xcD-m1-xHO"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="vUN-kp-3ea"/>
+            <connections>
+                <outlet property="stackView" destination="B6h-cf-Qmk" id="jbb-0G-Dfh"/>
+                <outlet property="stackViewCenterConstraint" destination="66S-aL-Cdf" id="Xdb-KC-F4Y"/>
+                <outlet property="stackViewLeadingConstraint" destination="xcD-m1-xHO" id="DdH-du-gz5"/>
+                <outlet property="viewPlaceholder" destination="Cgn-Ry-gaR" id="9ao-tm-DaT"/>
+                <outlet property="viewPlaceholderHeightConstraint" destination="TMI-oS-Hmn" id="nAa-Sl-JXi"/>
+                <outlet property="viewPlaceholderLeadingConstraint" destination="QX2-AY-KFy" id="Kfj-gJ-rDX"/>
+                <outlet property="viewPlaceholderTopConstraint" destination="Kva-jJ-Viy" id="dKl-5b-Uq9"/>
+                <outlet property="viewPlaceholderWidthConstraint" destination="rDz-rQ-bag" id="PqI-n9-M6x"/>
+            </connections>
+            <point key="canvasLocation" x="130.40000000000001" y="152.47376311844079"/>
+        </view>
+    </objects>
+</document>

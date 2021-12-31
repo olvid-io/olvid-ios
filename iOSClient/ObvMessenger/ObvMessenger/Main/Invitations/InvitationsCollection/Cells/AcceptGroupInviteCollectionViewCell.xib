@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14460.31" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait">
+        <adaptation id="fullscreen"/>
+    </device>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <collectionViewCell opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" id="gTV-IL-0wX" customClass="AcceptGroupInviteCollectionViewCell" customModule="ObvMessenger" customModuleProvider="target">
+            <rect key="frame" x="0.0" y="0.0" width="430" height="300"/>
+            <autoresizingMask key="autoresizingMask"/>
+            <view key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center">
+                <rect key="frame" x="0.0" y="0.0" width="430" height="300"/>
+                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                <subviews>
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="tQv-or-kLB">
+                        <rect key="frame" x="0.0" y="0.0" width="430" height="300"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" placeholderIntrinsicWidth="430" placeholderIntrinsicHeight="100" translatesAutoresizingMaskIntoConstraints="NO" id="CZb-vn-d4R">
+                                <rect key="frame" x="0.0" y="0.0" width="430" height="100"/>
+                                <color key="backgroundColor" white="0.66666666666666663" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            </view>
+                            <view contentMode="scaleToFill" placeholderIntrinsicWidth="430" placeholderIntrinsicHeight="100" translatesAutoresizingMaskIntoConstraints="NO" id="Fjl-1f-p6h">
+                                <rect key="frame" x="0.0" y="100" width="430" height="100"/>
+                                <color key="backgroundColor" white="0.33333333333333331" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            </view>
+                            <view contentMode="scaleToFill" placeholderIntrinsicWidth="430" placeholderIntrinsicHeight="100" translatesAutoresizingMaskIntoConstraints="NO" id="XQc-rC-EUS">
+                                <rect key="frame" x="0.0" y="200" width="430" height="100"/>
+                                <color key="backgroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            </view>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstItem="CZb-vn-d4R" firstAttribute="top" secondItem="tQv-or-kLB" secondAttribute="top" id="3r7-SM-ks8"/>
+                            <constraint firstItem="CZb-vn-d4R" firstAttribute="leading" secondItem="tQv-or-kLB" secondAttribute="leading" id="BJw-8K-b3T"/>
+                            <constraint firstAttribute="trailing" secondItem="CZb-vn-d4R" secondAttribute="trailing" id="IMV-ch-6NB"/>
+                            <constraint firstItem="XQc-rC-EUS" firstAttribute="top" secondItem="Fjl-1f-p6h" secondAttribute="bottom" id="MdY-OV-RO8"/>
+                            <constraint firstItem="XQc-rC-EUS" firstAttribute="leading" secondItem="tQv-or-kLB" secondAttribute="leading" id="OAG-ka-6cg"/>
+                            <constraint firstAttribute="trailing" secondItem="XQc-rC-EUS" secondAttribute="trailing" id="Txv-V5-rJK"/>
+                            <constraint firstItem="Fjl-1f-p6h" firstAttribute="top" secondItem="CZb-vn-d4R" secondAttribute="bottom" id="YdZ-Xs-fyF"/>
+                            <constraint firstAttribute="bottom" secondItem="XQc-rC-EUS" secondAttribute="bottom" id="fJz-04-J83"/>
+                            <constraint firstAttribute="trailing" secondItem="Fjl-1f-p6h" secondAttribute="trailing" id="lWI-pC-NWc"/>
+                            <constraint firstItem="Fjl-1f-p6h" firstAttribute="leading" secondItem="tQv-or-kLB" secondAttribute="leading" id="yFo-qx-ILb"/>
+                        </constraints>
+                    </view>
+                </subviews>
+            </view>
+            <constraints>
+                <constraint firstItem="tQv-or-kLB" firstAttribute="top" secondItem="gTV-IL-0wX" secondAttribute="top" id="7re-i5-8Ic"/>
+                <constraint firstAttribute="bottom" secondItem="tQv-or-kLB" secondAttribute="bottom" id="OlT-OJ-QkO"/>
+                <constraint firstAttribute="trailing" secondItem="tQv-or-kLB" secondAttribute="trailing" id="ote-kr-8ja"/>
+                <constraint firstItem="tQv-or-kLB" firstAttribute="leading" secondItem="gTV-IL-0wX" secondAttribute="leading" id="r2k-3r-9SG"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="ZTg-uK-7eu"/>
+            <size key="customSize" width="395" height="293"/>
+            <connections>
+                <outlet property="bottomPlaceholderView" destination="XQc-rC-EUS" id="g7h-ZS-wEz"/>
+                <outlet property="middlePlaceholderView" destination="Fjl-1f-p6h" id="M9z-iz-otZ"/>
+                <outlet property="placeholderView" destination="tQv-or-kLB" id="B8d-xQ-kkC"/>
+                <outlet property="topPlaceholderView" destination="CZb-vn-d4R" id="qEt-ic-JeM"/>
+            </connections>
+            <point key="canvasLocation" x="248" y="164.16791604197903"/>
+        </collectionViewCell>
+    </objects>
+</document>

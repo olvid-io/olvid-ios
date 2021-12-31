@@ -1,0 +1,43 @@
+disabled_rules:
+  - trailing_whitespace
+  - vertical_whitespace
+  - line_length
+  - identifier_name
+  - redundant_optional_initialization
+  - private_over_fileprivate
+  - multiple_closures_with_trailing_closure
+  - class_delegate_protocol
+  - type_name
+  - trailing_comma
+  - cyclomatic_complexity
+  - file_length
+  - function_body_length
+  - large_tuple
+  - type_body_length
+  - empty_parentheses_with_trailing_closure
+  - comma
+  - unused_closure_parameter
+  - control_statement
+  - function_parameter_count
+  - nesting
+  - redundant_string_enum_value
+  - unused_enumerated
+  - is_disjoint
+  - for_where
+  - reduce_boolean
+  - force_cast
+  - force_try
+  - weak_delegate
+  - generic_type_name
+  - unused_optional_binding
+  - redundant_objc_attribute
+  - nsobject_prefer_isequal
+  - unused_setter_value
+custom_rules:
+  commented_code:
+    regex: '(?<!:|\/)\/\/\h*[a-z.](?!wiftlint)'
+    message: "Comment starting with lowercase letter - did you forget to delete old code?"
+  multiline_commented_code:
+    regex: '^\s*[a-z]'
+    match_kinds: comment
+    message: "Comment starting with lowercase letter - did you forget to delete old code?"

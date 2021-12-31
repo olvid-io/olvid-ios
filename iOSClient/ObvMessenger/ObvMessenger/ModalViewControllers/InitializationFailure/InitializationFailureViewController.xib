@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097.3" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="InitializationFailureViewController" customModule="ObvMessenger" customModuleProvider="target">
+            <connections>
+                <outlet property="errorMessageLabel" destination="49v-MK-CoT" id="na2-f2-gEg"/>
+                <outlet property="shareButton" destination="tLy-pY-7Ue" id="YaO-n4-eI0"/>
+                <outlet property="shareErrorMessageExplanationLabel" destination="sas-u7-M1m" id="ctE-VY-vyJ"/>
+                <outlet property="standardErrorMessage" destination="uG3-yo-8g8" id="U1u-ja-B3x"/>
+                <outlet property="thankYouLabel" destination="b1I-VH-LNv" id="Tzt-wq-tUn"/>
+                <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="i5M-Pr-FkT">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="KzS-vI-dOG">
+                    <rect key="frame" x="0.0" y="44" width="414" height="852"/>
+                    <subviews>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="bJy-dU-gxM">
+                            <rect key="frame" x="24" y="24" width="366" height="308"/>
+                            <subviews>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="uG3-yo-8g8" userLabel="standardErrorMessage">
+                                    <rect key="frame" x="0.0" y="0.0" width="366" height="20.5"/>
+                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                    <nil key="textColor"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="sas-u7-M1m" userLabel="shareErrorMessageExplanationLabel">
+                                    <rect key="frame" x="0.0" y="36.5" width="366" height="20.5"/>
+                                    <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                    <nil key="textColor"/>
+                                    <nil key="highlightedColor"/>
+                                </label>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tLy-pY-7Ue" customClass="ObvImageButton" customModule="ObvMessenger" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="73" width="366" height="34"/>
+                                    <state key="normal" title="Button"/>
+                                    <connections>
+                                        <action selector="shareButtonTapped:" destination="-1" eventType="touchUpInside" id="8qH-Bt-sgJ"/>
+                                    </connections>
+                                </button>
+                                <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Bgy-Jn-CD6">
+                                    <rect key="frame" x="0.0" y="123" width="366" height="41"/>
+                                    <subviews>
+                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="b1I-VH-LNv">
+                                            <rect key="frame" x="0.0" y="0.0" width="366" height="41"/>
+                                            <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
+                                            <nil key="textColor"/>
+                                            <nil key="highlightedColor"/>
+                                        </label>
+                                    </subviews>
+                                </stackView>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="sln-MH-jnD" customClass="ObvRoundedRectView" customModule="ObvMessenger" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="180" width="366" height="128"/>
+                                    <subviews>
+                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="49v-MK-CoT" userLabel="errorMessageLabel">
+                                            <rect key="frame" x="16" y="16" width="334" height="96"/>
+                                            <fontDescription key="fontDescription" style="UICTFontTextStyleFootnote"/>
+                                            <color key="textColor" systemColor="secondaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+                                            <nil key="highlightedColor"/>
+                                        </label>
+                                    </subviews>
+                                    <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                    <constraints>
+                                        <constraint firstItem="49v-MK-CoT" firstAttribute="top" secondItem="sln-MH-jnD" secondAttribute="top" constant="16" id="Db1-1G-4Lx"/>
+                                        <constraint firstItem="49v-MK-CoT" firstAttribute="leading" secondItem="sln-MH-jnD" secondAttribute="leading" constant="16" id="gFn-Z2-yo8"/>
+                                        <constraint firstAttribute="bottom" secondItem="49v-MK-CoT" secondAttribute="bottom" constant="16" id="oLF-DV-UQT"/>
+                                        <constraint firstAttribute="trailing" secondItem="49v-MK-CoT" secondAttribute="trailing" constant="16" id="qtq-g1-9fz"/>
+                                    </constraints>
+                                </view>
+                            </subviews>
+                        </stackView>
+                    </subviews>
+                    <constraints>
+                        <constraint firstItem="bJy-dU-gxM" firstAttribute="top" secondItem="KzS-vI-dOG" secondAttribute="top" constant="24" id="7uy-ch-ZPF"/>
+                        <constraint firstAttribute="bottom" secondItem="bJy-dU-gxM" secondAttribute="bottom" constant="24" id="Fg1-pW-BM8"/>
+                        <constraint firstAttribute="trailing" secondItem="bJy-dU-gxM" secondAttribute="trailing" constant="24" id="dLu-Hi-tcR"/>
+                        <constraint firstItem="bJy-dU-gxM" firstAttribute="leading" secondItem="KzS-vI-dOG" secondAttribute="leading" constant="24" id="jrY-zn-yv6"/>
+                    </constraints>
+                    <viewLayoutGuide key="contentLayoutGuide" id="aAN-NE-16k"/>
+                    <viewLayoutGuide key="frameLayoutGuide" id="uH1-fZ-730"/>
+                </scrollView>
+            </subviews>
+            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+            <constraints>
+                <constraint firstItem="KzS-vI-dOG" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="Imz-hq-312"/>
+                <constraint firstItem="bJy-dU-gxM" firstAttribute="width" secondItem="fnl-2z-Ty3" secondAttribute="width" constant="-48" id="Lro-Lr-bLc"/>
+                <constraint firstItem="KzS-vI-dOG" firstAttribute="trailing" secondItem="i5M-Pr-FkT" secondAttribute="trailing" id="Pm7-Gc-0Zf"/>
+                <constraint firstItem="KzS-vI-dOG" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="acc-br-gN7"/>
+                <constraint firstAttribute="bottom" secondItem="KzS-vI-dOG" secondAttribute="bottom" id="xRr-Ex-7oX"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <point key="canvasLocation" x="131.8840579710145" y="153.34821428571428"/>
+        </view>
+    </objects>
+</document>

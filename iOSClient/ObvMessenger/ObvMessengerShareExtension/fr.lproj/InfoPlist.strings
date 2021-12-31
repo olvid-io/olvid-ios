@@ -1,0 +1,6 @@
+/* Bundle display name */
+"CFBundleDisplayName" = "Olvid";
+
+/* Bundle name */
+"CFBundleName" = "$(PRODUCT_NAME)";
+

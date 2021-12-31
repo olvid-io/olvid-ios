@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>You are about to introduce X to Y and count other contacts.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>You are about to introduce %2$@ to %3$@.</string>
+			<key>one</key>
+			<string>You are about to introduce %2$@ to %3$@ and one other contact.</string>
+			<key>other</key>
+			<string>You are about to introduce %2$@ to %3$@ and %1$u other contacts.</string>
+		</dict>
+	</dict>
+	<key>You successfully introduced X to Y and count other contacts.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>You successfully introduced %2$@ to %3$@.</string>
+			<key>one</key>
+			<string>You successfully introduced %2$@ to %3$@ and one other contact.</string>
+			<key>other</key>
+			<string>You successfully introduced %2$@ to %3$@ and %1$u other contacts.</string>
+		</dict>
+	</dict>
+	<key>see count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No attachment</string>
+			<key>one</key>
+			<string>→ See the attachment</string>
+			<key>other</key>
+			<string>→ See %u attachments</string>
+		</dict>
+	</dict>
+	<key>count new messages</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@VARIABLE@</string>
+		<key>VARIABLE</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No new message</string>
+			<key>one</key>
+			<string>1 new message</string>
+			<key>other</key>
+			<string>%u new messages</string>
+		</dict>
+	</dict>
+	<key>count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No attachment</string>
+			<key>one</key>
+			<string>One attachment</string>
+			<key>other</key>
+			<string>%u attachments</string>
+		</dict>
+	</dict>
+	<key>share count photos</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No photo to share</string>
+			<key>one</key>
+			<string>Share the photo</string>
+			<key>other</key>
+			<string>Share the %u photos</string>
+		</dict>
+	</dict>
+	<key>share count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No attachment to share</string>
+			<key>one</key>
+			<string>Share attachment</string>
+			<key>other</key>
+			<string>Share %u attachments</string>
+		</dict>
+	</dict>
+	<key>You are about to delete a message together with its count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>You are about to delete a message.</string>
+			<key>one</key>
+			<string>You are about to delete a message together with its attachment.</string>
+			<key>other</key>
+			<string>You are about to delete a message together with its %u attachments.</string>
+		</dict>
+	</dict>
+	<key>recent backups count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No backups</string>
+			<key>one</key>
+			<string>One backup</string>
+			<key>other</key>
+			<string>%u most recent backups</string>
+		</dict>
+	</dict>
+    <key>backups count</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>zero</key>
+            <string>No backups</string>
+            <key>one</key>
+            <string>One backup</string>
+            <key>other</key>
+            <string>%u backups</string>
+        </dict>
+    </dict>
+    <key>missed messages count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>One missing message</string>
+			<key>other</key>
+			<string>%u missing messages</string>
+		</dict>
+	</dict>
+    <key>clean in progress count</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>zero</key>
+            <string>no deleted backups</string>
+            <key>one</key>
+            <string>one deleted backup</string>
+            <key>other</key>
+            <string>%u deleted backups</string>
+        </dict>
+    </dict>
+    <key>KEYCLOAK_MISSING_SEARCH_RESULT</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>one</key>
+            <string>One additional search result is available. Please refine your search.</string>
+            <key>other</key>
+            <string>%u additional search results are available. Please refine your search.</string>
+        </dict>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16096" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina5_5" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16086"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="QRCodeScannerViewController" customModule="ObvMessenger" customModuleProvider="target">
+            <connections>
+                <outlet property="cancelButton" destination="u82-SC-lcg" id="oek-cF-O4d"/>
+                <outlet property="explanationLabel" destination="kL0-0m-WTI" id="JPM-NY-8gu"/>
+                <outlet property="videoView" destination="Lhk-7L-H1c" id="GuM-J0-6NS"/>
+                <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="i5M-Pr-FkT">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="736"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Lhk-7L-H1c" userLabel="VideoView">
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="736"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="itx-OG-zJu" userLabel="TransparentViewLeft">
+                    <rect key="frame" x="0.0" y="0.0" width="62" height="736"/>
+                    <color key="backgroundColor" name="QRCodeScannerTransparentBackground"/>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="pEr-gy-S2C" userLabel="TransparentViewRight">
+                    <rect key="frame" x="352" y="0.0" width="62" height="736"/>
+                    <color key="backgroundColor" name="QRCodeScannerTransparentBackground"/>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="yLf-ni-D3c" userLabel="TransparentViewTop">
+                    <rect key="frame" x="62" y="0.0" width="290" height="223"/>
+                    <color key="backgroundColor" name="QRCodeScannerTransparentBackground"/>
+                </view>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="dmy-KQ-wkt" userLabel="TransparentViewBottom">
+                    <rect key="frame" x="62" y="513" width="290" height="223"/>
+                    <color key="backgroundColor" name="QRCodeScannerTransparentBackground"/>
+                </view>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="&lt;explanation&gt;" textAlignment="justified" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" minimumScaleFactor="0.5" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="kL0-0m-WTI">
+                    <rect key="frame" x="62" y="8" width="290" height="18"/>
+                    <fontDescription key="fontDescription" style="UICTFontTextStyleSubhead"/>
+                    <color key="textColor" name="EdmondOnPrimary"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Bc2-Tg-23x" userLabel="CenterQRCodeScannerView" customClass="QRCodeScannerView" customModule="ObvMessenger" customModuleProvider="target">
+                    <rect key="frame" x="62" y="223" width="290" height="290"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <constraints>
+                        <constraint firstAttribute="width" secondItem="Bc2-Tg-23x" secondAttribute="height" multiplier="1:1" id="s21-h8-CoC"/>
+                    </constraints>
+                </view>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" adjustsImageSizeForAccessibilityContentSizeCategory="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="u82-SC-lcg" customClass="ObvFloatingButton" customModule="ObvMessenger" customModuleProvider="target">
+                    <rect key="frame" x="179" y="664" width="56" height="56"/>
+                    <color key="backgroundColor" red="1" green="0.14913141730000001" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                    <constraints>
+                        <constraint firstAttribute="width" secondItem="u82-SC-lcg" secondAttribute="height" multiplier="1:1" id="4Ym-58-vFl"/>
+                        <constraint firstAttribute="width" constant="56" id="9hq-2V-97p"/>
+                    </constraints>
+                    <state key="normal" image="cross"/>
+                    <connections>
+                        <action selector="cancelButtonTapped:" destination="-1" eventType="touchUpInside" id="dIb-dz-8TQ"/>
+                    </connections>
+                </button>
+            </subviews>
+            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+            <constraints>
+                <constraint firstItem="Bc2-Tg-23x" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="0Yt-NO-x3q"/>
+                <constraint firstItem="kL0-0m-WTI" firstAttribute="width" secondItem="Bc2-Tg-23x" secondAttribute="width" id="2xo-lK-OqL"/>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="top" secondItem="yLf-ni-D3c" secondAttribute="top" id="4Od-Ox-eEY"/>
+                <constraint firstAttribute="bottom" secondItem="dmy-KQ-wkt" secondAttribute="bottom" id="658-xH-MbX"/>
+                <constraint firstItem="pEr-gy-S2C" firstAttribute="trailing" secondItem="i5M-Pr-FkT" secondAttribute="trailing" id="7WW-lr-hob"/>
+                <constraint firstItem="Bc2-Tg-23x" firstAttribute="width" secondItem="i5M-Pr-FkT" secondAttribute="width" multiplier="0.7" id="Afl-yJ-Xh6"/>
+                <constraint firstItem="pEr-gy-S2C" firstAttribute="leading" secondItem="yLf-ni-D3c" secondAttribute="trailing" id="DZv-8s-gTC"/>
+                <constraint firstItem="kL0-0m-WTI" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="8" id="KuC-28-4NJ"/>
+                <constraint firstItem="u82-SC-lcg" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="KxL-zy-qkf"/>
+                <constraint firstItem="itx-OG-zJu" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="OLk-Qg-BK5"/>
+                <constraint firstItem="Lhk-7L-H1c" firstAttribute="trailing" secondItem="fnl-2z-Ty3" secondAttribute="trailing" id="PEZ-6f-ssi"/>
+                <constraint firstItem="pEr-gy-S2C" firstAttribute="leading" secondItem="dmy-KQ-wkt" secondAttribute="trailing" id="PaK-iN-Xfg"/>
+                <constraint firstItem="pEr-gy-S2C" firstAttribute="leading" secondItem="Bc2-Tg-23x" secondAttribute="trailing" id="PxD-Qe-y2p"/>
+                <constraint firstItem="Lhk-7L-H1c" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="TVN-Py-l8o"/>
+                <constraint firstItem="kL0-0m-WTI" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="Voc-Ni-chh"/>
+                <constraint firstItem="Bc2-Tg-23x" firstAttribute="top" secondItem="yLf-ni-D3c" secondAttribute="bottom" id="XvW-Ke-UhO"/>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="bottom" secondItem="u82-SC-lcg" secondAttribute="bottom" constant="16" id="Z3p-j7-LiW"/>
+                <constraint firstItem="itx-OG-zJu" firstAttribute="bottom" secondItem="i5M-Pr-FkT" secondAttribute="bottom" id="aea-Bh-HD7"/>
+                <constraint firstItem="Lhk-7L-H1c" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="bAm-r7-6ba"/>
+                <constraint firstItem="Lhk-7L-H1c" firstAttribute="bottom" secondItem="i5M-Pr-FkT" secondAttribute="bottom" id="dgl-q6-k7y"/>
+                <constraint firstItem="Bc2-Tg-23x" firstAttribute="top" relation="greaterThanOrEqual" secondItem="kL0-0m-WTI" secondAttribute="bottom" constant="8" id="e2K-dF-YnA"/>
+                <constraint firstItem="dmy-KQ-wkt" firstAttribute="top" secondItem="Bc2-Tg-23x" secondAttribute="bottom" id="eA4-jV-I66"/>
+                <constraint firstItem="Bc2-Tg-23x" firstAttribute="leading" secondItem="itx-OG-zJu" secondAttribute="trailing" id="jhO-gG-eAR"/>
+                <constraint firstItem="pEr-gy-S2C" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="jn1-dJ-2ta"/>
+                <constraint firstItem="Bc2-Tg-23x" firstAttribute="centerY" secondItem="fnl-2z-Ty3" secondAttribute="centerY" id="jsK-xm-daI"/>
+                <constraint firstItem="yLf-ni-D3c" firstAttribute="leading" secondItem="itx-OG-zJu" secondAttribute="trailing" id="n2N-ND-7Oi"/>
+                <constraint firstItem="itx-OG-zJu" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="nPD-FV-ZZ2"/>
+                <constraint firstItem="dmy-KQ-wkt" firstAttribute="leading" secondItem="itx-OG-zJu" secondAttribute="trailing" id="rM2-iu-XXc"/>
+                <constraint firstItem="pEr-gy-S2C" firstAttribute="bottom" secondItem="i5M-Pr-FkT" secondAttribute="bottom" id="sZP-7J-ZyD"/>
+            </constraints>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <point key="canvasLocation" x="25.5" y="51.5"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="cross" width="240" height="240"/>
+        <namedColor name="EdmondOnPrimary">
+            <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="QRCodeScannerTransparentBackground">
+            <color red="0.0" green="0.0" blue="0.0" alpha="0.60000002384185791" colorSpace="custom" customColorSpace="displayP3"/>
+        </namedColor>
+    </resources>
+</document>

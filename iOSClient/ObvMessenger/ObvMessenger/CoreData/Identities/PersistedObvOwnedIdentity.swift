@@ -1,0 +1,323 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2021 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import Foundation
+import CoreData
+import ObvTypes
+import ObvEngine
+import Intents
+import os.log
+import OlvidUtils
+
+@objc(PersistedObvOwnedIdentity)
+final class PersistedObvOwnedIdentity: NSManagedObject {
+    
+    static let entityName = "PersistedObvOwnedIdentity"
+    static let identityKey = "identity"
+    private static let isActiveKey = "isActive"
+
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedObvOwnedIdentity")
+
+    private static let errorDomain = "PersistedObvOwnedIdentity"
+    private func makeError(message: String) -> Error { NSError(domain: PersistedObvOwnedIdentity.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
+    // MARK: - Properties
+
+    @NSManaged private(set) var apiKeyExpirationDate: Date?
+    @NSManaged private var fullDisplayName: String
+    @NSManaged private var identity: Data
+    @NSManaged private(set) var isActive: Bool
+    @NSManaged private(set) var isKeycloakManaged: Bool
+    @NSManaged private var rawAPIKeyStatus: Int
+    @NSManaged private var rawAPIPermissions: Int
+    @NSManaged private var serializedIdentityCoreDetails: Data
+    @NSManaged private(set) var photoURL: URL?
+
+    @NSManaged private(set) var contactGroups: Set<PersistedContactGroup>
+    @NSManaged private(set) var contacts: Set<PersistedObvContactIdentity>
+    @NSManaged private(set) var invitations: Set<PersistedInvitation>
+    
+    // MARK: - Variables
+    
+    var identityCoreDetails: ObvIdentityCoreDetails {
+        return try! ObvIdentityCoreDetails(serializedIdentityCoreDetails)
+    }
+
+    var cryptoId: ObvCryptoId {
+        return try! ObvCryptoId(identity: identity)
+    }
+
+    private var changedKeys = Set<String>()
+
+    private(set) var apiKeyStatus: APIKeyStatus {
+        get { APIKeyStatus(rawValue: rawAPIKeyStatus) ?? .free }
+        set { rawAPIKeyStatus = newValue.rawValue }
+    }
+    
+    private(set) var apiPermissions: APIPermissions {
+        get { APIPermissions(rawValue: rawAPIPermissions) }
+        set { rawAPIPermissions = newValue.rawValue }
+    }
+    
+    // MARK: - Initializer
+    
+    convenience init?(ownedIdentity: ObvOwnedIdentity, within context: NSManagedObjectContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvOwnedIdentity.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+        do { self.serializedIdentityCoreDetails = try ownedIdentity.currentIdentityDetails.coreDetails.encode() } catch { return nil }
+        self.fullDisplayName = ownedIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+        self.identity = ownedIdentity.cryptoId.getIdentity()
+        self.isActive = true
+        self.isKeycloakManaged = ownedIdentity.isKeycloakManaged
+        self.apiKeyExpirationDate = nil
+        self.apiKeyStatus = APIKeyStatus.free
+        self.apiPermissions = APIPermissions()
+        self.contacts = Set<PersistedObvContactIdentity>()
+        self.invitations = Set<PersistedInvitation>()
+        self.photoURL = ownedIdentity.currentIdentityDetails.photoURL
+    }
+
+    
+    func update(with ownedIdentity: ObvOwnedIdentity) throws {
+        guard self.identity == ownedIdentity.cryptoId.getIdentity() else {
+            throw makeError(message: "Trying to update an owned identity with the data of another owned identity")
+        }
+        self.serializedIdentityCoreDetails = try ownedIdentity.currentIdentityDetails.coreDetails.encode()
+        self.fullDisplayName = ownedIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+        self.isActive = ownedIdentity.isActive
+        self.isKeycloakManaged = ownedIdentity.isKeycloakManaged
+        self.photoURL = ownedIdentity.currentIdentityDetails.photoURL
+    }
+
+    
+    func updatePhotoURL(with url: URL?) {
+        self.photoURL = url
+    }
+
+    func deactivate() {
+        self.isActive = false
+    }
+    
+    func activate() {
+        self.isActive = true
+    }
+}
+
+// MARK: - Utils
+
+extension PersistedObvOwnedIdentity {
+    
+    func set(apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?) {
+        self.apiKeyStatus = apiKeyStatus
+        self.apiPermissions = apiPermissions
+        self.apiKeyExpirationDate = apiKeyExpirationDate
+    }
+    
+}
+
+
+// MARK: - Convenience DB getters
+
+extension PersistedObvOwnedIdentity {
+    
+    private struct Predicate {
+        static func persistedObvOwnedIdentity(withObjectID typedObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>) -> NSPredicate {
+            NSPredicate(format: "SELF == %@", typedObjectID.objectID)
+        }
+    }
+
+    
+    @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedObvOwnedIdentity> {
+        return NSFetchRequest<PersistedObvOwnedIdentity>(entityName: self.entityName)
+    }
+
+    static func get(cryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedObvOwnedIdentity? {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = NSPredicate(format: "%K == %@",
+                                        self.identityKey, cryptoId.getIdentity() as NSData)
+        return try context.fetch(request).first
+    }
+
+    static func get(identity: Data, within context: NSManagedObjectContext) throws -> PersistedObvOwnedIdentity? {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = NSPredicate(format: "%K == %@",
+                                        self.identityKey, identity as NSData)
+        return try context.fetch(request).first
+    }
+
+    static func get(persisted obvOwnedIdentity: ObvOwnedIdentity, within context: NSManagedObjectContext) throws -> PersistedObvOwnedIdentity? {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = NSPredicate(format: "%K == %@",
+                                        self.identityKey, obvOwnedIdentity.cryptoId.getIdentity() as NSData)
+        return try context.fetch(request).first
+    }
+    
+    static func getAll(within context: NSManagedObjectContext) throws -> [PersistedObvOwnedIdentity] {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        return try context.fetch(request)
+    }
+    
+    static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedObvOwnedIdentity? {
+        return try context.existingObject(with: objectID) as? PersistedObvOwnedIdentity
+    }
+
+    
+    static func get(objectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>, within context: NSManagedObjectContext) throws -> PersistedObvOwnedIdentity? {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = Predicate.persistedObvOwnedIdentity(withObjectID: objectID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+}
+
+// MARK: - Siri and Intent integration
+
+extension PersistedObvOwnedIdentity {
+
+    var personHandle: INPersonHandle {
+        INPersonHandle(value: objectID.uriRepresentation().absoluteString, type: .unknown)
+    }
+
+    @available(iOS 15.0, *)
+    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
+        
+        let pngData: Data?
+        if let url = photoURL,
+           let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
+           let _pngData = UIImage(cgImage: cgImage).pngData() {
+            pngData = _pngData
+        } else {
+            pngData = UIImage.makeCircledCharacter(fromString: fullDisplayName, circleDiameter: thumbnailSide, fillColor: cryptoId.colors.background, characterColor: cryptoId.colors.text)?.pngData()
+        }
+
+        let image: INImage?
+        if let pngData = pngData {
+            if let thumbnailURL = thumbnailURL {
+                do {
+                    try pngData.write(to: thumbnailURL)
+                    image = INImage(url: thumbnailURL)
+                } catch {
+                    os_log("Could not create PNG thumbnail file for contact", log: log, type: .fault)
+                    image = INImage(imageData: pngData)
+                }
+            } else {
+                image = INImage(imageData: pngData)
+            }
+        } else {
+            image = nil
+        }
+
+        return INPerson(personHandle: personHandle,
+                        nameComponents: identityCoreDetails.personNameComponents,
+                        displayName: fullDisplayName,
+                        image: image,
+                        contactIdentifier: objectID.uriRepresentation().absoluteString,
+                        customIdentifier: nil,
+                        isMe: true,
+                        suggestionType: .none)
+    }
+}
+
+
+
+// MARK: - Sending notifications on change
+
+extension PersistedObvOwnedIdentity {
+    
+    override func willSave() {
+        super.willSave()
+        if !isInserted {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+
+    override func didSave() {
+        super.didSave()
+        
+        defer {
+            changedKeys.removeAll()
+        }
+
+        if isInserted {
+            let notification = ObvMessengerInternalNotification.newPersistedObvOwnedIdentity(ownedCryptoId: self.cryptoId)
+            notification.postOnDispatchQueue()
+        }
+        
+        if changedKeys.contains(PersistedObvOwnedIdentity.isActiveKey) {
+            if self.isActive {
+                let notification = ObvMessengerInternalNotification.ownedIdentityWasReactivated(ownedIdentityObjectID: self.objectID)
+                notification.postOnDispatchQueue()
+            } else {
+                let notification = ObvMessengerInternalNotification.ownedIdentityWasDeactivated(ownedIdentityObjectID: self.objectID)
+                notification.postOnDispatchQueue()
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - For Backup purposes
+
+extension PersistedObvOwnedIdentity {
+    
+    var backupItem: PersistedObvOwnedIdentityBackupItem {
+        let contacts = self.contacts.map { $0.backupItem }.filter { !$0.isEmpty }
+        let groups = self.contactGroups.map { $0.backupItem }.filter { !$0.isEmpty }
+        return PersistedObvOwnedIdentityBackupItem(
+            identity: self.identity,
+            contacts: contacts.isEmpty ? nil : contacts,
+            groups: groups.isEmpty ? nil : groups)
+    }
+    
+}
+
+
+extension PersistedObvOwnedIdentityBackupItem {
+    
+    func updateExistingInstance(within context: NSManagedObjectContext) throws {
+        
+        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(identity: self.identity, within: context) else {
+            assertionFailure()
+            throw PersistedObvOwnedIdentityBackupItem.makeError(message: "Could not find owned identity corresponding to backup item")
+        }
+        for contact in self.contacts ?? [] {
+            guard let persistedContact = ownedIdentity.contacts.first(where: {
+                $0.cryptoId.getIdentity() == contact.identity })
+            else {
+                assertionFailure()
+                continue
+            }
+            contact.updateExistingInstance(persistedContact)
+        }
+        for group in groups ?? [] {
+            guard let persistedGroup = ownedIdentity.contactGroups.first(where: {
+                $0.groupUid == group.groupUid &&
+                $0.ownerIdentity == group.groupOwnerIdentity })
+            else {
+                assertionFailure()
+                continue
+            }
+            group.updateExistingInstance(persistedGroup)
+        }
+        
+    }
+    
+}

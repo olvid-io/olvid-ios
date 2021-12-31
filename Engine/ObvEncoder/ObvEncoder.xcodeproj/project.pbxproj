@@ -1,0 +1,557 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 48;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C40D966720AAE1B6000776E2 /* String+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40D966620AAE1B6000776E2 /* String+ObvCodable.swift */; };
+		C410D1C4211133F300E77E59 /* Date+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C410D1C3211133F300E77E59 /* Date+ObvCodable.swift */; };
+		C410D1C6211135E300E77E59 /* UInt8+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C410D1C5211135E300E77E59 /* UInt8+ObvCodable.swift */; };
+		C414392F1F602C2E00089D01 /* ObvEncoded.swift in Sources */ = {isa = PBXBuildFile; fileRef = C414392E1F602C2E00089D01 /* ObvEncoded.swift */; };
+		C414E31C1F66B95E000442DC /* ObvDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C414E31B1F66B95E000442DC /* ObvDictionary.swift */; };
+		C4167B612163BCDB00CFBE95 /* BigInt.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4167B5E2163BCD500CFBE95 /* BigInt.framework */; };
+		C4167B6B2163BCEB00CFBE95 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4167B682163BCE800CFBE95 /* ObvTypes.framework */; };
+		C41C13831FB5F7800075DC47 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42F53A11FB11E3600604470 /* CoreData.framework */; };
+		C436172920936DAE00AFCAA9 /* URL+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C436172820936DAE00AFCAA9 /* URL+ObvCodable.swift */; };
+		C45AFBFC1F9B526A00DB82A6 /* ObvDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45AFBFB1F9B526A00DB82A6 /* ObvDecoder.swift */; };
+		C45B14271F8D1AEC00DEDE1C /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45B14261F8D1AEC00DEDE1C /* Utils.swift */; };
+		C4618B76215F79A100D4E13B /* Range+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4618B75215F79A100D4E13B /* Range+ObvCodable.swift */; };
+		C48A224C2080A59000353F8C /* UUID+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A224B2080A59000353F8C /* UUID+ObvCodable.swift */; };
+		C499100620723F59006CD9CA /* IntAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499100520723F59006CD9CA /* IntAsObvCodable.swift */; };
+		C499100B2072406F006CD9CA /* DataAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499100A2072406F006CD9CA /* DataAsObvCodable.swift */; };
+		C499100D2072408F006CD9CA /* BigIntAsObbvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */; };
+		C4991023207242D5006CD9CA /* ArrayAsObvEncodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4991022207242D5006CD9CA /* ArrayAsObvEncodable.swift */; };
+		C499102E20724CC0006CD9CA /* UIDAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */; };
+		C499103420724D1E006CD9CA /* BoolAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499103320724D1E006CD9CA /* BoolAsObvCodable.swift */; };
+		C499103620724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */; };
+		C499103A20724E2B006CD9CA /* DictionaryAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */; };
+		C4A619C02071245200D25473 /* ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A619BF2071245200D25473 /* ObvCodable.swift */; };
+		C4AC7C601FA3E68700E2AEC3 /* ObvEncodedTransformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AC7C5F1FA3E68700E2AEC3 /* ObvEncodedTransformer.swift */; };
+		C4B20C3E1F5F066A00DFAADD /* ObvEncoder.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B20C301F5F066A00DFAADD /* ObvEncoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C4167B5D2163BCD500CFBE95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C4167B582163BCD500CFBE95 /* BigInt.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4A23FDA1F5D7B0B00BF68ED;
+			remoteInfo = BigInt;
+		};
+		C4167B5F2163BCD500CFBE95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C4167B582163BCD500CFBE95 /* BigInt.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4A23FE31F5D7B0B00BF68ED;
+			remoteInfo = BigIntTests;
+		};
+		C4167B672163BCE800CFBE95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C4167B622163BCE800CFBE95 /* ObvTypes.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4C11F691FA0879800D5E44B;
+			remoteInfo = ObvTypes;
+		};
+		C4167B692163BCE800CFBE95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C4167B622163BCE800CFBE95 /* ObvTypes.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4C11F721FA0879800D5E44B;
+			remoteInfo = ObvTypesTests;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C0A76952276FEE2B00D22EE4 /* .swiftlint.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
+		C40D966620AAE1B6000776E2 /* String+ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+ObvCodable.swift"; sourceTree = "<group>"; };
+		C410D1C3211133F300E77E59 /* Date+ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+ObvCodable.swift"; sourceTree = "<group>"; };
+		C410D1C5211135E300E77E59 /* UInt8+ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UInt8+ObvCodable.swift"; sourceTree = "<group>"; };
+		C414392E1F602C2E00089D01 /* ObvEncoded.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvEncoded.swift; sourceTree = "<group>"; };
+		C414E31B1F66B95E000442DC /* ObvDictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvDictionary.swift; sourceTree = "<group>"; };
+		C4167B582163BCD500CFBE95 /* BigInt.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = BigInt.xcodeproj; path = ../BigInt/BigInt/BigInt.xcodeproj; sourceTree = "<group>"; };
+		C4167B622163BCE800CFBE95 /* ObvTypes.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvTypes.xcodeproj; path = ../ObvTypes/ObvTypes.xcodeproj; sourceTree = "<group>"; };
+		C42F538F1FB11C3B00604470 /* ObvTypes.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = ObvTypes.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C42F53A11FB11E3600604470 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		C436172820936DAE00AFCAA9 /* URL+ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+ObvCodable.swift"; sourceTree = "<group>"; };
+		C45AFBFB1F9B526A00DB82A6 /* ObvDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvDecoder.swift; sourceTree = "<group>"; };
+		C45B14261F8D1AEC00DEDE1C /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
+		C4618B75215F79A100D4E13B /* Range+ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Range+ObvCodable.swift"; sourceTree = "<group>"; };
+		C48A224B2080A59000353F8C /* UUID+ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+ObvCodable.swift"; sourceTree = "<group>"; };
+		C499100520723F59006CD9CA /* IntAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntAsObvCodable.swift; sourceTree = "<group>"; };
+		C499100A2072406F006CD9CA /* DataAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataAsObvCodable.swift; sourceTree = "<group>"; };
+		C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigIntAsObbvCodable.swift; sourceTree = "<group>"; };
+		C4991022207242D5006CD9CA /* ArrayAsObvEncodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayAsObvEncodable.swift; sourceTree = "<group>"; };
+		C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIDAsObvCodable.swift; sourceTree = "<group>"; };
+		C499103320724D1E006CD9CA /* BoolAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoolAsObvCodable.swift; sourceTree = "<group>"; };
+		C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvPushNotificationTypeAsObvEncodable.swift; sourceTree = "<group>"; };
+		C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryAsObvCodable.swift; sourceTree = "<group>"; };
+		C4A619BF2071245200D25473 /* ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCodable.swift; sourceTree = "<group>"; };
+		C4AC7C5F1FA3E68700E2AEC3 /* ObvEncodedTransformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvEncodedTransformer.swift; sourceTree = "<group>"; };
+		C4B20C2D1F5F066900DFAADD /* ObvEncoder.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvEncoder.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C4B20C301F5F066A00DFAADD /* ObvEncoder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObvEncoder.h; sourceTree = "<group>"; };
+		C4B20C311F5F066A00DFAADD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C4B20C291F5F066900DFAADD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4167B6B2163BCEB00CFBE95 /* ObvTypes.framework in Frameworks */,
+				C4167B612163BCDB00CFBE95 /* BigInt.framework in Frameworks */,
+				C41C13831FB5F7800075DC47 /* CoreData.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C4167B592163BCD500CFBE95 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C4167B5E2163BCD500CFBE95 /* BigInt.framework */,
+				C4167B602163BCD500CFBE95 /* BigIntTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C4167B632163BCE800CFBE95 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C4167B682163BCE800CFBE95 /* ObvTypes.framework */,
+				C4167B6A2163BCE800CFBE95 /* ObvTypesTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C499100420723EEF006CD9CA /* Type extensions */ = {
+			isa = PBXGroup;
+			children = (
+				C499100520723F59006CD9CA /* IntAsObvCodable.swift */,
+				C499100A2072406F006CD9CA /* DataAsObvCodable.swift */,
+				C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */,
+				C4991022207242D5006CD9CA /* ArrayAsObvEncodable.swift */,
+				C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */,
+				C499103320724D1E006CD9CA /* BoolAsObvCodable.swift */,
+				C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */,
+				C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */,
+				C48A224B2080A59000353F8C /* UUID+ObvCodable.swift */,
+				C436172820936DAE00AFCAA9 /* URL+ObvCodable.swift */,
+				C40D966620AAE1B6000776E2 /* String+ObvCodable.swift */,
+				C410D1C3211133F300E77E59 /* Date+ObvCodable.swift */,
+				C410D1C5211135E300E77E59 /* UInt8+ObvCodable.swift */,
+				C4618B75215F79A100D4E13B /* Range+ObvCodable.swift */,
+			);
+			path = "Type extensions";
+			sourceTree = "<group>";
+		};
+		C499100720723FD3006CD9CA /* Supporting files */ = {
+			isa = PBXGroup;
+			children = (
+				C4B20C301F5F066A00DFAADD /* ObvEncoder.h */,
+				C4B20C311F5F066A00DFAADD /* Info.plist */,
+			);
+			path = "Supporting files";
+			sourceTree = "<group>";
+		};
+		C4B20C231F5F066900DFAADD = {
+			isa = PBXGroup;
+			children = (
+				C0A76952276FEE2B00D22EE4 /* .swiftlint.yml */,
+				C4B20C2F1F5F066A00DFAADD /* ObvEncoder */,
+				C4B20C2E1F5F066900DFAADD /* Products */,
+				C4B20C521F5F06B700DFAADD /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		C4B20C2E1F5F066900DFAADD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C4B20C2D1F5F066900DFAADD /* ObvEncoder.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C4B20C2F1F5F066A00DFAADD /* ObvEncoder */ = {
+			isa = PBXGroup;
+			children = (
+				C4A619BF2071245200D25473 /* ObvCodable.swift */,
+				C414392E1F602C2E00089D01 /* ObvEncoded.swift */,
+				C414E31B1F66B95E000442DC /* ObvDictionary.swift */,
+				C45B14261F8D1AEC00DEDE1C /* Utils.swift */,
+				C45AFBFB1F9B526A00DB82A6 /* ObvDecoder.swift */,
+				C4AC7C5F1FA3E68700E2AEC3 /* ObvEncodedTransformer.swift */,
+				C499100420723EEF006CD9CA /* Type extensions */,
+				C499100720723FD3006CD9CA /* Supporting files */,
+			);
+			path = ObvEncoder;
+			sourceTree = "<group>";
+		};
+		C4B20C521F5F06B700DFAADD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C4167B622163BCE800CFBE95 /* ObvTypes.xcodeproj */,
+				C4167B582163BCD500CFBE95 /* BigInt.xcodeproj */,
+				C42F53A11FB11E3600604470 /* CoreData.framework */,
+				C42F538F1FB11C3B00604470 /* ObvTypes.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		C4B20C2A1F5F066900DFAADD /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4B20C3E1F5F066A00DFAADD /* ObvEncoder.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		C4B20C2C1F5F066900DFAADD /* ObvEncoder */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C4B20C411F5F066A00DFAADD /* Build configuration list for PBXNativeTarget "ObvEncoder" */;
+			buildPhases = (
+				C4B20C281F5F066900DFAADD /* Sources */,
+				C4B20C291F5F066900DFAADD /* Frameworks */,
+				C4B20C2A1F5F066900DFAADD /* Headers */,
+				C0A76958276FEE3700D22EE4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ObvEncoder;
+			productName = ObvEncoder;
+			productReference = C4B20C2D1F5F066900DFAADD /* ObvEncoder.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C4B20C241F5F066900DFAADD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 0900;
+				LastUpgradeCheck = 1320;
+				ORGANIZATIONNAME = Olvid;
+				TargetAttributes = {
+					C4B20C2C1F5F066900DFAADD = {
+						CreatedOnToolsVersion = 9.0;
+						LastSwiftMigration = 1020;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = C4B20C271F5F066900DFAADD /* Build configuration list for PBXProject "ObvEncoder" */;
+			compatibilityVersion = "Xcode 8.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C4B20C231F5F066900DFAADD;
+			productRefGroup = C4B20C2E1F5F066900DFAADD /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = C4167B592163BCD500CFBE95 /* Products */;
+					ProjectRef = C4167B582163BCD500CFBE95 /* BigInt.xcodeproj */;
+				},
+				{
+					ProductGroup = C4167B632163BCE800CFBE95 /* Products */;
+					ProjectRef = C4167B622163BCE800CFBE95 /* ObvTypes.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				C4B20C2C1F5F066900DFAADD /* ObvEncoder */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		C4167B5E2163BCD500CFBE95 /* BigInt.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = BigInt.framework;
+			remoteRef = C4167B5D2163BCD500CFBE95 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C4167B602163BCD500CFBE95 /* BigIntTests.xctest */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.cfbundle;
+			path = BigIntTests.xctest;
+			remoteRef = C4167B5F2163BCD500CFBE95 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C4167B682163BCE800CFBE95 /* ObvTypes.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = ObvTypes.framework;
+			remoteRef = C4167B672163BCE800CFBE95 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C4167B6A2163BCE800CFBE95 /* ObvTypesTests.xctest */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.cfbundle;
+			path = ObvTypesTests.xctest;
+			remoteRef = C4167B692163BCE800CFBE95 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C0A76958276FEE3700D22EE4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PATH=${PATH}:~/.mint/bin/\nif which swiftlint >/dev/null; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C4B20C281F5F066900DFAADD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C499100B2072406F006CD9CA /* DataAsObvCodable.swift in Sources */,
+				C499100D2072408F006CD9CA /* BigIntAsObbvCodable.swift in Sources */,
+				C45AFBFC1F9B526A00DB82A6 /* ObvDecoder.swift in Sources */,
+				C48A224C2080A59000353F8C /* UUID+ObvCodable.swift in Sources */,
+				C499102E20724CC0006CD9CA /* UIDAsObvCodable.swift in Sources */,
+				C40D966720AAE1B6000776E2 /* String+ObvCodable.swift in Sources */,
+				C499103620724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift in Sources */,
+				C4991023207242D5006CD9CA /* ArrayAsObvEncodable.swift in Sources */,
+				C499103A20724E2B006CD9CA /* DictionaryAsObvCodable.swift in Sources */,
+				C410D1C4211133F300E77E59 /* Date+ObvCodable.swift in Sources */,
+				C414392F1F602C2E00089D01 /* ObvEncoded.swift in Sources */,
+				C499103420724D1E006CD9CA /* BoolAsObvCodable.swift in Sources */,
+				C4AC7C601FA3E68700E2AEC3 /* ObvEncodedTransformer.swift in Sources */,
+				C414E31C1F66B95E000442DC /* ObvDictionary.swift in Sources */,
+				C410D1C6211135E300E77E59 /* UInt8+ObvCodable.swift in Sources */,
+				C499100620723F59006CD9CA /* IntAsObvCodable.swift in Sources */,
+				C4A619C02071245200D25473 /* ObvCodable.swift in Sources */,
+				C436172920936DAE00AFCAA9 /* URL+ObvCodable.swift in Sources */,
+				C4618B76215F79A100D4E13B /* Range+ObvCodable.swift in Sources */,
+				C45B14271F8D1AEC00DEDE1C /* Utils.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C4B20C3F1F5F066A00DFAADD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		C4B20C401F5F066A00DFAADD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		C4B20C421F5F066A00DFAADD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 4879F8N45X;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../ObvTypes/ObvTypes/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvEncoder;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C4B20C431F5F066A00DFAADD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 4879F8N45X;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../ObvTypes/ObvTypes/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvEncoder;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C4B20C271F5F066900DFAADD /* Build configuration list for PBXProject "ObvEncoder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4B20C3F1F5F066A00DFAADD /* Debug */,
+				C4B20C401F5F066A00DFAADD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C4B20C411F5F066A00DFAADD /* Build configuration list for PBXNativeTarget "ObvEncoder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4B20C421F5F066A00DFAADD /* Debug */,
+				C4B20C431F5F066A00DFAADD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C4B20C241F5F066900DFAADD /* Project object */;
+}

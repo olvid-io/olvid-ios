@@ -1,0 +1,211 @@
+import:
+  - Foundation
+  - ObvTypes
+  - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: appNotificationCenter}
+  - {key: notificationCenterType, value: NotificationCenter}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+  - {key: nilObjectInPost, value: true}
+notifications:
+- name: newBackupKeyGenerated
+  params:
+      - {name: backupKeyString, type: String}
+      - {name: obvBackupKeyInformation, type: ObvBackupKeyInformation}
+- name: backupForExportWasFinished
+  params:
+      - {name: backupRequestUuid, type: UUID}
+      - {name: backupKeyUid, type: UID}
+      - {name: version, type: Int}
+      - {name: encryptedContent, type: Data}
+- name: backupForUploadWasFinished
+  params:
+      - {name: backupRequestUuid, type: UUID}
+      - {name: backupKeyUid, type: UID}
+      - {name: version, type: Int}
+      - {name: encryptedContent, type: Data}
+- name: backupFailed
+  params:
+      - {name: backupRequestUuid, type: UUID}
+- name: ownedIdentityWasDeactivated
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+- name: ownedIdentityWasReactivated
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+- name: networkOperationFailedSinceOwnedIdentityIsNotActive
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+- name: serverRequiresThisDeviceToRegisterToPushNotifications
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+- name: backupForUploadWasUploaded
+  params:
+      - {name: backupRequestUuid, type: UUID}
+      - {name: backupKeyUid, type: UID}
+      - {name: version, type: Int}
+- name: backupForExportWasExported
+  params:
+      - {name: backupRequestUuid, type: UUID}
+      - {name: backupKeyUid, type: UID}
+      - {name: version, type: Int}
+- name: outboxMessagesAndAllTheirAttachmentsWereAcknowledged
+  params:
+      - {name: messageIdsAndTimestampsFromServer, type: "[(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]"}
+- name: inboxAttachmentNewProgress
+  params:
+      - {name: obvAttachment, type: ObvAttachment}
+      - {name: newProgress, type: Progress}
+- name: callerTurnCredentialsReceived
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: callUuid, type: UUID}
+      - {name: turnCredentials, type: ObvTurnCredentials}
+- name: callerTurnCredentialsReceptionFailure
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: callUuid, type: UUID}
+- name: callerTurnCredentialsReceptionPermissionDenied
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: callUuid, type: UUID}
+- name: callerTurnCredentialsServerDoesNotSupportCalls
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: callUuid, type: UUID}
+- name: messageWasAcknowledged
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: messageIdentifierFromEngine, type: Data}
+      - {name: timestampFromServer, type: Date}
+      - {name: isAppMessageWithUserContent, type: Bool}
+      - {name: isVoipMessage, type: Bool}
+- name: newMessageReceived
+  params:
+      - {name: obvMessage, type: ObvMessage}
+      - {name: completionHandler, type: "(Set<ObvAttachment>) -> Void", escaping: true}
+- name: attachmentWasAcknowledgedByServer
+  params:
+      - {name: messageIdentifierFromEngine, type: Data}
+      - {name: attachmentNumber, type: Int}
+- name: attachmentUploadNewProgress
+  params:
+      - {name: messageIdentifierFromEngine, type: Data}
+      - {name: attachmentNumber, type: Int}
+      - {name: newProgress, type: Progress}
+- name: attachmentDownloadCancelledByServer
+  params:
+      - {name: obvAttachment, type: ObvAttachment}
+- name: cannotReturnAnyProgressForMessageAttachments
+  params:
+      - {name: messageIdentifierFromEngine, type: Data}
+- name: attachmentDownloaded
+  params:
+      - {name: obvAttachment, type: ObvAttachment}
+- name: newObvReturnReceiptToProcess
+  params:
+      - {name: obvReturnReceipt, type: ObvReturnReceipt}
+- name: contactWasDeleted
+  params:
+      - {name: obvContactIdentity, type: ObvContactIdentity}
+- name: newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: apiKeyStatus, type: APIKeyStatus}
+      - {name: apiPermissions, type: APIPermissions}
+      - {name: apiKeyExpirationDate, type: "EngineOptionalWrapper<Date>"}
+- name: newAPIKeyElementsForAPIKey
+  params:
+      - {name: serverURL, type: URL}
+      - {name: apiKey, type: UUID}
+      - {name: apiKeyStatus, type: APIKeyStatus}
+      - {name: apiPermissions, type: APIPermissions}
+      - {name: apiKeyExpirationDate, type: "EngineOptionalWrapper<Date>"}
+- name: noMoreFreeTrialAPIKeyAvailableForOwnedIdentity
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+- name: freeTrialIsStillAvailableForOwnedIdentity
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+- name: appStoreReceiptVerificationSucceededAndSubscriptionIsValid
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: transactionIdentifier, type: String}
+- name: appStoreReceiptVerificationFailed
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: transactionIdentifier, type: String}
+- name: appStoreReceiptVerificationSucceededButSubscriptionIsExpired
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: transactionIdentifier, type: String}
+- name: newObliviousChannelWithContactDevice
+  params:
+      - {name: obvContactDevice, type: ObvContactDevice}
+- name: latestPhotoOfContactGroupOwnedHasBeenUpdated
+  params:
+      - {name: group, type: ObvContactGroup}
+- name: publishedPhotoOfContactGroupOwnedHasBeenUpdated
+  params:
+      - {name: group, type: ObvContactGroup}
+- name: publishedPhotoOfContactGroupJoinedHasBeenUpdated
+  params:
+      - {name: group, type: ObvContactGroup}
+- name: trustedPhotoOfContactGroupJoinedHasBeenUpdated
+  params:
+      - {name: group, type: ObvContactGroup}
+- name: publishedPhotoOfOwnedIdentityHasBeenUpdated
+  params:
+      - {name: ownedIdentity, type: ObvOwnedIdentity}
+- name: publishedPhotoOfContactIdentityHasBeenUpdated
+  params:
+      - {name: contactIdentity, type: ObvContactIdentity}
+- name: trustedPhotoOfContactIdentityHasBeenUpdated
+  params:
+      - {name: contactIdentity, type: ObvContactIdentity}
+- name: wellKnownDownloadedSuccess
+  params:
+      - {name: serverURL, type: URL}
+- name: wellKnownDownloadedFailure
+  params:
+      - {name: serverURL, type: URL}
+- name: wellKnownUpdatedSuccess
+  params:
+      - {name: serverURL, type: URL}
+      - {name: appInfo, type: "[String: AppInfo]"}
+- name: apiKeyStatusQueryFailed
+  params:
+      - {name: serverURL, type: URL}
+      - {name: apiKey, type: UUID}
+- name: updatedContactIdentity
+  params:
+      - {name: obvContactIdentity, type: ObvContactIdentity}
+      - {name: trustedIdentityDetailsWereUpdated, type: Bool}
+      - {name: publishedIdentityDetailsWereUpdated, type: Bool}
+- name: ownedIdentityUnbindingFromKeycloakPerformed
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: result, type: "Result<Void, Error>"}
+- name: updatedSetOfContactsCertifiedByOwnKeycloak
+  params:
+      - {name: ownedIdentity, type: ObvCryptoId}
+      - {name: contactsCertifiedByOwnKeycloak, type: Set<ObvCryptoId>}
+- name: updatedOwnedIdentity
+  params:
+      - {name: obvOwnedIdentity, type: ObvOwnedIdentity}
+- name: mutualScanContactAdded
+  params:
+      - {name: obvContactIdentity, type: ObvContactIdentity}
+      - {name: signature, type: Data}
+- name: messageExtendedPayloadAvailable
+  params:
+      - {name: obvMessage, type: ObvMessage}
+      - {name: extendedMessagePayload, type: Data}
+- name: contactIsActiveChangedWithinEngine
+  params:
+      - {name: obvContactIdentity, type: ObvContactIdentity}
+- name: contactWasRevokedAsCompromisedWithinEngine
+  params:
+      - {name: obvContactIdentity, type: ObvContactIdentity}

@@ -1,0 +1,817 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 48;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C404E7751F6D79EA006A404D /* MAC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C404E7741F6D79EA006A404D /* MAC.swift */; };
+		C404E7771F6D81C5006A404D /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C404E7761F6D81C5006A404D /* Utils.swift */; };
+		C4078DAA1F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4078DA91F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift */; };
+		C4078DAC1F9CD494003FB744 /* AuthenticatedEncryptionKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4078DAB1F9CD494003FB744 /* AuthenticatedEncryptionKey.swift */; };
+		C407A03320421CA0003B072B /* SAS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C407A03220421CA0003B072B /* SAS.swift */; };
+		C413034A1FB5F3240087CC75 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C41303431FB5F31A0087CC75 /* CoreData.framework */; };
+		C416CDBB1F95586300A6418A /* PrivateKeyFromEdwardsCurveScalar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDBA1F95586300A6418A /* PrivateKeyFromEdwardsCurveScalar.swift */; };
+		C416CDC31F9567DB00A6418A /* DHImplementationByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDC21F9567DB00A6418A /* DHImplementationByteId.swift */; };
+		C416CDC51F95680400A6418A /* PublicKeyEncryptionImplementationByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDC41F95680400A6418A /* PublicKeyEncryptionImplementationByteId.swift */; };
+		C416CDC71F95682C00A6418A /* CryptographicKeyForDH.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDC61F95682C00A6418A /* CryptographicKeyForDH.swift */; };
+		C416CDC91F9568D700A6418A /* PublicKeyForDH.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDC81F9568D700A6418A /* PublicKeyForDH.swift */; };
+		C416CDCB1F9569D800A6418A /* PrivateKeyForDH.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDCA1F9569D800A6418A /* PrivateKeyForDH.swift */; };
+		C416CDCD1F956A9C00A6418A /* DH.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDCC1F956A9C00A6418A /* DH.swift */; };
+		C41D5B861F977BA800DB5A5C /* ProofOfWorkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41D5B851F977BA800DB5A5C /* ProofOfWorkEngine.swift */; };
+		C4254EA81F7DAE9B00B99EF6 /* KEM.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4254EA71F7DAE9B00B99EF6 /* KEM.swift */; };
+		C43B2AF41F878A8E00432E6F /* CryptographicKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B2AF31F878A8E00432E6F /* CryptographicKey.swift */; };
+		C43B2AFA1F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B2AF91F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift */; };
+		C44AABE31F7CED6B00091F66 /* ObvCryptoSuite.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AABE21F7CED6B00091F66 /* ObvCryptoSuite.swift */; };
+		C44AABF51F7D509100091F66 /* KDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AABF41F7D509100091F66 /* KDF.swift */; };
+		C458E9231F69900400BFFCCF /* BlockCipher.swift in Sources */ = {isa = PBXBuildFile; fileRef = C458E9221F69900400BFFCCF /* BlockCipher.swift */; };
+		C45B3B482162C8D500A03934 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C45B3B452162C8D100A03934 /* ObvTypes.framework */; };
+		C45B3B512162C8E200A03934 /* ObvEncoder.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C45B3B502162C8DE00A03934 /* ObvEncoder.framework */; };
+		C45B3B5B2162C90B00A03934 /* BigInt.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C45B3B582162C90700A03934 /* BigInt.framework */; };
+		C46B324B1F86259E006BABC7 /* PublicKeyEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B324A1F86259E006BABC7 /* PublicKeyEncryption.swift */; };
+		C46D6285205D940200D0BA43 /* Seed.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46D6284205D940200D0BA43 /* Seed.swift */; };
+		C471A0111FEC7D0E00B5DC70 /* ObvCryptoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C471A0101FEC7D0E00B5DC70 /* ObvCryptoIdentity.swift */; };
+		C47BB50B1F6952C900B6E189 /* ObvCrypto.h in Headers */ = {isa = PBXBuildFile; fileRef = C47BB4FD1F6952C900B6E189 /* ObvCrypto.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C47BB5151F6952EE00B6E189 /* Hash.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47BB5141F6952EE00B6E189 /* Hash.swift */; };
+		C47DCC911F706D98009D6FCE /* PRNGService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47DCC901F706D98009D6FCE /* PRNGService.swift */; };
+		C47FD30E1F71204200FD4E57 /* AuthenticatedEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47FD30D1F71204200FD4E57 /* AuthenticatedEncryption.swift */; };
+		C47FD3141F715E1700FD4E57 /* EdwardsCurve.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47FD3131F715E1700FD4E57 /* EdwardsCurve.swift */; };
+		C48C0E3C1F99F24F00E0FFAB /* ObvOwnedCryptoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48C0E3B1F99F24F00E0FFAB /* ObvOwnedCryptoIdentity.swift */; };
+		C48C0E3F1F99F6E800E0FFAB /* AuthenticationImplementationByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48C0E3E1F99F6E800E0FFAB /* AuthenticationImplementationByteId.swift */; };
+		C48EE1D01F94FF74001F379D /* PublicKeyFromEdwardsCurvePoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EE1CF1F94FF74001F379D /* PublicKeyFromEdwardsCurvePoint.swift */; };
+		C49545A71F6ADED300EC6E62 /* SymmetricEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49545A61F6ADED300EC6E62 /* SymmetricEncryption.swift */; };
+		C49545A91F6AE25300EC6E62 /* EncryptedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49545A81F6AE25300EC6E62 /* EncryptedData.swift */; };
+		C49934401F96603500669232 /* SignatureImplementationByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499343F1F96603500669232 /* SignatureImplementationByteId.swift */; };
+		C49934421F9660F500669232 /* CryptographicKeyForSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49934411F9660F500669232 /* CryptographicKeyForSignature.swift */; };
+		C49934441F96615400669232 /* PublicKeyForSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49934431F96615400669232 /* PublicKeyForSignature.swift */; };
+		C49934461F9661F900669232 /* PrivateKeyForSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49934451F9661F900669232 /* PrivateKeyForSignature.swift */; };
+		C49934481F96626600669232 /* Signature.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49934471F96626600669232 /* Signature.swift */; };
+		C49B2703241169C300066F2A /* BackupSeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49B2702241169C300066F2A /* BackupSeed.swift */; };
+		C49B3DC51F7E30F100EF010A /* SymmetricKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49B3DC41F7E30F100EF010A /* SymmetricKey.swift */; };
+		C49D1E6F1F6FE3AE00ED3FE0 /* PRNG.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49D1E6E1F6FE3AE00ED3FE0 /* PRNG.swift */; };
+		C4CFF08A1FBDA4EE009452C8 /* MACImplementationByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CFF0891FBDA4EE009452C8 /* MACImplementationByteId.swift */; };
+		C4CFF08C1FBDA58F009452C8 /* MACKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CFF08B1FBDA58F009452C8 /* MACKey.swift */; };
+		C4CFF08F1FBDB66E009452C8 /* BlockCipherKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CFF08E1FBDB66E009452C8 /* BlockCipherKey.swift */; };
+		C4CFF0911FBDB71C009452C8 /* BlockCipherImplementationByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CFF0901FBDB71C009452C8 /* BlockCipherImplementationByteId.swift */; };
+		C4CFF0931FBDB8A7009452C8 /* SymmetricEncryptionKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CFF0921FBDB8A7009452C8 /* SymmetricEncryptionKey.swift */; };
+		C4CFF0951FBDB919009452C8 /* SymmetricEncryptionByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CFF0941FBDB919009452C8 /* SymmetricEncryptionByteId.swift */; };
+		C4D0BFEF1F83E731009FBD2C /* PublicKeyForPublicKeyEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D0BFEE1F83E731009FBD2C /* PublicKeyForPublicKeyEncryption.swift */; };
+		C4D0BFF11F83E75B009FBD2C /* PrivateKeyForPublicKeyEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D0BFF01F83E75B009FBD2C /* PrivateKeyForPublicKeyEncryption.swift */; };
+		C4D1E39A1F9792B900167D34 /* ProofOfWorkColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D1E3991F9792B900167D34 /* ProofOfWorkColumn.swift */; };
+		C4D1E3A01F9793CD00167D34 /* ProofOfWorkMatrix.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D1E39F1F9793CD00167D34 /* ProofOfWorkMatrix.swift */; };
+		C4D1FEC31F97486400E21D98 /* Commitment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D1FEC21F97486400E21D98 /* Commitment.swift */; };
+		C4D911EC1F99F76D005F414D /* CryptographicKeyForAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D911EB1F99F76D005F414D /* CryptographicKeyForAuthentication.swift */; };
+		C4D911F21F99F7E8005F414D /* PublicKeyForAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D911F11F99F7E8005F414D /* PublicKeyForAuthentication.swift */; };
+		C4D911F41F99FD0D005F414D /* PrivateKeyForAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D911F31F99FD0D005F414D /* PrivateKeyForAuthentication.swift */; };
+		C4D911F61F9A1A18005F414D /* Authentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D911F51F9A1A18005F414D /* Authentication.swift */; };
+		C4E411AF1F95195000E4D67C /* CryptographicKeyForPublicKeyEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E411AE1F95195000E4D67C /* CryptographicKeyForPublicKeyEncryption.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C45B3B442162C8D100A03934 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C45B3B3F2162C8D100A03934 /* ObvTypes.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4C11F691FA0879800D5E44B;
+			remoteInfo = ObvTypes;
+		};
+		C45B3B462162C8D100A03934 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C45B3B3F2162C8D100A03934 /* ObvTypes.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4C11F721FA0879800D5E44B;
+			remoteInfo = ObvTypesTests;
+		};
+		C45B3B4F2162C8DE00A03934 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C45B3B492162C8DE00A03934 /* ObvEncoder.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4B20C2D1F5F066900DFAADD;
+			remoteInfo = ObvEncoder;
+		};
+		C45B3B572162C90700A03934 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C45B3B522162C90700A03934 /* BigInt.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4A23FDA1F5D7B0B00BF68ED;
+			remoteInfo = BigInt;
+		};
+		C45B3B592162C90700A03934 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C45B3B522162C90700A03934 /* BigInt.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4A23FE31F5D7B0B00BF68ED;
+			remoteInfo = BigIntTests;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C0B4A4C6276E858900816D8D /* .swiftlint.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
+		C404E7741F6D79EA006A404D /* MAC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAC.swift; sourceTree = "<group>"; };
+		C404E7761F6D81C5006A404D /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
+		C4078DA91F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticatedEncryptionByteId.swift; sourceTree = "<group>"; };
+		C4078DAB1F9CD494003FB744 /* AuthenticatedEncryptionKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticatedEncryptionKey.swift; sourceTree = "<group>"; };
+		C407A03220421CA0003B072B /* SAS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SAS.swift; sourceTree = "<group>"; };
+		C41303431FB5F31A0087CC75 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		C416CDBA1F95586300A6418A /* PrivateKeyFromEdwardsCurveScalar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKeyFromEdwardsCurveScalar.swift; sourceTree = "<group>"; };
+		C416CDC21F9567DB00A6418A /* DHImplementationByteId.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DHImplementationByteId.swift; sourceTree = "<group>"; };
+		C416CDC41F95680400A6418A /* PublicKeyEncryptionImplementationByteId.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PublicKeyEncryptionImplementationByteId.swift; sourceTree = "<group>"; };
+		C416CDC61F95682C00A6418A /* CryptographicKeyForDH.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicKeyForDH.swift; sourceTree = "<group>"; };
+		C416CDC81F9568D700A6418A /* PublicKeyForDH.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicKeyForDH.swift; sourceTree = "<group>"; };
+		C416CDCA1F9569D800A6418A /* PrivateKeyForDH.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKeyForDH.swift; sourceTree = "<group>"; };
+		C416CDCC1F956A9C00A6418A /* DH.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DH.swift; sourceTree = "<group>"; };
+		C41D5B851F977BA800DB5A5C /* ProofOfWorkEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfWorkEngine.swift; sourceTree = "<group>"; };
+		C4254EA71F7DAE9B00B99EF6 /* KEM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KEM.swift; sourceTree = "<group>"; };
+		C43B2AF31F878A8E00432E6F /* CryptographicKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicKey.swift; sourceTree = "<group>"; };
+		C43B2AF91F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicAlgorithmClassByteId.swift; sourceTree = "<group>"; };
+		C44AABE21F7CED6B00091F66 /* ObvCryptoSuite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCryptoSuite.swift; sourceTree = "<group>"; };
+		C44AABF41F7D509100091F66 /* KDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KDF.swift; sourceTree = "<group>"; };
+		C458E9221F69900400BFFCCF /* BlockCipher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockCipher.swift; sourceTree = "<group>"; };
+		C45B3B3F2162C8D100A03934 /* ObvTypes.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvTypes.xcodeproj; path = ../ObvTypes/ObvTypes.xcodeproj; sourceTree = "<group>"; };
+		C45B3B492162C8DE00A03934 /* ObvEncoder.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvEncoder.xcodeproj; path = ../ObvEncoder/ObvEncoder.xcodeproj; sourceTree = "<group>"; };
+		C45B3B522162C90700A03934 /* BigInt.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = BigInt.xcodeproj; path = ../BigInt/BigInt/BigInt.xcodeproj; sourceTree = "<group>"; };
+		C46B324A1F86259E006BABC7 /* PublicKeyEncryption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicKeyEncryption.swift; sourceTree = "<group>"; };
+		C46D6284205D940200D0BA43 /* Seed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Seed.swift; sourceTree = "<group>"; };
+		C471A0101FEC7D0E00B5DC70 /* ObvCryptoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCryptoIdentity.swift; sourceTree = "<group>"; };
+		C47BB4FA1F6952C900B6E189 /* ObvCrypto.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvCrypto.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47BB4FD1F6952C900B6E189 /* ObvCrypto.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObvCrypto.h; sourceTree = "<group>"; };
+		C47BB4FE1F6952C900B6E189 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C47BB5141F6952EE00B6E189 /* Hash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hash.swift; sourceTree = "<group>"; };
+		C47DCC901F706D98009D6FCE /* PRNGService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRNGService.swift; sourceTree = "<group>"; };
+		C47FD30D1F71204200FD4E57 /* AuthenticatedEncryption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticatedEncryption.swift; sourceTree = "<group>"; };
+		C47FD3131F715E1700FD4E57 /* EdwardsCurve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdwardsCurve.swift; sourceTree = "<group>"; };
+		C48C0E3B1F99F24F00E0FFAB /* ObvOwnedCryptoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvOwnedCryptoIdentity.swift; sourceTree = "<group>"; };
+		C48C0E3E1F99F6E800E0FFAB /* AuthenticationImplementationByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationImplementationByteId.swift; sourceTree = "<group>"; };
+		C48EE1CF1F94FF74001F379D /* PublicKeyFromEdwardsCurvePoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicKeyFromEdwardsCurvePoint.swift; sourceTree = "<group>"; };
+		C49545A61F6ADED300EC6E62 /* SymmetricEncryption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymmetricEncryption.swift; sourceTree = "<group>"; };
+		C49545A81F6AE25300EC6E62 /* EncryptedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedData.swift; sourceTree = "<group>"; };
+		C499343F1F96603500669232 /* SignatureImplementationByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignatureImplementationByteId.swift; sourceTree = "<group>"; };
+		C49934411F9660F500669232 /* CryptographicKeyForSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicKeyForSignature.swift; sourceTree = "<group>"; };
+		C49934431F96615400669232 /* PublicKeyForSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicKeyForSignature.swift; sourceTree = "<group>"; };
+		C49934451F9661F900669232 /* PrivateKeyForSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKeyForSignature.swift; sourceTree = "<group>"; };
+		C49934471F96626600669232 /* Signature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signature.swift; sourceTree = "<group>"; };
+		C49B2702241169C300066F2A /* BackupSeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupSeed.swift; sourceTree = "<group>"; };
+		C49B3DC41F7E30F100EF010A /* SymmetricKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymmetricKey.swift; sourceTree = "<group>"; };
+		C49D1E6E1F6FE3AE00ED3FE0 /* PRNG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRNG.swift; sourceTree = "<group>"; };
+		C4CFF0891FBDA4EE009452C8 /* MACImplementationByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MACImplementationByteId.swift; sourceTree = "<group>"; };
+		C4CFF08B1FBDA58F009452C8 /* MACKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MACKey.swift; sourceTree = "<group>"; };
+		C4CFF08E1FBDB66E009452C8 /* BlockCipherKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockCipherKey.swift; sourceTree = "<group>"; };
+		C4CFF0901FBDB71C009452C8 /* BlockCipherImplementationByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockCipherImplementationByteId.swift; sourceTree = "<group>"; };
+		C4CFF0921FBDB8A7009452C8 /* SymmetricEncryptionKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymmetricEncryptionKey.swift; sourceTree = "<group>"; };
+		C4CFF0941FBDB919009452C8 /* SymmetricEncryptionByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymmetricEncryptionByteId.swift; sourceTree = "<group>"; };
+		C4D0BFEE1F83E731009FBD2C /* PublicKeyForPublicKeyEncryption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicKeyForPublicKeyEncryption.swift; sourceTree = "<group>"; };
+		C4D0BFF01F83E75B009FBD2C /* PrivateKeyForPublicKeyEncryption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKeyForPublicKeyEncryption.swift; sourceTree = "<group>"; };
+		C4D1E3991F9792B900167D34 /* ProofOfWorkColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfWorkColumn.swift; sourceTree = "<group>"; };
+		C4D1E39F1F9793CD00167D34 /* ProofOfWorkMatrix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfWorkMatrix.swift; sourceTree = "<group>"; };
+		C4D1FEC21F97486400E21D98 /* Commitment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Commitment.swift; sourceTree = "<group>"; };
+		C4D911EB1F99F76D005F414D /* CryptographicKeyForAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicKeyForAuthentication.swift; sourceTree = "<group>"; };
+		C4D911F11F99F7E8005F414D /* PublicKeyForAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicKeyForAuthentication.swift; sourceTree = "<group>"; };
+		C4D911F31F99FD0D005F414D /* PrivateKeyForAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKeyForAuthentication.swift; sourceTree = "<group>"; };
+		C4D911F51F9A1A18005F414D /* Authentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Authentication.swift; sourceTree = "<group>"; };
+		C4E411AE1F95195000E4D67C /* CryptographicKeyForPublicKeyEncryption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicKeyForPublicKeyEncryption.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C47BB4F61F6952C900B6E189 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C45B3B5B2162C90B00A03934 /* BigInt.framework in Frameworks */,
+				C45B3B512162C8E200A03934 /* ObvEncoder.framework in Frameworks */,
+				C45B3B482162C8D500A03934 /* ObvTypes.framework in Frameworks */,
+				C413034A1FB5F3240087CC75 /* CoreData.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C4078DA41F9CD441003FB744 /* Authenticated Encryption */ = {
+			isa = PBXGroup;
+			children = (
+				C4078DA91F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift */,
+				C4078DAB1F9CD494003FB744 /* AuthenticatedEncryptionKey.swift */,
+				C47FD30D1F71204200FD4E57 /* AuthenticatedEncryption.swift */,
+			);
+			path = "Authenticated Encryption";
+			sourceTree = "<group>";
+		};
+		C4078DAD1F9CD5DE003FB744 /* SymmetricEncryption */ = {
+			isa = PBXGroup;
+			children = (
+				C4CFF0941FBDB919009452C8 /* SymmetricEncryptionByteId.swift */,
+				C4CFF0921FBDB8A7009452C8 /* SymmetricEncryptionKey.swift */,
+				C49545A61F6ADED300EC6E62 /* SymmetricEncryption.swift */,
+			);
+			path = SymmetricEncryption;
+			sourceTree = "<group>";
+		};
+		C41D5B801F977B8500DB5A5C /* ProofOfWork */ = {
+			isa = PBXGroup;
+			children = (
+				C41D5B851F977BA800DB5A5C /* ProofOfWorkEngine.swift */,
+				C4D1E3991F9792B900167D34 /* ProofOfWorkColumn.swift */,
+				C4D1E39F1F9793CD00167D34 /* ProofOfWorkMatrix.swift */,
+			);
+			path = ProofOfWork;
+			sourceTree = "<group>";
+		};
+		C44AABE81F7D302000091F66 /* SymmetricPrimitives */ = {
+			isa = PBXGroup;
+			children = (
+				C49B3DC41F7E30F100EF010A /* SymmetricKey.swift */,
+				C47BB5141F6952EE00B6E189 /* Hash.swift */,
+				C44AABF41F7D509100091F66 /* KDF.swift */,
+				C4CFF08D1FBDB614009452C8 /* BlockCipher */,
+				C4CFF0821FBDA4CD009452C8 /* MAC */,
+				C4078DAD1F9CD5DE003FB744 /* SymmetricEncryption */,
+				C4078DA41F9CD441003FB744 /* Authenticated Encryption */,
+				C4D1FEC21F97486400E21D98 /* Commitment.swift */,
+			);
+			path = SymmetricPrimitives;
+			sourceTree = "<group>";
+		};
+		C44AABF01F7D4BB100091F66 /* PRNG */ = {
+			isa = PBXGroup;
+			children = (
+				C49D1E6E1F6FE3AE00ED3FE0 /* PRNG.swift */,
+				C47DCC901F706D98009D6FCE /* PRNGService.swift */,
+				C46D6284205D940200D0BA43 /* Seed.swift */,
+				C49B2702241169C300066F2A /* BackupSeed.swift */,
+			);
+			path = PRNG;
+			sourceTree = "<group>";
+		};
+		C44AABF31F7D4BE200091F66 /* SupportingFiles */ = {
+			isa = PBXGroup;
+			children = (
+				C47BB4FD1F6952C900B6E189 /* ObvCrypto.h */,
+				C47BB4FE1F6952C900B6E189 /* Info.plist */,
+			);
+			path = SupportingFiles;
+			sourceTree = "<group>";
+		};
+		C45B3B402162C8D100A03934 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C45B3B452162C8D100A03934 /* ObvTypes.framework */,
+				C45B3B472162C8D100A03934 /* ObvTypesTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C45B3B4A2162C8DE00A03934 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C45B3B502162C8DE00A03934 /* ObvEncoder.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C45B3B532162C90700A03934 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C45B3B582162C90700A03934 /* BigInt.framework */,
+				C45B3B5A2162C90700A03934 /* BigIntTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C47BB4F01F6952C900B6E189 = {
+			isa = PBXGroup;
+			children = (
+				C0B4A4C6276E858900816D8D /* .swiftlint.yml */,
+				C47BB4FC1F6952C900B6E189 /* ObvCrypto */,
+				C47BB4FB1F6952C900B6E189 /* Products */,
+				C49D1E7C1F700A7300ED3FE0 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		C47BB4FB1F6952C900B6E189 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C47BB4FA1F6952C900B6E189 /* ObvCrypto.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C47BB4FC1F6952C900B6E189 /* ObvCrypto */ = {
+			isa = PBXGroup;
+			children = (
+				C43B2AF91F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift */,
+				C43B2AF31F878A8E00432E6F /* CryptographicKey.swift */,
+				C44AABE21F7CED6B00091F66 /* ObvCryptoSuite.swift */,
+				C471A0101FEC7D0E00B5DC70 /* ObvCryptoIdentity.swift */,
+				C48C0E3B1F99F24F00E0FFAB /* ObvOwnedCryptoIdentity.swift */,
+				C49545A81F6AE25300EC6E62 /* EncryptedData.swift */,
+				C407A03220421CA0003B072B /* SAS.swift */,
+				C404E7761F6D81C5006A404D /* Utils.swift */,
+				C44AABE81F7D302000091F66 /* SymmetricPrimitives */,
+				C44AABF01F7D4BB100091F66 /* PRNG */,
+				C49B3DCA1F7E313B00EF010A /* PublicKeyPrimitives */,
+				C44AABF31F7D4BE200091F66 /* SupportingFiles */,
+				C41D5B801F977B8500DB5A5C /* ProofOfWork */,
+			);
+			path = ObvCrypto;
+			sourceTree = "<group>";
+		};
+		C48C0E3D1F99F66100E0FFAB /* ServerAuthentication */ = {
+			isa = PBXGroup;
+			children = (
+				C48C0E3E1F99F6E800E0FFAB /* AuthenticationImplementationByteId.swift */,
+				C4D911EB1F99F76D005F414D /* CryptographicKeyForAuthentication.swift */,
+				C4D911F11F99F7E8005F414D /* PublicKeyForAuthentication.swift */,
+				C4D911F31F99FD0D005F414D /* PrivateKeyForAuthentication.swift */,
+				C4D911F51F9A1A18005F414D /* Authentication.swift */,
+			);
+			path = ServerAuthentication;
+			sourceTree = "<group>";
+		};
+		C48EE1D11F950CD8001F379D /* PublicKeyEncryption */ = {
+			isa = PBXGroup;
+			children = (
+				C416CDC41F95680400A6418A /* PublicKeyEncryptionImplementationByteId.swift */,
+				C4E411AE1F95195000E4D67C /* CryptographicKeyForPublicKeyEncryption.swift */,
+				C4D0BFEE1F83E731009FBD2C /* PublicKeyForPublicKeyEncryption.swift */,
+				C4D0BFF01F83E75B009FBD2C /* PrivateKeyForPublicKeyEncryption.swift */,
+				C4254EA71F7DAE9B00B99EF6 /* KEM.swift */,
+				C46B324A1F86259E006BABC7 /* PublicKeyEncryption.swift */,
+			);
+			path = PublicKeyEncryption;
+			sourceTree = "<group>";
+		};
+		C48EE1D21F950D70001F379D /* DH */ = {
+			isa = PBXGroup;
+			children = (
+				C416CDC21F9567DB00A6418A /* DHImplementationByteId.swift */,
+				C416CDC61F95682C00A6418A /* CryptographicKeyForDH.swift */,
+				C416CDC81F9568D700A6418A /* PublicKeyForDH.swift */,
+				C416CDCA1F9569D800A6418A /* PrivateKeyForDH.swift */,
+				C416CDCC1F956A9C00A6418A /* DH.swift */,
+			);
+			path = DH;
+			sourceTree = "<group>";
+		};
+		C499343E1F96600400669232 /* Signature */ = {
+			isa = PBXGroup;
+			children = (
+				C499343F1F96603500669232 /* SignatureImplementationByteId.swift */,
+				C49934411F9660F500669232 /* CryptographicKeyForSignature.swift */,
+				C49934431F96615400669232 /* PublicKeyForSignature.swift */,
+				C49934451F9661F900669232 /* PrivateKeyForSignature.swift */,
+				C49934471F96626600669232 /* Signature.swift */,
+			);
+			path = Signature;
+			sourceTree = "<group>";
+		};
+		C49B3DCA1F7E313B00EF010A /* PublicKeyPrimitives */ = {
+			isa = PBXGroup;
+			children = (
+				C47FD3131F715E1700FD4E57 /* EdwardsCurve.swift */,
+				C48EE1CF1F94FF74001F379D /* PublicKeyFromEdwardsCurvePoint.swift */,
+				C416CDBA1F95586300A6418A /* PrivateKeyFromEdwardsCurveScalar.swift */,
+				C48EE1D21F950D70001F379D /* DH */,
+				C48EE1D11F950CD8001F379D /* PublicKeyEncryption */,
+				C499343E1F96600400669232 /* Signature */,
+				C48C0E3D1F99F66100E0FFAB /* ServerAuthentication */,
+			);
+			path = PublicKeyPrimitives;
+			sourceTree = "<group>";
+		};
+		C49D1E7C1F700A7300ED3FE0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C45B3B522162C90700A03934 /* BigInt.xcodeproj */,
+				C45B3B492162C8DE00A03934 /* ObvEncoder.xcodeproj */,
+				C45B3B3F2162C8D100A03934 /* ObvTypes.xcodeproj */,
+				C41303431FB5F31A0087CC75 /* CoreData.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C4CFF0821FBDA4CD009452C8 /* MAC */ = {
+			isa = PBXGroup;
+			children = (
+				C4CFF0891FBDA4EE009452C8 /* MACImplementationByteId.swift */,
+				C4CFF08B1FBDA58F009452C8 /* MACKey.swift */,
+				C404E7741F6D79EA006A404D /* MAC.swift */,
+			);
+			path = MAC;
+			sourceTree = "<group>";
+		};
+		C4CFF08D1FBDB614009452C8 /* BlockCipher */ = {
+			isa = PBXGroup;
+			children = (
+				C4CFF0901FBDB71C009452C8 /* BlockCipherImplementationByteId.swift */,
+				C4CFF08E1FBDB66E009452C8 /* BlockCipherKey.swift */,
+				C458E9221F69900400BFFCCF /* BlockCipher.swift */,
+			);
+			path = BlockCipher;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		C47BB4F71F6952C900B6E189 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C47BB50B1F6952C900B6E189 /* ObvCrypto.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		C47BB4F91F6952C900B6E189 /* ObvCrypto */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C47BB50E1F6952C900B6E189 /* Build configuration list for PBXNativeTarget "ObvCrypto" */;
+			buildPhases = (
+				C47BB4F51F6952C900B6E189 /* Sources */,
+				C47BB4F61F6952C900B6E189 /* Frameworks */,
+				C47BB4F71F6952C900B6E189 /* Headers */,
+				C0B4A4CD276E859400816D8D /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ObvCrypto;
+			packageProductDependencies = (
+			);
+			productName = ObvCrypto;
+			productReference = C47BB4FA1F6952C900B6E189 /* ObvCrypto.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C47BB4F11F6952C900B6E189 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 0900;
+				LastUpgradeCheck = 1320;
+				ORGANIZATIONNAME = Olvid;
+				TargetAttributes = {
+					C47BB4F91F6952C900B6E189 = {
+						CreatedOnToolsVersion = 9.0;
+						LastSwiftMigration = 1020;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = C47BB4F41F6952C900B6E189 /* Build configuration list for PBXProject "ObvCrypto" */;
+			compatibilityVersion = "Xcode 8.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C47BB4F01F6952C900B6E189;
+			packageReferences = (
+			);
+			productRefGroup = C47BB4FB1F6952C900B6E189 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = C45B3B532162C90700A03934 /* Products */;
+					ProjectRef = C45B3B522162C90700A03934 /* BigInt.xcodeproj */;
+				},
+				{
+					ProductGroup = C45B3B4A2162C8DE00A03934 /* Products */;
+					ProjectRef = C45B3B492162C8DE00A03934 /* ObvEncoder.xcodeproj */;
+				},
+				{
+					ProductGroup = C45B3B402162C8D100A03934 /* Products */;
+					ProjectRef = C45B3B3F2162C8D100A03934 /* ObvTypes.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				C47BB4F91F6952C900B6E189 /* ObvCrypto */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		C45B3B452162C8D100A03934 /* ObvTypes.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = ObvTypes.framework;
+			remoteRef = C45B3B442162C8D100A03934 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C45B3B472162C8D100A03934 /* ObvTypesTests.xctest */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.cfbundle;
+			path = ObvTypesTests.xctest;
+			remoteRef = C45B3B462162C8D100A03934 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C45B3B502162C8DE00A03934 /* ObvEncoder.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = ObvEncoder.framework;
+			remoteRef = C45B3B4F2162C8DE00A03934 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C45B3B582162C90700A03934 /* BigInt.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = BigInt.framework;
+			remoteRef = C45B3B572162C90700A03934 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C45B3B5A2162C90700A03934 /* BigIntTests.xctest */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.cfbundle;
+			path = BigIntTests.xctest;
+			remoteRef = C45B3B592162C90700A03934 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C0B4A4CD276E859400816D8D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PATH=${PATH}:~/.mint/bin/\nif which swiftlint >/dev/null; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C47BB4F51F6952C900B6E189 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C416CDC91F9568D700A6418A /* PublicKeyForDH.swift in Sources */,
+				C49934421F9660F500669232 /* CryptographicKeyForSignature.swift in Sources */,
+				C48EE1D01F94FF74001F379D /* PublicKeyFromEdwardsCurvePoint.swift in Sources */,
+				C4CFF0951FBDB919009452C8 /* SymmetricEncryptionByteId.swift in Sources */,
+				C4E411AF1F95195000E4D67C /* CryptographicKeyForPublicKeyEncryption.swift in Sources */,
+				C4CFF08F1FBDB66E009452C8 /* BlockCipherKey.swift in Sources */,
+				C47FD3141F715E1700FD4E57 /* EdwardsCurve.swift in Sources */,
+				C4D911F21F99F7E8005F414D /* PublicKeyForAuthentication.swift in Sources */,
+				C44AABF51F7D509100091F66 /* KDF.swift in Sources */,
+				C458E9231F69900400BFFCCF /* BlockCipher.swift in Sources */,
+				C47DCC911F706D98009D6FCE /* PRNGService.swift in Sources */,
+				C47FD30E1F71204200FD4E57 /* AuthenticatedEncryption.swift in Sources */,
+				C4D911F41F99FD0D005F414D /* PrivateKeyForAuthentication.swift in Sources */,
+				C416CDBB1F95586300A6418A /* PrivateKeyFromEdwardsCurveScalar.swift in Sources */,
+				C48C0E3F1F99F6E800E0FFAB /* AuthenticationImplementationByteId.swift in Sources */,
+				C49934441F96615400669232 /* PublicKeyForSignature.swift in Sources */,
+				C471A0111FEC7D0E00B5DC70 /* ObvCryptoIdentity.swift in Sources */,
+				C4CFF0911FBDB71C009452C8 /* BlockCipherImplementationByteId.swift in Sources */,
+				C43B2AF41F878A8E00432E6F /* CryptographicKey.swift in Sources */,
+				C416CDCB1F9569D800A6418A /* PrivateKeyForDH.swift in Sources */,
+				C416CDCD1F956A9C00A6418A /* DH.swift in Sources */,
+				C404E7751F6D79EA006A404D /* MAC.swift in Sources */,
+				C4D0BFEF1F83E731009FBD2C /* PublicKeyForPublicKeyEncryption.swift in Sources */,
+				C4078DAA1F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift in Sources */,
+				C4254EA81F7DAE9B00B99EF6 /* KEM.swift in Sources */,
+				C4D911EC1F99F76D005F414D /* CryptographicKeyForAuthentication.swift in Sources */,
+				C416CDC51F95680400A6418A /* PublicKeyEncryptionImplementationByteId.swift in Sources */,
+				C49B3DC51F7E30F100EF010A /* SymmetricKey.swift in Sources */,
+				C407A03320421CA0003B072B /* SAS.swift in Sources */,
+				C49D1E6F1F6FE3AE00ED3FE0 /* PRNG.swift in Sources */,
+				C43B2AFA1F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift in Sources */,
+				C48C0E3C1F99F24F00E0FFAB /* ObvOwnedCryptoIdentity.swift in Sources */,
+				C46D6285205D940200D0BA43 /* Seed.swift in Sources */,
+				C4D911F61F9A1A18005F414D /* Authentication.swift in Sources */,
+				C49545A71F6ADED300EC6E62 /* SymmetricEncryption.swift in Sources */,
+				C4078DAC1F9CD494003FB744 /* AuthenticatedEncryptionKey.swift in Sources */,
+				C47BB5151F6952EE00B6E189 /* Hash.swift in Sources */,
+				C4D1FEC31F97486400E21D98 /* Commitment.swift in Sources */,
+				C44AABE31F7CED6B00091F66 /* ObvCryptoSuite.swift in Sources */,
+				C49934461F9661F900669232 /* PrivateKeyForSignature.swift in Sources */,
+				C49934481F96626600669232 /* Signature.swift in Sources */,
+				C4CFF0931FBDB8A7009452C8 /* SymmetricEncryptionKey.swift in Sources */,
+				C41D5B861F977BA800DB5A5C /* ProofOfWorkEngine.swift in Sources */,
+				C4CFF08C1FBDA58F009452C8 /* MACKey.swift in Sources */,
+				C49545A91F6AE25300EC6E62 /* EncryptedData.swift in Sources */,
+				C416CDC31F9567DB00A6418A /* DHImplementationByteId.swift in Sources */,
+				C4D1E3A01F9793CD00167D34 /* ProofOfWorkMatrix.swift in Sources */,
+				C4CFF08A1FBDA4EE009452C8 /* MACImplementationByteId.swift in Sources */,
+				C49934401F96603500669232 /* SignatureImplementationByteId.swift in Sources */,
+				C46B324B1F86259E006BABC7 /* PublicKeyEncryption.swift in Sources */,
+				C49B2703241169C300066F2A /* BackupSeed.swift in Sources */,
+				C416CDC71F95682C00A6418A /* CryptographicKeyForDH.swift in Sources */,
+				C404E7771F6D81C5006A404D /* Utils.swift in Sources */,
+				C4D1E39A1F9792B900167D34 /* ProofOfWorkColumn.swift in Sources */,
+				C4D0BFF11F83E75B009FBD2C /* PrivateKeyForPublicKeyEncryption.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C47BB50C1F6952C900B6E189 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Dependencies/CommonCrypto";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		C47BB50D1F6952C900B6E189 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Dependencies/CommonCrypto";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		C47BB50F1F6952C900B6E189 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 4879F8N45X;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "$(SRCROOT)/ObvCrypto/SupportingFiles/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvCrypto;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C47BB5101F6952C900B6E189 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 4879F8N45X;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "$(SRCROOT)/ObvCrypto/SupportingFiles/Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvCrypto;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C47BB4F41F6952C900B6E189 /* Build configuration list for PBXProject "ObvCrypto" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47BB50C1F6952C900B6E189 /* Debug */,
+				C47BB50D1F6952C900B6E189 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C47BB50E1F6952C900B6E189 /* Build configuration list for PBXNativeTarget "ObvCrypto" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47BB50F1F6952C900B6E189 /* Debug */,
+				C47BB5101F6952C900B6E189 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C47BB4F11F6952C900B6E189 /* Project object */;
+}

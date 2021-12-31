@@ -1,0 +1,98 @@
+import:
+  - Foundation
+  - ObvTypes
+  - ObvCrypto
+  - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: notificationDelegate}
+  - {key: notificationCenterType, value: ObvNotificationDelegate}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+notifications:
+- name: contactIdentityIsNowTrusted
+  params:
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: newOwnedIdentityWithinIdentityManager
+  params:
+  - {name: cryptoIdentity, type: ObvCryptoIdentity}
+- name: ownedIdentityWasDeactivated
+  params:
+  - {name: ownedCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: ownedIdentityWasReactivated
+  params:
+  - {name: ownedCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: deletedContactDevice
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: contactDeviceUid, type: UID}
+  - {name: flowId, type: FlowIdentifier}
+- name: newContactDevice
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name:  contactIdentity, type: ObvCryptoIdentity}
+  - {name:  contactDeviceUid, type: UID}
+  - {name:  flowId, type: FlowIdentifier}
+- name: serverLabelHasBeenDeleted
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: label, type: String}
+- name: contactWasDeleted
+  params:
+  - {name: ownedCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: contactCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: contactTrustedIdentityDetails, type: ObvIdentityDetails}
+- name: latestPhotoOfContactGroupOwnedHasBeenUpdated
+  params:
+  - {name: groupUid, type: UID}
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+- name: publishedPhotoOfContactGroupOwnedHasBeenUpdated
+  params:
+  - {name: groupUid, type: UID}
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+- name: publishedPhotoOfContactGroupJoinedHasBeenUpdated
+  params:
+  - {name: groupUid, type: UID}
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: groupOwner, type: ObvCryptoIdentity}
+- name: trustedPhotoOfContactGroupJoinedHasBeenUpdated
+  params:
+  - {name: groupUid, type: UID}
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: groupOwner, type: ObvCryptoIdentity}
+- name: publishedPhotoOfOwnedIdentityHasBeenUpdated
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+- name: publishedPhotoOfContactIdentityHasBeenUpdated
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+- name: trustedPhotoOfContactIdentityHasBeenUpdated
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+- name: ownedIdentityKeycloakServerChanged
+  params:
+  - {name: ownedCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: contactWasUpdatedWithinTheIdentityManager
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: contactIsActiveChanged
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: isActive, type: Bool}
+  - {name: flowId, type: FlowIdentifier}
+- name: contactWasRevokedAsCompromised
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}

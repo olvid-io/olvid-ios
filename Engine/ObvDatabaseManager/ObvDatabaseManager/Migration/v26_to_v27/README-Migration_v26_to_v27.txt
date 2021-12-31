@@ -1,0 +1,1 @@
+Very simple migration, where we only change the name of the serverTimestamp property of InboxMessage to messageUploadTimestampFromServer, and we add a new property called downloadTimestampFromServer. We use the old $source.serverTimestamp for both during migration
