@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,7 +34,6 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 enum ObvMessengerInternalNotification {
-	case messageIsNotNewAnymore(persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>)
 	case messagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
 	case persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: NSManagedObjectID, insertedContacts: Set<PersistedObvContactIdentity>, removedContacts: Set<PersistedObvContactIdentity>)
 	case persistedDiscussionHasNewTitle(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, title: String)
@@ -180,7 +179,6 @@ enum ObvMessengerInternalNotification {
 	case requestSyncAppDatabasesWithEngine(completion: (Result<Void,Error>) -> Void)
 
 	private enum Name {
-		case messageIsNotNewAnymore
 		case messagesAreNotNewAnymore
 		case persistedContactGroupHasUpdatedContactIdentities
 		case persistedDiscussionHasNewTitle
@@ -336,7 +334,6 @@ enum ObvMessengerInternalNotification {
 
 		static func forInternalNotification(_ notification: ObvMessengerInternalNotification) -> NSNotification.Name {
 			switch notification {
-			case .messageIsNotNewAnymore: return Name.messageIsNotNewAnymore.name
 			case .messagesAreNotNewAnymore: return Name.messagesAreNotNewAnymore.name
 			case .persistedContactGroupHasUpdatedContactIdentities: return Name.persistedContactGroupHasUpdatedContactIdentities.name
 			case .persistedDiscussionHasNewTitle: return Name.persistedDiscussionHasNewTitle.name
@@ -486,10 +483,6 @@ enum ObvMessengerInternalNotification {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .messageIsNotNewAnymore(persistedMessageObjectID: let persistedMessageObjectID):
-			info = [
-				"persistedMessageObjectID": persistedMessageObjectID,
-			]
 		case .messagesAreNotNewAnymore(persistedMessageObjectIDs: let persistedMessageObjectIDs):
 			info = [
 				"persistedMessageObjectIDs": persistedMessageObjectIDs,
@@ -1133,14 +1126,6 @@ enum ObvMessengerInternalNotification {
 		let userInfo = self.userInfo
 		DispatchQueue(label: label).async {
 			NotificationCenter.default.post(name: name, object: anObject, userInfo: userInfo)
-		}
-	}
-
-	static func observeMessageIsNotNewAnymore(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedMessage>) -> Void) -> NSObjectProtocol {
-		let name = Name.messageIsNotNewAnymore.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageObjectID = notification.userInfo!["persistedMessageObjectID"] as! TypeSafeManagedObjectID<PersistedMessage>
-			block(persistedMessageObjectID)
 		}
 	}
 

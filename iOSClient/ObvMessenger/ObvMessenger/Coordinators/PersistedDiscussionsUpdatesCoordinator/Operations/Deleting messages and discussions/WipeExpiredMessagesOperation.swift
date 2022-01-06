@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -73,7 +73,7 @@ final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonF
                                 join.wipe()
                             }
                             do {
-                                if !message.isLocallyWiped && !message.isRemoteWiped {
+                                if !message.isWiped {
                                     try message.wipe()
                                     wipedMessageInfos.append((message.discussion.typedObjectID.uriRepresentation(), message.typedObjectID.downcast.uriRepresentation()))
                                     objectIDsOfMessagesToRefresh.insert(message.objectID)

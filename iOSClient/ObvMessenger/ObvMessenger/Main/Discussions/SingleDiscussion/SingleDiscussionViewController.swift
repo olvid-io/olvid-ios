@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -111,13 +111,13 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
 
     private func markAsNotNewTheReceivedMessage(_ messageReceived: PersistedMessageReceived) {
         guard messageReceived.status == .new else { return }
-        ObvMessengerInternalNotification.messageIsNotNewAnymore(persistedMessageObjectID: messageReceived.typedObjectID.downcast)
+        ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageReceived.typedObjectID.downcast])
             .postOnDispatchQueue()
     }
 
     private func markAsNotNewTheSystemMessage(_ messageSystem: PersistedMessageSystem) {
         guard messageSystem.status != .read else { return }
-        ObvMessengerInternalNotification.messageIsNotNewAnymore(persistedMessageObjectID: messageSystem.typedObjectID.downcast)
+        ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageSystem.typedObjectID.downcast])
             .postOnDispatchQueue()
     }
 

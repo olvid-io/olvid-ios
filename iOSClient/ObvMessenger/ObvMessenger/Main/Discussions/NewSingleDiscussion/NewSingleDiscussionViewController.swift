@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -1053,7 +1053,7 @@ extension NewSingleDiscussionViewController {
         // If we are currently scrolling, we do *not* notify that a message has been read.
         // This would introduce animation glitches. Instead, we postpone the notification
         if currentScrolling == .none {
-            ObvMessengerInternalNotification.messageIsNotNewAnymore(persistedMessageObjectID: messageObjectId)
+            ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageObjectId])
                 .postOnDispatchQueue()
         } else {
             messagesToMarkAsNotNewWhenScrollingEnds.insert(messageObjectId)

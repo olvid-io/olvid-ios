@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.16 (479)] - 2022-01-04
+
+- Fix an important issue for our iOS12 users, preventing Olvid to launch.
+- Should fix an issue sometimes preventing some messages to be marked as read.
+
 ## [0.9.15 (477)] - 2021-12-27
 
 - It is possible to add a reaction to a message. Double tap a message to try this feature.

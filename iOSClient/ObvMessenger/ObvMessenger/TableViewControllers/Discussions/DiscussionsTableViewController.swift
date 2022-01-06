@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -394,7 +394,7 @@ extension DiscussionsTableViewController {
                 } else {
                     // Message with ephemerality, we should be careful
                     if let sentMessage = message as? PersistedMessageSent {
-                        assert(!sentMessage.isLocallyWiped && !sentMessage.isRemoteWiped)
+                        assert(!sentMessage.isWiped)
                         cell.subtitle = sentMessage.textBody ?? ""
                         // If the subtitle is empty, there might be attachments
                         if let fyleMessageJoinWithStatus = sentMessage.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {
@@ -409,7 +409,7 @@ extension DiscussionsTableViewController {
                                 cell.subtitle = Strings.unreadEphemeralMessage
                                 cell.makeSubtitleItalic()
                             case .read:
-                                assert(!message.isLocallyWiped && !message.isRemoteWiped)
+                                assert(!message.isWiped)
                                 cell.subtitle = message.textBody ?? ""
                                 // If the subtitle is empty, there might be attachments
                                 if let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {
@@ -419,7 +419,7 @@ extension DiscussionsTableViewController {
                             }
                         } else {
                             // Ephemeral received message with limited existence only
-                            assert(!message.isLocallyWiped && !message.isRemoteWiped)
+                            assert(!message.isWiped)
                             cell.subtitle = message.textBody ?? ""
                             // If the subtitle is empty, there might be attachments
                             if let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {

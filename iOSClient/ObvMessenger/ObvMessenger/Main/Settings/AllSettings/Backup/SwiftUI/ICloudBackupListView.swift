@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -357,14 +357,7 @@ struct ICloudBackupListView: View {
                                             .foregroundColor(.gray)
                                             .frame(width: proxy.size.width, alignment: .center))
                         }
-                        if #available(iOS 15.0, *) {
-                            recordsList
-                                .refreshable {
-                                    model.update()
-                                }
-                        } else {
-                            recordsList
-                        }
+                        recordsList
                     }
                     if model.isFetching {
                         VStack {

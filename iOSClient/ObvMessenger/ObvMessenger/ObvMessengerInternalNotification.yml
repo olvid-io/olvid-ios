@@ -5,9 +5,6 @@ import:
   - ObvEngine
   - OlvidUtils
 notifications:
-- name: messageIsNotNewAnymore
-  params:
-  - {name: persistedMessageObjectID, type: TypeSafeManagedObjectID<PersistedMessage>}
 - name: messagesAreNotNewAnymore
   params:
   - {name: persistedMessageObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedMessage>>}

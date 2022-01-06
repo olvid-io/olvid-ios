@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -174,7 +174,7 @@ extension MessageSentCollectionViewCell {
         guard let message = self.message as? PersistedMessageSent else { assertionFailure(); return }
         assert(message.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         guard message.isEphemeralMessage else { return }
-        guard !message.isLocallyWiped && !message.isRemoteWiped else {
+        guard !message.isWiped else {
             removeCountdownStack()
             return
         }

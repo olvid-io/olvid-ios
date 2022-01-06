@@ -558,7 +558,6 @@
 		C46BC4AE256C381F00075A09 /* PersistedDiscussionSharedConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46BC4AD256C381F00075A09 /* PersistedDiscussionSharedConfiguration.swift */; };
 		C46BC4B1256C6A8800075A09 /* PersistedDiscussionSharedConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46BC4AD256C381F00075A09 /* PersistedDiscussionSharedConfiguration.swift */; };
 		C46BC4B4256C6A8800075A09 /* PersistedDiscussionSharedConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46BC4AD256C381F00075A09 /* PersistedDiscussionSharedConfiguration.swift */; };
-		C46BC4B8256CFAD100075A09 /* ProcessPersistedMessageAsItTurnsNotNewOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46BC4B7256CFAD100075A09 /* ProcessPersistedMessageAsItTurnsNotNewOperation.swift */; };
 		C46D153E2601004200B97535 /* ObvSystemIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46D153D2601004200B97535 /* ObvSystemIcon.swift */; };
 		C46D1542260100D900B97535 /* ObvSystemIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46D153D2601004200B97535 /* ObvSystemIcon.swift */; };
 		C46EEB3725F6E19000F7FC8B /* ContactGroupsHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46EEB3625F6E19000F7FC8B /* ContactGroupsHostingViewController.swift */; };
@@ -1619,7 +1618,6 @@
 		C46A987926910F22003ABC43 /* RemoveReplyToOnDraftOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoveReplyToOnDraftOperation.swift; sourceTree = "<group>"; };
 		C46AE02A237ED50F0002155B /* LocalAuthenticationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAuthenticationViewController.swift; sourceTree = "<group>"; };
 		C46BC4AD256C381F00075A09 /* PersistedDiscussionSharedConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedDiscussionSharedConfiguration.swift; sourceTree = "<group>"; };
-		C46BC4B7256CFAD100075A09 /* ProcessPersistedMessageAsItTurnsNotNewOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessPersistedMessageAsItTurnsNotNewOperation.swift; sourceTree = "<group>"; };
 		C46D153D2601004200B97535 /* ObvSystemIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvSystemIcon.swift; sourceTree = "<group>"; };
 		C46EEB3625F6E19000F7FC8B /* ContactGroupsHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupsHostingViewController.swift; sourceTree = "<group>"; };
 		C46EEB3A25F6E1F300F7FC8B /* ContactGroupsHostingViewControllerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupsHostingViewControllerDelegate.swift; sourceTree = "<group>"; };
@@ -4086,7 +4084,6 @@
 				C4051761250BB30200B660DC /* MarkSentFyleMessageJoinWithStatusAsCompleteOperation.swift */,
 				C4688951250CB5BC00EE0754 /* MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer.swift */,
 				C43CF07E250E4E7C0018A714 /* ProcessObvReturnReceiptOperation.swift */,
-				C46BC4B7256CFAD100075A09 /* ProcessPersistedMessageAsItTurnsNotNewOperation.swift */,
 				C42724D526B2DF72008AD2E7 /* ProcessPersistedMessagesAsTheyTurnsNotNewOperation.swift */,
 				C49FD45425A628FA00EC4512 /* GetAppropriateDiscussionOperation.swift */,
 				C43F6F4525D9E28A00072153 /* MarkAllMessagesAsNotNewWithinDiscussionOperation.swift */,
@@ -5594,7 +5591,6 @@
 				C48AB2E921538695009DAA78 /* ObvCircledProgressView.swift in Sources */,
 				C493798820B41DE5005BA001 /* CellContainingSasView.swift in Sources */,
 				C43C11A5241BB870002D7ACE /* WelcomeScreenViewController.swift in Sources */,
-				C46BC4B8256CFAD100075A09 /* ProcessPersistedMessageAsItTurnsNotNewOperation.swift in Sources */,
 				C41C9CCC21B9847B000B64F6 /* PersistedPendingGroupMember.swift in Sources */,
 				C41FE3BC224D8A0C000AB2A5 /* DateCollectionReusableView.swift in Sources */,
 				C06902E42677A97D00FD8F92 /* ReportEndCallOperation.swift in Sources */,
@@ -6429,7 +6425,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 478;
+				CURRENT_PROJECT_VERSION = 479;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6460,7 +6456,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 478;
+				CURRENT_PROJECT_VERSION = 479;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6623,7 +6619,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessengerDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 478;
+				CURRENT_PROJECT_VERSION = 479;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
@@ -6661,7 +6657,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessenger.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 478;
+				CURRENT_PROJECT_VERSION = 479;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
@@ -6695,7 +6691,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 478;
+				CURRENT_PROJECT_VERSION = 479;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6726,7 +6722,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 478;
+				CURRENT_PROJECT_VERSION = 479;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;

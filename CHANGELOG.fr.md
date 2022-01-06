@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.16 (479)] - 2022-01-04
+
+- Corrige un problème important pour nous utilisateurs sous iOS12. Olvid démarre à nouveau !
+- Devrait corriger un problème occasionnel empêchant certains messages d'être marqués comme « lu ».
+
 ## [0.9.15 (477)] - 2021-12-27
 
 - Il est possible de réagir individuellement à un message. Pour tester, faire un double tap sur un message ;-)

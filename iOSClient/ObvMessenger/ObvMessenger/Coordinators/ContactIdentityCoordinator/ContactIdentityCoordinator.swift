@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,7 +52,7 @@ final class ContactIdentityCoordinator {
             ObvMessengerInternalNotification.observeResyncContactIdentityDevicesWithEngine { [weak self] (contactCryptoId, ownedCryptoId) in
                 self?.processResyncContactIdentityDevicesWithEngineNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observeResyncContactIdentityDetailsStatusWithEngine { [weak self] (contactCryptoId, ownedCryptoId) in
+            ObvMessengerInternalNotification.observeResyncContactIdentityDetailsStatusWithEngine(queue: internalQueue) { [weak self] (contactCryptoId, ownedCryptoId) in
                 self?.processResyncContactIdentityDetailsStatusWithEngineNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
             ObvMessengerInternalNotification.observeUserDidSeeNewDetailsOfContact(queue: internalQueue) { [weak self] (contactCryptoId, ownedCryptoId) in

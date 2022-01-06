@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -98,20 +98,16 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
             }
         }
 
-        let isLocallyWiped = message.isLocallyWiped
-        let isRemoteWiped = message.isRemoteWiped
-        let isWiped = isLocallyWiped || isRemoteWiped
-        
         content.date = message.timestamp
         content.showEditedStatus = message.isEdited
-        content.readOnce = message.readOnce && !message.isRemoteWiped && !message.isLocallyWiped
+        content.readOnce = message.readOnce && !message.isWiped
         content.scheduledExistenceDestructionDate = message.expirationForSentLimitedExistence?.expirationDate
         content.scheduledVisibilityDestructionDate = message.expirationForSentLimitedVisibility?.expirationDate
 
         // Configure the text body (determine whether we should use data detection on the text view)
         
         content.textBubbleConfiguration = nil
-        if let text = message.textBody, !isWiped {
+        if let text = message.textBody, !message.isWiped {
             if let dataDetected = cacheDelegate?.getCachedDataDetection(text: text) {
                 content.textBubbleConfiguration = TextBubble.Configuration(text: text, dataDetectorTypes: dataDetected)
             } else {
@@ -132,7 +128,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
         case .never:
             break
         case .always, .withinSentMessagesOnly:
-            if let text = message.textBody, !isWiped, let linkURL = cacheDelegate?.getFirstHttpsURL(text: text) {
+            if let text = message.textBody, !message.isWiped, let linkURL = cacheDelegate?.getFirstHttpsURL(text: text) {
                 content.singleLinkConfiguration = .metadataNotYetAvailable(url: linkURL)
                 CachedLPMetadataProvider.shared.getCachedOrStartFetchingMetadata(for: linkURL) { metadata in
                     content.singleLinkConfiguration = .metadataAvailable(url: linkURL, metadata: metadata)
@@ -146,9 +142,9 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
 
         // Wiped view configuration
         
-        if isLocallyWiped {
+        if message.isLocallyWiped {
             content.wipedViewConfiguration = .locallyWiped
-        } else if isRemoteWiped {
+        } else if message.isRemoteWiped {
             content.wipedViewConfiguration = .remotelyWiped(deleterName: nil)
         } else {
             content.wipedViewConfiguration = nil
@@ -156,7 +152,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
         
         // Configure images (single image, multiple image and/or gif)
         
-        var imageAttachments = isWiped ? [] : message.fyleMessageJoinWithStatusesOfImageType
+        var imageAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfImageType
         let gifAttachment = imageAttachments.first(where: { $0.uti == UTType.gif.identifier })
         imageAttachments.removeAll(where: { $0 == gifAttachment })
 
@@ -180,7 +176,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
 
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
 
-        var audioAttachments = (isLocallyWiped || isRemoteWiped) ? [] : message.fyleMessageJoinWithStatusesOfAudioType
+        var audioAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfAudioType
         if let firstAudioAttachment = audioAttachments.first {
             content.audioPlayerConfiguration = attachmentViewConfigurationForAttachment(firstAudioAttachment, message: message)
             audioAttachments.removeAll(where: { $0 == firstAudioAttachment })
@@ -191,7 +187,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
         // We choose to show audioPlayer only for the first audio song.
         otherAttachments += audioAttachments
 
-        content.multipleAttachmentsViewConfiguration = isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0, message: message) })
+        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0, message: message) })
 
         // Configure the rest
         

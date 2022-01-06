@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,7 +48,7 @@ final class ProcessPersistedMessagesAsTheyTurnsNotNewOperation: ContextualOperat
                 
                 let message: PersistedMessage
                 do {
-                    guard let _message = try PersistedMessage.get(with: persistedMessageObjectID.objectID, within: obvContext.context) else {
+                    guard let _message = try PersistedMessage.get(with: persistedMessageObjectID, within: obvContext.context) else {
                         continue
                     }
                     message = _message

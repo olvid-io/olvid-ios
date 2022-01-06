@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2021 Olvid SAS
+ *  Copyright © 2019-2022 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -81,9 +81,6 @@ final class PersistedDiscussionsUpdatesCoordinator {
             },
             ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedDiscussion() { [weak self] (persistedDiscussionObjectID, deletionType, completionHandler) in
                 self?.deletePersistedDiscussion(withObjectID: persistedDiscussionObjectID, deletionType: deletionType, requestedBy: nil, completionHandler: completionHandler)
-            },
-            ObvMessengerInternalNotification.observeMessageIsNotNewAnymore { [weak self] (persistedMessageObjectID) in
-                self?.processMessageIsNotNewAnymoreNotification(persistedMessageObjectID: persistedMessageObjectID)
             },
             ObvMessengerInternalNotification.observeMessagesAreNotNewAnymore() { [weak self] persistedMessageObjectIDs in
                 self?.processMessagesAreNotNewAnymore(persistedMessageObjectIDs: persistedMessageObjectIDs)
@@ -840,14 +837,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
     }
-
-    
-    private func processMessageIsNotNewAnymoreNotification(persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>) {
-        let op = ProcessPersistedMessageAsItTurnsNotNewOperation(persistedMessageObjectID: persistedMessageObjectID)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
-    }
-
     
     private func processMessagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>) {
         assert(OperationQueue.current != internalQueue)

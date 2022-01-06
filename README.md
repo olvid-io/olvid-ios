@@ -70,7 +70,7 @@ Olvid for iOS is licensed under the GNU Affero General Public License v3. The fu
 
 
     Olvid for iOS
-    Copyright © 2019-2021 Olvid SAS
+    Copyright © 2019-2022 Olvid SAS
 
     Olvid is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License, version 3,
