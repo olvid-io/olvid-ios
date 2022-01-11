@@ -1613,15 +1613,7 @@ extension NewSingleDiscussionViewController {
         static let shareAttachments = { (count: Int) in
             return String.localizedStringWithFormat(NSLocalizedString("share count attachments", comment: "Localized dict string allowing to display a title"), count)
         }
-        
-        static func replyingTo(_ name: String) -> String {
-            return String.localizedStringWithFormat(NSLocalizedString("REPLYING_TO_%@", comment: ""), name)
-        }
-
-        static var replyingToContact: String {
-            NSLocalizedString("REPLYING_TO_CONTACT", comment: "")
-        }
-        
+                
         static var replyingToYourself: String {
             NSLocalizedString("REPLYING_TO_YOURSELF", comment: "")
         }
@@ -1773,9 +1765,6 @@ extension NewSingleDiscussionViewController {
             if let text = message.textBodyToSend {
                 cacheDelegate.requestDataDetection(text: text, completionWhenDataDetectionCached: { _ in })
             }
-            if message.hasReplyTo {
-                cacheDelegate.requestReplyToBubbleViewConfiguration(message: message, completion: { _ in })
-            }
         }
     }
     
@@ -1813,9 +1802,10 @@ extension NewSingleDiscussionViewController: ReactionsDelegate {
         if let ownReaction = message.reactionFromOwnedIdentity() {
             selectedEmoji = ownReaction.emoji
         }
-        let vc = EmojiPickerHostingViewController(selectedEmoji: selectedEmoji, select: { emoji in
+        let model = EmojiPickerViewModel(selectedEmoji: selectedEmoji) { emoji in
             ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: emoji).postOnDispatchQueue()
-        })
+        }
+        let vc = EmojiPickerHostingViewController(model: model)
         if let sheet = vc.sheetPresentationController {
             sheet.detents = [ .medium() ]
             sheet.prefersGrabberVisible = true

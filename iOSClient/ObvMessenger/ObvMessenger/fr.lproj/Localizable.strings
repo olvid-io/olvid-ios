@@ -1930,7 +1930,7 @@
 
 "SERVER_DOES_NOT_SUPPORT_CALLS" = "Le serveur ne permet pas de passer des appels";
 
-"STD_MSG_OLVID_TAKES_TOO_LONG_TO_START" = "Olvid semble prendre plus de temps que d'habitude pour démarrer. Cela peut arrive après une mise à jour. Rassurez-vous, même si le problème persiste, aucune de vos données n'a été perdue.";
+"STD_MSG_OLVID_TAKES_TOO_LONG_TO_START" = "Olvid semble prendre plus de temps que d'habitude pour démarrer. Cela peut arriver après une mise à jour. Rassurez-vous, même si le problème persiste, aucune de vos données n'a été perdue.";
 
 "SHARE_MSG_OLVID_TAKES_TOO_LONG_TO_START" = "Si le problème persiste, vous pouvez aider l'équipe de développement à résoudre votre problème via la bouton ci-dessous. Vous partagerez (uniquement) le message encadré ci-dessous avec elle.";
 
@@ -2137,6 +2137,8 @@
 
 "VALUE_COPIED" = "Valeur copiée";
 
+"DEFAULT_EMOJI" = "Emoji rapide par défaut";
+
 "SCAN_QR_CODE" = "Scanner un code QR";
 
 "CONFIGURATION_SCAN" = "Scan de configuration";
@@ -2161,12 +2163,42 @@
 
 "OTHER_DEVICE" = "Autre appareil";
 
-"NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES" = "Vue de composition de message";
+"NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES" = "Personaliser la composition de message";
 
 "NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_HEADER" = "Ordre préféré des boutons de composition de message";
 
-"NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER" = "Le premier bouton apparaitra juste à côté la zone de composition du texte de vos messages. Nous vous recommandons de placer les boutons que vous utilisez le plus au sommet de la liste, de façon à les atteindre en une touche.";
+"NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER" = "Le premier bouton apparaitra juste à côté la zone de composition du message de vos messages. Nous vous recommandons de placer les boutons que vous utilisez le plus au sommet de la liste, de façon à les atteindre en une touche.";
 
-"CHANGE_ACTION_ORDER" = "Changer l'ordre des boutons";
+"COMPOSE_MESSAGE_SETTINGS" = "Personaliser";
 
 "OPEN_SOURCE_LICENCES" = "Licences Open Source";
+
+"RESET_COMPOSE_MESSAGE_VIEW_ACTIONS_ORDER" = "Réinitialiser l'ordre des boutons";
+
+"UNAVAILABLE_MESSAGE" = "Message non disponible";
+
+"RESET_DISCUSSION_EMOJI_TO_DEFAULT" = "Réinitialiser";
+
+"RESET_DISCUSSION_EMOJI_TO_DEFAULT_DISCUSSION_LEVEL" = "Réinitialiser";
+
+"DEFAULT_EMOJI_AT_APP_LEVEL" = "Emoji rapide";
+
+"QUICK_EMOJI_EXPLANATION" = "L'emoji rapide est accessible quand la zone de composition de message ne contient pas de texte. Appuyer sur cet emoji l'envoie immédiatement. Appuyer deux (ou trois) fois en envoie deux (ou trois). Vous pouvez personaliser ici l'emoji rapide par défaut pour toutes les discussions. Ce choix peut-être outrepassé au niveau de chaque discussion, en personnalisant l'emoji rapide de la discussion.";
+
+"DISCUSSION_QUICK_EMOJI" = "Emoji rapide pour cette discussion";
+
+"SNACK_BAR_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" = "⚠️ Le support pour votre version d'iOS sera bientôt abandonné.";
+"SNACK_BAR_BODY_IOS_VERSION_SHOULD_UPGRADE" = "Mise à jour d'iOS recommandée.";
+"SNACK_BAR_BODY_IOS_VERSION_ACCEPTABLE" = "Mise à jour d'iOS recommandée.";
+
+"SNACK_BAR_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED" = "Info";
+"SNACK_BAR_TITLE_IOS_VERSION_SHOULD_UPGRADE" = "Info";
+"SNACK_BAR_TITLE_IOS_VERSION_ACCEPTABLE" = "Info";
+
+"SNACK_BAR_DETAILS_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED" = "Le support pour votre version d'iOS sera bientôt abandonné.";
+"SNACK_BAR_DETAILS_TITLE_IOS_VERSION_SHOULD_UPGRADE" = "Mise à jour d'iOS recommandée";
+"SNACK_BAR_DETAILS_TITLE_IOS_VERSION_ACCEPTABLE" = "Mise à jour d'iOS recommandée";
+
+"SNACK_BAR_DETAILS_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" = "Nous avons détecté que vous utilisez une version d'iOS que Olvid ne supportera plus, à partir de la prochaine mise à jour. Nous vous présentons toutes nos excuses. Si possible, nous vous recommandons de mettre à jour iOS.\nPour ce faire, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";
+"SNACK_BAR_DETAILS_BODY_IOS_VERSION_SHOULD_UPGRADE" = "Nous avons détecté que vous n'utilisez pas la dernière version d'iOS. Vous être en train de passer à côté de fonctionnalités importantes d'Olvid. Pour profiter d'Olvid au maximum, vous devriez mettre à jour iOS.\nPour ce faire, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";
+"SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" = "Pour vous assurez que vous utilisez la dernière version d'iOS, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";

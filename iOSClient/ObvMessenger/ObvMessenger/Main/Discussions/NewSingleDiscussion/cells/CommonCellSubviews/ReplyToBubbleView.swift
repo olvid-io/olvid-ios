@@ -28,13 +28,13 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
     enum Configuration: Equatable, Hashable {
         case loading
         case messageWasDeleted
-        case loaded(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, body: String?, bodyColor: UIColor, name: String?, nameColor: UIColor?, lineColor: UIColor?, bubbleColor: UIColor?, hardlink: HardLinkToFyle?, thumbnail: UIImage?)
+        case loaded(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, body: String?, bodyColor: UIColor, name: String?, nameColor: UIColor?, lineColor: UIColor?, bubbleColor: UIColor?, showThumbnail: Bool, hardlink: HardLinkToFyle?, thumbnail: UIImage?)
         
         var messageObjectID: NSManagedObjectID? {
             switch self {
             case .loading, .messageWasDeleted:
                 return nil
-            case .loaded(messageObjectID: let messageObjectID, body: _, bodyColor: _, name: _, nameColor: _, lineColor: _, bubbleColor: _, hardlink: _, thumbnail: _):
+            case .loaded(messageObjectID: let messageObjectID, body: _, bodyColor: _, name: _, nameColor: _, lineColor: _, bubbleColor: _, showThumbnail: _, hardlink: _, thumbnail: _):
                 return messageObjectID.objectID
             }
         }
@@ -47,8 +47,9 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
             case .messageWasDeleted:
                 assertionFailure()
                 return .messageWasDeleted
-            case .loaded(messageObjectID: let messageObjectID, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, hardlink: let previousHardlink, thumbnail: let thumbnail):
+            case .loaded(messageObjectID: let messageObjectID, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let previousHardlink, thumbnail: let thumbnail):
                 assert(previousHardlink == nil)
+                assert(showThumbnail)
                 return .loaded(
                     messageObjectID: messageObjectID,
                     body: body,
@@ -57,6 +58,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
                     nameColor: nameColor,
                     lineColor: lineColor,
                     bubbleColor: bubbleColor,
+                    showThumbnail: showThumbnail,
                     hardlink: hardlink,
                     thumbnail: thumbnail)
             }
@@ -70,7 +72,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
             case .messageWasDeleted:
                 assertionFailure()
                 return .messageWasDeleted
-            case .loaded(messageObjectID: let messageObjectID, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, hardlink: let hardlink, thumbnail: let previousThumbnail):
+            case .loaded(messageObjectID: let messageObjectID, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let hardlink, thumbnail: let previousThumbnail):
                 assert(previousThumbnail == nil)
                 return .loaded(
                     messageObjectID: messageObjectID,
@@ -80,6 +82,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
                     nameColor: nameColor,
                     lineColor: lineColor,
                     bubbleColor: bubbleColor,
+                    showThumbnail: showThumbnail,
                     hardlink: hardlink,
                     thumbnail: thumbnail)
             }
@@ -104,29 +107,28 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         
         switch config {
         case .loading:
-            bodyLabel.text = nil
+            bodyLabel.text = MessageCollectionViewCell.Strings.replyToMessageUnavailable
             bodyLabel.textColor = UIColor.secondaryLabel
             bodyLabel.showInStack = true
             nameLabel.text = nil
             nameLabel.textColor = .white
+            nameLabel.showInStack = false
             line.backgroundColor = .systemFill
             bubble.backgroundColor = appTheme.colorScheme.newReceivedCellReplyToBackground
             imageView.reset()
             imageView.showInStack = false
-            spinner.isHidden = false
-            spinner.startAnimating()
         case .messageWasDeleted:
             bodyLabel.text = MessageCollectionViewCell.Strings.replyToMessageWasDeleted
             bodyLabel.textColor = UIColor.secondaryLabel
             bodyLabel.showInStack = true
             nameLabel.text = nil
             nameLabel.textColor = .white
+            nameLabel.showInStack = false
             line.backgroundColor = .systemFill
             bubble.backgroundColor = appTheme.colorScheme.newReceivedCellReplyToBackground
             imageView.reset()
             imageView.showInStack = false
-            spinner.isHidden = true
-        case .loaded(messageObjectID: _, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, hardlink: let hardlink, thumbnail: let thumbnail):
+        case .loaded(messageObjectID: _, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let hardlink, thumbnail: let thumbnail):
             if bodyLabel.text != body {
                 bodyLabel.text = body
             }
@@ -136,19 +138,20 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
                 nameLabel.text = name
             }
             nameLabel.textColor = nameColor ?? .white
+            nameLabel.showInStack = true
             line.backgroundColor = lineColor ?? .systemFill
             bubble.backgroundColor = bubbleColor ?? appTheme.colorScheme.newReceivedCellReplyToBackground
-            if let hardlink = hardlink {
-                if let thumbnail = thumbnail {
+            if showThumbnail {
+                imageView.backgroundColor = appTheme.colorScheme.systemFill
+                imageView.showInStack = true
+                if let hardlink = hardlink {
                     imageView.setHardlink(newHardlink: hardlink, withImage: thumbnail)
                 } else {
-                    imageView.setHardlink(newHardlink: hardlink, withImage: nil)
+                    imageView.reset()
                 }
-                imageView.showInStack = true
             } else {
                 imageView.showInStack = false
             }
-            spinner.isHidden = true
         }
         
         // Whatever the config, find the appropriate font size
@@ -164,11 +167,6 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
     }
 
     
-    func prepareForReuse() {
-        spinner.startAnimating()
-    }
-    
-    
     /// Implementing `UIViewWithThumbnailsForUTI`
     var imageForUTI = [String: UIImage]()
     
@@ -180,7 +178,6 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
     private let nameLabel = NameLabel()
     private let bodyLabel = UILabelForOlvidStack()
     private let imageView = UIImageViewForHardLinkForOlvidStack()
-    private let spinner = UIActivityIndicatorView(style: .medium)
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
     
@@ -237,11 +234,6 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         bodyLabel.translatesAutoresizingMaskIntoConstraints = false
         bodyLabel.numberOfLines = 2
 
-        addSubview(spinner)
-        spinner.translatesAutoresizingMaskIntoConstraints = false
-        spinner.hidesWhenStopped = false
-        spinner.startAnimating()
-
         let verticalInset = MessageCellConstants.bubbleVerticalInset
         let horizontalInsets = MessageCellConstants.bubbleHorizontalInsets
         let replyToLineWidth = MessageCellConstants.replyToLineWidth
@@ -265,9 +257,6 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
             
             imageView.widthAnchor.constraint(equalToConstant: MessageCellConstants.replyToImageSize),
             imageView.heightAnchor.constraint(equalToConstant: MessageCellConstants.replyToImageSize),
-
-            spinner.centerXAnchor.constraint(equalTo: bubble.centerXAnchor),
-            spinner.centerYAnchor.constraint(equalTo: bubble.centerYAnchor),
 
         ]
         

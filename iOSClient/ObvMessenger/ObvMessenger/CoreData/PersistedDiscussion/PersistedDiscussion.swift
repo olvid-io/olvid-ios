@@ -192,7 +192,7 @@ extension PersistedDiscussion {
     
     func insertSystemMessagesIfDiscussionIsEmpty(markAsRead: Bool) throws {
         guard self.messages.isEmpty else { return }
-        guard let systemMessage = PersistedMessageSystem(.discussionIsEndToEndEncrypted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: self) else { throw NSError() }
+        let systemMessage = try PersistedMessageSystem(.discussionIsEndToEndEncrypted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: self)
         if self.sharedConfiguration.isEphemeral {
             let expirationJSON = self.sharedConfiguration.toExpirationJSON()
             try? PersistedMessageSystem.insertUpdatedDiscussionSharedSettingsSystemMessage(within: self, optionalContactIdentity: nil, expirationJSON: expirationJSON, messageUploadTimestampFromServer: nil)

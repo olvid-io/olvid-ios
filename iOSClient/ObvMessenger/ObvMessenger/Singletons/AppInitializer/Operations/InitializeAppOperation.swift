@@ -80,6 +80,7 @@ final class InitializeAppOperation: OperationWithSpecificReasonForCancel<Initial
         migrationToV0_9_5()
         migrationToV0_9_11()
         migrationToV0_9_14()
+        migrationToV0_9_17()
 
         // Initialize the Oblivious Engine
         do {
@@ -134,6 +135,11 @@ enum InitializeAppOperationReasonForCancel: LocalizedErrorWithLogType {
 
 extension InitializeAppOperation {
 
+    private func migrationToV0_9_17() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "obvNewFeatures.privacySetting.wasSeenByUser")
+    }
+    
     private func migrationToV0_9_14() {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
         userDefaults.removeObject(forKey: "settings.voip.useLoadBalancedTurnServers")
@@ -281,6 +287,29 @@ extension InitializeAppOperation {
         os_log("Amount of time (in seconds) an app may run a critical background task in the background is %{public}f", log: log, type: .info, UIMinimumKeepAliveTimeout)
         
         os_log("Running on real device: %{public}@", log: log, type: .info, ObvMessengerConstants.isRunningOnRealDevice.description)
+     
+        logMDMPreferences()
+    }
+    
+    private func logMDMPreferences() {
+        
+        os_log("[MDM] preferences list starts", log: log, type: .info)
+        defer {
+            os_log("[MDM] preferences list ends", log: log, type: .info)
+        }
+        
+        let mdmConfigurationKey = "com.apple.configuration.managed"
+        let standardUserDefaults = UserDefaults.standard
+        guard let mdmConfiguration = standardUserDefaults.dictionary(forKey: mdmConfigurationKey) else { return }
+        for (key, value) in mdmConfiguration {
+            if let valueString = value as? String {
+                os_log("[MDM] %{public}@ : %{public}@", log: log, type: .info, key, valueString)
+            } else if let valueInt = value as? String {
+                os_log("[MDM] %{public}@ : %{public}d", log: log, type: .info, key, valueInt)
+            } else {
+                os_log("[MDM] %{public}@ : Cannot read value", log: log, type: .info, key)
+            }
+        }
         
     }
     

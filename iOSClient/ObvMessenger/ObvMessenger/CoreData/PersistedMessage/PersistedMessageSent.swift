@@ -232,34 +232,59 @@ final class PersistedMessageSent: PersistedMessage {
 }
 
 
+// MARK: - Reply-to
+
+extension PersistedMessageSent {
+    
+    enum RepliedMessage {
+        case none
+        case available(message: PersistedMessage)
+        case deleted
+    }
+    
+    
+    var repliesTo: RepliedMessage {
+        if let messageRepliedTo = self.rawMessageRepliedTo {
+            return .available(message: messageRepliedTo)
+        } else if self.isReplyToAnotherMessage {
+            return .deleted
+        } else {
+            return .none
+        }
+    }
+    
+}
+
+
 // MARK: - Initializer
 
 extension PersistedMessageSent {
     
-    convenience init?(draft: Draft) {
+    convenience init(draft: Draft) throws {
         
-        guard let context = draft.discussion.managedObjectContext else { return nil }
+        guard let context = draft.discussion.managedObjectContext else { assertionFailure(); throw PersistedMessageSent.makeError(message: "Could not find context") }
         
         let timestamp = Date()
 
-        guard let lastSortIndex = PersistedMessage.getLargestSortIndex(in: draft.discussion) else { return nil }
+        let lastSortIndex = try PersistedMessage.getLargestSortIndex(in: draft.discussion)
         let sortIndex = 1/100.0 + ceil(lastSortIndex) // We add "10 milliseconds"
 
         let readOnce = draft.discussion.sharedConfiguration.readOnce || draft.readOnce
         let visibilityDuration: TimeInterval? = TimeInterval.optionalMin(draft.discussion.sharedConfiguration.visibilityDuration, draft.visibilityDuration)
         let existenceDuration: TimeInterval? = TimeInterval.optionalMin(draft.discussion.sharedConfiguration.existenceDuration, draft.existenceDuration)
+        let isReplyToAnotherMessage = draft.replyTo != nil
 
-        self.init(timestamp: timestamp,
-                  body: draft.body,
-                  rawStatus: MessageStatus.unprocessed.rawValue,
-                  senderSequenceNumber: draft.discussion.lastOutboundMessageSequenceNumber + 1,
-                  sortIndex: sortIndex,
-                  replyToJSON: draft.replyTo?.toReplyToJSON(),
-                  discussion: draft.discussion,
-                  readOnce: readOnce,
-                  visibilityDuration: visibilityDuration,
-                  forEntityName: PersistedMessageSent.entityName,
-                  within: context)
+        try self.init(timestamp: timestamp,
+                      body: draft.body,
+                      rawStatus: MessageStatus.unprocessed.rawValue,
+                      senderSequenceNumber: draft.discussion.lastOutboundMessageSequenceNumber + 1,
+                      sortIndex: sortIndex,
+                      isReplyToAnotherMessage: isReplyToAnotherMessage,
+                      replyTo: draft.replyTo,
+                      discussion: draft.discussion,
+                      readOnce: readOnce,
+                      visibilityDuration: visibilityDuration,
+                      forEntityName: PersistedMessageSent.entityName)
                 
         self.existenceDuration = existenceDuration
         self.unsortedFyleMessageJoinWithStatuses = Set<SentFyleMessageJoinWithStatus>()
@@ -276,23 +301,22 @@ extension PersistedMessageSent {
         if let oneToOneDiscussion = draft.discussion as? PersistedOneToOneDiscussion {
             guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
-                return nil
+                throw makeError(message: "Could not find contact identity. This is ok if it has just been deleted.")
             }
             guard contactIdentity.isActive else {
                 os_log("Trying to create PersistedMessageSentRecipientInfos for an inactive contact, which is not allowed.", log: log, type: .error)
-                return nil
+                throw makeError(message: "Trying to create PersistedMessageSentRecipientInfos for an inactive contact, which is not allowed.")
             }
             let recipientIdentity = contactIdentity.cryptoId.getIdentity()
             guard let infos = PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity,
-                                                                 messageSent: self)
-                else {
-                    return nil
+                                                                 messageSent: self) else {
+                throw makeError(message: "Could not find PersistedMessageSentRecipientInfos")
             }
             self.unsortedRecipientsInfos.insert(infos)
         } else if let groupDiscussion = draft.discussion as? PersistedGroupDiscussion {
             guard let contactGroup = groupDiscussion.contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
-                return nil
+                throw makeError(message: "Could find contact group (this is ok if it was just deleted)")
             }
             for recipient in contactGroup.contactIdentities {
                 guard recipient.isActive else {
@@ -300,18 +324,17 @@ extension PersistedMessageSent {
                     continue
                 }
                 let recipientIdentity = recipient.cryptoId.getIdentity()
-                guard let infos = PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self)
-                else {
-                    return nil
+                guard let infos = PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self) else {
+                    throw makeError(message: "Could not find PersistedMessageSentRecipientInfos")
                 }
                 self.unsortedRecipientsInfos.insert(infos)
             }
             guard !self.unsortedRecipientsInfos.isEmpty else {
                 os_log("We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case", log: log, type: .error)
-                return nil
+                throw makeError(message: "We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case")
             }
         } else {
-            return nil
+            throw makeError(message: "Unexpected discussion type.")
         }
 
         discussion.lastOutboundMessageSequenceNumber = self.senderSequenceNumber
@@ -345,6 +368,15 @@ extension PersistedMessageSent {
 
 extension PersistedMessageSent {
     
+    
+    func toSentMessageReferenceJSON() -> MessageReferenceJSON? {
+        guard let senderIdentifier = self.discussion.ownedIdentity?.cryptoId.getIdentity() else { return nil }
+        return MessageReferenceJSON(senderSequenceNumber: self.senderSequenceNumber,
+                                    senderThreadIdentifier: self.discussion.senderThreadIdentifier,
+                                    senderIdentifier: senderIdentifier)
+    }
+    
+    
     func toJSON() -> MessageJSON? {
         let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
         if let discussion = self.discussion as? PersistedGroupDiscussion {
@@ -374,11 +406,20 @@ extension PersistedMessageSent {
             groupId = nil
         }
         
+
+        let replyToJSON: MessageReferenceJSON?
+        switch self.repliesTo {
+        case .available(message: let replyTo):
+            replyToJSON = replyTo.toMessageReferenceJSON()
+        case .none, .deleted:
+            replyToJSON = nil
+        }
+        
         return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
                            senderThreadIdentifier: self.discussion.senderThreadIdentifier,
                            body: self.textBodyToSend,
                            groupId: groupId,
-                           replyTo: self.replyToJSON,
+                           replyTo: replyToJSON,
                            expiration: self.expirationJSON)
     }
     

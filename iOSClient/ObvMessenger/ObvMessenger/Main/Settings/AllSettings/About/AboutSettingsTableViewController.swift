@@ -22,7 +22,7 @@ import UIKit
 final class AboutSettingsTableViewController: UITableViewController {
 
     init() {
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
     }
     
     required init?(coder aDecoder: NSCoder) {

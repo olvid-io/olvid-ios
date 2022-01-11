@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.17 (484)] - 2022-01-10
+
+- Fixes a potential timing attack on the implementation of scalar multiplication on EC (many thanks to Ryad Benadjila for pointing it out to us!)
+- It is possible to customize the quick emoji button of the new composition view, both globally and for each discussion.
+- The fluidity of the new discussion screen is improved.
+- Since Olvid will soon drop support for iOS 11 and 12, a new alert recommends users using an old iOS version to upgrade to the latest one.
+
 ## [0.9.16 (479)] - 2022-01-04
 
 - Fix an important issue for our iOS12 users, preventing Olvid to launch.

@@ -58,4 +58,13 @@ extension UserDefaults {
         guard object(forKey: defaultName) != nil else { return nil }
         return object(forKey: defaultName) as? Date
     }
+
+    /// Returns the String value associated with the specified key.
+    ///
+    /// - Parameter defaultName: A key in the current user‘s defaults database.
+    /// - Returns: The String value associated with the specified key. If the specified key doesn‘t exist, this method returns `nil`.
+    func stringOrNil(forKey defaultName: String) -> String? {
+        guard object(forKey: defaultName) != nil else { return nil }
+        return string(forKey: defaultName)
+    }
 }

@@ -1327,10 +1327,12 @@ extension SingleDiscussionViewController {
                     // The replyToRoundedRectView exists in the view hierarchy, we check whether it was tapped
                     if replyToRoundedRectView.bounds.contains(recognizer.location(in: replyToRoundedRectView)) {
                         // The user tapped on the reply-to cell. Find the corresponding message
-                        if let replyToMessage = try? fetchedResultsController.object(at: indexPath).getReplyTo() {
+                        switch fetchedResultsController.object(at: indexPath).genericRepliesTo {
+                        case .none, .notAvailableYet, .deleted:
+                            return
+                        case .available(let replyToMessage):
                             tapPerformedOnReplyToRoundedRectView(replyToMessage: replyToMessage)
                         }
-                        return
                     }
                     
                 }

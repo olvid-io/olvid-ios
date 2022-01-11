@@ -27,6 +27,7 @@ enum OlvidSnackBarCategory: CaseIterable {
     case shouldVerifyBackupKey
     case grantPermissionToRecord
     case grantPermissionToRecordInSettings
+    case upgradeIOS
 
     static func removeAllLastDisplayDate() {
         for category in OlvidSnackBarCategory.allCases {
@@ -59,6 +60,14 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_BODY_GRANT_PERMISSION_TO_RECORD", comment: "")
         case .grantPermissionToRecordInSettings:
             return NSLocalizedString("SNACK_BAR_BODY_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS", comment: "")
+        case .upgradeIOS:
+            if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.supportedIOSVersion {
+                return NSLocalizedString("SNACK_BAR_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED", comment: "")
+            } else if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.recommendedMinimumIOSVersion {
+                return NSLocalizedString("SNACK_BAR_BODY_IOS_VERSION_SHOULD_UPGRADE", comment: "")
+            } else {
+                return NSLocalizedString("SNACK_BAR_BODY_IOS_VERSION_ACCEPTABLE", comment: "")
+            }
         }
     }
     
@@ -74,6 +83,14 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_BUTTON_TITLE_GRANT_PERMISSION_TO_RECORD", comment: "")
         case .grantPermissionToRecordInSettings:
             return NSLocalizedString("SNACK_BAR_BUTTON_TITLE_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS", comment: "")
+        case .upgradeIOS:
+            if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.supportedIOSVersion {
+                return NSLocalizedString("SNACK_BAR_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED", comment: "")
+            } else if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.recommendedMinimumIOSVersion {
+                return NSLocalizedString("SNACK_BAR_TITLE_IOS_VERSION_SHOULD_UPGRADE", comment: "")
+            } else {
+                return NSLocalizedString("SNACK_BAR_TITLE_IOS_VERSION_ACCEPTABLE", comment: "")
+            }
         }
     }
 
@@ -89,6 +106,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             return "io.olvid.snackBarCoordinator.lastDisplayDate.grantPermissionToRecord"
         case .grantPermissionToRecordInSettings:
             return "io.olvid.snackBarCoordinator.lastDisplayDate.grantPermissionToRecordInSettings"
+        case .upgradeIOS:
+            return "io.olvid.snackBarCoordinator.lastDisplayDate.upgradeIOS"
         }
     }
     
@@ -100,6 +119,8 @@ enum OlvidSnackBarCategory: CaseIterable {
                 return UIImage(systemIcon: .arrowCounterclockwiseCircleFill, withConfiguration: config)
             case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
                 return UIImage(systemIcon: .phoneCircleFill, withConfiguration: config)
+            case .upgradeIOS:
+                return UIImage(systemIcon: .gear, withConfiguration: config)
             }
         } else {
             return nil
@@ -118,6 +139,14 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_GRANT_PERMISSION_TO_RECORD", comment: "")
         case .grantPermissionToRecordInSettings:
             return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS", comment: "")
+        case .upgradeIOS:
+            if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.supportedIOSVersion {
+                return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED", comment: "")
+            } else if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.recommendedMinimumIOSVersion {
+                return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_IOS_VERSION_SHOULD_UPGRADE", comment: "")
+            } else {
+                return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_IOS_VERSION_ACCEPTABLE", comment: "")
+            }
         }
     }
     
@@ -133,6 +162,14 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_DETAILS_BODY_GRANT_PERMISSION_TO_RECORD", comment: "")
         case .grantPermissionToRecordInSettings:
             return NSLocalizedString("SNACK_BAR_DETAILS_BODY_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS", comment: "")
+        case .upgradeIOS:
+            if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.supportedIOSVersion {
+                return NSLocalizedString("SNACK_BAR_DETAILS_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED", comment: "")
+            } else if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.recommendedMinimumIOSVersion {
+                return NSLocalizedString("SNACK_BAR_DETAILS_BODY_IOS_VERSION_SHOULD_UPGRADE", comment: "")
+            } else {
+                return NSLocalizedString("SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE", comment: "")
+            }
         }
     }
     
@@ -148,6 +185,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("GRANT_PERMISSION_TO_RECORD_BUTTON_TITLE", comment: "")
         case .grantPermissionToRecordInSettings:
             return NSLocalizedString("GRANT_PERMISSION_TO_RECORD_IN_SETTINGS_BUTTON_TITLE", comment: "")
+        case .upgradeIOS:
+            return CommonString.Word.Ok
         }
     }
     
@@ -162,6 +201,8 @@ enum OlvidSnackBarCategory: CaseIterable {
         case .grantPermissionToRecord:
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
         case .grantPermissionToRecordInSettings:
+            return NSLocalizedString("REMIND_ME_LATER", comment: "")
+        case .upgradeIOS:
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
         }
     }

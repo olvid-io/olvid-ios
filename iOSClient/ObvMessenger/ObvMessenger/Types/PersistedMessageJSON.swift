@@ -504,7 +504,7 @@ struct DeleteMessagesJSON: Codable {
             discussion = discussions.first!
         }
 
-        self.messagesToDelete = persistedMessagesToDelete.compactMap { $0.toReplyToJSON() }
+        self.messagesToDelete = persistedMessagesToDelete.compactMap { $0.toMessageReferenceJSON() }
         if let groupDiscussion = discussion as? PersistedGroupDiscussion {
             guard let groupUid = groupDiscussion.contactGroup?.groupUid,
                   let groupOwnerIdentity = groupDiscussion.contactGroup?.ownerIdentity,
@@ -629,7 +629,7 @@ struct UpdateMessageJSON: Codable {
     
     init(persistedMessageSentToEdit msg: PersistedMessageSent, newTextBody: String?) throws {
         self.newTextBody = newTextBody
-        guard let msgRef = msg.toReplyToJSON() else {
+        guard let msgRef = msg.toMessageReferenceJSON() else {
             throw UpdateMessageJSON.makeError(message: "Could not create MessageReferenceJSON")
         }
         self.messageToEdit = msgRef
@@ -700,7 +700,7 @@ struct ReactionJSON: Codable {
 
     init(persistedMessageToReact msg: PersistedMessage, emoji: String?) throws {
         self.emoji = emoji
-        guard let msgRef = msg.toReplyToJSON() else {
+        guard let msgRef = msg.toMessageReferenceJSON() else {
             throw ReactionJSON.makeError(message: "Could not create MessageReferenceJSON")
         }
         self.messageReference = msgRef

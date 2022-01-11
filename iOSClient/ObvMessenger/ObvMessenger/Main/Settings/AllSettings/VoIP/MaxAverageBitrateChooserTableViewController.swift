@@ -23,7 +23,7 @@ import OlvidUtils
 class MaxAverageBitrateChooserTableViewController: UITableViewController {
 
     init() {
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -32,7 +32,7 @@ class MaxAverageBitrateChooserTableViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "maxaveragebitrate"
+        title = NSLocalizedString("MAX_AVG_BITRATE", comment: "")
     }
 
     private let kbsFormatter = KbsFormatter()

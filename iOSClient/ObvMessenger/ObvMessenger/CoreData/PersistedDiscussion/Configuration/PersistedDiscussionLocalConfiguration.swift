@@ -133,6 +133,7 @@ enum PersistedDiscussionLocalConfigurationValue {
     case doFetchContentRichURLsMetadata(doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?)
     case timeBasedRetention(timeBasedRetention: DurationOptionAltOverride)
     case muteNotificationsDuration(muteNotificationsDuration: MuteDurationOption?)
+    case defaultEmoji(emoji: String?)
 }
 
 extension PersistedDiscussionLocalConfigurationValue {
@@ -210,6 +211,8 @@ extension PersistedDiscussionLocalConfiguration {
             } else {
                 self.muteNotificationsEndDate = nil
             }
+        case .defaultEmoji(emoji: let emoji):
+            self.defaultEmoji = emoji
         }
     }
 

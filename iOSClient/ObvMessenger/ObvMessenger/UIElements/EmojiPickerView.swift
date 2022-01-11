@@ -22,17 +22,15 @@ import UniformTypeIdentifiers
 import Combine
 
 @available(iOS 15.0, *)
-final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerView>, EmojiPickerViewStoreDelegate {
+final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerView>, EmojiPickerViewModelDelegate {
 
     fileprivate let model: EmojiPickerViewModel
-    let select: (String?) -> Void
 
-    init(selectedEmoji: String?, select: @escaping (String?) -> Void) {
-        self.select = select
-        self.model = EmojiPickerViewModel(selectedEmoji: selectedEmoji)
+    init(model: EmojiPickerViewModel) {
+        self.model = model
         let view = EmojiPickerView(model: model)
         super.init(rootView: view)
-        model.delegate = self
+        self.model.delegate = self
     }
 
     override func viewDidLayoutSubviews() {
@@ -44,40 +42,40 @@ final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerVie
         fatalError("init(coder:) has not been implemented")
     }
 
-    func selectAction(_ emoji: String?) {
-        select(emoji)
+    func dismiss() {
         self.dismiss(animated: true)
     }
 
 }
 
-protocol EmojiPickerViewStoreDelegate: AnyObject {
-    func selectAction(_ emoji: String?)
+fileprivate protocol EmojiPickerViewModelDelegate: AnyObject {
+    func dismiss()
 }
 
 @available(iOS 15.0, *)
-fileprivate final class EmojiPickerViewModel: ObservableObject {
+final class EmojiPickerViewModel: ObservableObject {
 
     @Published var selectedEmoji: String?
     @ObservedObject var preferredEmojisList = ObvMessengerPreferredEmojisListObservable()
+    let selectAction: (String?) -> Void
     private let feedbackGenerator = UIImpactFeedbackGenerator()
     private let notificationGenerator = UINotificationFeedbackGenerator()
+    fileprivate weak var delegate: EmojiPickerViewModelDelegate?
 
-    weak var delegate: EmojiPickerViewStoreDelegate? = nil
-
-    init(selectedEmoji: String?) {
+    init(selectedEmoji: String?, selectAction: @escaping (String?) -> Void ) {
         self.selectedEmoji = selectedEmoji
-    }
-
-    func selectAction() {
-        delegate?.selectAction(selectedEmoji)
-        notificationGenerator.notificationOccurred(.success)
+        self.selectAction = selectAction
     }
 
     func haptic() {
         feedbackGenerator.impactOccurred()
     }
 
+    fileprivate func selectAction_() {
+        notificationGenerator.notificationOccurred(.success)
+        selectAction(selectedEmoji)
+        delegate?.dismiss()
+    }
 }
 
 fileprivate struct Emoji: Identifiable {
@@ -95,11 +93,11 @@ fileprivate struct Emoji: Identifiable {
 @available(iOS 15.0, *)
 struct EmojiPickerView: View {
 
-    @ObservedObject fileprivate var model: EmojiPickerViewModel
+    @ObservedObject var model: EmojiPickerViewModel
 
     var body: some View {
         EmojiPickerInnerView(selectedEmoji: $model.selectedEmoji,
-                             selectAction: model.selectAction,
+                             selectAction: model.selectAction_,
                              haptic: model.haptic,
                              preferredEmojiList: model.preferredEmojisList)
     }

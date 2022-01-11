@@ -27,7 +27,7 @@ class ContactsSortOrderChooserTableViewController: UITableViewController {
 
     init(ownedCryptoId: ObvCryptoId) {
         self.ownedCryptoId = ownedCryptoId
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
         observeContactsSortOrderDidChangeNotifications()
     }
 

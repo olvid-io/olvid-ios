@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.17 (484)] - 2022-01-10
+
+- Corrige une potentielle « timing attack » cryptographique concernant la multiplication scalaire sur les courbes elliptiques (mille merci à Ryad Benadjila de nous l'avoir remontée !).
+- Il est maintenant possible de configurer l'émoji rapide de la nouvelle vue de composition de messages.
+- Améliore la fluidité du nouvel écran de discussion.
+- Étant donné que Olvid ne supportera bientôt plus iOS 11 et 12, une nouvelle alerte préviens les utilisateurs d'anciennes versions d'iOS qu'ils devraient mettre à jour vers la dernière version.
+
 ## [0.9.16 (479)] - 2022-01-04
 
 - Corrige un problème important pour nous utilisateurs sous iOS12. Olvid démarre à nouveau !

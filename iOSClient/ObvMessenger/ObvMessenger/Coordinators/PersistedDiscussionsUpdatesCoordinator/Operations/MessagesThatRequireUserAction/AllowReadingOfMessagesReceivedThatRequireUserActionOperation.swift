@@ -99,6 +99,7 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Operat
         // For now, it is not required since the viewContext is automatically refreshed. But, some day, we won't rely on automatic refresh.
         let messageObjectIDs = persistedMessageReceivedObjectIDs
         ObvStack.shared.viewContext.perform {
+            
             for messageID in messageObjectIDs {
                 if let message = try? PersistedMessageReceived.get(with: messageID, within: ObvStack.shared.viewContext) {
                     ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
@@ -106,13 +107,20 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Operat
                     assertionFailure()
                 }
             }
+            
             // We also look for messages containing a reply-to to the messages that have been interacted with
-            let registeredMessages = ObvStack.shared.viewContext.registeredObjects.compactMap({ $0 as? PersistedMessage }).filter({ $0.replyToJSON != nil })
-            registeredMessages.forEach { message in
-                if let replyTo = try? message.getReplyTo() as? PersistedMessageReceived, messageObjectIDs.contains(replyTo.typedObjectID) {
-                    ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
+            let registeredMessages = ObvStack.shared.viewContext.registeredObjects.compactMap({ $0 as? PersistedMessage })
+            registeredMessages.forEach { replyTo in
+                switch replyTo.genericRepliesTo {
+                case .available(message: let message):
+                    if let receivedMessage = message as? PersistedMessageReceived, messageObjectIDs.contains(receivedMessage.typedObjectID) {
+                        ObvStack.shared.viewContext.refresh(replyTo, mergeChanges: false)
+                    }
+                case .deleted, .notAvailableYet, .none:
+                    return
                 }
             }
+            
             for discussionID in discussionObjectIDsToRefresh {
                 if let discussion = try? PersistedDiscussion.get(objectID: discussionID, within: ObvStack.shared.viewContext) {
                     ObvStack.shared.viewContext.refresh(discussion, mergeChanges: false)

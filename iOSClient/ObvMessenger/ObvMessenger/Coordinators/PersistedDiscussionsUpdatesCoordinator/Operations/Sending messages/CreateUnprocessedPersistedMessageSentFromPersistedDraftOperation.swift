@@ -61,8 +61,11 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
             
             // Create a PersistedMessageSent from the draft and reset the draft
             
-            guard let persistedMessageSent = PersistedMessageSent(draft: draftToSend) else {
-                return cancel(withReason: .failedToCreatePersistedMessageSent)
+            let persistedMessageSent: PersistedMessageSent
+            do {
+                persistedMessageSent = try PersistedMessageSent(draft: draftToSend)
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             do {

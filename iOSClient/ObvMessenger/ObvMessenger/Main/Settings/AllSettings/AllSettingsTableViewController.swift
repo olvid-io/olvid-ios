@@ -28,7 +28,7 @@ class AllSettingsTableViewController: UITableViewController {
     
     init(ownedCryptoId: ObvCryptoId) {
         self.ownedCryptoId = ownedCryptoId
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
         title = CommonString.Word.Settings
     }
     
@@ -135,13 +135,6 @@ extension AllSettingsTableViewController {
             cell.textLabel?.text = setting.title
             let inset: CGFloat = 50
             cell.imageView?.image = setting.image?.imageWithInsets(insets: UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset))
-            // Add a red
-            if setting == .privacy && !ObvNewFeatures.PrivacySetting.seenByUser {
-                cell.detailTextLabel?.text = "●"
-                cell.detailTextLabel?.textColor = .red
-            } else {
-                cell.detailTextLabel?.text = nil
-            }
         }
         return cell
     }

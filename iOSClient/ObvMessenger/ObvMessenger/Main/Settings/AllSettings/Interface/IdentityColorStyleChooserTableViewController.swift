@@ -22,7 +22,7 @@ import UIKit
 class IdentityColorStyleChooserTableViewController: UITableViewController {
 
     init() {
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
     }
     
     required init?(coder aDecoder: NSCoder) {

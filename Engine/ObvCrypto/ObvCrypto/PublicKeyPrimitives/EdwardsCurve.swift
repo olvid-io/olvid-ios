@@ -127,7 +127,7 @@ extension EdwardsCurve {
             var pointQ = PointOnCurve(x: 1, y: 0, onCurveWithByteId: self.byteId, checkPointIsOnCurve: false)!
             var pointR = PointOnCurve(with: pointP)
             
-            let bitCount = n.size(inBase: .two)
+            let bitCount = self.parameters.cardinality.size(inBase: .two)
             for i in 0..<bitCount {
                 
                 /* t1 = ((Q.x-Q.y)*(R.x+R.y))%p */
@@ -181,11 +181,12 @@ extension EdwardsCurve {
     }
     
     
-    public func scalarMultiplication(scalar n: BigInt, point: PointOnCurve) -> PointOnCurve? {
+    public func scalarMultiplication(scalar: BigInt, point: PointOnCurve) -> PointOnCurve? {
         guard self.byteId == point.onCurveWithByteId else { return nil }
         var pointP: PointOnCurve
         let p = self.parameters.p
         let y = BigInt(point.y).mod(p)
+        let n = BigInt(scalar).mod(self.parameters.cardinality)
         if n == BigInt(0) || y == BigInt(1) {
             pointP = PointOnCurve(x: 0, y: 1, onCurveWithByteId: self.byteId, checkPointIsOnCurve: false)!
         } else if y == BigInt(-1).mod(p) {
@@ -197,7 +198,7 @@ extension EdwardsCurve {
         } else {
             var pointQ = PointOnCurve(with: point)
             pointP = PointOnCurve(x: 0, y: 1, onCurveWithByteId: self.byteId, checkPointIsOnCurve: false)!
-            let bitCount = n.size(inBase: .two)
+            let bitCount = self.parameters.cardinality.size(inBase: .two)
             for i in 0..<bitCount {
                 if n.isBitSet(atPosition: UInt(bitCount-i-1)) {
                     pointP = self.add(point: pointP, withPoint: pointQ)!

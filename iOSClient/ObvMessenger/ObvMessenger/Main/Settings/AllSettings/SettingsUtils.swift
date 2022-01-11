@@ -16,21 +16,17 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
+  
 
-import Foundation
+import UIKit
 
-extension MessageCollectionViewCell {
+extension UITableViewController {
 
-    struct Strings {
-        
-        static let seeAttachments = { (count: Int) in
-            return String.localizedStringWithFormat(NSLocalizedString("see count attachments", comment: "Number of attachments"), count)
+    static var settingsTableStyle: UITableView.Style {
+        if #available(iOS 13.0, *) {
+            return .insetGrouped
+        } else {
+            return .grouped
         }
-
-        static let replyToMessageWasDeleted = NSLocalizedString("Deleted message", comment: "Body displayed when a reply-to message was deleted.")
-        
-        static let replyToMessageUnavailable = NSLocalizedString("UNAVAILABLE_MESSAGE", comment: "Body displayed when a reply-to message cannot be found.")
-
     }
-    
 }

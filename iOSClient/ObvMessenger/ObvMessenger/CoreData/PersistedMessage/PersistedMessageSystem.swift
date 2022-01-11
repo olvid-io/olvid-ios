@@ -351,11 +351,9 @@ final class PersistedMessageSystem: PersistedMessage {
 extension PersistedMessageSystem {
     
     /// At this time, the `messageUploadTimestampFromServer` is only relevant when receiving an `updatedDiscussionSharedSettings` system message.
-    convenience init?(_ category: Category, optionalContactIdentity: PersistedObvContactIdentity?, optionalCallLogItem: PersistedCallLogItem?, discussion: PersistedDiscussion, messageUploadTimestampFromServer: Date? = nil) {
+    convenience init(_ category: Category, optionalContactIdentity: PersistedObvContactIdentity?, optionalCallLogItem: PersistedCallLogItem?, discussion: PersistedDiscussion, messageUploadTimestampFromServer: Date? = nil) throws {
         
-        guard category != .numberOfNewMessages else { return nil }
-        
-        guard let context = discussion.managedObjectContext else { return nil }
+        guard category != .numberOfNewMessages else { assertionFailure(); throw PersistedMessageSystem.makeError(message: "Inappropriate initializer called") }
         
         // If we received a timestamp from server, we use it to compute the sort index.
         // Otherwise, we place the system message at the very bottom of the discussion.
@@ -363,21 +361,21 @@ extension PersistedMessageSystem {
         if let timestampFromServer = messageUploadTimestampFromServer {
             sortIndex = timestampFromServer.timeIntervalSince1970 as Double
         } else {
-            guard let lastSortIndex = PersistedMessage.getLargestSortIndex(in: discussion) else { return nil }
+            let lastSortIndex = try PersistedMessage.getLargestSortIndex(in: discussion)
             sortIndex = 1/100.0 + ceil(lastSortIndex) // We add "10 milliseconds"
         }
         
-        self.init(timestamp: Date(),
-                  body: nil,
-                  rawStatus: MessageStatus.new.rawValue,
-                  senderSequenceNumber: discussion.lastSystemMessageSequenceNumber + 1,
-                  sortIndex: sortIndex,
-                  replyToJSON: nil,
-                  discussion: discussion,
-                  readOnce: false,
-                  visibilityDuration: nil,
-                  forEntityName: PersistedMessageSystem.entityName,
-                  within: context)
+        try self.init(timestamp: Date(),
+                      body: nil,
+                      rawStatus: MessageStatus.new.rawValue,
+                      senderSequenceNumber: discussion.lastSystemMessageSequenceNumber + 1,
+                      sortIndex: sortIndex,
+                      isReplyToAnotherMessage: false,
+                      replyTo: nil,
+                      discussion: discussion,
+                      readOnce: false,
+                      visibilityDuration: nil,
+                      forEntityName: PersistedMessageSystem.entityName)
      
         self.rawCategory = category.rawValue
         self.associatedData = nil
@@ -392,35 +390,35 @@ extension PersistedMessageSystem {
     /// This initialiser is specific to `numberOfNewMessages` system messages
     ///
     /// - Parameter discussion: The persisted discussion in which a `numberOfNewMessages` should be added
-    private convenience init?(discussion: PersistedDiscussion) {
+    private convenience init?(discussion: PersistedDiscussion) throws {
         
         assert(Thread.isMainThread)
         
         guard let context = discussion.managedObjectContext else {
             assertionFailure()
-            return nil
+            throw PersistedMessageSystem.makeError(message: "Could not find context")
         }
         
         guard context.concurrencyType == NSManagedObjectContextConcurrencyType.mainQueueConcurrencyType else {
             assertionFailure()
-            return nil
+            throw PersistedMessageSystem.makeError(message: "The number of message system message should exclusively be created on the main thread")
         }
         
         guard let (sortIndexForFirstNewMessageLimit, numberOfNewMessages) = discussion.appropriateSortIndexAndNumberOfNewMessagesForNewMessagesSystemMessage else {
             return nil
         }
         
-        self.init(timestamp: Date.distantPast,
-                  body: nil,
-                  rawStatus: MessageStatus.read.rawValue,
-                  senderSequenceNumber: 0,
-                  sortIndex: sortIndexForFirstNewMessageLimit,
-                  replyToJSON: nil,
-                  discussion: discussion,
-                  readOnce: false,
-                  visibilityDuration: nil,
-                  forEntityName: PersistedMessageSystem.entityName,
-                  within: context)
+        try self.init(timestamp: Date.distantPast,
+                      body: nil,
+                      rawStatus: MessageStatus.read.rawValue,
+                      senderSequenceNumber: 0,
+                      sortIndex: sortIndexForFirstNewMessageLimit,
+                      isReplyToAnotherMessage: false,
+                      replyTo: nil,
+                      discussion: discussion,
+                      readOnce: false,
+                      visibilityDuration: nil,
+                      forEntityName: PersistedMessageSystem.entityName)
         
         self.rawCategory = Category.numberOfNewMessages.rawValue
         self.associatedData = nil
@@ -433,31 +431,31 @@ extension PersistedMessageSystem {
     /// This initialiser is specific to `numberOfNewMessages` system messages
     ///
     /// - Parameter discussion: The persisted discussion in which a `numberOfNewMessages` should be added
-    private convenience init?(discussion: PersistedDiscussion, sortIndexForFirstNewMessageLimit: Double, timestamp: Date, numberOfNewMessages: Int) {
+    private convenience init(discussion: PersistedDiscussion, sortIndexForFirstNewMessageLimit: Double, timestamp: Date, numberOfNewMessages: Int) throws {
         
         assert(Thread.isMainThread)
         
         guard let context = discussion.managedObjectContext else {
             assertionFailure()
-            return nil
+            throw PersistedMessageSystem.makeError(message: "Could not find context")
         }
         
         guard context.concurrencyType == NSManagedObjectContextConcurrencyType.mainQueueConcurrencyType else {
             assertionFailure()
-            return nil
+            throw PersistedMessageSystem.makeError(message: "The number of message system message should exclusively be created on the main thread")
         }
         
-        self.init(timestamp: timestamp,
-                  body: nil,
-                  rawStatus: MessageStatus.read.rawValue,
-                  senderSequenceNumber: 0,
-                  sortIndex: sortIndexForFirstNewMessageLimit,
-                  replyToJSON: nil,
-                  discussion: discussion,
-                  readOnce: false,
-                  visibilityDuration: nil,
-                  forEntityName: PersistedMessageSystem.entityName,
-                  within: context)
+        try self.init(timestamp: timestamp,
+                      body: nil,
+                      rawStatus: MessageStatus.read.rawValue,
+                      senderSequenceNumber: 0,
+                      sortIndex: sortIndexForFirstNewMessageLimit,
+                      isReplyToAnotherMessage: false,
+                      replyTo: nil,
+                      discussion: discussion,
+                      readOnce: false,
+                      visibilityDuration: nil,
+                      forEntityName: PersistedMessageSystem.entityName)
         
         self.rawCategory = Category.numberOfNewMessages.rawValue
         self.associatedData = nil
@@ -477,7 +475,7 @@ extension PersistedMessageSystem {
             assertionFailure()
             throw makeError(message: "insertNumberOfNewMessagesSystemMessage should be called on the main thread")
         }
-        if let message = PersistedMessageSystem(discussion: discussion) {
+        if let message = try PersistedMessageSystem(discussion: discussion) {
             context.insert(message)
             return message
         } else {
@@ -504,7 +502,7 @@ extension PersistedMessageSystem {
             try existingNumberOfNewMessagesSystemMessage.resetSortIndexOfNumberOfNewMessagesSystemMessage(to: sortIndex)
             return existingNumberOfNewMessagesSystemMessage
         } else {
-            return PersistedMessageSystem(discussion: discussion, sortIndexForFirstNewMessageLimit: sortIndex, timestamp: timestamp, numberOfNewMessages: appropriateNumberOfNewMessages)
+            return try PersistedMessageSystem(discussion: discussion, sortIndexForFirstNewMessageLimit: sortIndex, timestamp: timestamp, numberOfNewMessages: appropriateNumberOfNewMessages)
         }
         
     }
@@ -512,17 +510,21 @@ extension PersistedMessageSystem {
     
     /// The `messageUploadTimestampFromServer` parameter is only relevant when the shared configuration was received, not locally created.
     static func insertUpdatedDiscussionSharedSettingsSystemMessage(within discussion: PersistedDiscussion, optionalContactIdentity: PersistedObvContactIdentity?, expirationJSON: ExpirationJSON?, messageUploadTimestampFromServer: Date?) throws {
-        guard let message = self.init(.updatedDiscussionSharedSettings, optionalContactIdentity: optionalContactIdentity, optionalCallLogItem: nil, discussion: discussion, messageUploadTimestampFromServer: messageUploadTimestampFromServer) else {
-            throw makeError(message: "Could not create system message for new discusion shared settings")
-        }
+        let message = try self.init(.updatedDiscussionSharedSettings,
+                                    optionalContactIdentity: optionalContactIdentity,
+                                    optionalCallLogItem: nil,
+                                    discussion: discussion,
+                                    messageUploadTimestampFromServer: messageUploadTimestampFromServer)
         message.associatedData = try expirationJSON?.encode()
     }
     
     
     static func insertDiscussionWasRemotelyWipedSystemMessage(within discussion: PersistedDiscussion, byContact contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date?) throws {
-        guard self.init(.discussionWasRemotelyWiped, optionalContactIdentity: contact, optionalCallLogItem: nil, discussion: discussion, messageUploadTimestampFromServer: messageUploadTimestampFromServer) != nil else {
-            throw makeError(message: "Could not create system message indicating that the discussion was wiped by a contact")
-        }
+        _ = try self.init(.discussionWasRemotelyWiped,
+                          optionalContactIdentity: contact,
+                          optionalCallLogItem: nil,
+                          discussion: discussion,
+                          messageUploadTimestampFromServer: messageUploadTimestampFromServer)
     }
     
 }

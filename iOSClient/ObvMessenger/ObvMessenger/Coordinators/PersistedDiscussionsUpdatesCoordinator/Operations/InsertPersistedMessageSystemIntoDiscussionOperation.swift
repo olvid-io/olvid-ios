@@ -80,13 +80,17 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 guard discussion is PersistedGroupDiscussion else {
                     return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
                 }
-                guard PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalCallLogItem: nil, discussion: discussion) != nil else {
-                    return cancel(withReason: .couldNotCreatePersistedMessageSystem)
+                do {
+                    _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalCallLogItem: nil, discussion: discussion)
+                } catch {
+                    return cancel(withReason: .coreDataError(error: error))
                 }
             case .contactRevokedByIdentityProvider:
                 // We do not need to pass the optional identity, as it is obvious in this case. And we prevent merge conflicts by doing so.
-                guard PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: discussion) != nil else {
-                    return cancel(withReason: .couldNotCreatePersistedMessageSystem)
+                do {
+                    _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: discussion)
+                } catch {
+                    return cancel(withReason: .coreDataError(error: error))
                 }
             case .callLogItem:
                 guard let callLogItemObjectID = self.optionalCallLogItemObjectID else {
@@ -102,8 +106,10 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 } catch {
                     return cancel(withReason: .coreDataError(error: error))
                 }
-                guard PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalCallLogItem: item, discussion: discussion) != nil else {
-                    return cancel(withReason: .couldNotCreatePersistedMessageSystem)
+                do {
+                    _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalCallLogItem: item, discussion: discussion)
+                } catch {
+                    return cancel(withReason: .coreDataError(error: error))
                 }
             case .numberOfNewMessages:
                 assertionFailure("Not implemented")
@@ -158,7 +164,6 @@ enum InsertPersistedMessageSystemIntoDiscussionOperationReasonForCancel: Localiz
     case noCallLogItemObjectIDAlthoughItIsRequired
     case couldNotFindPersistedObvContactIdentityInDatabase
     case inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: PersistedMessageSystem.Category)
-    case couldNotCreatePersistedMessageSystem
     case coreDataError(error: Error)
     
     var logType: OSLogType {
@@ -169,7 +174,6 @@ enum InsertPersistedMessageSystemIntoDiscussionOperationReasonForCancel: Localiz
         case .noContactIdentityObjectIDAlthoughItIsRequired,
              .noCallLogItemObjectIDAlthoughItIsRequired,
              .inappropriatePersistedMessageSystemCategoryForGivenDiscussion,
-             .couldNotCreatePersistedMessageSystem,
              .coreDataError:
             return .fault
         }
@@ -187,8 +191,6 @@ enum InsertPersistedMessageSystemIntoDiscussionOperationReasonForCancel: Localiz
             return "Could not find persisted contact identity in database"
         case .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: let persistedMessageSystemCategory):
             return "Inappropriate message system category \(persistedMessageSystemCategory.description) for the given discussion"
-        case .couldNotCreatePersistedMessageSystem:
-            return "Could not create a persisted message system"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
         }

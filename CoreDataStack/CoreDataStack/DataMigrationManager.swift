@@ -318,6 +318,9 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                                                   destinationType: NSSQLiteStoreType,
                                                   destinationOptions: destinationOptions)
             } catch {
+                if FileManager.default.isDeletableFile(atPath: destinationStoreURL.path) {
+                    try? FileManager.default.removeItem(at: destinationStoreURL)
+                }
                 migrationRunningLog.addEvent(message: "The call to migrateStore failed: \(error.localizedDescription))")
                 throw error
             }
@@ -327,7 +330,6 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
 
             let psc = NSPersistentStoreCoordinator(managedObjectModel: destinationModel)
 
-            
             migrationRunningLog.addEvent(message: "Replacing the persistent store...")
             os_log("Replacing persistent store", log: log, type: .info)
 
@@ -382,7 +384,12 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     open func performPreMigrationWork(forSourceModel sourceModel: NSManagedObjectModel, destinationModel: NSManagedObjectModel) throws {
         fatalError("Must be overwritten by subclass")
     }
+
     
+    open func performPostMigrationWork(forSourceModel sourceModel: NSManagedObjectModel, destinationModel: NSManagedObjectModel) throws {
+        fatalError("Must be overwritten by subclass")
+    }
+
 }
 
 

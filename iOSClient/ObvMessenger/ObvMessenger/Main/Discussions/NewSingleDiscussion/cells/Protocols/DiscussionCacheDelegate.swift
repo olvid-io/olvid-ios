@@ -39,8 +39,7 @@ protocol DiscussionCacheDelegate: AnyObject {
     func requestAllHardlinksForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessage>, completionWhenHardlinksCached: @escaping ((Bool) -> Void))
     
     // Reply-to
-    func getCachedReplyToBubbleViewConfiguration(message: PersistedMessage) -> ReplyToBubbleView.Configuration?
-    func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completion completionConfigCached: @escaping (Result<Void, Error>) -> Void)
+    func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completionWhenCellNeedsUpdateConfiguration: @escaping () -> Void) -> ReplyToBubbleView.Configuration?
     
     // Downsized thumbnails
     func getCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> UIImage?

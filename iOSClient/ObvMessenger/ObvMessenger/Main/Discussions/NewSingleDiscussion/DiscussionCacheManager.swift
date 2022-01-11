@@ -46,7 +46,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     private var hardlinksCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [(Bool) -> Void]]()
     
     private var replyToCache = [TypeSafeManagedObjectID<PersistedMessage>: ReplyToBubbleView.Configuration]()
-    private var replyToCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [(Result<Void, Error>) -> Void]]()
+    private var replyToCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [() -> Void]]()
 
     private var downsizedThumbnailCache = [TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>: UIImage]()
     private var downsizedThumbnailCacheCompletions = [TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>: [(Result<Void, Error>) -> Void]]()
@@ -92,9 +92,14 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                 assertionFailure()
             }
 
-            if let replyTo = try? message.getReplyTo(), let joinsFromReplyTo = replyTo.fyleMessageJoinWithStatus {
+            switch message.genericRepliesTo {
+            case .available(message: let replyTo):
+                let joinsFromReplyTo = replyTo.fyleMessageJoinWithStatus ?? []
                 joins.append(contentsOf: joinsFromReplyTo)
+            case .none, .notAvailableYet, .deleted:
+                break
             }
+            
             guard !joins.isEmpty else {
                 completionWhenHardlinksCached(false)
                 return
@@ -241,163 +246,137 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     // MARK: - Reply-to
 
     
-    func getCachedReplyToBubbleViewConfiguration(message: PersistedMessage) -> ReplyToBubbleView.Configuration? {
-        assert(Thread.isMainThread)
-        return replyToCache[message.typedObjectID]
-    }
+    /// Returns a first acceptable version of the `ReplyToBubbleView.Configuration` that is appropriate for the given `message`. If necessary, this method asynchronously computes
+    /// a hardlink and a thumbnail allowing to "augment" the returned configuration. If found at least a hardlink can be found, the completion handler is called. The next time this method is called, the returned configuration
+    /// will be an "augmented" version of the configuration with a hardlink and, possibly, a thumbnail.
+    /// Note that the completion handler is *not* called if there is not hardlink to request.
+    func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completionWhenCellNeedsUpdateConfiguration: @escaping () -> Void) -> ReplyToBubbleView.Configuration? {
         
-    
-    func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completion completionConfigCached: @escaping (Result<Void, Error>) -> Void) {
-        assert(Thread.isMainThread)
-        guard let messageContext = message.managedObjectContext, messageContext == ObvStack.shared.viewContext, message.hasReplyTo else {
-            assertionFailure()
-            completionConfigCached(.failure(makeError(message: "Inappropriate reply to request")))
-            return
-        }
         let messageObjectID = message.typedObjectID
         
-        // Store the completion
+        // If a configuration is cached, we know it is the best we can have, so we return it.
         
-        if var completions = replyToCacheCompletions[messageObjectID] {
-            completions.append(completionConfigCached)
-            replyToCacheCompletions[messageObjectID] = completions
-            return
-        } else {
-            replyToCacheCompletions[messageObjectID] = [completionConfigCached]
+        if let cachedConfiguration = replyToCache[messageObjectID] {
+            return cachedConfiguration
         }
+        
+        // Compute a minimal version of the configuration that we can return synchronously
+        
+        switch message.genericRepliesTo {
 
-        let backgroundContext = self.backgroundContext
-        backgroundContext.perform { [weak self] in
-            
-            guard let _self = self else {
-                assertionFailure()
-                completionConfigCached(.failure(DiscussionCacheManager.makeError(message: "Internal error")))
-                return
-            }
-            
-            let replyTo: PersistedMessage
-            do {
-                let message = try PersistedMessage.get(with: messageObjectID, within: backgroundContext)
-                guard message != nil else { throw _self.makeError(message: "Could not find message" )}
-                guard let _replyTo = try? message!.getReplyTo() else {
-                    let config = ReplyToBubbleView.Configuration.messageWasDeleted
-                    _self.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: config)
-                    return
-                }
-                replyTo = _replyTo
-            } catch {
-                _self.requestReplyToBubbleViewConfigurationFailed(messageObjectID: messageObjectID, errorMessage: error.localizedDescription)
-                return
-            }
-            
-            let replyToObjectID = replyTo.typedObjectID
-            
-            // We got the reply-to message and we have enough informations to compute a first version of the configuration (without hardlink nor thumbnail). We do so now.
+        case .none:
+            return nil
 
-            var config: ReplyToBubbleView.Configuration
-            do {
+        case .notAvailableYet:
+            return .loading
+            
+        case .deleted:
+            return .messageWasDeleted
+            
+        case .available(message: let replyTo):
+
+            let name: String
+            let nameColor: UIColor
+            let lineColor: UIColor
+            let bodyColor: UIColor
+            let bubbleColor: UIColor
+            let appTheme = AppTheme.shared
+
+            if let received = replyTo as? PersistedMessageReceived {
                 
-                let name: String
-                let nameColor: UIColor
-                let lineColor: UIColor
-                let bodyColor: UIColor
-                let bubbleColor: UIColor
-                let appTheme = AppTheme.shared
-
-                if let received = replyTo as? PersistedMessageReceived {
-                    
-                    if let contact = received.contactIdentity {
-                        name = NewSingleDiscussionViewController.Strings.replyingTo(contact.customOrFullDisplayName)
-                        nameColor = contact.cryptoId.colors.text
-                        lineColor = contact.cryptoId.colors.text
-                    } else {
-                        name = NewSingleDiscussionViewController.Strings.replyingToContact
-                        nameColor = .white
-                        lineColor = .systemFill
-                    }
-                    
-                    bodyColor = UIColor.secondaryLabel
-                    bubbleColor = appTheme.colorScheme.newReceivedCellReplyToBackground
-
-                } else if replyTo is PersistedMessageSent {
-                    
-                    name = NSLocalizedString("REPLYING_TO_YOU", comment: "")
-                    nameColor = .white
-                    lineColor = appTheme.colorScheme.adaptiveOlvidBlueReversed
-                    bodyColor = UIColor.secondaryLabel.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
-                    bubbleColor = appTheme.colorScheme.adaptiveOlvidBlue
-
+                if let contact = received.contactIdentity {
+                    name = MessageCellStrings.replyingTo(contact.customOrFullDisplayName)
+                    nameColor = contact.cryptoId.colors.text
+                    lineColor = contact.cryptoId.colors.text
                 } else {
-                    DispatchQueue.main.async {
-                        completionConfigCached(.failure(_self.makeError(message: "Unexpected message type")))
-                    }
-                    return
+                    name = MessageCellStrings.replyingToContact
+                    nameColor = .white
+                    lineColor = .systemFill
                 }
                 
-                config = ReplyToBubbleView.Configuration.loaded(
-                    messageObjectID: replyToObjectID,
-                    body: replyTo.textBody,
-                    bodyColor: bodyColor,
-                    name: name,
-                    nameColor: nameColor,
-                    lineColor: lineColor,
-                    bubbleColor: bubbleColor,
-                    hardlink: nil,
-                    thumbnail: nil)
+                bodyColor = UIColor.secondaryLabel
+                bubbleColor = appTheme.colorScheme.newReceivedCellReplyToBackground
+
+            } else if replyTo is PersistedMessageSent {
+                
+                name = NSLocalizedString("REPLYING_TO_YOU", comment: "")
+                nameColor = .white
+                lineColor = appTheme.colorScheme.adaptiveOlvidBlueReversed
+                bodyColor = UIColor.secondaryLabel.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
+                bubbleColor = appTheme.colorScheme.adaptiveOlvidBlue
+                
+            } else {
+                assertionFailure("Unexpected message type for a reply-to")
+                return nil
+            }
+            
+            let showThumbnail: Bool
+            if let msg = replyTo as? PersistedMessageReceived {
+                showThumbnail = !(replyTo.fyleMessageJoinWithStatus?.isEmpty ?? true) && !msg.readingRequiresUserAction
+            } else {
+                showThumbnail = !(replyTo.fyleMessageJoinWithStatus?.isEmpty ?? true)
+            }
+            let configuration = ReplyToBubbleView.Configuration.loaded(
+                messageObjectID: replyTo.typedObjectID,
+                body: replyTo.textBody,
+                bodyColor: bodyColor,
+                name: name,
+                nameColor: nameColor,
+                lineColor: lineColor,
+                bubbleColor: bubbleColor,
+                showThumbnail: showThumbnail,
+                hardlink: nil,
+                thumbnail: nil)
+            
+            // If there is a thumbnail to show, compute it asynchronously.
+            
+            if showThumbnail {
+                
+                // Store the completion and be the first (and only) to get a hardlink
+                
+                if var completions = replyToCacheCompletions[messageObjectID] {
+                    
+                    completions.append(completionWhenCellNeedsUpdateConfiguration)
+                    replyToCacheCompletions[messageObjectID] = completions
+                    
+                } else {
+                    
+                    replyToCacheCompletions[messageObjectID] = [completionWhenCellNeedsUpdateConfiguration]
+                    
+                    self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo) { [weak self] hardlink in
+                        
+                        guard let hardlink = hardlink else {
+                            // We could not find a hardlink, there is not much we can do
+                            return
+                        }
+                        
+                        let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
+                        self?.getAppropriateThumbnailForHardlink(hardlink: hardlink, size: size) { image in
+                            
+                            guard let image = image else {
+                                // We could not get an image corresponding to the hardlink. We return the current config.
+                                // We still have the hardlink allowing to augment the configuration
+                                let augmentedConfig = configuration.replaceHardLink(with: hardlink)
+                                self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
+                                return
+                            }
+                            
+                            // If we reach this point, we can augment the configuration using both the hardlink and the image found. We then return.
+                            let augmentedConfig = configuration.replaceHardLink(with: hardlink).replaceThumbnail(with: image)
+                            self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
+                            return
+                            
+                        }
+                        
+                    }
+                }
 
             }
-            
-            // If we reach this point, we have a first candidate for the configuration.
-            // We still need to check whether we can "augment" this configuration with a hardlink and a thumbnail. If we can't, we cache this config and return.
-            
-            if let receivedMessage = replyTo as? PersistedMessageReceived, receivedMessage.readingRequiresUserAction {
-                // In case the message still requires user action to be read, we do not compute a hardlink nor an image for this reply-to
-                self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: config)
-                return
-            }
-            
-            _self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo) { hardlink in
-                
-                guard let hardlink = hardlink else {
-                    // We could not find a hardlink, we return the current config
-                    _self.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: config)
-                    return
-                }
-                
-                // If we reach this point, we can augment the configuration using the hardlink found. We can then look for a thumbnail.
-                config = config.replaceHardLink(with: hardlink)
-                
-                let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
-                _self.getAppropriateThumbnailForHardlink(hardlink: hardlink, size: size) { image in
-                    
-                    guard let image = image else {
-                        // We could not get an image corresponding to the hardlink. We return the current config.
-                        _self.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: config)
-                        return
-                    }
-                    
-                    // If we reach this point, we can augment the configuration using the image found. We then return.
-                    config = config.replaceThumbnail(with: image)
-                    _self.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: config)
-                    return
 
-                }
-                
-            }
+            return configuration
             
         }
-    }
-
-    
-    private func requestReplyToBubbleViewConfigurationFailed(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, errorMessage: String) {
-        assert(!Thread.isMainThread)
-        DispatchQueue.main.async { [weak self] in
-            guard let _self = self else { return }
-            guard let completions = _self.replyToCacheCompletions.removeValue(forKey: messageObjectID) else { assertionFailure(); return }
-            for completion in completions {
-                completion(.failure(_self.makeError(message: errorMessage)))
-            }
-        }
+        
     }
     
     
@@ -407,7 +386,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             _self.replyToCache[messageObjectID] = configToCache
             guard let completions = _self.replyToCacheCompletions.removeValue(forKey: messageObjectID) else { assertionFailure(); return }
             for completion in completions {
-                completion(.success(()))
+                completion()
             }
         }
     }
@@ -416,40 +395,31 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     /// This method is used while computing the configuration of a reply to. When a reply to is found, we first look for an appropriate hardlink to augment its configuration (using this
     /// method). If one is found, we compute a thumbnail (using another method).
     private func getAppropriateHardlinkForJoinsOfReplyTo(_ replyTo: PersistedMessage, completion: @escaping (HardLinkToFyle?) -> Void) {
-        assert(!Thread.isMainThread)
-        
+        assert(Thread.isMainThread)
+
         let replyToObjectID = replyTo.typedObjectID
-        
+
         guard let fyleMessageJoinWithStatus = replyTo.fyleMessageJoinWithStatus, !fyleMessageJoinWithStatus.isEmpty else {
             completion(nil)
             return
         }
-        
+
         let joinObjectIDs = fyleMessageJoinWithStatus.map({ $0.typedObjectID })
         assert(!joinObjectIDs.isEmpty)
 
-        DispatchQueue.main.async { [weak self] in
-            guard let _self = self else {
-                completion(nil)
+        for joinObjectID in joinObjectIDs {
+            if let hardlink = self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
+                completion(hardlink)
                 return
             }
-            for joinObjectID in joinObjectIDs {
-                if let hardlink = _self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
-                    completion(hardlink)
-                    return
-                }
-            }
-            // If we reach this point, we could not find an appropriate cached hardlink. We request the first one.
-            _self.requestAllHardlinksForMessage(with: replyToObjectID) { hardlinkFound in
-                if hardlinkFound {
-                    _self.internalQueue.async {
-                        replyTo.managedObjectContext?.performAndWait {
-                            _self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo, completion: completion)
-                        }
-                    }
-                } else {
-                    completion(nil)
-                }
+        }
+        // If we reach this point, we could not find an appropriate cached hardlink. We request the first one.
+        self.requestAllHardlinksForMessage(with: replyToObjectID) { hardlinkFound in
+            assert(Thread.isMainThread)
+            if hardlinkFound, let joinObjectID = joinObjectIDs.first, let hardlink = self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
+                completion(hardlink)
+            } else {
+                completion(nil)
             }
         }
     }

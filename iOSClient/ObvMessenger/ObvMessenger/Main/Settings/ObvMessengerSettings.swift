@@ -419,9 +419,10 @@ struct ObvMessengerSettings {
 
         private struct Keys {
             static let preferredEmojisList = "settings.preferredEmojisList"
+            static let defaultEmojiButton = "settings.defaultEmojiButton"
         }
 
-        static var preferredEmojisList: [String] {
+        static fileprivate(set) var preferredEmojisList: [String] {
             get {
                 return userDefaults.stringArray(forKey: Keys.preferredEmojisList) ?? []
             }
@@ -430,32 +431,23 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.preferredEmojisList)
             }
         }
-    }
 
-}
-
-
-@available(iOS 13.0, *)
-final class ObvMessengerDownloadSettingsObservable: ObservableObject {
-
-    @Published var chosenIndex: Int = ObvMessengerSettings.Downloads.byteSizes.firstIndex(of: ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload) ?? 0 {
-        didSet {
-            ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload = ObvMessengerSettings.Downloads.byteSizes[chosenIndex]
+        static var defaultEmojiButton: String? {
+            get {
+                return userDefaults.stringOrNil(forKey: Keys.defaultEmojiButton)
+            }
+            set {
+                guard newValue != defaultEmojiButton else { return }
+                userDefaults.set(newValue, forKey: Keys.defaultEmojiButton)
+                if #available(iOS 13, *) {
+                    ObvMessengerSettingsObservableObject.shared.defaultEmojiButton = defaultEmojiButton
+                }
+            }
         }
     }
-    
+
 }
 
-
-@available(iOS 13.0, *)
-final class ObvMessengerInterfaceSettingsObservable: ObservableObject {
-
-    @Published var preferredComposeMessageViewActions: [NewComposeMessageViewAction] = ObvMessengerSettings.Interface.preferredComposeMessageViewActions {
-        didSet {
-            ObvMessengerSettings.Interface.preferredComposeMessageViewActions = preferredComposeMessageViewActions
-        }
-    }
-}
 
 @available(iOS 13.0, *)
 final class ObvMessengerPreferredEmojisListObservable: ObservableObject {
@@ -548,6 +540,21 @@ extension GlobalSettingsBackupItem {
             ObvMessengerSettings.BetaConfiguration.showBetaSettings = value
         }
         
+    }
+    
+}
+
+
+/// This singleton makes it possible to observe certain changes made to the settings.
+@available(iOS 13.0, *)
+final class ObvMessengerSettingsObservableObject: ObservableObject {
+    
+    static let shared = ObvMessengerSettingsObservableObject()
+
+    @Published fileprivate(set) var defaultEmojiButton: String?
+    
+    private init() {
+        defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
     }
     
 }

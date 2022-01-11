@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import UIKit
 
 struct ObvMessengerConstants {
     
@@ -62,6 +63,7 @@ struct ObvMessengerConstants {
     }
 
     static let muteIcon: ObvSystemIcon = .moonZzzFill
+    static let defaultEmoji = "👍"
 
     static let iTunesOlvidIdentifier = NSNumber(value: 1414865219) // Found via https://tools.applemediaservices.com
     static let shortLinkToOlvidAppIniTunes = URL(string: "https://apple.co/3lrdOUV")!
@@ -166,6 +168,9 @@ struct ObvMessengerConstants {
     static let bundleVersionAsInt = Int(bundleVersion)!
     static let fullVersion = "\(shortVersion) (\(bundleVersion))"
     
+    static let localIOSVersion = Double(UIDevice.current.systemVersion) ?? floor(NSFoundationVersionNumber)
+    static let supportedIOSVersion = 13.0
+    static let recommendedMinimumIOSVersion = 15.0
     
     static func writeToPreferences() {
         UserDefaults.standard.setValue(fullVersion, forKey: "preference_version")

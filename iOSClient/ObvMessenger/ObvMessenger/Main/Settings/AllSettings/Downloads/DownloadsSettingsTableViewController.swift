@@ -24,7 +24,7 @@ final class DownloadsSettingsTableViewController: UITableViewController {
     private let byteCountFormatter = ByteCountFormatter()
     
     init() {
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
     }
     
     required init?(coder aDecoder: NSCoder) {

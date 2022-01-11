@@ -86,9 +86,23 @@ extension BootstrapCoordinator {
             if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
                 AppBackupCoordinator.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
             }
+            deleteOldPendingRepliedTo()
         }
     }
     
+    
+    private func deleteOldPendingRepliedTo() {
+        let log = self.log
+        ObvStack.shared.performBackgroundTaskAndWait { context in
+            do {
+                try PersistedMessageReceived.batchDeletePendingRepliedToEntriesOlderThan(Date(timeIntervalSinceNow: -TimeInterval(months: 1)), within: context)
+                try context.save(logOnFailure: log)
+            } catch {
+                assertionFailure()
+                os_log("Failed to delete old PendingRepliedTo entries: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
+        }
+    }
     
     
     @available(iOS 13.0, *)

@@ -112,7 +112,7 @@ final class ReplyToView: UIView {
         if let messageReceived = message as? PersistedMessageReceived {
             if let contact = messageReceived.contactIdentity {
                 self.replyingToLabel.textColor = contact.cryptoId.colors.text
-                self.replyingToLabel.text = NewSingleDiscussionViewController.Strings.replyingTo(contact.customOrFullDisplayName)
+                self.replyingToLabel.text = MessageCellStrings.replyingTo(contact.customOrFullDisplayName)
             } else {
                 self.replyingToLabel.textColor = .label
                 self.replyingToLabel.text = NewSingleDiscussionViewController.Strings.replying

@@ -138,6 +138,20 @@ final class SnackBarCoordinator {
                 let ownedIdentityHasAtLeastOneContact = !ownedIdentity.contacts.isEmpty
                 guard ownedIdentityHasAtLeastOneContact else { return }
                 
+                // If the user's device has an old iOS version, recommend upgrade
+                
+                do {
+                    let lastDisplayDate = OlvidSnackBarCategory.upgradeIOS.lastDisplayDate ?? Date.distantPast
+                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < oneWeek
+                    if !didDismissSnackBarRecently {
+                        if ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.supportedIOSVersion || ObvMessengerConstants.localIOSVersion < ObvMessengerConstants.recommendedMinimumIOSVersion {
+                            ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.upgradeIOS)
+                                .postOnDispatchQueue()
+                            return
+                        }
+                    }
+                }
+
                 // If the owned identity
                 // - has at least one contact
                 // - has not granted access to the microphone

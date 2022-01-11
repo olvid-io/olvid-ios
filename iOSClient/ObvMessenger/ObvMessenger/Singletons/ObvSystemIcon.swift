@@ -66,9 +66,11 @@ enum ObvSystemIcon {
     case flameFill
     case folderCircle
     case folderFill
+    case gear
     case gearshapeFill
     case giftcardFill
     case handTap
+    case handThumbsup
     case handThumbsupFill
     case hare
     case hourglass
@@ -242,6 +244,8 @@ enum ObvSystemIcon {
             return "flame.fill"
         case .cartFill:
             return "cart.fill"
+        case .handThumbsup:
+            return "hand.thumbsup"
         case .handThumbsupFill:
             return "hand.thumbsup.fill"
         case .arrowUturnForwardCircleFill:
@@ -270,6 +274,8 @@ enum ObvSystemIcon {
             return "folder.fill"
         case .qrcode:
             return "qrcode"
+        case .gear:
+            return "gear"
         case .gearshapeFill:
             if #available(iOS 14, *) {
                 return "gearshape.fill"

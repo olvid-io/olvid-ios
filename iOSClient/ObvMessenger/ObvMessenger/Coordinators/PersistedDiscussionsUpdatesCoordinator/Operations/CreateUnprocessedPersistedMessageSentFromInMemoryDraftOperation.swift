@@ -23,7 +23,7 @@ import os.log
 import OlvidUtils
 
 
-final class CreateUnprocessedPersistedMessageSentFromInMemoryDraftOperation: OperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromInMemoryDraftOperationReasonForCancel> {
+final class CreateUnprocessedPersistedMessageSentFromInMemoryDraftOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     
     let inMemoryDraft: InMemoryDraft
@@ -43,8 +43,11 @@ final class CreateUnprocessedPersistedMessageSentFromInMemoryDraftOperation: Ope
             
             // Create a PersistedMessageSent from the draft and reset the draft
             
-            guard let persistedMessageSent = PersistedMessageSent(draft: inMemoryDraft) else {
-                return cancel(withReason: .failedToCreatePersistedMessageSent)
+            let persistedMessageSent: PersistedMessageSent
+            do {
+                persistedMessageSent = try PersistedMessageSent(draft: inMemoryDraft)
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             inMemoryDraft.reset()
@@ -62,25 +65,4 @@ final class CreateUnprocessedPersistedMessageSentFromInMemoryDraftOperation: Ope
         }
         
     }
-}
-
-
-enum CreateUnprocessedPersistedMessageSentFromInMemoryDraftOperationReasonForCancel: LocalizedErrorWithLogType {
-    case failedToCreatePersistedMessageSent
-    case coreDataError(error: Error)
-    
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError, .failedToCreatePersistedMessageSent:
-            return .fault
-        }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
-        case .failedToCreatePersistedMessageSent: return "Could not create an instance of PersistedMessageSent"
-        }
-    }
-
 }

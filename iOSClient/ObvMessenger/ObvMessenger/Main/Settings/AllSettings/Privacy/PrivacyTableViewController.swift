@@ -64,7 +64,7 @@ final class PrivacyTableViewController: UITableViewController {
             self.titleForLocalAuthentication = Strings.loginWith.passcode
             self.explanationForLocalAuthentication = Strings.explanationLoginWith.passcode
         }
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -83,7 +83,6 @@ final class PrivacyTableViewController: UITableViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        ObvNewFeatures.PrivacySetting.markSeenByUser(to: true)
         ObvMessengerInternalNotification.badgesNeedToBeUpdated(ownedCryptoId: ownedCryptoId).postOnDispatchQueue()
     }
     

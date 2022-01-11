@@ -299,6 +299,9 @@ struct DiscussionExpirationSettingsWrapperView: View {
                 ValueWithBinding(
                     localConfiguration, \._muteNotificationsDuration) {
                         PersistedDiscussionLocalConfigurationValue.muteNotificationsDuration(muteNotificationsDuration: $0).sendUpdateRequestNotifications(with: $1) },
+            defaultEmoji: ValueWithBinding(
+                localConfiguration, \.defaultEmoji) {
+                    PersistedDiscussionLocalConfigurationValue.defaultEmoji(emoji: $0).sendUpdateRequestNotifications(with: $1) },
             sharedConfigCanBeModified: model.sharedConfigCanBeModified,
             dismissAction: model.dismissAction)
     }
@@ -322,6 +325,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let timeBasedRetention: ValueWithBinding<PersistedDiscussionLocalConfiguration, DurationOptionAltOverride>
     let muteNotificationsEndDate: Date?
     let muteNotificationsDuration: ValueWithBinding<PersistedDiscussionLocalConfiguration, MuteDurationOption?>
+    let defaultEmoji: ValueWithBinding<PersistedDiscussionLocalConfiguration, String?>
 
     let sharedConfigCanBeModified: Bool
     var dismissAction: (Bool?) -> Void
@@ -407,6 +411,9 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                                 }
                             }
                         }
+                    }
+                    if #available(iOS 15.0, *) {
+                        ChangeDefaultEmojiView(defaultEmoji: defaultEmoji.binding)
                     }
                 }
                 /* RETENTION SETTINGS */
@@ -589,6 +596,42 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     }
 }
 
+@available(iOS 15, *)
+struct ChangeDefaultEmojiView: View {
+
+    @Binding var defaultEmoji: String?
+    @State private var showingEmojiPickerSheet = false
+
+    var body: some View {
+        Section {
+            Button(action: {
+                showingEmojiPickerSheet = true
+            }) {
+                HStack {
+                    Image(systemIcon: .handThumbsup)
+                        .foregroundColor(.blue)
+                    Text("DEFAULT_EMOJI")
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                    Spacer()
+                    if let defaultEmoji = defaultEmoji {
+                        Text(defaultEmoji)
+                            .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    } else {
+                        Text("\(CommonString.Word.Default) (\(ObvMessengerSettings.Emoji.defaultEmojiButton ?? ObvMessengerConstants.defaultEmoji))")
+                            .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingEmojiPickerSheet) {
+            EmojiPickerView(model: EmojiPickerViewModel(selectedEmoji: defaultEmoji) { emoji in
+                self.defaultEmoji = emoji
+                self.showingEmojiPickerSheet = false
+            })
+        }
+    }
+}
+
 
 @available(iOS 13, *)
 struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
@@ -610,6 +653,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 timeBasedRetention: ValueWithBinding(constant: .useAppDefault),
                 muteNotificationsEndDate: nil,
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
+                defaultEmoji: ValueWithBinding(constant: nil),
                 sharedConfigCanBeModified: true,
                 dismissAction: { _ in })
             DiscussionExpirationSettingsView(
@@ -627,6 +671,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 timeBasedRetention: ValueWithBinding(constant: .none),
                 muteNotificationsEndDate: Date.distantFuture,
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
+                defaultEmoji: ValueWithBinding(constant: nil),
                 sharedConfigCanBeModified: false,
                 dismissAction: { _ in })
         }

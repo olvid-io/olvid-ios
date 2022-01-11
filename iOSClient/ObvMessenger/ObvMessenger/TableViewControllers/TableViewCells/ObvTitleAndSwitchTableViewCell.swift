@@ -28,7 +28,15 @@ final class ObvTitleAndSwitchTableViewCell: UITableViewCell {
     
     var title: String? {
         get { self.textLabel?.text }
-        set { self.textLabel?.text = newValue}
+        set {
+            if #available(iOS 14, *) {
+                var config = self.defaultContentConfiguration()
+                config.text = newValue
+                self.contentConfiguration = config
+            } else {
+                self.textLabel?.text = newValue
+            }
+        }
     }
     
     var switchIsOn: Bool {

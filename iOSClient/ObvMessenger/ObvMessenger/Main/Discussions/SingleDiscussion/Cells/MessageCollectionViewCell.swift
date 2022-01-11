@@ -659,58 +659,57 @@ class MessageCollectionViewCell: UICollectionViewCell {
     
     func refreshReplyTo(with message: PersistedMessage) {
         resetCounterOfLayoutIfNeededCalls()
-        do {
-            if let repliedMessage = try message.getReplyTo() {
-                self.repliedMessage = repliedMessage
-                // Make sure we do *not* insert the replyToRoundedRectView twice
-                // If there already is a replyToRoundedRectView, we asssume it contains the appropriate values, so we return immediately
-                guard roundedRectStackView.subviews.filter({ $0.accessibilityIdentifier == "replyToRoundedRectView" }).isEmpty else { return }
-                // We can insert the replyToRoundedRectView and configure it
+        switch message.genericRepliesTo {
+        case .none:
+            self.repliedMessage = nil
+        case .notAvailableYet:
+            if roundedRectStackView.subviews.filter({ $0.accessibilityIdentifier == "replyToRoundedRectView" }).isEmpty {
                 roundedRectStackView.insertArrangedSubview(replyToRoundedRectView, at: max(0, roundedRectStackView.arrangedSubviews.count-1))
-                if let repliedMessageElement = MessageCollectionViewCell.extractMessageElements(from: repliedMessage),
-                   let text = repliedMessageElement.text {
-                    replyToTextView.isHidden = false
-                    replyToTextView.text = text
-                    replyToTextView.font = repliedMessageElement.font
-                    if repliedMessageElement.centered {
-                        replyToTextView.textAlignment = .center
-                    }
-                }
-                if let rcvMsg = repliedMessage as? PersistedMessageReceived {
-                    replyToLabel.text = rcvMsg.contactIdentity?.customDisplayName ?? rcvMsg.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
-                    replyToLabel.textColor = rcvMsg.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel
-                    if !rcvMsg.fyleMessageJoinWithStatuses.isEmpty {
-                        let numberOfAttachments = rcvMsg.fyleMessageJoinWithStatuses.count
-                        replyToFylesLabel.isHidden = false
-                        replyToFylesLabel.text = Strings.seeAttachments(numberOfAttachments)
-                    }
-                } else if let sntMsg = repliedMessage as? PersistedMessageSent {
-                    replyToLabel.text = sntMsg.discussion.ownedIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
-                    replyToLabel.textColor = sntMsg.discussion.ownedIdentity?.cryptoId.textColor
-                    if !sntMsg.fyleMessageJoinWithStatuses.isEmpty {
-                        let numberOfAttachments = sntMsg.fyleMessageJoinWithStatuses.count
-                        replyToFylesLabel.isHidden = false
-                        replyToFylesLabel.text = Strings.seeAttachments(numberOfAttachments)
-                    }
-                }
-                replyToRoundedRectView.backgroundColor = replyToLabel.textColor
-            } else {
-                self.repliedMessage = nil
             }
-        } catch let error {
-            if let error = error as? PersistedMessage.ObvError {
-                switch error.kind {
-                case .managedContextIsNil: break
-                case .replyToMessageCannotBeFound:
-                    // There is a replyToJSON within the message, but we could not find a corresponding PersistedMessage. It may have been deleted.
-                    if roundedRectStackView.subviews.filter({ $0.accessibilityIdentifier == "replyToRoundedRectView" }).isEmpty {
-                        roundedRectStackView.insertArrangedSubview(replyToRoundedRectView, at: max(0, roundedRectStackView.arrangedSubviews.count-1))
-                    }
-                    prepareReplyToForReuse()
-                    replyToTextView.isHidden = false
-                    replyToTextView.text = Strings.replyToMessageWasDeleted
+            prepareReplyToForReuse()
+            replyToTextView.isHidden = false
+            replyToTextView.text = Strings.replyToMessageUnavailable
+        case .available(message: let repliedMessage):
+            self.repliedMessage = repliedMessage
+            // Make sure we do *not* insert the replyToRoundedRectView twice
+            // If there already is a replyToRoundedRectView, we asssume it contains the appropriate values, so we return immediately
+            guard roundedRectStackView.subviews.filter({ $0.accessibilityIdentifier == "replyToRoundedRectView" }).isEmpty else { return }
+            // We can insert the replyToRoundedRectView and configure it
+            roundedRectStackView.insertArrangedSubview(replyToRoundedRectView, at: max(0, roundedRectStackView.arrangedSubviews.count-1))
+            if let repliedMessageElement = MessageCollectionViewCell.extractMessageElements(from: repliedMessage),
+               let text = repliedMessageElement.text {
+                replyToTextView.isHidden = false
+                replyToTextView.text = text
+                replyToTextView.font = repliedMessageElement.font
+                if repliedMessageElement.centered {
+                    replyToTextView.textAlignment = .center
                 }
             }
+            if let rcvMsg = repliedMessage as? PersistedMessageReceived {
+                replyToLabel.text = rcvMsg.contactIdentity?.customDisplayName ?? rcvMsg.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
+                replyToLabel.textColor = rcvMsg.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel
+                if !rcvMsg.fyleMessageJoinWithStatuses.isEmpty {
+                    let numberOfAttachments = rcvMsg.fyleMessageJoinWithStatuses.count
+                    replyToFylesLabel.isHidden = false
+                    replyToFylesLabel.text = Strings.seeAttachments(numberOfAttachments)
+                }
+            } else if let sntMsg = repliedMessage as? PersistedMessageSent {
+                replyToLabel.text = sntMsg.discussion.ownedIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
+                replyToLabel.textColor = sntMsg.discussion.ownedIdentity?.cryptoId.textColor
+                if !sntMsg.fyleMessageJoinWithStatuses.isEmpty {
+                    let numberOfAttachments = sntMsg.fyleMessageJoinWithStatuses.count
+                    replyToFylesLabel.isHidden = false
+                    replyToFylesLabel.text = Strings.seeAttachments(numberOfAttachments)
+                }
+            }
+            replyToRoundedRectView.backgroundColor = replyToLabel.textColor
+        case .deleted:
+            if roundedRectStackView.subviews.filter({ $0.accessibilityIdentifier == "replyToRoundedRectView" }).isEmpty {
+                roundedRectStackView.insertArrangedSubview(replyToRoundedRectView, at: max(0, roundedRectStackView.arrangedSubviews.count-1))
+            }
+            prepareReplyToForReuse()
+            replyToTextView.isHidden = false
+            replyToTextView.text = Strings.replyToMessageWasDeleted
         }
     }
     

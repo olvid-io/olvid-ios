@@ -257,26 +257,10 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
                         
             // Configure the reply-to
             
-            if let cacheDelegate = cacheDelegate, message.hasReplyTo {
-                if let cachedConfig = cacheDelegate.getCachedReplyToBubbleViewConfiguration(message: message) {
-                    content.replyToBubbleViewConfiguration = cachedConfig
-                } else {
-                    content.replyToBubbleViewConfiguration = .loading
-                    
-                    cacheDelegate.requestReplyToBubbleViewConfiguration(message: message) { [weak self] result in
-                        switch result {
-                        case .failure:
-                            break
-                        case .success:
-                            // No need to call setNeedsUpdateConfiguration since this cell will be redisplayed
-                            self?.cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: message.typedObjectID.downcast)
-                        }
-                    }
-                }
-            } else {
-                content.replyToBubbleViewConfiguration = nil
+            content.replyToBubbleViewConfiguration = cacheDelegate?.requestReplyToBubbleViewConfiguration(message: message) { [weak self] in
+                self?.setNeedsUpdateConfiguration()
             }
-
+            
         }
         
         content.isReplyToActionAvailable = self.isReplyToActionAvailable
@@ -817,7 +801,6 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
 
     
     func prepareForReuse() {
-        replyToBubbleView.prepareForReuse()
         singleLinkView.prepareForReuse()
     }
     

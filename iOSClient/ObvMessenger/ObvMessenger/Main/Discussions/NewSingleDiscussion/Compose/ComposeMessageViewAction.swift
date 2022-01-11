@@ -26,7 +26,7 @@ enum NewComposeMessageViewAction: Int {
     case chooseImageFromLibrary = 4
     case choseFile = 5
     case introduceThisContact = 6
-    case changeActionsOrder = 7
+    case composeMessageSettings = 7
 }
 
 extension NewComposeMessageViewAction {
@@ -38,7 +38,7 @@ extension NewComposeMessageViewAction {
         .choseFile,
         .scanDocument,
         .introduceThisContact,
-        .changeActionsOrder
+        .composeMessageSettings
     ]
 
     var icon: ObvSystemIcon {
@@ -55,8 +55,8 @@ extension NewComposeMessageViewAction {
             return .paperclip
         case .introduceThisContact:
             return .person2Circle
-        case .changeActionsOrder:
-            return .arrowUpArrowDownCircle
+        case .composeMessageSettings:
+            return .gearshapeFill
         }
     }
 
@@ -74,14 +74,14 @@ extension NewComposeMessageViewAction {
             return NSLocalizedString("CHOOSE_FILE", comment: "")
         case .introduceThisContact:
             return NSLocalizedString("Introduce", comment: "")
-        case .changeActionsOrder:
-            return NSLocalizedString("CHANGE_ACTION_ORDER", comment: "")
+        case .composeMessageSettings:
+            return NSLocalizedString("COMPOSE_MESSAGE_SETTINGS", comment: "")
         }
     }
     
     var canBeReordered: Bool {
         switch self {
-        case .changeActionsOrder:
+        case .composeMessageSettings:
             return false
         case .oneTimeEphemeralMessage,
                 .scanDocument,

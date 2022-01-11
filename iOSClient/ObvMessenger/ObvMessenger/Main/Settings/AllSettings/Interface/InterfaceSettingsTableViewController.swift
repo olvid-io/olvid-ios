@@ -26,7 +26,7 @@ class InterfaceSettingsTableViewController: UITableViewController {
     
     init(ownedCryptoId: ObvCryptoId) {
         self.ownedCryptoId = ownedCryptoId
-        super.init(style: .grouped)
+        super.init(style: Self.settingsTableStyle)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -97,8 +97,14 @@ extension InterfaceSettingsTableViewController {
             }
             cell = _cell
         case IndexPath(row: 0, section: 3):
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.textLabel?.text = Strings.newComposeMessageViewActionOrder
+            cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            if #available(iOS 14, *) {
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.newComposeMessageViewActionOrder
+                cell.contentConfiguration = configuration
+            } else {
+                cell.textLabel?.text = Strings.newComposeMessageViewActionOrder
+            }
             cell.accessoryType = .disclosureIndicator
         default:
             cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
@@ -118,7 +124,7 @@ extension InterfaceSettingsTableViewController {
             self.navigationController?.pushViewController(vc, animated: true)
         case IndexPath(row: 0, section: 3):
             if #available(iOS 15, *) {
-                let vc = ChangeNewComposeMessageViewActionOrderViewController()
+                let vc = ComposeMessageViewSettingsViewController(input: .global)
                 self.navigationController?.pushViewController(vc, animated: true)
             }
         default:

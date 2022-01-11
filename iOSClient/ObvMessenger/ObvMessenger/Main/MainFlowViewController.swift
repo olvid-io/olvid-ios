@@ -207,6 +207,8 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                         guard let appSettings = URL(string: UIApplication.openSettingsURLString) else { assertionFailure(); return }
                         guard UIApplication.shared.canOpenURL(appSettings) else { assertionFailure(); return }
                         UIApplication.shared.open(appSettings, options: [:])
+                    case .upgradeIOS:
+                        break
                     }
                 }
             },
@@ -215,6 +217,9 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                 (self?.presentedViewController as? OlvidAlertViewController)?.dismiss(animated: true) {
                     switch snackBarCategory {
                     case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey, .grantPermissionToRecord, .grantPermissionToRecordInSettings:
+                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
+                            .postOnDispatchQueue()
+                    case .upgradeIOS:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
                     }

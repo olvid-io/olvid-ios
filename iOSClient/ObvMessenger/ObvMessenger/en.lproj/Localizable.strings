@@ -2104,6 +2104,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "VALUE_COPIED" = "Value copied";
 
+"DEFAULT_EMOJI" = "Default quick emoji";
+
 "SCAN_QR_CODE" = "Scan a QR code";
 
 "CONFIGURATION_SCAN" = "Configuration scan";
@@ -2128,12 +2130,42 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "OTHER_DEVICE" = "Other device";
 
-"NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES" = "Compose message view";
+"NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES" = "Customize the message compose area";
 
 "NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_HEADER" = "Preferred message buttons order";
 
 "NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER" = "The first button will be located next to the text field allowing to compose messages. The buttons you use the most should be put at the top of this list so that you can access them in one tap.";
 
-"CHANGE_ACTION_ORDER" = "Change buttons order";
+"COMPOSE_MESSAGE_SETTINGS" = "Customize";
 
 "OPEN_SOURCE_LICENCES" = "Open Source Licences";
+
+"RESET_COMPOSE_MESSAGE_VIEW_ACTIONS_ORDER" = "Reset buttons order to default";
+
+"UNAVAILABLE_MESSAGE" = "Unavailable message";
+
+"RESET_DISCUSSION_EMOJI_TO_DEFAULT" = "Reset";
+
+"RESET_DISCUSSION_EMOJI_TO_DEFAULT_DISCUSSION_LEVEL" = "Reset";
+
+"DEFAULT_EMOJI_AT_APP_LEVEL" = "Quick emoji";
+
+"QUICK_EMOJI_EXPLANATION" = "The quick emoji is available when the text field allowing to compose messages is empty. Tapping this emoji sends it emmediately. Tapping this emoji twice (or three times) sends it twice (or three times). Here, you can customize the default quick emoji for all discussions. This choice can be overriden at the discussion level, by customizing the quick emoji of the discussion.";
+
+"DISCUSSION_QUICK_EMOJI" = "Quick emoji for this discussion";
+
+"SNACK_BAR_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" = "⚠️ Support for your iOS version will soon be dropped.";
+"SNACK_BAR_BODY_IOS_VERSION_SHOULD_UPGRADE" = "iOS upgrade recommended.";
+"SNACK_BAR_BODY_IOS_VERSION_ACCEPTABLE" = "iOS upgrade recommended.";
+
+"SNACK_BAR_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED" = "More";
+"SNACK_BAR_TITLE_IOS_VERSION_SHOULD_UPGRADE" = "More";
+"SNACK_BAR_TITLE_IOS_VERSION_ACCEPTABLE" = "More";
+
+"SNACK_BAR_DETAILS_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED" = "Support for your iOS version will soon be dropped";
+"SNACK_BAR_DETAILS_TITLE_IOS_VERSION_SHOULD_UPGRADE" = "iOS upgrade recommended";
+"SNACK_BAR_DETAILS_TITLE_IOS_VERSION_ACCEPTABLE" = "iOS upgrade recommended";
+
+"SNACK_BAR_DETAILS_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" = "We detected that you use an iOS version that Olvid will not support anymore, starting with the next update. We appologize for this. If possible, we recommend you upgrade to the latest iOS version.\nTo do so, open the Settings App on your device. Go to General and tap Software Update.";
+"SNACK_BAR_DETAILS_BODY_IOS_VERSION_SHOULD_UPGRADE" = "We detected that you are not using the latest version of iOS. You are missing out on important features of Olvid. To make the most out of Olvid, you should upgrade iOS.\nTo do so, open the Settings App on your device. Go to General and tap Software Update.";
+"SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" = "To make sure you use the latest version of iOS, go to Settings > General, then tap Software Update.";

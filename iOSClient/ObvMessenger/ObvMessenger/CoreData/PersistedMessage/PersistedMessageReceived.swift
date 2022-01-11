@@ -64,6 +64,7 @@ final class PersistedMessageReceived: PersistedMessage {
     @NSManaged private(set) var contactIdentity: PersistedObvContactIdentity?
     @NSManaged private(set) var expirationForReceivedLimitedVisibility: PersistedExpirationForReceivedMessageWithLimitedVisibility?
     @NSManaged private(set) var expirationForReceivedLimitedExistence: PersistedExpirationForReceivedMessageWithLimitedExistence?
+    @NSManaged private var messageRepliedToIdentifier: PendingRepliedTo?
     @NSManaged private var unsortedFyleMessageJoinWithStatus: Set<ReceivedFyleMessageJoinWithStatus>
 
     // MARK: - Computed variables
@@ -161,45 +162,67 @@ final class PersistedMessageReceived: PersistedMessage {
 
 extension PersistedMessageReceived {
     
-    convenience init?(messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messageJSON: MessageJSON, contactIdentity: PersistedObvContactIdentity, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, missedMessageCount: Int, discussion: PersistedDiscussion) throws {
+    convenience init(messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messageJSON: MessageJSON, contactIdentity: PersistedObvContactIdentity, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, missedMessageCount: Int, discussion: PersistedDiscussion) throws {
         
-        guard let context = discussion.managedObjectContext else { return nil }
+        guard let context = discussion.managedObjectContext else { throw PersistedMessageReceived.makeError(message: "Could not find context") }
         
         if let discussion = discussion as? PersistedGroupDiscussion {
             // We check that the received message comes from a member (likely) or a pending member (unlikely, but still)
             guard let contactGroup = discussion.contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: PersistedMessageReceived.log, type: .error)
-                return nil
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "Could find contact group (this is ok if it was just deleted)")
             }
             let pendingMembersCryptoIds = contactGroup.pendingMembers.map { $0.cryptoId }
             guard contactGroup.contactIdentities.contains(contactIdentity) || pendingMembersCryptoIds.contains(contactIdentity.cryptoId) else {
                 os_log("The PersistedGroupDiscussion list of contacts does not contain the contact that sent a message within this discussion", log: PersistedMessageReceived.log, type: .error)
-                return nil
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "The PersistedGroupDiscussion list of contacts does not contain the contact that sent a message within this discussion")
             }
         } else if let discussion = discussion as? PersistedOneToOneDiscussion {
             guard discussion.contactIdentity == contactIdentity else {
-                return nil
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "The referenced one2one discussion corresponds to a different contact than the one that sent the message.")
             }
         }
         
-        guard let (sortIndex, adjustedTimestamp) = try? PersistedMessageReceived.determineAppropriateSortIndex(forSenderSequenceNumber: messageJSON.senderSequenceNumber,
-                                                                                                               senderThreadIdentifier: messageJSON.senderThreadIdentifier,
-                                                                                                               contactIdentity: contactIdentity,
-                                                                                                               timestamp: messageUploadTimestampFromServer,
-                                                                                                               within: discussion) else { return nil }
+        let (sortIndex, adjustedTimestamp) = try PersistedMessageReceived.determineAppropriateSortIndex(
+            forSenderSequenceNumber: messageJSON.senderSequenceNumber,
+            senderThreadIdentifier: messageJSON.senderThreadIdentifier,
+            contactIdentity: contactIdentity,
+            timestamp: messageUploadTimestampFromServer,
+            within: discussion)
 
-        self.init(timestamp: adjustedTimestamp,
-                  body: messageJSON.body,
-                  rawStatus: MessageStatus.new.rawValue,
-                  senderSequenceNumber: messageJSON.senderSequenceNumber,
-                  sortIndex: sortIndex,
-                  replyToJSON: messageJSON.replyTo,
-                  discussion: discussion,
-                  readOnce: messageJSON.expiration?.readOnce ?? false,
-                  visibilityDuration: messageJSON.expiration?.visibilityDuration,
-                  forEntityName: PersistedMessageReceived.entityName,
-                  within: context)
+        let isReplyToAnotherMessage: Bool
+        let replyTo: PersistedMessage?
+        let messageRepliedToIdentifier: PendingRepliedTo?
+        if let replyToJSON = messageJSON.replyTo {
+            isReplyToAnotherMessage = true
+            replyTo = try PersistedMessage.findMessageRepliedTo(replyToJSON: replyToJSON, within: discussion)
+            if replyTo == nil {
+                messageRepliedToIdentifier = PendingRepliedTo(replyToJSON: replyToJSON, within: context)
+            } else {
+                messageRepliedToIdentifier = nil
+            }
+        } else {
+            isReplyToAnotherMessage = false
+            replyTo = nil
+            messageRepliedToIdentifier = nil
+        }
 
+        try self.init(timestamp: adjustedTimestamp,
+                      body: messageJSON.body,
+                      rawStatus: MessageStatus.new.rawValue,
+                      senderSequenceNumber: messageJSON.senderSequenceNumber,
+                      sortIndex: sortIndex,
+                      isReplyToAnotherMessage: isReplyToAnotherMessage,
+                      replyTo: replyTo,
+                      discussion: discussion,
+                      readOnce: messageJSON.expiration?.readOnce ?? false,
+                      visibilityDuration: messageJSON.expiration?.visibilityDuration,
+                      forEntityName: PersistedMessageReceived.entityName)
+
+        self.messageRepliedToIdentifier = messageRepliedToIdentifier
         self.contactIdentity = contactIdentity
         self.senderIdentifier = contactIdentity.cryptoId.getIdentity()
         self.senderThreadIdentifier = messageJSON.senderThreadIdentifier
@@ -219,16 +242,58 @@ extension PersistedMessageReceived {
                                                                                                                    localDownloadTimestamp: localDownloadTimestamp)
         }
 
+        // Now that this message is created, we can look for all the messages that have a `messageRepliedToIdentifier` referencing this message.
+        // For these messages, we delete this reference and, instead, reference this message using the `messageRepliedTo` relationship.
+        
+        try self.updateMessagesReplyingToThisMessage()
+
     }
+    
+    
+    /// When creating a new `PersistedMessageReceived`, we need to search for previous `PersistedMessageReceived` that are a reply to this message.
+    /// These messages have a non-nil `messageRepliedToIdentifier` relationship that references this message. This method searches for these
+    /// messages, delete the `messageRepliedToIdentifier` and replaces it by a non-nil `messageRepliedTo` relationship.
+    private func updateMessagesReplyingToThisMessage() throws {
+
+        guard let context = self.managedObjectContext else { throw makeError(message: "Could not find context") }
+
+        let pendingRepliedTos = try PendingRepliedTo.getAll(senderIdentifier: self.senderIdentifier,
+                                                            senderSequenceNumber: self.senderSequenceNumber,
+                                                            senderThreadIdentifier: self.senderThreadIdentifier,
+                                                            discussion: self.discussion,
+                                                            within: context)
+        pendingRepliedTos.forEach { pendingRepliedTo in
+            guard let reply = pendingRepliedTo.message else {
+                assertionFailure()
+                try? pendingRepliedTo.delete()
+                return
+            }
+            assert(reply.isReplyToAnotherMessage)
+            reply.setRawMessageRepliedTo(with: self)
+            reply.messageRepliedToIdentifier = nil
+            try? pendingRepliedTo.delete()
+        }
+
+    }
+
     
     func update(withMessageJSON json: MessageJSON, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, discussion: PersistedDiscussion) throws {
         guard self.messageIdentifierFromEngine == messageIdentifierFromEngine else {
             throw makeError(message: "Invalid message identifier from engine")
         }
+        
+        let replyTo: PersistedMessage?
+        if let replyToJSON = json.replyTo {
+            replyTo = try PersistedMessage.findMessageRepliedTo(replyToJSON: replyToJSON, within: discussion)
+        } else {
+            replyTo = nil
+        }
+
         try self.update(body: json.body,
                         senderSequenceNumber: json.senderSequenceNumber,
-                        replyToJSON: json.replyTo,
+                        replyTo: replyTo,
                         discussion: discussion)
+        
         do {
             self.serializedReturnReceipt = try returnReceiptJSON?.encode()
         } catch let error {
@@ -313,6 +378,34 @@ extension PersistedMessageReceived {
     
 }
 
+
+// MARK: - Reply-to
+
+extension PersistedMessageReceived {
+    
+    enum RepliedMessage {
+        case none
+        case notAvailableYet
+        case available(message: PersistedMessage)
+        case deleted
+    }
+    
+    
+    var repliesTo: RepliedMessage {
+        if let messageRepliedTo = self.rawMessageRepliedTo {
+            return .available(message: messageRepliedTo)
+        } else if self.messageRepliedToIdentifier != nil {
+            return .notAvailableYet
+        } else if self.isReplyToAnotherMessage {
+            return .deleted
+        } else {
+            return .none
+        }
+    }
+    
+}
+
+
 // MARK: - Other methods
 
 extension PersistedMessageReceived {
@@ -349,6 +442,12 @@ extension PersistedMessageReceived {
         }
     }
 
+    
+    func toReceivedMessageReferenceJSON() -> MessageReferenceJSON? {
+        return MessageReferenceJSON(senderSequenceNumber: self.senderSequenceNumber,
+                                    senderThreadIdentifier: self.senderThreadIdentifier,
+                                    senderIdentifier: self.senderIdentifier)
+    }
 }
 
 
@@ -541,7 +640,7 @@ extension PersistedMessageReceived {
                         contactIdentityIdentityKey, contactIdentity as NSData)
         ])
         request.fetchLimit = 1
-        do { return try context.fetch(request).first } catch { return nil }
+        return try context.fetch(request).first
     }
     
     static func getAllNew(with context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
@@ -676,6 +775,12 @@ extension PersistedMessageReceived {
         return try context.fetch(request)
     }
     
+
+    static func batchDeletePendingRepliedToEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
+        try PendingRepliedTo.batchDeleteEntriesOlderThan(Date(timeIntervalSinceNow: -TimeInterval(months: 1)), within: context)
+    }
+
+    
 }
 
 
@@ -763,4 +868,97 @@ extension TypeSafeManagedObjectID where T == PersistedMessageReceived {
     var downcast: TypeSafeManagedObjectID<PersistedMessage> {
         TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
     }
+}
+
+
+// MARK: - PendingRepliedTo
+
+
+/// When receiving a message that replies to another message, it might happen that this replied-to message is not available
+/// because it did not arrive yet. This entity makes it possible to save the elements (`senderIdentifier`, etc.) referencing
+/// this replied-to message for later. Each time a new message arrive, we check the `PendingRepliedTo` entities and look
+/// for all those that reference this arriving message. This allows to associate message with its replied-to message a posteriori.
+/// This search is performed in the initializer of
+@objc(PendingRepliedTo)
+fileprivate final class PendingRepliedTo: NSManagedObject {
+
+    private static let entityName = "PendingRepliedTo"
+
+    @NSManaged private var creationDate: Date
+    @NSManaged private var senderIdentifier: Data
+    @NSManaged private var senderSequenceNumber: Int
+    @NSManaged private var senderThreadIdentifier: UUID
+    
+    
+    @NSManaged private(set) var message: PersistedMessageReceived?
+
+    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private func makeError(message: String) -> Error { PendingRepliedTo.makeError(message: message) }
+
+    convenience init?(replyToJSON: MessageReferenceJSON, within context: NSManagedObjectContext) {
+        
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingRepliedTo.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+
+        self.creationDate = Date()
+        self.senderSequenceNumber = replyToJSON.senderSequenceNumber
+        self.senderThreadIdentifier = replyToJSON.senderThreadIdentifier
+        self.senderIdentifier = replyToJSON.senderIdentifier
+
+    }
+
+    
+    fileprivate func delete() throws {
+        guard let context = self.managedObjectContext else { throw makeError(message: "Could not find context") }
+        context.delete(self)
+    }
+    
+    
+    private struct Predicate {
+        enum Key: String {
+            case creationDate = "creationDate"
+            case senderIdentifier = "senderIdentifier"
+            case senderSequenceNumber = "senderSequenceNumber"
+            case senderThreadIdentifier = "senderThreadIdentifier"
+            case message = "message"
+        }
+        static func with(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion) -> NSPredicate {
+            let discussionKey = [Key.message.rawValue, PersistedMessage.discussionKey].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.senderIdentifier, EqualToData: senderIdentifier),
+                NSPredicate(Key.senderSequenceNumber, EqualToInt: senderSequenceNumber),
+                NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
+                NSPredicate(format: "%K == %@", discussionKey, discussion.objectID),
+            ])
+        }
+        static func createBefore(_ date: Date) -> NSPredicate {
+            NSPredicate(Key.creationDate, earlierThan: date)
+        }
+    }
+
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PendingRepliedTo> {
+        return NSFetchRequest<PendingRepliedTo>(entityName: PendingRepliedTo.entityName)
+    }
+
+    
+    fileprivate static func getAll(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion, within context: NSManagedObjectContext) throws -> [PendingRepliedTo] {
+        let request = PendingRepliedTo.fetchRequest()
+        request.predicate = Predicate.with(senderIdentifier: senderIdentifier,
+                                           senderSequenceNumber: senderSequenceNumber,
+                                           senderThreadIdentifier: senderThreadIdentifier,
+                                           discussion: discussion)
+        request.fetchBatchSize = 1_000
+        return try context.fetch(request)
+    }
+    
+    
+    static func batchDeleteEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
+        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: PendingRepliedTo.entityName)
+        fetchRequest.predicate = Predicate.createBefore(date)
+        let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        batchDeleteRequest.resultType = .resultTypeStatusOnly
+        _ = try context.execute(batchDeleteRequest)
+    }
+    
 }

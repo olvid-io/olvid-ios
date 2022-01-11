@@ -643,7 +643,7 @@ extension ContactIdentityCoordinator {
                 throw NSError()
             }
             
-            _ = PersistedMessageSystem(.contactWasDeleted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: persistedDiscussionOneToOneLocked)
+            _ = try PersistedMessageSystem(.contactWasDeleted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: persistedDiscussionOneToOneLocked)
         }
         
         

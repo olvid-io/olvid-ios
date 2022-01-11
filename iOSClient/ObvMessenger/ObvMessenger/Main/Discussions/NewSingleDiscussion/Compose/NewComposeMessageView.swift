@@ -49,7 +49,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     private var microButton: UIButton!
     private var trashCircleButton: UIButton!
     private var introduceButton: UIButton?
-    private var changeActionsOrderButton: UIButton?
+    private var composeMessageSettingsButton: UIButton?
     private var chevronButton: UIButton!
     private let buttonSize = CGFloat(44)
     private var emojiButton = UIButton(type: .system)
@@ -144,8 +144,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
             return paperclipButton
         case .introduceThisContact:
             return introduceButton
-        case .changeActionsOrder:
-            return changeActionsOrderButton
+        case .composeMessageSettings:
+            return composeMessageSettingsButton
         }
     }
     
@@ -168,7 +168,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
                 .shootPhotoOrMovie,
                 .chooseImageFromLibrary,
                 .choseFile,
-                .changeActionsOrder:
+                .composeMessageSettings:
             return true
         case .introduceThisContact:
             guard let discussion = draft.discussion as? PersistedOneToOneDiscussion,
@@ -198,8 +198,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
                 self?.paperclipButtonTapped()
             case .introduceThisContact:
                 self?.introduceButtonTapped()
-            case .changeActionsOrder:
-                self?.changeActionsOrderTapped()
+            case .composeMessageSettings:
+                self?.composeMessageSettingsButtonTapped()
             }
         }
     }
@@ -222,7 +222,9 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
         observeAttachmentsChanges()
         observeDraftBodyChanges()
         observeMessageChanges()
+        observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
         observeNotifications()
+        observeDefaultEmojiInAppSettings()
     }
 
     required init?(coder: NSCoder) {
@@ -231,6 +233,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     
     deinit {
         notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        cancellables.forEach({ $0.cancel() })
     }
     
     override func layoutSubviews() {
@@ -290,8 +293,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
                 instantiateAndConfigureButton(button: &paperclipButton, uiAction: uiAction(for: action))
             case .introduceThisContact:
                 instantiateAndConfigureButton(button: &introduceButton, uiAction: uiAction(for: action))
-            case .changeActionsOrder:
-                instantiateAndConfigureButton(button: &changeActionsOrderButton, uiAction: uiAction(for: action))
+            case .composeMessageSettings:
+                instantiateAndConfigureButton(button: &composeMessageSettingsButton, uiAction: uiAction(for: action))
             }
         }
         
@@ -359,7 +362,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
         freezableButtons.append(paperplaneButton)
         constrainSizeOfButton(paperplaneButton)
 
-        emojiButton.setTitle("👍", for: .normal)
+        configureEmojiButton()
+
         emojiButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
         sendButtonsHolder.addSubview(emojiButton)
         emojiButton.translatesAutoresizingMaskIntoConstraints = false
@@ -404,6 +408,13 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
             localFreeze()
         }
 
+    }
+
+    private func configureEmojiButton() {
+        let defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton ?? ObvMessengerConstants.defaultEmoji
+        let emojiButtonTitle = draft.discussion.localConfiguration.defaultEmoji ?? defaultEmojiButton
+
+        emojiButton.setTitle(emojiButtonTitle, for: .normal)
     }
 
     private func updateMultipleButtonsStackView() {
@@ -989,18 +1000,23 @@ extension NewComposeMessageView {
         }
     }
 
-    private func changeActionsOrderTapped() {
-        let vc = ChangeNewComposeMessageViewActionOrderViewController()
+    private func composeMessageSettingsButtonTapped() {
+        let vc = ComposeMessageViewSettingsViewController(input: .local(configuration: draft.discussion.localConfiguration))
         if let sheet = vc.sheetPresentationController {
             sheet.detents = [ .large() ]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 30.0
         }
+        let nav = ObvNavigationController(rootViewController: vc)
+        vc.navigationItem.rightBarButtonItem = UIBarButtonItem.forClosing(target: self, action: #selector(dismissComposeMessageViewSettingsViewController))
         animatedEndEditing { [weak self] _ in
-            self?.delegateViewController?.present(vc, animated: true)
+            self?.delegateViewController?.present(nav, animated: true)
         }
     }
-    
+
+    @objc private func dismissComposeMessageViewSettingsViewController() {
+        self.delegateViewController?.presentedViewController?.dismiss(animated: true)
+    }
     
     func animatedEndEditing(completion: @escaping (Bool) -> Void) {
         guard textViewForTyping.isFirstResponder else {
@@ -1523,6 +1539,24 @@ extension NewComposeMessageView {
             guard _self.currentAttachmentsState != newAttachmentsState else { return }
             _self.switchToState(newState: _self.currentState, newAttachmentsState: newAttachmentsState, animationValues: _self.buttonsAnimationValues, completionForSendButton: nil)
         })
+    }
+
+    private func observeDiscussionLocalConfigurationHasBeenUpdatedNotifications() {
+        let token = ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
+            guard case .defaultEmoji = value else { return }
+            self?.configureEmojiButton()
+        }
+        self.notificationTokens.append(token)
+    }
+    
+    private func observeDefaultEmojiInAppSettings() {
+        ObvMessengerSettingsObservableObject.shared.$defaultEmojiButton
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                assert(Thread.isMainThread)
+                self?.configureEmojiButton()
+            }
+            .store(in: &cancellables)
     }
     
     private func evaluateNewAttachmentState() -> AttachmentsState {

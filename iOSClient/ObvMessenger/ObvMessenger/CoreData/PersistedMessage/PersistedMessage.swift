@@ -49,8 +49,8 @@ class PersistedMessage: NSManagedObject {
     // MARK: - Attributes
 
     @NSManaged private var body: String?
+    @NSManaged var isReplyToAnotherMessage: Bool
     @NSManaged var readOnce: Bool
-    @NSManaged private var rawReplyToJSON: Data?
     @NSManaged var rawStatus: Int
     @NSManaged private var rawVisibilityDuration: NSNumber?
     @NSManaged private(set) var sectionIdentifier: String
@@ -61,6 +61,7 @@ class PersistedMessage: NSManagedObject {
     // MARK: - Relationships
 
     @NSManaged private(set) var discussion: PersistedDiscussion
+    @NSManaged private(set) var rawMessageRepliedTo: PersistedMessage? // Should *only* be accessed from subentities
     @NSManaged private var persistedMetadata: Set<PersistedMessageTimestampedMetadata>
     @NSManaged private var rawReactions: [PersistedMessageReaction]?
 
@@ -92,26 +93,6 @@ class PersistedMessage: NSManagedObject {
     
     var textBodyToSend: String? { self.body }
     
-    var hasReplyTo: Bool {
-        return rawReplyToJSON != nil
-    }
-    
-    private(set) var replyToJSON: MessageReferenceJSON? {
-        get {
-            guard let rawReplyToJSON = self.rawReplyToJSON else { return nil }
-            let decoder = JSONDecoder()
-            return try? decoder.decode(MessageReferenceJSON.self, from: rawReplyToJSON)
-        }
-        set {
-            guard let replyToJSON = newValue else {
-                self.rawReplyToJSON = nil
-                return
-            }
-            let encoder = JSONEncoder()
-            self.rawReplyToJSON = try? encoder.encode(replyToJSON)
-        }
-    }
-
     var fyleMessageJoinWithStatus: [FyleMessageJoinWithStatus]? {
         if let receivedMessage = self as? PersistedMessageReceived {
             return receivedMessage.fyleMessageJoinWithStatuses
@@ -221,13 +202,10 @@ extension PersistedMessage {
         
         enum Kind {
             case managedContextIsNil
-            case replyToMessageCannotBeFound
         }
         
         var errorDescription: String? {
             switch kind {
-            case .replyToMessageCannotBeFound:
-                return "Could not find a a reply-to message"
             case .managedContextIsNil:
                 return "The managed context is nil, which is unexpected"
             }
@@ -242,19 +220,18 @@ extension PersistedMessage {
 
 extension PersistedMessage {
     
-    convenience init?(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, replyToJSON: MessageReferenceJSON?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forEntityName entityName: String, within context: NSManagedObjectContext) {
+    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, isReplyToAnotherMessage: Bool, replyTo: PersistedMessage?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forEntityName entityName: String) throws {
+        
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw PersistedMessage.makeError(message: "Could not find context") }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
         self.body = body
-        self.replyToJSON = replyToJSON
+        self.isReplyToAnotherMessage = isReplyToAnotherMessage
+        self.rawMessageRepliedTo = replyTo
         self.rawStatus = rawStatus
-        do {
-            self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion)
-        } catch {
-            return nil
-        }
+        self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion)
         self.senderSequenceNumber = senderSequenceNumber
         self.discussion = discussion
         self.sortIndex = sortIndex
@@ -265,23 +242,72 @@ extension PersistedMessage {
         discussion.timestampOfLastMessage = max(self.timestamp, discussion.timestampOfLastMessage)
         
     }
+
     
-    
-    /// This `update()` method shall *only* be called from the similar `update()` from any of the concrete subclasses of `PersistedMessage`.
-    func update(body: String?, senderSequenceNumber: Int, replyToJSON: MessageReferenceJSON?,
-                discussion: PersistedDiscussion) throws {
-        guard self.discussion.objectID == discussion.objectID else { throw makeError(message: "Invalid discussion") }
-        guard self.senderSequenceNumber == senderSequenceNumber else { throw makeError(message: "Invalid sender sequence number") }
+    /// This `update()` method shall *only* be called from the similar `update()` from the subclasse `PersistedMessageReceived`.
+    func update(body: String?, senderSequenceNumber: Int, replyTo: PersistedMessage?, discussion: PersistedDiscussion) throws {
+        guard self.discussion.objectID == discussion.objectID else { assertionFailure(); throw makeError(message: "Invalid discussion") }
+        guard self.senderSequenceNumber == senderSequenceNumber else { assertionFailure(); throw makeError(message: "Invalid sender sequence number") }
         self.body = body
-        self.replyToJSON = replyToJSON
+        self.rawMessageRepliedTo = replyTo
     }
- 
+    
+    
     func delete() throws {
         guard let context = self.managedObjectContext else { assertionFailure(); throw makeError(message: "Could not find context") }
         context.delete(self)
     }
     
+    
+    /// Should *only* be called from `PersistedMessageReceived`
+    func setRawMessageRepliedTo(with rawMessageRepliedTo: PersistedMessage) {
+        assert(self is PersistedMessageReceived)
+        self.rawMessageRepliedTo = rawMessageRepliedTo
+    }
+    
 }
+
+
+// MARK: - Reply-to
+
+extension PersistedMessage {
+    
+    enum RepliedMessage {
+        case none
+        case notAvailableYet
+        case available(message: PersistedMessage)
+        case deleted
+    }
+
+    
+    var genericRepliesTo: RepliedMessage {
+        if let messageReceived = self as? PersistedMessageReceived {
+            switch messageReceived.repliesTo {
+            case .none:
+                return .none
+            case .notAvailableYet:
+                return .notAvailableYet
+            case .available(message: let message):
+                return .available(message: message)
+            case .deleted:
+                return .deleted
+            }
+        } else if let messageSent = self as? PersistedMessageSent {
+            switch messageSent.repliesTo {
+            case .none:
+                return .none
+            case .available(message: let message):
+                return .available(message: message)
+            case .deleted:
+                return .deleted
+            }
+        } else {
+            return .none
+        }
+    }
+    
+}
+
 
 
 // MARK: - Utils for section identifiers
@@ -343,28 +369,17 @@ extension PersistedMessage {
 
 extension PersistedMessage {
     
-    func toReplyToJSON() -> MessageReferenceJSON? {
-        
-        let senderIdentifier: Data
-        let senderThreadIdentifier: UUID
-        if let persistedMessageSent = self as? PersistedMessageSent {
-            guard let ownedIdentity = persistedMessageSent.discussion.ownedIdentity else {
-                os_log("Could not find owned identity. This is ok if it has just been deleted.", log: log, type: .error)
-                return nil
-            }
-            senderIdentifier = ownedIdentity.cryptoId.getIdentity()
-            senderThreadIdentifier = persistedMessageSent.discussion.senderThreadIdentifier
-        } else if let persistedMessageReceived = self as? PersistedMessageReceived {
-            senderIdentifier = persistedMessageReceived.senderIdentifier
-            senderThreadIdentifier = persistedMessageReceived.senderThreadIdentifier
+    func toMessageReferenceJSON() -> MessageReferenceJSON? {
+        if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.toSentMessageReferenceJSON()
+        } else if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.toReceivedMessageReferenceJSON()
         } else {
+            assertionFailure("We do not expect this function to be called on anything else than a PersistedMessageSent or a PersistedMessageReceived")
             return nil
         }
-        return MessageReferenceJSON(senderSequenceNumber: self.senderSequenceNumber,
-                           senderThreadIdentifier: senderThreadIdentifier,
-                           senderIdentifier: senderIdentifier)
     }
-
+    
 }
 
 // MARK: - Reactions Util
@@ -489,9 +504,9 @@ extension PersistedMessage {
     }
 
     
-    static func getLargestSortIndex(in discussion: PersistedDiscussion) -> Double? {
-        guard let lastMessage = try? getLastMessage(in: discussion) else { return 0 }
-        return lastMessage.sortIndex
+    static func getLargestSortIndex(in discussion: PersistedDiscussion) throws -> Double {
+        let lastMessage = try getLastMessage(in: discussion)
+        return lastMessage?.sortIndex ?? 0
     }
     
     
@@ -598,28 +613,20 @@ extension PersistedMessage {
     }
 
     
-    /// If the current message is not an answer to another message, this method returns `nil`.
-    /// Otherwise, this methods fetches the other message and returns it, if it exists either in the
-    /// `PersistedMessageReceived` or in the `PersistedMessageSent` databases. If none is found, this method
-    /// returns a `PersistedMessageSystem` indicating that the message has been deleted.
-    func getReplyTo() throws -> PersistedMessage? {
-        guard let replyToJSON = self.replyToJSON else { return nil }
+    static func findMessageRepliedTo(replyToJSON: MessageReferenceJSON, within discussion: PersistedDiscussion) throws -> PersistedMessage? {
         if let replyTo = try PersistedMessageReceived.get(senderSequenceNumber: replyToJSON.senderSequenceNumber,
                                                           senderThreadIdentifier: replyToJSON.senderThreadIdentifier,
                                                           contactIdentity: replyToJSON.senderIdentifier,
-                                                          discussion: self.discussion) {
-            guard replyTo.discussion.objectID == self.discussion.objectID else { throw makeError(message: "Could not determine discussion objectID") }
+                                                          discussion: discussion) {
             return replyTo
         } else if let replyTo = try PersistedMessageSent.get(senderSequenceNumber: replyToJSON.senderSequenceNumber,
                                                              senderThreadIdentifier: replyToJSON.senderThreadIdentifier,
                                                              ownedIdentity: replyToJSON.senderIdentifier,
                                                              discussion: discussion) {
             assert(replyToJSON.senderIdentifier == discussion.ownedIdentity!.cryptoId.getIdentity())
-            guard replyTo.discussion.objectID == self.discussion.objectID else { throw makeError(message: "Could not determine discussion objectID") }
             return replyTo
         } else {
-            // The message may have been deleted, or is not yet arrived on this device
-            throw ObvError.init(kind: .replyToMessageCannotBeFound)
+            return nil
         }
     }
     

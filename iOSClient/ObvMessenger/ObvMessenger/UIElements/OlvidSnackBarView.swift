@@ -48,8 +48,10 @@ final class OlvidSnackBarView: UIView {
         if #available(iOS 15, *) {
             self.button.maximumContentSizeCategory = .extraLarge
             imageView.image = snackBarCategory.image?.withTintColor(labelColor, renderingMode: .alwaysOriginal)
-        } else {
+        } else if #available(iOS 13, *) {
             imageView.image = snackBarCategory.image
+        } else {
+            imageView.image = nil
         }
     }
     
@@ -94,6 +96,7 @@ final class OlvidSnackBarView: UIView {
         
         contentView.addSubview(imageView)
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFit
         
         contentView.addSubview(label)
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -114,6 +117,8 @@ final class OlvidSnackBarView: UIView {
         bottomLineView.translatesAutoresizingMaskIntoConstraints = false
         bottomLineView.backgroundColor = .black.withAlphaComponent(0.1)
 
+        if #available(iOS 13, *) {
+        
         NSLayoutConstraint.activate([
             
             topLineView.heightAnchor.constraint(equalToConstant: 1),
@@ -152,6 +157,45 @@ final class OlvidSnackBarView: UIView {
             contentView.heightAnchor.constraint(greaterThanOrEqualTo: imageView.heightAnchor),
 
         ])
+            
+        } else {
+            
+            NSLayoutConstraint.activate([
+                
+                topLineView.heightAnchor.constraint(equalToConstant: 1),
+                topLineView.topAnchor.constraint(equalTo: self.topAnchor),
+                topLineView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+                topLineView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+
+                bottomLineView.heightAnchor.constraint(equalToConstant: 1),
+                bottomLineView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+                bottomLineView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+                bottomLineView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+
+                backgroundEffectView.topAnchor.constraint(equalTo: self.topAnchor),
+                backgroundEffectView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+                backgroundEffectView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+                backgroundEffectView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+
+                contentView.topAnchor.constraint(equalTo: self.topAnchor, constant: 16),
+                contentView.trailingAnchor.constraint(equalTo: self.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+                contentView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -25 - 8),
+                contentView.leadingAnchor.constraint(equalTo: self.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+
+                label.trailingAnchor.constraint(equalTo: button.leadingAnchor, constant: -16),
+                label.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+                label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+
+                button.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+                button.lastBaselineAnchor.constraint(equalTo: label.lastBaselineAnchor),
+
+                contentView.heightAnchor.constraint(greaterThanOrEqualTo: label.heightAnchor),
+                contentView.heightAnchor.constraint(greaterThanOrEqualTo: button.heightAnchor),
+                contentView.heightAnchor.constraint(greaterThanOrEqualTo: imageView.heightAnchor),
+
+            ])
+
+        }
 
         button.setContentHuggingPriority(.required, for: .horizontal)
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
