@@ -20,7 +20,7 @@
 import UIKit
 
 
-@available(iOS 13, *)
+
 final class ObvCheckmarkHUD: ObvHUDView {
         
     let checkmarkView = UIImageView(image: UIImage(systemName: "checkmark.circle"))

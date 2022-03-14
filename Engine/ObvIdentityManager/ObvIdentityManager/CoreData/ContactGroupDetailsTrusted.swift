@@ -51,15 +51,14 @@ final class ContactGroupDetailsTrusted: ContactGroupDetails {
 
     // MARK: - Initializer
     
-    convenience init(contactGroupJoined: ContactGroupJoined, groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto, identityPhotosDirectory: URL, notificationDelegate: ObvNotificationDelegate) throws {
+    convenience init(contactGroupJoined: ContactGroupJoined, groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto, delegateManager: ObvIdentityDelegateManager) throws {
         
         guard let obvContext = contactGroupJoined.obvContext else {
             throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroupDetailsTrusted.errorDomain)
         }
         
         try self.init(groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                      identityPhotosDirectory: identityPhotosDirectory,
-                      notificationDelegate: notificationDelegate,
+                      delegateManager: delegateManager,
                       forEntityName: ContactGroupDetailsTrusted.entityName,
                       within: obvContext)
                 

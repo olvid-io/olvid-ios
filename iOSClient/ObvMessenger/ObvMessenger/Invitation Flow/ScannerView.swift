@@ -22,14 +22,12 @@ import AVFoundation
 import os.log
 
 
-@available(iOS 13, *)
 protocol ScannerHostingViewDelegate: AnyObject {
     func scannerViewActionButtonWasTapped()
     func qrCodeWasScanned(olvidURL: OlvidURL)
 }
 
 
-@available(iOS 13, *)
 final class ScannerHostingView: UIHostingController<ScannerView>, ScannerViewStoreDelegate {
     
     let store: ScannerViewStore
@@ -78,7 +76,6 @@ protocol ScannerViewStoreDelegate: AnyObject {
 
 // MARK: - ScannerViewStore
 
-@available(iOS 13, *)
 final class ScannerViewStore {
     weak var delegate: ScannerViewStoreDelegate?
     
@@ -94,7 +91,6 @@ final class ScannerViewStore {
 
 // MARK: - ScannerView
 
-@available(iOS 13, *)
 struct ScannerView: View {
     
     enum ButtonType {
@@ -232,7 +228,6 @@ fileprivate extension CGSize {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct NewQRCodeScannerViewControllerRepresentable: UIViewControllerRepresentable {
     
     let qrCodeScannedAction: (OlvidURL) -> Void
@@ -404,7 +399,6 @@ fileprivate final class NewQRCodeScannerViewController: UIViewController, AVCapt
 
 
 
-@available(iOS 13, *)
 struct ScannerView_Previews: PreviewProvider {
     static var previews: some View {
         ScannerView(buttonType: .showMyId, buttonAction: {}, qrCodeScannedAction: { _ in })

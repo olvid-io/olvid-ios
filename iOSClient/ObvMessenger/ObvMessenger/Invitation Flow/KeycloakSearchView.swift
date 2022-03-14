@@ -30,7 +30,6 @@ protocol KeycloakSearchViewControllerDelegate: AnyObject {
     func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: UserDetails)
 }
 
-@available(iOS 13.0, *)
 final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView>, KeycloakSearchViewDelegate {
 
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "KeycloakSearchViewController")
@@ -100,7 +99,6 @@ final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView
 }
 
 
-@available(iOS 13.0, *)
 protocol KeycloakSearchViewDelegate: UIViewController {
     func userSelectedContact(ownedCryptoId: ObvCryptoId, userDetails: UserDetails)
     func showMyIdButtonTappedAction()
@@ -109,7 +107,6 @@ protocol KeycloakSearchViewDelegate: UIViewController {
 }
 
 
-@available(iOS 13.0, *)
 final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResultsUpdating {
 
     @Published var searchResult: [UserDetails]?
@@ -202,7 +199,6 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
 
 // MARK: - KeycloakSearchView
 
-@available(iOS 13, *)
 struct KeycloakSearchView: View {
 
     @ObservedObject fileprivate var store: KeycloakSearchViewStore
@@ -221,7 +217,6 @@ struct KeycloakSearchView: View {
     }
 }
 
-@available(iOS 13, *)
 struct KeycloakSearchViewInner: View {
 
     var searchResults: [UserDetails]?
@@ -266,7 +261,6 @@ struct KeycloakSearchViewInner: View {
 
 }
 
-@available(iOS 13.0, *)
 fileprivate struct ExplanationView: View {
     
     var body: some View {

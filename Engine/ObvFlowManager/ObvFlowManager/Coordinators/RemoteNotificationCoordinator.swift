@@ -37,6 +37,8 @@ final class RemoteNotificationCoordinator: RemoteNotificationDelegate {
 
     private typealias CompletionHandler = (UIBackgroundFetchResult) -> Void
     
+    private static func makeError(message: String) -> Error { NSError(domain: "RemoteNotificationCoordinator", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     private var _currentExpectationsWithinFlow = [FlowIdentifier: (expectations: Set<Expectation>, completionHandler: CompletionHandler, timer: Timer)]()
     private let backgroundActivitiesQueue = DispatchQueue(label: "RemoteNotificationCoordinator.backgroundActivitiesQueue")
     private let backgroundQueueForExpiringTimers = DispatchQueue(label: "RemoteNotificationCoordinator.backgroundQueueForExpiringTimers")
@@ -59,9 +61,12 @@ final class RemoteNotificationCoordinator: RemoteNotificationDelegate {
 
 extension RemoteNotificationCoordinator {
 
-    private func startFlow(completionHandler: @escaping CompletionHandler) -> FlowIdentifier? {
+    private func startFlow(completionHandler: @escaping CompletionHandler) throws -> FlowIdentifier {
         
-        guard let delegateManager = delegateManager else { return nil }
+        guard let delegateManager = delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "The delegate manager is not set")
+        }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: RemoteNotificationCoordinator.logCategory)
         
         let flowId = FlowIdentifier()
@@ -390,8 +395,8 @@ extension RemoteNotificationCoordinator {
 
 extension RemoteNotificationCoordinator {
 
-    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> FlowIdentifier? {
-        return self.startFlow(completionHandler: completionHandler)
+    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier {
+        try self.startFlow(completionHandler: completionHandler)
     }
     
     public func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {

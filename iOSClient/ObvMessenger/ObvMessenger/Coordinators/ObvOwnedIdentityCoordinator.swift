@@ -23,6 +23,7 @@ import CoreData
 import ObvEngine
 import CoreDataStack
 import ObvTypes
+import OlvidUtils
 
 
 final class ObvOwnedIdentityCoordinator {
@@ -58,6 +59,9 @@ final class ObvOwnedIdentityCoordinator {
             ObvEngineNotificationNew.observePublishedPhotoOfOwnedIdentityHasBeenUpdated(within: NotificationCenter.default, queue: internalQueue) { [weak self] ownedIdentity in
                 self?.processOwnedIdentityPhotoHasBeenUpdated(ownedIdentity: ownedIdentity)
             },
+            ObvEngineNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: NotificationCenter.default) { [weak self] obvOwnedIdentity in
+                self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: obvOwnedIdentity)
+            },
         ])
 
         // Internal Notifications
@@ -69,7 +73,10 @@ final class ObvOwnedIdentityCoordinator {
             },
             ObvMessengerInternalNotification.observeUserWantsToUnbindOwnedIdentityFromKeycloak(queue: internalQueue) { [weak self] (ownedCryptoId, completionHandler) in
                 self?.processUserWantsToUnbindOwnedIdentityFromKeycloakNotification(ownedCryptoId: ownedCryptoId, completion: completionHandler)
-            }
+            },
+            ObvMessengerInternalNotification.observeUiRequiresSignedOwnedDetails { [weak self] ownedIdentityCryptoId, completion in
+                self?.processUiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ownedIdentityCryptoId, completion: completion)
+            },
         ])
         
     }
@@ -78,8 +85,28 @@ final class ObvOwnedIdentityCoordinator {
 
 extension ObvOwnedIdentityCoordinator {
     
+    private func processUiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: @escaping (SignedUserDetails?) -> Void) {
+        let log = self.log
+        do {
+            try obvEngine.getSignedOwnedDetails(ownedIdentity: ownedIdentityCryptoId) { result in
+                switch result {
+                case .failure(let error):
+                    os_log("Failed to obtain signed owned details from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    completion(nil)
+                case .success(let signedContactDetails):
+                    completion(signedContactDetails)
+                }
+            }
+        } catch {
+            os_log("The call to processUiRequiresSignedOwnedDetails failed: %{public}@", log: log, type: .fault, error.localizedDescription)
+            completion(nil)
+        }
+    }
+
+    
     private func observeNewPersistedObvOwnedIdentityNotifications() {
         let log = self.log
+        let obvEngine = self.obvEngine
         let token = ObvMessengerInternalNotification.observeNewPersistedObvOwnedIdentity(queue: internalQueue) { ownedCryptoId in
             os_log("We received an NewPersistedObvOwnedIdentity notification", log: log, type: .info)
             // Fetch the owned identity from DB. If it is active, we want to kick other devices on next register to push notifications.
@@ -107,6 +134,12 @@ extension ObvOwnedIdentityCoordinator {
                     ObvPushNotificationManager.shared.doKickOtherDevicesOnNextRegister()
                 }
                 ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+            }
+            // When a new owned identity is created, we request an update of the owned identity capabilities
+            do {
+                try obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)
+            } catch {
+                assertionFailure("Could not set capabilities")
             }
         }
         observationTokens.append(token)
@@ -204,6 +237,19 @@ extension ObvOwnedIdentityCoordinator {
                 os_log("Could set the newPublishedDetails flag on a persisted contact", log: log, type: .fault)
             }
         }
+    }
+    
+    
+    private func processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvOwnedIdentity) {
+        assert(OperationQueue.current != internalQueue)
+        let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+
     }
     
     

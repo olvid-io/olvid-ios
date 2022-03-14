@@ -22,7 +22,6 @@ import CoreData
 import os.log
 import ObvEngine
 import ObvTypes
-import UniformTypeIdentifiers
 import MobileCoreServices
 
 
@@ -32,12 +31,12 @@ final class PersistedMessageReceived: PersistedMessage {
     private static let entityName = "PersistedMessageReceived"
 
     private static let contactIdentityKey = "contactIdentity"
-    private static let contactIdentityIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.identityKey].joined(separator: ".")
+    private static let contactIdentityIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
     private static let messageIdentifierFromEngineKey = "messageIdentifierFromEngine"
     private static let senderThreadIdentifierKey = "senderThreadIdentifier"
     private static let expirationForReceivedLimitedVisibilityKey = "expirationForReceivedLimitedVisibility"
     private static let expirationForReceivedLimitedExistenceKey = "expirationForReceivedLimitedExistence"
-    private static let ownedIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.rawOwnedIdentityKey].joined(separator: ".")
+    private static let ownedIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.Predicate.Key.rawOwnedIdentity.rawValue].joined(separator: ".")
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageReceived")
     
@@ -140,6 +139,7 @@ final class PersistedMessageReceived: PersistedMessage {
             join.wipe()
         }
         self.deleteBody()
+        try? self.reactions.forEach { try $0.delete() }
         let remoteCryptoId = requester.cryptoId
         try addMetadata(kind: .remoteWiped(remoteCryptoId: remoteCryptoId), date: Date())
     }
@@ -198,7 +198,7 @@ extension PersistedMessageReceived {
         let messageRepliedToIdentifier: PendingRepliedTo?
         if let replyToJSON = messageJSON.replyTo {
             isReplyToAnotherMessage = true
-            replyTo = try PersistedMessage.findMessageRepliedTo(replyToJSON: replyToJSON, within: discussion)
+            replyTo = try PersistedMessage.findMessageFrom(reference: replyToJSON, within: discussion)
             if replyTo == nil {
                 messageRepliedToIdentifier = PendingRepliedTo(replyToJSON: replyToJSON, within: context)
             } else {
@@ -284,7 +284,7 @@ extension PersistedMessageReceived {
         
         let replyTo: PersistedMessage?
         if let replyToJSON = json.replyTo {
-            replyTo = try PersistedMessage.findMessageRepliedTo(replyToJSON: replyToJSON, within: discussion)
+            replyTo = try PersistedMessage.findMessageFrom(reference: replyToJSON, within: discussion)
         } else {
             replyTo = nil
         }
@@ -787,16 +787,12 @@ extension PersistedMessageReceived {
 @available(iOS 14, *)
 extension PersistedMessageReceived {
     
-    var supportedImageTypeIdentifiers: Set<String> {
-        Set<String>(([UTType.jpeg.identifier, UTType.png.identifier, UTType.gif.identifier]))
-    }
-    
     var fyleMessageJoinWithStatusesOfImageType: [ReceivedFyleMessageJoinWithStatus] {
-        fyleMessageJoinWithStatuses.filter({ supportedImageTypeIdentifiers.contains($0.uti)  })
+        fyleMessageJoinWithStatuses.filter({ Self.supportedImageTypeIdentifiers.contains($0.uti)  })
     }
 
     var fyleMessageJoinWithStatusesOfAudioType: [ReceivedFyleMessageJoinWithStatus] {
-        fyleMessageJoinWithStatuses.filter({                                            ObvUTIUtils.uti($0.uti, conformsTo: kUTTypeAudio) })
+        fyleMessageJoinWithStatuses.filter({ ObvUTIUtils.uti($0.uti, conformsTo: kUTTypeAudio) })
     }
 
     var fyleMessageJoinWithStatusesOfOtherTypes: [ReceivedFyleMessageJoinWithStatus] {

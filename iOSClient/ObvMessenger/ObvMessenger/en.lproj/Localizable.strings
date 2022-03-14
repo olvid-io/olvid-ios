@@ -349,6 +349,9 @@ Please make sure that %1$@ is indeed the one giving you this code: prefer a face
 /* Chip title */
 "New" = "New";
 
+/* Title */
+"New contact" = "New contact";
+
 /* UIAlertController title */
 "Mutual Introduction" = "Mutual Introduction";
 
@@ -2110,7 +2113,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "CONFIGURATION_SCAN" = "Configuration scan";
 
-"IDENTITY_PROVIDER_CONFIGURED_SUCCESS" = "The identity provider of your company was successfully configured. Press the button below to authenticate with it and retrieve your personal information.";
+"IDENTITY_PROVIDER_CONFIGURED_SUCCESS" = "The identity provider of your company was successfully configured. Press \"Authenticate\" to log in and retrieve your personal information.";
 
 "IDENTITY_PROVIDER_CONFIGURED_FAILURE" = "The identity provider of your company does not seem to be available. Please contact your administrator";
 
@@ -2169,3 +2172,19 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" = "We detected that you use an iOS version that Olvid will not support anymore, starting with the next update. We appologize for this. If possible, we recommend you upgrade to the latest iOS version.\nTo do so, open the Settings App on your device. Go to General and tap Software Update.";
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_SHOULD_UPGRADE" = "We detected that you are not using the latest version of iOS. You are missing out on important features of Olvid. To make the most out of Olvid, you should upgrade iOS.\nTo do so, open the Settings App on your device. Go to General and tap Software Update.";
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" = "To make sure you use the latest version of iOS, go to Settings > General, then tap Software Update.";
+
+"MESSAGE_REACTION_NOTIFICATION_%@_%@" = "Reacted %@ to: %@";
+
+"NEW_REACTION" = "New reaction";
+"TAP_TO_SEE_THE_REACTION" = "Tap to see the reaction.";
+
+/* Notification title */
+"NEW_REACTION_FROM_%@" = "New reaction from %@";
+
+"CAPABILITIES" = "Capabilities";
+
+"CAPABILITY_WEBRTC_CONTINUOUS_ICE" = "VoIP v2";
+
+"DELETE_OWN_REACTION" = "Delete my reaction";
+
+"VALIDATING_ENTERPRISE_CONFIGURATION" = "Performing an automatic configuration...";

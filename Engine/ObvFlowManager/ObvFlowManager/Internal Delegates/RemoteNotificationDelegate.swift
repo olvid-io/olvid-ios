@@ -26,7 +26,7 @@ protocol RemoteNotificationDelegate {
     
     func observeEngineNotifications()
     
-    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> FlowIdentifier?
+    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
 
     func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 

@@ -23,7 +23,6 @@ import ObvEngine
 import AVFoundation
 import ObvTypes
 
-@available(iOS 13, *)
 final class AddContactHostingViewController: UIHostingController<AddContactMainView>, AddContactHostingViewStoreDelegate, KeycloakSearchViewControllerDelegate {
     
     private let store: AddContactHostingViewStore
@@ -119,14 +118,12 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
 }
 
 
-@available(iOS 13, *)
 protocol AddContactHostingViewStoreDelegate: UIViewController {
     func userWantsToSearchWithinKeycloak()
     func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId)
     func installedOlvidAppIsOutdated()
 }
 
-@available(iOS 13, *)
 final class AddContactHostingViewStore: ObservableObject {
     
     @Published var singleOwnedIdentity: SingleIdentity
@@ -223,7 +220,6 @@ final class AddContactHostingViewStore: ObservableObject {
 }
 
 
-@available(iOS 13, *)
 final class APIKeyElements: ObservableObject {
     
     let id = UUID()
@@ -264,7 +260,6 @@ final class APIKeyElements: ObservableObject {
 /// This struct wrapps the system's `UIActivityViewController` and configures it properly for sharing the user's
 /// owned identity. This wrapping conforms to the `UIViewControllerRepresentable` making it possible to
 /// to show it within a SwiftUI view.
-@available(iOS 13, *)
 struct ActivityViewControllerForSharingIdentity: UIViewControllerRepresentable {
     
     private let activityItems: [Any]
@@ -285,7 +280,6 @@ struct ActivityViewControllerForSharingIdentity: UIViewControllerRepresentable {
 }
 
 
-@available(iOS 13, *)
 struct AddContactMainView: View {
     
     @ObservedObject var store: AddContactHostingViewStore
@@ -323,7 +317,6 @@ struct AddContactMainView: View {
 /// There are two starting points for adding a new contact:
 /// - sharing the ownedId (either by using the `ActivityViewControllerForSharingIdentity` or by showing the QR code)
 /// - scanning the ID of another user.
-@available(iOS 13, *)
 fileprivate struct AddContactMainInnerView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -755,7 +748,6 @@ fileprivate struct AddContactMainInnerView: View {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct AddContactMainInnerViewNavigationLinks: View {
     
     @ObservedObject var newAvailableApiKeyElements: APIKeyElements
@@ -841,7 +833,6 @@ fileprivate struct AddContactMainInnerViewNavigationLinks: View {
 
 /// This SwiftUI view is exclusively used within the `AddContactMainInnerView` and shows the owned Id, the button allowing to share it,
 /// and the corresponding QR code.
-@available(iOS 13, *)
 fileprivate struct Card: View {
     
     @Environment(\.horizontalSizeClass) var sizeClass
@@ -908,7 +899,6 @@ fileprivate struct Card: View {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct IdentityDescriptionBlockView: View {
     
     let singleIdentity: SingleIdentity
@@ -954,7 +944,6 @@ fileprivate struct IdentityDescriptionBlockView: View {
 }
 
 
-@available(iOS 13, *)
 struct QRCodeBlockView: View {
     
     let urlIdentityRepresentation: URL? // If nil, this view will never show a QR code (see the technique used in ConfirmInviteView)
@@ -1007,7 +996,6 @@ struct QRCodeBlockView: View {
     
 }
 
-@available(iOS 13.0, *)
 struct AddContactMainInnerView_Previews: PreviewProvider {
     
     private static let identity1 = SingleIdentity(firstName: "Joyce",

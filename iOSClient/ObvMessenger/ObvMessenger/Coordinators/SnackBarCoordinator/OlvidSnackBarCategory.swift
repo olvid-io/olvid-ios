@@ -112,18 +112,14 @@ enum OlvidSnackBarCategory: CaseIterable {
     }
     
     var image: UIImage? {
-        if #available(iOS 13, *) {
-            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular)
-            switch self {
-            case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey:
-                return UIImage(systemIcon: .arrowCounterclockwiseCircleFill, withConfiguration: config)
-            case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
-                return UIImage(systemIcon: .phoneCircleFill, withConfiguration: config)
-            case .upgradeIOS:
-                return UIImage(systemIcon: .gear, withConfiguration: config)
-            }
-        } else {
-            return nil
+        let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular)
+        switch self {
+        case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey:
+            return UIImage(systemIcon: .arrowCounterclockwiseCircleFill, withConfiguration: config)
+        case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
+            return UIImage(systemIcon: .phoneCircleFill, withConfiguration: config)
+        case .upgradeIOS:
+            return UIImage(systemIcon: .gear, withConfiguration: config)
         }
     }
     

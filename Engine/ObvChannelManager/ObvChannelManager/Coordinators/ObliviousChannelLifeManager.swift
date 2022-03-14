@@ -85,14 +85,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -116,14 +116,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -144,14 +144,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
 
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -179,7 +179,7 @@ extension ObliviousChannelLifeManager {
         
         guard doCreateChannel else {
             os_log("The contact device is neither a contact device nor an owned (remote) device", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The contact device is neither a contact device nor an owned (remote) device")
         }
         
         _ = ObvObliviousChannel(currentDeviceUid: currentDeviceUid,
@@ -193,7 +193,7 @@ extension ObliviousChannelLifeManager {
     
     public func confirmObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, within obvContext: ObvContext) throws {
         guard let channel = try getObliviousChannelBetween(ownedIdentity: ownedIdentity, andRemoteIdentity: remoteIdentity, withRemoteDeviceUid: remoteDeviceUid, within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not get Oblivious channel between owned identity and remote identity")
         }
         channel.confirm()
     }
@@ -201,7 +201,7 @@ extension ObliviousChannelLifeManager {
     
     public func updateSendSeedOfObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, with seed: Seed, within obvContext: ObvContext) throws {
         guard let channel = try getObliviousChannelBetween(ownedIdentity: ownedIdentity, andRemoteIdentity: remoteIdentity, withRemoteDeviceUid: remoteDeviceUid, within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not get Oblivious channel between owned identity and remote identity")
         }
         try channel.updateSendSeed(with: seed)
     }
@@ -209,7 +209,7 @@ extension ObliviousChannelLifeManager {
     
     public func updateReceiveSeedOfObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, with seed: Seed, within obvContext: ObvContext) throws {
         guard let channel = try getObliviousChannelBetween(ownedIdentity: ownedIdentity, andRemoteIdentity: remoteIdentity, withRemoteDeviceUid: remoteDeviceUid, within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not get Oblivious channel between owned identity and remote identity")
         }
         try channel.createNewProvision(with: seed)
     }
@@ -220,14 +220,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
 
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -245,14 +245,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
 
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -270,14 +270,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -293,14 +293,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
@@ -317,14 +317,14 @@ extension ObliviousChannelLifeManager {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObliviousChannelLifeManager.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
 
         let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)

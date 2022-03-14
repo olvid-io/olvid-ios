@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 final class BodyEditViewController: UIHostingController<BodyEditView>, BodyEditViewStoreDelegate {
 
     fileprivate let store: BodyEditViewStore
@@ -52,7 +52,7 @@ protocol BodyEditViewStoreDelegate: AnyObject {
     var send: (String?) -> Void { get }
 }
 
-@available(iOS 13, *)
+
 fileprivate final class BodyEditViewStore: ObservableObject {
     
     @Published var body: String
@@ -73,7 +73,7 @@ fileprivate final class BodyEditViewStore: ObservableObject {
     
 }
 
-@available(iOS 13, *)
+
 struct BodyEditView: View {
     
     @ObservedObject fileprivate var store: BodyEditViewStore
@@ -87,7 +87,7 @@ struct BodyEditView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct BodyEditInnerView: View {
     
     @Binding var text: String
@@ -138,7 +138,7 @@ struct BodyEditInnerView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct MultilineTextView: UIViewRepresentable {
 
     @Binding var text: String
@@ -183,7 +183,7 @@ fileprivate struct MultilineTextView: UIViewRepresentable {
 
 
 
-@available(iOS 13, *)
+
 struct BodyEditInnerView_Previews: PreviewProvider {
     static var previews: some View {
         BodyEditInnerView(text: .constant("Test"), dismissAction: {}, sendAction: {})

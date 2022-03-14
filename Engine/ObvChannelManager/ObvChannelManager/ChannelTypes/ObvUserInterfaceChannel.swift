@@ -43,13 +43,13 @@ final class ObvUserInterfaceChannel: ObvChannel {
         self.toOwnedIdentity = toOwnedIdentity
     }
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> MessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvUserInterfaceChannel.logCategory)
 
         guard let notificationDelegate = delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The notification delegate is not set")
         }
 
         switch message.messageType {
@@ -59,7 +59,7 @@ final class ObvUserInterfaceChannel: ObvChannel {
             
             guard let message = message as? ObvChannelDialogMessageToSend else {
                 os_log("Could not cast to dialog message", log: log, type: .fault)
-                throw NSError()
+                throw Self.makeError(message: "Could not cast to dialog message")
             }
             
             let NotificationType = ObvChannelNotification.NewUserDialogToPresent.self
@@ -67,9 +67,14 @@ final class ObvUserInterfaceChannel: ObvChannel {
                             NotificationType.Key.obvContext: obvContext] as [String: Any]
             notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
                         
+            let randomUid = UID.gen(with: prng)
+            let messageId = MessageIdentifier(ownedCryptoIdentity: toOwnedIdentity, uid: randomUid)
+
+            return messageId
+
         default:
             os_log("Inappropriate message type posted on a user interface channel", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Inappropriate message type posted on a user interface channel")
         }
         
     }
@@ -117,21 +122,24 @@ extension ObvUserInterfaceChannel {
         
     }
     
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
         
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvUserInterfaceChannel.logCategory)
+
         guard let acceptableChannels = try acceptableChannelsForPosting(message, delegateManager: delegateManager, within: obvContext) as? [ObvUserInterfaceChannel] else {
             assertionFailure()
             throw ObvUserInterfaceChannel.makeError(message: "Could not cast ObvChannel to ObvUserInterfaceChannel")
         }
 
-        var postedObvCryptoIdentities = Set<ObvCryptoIdentity>()
-        
-        for localChannel in acceptableChannels {
-            try localChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
-            postedObvCryptoIdentities.insert(localChannel.toOwnedIdentity)
+        guard acceptableChannels.count == 1, let acceptableUserInterfaceChannel = acceptableChannels.first else {
+            os_log("Unexpected number of user interface channels found. Expecting 1, go %d", log: log, type: .error, acceptableChannels.count)
+            throw Self.makeError(message: "Unexpected number of user interface channels found")
         }
-        
-        return postedObvCryptoIdentities
+
+        let messageId = try acceptableUserInterfaceChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        let ownedIdentity = acceptableUserInterfaceChannel.toOwnedIdentity
+
+        return [messageId: Set([ownedIdentity])]
         
     }
 

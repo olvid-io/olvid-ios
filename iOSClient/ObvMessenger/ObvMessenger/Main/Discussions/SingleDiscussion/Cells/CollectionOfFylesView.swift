@@ -342,29 +342,18 @@ final class CollectionOfFylesView: ObvRoundedRectView {
         if let lastComputedThumnbnail = worker.lastComputedThumnbnail, lastComputedThumnbnail.type == thumbnailType, !lastComputedThumnbnail.isSymbol {
             return
         }
-        let maxPixelSize = Int(UIScreen.main.bounds.size.width * UIScreen.main.scale)
-        if let thumbnail = try? worker.getCachedThumbnailForIOS12orReturnNilOnIOS13(maxPixelSize: maxPixelSize) {
-            showThumbnailUnderIOS12(thumbnail, in: imageViewPlaceholder, animate: false)
-        } else {
-            if #available(iOS 13, *) {
-                let size = CGSize(width: UIScreen.main.bounds.size.width, height: UIScreen.main.bounds.size.height)
-                if let lastComputedThumnbnail = worker.lastComputedThumnbnail, lastComputedThumnbnail == (thumbnailType, false) {
-                    return
-                }
-                worker.createThumbnail(size: size, thumbnailType: thumbnailType, fyleIsAvailable: fyleIsAvailable) { [weak self] (thumbnail) in
-                    DispatchQueue.main.async {
-                        self?.showThumbnailUnderIOS13(thumbnail, in: imageViewPlaceholder, animate: true)
-                    }
-                }
-            } else {
-                worker.createThumbnail(maxPixelSize: maxPixelSize) { [weak self] (thumbnail) in
-                    self?.showThumbnailUnderIOS12(thumbnail, in: imageViewPlaceholder, animate: true)
-                }
+        let size = CGSize(width: UIScreen.main.bounds.size.width, height: UIScreen.main.bounds.size.height)
+        if let lastComputedThumnbnail = worker.lastComputedThumnbnail, lastComputedThumnbnail == (thumbnailType, false) {
+            return
+        }
+        worker.createThumbnail(size: size, thumbnailType: thumbnailType, fyleIsAvailable: fyleIsAvailable) { [weak self] (thumbnail) in
+            DispatchQueue.main.async {
+                self?.showThumbnail(thumbnail, in: imageViewPlaceholder, animate: true)
             }
         }
     }
     
-    private func showThumbnailUnderIOS13(_ thumbnail: Thumbnail, in imageViewPlaceholder: UIView, animate: Bool) {
+    private func showThumbnail(_ thumbnail: Thumbnail, in imageViewPlaceholder: UIView, animate: Bool) {
         // We make sure there isn't a UIImage already
         for previousImageView in imageViewPlaceholder.subviews.filter({ $0 is UIImageView }) {
             previousImageView.removeFromSuperview()
@@ -396,28 +385,6 @@ final class CollectionOfFylesView: ObvRoundedRectView {
         }
     }
 
-    
-    private func showThumbnailUnderIOS12(_ thumbnail: UIImage, in imageViewPlaceholder: UIView, animate: Bool) {
-        // It seems that this method is not called under iOS13+
-        // We make sure there isn't a UIImage already
-        guard imageViewPlaceholder.subviews.filter({ $0 is UIImageView }).isEmpty else {
-            return
-        }
-        let imageView = UIImageView(image: thumbnail)
-        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        imageView.contentMode = .scaleAspectFill
-        imageView.frame = CGRect(origin: CGPoint.zero, size: imageViewPlaceholder.bounds.size)
-        imageView.isHidden = true
-        imageViewPlaceholder.insertSubview(imageView, at: 0)
-        if animate {
-            UIView.transition(with: imageViewPlaceholder, duration: 0.3, options: .transitionCrossDissolve, animations: {
-                imageView.isHidden = false
-            })
-        } else {
-            imageView.isHidden = false
-        }
-    }
-    
     
     private func setupConstraints() {
         let constraints = [

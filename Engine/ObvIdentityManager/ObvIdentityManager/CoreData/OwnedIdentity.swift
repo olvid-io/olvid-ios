@@ -180,6 +180,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         }
     }
     
+    
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
     convenience init(backupItem: OwnedIdentityBackupItem, notificationDelegate: ObvNotificationDelegate, within obvContext: ObvContext) throws {
         let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentity.entityName, in: obvContext)!
@@ -201,6 +202,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         
     }
 
+    
     fileprivate func restoreRelationships(contactGroups: Set<ContactGroup>, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, publishedIdentityDetails: OwnedIdentityDetailsPublished, keycloakServer: KeycloakServer?) {
         self.contactGroups = contactGroups
         self.contactIdentities = contactIdentities
@@ -211,8 +213,9 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         self.keycloakServer = keycloakServer
     }
 
-    func delete(within obvContext: ObvContext) throws {
-        try publishedIdentityDetails.delete(within: obvContext)
+    
+    func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+        try publishedIdentityDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         obvContext.delete(self)
     }
 }
@@ -246,7 +249,7 @@ extension OwnedIdentity {
     
     func updatePhoto(withData photoData: Data, version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedIdentityDetails.version == version {
-            try self.publishedIdentityDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate, within: obvContext)
+            try self.publishedIdentityDetails.setOwnedIdentityPhoto(data: photoData, delegateManager: delegateManager)
         }
     }
 
@@ -431,7 +434,41 @@ extension OwnedIdentity {
 }
 
 
+// MARK: - Capabilities
+
+extension OwnedIdentity {
+    
+    func setRawCapabilitiesOfOtherDeviceWithUID(_ deviceUID: UID, newRawCapabilities: Set<String>) throws {
+        guard let device = self.otherDevices.first(where: { $0.uid == deviceUID }) else {
+            throw makeError(message: "Could not find contact device")
+        }
+        device.setRawCapabilities(newRawCapabilities: newRawCapabilities)
+    }
+
+    
+    func setCapabilitiesOfCurrentDevice(newCapabilities: Set<ObvCapability>) throws {
+        self.currentDevice.setCapabilities(newCapabilities: newCapabilities)
+    }
+    
+    
+    var allCapabilities: Set<ObvCapability> {
+        var capabilities = Set<ObvCapability>()
+        ObvCapability.allCases.forEach { capability in
+            switch capability {
+            case .webrtcContinuousICE:
+                if otherDevices.allSatisfy({ $0.allCapabilities.contains(capability) }) && currentDevice.allCapabilities.contains(capability) {
+                    capabilities.insert(capability)
+                }
+            }
+        }
+        return capabilities
+    }
+    
+}
+
+
 // MARK: - Convenience DB getters
+
 extension OwnedIdentity {
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<OwnedIdentity> {

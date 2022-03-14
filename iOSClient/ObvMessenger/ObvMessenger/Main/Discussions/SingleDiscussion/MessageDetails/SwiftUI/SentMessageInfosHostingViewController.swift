@@ -23,7 +23,7 @@ import CoreData
 import ObvEngine
 
 
-@available(iOS 13.0, *)
+
 final class SentMessageInfosHostingViewController: UIHostingController<SentMessageInfosView> {
 
     private var store: SentMessageInfosViewStore!
@@ -41,7 +41,7 @@ final class SentMessageInfosHostingViewController: UIHostingController<SentMessa
 
 }
 
-@available(iOS 13.0, *)
+
 fileprivate final class SentMessageInfosViewStore: ObservableObject {
     
     let ownedCryptoId: ObvCryptoId
@@ -193,7 +193,7 @@ fileprivate struct RecipientAndInfos: Identifiable {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct SentMessageInfosView: View {
     
     @ObservedObject fileprivate var store: SentMessageInfosViewStore
@@ -210,7 +210,7 @@ struct SentMessageInfosView: View {
     
 }
 
-@available(iOS 13.0, *)
+
 struct SentMessageInfosInnerView: View {
     
     let ownedCryptoId: ObvCryptoId

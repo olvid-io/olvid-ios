@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.18 (490)] - 2022-01-28
+
+- Nouvelles améliorations pour les appels sécurisés ! Cela inclut une meilleure qualité lorsque les conditions réseau sont mauvaises. Les connexions sont aussi beaucoup plus rapides. Notez que votre contact doit utiliser la dernière version d'Olvid.
+- Une notification utilisateur est affichée quand un contact réagit à l'un de vos messages.
+- Ajoute le support pour le format de photos HEIC.
+- Le processus d'onboarding est maintenant compatible avec la plupart des MDM.
+- Mise à jour du design des écrans de création de groupes de discussion.
+- Corrige des problèmes relatifs aux réactions sur des messages éphémères.
+- Il est maintenant beaucoup plus facile de supprimer l'une de ses réactions à un message.
+- Si l'on reçoit un appel alors qu'on est en train d'enregistrer un message vocal, l'enregistrement s'arrête et est sauvé en pièce jointe du brouillon.
+
 ## [0.9.17 (484)] - 2022-01-10
 
 - Corrige une potentielle « timing attack » cryptographique concernant la multiplication scalaire sur les courbes elliptiques (mille merci à Ryad Benadjila de nous l'avoir remontée !).

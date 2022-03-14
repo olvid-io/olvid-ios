@@ -40,6 +40,7 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
     // MARK: - Properties
 
     @NSManaged private(set) var apiKeyExpirationDate: Date?
+    @NSManaged private var capabilityWebrtcContinuousICE: Bool
     @NSManaged private var fullDisplayName: String
     @NSManaged private var identity: Data
     @NSManaged private(set) var isActive: Bool
@@ -84,6 +85,7 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
         self.fullDisplayName = ownedIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
         self.identity = ownedIdentity.cryptoId.getIdentity()
         self.isActive = true
+        self.capabilityWebrtcContinuousICE = false
         self.isKeycloakManaged = ownedIdentity.isKeycloakManaged
         self.apiKeyExpirationDate = nil
         self.apiKeyStatus = APIKeyStatus.free
@@ -118,6 +120,42 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
         self.isActive = true
     }
 }
+
+
+// MARK: - Capabilities
+
+extension PersistedObvOwnedIdentity {
+
+    func setContactCapabilities(to newCapabilities: Set<ObvCapability>) {
+        for capability in ObvCapability.allCases {
+            switch capability {
+            case .webrtcContinuousICE:
+                self.capabilityWebrtcContinuousICE = newCapabilities.contains(capability)
+            }
+        }
+    }
+    
+    
+    var allCapabilitites: Set<ObvCapability> {
+        var capabilitites = Set<ObvCapability>()
+        for capability in ObvCapability.allCases {
+            switch capability {
+            case .webrtcContinuousICE:
+                if self.capabilityWebrtcContinuousICE {
+                    capabilitites.insert(capability)
+                }
+            }
+        }
+        return capabilitites
+    }
+    
+    
+    func supportsCapability(_ capability: ObvCapability) -> Bool {
+        allCapabilitites.contains(capability)
+    }
+
+}
+
 
 // MARK: - Utils
 

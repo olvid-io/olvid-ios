@@ -29,36 +29,31 @@ import OlvidUtils
 @objc(ContactDevice)
 final class ContactDevice: NSManagedObject, ObvManagedObject {
     
-    // MARK: Internal constants
-    
     private static let entityName = "ContactDevice"
-    private static let uidKey = "uid"
-    private static let contactIdentityKey = "contactIdentity"
-    private static let contactIdentityCryptoIdentityKey = [contactIdentityKey, ContactIdentity.cryptoIdentityKey].joined(separator: ".")
-    private static let contactIdentityOwnedIdentityCryptoIdentityKey = [contactIdentityKey, ContactIdentity.ownedIdentityKey, OwnedIdentity.cryptoIdentityKey].joined(separator: ".")
-    
-    private static let errorDomain = "ContactDevice"
-    
-    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private static func makeError(message: String) -> Error { NSError(domain: "ContactDevice", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
 
     // MARK: Attributes
     
     @NSManaged private(set) var uid: UID
-    
+    @NSManaged private var rawCapabilities: String?
+
+
     // MARK: Relationships
     
     private(set) var contactIdentity: ContactIdentity? {
         get {
-            guard let res = kvoSafePrimitiveValue(forKey: ContactDevice.contactIdentityKey) as? ContactIdentity else { return nil }
+            guard let res = kvoSafePrimitiveValue(forKey: Predicate.Key.contactIdentity.rawValue) as? ContactIdentity else { return nil }
             res.obvContext = self.obvContext
             res.delegateManager = delegateManager
             return res
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: ContactDevice.contactIdentityKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.contactIdentity.rawValue)
         }
     }
     
+
     // MARK: Other variables
     
     var obvContext: ObvContext?
@@ -66,6 +61,8 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
     private var ownedCryptoIdentityOnDeletion: ObvCryptoIdentity?
     private var contactCryptoIdentityOnDeletion: ObvCryptoIdentity?
     
+    private var changedKeys = Set<String>()
+
     // MARK: - Initializer
     
     /// This initializer makes sure that we do not insert a contact device if another one with the same (`uid`, `contactIdentity`) already exists. Note that a `contactIdentity` is identified by its cryptoIdentity and its ownedIdentity. If a previous entity exists, this initializer fails.
@@ -81,24 +78,20 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
             return nil
         }
         // Check that no entry with the same `uid` and `contactIdentity` exists
-        do {
-            guard try !ContactDevice.exists(uid: uid, contactIdentity: contactIdentity, within: obvContext) else {
-                os_log("Cannot add the same contact device twice", log: log, type: .error)
-                return nil
-            }
-        } catch let error {
-            os_log("%@", log: log, type: .fault, error.localizedDescription)
+        guard contactIdentity.devices.first(where: { $0.uid == uid }) == nil else {
+            os_log("Cannot add the same contact device twice", log: log, type: .error)
             return nil
         }
         // An entity can be created
         let entityDescription = NSEntityDescription.entity(forEntityName: ContactDevice.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.uid = uid
+        self.rawCapabilities = nil // Set later
         self.contactIdentity = contactIdentity
         self.delegateManager = delegateManager
-        
     }
 
+    
     func delete() throws {
         guard let obvContext = self.obvContext else {
             assertionFailure()
@@ -108,40 +101,39 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
     }
 }
 
+
+// MARK: - Capabilities
+
+extension ContactDevice {
+    
+    var allCapabilities: Set<ObvCapability> {
+        guard let split = self.rawCapabilities?.split(separator: "|") else { return Set<ObvCapability>() }
+        return Set(split.compactMap({ ObvCapability(rawValue: String($0)) }))
+    }
+
+    func setRawCapabilities(newRawCapabilities: Set<String>) {
+        self.rawCapabilities = newRawCapabilities.sorted().joined(separator: "|")
+    }
+    
+}
+
 // MARK: - Convenience DB getters
+
 extension ContactDevice {
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<ContactDevice> {
         return NSFetchRequest<ContactDevice>(entityName: self.entityName)
     }
- 
-    /// This getter tries to fetch the ContactDevice for the given `uid` and contact identity identified by its `ObvCryptoIdentity`. There can be at most one.
-    ///
-    /// - Parameters:
-    ///   - uid: The `UID` of the contact device to get.
-    ///   - cryptoIdentity: The crypto identity of the contact identity to whom the device must belong.
-    ///   - delegateManager: The `ObvIdentityDelegateManager`.
-    ///   - obvContext: The `ObvContext` where to perform the fetch.
-    /// - Returns: The `ContactDevice` instance if one was found, `nil` otherwise.
-    static func get(uid: UID, contactIdentity: ContactIdentity, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> ContactDevice? {
-        let request: NSFetchRequest<ContactDevice> = ContactDevice.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        self.uidKey, uid,
-                                        self.contactIdentityCryptoIdentityKey, contactIdentity.cryptoIdentity,
-                                        self.contactIdentityOwnedIdentityCryptoIdentityKey, contactIdentity.ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity())
-        let item = (try? obvContext.fetch(request))?.filter { $0.contactIdentity?.cryptoIdentity == contactIdentity }.first
-        item?.delegateManager = delegateManager
-        return item
-    }
+
     
-    static func exists(uid: UID, contactIdentity: ContactIdentity, within obvContext: ObvContext) throws -> Bool {
-        let request: NSFetchRequest<ContactDevice> = ContactDevice.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        self.uidKey, uid,
-                                        self.contactIdentityCryptoIdentityKey, contactIdentity.cryptoIdentity,
-                                        self.contactIdentityOwnedIdentityCryptoIdentityKey, contactIdentity.ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity())
-        return try obvContext.count(for: request) != 0
+    struct Predicate {
+        enum Key: String {
+            case uid = "uid"
+            case rawCapabilities = "rawCapabilities"
+            case contactIdentity = "contactIdentity"
+        }
     }
+
     
     static func getAllContactDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         let request: NSFetchRequest<ContactDevice> = ContactDevice.fetchRequest()
@@ -168,12 +160,20 @@ extension ContactDevice {
     }
     
     
+    override func willSave() {
+        super.willSave()
+        
+        changedKeys = Set<String>(self.changedValues().keys)
+
+    }
+    
     override func didSave() {
         super.didSave()
         
         defer {
             ownedCryptoIdentityOnDeletion = nil
             contactCryptoIdentityOnDeletion = nil
+            changedKeys.removeAll()
         }
         
         guard let delegateManager = delegateManager else {
@@ -191,6 +191,7 @@ extension ContactDevice {
         }
         
         if isInserted {
+            
             guard let contactIdentity = self.contactIdentity else {
                 assertionFailure()
                 return
@@ -200,6 +201,7 @@ extension ContactDevice {
                                                         contactDeviceUid: uid,
                                                         flowId: flowId)
                 .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            
         } else if isDeleted {
             
             guard let ownedCryptoIdentityOnDeletion = self.ownedCryptoIdentityOnDeletion, let contactCryptoIdentityOnDeletion = self.contactCryptoIdentityOnDeletion else {
@@ -212,6 +214,17 @@ extension ContactDevice {
                                                                                contactDeviceUid: uid,
                                                                                flowId: flowId)
             notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            
+        } else {
+            
+            guard let contactIdentity = self.contactIdentity else { assertionFailure(); return }
+            if changedKeys.contains(Predicate.Key.rawCapabilities.rawValue) {
+                ObvIdentityNotificationNew.contactObvCapabilitiesWereUpdated(
+                    ownedIdentity: contactIdentity.ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
+                    contactIdentity: contactIdentity.cryptoIdentity,
+                    flowId: flowId)
+                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            }
             
         }
     }

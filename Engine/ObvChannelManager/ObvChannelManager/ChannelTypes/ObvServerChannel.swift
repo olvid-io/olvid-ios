@@ -47,13 +47,13 @@ final class ObvServerChannel: ObvChannel {
 // MARK: - Implementing ObvChannel
 extension ObvServerChannel {
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> MessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvServerChannel.logCategory)
         
         guard let networkFetchDelegate = delegateManager.networkFetchDelegate else {
             os_log("The network fetch delegate is not set", log: log, type: .fault)
-            return
+            throw Self.makeError(message: "The network fetch delegate is not set")
         }
 
         switch message.messageType {
@@ -63,7 +63,7 @@ extension ObvServerChannel {
 
             guard let message = message as? ObvChannelServerQueryMessageToSend else {
                 os_log("Could not cast to dialog message", log: log, type: .fault)
-                throw NSError()
+                throw Self.makeError(message: "Could not cast to dialog message")
             }
             
             // Transform an ObvChannelServerQueryMessageToSend.QueryType (type within the Channel Manager) into a ServerQuery.QueryType (Network Fetch Manager type)
@@ -83,9 +83,14 @@ extension ObvServerChannel {
             
             networkFetchDelegate.postServerQuery(serverQuery, within: obvContext)
             
+            let randomUid = UID.gen(with: prng)
+            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid)
+
+            return messageId
+
         default:
             os_log("Inappropriate message type posted on a server channel", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Inappropriate message type posted on a server channel")
 
         }
     }
@@ -126,7 +131,7 @@ extension ObvServerChannel {
         
     }
 
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvServerChannel.logCategory)
 
@@ -134,13 +139,15 @@ extension ObvServerChannel {
             os_log("No acceptable server channel found", log: log, type: .error)
             throw ObvServerChannel.makeError(message: "No acceptable server channel found")
         }
-
-        for serverChannel in acceptableChannels {
-            try serverChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
-        }
         
-        let postedOwnedIdentities = Set(acceptableChannels.map({ $0.ownedIdentity }))
-        return postedOwnedIdentities
+        guard acceptableChannels.count == 1, let acceptableServerChannel = acceptableChannels.first else {
+            os_log("Unexpected number of server channels found. Expecting 1, go %d", log: log, type: .error, acceptableChannels.count)
+            throw Self.makeError(message: "Unexpected number of server channels found")
+        }
+
+        let messageId = try acceptableServerChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        
+        return [messageId: Set([acceptableServerChannel.ownedIdentity])]
         
     }
 

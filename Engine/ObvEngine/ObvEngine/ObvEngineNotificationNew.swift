@@ -84,6 +84,8 @@ public enum ObvEngineNotificationNew {
 	case messageExtendedPayloadAvailable(obvMessage: ObvMessage, extendedMessagePayload: Data)
 	case contactIsActiveChangedWithinEngine(obvContactIdentity: ObvContactIdentity)
 	case contactWasRevokedAsCompromisedWithinEngine(obvContactIdentity: ObvContactIdentity)
+	case ContactObvCapabilitiesWereUpdated(contact: ObvContactIdentity)
+	case OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvOwnedIdentity)
 
 	private enum Name {
 		case newBackupKeyGenerated
@@ -138,6 +140,8 @@ public enum ObvEngineNotificationNew {
 		case messageExtendedPayloadAvailable
 		case contactIsActiveChangedWithinEngine
 		case contactWasRevokedAsCompromisedWithinEngine
+		case ContactObvCapabilitiesWereUpdated
+		case OwnedIdentityCapabilitiesWereUpdated
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -202,6 +206,8 @@ public enum ObvEngineNotificationNew {
 			case .messageExtendedPayloadAvailable: return Name.messageExtendedPayloadAvailable.name
 			case .contactIsActiveChangedWithinEngine: return Name.contactIsActiveChangedWithinEngine.name
 			case .contactWasRevokedAsCompromisedWithinEngine: return Name.contactWasRevokedAsCompromisedWithinEngine.name
+			case .ContactObvCapabilitiesWereUpdated: return Name.ContactObvCapabilitiesWereUpdated.name
+			case .OwnedIdentityCapabilitiesWereUpdated: return Name.OwnedIdentityCapabilitiesWereUpdated.name
 			}
 		}
 	}
@@ -458,6 +464,14 @@ public enum ObvEngineNotificationNew {
 		case .contactWasRevokedAsCompromisedWithinEngine(obvContactIdentity: let obvContactIdentity):
 			info = [
 				"obvContactIdentity": obvContactIdentity,
+			]
+		case .ContactObvCapabilitiesWereUpdated(contact: let contact):
+			info = [
+				"contact": contact,
+			]
+		case .OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity):
+			info = [
+				"ownedIdentity": ownedIdentity,
 			]
 		}
 		return info
@@ -928,6 +942,22 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
 			block(obvContactIdentity)
+		}
+	}
+
+	public static func observeContactObvCapabilitiesWereUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.ContactObvCapabilitiesWereUpdated.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let contact = notification.userInfo!["contact"] as! ObvContactIdentity
+			block(contact)
+		}
+	}
+
+	public static func observeOwnedIdentityCapabilitiesWereUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.OwnedIdentityCapabilitiesWereUpdated.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvOwnedIdentity
+			block(ownedIdentity)
 		}
 	}
 

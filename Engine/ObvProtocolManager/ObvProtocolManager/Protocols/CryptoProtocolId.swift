@@ -42,6 +42,7 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
     case FullRatchet = 13
     case DownloadGroupPhoto = 14
     case KeycloakContactAddition = 15
+    case ContactCapabilitiesDiscovery = 16
 
     func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
         var concreteCryptoProtocol: ConcreteCryptoProtocol?
@@ -76,6 +77,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
             concreteCryptoProtocol = KeycloakContactAdditionProtocol(protocolInstance: instance, prng: prng)
         case .TrustEstablishmentWithMutualScan:
             concreteCryptoProtocol = TrustEstablishmentWithMutualScanProtocol(protocolInstance: instance, prng: prng)
+        case .ContactCapabilitiesDiscovery:
+            concreteCryptoProtocol = DeviceCapabilitiesDiscoveryProtocol(protocolInstance: instance, prng: prng)
         }
         return concreteCryptoProtocol
     }
@@ -187,6 +190,13 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
                                                             delegateManager: delegateManager,
                                                             prng: prng,
                                                             within: obvContext)
+        case .ContactCapabilitiesDiscovery:
+            return DeviceCapabilitiesDiscoveryProtocol(instanceUid: instanceUid,
+                                                        currentState: ConcreteProtocolInitialState(),
+                                                        ownedCryptoIdentity: ownedCryptoIdentity,
+                                                        delegateManager: delegateManager,
+                                                        prng: prng,
+                                                        within: obvContext)
         }
     }
 }
@@ -210,6 +220,7 @@ extension CryptoProtocolId {
         case .DownloadGroupPhoto: return "DownloadGroupPhoto"
         case .KeycloakContactAddition: return "KeycloakContactAddition"
         case .TrustEstablishmentWithMutualScan: return "TrustEstablishmentWithMutualScan"
+        case .ContactCapabilitiesDiscovery: return "ContactCapabilitiesDiscovery"
         }
     }
 

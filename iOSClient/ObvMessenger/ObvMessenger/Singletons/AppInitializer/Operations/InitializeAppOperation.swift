@@ -68,10 +68,8 @@ final class InitializeAppOperation: OperationWithSpecificReasonForCancel<Initial
         runningLog.addEvent(message: "The initialization of the App Core Data was successful")
 
         // Initialize the Singletons
-        if #available(iOS 12.0, *) {
-            runningLog.addEvent(message: "Initializing the network status monitor")
-            _ = NetworkStatus.shared
-        }
+        runningLog.addEvent(message: "Initializing the network status monitor")
+        _ = NetworkStatus.shared
 
         // Perform app migrations and handle exceptional situations
         runningLog.addEvent(message: "Performing exception migrations")
@@ -284,8 +282,6 @@ extension InitializeAppOperation {
         os_log("bundleVersion: %{public}@", log: log, type: .info, ObvMessengerConstants.bundleVersion)
         os_log("fullVersion: %{public}@", log: log, type: .info, ObvMessengerConstants.fullVersion)
         
-        os_log("Amount of time (in seconds) an app may run a critical background task in the background is %{public}f", log: log, type: .info, UIMinimumKeepAliveTimeout)
-        
         os_log("Running on real device: %{public}@", log: log, type: .info, ObvMessengerConstants.isRunningOnRealDevice.description)
      
         logMDMPreferences()
@@ -298,9 +294,8 @@ extension InitializeAppOperation {
             os_log("[MDM] preferences list ends", log: log, type: .info)
         }
         
-        let mdmConfigurationKey = "com.apple.configuration.managed"
-        let standardUserDefaults = UserDefaults.standard
-        guard let mdmConfiguration = standardUserDefaults.dictionary(forKey: mdmConfigurationKey) else { return }
+        guard let mdmConfiguration = ObvMessengerSettings.MDM.configuration else { return }
+        
         for (key, value) in mdmConfiguration {
             if let valueString = value as? String {
                 os_log("[MDM] %{public}@ : %{public}@", log: log, type: .info, key, valueString)

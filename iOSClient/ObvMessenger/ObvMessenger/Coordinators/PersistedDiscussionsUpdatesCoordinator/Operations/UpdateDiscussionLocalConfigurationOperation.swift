@@ -69,11 +69,9 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
             
                 ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: value, localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
 
-                if #available(iOS 13.0, *) {
-                    if case .muteNotificationsDuration = value,
-                       let expiration = localConfiguration.currentMuteNotificationsEndDate {
-                        ObvMessengerInternalNotification.newMuteExpiration(expirationDate: expiration).postOnDispatchQueue()
-                    }
+                if case .muteNotificationsDuration = value,
+                   let expiration = localConfiguration.currentMuteNotificationsEndDate {
+                    ObvMessengerInternalNotification.newMuteExpiration(expirationDate: expiration).postOnDispatchQueue()
                 }
 
             } catch(let error) {
@@ -112,7 +110,6 @@ enum UpdateDiscussionLocalConfigurationOperationReasonForCancel: LocalizedErrorW
 }
 
 
-@available(iOS 13.0, *)
 extension AppDelegate {
 
     func scheduleBackgroundTaskForUpdatingBadge() {

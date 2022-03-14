@@ -28,10 +28,8 @@ public extension URLSessionConfiguration {
         self.sessionSendsLaunchEvents = true
         self.sharedContainerIdentifier = sharedContainerIdentifier
         self.shouldUseExtendedBackgroundIdleMode = true
-        if #available(iOS 13.0, *) {
-            self.allowsConstrainedNetworkAccess = true
-            self.allowsExpensiveNetworkAccess = true
-        }
+        self.allowsConstrainedNetworkAccess = true
+        self.allowsExpensiveNetworkAccess = true
     }
 
 }

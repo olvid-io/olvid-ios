@@ -35,6 +35,8 @@ final class BackgroundTaskCoordinator: SimpleBackgroundTaskDelegate, BackgroundT
     
     private var notificationCenterTokens = [NSObjectProtocol]()
     
+    private static func makeError(message: String) -> Error { NSError(domain: "BackgroundTaskCoordinator", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     private var _currentExpectationsWithinFlow = [FlowIdentifier: (expectations: Set<Expectation>, backgroundTaskId: UIBackgroundTaskIdentifier, completionHander: (() -> Void)?)]()
     private let backgroundActivitiesQueue = DispatchQueue(label: "BackgroundTaskCoordinator.CurrentExpectationsWithinFlowQueue")
     private let internalQueue = OperationQueue()
@@ -71,9 +73,11 @@ final class BackgroundTaskCoordinator: SimpleBackgroundTaskDelegate, BackgroundT
 extension BackgroundTaskCoordinator {
     
     
-    private func startFlowForBackgroundTask(with expectations: Set<Expectation>, completionHandler: (() -> Void)? = nil) -> FlowIdentifier? {
+    private func startFlowForBackgroundTask(with expectations: Set<Expectation>, completionHandler: (() -> Void)? = nil) throws -> FlowIdentifier {
         
-        guard let delegateManager = delegateManager else { return nil }
+        guard let delegateManager = delegateManager else {
+            throw Self.makeError(message: "The delegate manager is not set")
+        }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         
         let flowId = FlowIdentifier()
@@ -110,9 +114,9 @@ extension BackgroundTaskCoordinator {
             do {
                 guard let (expectations, backgroundTaskId, completionHandler) = _currentExpectationsWithinFlow[flowId] else { return }
                 
-                os_log("Expectations of background activity associated with flow %{public}@ before update: %{public}@", log: log, type: .debug, flowId.debugDescription, Expectation.description(of: expectations))
+                os_log("Expectations of background activity associated with flow %{public}@ before update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: expectations))
                 let newExpectations = expectations.subtracting(expectationsToRemove).union(expectationsToAdd)
-                os_log("Expectations of background activity associated with flowId %{public}@ after update: %{public}@", log: log, type: .debug, flowId.debugDescription, Expectation.description(of: newExpectations))
+                os_log("Expectations of background activity associated with flowId %{public}@ after update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: newExpectations))
 
                 _currentExpectationsWithinFlow[flowId] = (newExpectations, backgroundTaskId, completionHandler)
 
@@ -301,37 +305,30 @@ extension BackgroundTaskCoordinator {
 
     // Posting message and attachments
     
-    /// This methods starts a background activity for posting an application message with (or without) attachments. Optionally, a completion handler can be specified. It is called when the flow ends. Optionally, a maximum time interval can be specified. In that case, the flow starts a timer as soon as essentials events occured and ends the flow after this interval
-    /// (if the flow has not ended yet). Note that ending the flow always performs a call to the completion handler, even if the flow was ended because the time exceed the maximum time interval.
-    /// This mechanism is used, in particular, in order to automatically  dismiss the share extension after a certain time interval, in case where there is zero bandwith (in which case, it is not possible to meet all the expectations of the flow).
-    /// - Parameter messageId: The message identifier.
-    /// - Parameter attachmentIds: The array of all the attachment identifiers.
-    /// - Parameter maxTimeIntervalAndHandler: The time interval after which the flow should be ended. The time starts *after* essential expections have been met. The associated (optional) handler is fired right after the timer starts.
-    /// - Parameter completionHandler: The completion handler.
-    func startBackgroundActivityForPostingApplicationMessageAttachments(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], completionHandler: (() -> Void)? = nil) -> FlowIdentifier? {
+    /// For now, this method is used when starting a flow for sending an application message. Since one application message can result in multiple net work messages (when the contacts of the
+    /// message are on distinct servers), we first create a flow with no expectations, then add the expectations one at a time.
+    func startNewFlow(completionHandler: (() -> Void)? = nil) throws -> FlowIdentifier {
+        try startFlowForBackgroundTask(with: Set<Expectation>(), completionHandler: completionHandler)
+    }
+    
+    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier]) {
         
-        // In case the message has no attachment, this flow ends when the outbox message was uploaded. In there are attachments, the flow ends when all attachments have been uploaded.
         let expectations: Set<Expectation>
         if attachmentIds.isEmpty {
             expectations = Set<Expectation>([Expectation.outboxMessageWasUploaded(messageId: messageId)])
         } else {
             expectations = Set<Expectation>(attachmentIds.map { Expectation.attachmentUploadRequestIsTakenCareOfForAttachment(withId: $0) })
         }
-        let flowId = startFlowForBackgroundTask(with: expectations, completionHandler: completionHandler)
-        
-        return flowId
-    }
-    
-    
-    func startBackgroundActivityForStoringBackgroundURLSessionCompletionHandler() -> FlowIdentifier? {
-        return FlowIdentifier()
-    }
 
+        updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId, expectationsToRemove: [], expectationsToAdd: Array(expectations))
+        
+    }
+    
     // Resuming a protocol
     
-    func startBackgroundActivityForStartingOrResumingProtocol() -> FlowIdentifier? {
+    func startBackgroundActivityForStartingOrResumingProtocol() throws -> FlowIdentifier {
         let expectations = Set([Expectation.protocolMessageToProcess])
-        return startFlowForBackgroundTask(with: expectations)
+        return try startFlowForBackgroundTask(with: expectations)
     }
     
     

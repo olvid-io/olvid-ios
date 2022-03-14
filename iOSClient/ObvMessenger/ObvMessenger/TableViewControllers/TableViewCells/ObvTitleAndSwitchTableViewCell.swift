@@ -79,6 +79,7 @@ final class ObvTitleAndSwitchTableViewCell: UITableViewCell {
     
     
     override func prepareForReuse() {
+        super.prepareForReuse()
         self.blockOnSwitchValueChanged = nil
         self.uiSwitch.isOn = false
         self.title = nil

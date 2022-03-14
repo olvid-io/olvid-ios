@@ -171,7 +171,7 @@ extension PersistedMessageSentRecipientInfos {
     
     func setTimestampAllAttachmentsSentIfPossible() {
         guard self.timestampAllAttachmentsSent == nil else { return }
-        let allAttachmentsAreComplete = messageSent.fyleMessageJoinWithStatuses.reduce(true) { $0 && ($1.status == .complete) }
+        let allAttachmentsAreComplete = messageSent.fyleMessageJoinWithStatuses.allSatisfy { $0.status == .complete }
         guard allAttachmentsAreComplete else { return }
         self.timestampAllAttachmentsSent = Date()
         debugPrint(allAttachmentsAreComplete)

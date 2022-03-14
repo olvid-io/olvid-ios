@@ -389,7 +389,6 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                 guard let _self = self else { return }
                 guard let ownedIdentityObv = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else {
                     os_log("Could not find persisted owned identity", log: log, type: .fault)
-                    assertionFailure()
                     return
                 }
                 guard !ownedIdentityObv.isActive else { return }
@@ -425,7 +424,7 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
             assertionFailure()
             return
         }
-        contactsPresentationVC.title = SingleContactViewController.Strings.contactsTVCTitle(contactFromEngine.publishedIdentityDetails?.coreDetails.getDisplayNameWithStyle(.short) ?? persistedContact.shortOriginalName)
+        contactsPresentationVC.title = CommonString.Title.introduceTo(contactFromEngine.publishedIdentityDetails?.coreDetails.getDisplayNameWithStyle(.short) ?? persistedContact.shortOriginalName)
         viewController.present(contactsPresentationVC, animated: true)
 
     }
@@ -451,7 +450,7 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     }
     
     
-    @available(iOS 13, *)
+    
     private func presentUserNotificationsSubscriberHostingController() {
         self.dismiss(animated: true) {
             let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: {
@@ -926,12 +925,7 @@ extension MainFlowViewController {
                 contacts.forEach { contactCryptoIds.insert($0.cryptoId) }
             }
 
-            let button: MultipleContactsButton
-            if #available(iOS 13.0, *) {
-                button = .floating(title: CommonString.Word.Call, systemIcon: .phoneFill)
-            } else {
-                button = .system(.phoneFill)
-            }
+            let button: MultipleContactsButton = .floating(title: CommonString.Word.Call, systemIcon: .phoneFill)
 
             let vc = MultipleContactsViewController(ownedCryptoId: ownedIdentity.cryptoId, mode: .restricted(to: contactCryptoIds), button: button, defaultSelectedContacts: Set(contacts), disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, selectionStyle: .checkmark) { selectedContacts in
 
@@ -1130,6 +1124,12 @@ extension MainFlowViewController {
                 presentBackupSettingsFlowViewController()
             }
 
+        case .message(messageObjectURI: let messageObjectURI):
+            mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
+            presentedViewController?.dismiss(animated: true)
+            guard let messageObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: messageObjectURI) else { return }
+            guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { return }
+            discussionsFlowViewController.userWantsToDisplay(persistedMessage: message)
         }
         
     }
@@ -1442,7 +1442,7 @@ final class ObvGenericIdentityForSharing: NSObject, UIActivityItemSource {
         return MainFlowViewController.Strings.ShareOwnedIdentity.subject(genericIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))
     }
 
-    @available(iOS 13, *)
+    
     func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
         metadata.title = NSLocalizedString("HOW_DO_YOU_WANT_TO_SHARE_ID", comment: "")

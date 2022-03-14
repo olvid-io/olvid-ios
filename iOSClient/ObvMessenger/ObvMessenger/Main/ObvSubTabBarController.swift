@@ -49,7 +49,7 @@ final class ObvSubTabBarController: UITabBarController, ObvSubTabBarDelegate, Ol
     }
     
     
-    @available(iOS 13, *)
+    
     func provideMenu() -> UIMenu {
         let menuElements: [UIMenuElement] = [
             UIAction(title: Strings.showBackupScreen, image: UIImage(systemIcon: .arrowCounterclockwiseCircleFill)) { _ in

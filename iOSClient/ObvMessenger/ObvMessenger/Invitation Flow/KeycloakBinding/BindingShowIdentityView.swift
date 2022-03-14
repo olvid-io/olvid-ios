@@ -22,7 +22,7 @@ import ObvTypes
 import ObvEngine
 
 
-@available(iOS 13.0, *)
+
 struct BindingShowIdentityView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -68,7 +68,7 @@ struct BindingShowIdentityView: View {
 }
 
 
-@available(iOS 13.0, *)
+
 struct BindingShowIdentityInnerView: View {
     
     let firstName: String?
@@ -184,7 +184,7 @@ struct BindingShowIdentityInnerView: View {
 }
 
 
-@available(iOS 13.0, *)
+
 struct PreviousIdentityExistsOnKeycloakExplanationView: View {
     
     let revocationAllowed: Bool
@@ -205,7 +205,7 @@ struct PreviousIdentityExistsOnKeycloakExplanationView: View {
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate struct OwnedCryptoIdBelongsToAnotherServerExplanationView: View {
     var body: some View {
         ObvCardView {
@@ -235,7 +235,7 @@ fileprivate struct OwnedCryptoIdBelongsToAnotherServerExplanationView: View {
 
 
 
-@available(iOS 13.0, *)
+
 struct BindingShowIdentityView_Previews: PreviewProvider {
     
     static var previews: some View {

@@ -30,7 +30,7 @@ extension DraftSettingsHostingViewController: UISheetPresentationControllerDeleg
 
 }
 
-@available(iOS 13, *)
+
 final class DraftSettingsHostingViewController: UIHostingController<DraftExpirationSettingsWrapperView>, DiscussionExpirationSettingsViewModelDelegate {
 
     fileprivate let model: DraftExpirationSettingsViewModel
@@ -60,7 +60,7 @@ final class DraftSettingsHostingViewController: UIHostingController<DraftExpirat
 
 }
 
-@available(iOS 13, *)
+
 final fileprivate class DraftExpirationSettingsViewModel: ObservableObject {
 
     weak var delegate: DiscussionExpirationSettingsViewModelDelegate?
@@ -86,7 +86,7 @@ final fileprivate class DraftExpirationSettingsViewModel: ObservableObject {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate extension PersistedDraft {
 
     func getReadOnce(model: DraftExpirationSettingsViewModel) -> Bool {
@@ -118,7 +118,7 @@ fileprivate extension PersistedDraft {
     }
 }
 
-@available(iOS 13, *)
+
 struct DraftExpirationSettingsWrapperView: View {
 
     fileprivate var model: DraftExpirationSettingsViewModel
@@ -154,7 +154,7 @@ struct DraftExpirationSettingsWrapperView: View {
 
 }
 
-@available(iOS 13, *)
+
 fileprivate struct DefaultDiscussionSettingsView: View {
 
     let readOnce: Bool
@@ -195,7 +195,7 @@ fileprivate struct DefaultDiscussionSettingsView: View {
     }
 }
 
-@available(iOS 13, *)
+
 fileprivate struct DraftExpirationSettingsView: View {
 
     let discussionReadOnce: Bool
@@ -282,7 +282,7 @@ fileprivate struct DraftExpirationSettingsView: View {
     }
 }
 
-@available(iOS 13, *)
+
 struct DraftExpirationSettingsView_Previews: PreviewProvider {
 
     static var previews: some View {

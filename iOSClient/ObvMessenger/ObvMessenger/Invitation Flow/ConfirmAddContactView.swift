@@ -21,7 +21,6 @@ import SwiftUI
 import ObvEngine
 
 
-@available(iOS 13, *)
 struct ConfirmAddContactView: View {
     
     let ownedCryptoId: ObvCryptoId

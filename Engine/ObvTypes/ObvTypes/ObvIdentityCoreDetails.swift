@@ -30,7 +30,8 @@ public struct ObvIdentityCoreDetails: Equatable {
     
     private static let errorDomain = String(describing: ObvIdentityCoreDetails.self)
     
-    
+    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     public func removingSignedUserDetails() throws -> ObvIdentityCoreDetails {
         try ObvIdentityCoreDetails(firstName: firstName,
                                    lastName: lastName,
@@ -47,7 +48,9 @@ public struct ObvIdentityCoreDetails: Equatable {
     }    
     
     public init(firstName: String?, lastName: String?, company: String?, position: String?, signedUserDetails: String?) throws {
-        guard ObvIdentityCoreDetails.areAcceptable(firstName: firstName, lastName: lastName) else { throw NSError() }
+        guard ObvIdentityCoreDetails.areAcceptable(firstName: firstName, lastName: lastName) else {
+            throw Self.makeError(message: "ObvIdentityCoreDetails are not acceptable")
+        }
         self.firstName = firstName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
         self.lastName = lastName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
         self.company = company?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()

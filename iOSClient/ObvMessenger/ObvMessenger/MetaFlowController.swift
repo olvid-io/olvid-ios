@@ -294,6 +294,9 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
             assertionFailure()
             return
         }
+        
+        setupAndShowAppropriateCallBanner()
+
     }
     
     
@@ -336,8 +339,8 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     
     private func setupAndShowAppropriateCallBanner() {
         assert(Thread.isMainThread)
-        assert(viewDidLoadWasCalled)
-        assert(AppStateManager.shared.currentState.isInitializedAndActive)
+        guard viewDidLoadWasCalled else { return }
+        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
         
         if shouldShowCallBanner {
             

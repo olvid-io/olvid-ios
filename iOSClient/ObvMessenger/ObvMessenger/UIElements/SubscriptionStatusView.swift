@@ -20,7 +20,7 @@
 import SwiftUI
 import ObvTypes
 
-@available(iOS 13, *)
+
 struct SubscriptionStatusView: View {
     
     let title: Text?
@@ -120,7 +120,7 @@ struct SubscriptionStatusView: View {
 
 
 
-@available(iOS 13, *)
+
 struct FeatureListView: View {
     
     let title: String
@@ -161,7 +161,7 @@ struct FeatureListView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct SubscriptionStatusSummaryView: View {
     
     let apiKeyStatus: APIKeyStatus
@@ -286,7 +286,7 @@ struct SubscriptionStatusSummaryView: View {
 
 
 
-@available(iOS 13, *)
+
 struct SeparatorView: View {
     
     var body: some View {
@@ -305,7 +305,7 @@ struct SeparatorView: View {
 
 
 
-@available(iOS 13, *)
+
 struct FeatureListView_Previews: PreviewProvider {
     
     private static let testFreeFeatures = [

@@ -20,7 +20,7 @@
 import SwiftUI
 
 
-@available(iOS 13, *)
+
 struct EditSingleContactIdentityNicknameView: View {
 
     @ObservedObject var singleIdentity: SingleContactIdentity
@@ -105,7 +105,7 @@ struct EditSingleContactIdentityNicknameView: View {
     }
 }
 
-@available(iOS 13, *)
+
 struct EditSingleContactIdentityNicknameView_Previews: PreviewProvider {
 
     static let testData = [

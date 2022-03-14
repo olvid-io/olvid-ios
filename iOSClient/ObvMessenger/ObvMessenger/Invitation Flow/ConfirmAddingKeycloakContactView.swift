@@ -20,7 +20,6 @@
 import SwiftUI
 import ObvTypes
 
-@available(iOS 13, *)
 struct ConfirmAddingKeycloakContactView: View {
     
     let contactUserDetails: UserDetails

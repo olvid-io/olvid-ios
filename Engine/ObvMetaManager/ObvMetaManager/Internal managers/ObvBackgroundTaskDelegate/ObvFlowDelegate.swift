@@ -26,14 +26,15 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
     
     // MARK: - Background Tasks
     
+    func startNewFlow(completionHandler: (() -> Void)?) throws -> FlowIdentifier
+
     // Posting message and attachments
     
-    func startBackgroundActivityForPostingApplicationMessageAttachments(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], completionHandler: (() -> Void)?) -> FlowIdentifier?
-    func startBackgroundActivityForStoringBackgroundURLSessionCompletionHandler() -> FlowIdentifier?
-
+    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier]) throws
+    
     // Resuming a protocol
     
-    func startBackgroundActivityForStartingOrResumingProtocol() -> FlowIdentifier?
+    func startBackgroundActivityForStartingOrResumingProtocol() throws -> FlowIdentifier
     
     // Downloading messages, downloading/pausing attachment
     
@@ -48,6 +49,6 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
 
     // Handling the completion handler received together with a remote push notification
     
-    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) -> FlowIdentifier?
+    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
 
 }

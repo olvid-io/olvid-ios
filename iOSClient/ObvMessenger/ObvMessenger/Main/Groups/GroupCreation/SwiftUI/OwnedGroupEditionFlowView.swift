@@ -21,7 +21,7 @@ import SwiftUI
 import ObvTypes
 
 
-@available(iOS 13.0, *)
+
 final class OwnedGroupEditionFlowViewHostingController: UIHostingController<OwnedGroupEditionFlowView> {
 
     enum EditionType {
@@ -50,7 +50,7 @@ final class OwnedGroupEditionFlowViewHostingController: UIHostingController<Owne
 
 }
 
-@available(iOS 13.0, *)
+
 struct OwnedGroupEditionFlowView: View {
 
     @ObservedObject var contactGroup: ContactGroup
@@ -115,12 +115,6 @@ struct OwnedGroupEditionFlowView: View {
         }
     }
 
-    private var floatingButtonModel: FloatingButtonModel {
-        return FloatingButtonModel(title: buttonTitle, systemIcon: .paperplaneFill, isEnabled: !disableCreateGroupButton) {
-            isPublishActionSheetShown = true
-        }
-    }
-
     var body: some View {
         ZStack {
             Color(AppTheme.shared.colorScheme.systemBackground)
@@ -149,17 +143,20 @@ struct OwnedGroupEditionFlowView: View {
                                     }
                                 Spacer()
                             }
+                            OlvidButton(style: .blue,
+                                        title: Text(buttonTitle),
+                                        systemIcon: .paperplaneFill,
+                                        action: {
+                                isPublishActionSheetShown = true
+                            })
+                                .padding(.all, 10)
+                                .disabled(disableCreateGroupButton)
                         }
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.all, typicalPadding(for: geometry))
                     Form {
-                        Section(header: Text("ENTER_GROUP_DETAILS"),
-                                footer: FloatingButtonView(model: floatingButtonModel,
-                                                           horizontalPadding: 0,
-                                                           verticalPadding: 0,
-                                                           showBackground: false)
-                        ) {
+                        Section(header: Text("ENTER_GROUP_DETAILS")) {
                             TextField(LocalizedStringKey("GROUP_NAME"), text: $contactGroup.name)
                             TextField(LocalizedStringKey("GROUP_DESCRIPTION"), text: $contactGroup.description)
                         }.disabled(isPublishActionSheetShown)
@@ -171,7 +168,7 @@ struct OwnedGroupEditionFlowView: View {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct OwnedGroupEditionFlowView_Previews: PreviewProvider {
 
     static var previews: some View {

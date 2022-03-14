@@ -23,7 +23,6 @@ import ObvEngine
 import CoreData
 import os.log
 
-@available(iOS 13.0, *)
 final class ObservableCallWrapper: ObservableObject {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ObservableCallWrapper.self))
@@ -167,7 +166,6 @@ final class ObservableCallWrapper: ObservableObject {
 
 }
 
-@available(iOS 13.0, *)
 struct CallView: View {
 
     @ObservedObject var wrappedCall: ObservableCallWrapper
@@ -194,7 +192,6 @@ struct CallView: View {
 
 }
 
-@available(iOS 13.0, *)
 struct CounterView: View {
 
     let startTimestamp: Date?
@@ -245,7 +242,6 @@ struct CounterView: View {
     }
 }
 
-@available(iOS 13.0, *)
 fileprivate struct InnerCallView: View {
 
     let callParticipantDatas: [CallParticipantData]
@@ -427,7 +423,6 @@ fileprivate struct InnerCallView: View {
 
 }
 
-@available(iOS 13.0, *)
 class CallParticipantData: ObservableObject, Identifiable, Equatable {
 
     static func == (lhs: CallParticipantData, rhs: CallParticipantData) -> Bool {
@@ -493,7 +488,6 @@ class CallParticipantData: ObservableObject, Identifiable, Equatable {
 
 }
 
-@available(iOS 13.0, *)
 struct ParticipantView: View {
 
     @ObservedObject var callParticipantData: CallParticipantData
@@ -585,7 +579,6 @@ struct ParticipantView: View {
 // MARK: - Previews
 
 
-@available(iOS 13.0, *)
 struct InnerCallView_Previews: PreviewProvider {
 
     static var logiciansNames = ["Alan Turing", "Kurt Gödel", "David Hilbert", "Stephen Cole Kleene", "Haskell Curry", "Georg Cantor", "Willard Van Orman Quine", "Aristote", "Giuseppe Peano"]

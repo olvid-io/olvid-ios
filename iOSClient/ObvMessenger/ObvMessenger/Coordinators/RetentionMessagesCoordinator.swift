@@ -26,14 +26,11 @@ final class RetentionMessagesCoordinator {
     fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: RetentionMessagesCoordinator.self))
 
     init() {
-        if #available(iOS 13, *) {
-            observeApplyRetentionPoliciesBackgroundTaskWasLaunchedNotifications()
-        }
+        observeApplyRetentionPoliciesBackgroundTaskWasLaunchedNotifications()
     }
     
     private var observationTokens = [NSObjectProtocol]()
 
-    @available(iOS 13, *)
     private func observeApplyRetentionPoliciesBackgroundTaskWasLaunchedNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeApplyRetentionPoliciesBackgroundTaskWasLaunched { (completion) in
             let completionHandler: (Bool) -> Void = { (success) in
@@ -52,7 +49,6 @@ final class RetentionMessagesCoordinator {
 
 // MARK: - Extending AppDelegate for managing the background task allowing to wipe expired messages
 
-@available(iOS 13.0, *)
 extension AppDelegate {
 
     /// If there exists at least one message expiration in database, this method schedules a background task allowing to perform a wipe of the associated message in the background.

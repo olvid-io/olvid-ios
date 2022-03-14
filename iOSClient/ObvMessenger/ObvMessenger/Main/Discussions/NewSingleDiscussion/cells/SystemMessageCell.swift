@@ -196,6 +196,7 @@ extension SystemMessageCell {
     var itemProvidersForAllAttachments: [UIActivityItemProvider]? { nil }
 
     var isReplyToActionAvailable: Bool { false }
+    var isDeleteOwnReactionActionAvailable: Bool { false }
 
     var isDeleteActionAvailable: Bool {
         switch self.message?.category {

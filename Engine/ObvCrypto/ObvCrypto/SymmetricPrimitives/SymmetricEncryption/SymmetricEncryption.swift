@@ -166,6 +166,8 @@ final class SymmetricEncryptionWithAES256CTRNative: SymmetricEncryptionConcrete 
 
 final class SymmetricEncryptionWithAES256CTR: SymmetricEncryptionConcrete {
     
+    static func makeError(message: String) -> Error { NSError(domain: "SymmetricEncryptionWithAES256CTR", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     static var keyLength: Int {
         return SymmetricEncryptionAES256CTRKey.length
     }
@@ -230,7 +232,9 @@ final class SymmetricEncryptionWithAES256CTR: SymmetricEncryptionConcrete {
         }
 
         
-        guard status == 0 else { throw NSError() }
+        guard status == 0 else {
+            throw Self.makeError(message: "Status is not 0")
+        }
         
         return EncryptedData(data: ciphertext)
     }
@@ -370,7 +374,9 @@ final class SymmetricEncryptionWithAES256CTR: SymmetricEncryptionConcrete {
             return status
         }
 
-        guard status == 0 else { throw NSError() }
+        guard status == 0 else {
+            throw Self.makeError(message: "Status is not 0")
+        }
 
         return plaintext
         

@@ -23,7 +23,6 @@ import UIKit
 public extension UIImage {
     
     /// Typically used to compute a thumbnail used in user notifications
-    @available(iOS 13.0, *)
     static func makeCircledCharacter(fromString: String, circleDiameter: CGFloat, fillColor: UIColor, characterColor: UIColor) -> UIImage? {
         guard let initialChar = fromString.first else { return nil }
         let initial = String(initialChar)
@@ -52,7 +51,6 @@ public extension UIImage {
     }
 
     /// Typically used to compute a thumbnail used in user notifications
-    @available(iOS 13.0, *)
     static func makeCircledSymbol(from systemName: String, circleDiameter: CGFloat, fillColor: UIColor, symbolColor: UIColor) -> UIImage? {
 
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: circleDiameter, height: circleDiameter))

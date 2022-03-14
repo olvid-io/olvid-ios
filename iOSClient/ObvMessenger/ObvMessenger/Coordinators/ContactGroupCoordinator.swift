@@ -567,7 +567,9 @@ extension ContactGroupCoordinator {
                 let groupUid = obvContactGroup.groupUid
                 let groupOwner = obvContactGroup.groupOwner.cryptoId
                 let groupId = (groupUid, groupOwner)
-                guard let _contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) else { throw NSError() }
+                guard let _contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) else {
+                    throw makeError(message: "Could not find contact group")
+                }
                 contactGroup = _contactGroup
             } catch {
                 os_log("Could not find the contact group", log: log, type: .fault)

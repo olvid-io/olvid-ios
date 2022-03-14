@@ -356,5 +356,6 @@ extension MessageSystemCollectionViewCell: CellWithMessage {
         return discussion.isCallAvailable
     }
 
+    var isDeleteOwnReactionActionAvailable: Bool { false }
 
 }

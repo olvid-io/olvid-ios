@@ -21,7 +21,6 @@ import Foundation
 import Network
 
 
-@available(iOS 12.0, *)
 final class NetworkStatus {
     
     static let shared = NetworkStatus()

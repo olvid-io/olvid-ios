@@ -18,10 +18,53 @@
  */
 
 import Foundation
-import CoreData
 
+enum ObvDeepLinkHost: CaseIterable {
+    case latestDiscussions
+    case singleDiscussion
+    case invitations
+    case contactGroupDetails
+    case contactIdentityDetails
+    case airDrop
+    case qrCodeScan
+    case myId
+    case requestRecordPermission
+    case settings
+    case backupSettings
+    case message
 
-enum ObvDeepLink {
+    var name: String { String(describing: self) }
+
+    init?(name: String) {
+        for host in ObvDeepLinkHost.allCases {
+            if name == host.name {
+                self = host
+                return
+            }
+        }
+        return nil
+    }
+
+    fileprivate var queryItemsKey: String? {
+        switch self {
+        case .latestDiscussions: return nil
+        case .singleDiscussion: return "discussionObjectURI"
+        case .invitations: return nil
+        case .contactGroupDetails: return "contactGroupURI"
+        case .contactIdentityDetails: return "contactIdentityURI"
+        case .airDrop: return "fileURL"
+        case .qrCodeScan: return nil
+        case .myId: return "ownedIdentityURI"
+        case .requestRecordPermission: return nil
+        case .settings: return nil
+        case .backupSettings: return nil
+        case .message: return "messageObjectURI"
+        }
+    }
+}
+
+/// Don't forget to run ObvDeepLinkTests if you made modification to ObvDeepLink ;)
+enum ObvDeepLink: Equatable {
     case latestDiscussions
     case singleDiscussion(discussionObjectURI: URL)
     case invitations
@@ -33,191 +76,114 @@ enum ObvDeepLink {
     case requestRecordPermission
     case settings
     case backupSettings
-    
+    case message(messageObjectURI: URL)
+
     private static let scheme = "io.olvid.messenger"
-    
-    private struct Components {
-        struct LatestDiscussions {
-            static let host = "latestDiscussions"
+
+    fileprivate var host: ObvDeepLinkHost {
+        switch self {
+        case .latestDiscussions: return .latestDiscussions
+        case .singleDiscussion: return .singleDiscussion
+        case .invitations: return .invitations
+        case .contactGroupDetails: return .contactGroupDetails
+        case .contactIdentityDetails: return .contactIdentityDetails
+        case .airDrop: return .airDrop
+        case .qrCodeScan: return .qrCodeScan
+        case .myId: return .myId
+        case .requestRecordPermission: return .requestRecordPermission
+        case .settings: return .settings
+        case .backupSettings: return .backupSettings
+        case .message: return .message
         }
-        struct SingleDiscussion {
-            static let host = "singleDiscussion"
-            struct QueryItems {
-                struct DiscussionObjectURI {
-                    static let name = "discussionObjectURI"
-                }
-            }
-        }
-        struct Invitations {
-            static let host = "invitations"
-        }
-        struct ContactGroupDetails {
-            static let host = "contactGroupDetails"
-            struct QueryItems {
-                struct ContactGroupURI {
-                    static let name = "contactGroupURI"
-                }
-            }
-        }
-        struct ContactIdentityDetails {
-            static let host = "contactIdentityDetails"
-            struct QueryItems {
-                struct ContactIdentityURI {
-                    static let name = "contactIdentityURI"
-                }
-            }
-        }
-        struct AirDrop {
-            static let host = "airDrop"
-            struct QueryItems {
-                struct FileURL {
-                    static let name = "fileURL"
-                }
-            }
-        }
-        struct QRCodeScan {
-            static let host = "qrCodeScan"
-        }
-        struct MyId {
-            static let host = "myId"
-            struct QueryItems {
-                struct OwnedIdentityURI {
-                    static let name = "ownedIdentityURI"
-                }
-            }
-        }
-        struct RequestRecordPermission {
-            static let host = "requestRecordPermission"
-        }
-        struct Settings {
-            static let host = "settings"
-        }
-        struct BackupSettings {
-            static let host = "backupSettings"
+    }
+
+    fileprivate var queryItems: [String: URL] {
+        switch self {
+        case .latestDiscussions: return [:]
+        case .singleDiscussion(let discussionObjectURI):
+            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
+            return [queryItemsKey: discussionObjectURI]
+        case .invitations: return [:]
+        case .contactGroupDetails(let contactGroupURI):
+            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
+            return [queryItemsKey: contactGroupURI]
+        case .contactIdentityDetails(let contactIdentityURI):
+            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
+            return [queryItemsKey: contactIdentityURI]
+        case .airDrop(let fileURL):
+            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
+            return [queryItemsKey: fileURL]
+        case .qrCodeScan: return [:]
+        case .myId(let ownedIdentityURI):
+            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
+            return [queryItemsKey: ownedIdentityURI]
+        case .requestRecordPermission: return [:]
+        case .settings: return [:]
+        case .backupSettings: return [:]
+        case .message(messageObjectURI: let messageObjectURI):
+            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
+            return [queryItemsKey: messageObjectURI]
         }
     }
     
     var url: URL {
         var components = URLComponents()
         components.scheme = ObvDeepLink.scheme
-        switch self {
-        case .backupSettings:
-            components.host = Components.BackupSettings.host
-        case .settings:
-            components.host = Components.Settings.host
-        case .latestDiscussions:
-            components.host = Components.LatestDiscussions.host
-        case .singleDiscussion(discussionObjectURI: let discussionObjectURI):
-            components.host = Components.SingleDiscussion.host
-            components.queryItems = [
-                URLQueryItem(name: Components.SingleDiscussion.QueryItems.DiscussionObjectURI.name, value: discussionObjectURI.absoluteString),
-            ]
-        case .invitations:
-            components.host = Components.Invitations.host
-        case .contactGroupDetails(contactGroupURI: let contactGroupURI):
-            components.host = Components.ContactGroupDetails.host
-            components.queryItems = [
-                URLQueryItem(name: Components.ContactGroupDetails.QueryItems.ContactGroupURI.name, value: contactGroupURI.absoluteString)
-            ]
-        case .contactIdentityDetails(contactIdentityURI: let contactIdentityURI):
-            components.host = Components.ContactIdentityDetails.host
-            components.queryItems = [
-                URLQueryItem(name: Components.ContactIdentityDetails.QueryItems.ContactIdentityURI.name, value: contactIdentityURI.absoluteString)
-            ]
-        case .airDrop(fileURL: let fileURL):
-            components.host = Components.AirDrop.host
-            components.queryItems = [
-                URLQueryItem(name: Components.AirDrop.QueryItems.FileURL.name, value: fileURL.absoluteString)
-            ]
-        case .qrCodeScan:
-            components.host = Components.QRCodeScan.host
-        case .myId(ownedIdentityURI: let ownedIdentityURI):
-            components.host = Components.MyId.host
-            components.queryItems = [
-                URLQueryItem(name: Components.MyId.QueryItems.OwnedIdentityURI.name, value: ownedIdentityURI.absoluteString)
-            ]
-        case .requestRecordPermission:
-            components.host = Components.RequestRecordPermission.host
-        }
+        components.host = host.name
+        components.queryItems = queryItems.map { URLQueryItem(name: $0.key, value: $0.value.absoluteString) }
         assert(components.url != nil)
         let url = components.url!
-        assert(ObvDeepLink(url: url) != nil) // Use to never forget a case in following init
+        assert(ObvDeepLink(url: url) == self)
         return url
     }
     
     init?(url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return nil }
         guard components.scheme == ObvDeepLink.scheme else { return nil }
-        switch components.host {
-        case Components.LatestDiscussions.host:
-            self = .latestDiscussions
-        case Components.SingleDiscussion.host:
-            guard let queryItems = components.queryItems else { assertionFailure(); return nil }
-            guard Set(queryItems.map({ $0.name })) == Set([Components.SingleDiscussion.QueryItems.DiscussionObjectURI.name]) else { assertionFailure(); return nil }
-            var discussionObjectURI: URL?
+        guard let hostName = components.host else { return nil }
+        guard let host = ObvDeepLinkHost(name: hostName) else { return nil }
+        func computeQueryItemValue() -> URL? {
+            guard let queryItems = components.queryItems else { return nil }
+            guard let queryItemsKey = host.queryItemsKey else { return nil }
+            guard Set(queryItems.map({ $0.name })) == Set([queryItemsKey]) else { return nil }
             for queryItem in queryItems {
-                if queryItem.name == Components.SingleDiscussion.QueryItems.DiscussionObjectURI.name, let value = queryItem.value {
-                    discussionObjectURI = URL(string: value)
+                if queryItem.name == queryItemsKey, let value = queryItem.value {
+                    return URL(string: value)
                 }
             }
-            guard discussionObjectURI != nil else { return nil }
-            self = .singleDiscussion(discussionObjectURI: discussionObjectURI!)
-        case Components.Invitations.host:
-            self = .invitations
-        case Components.ContactGroupDetails.host:
-            guard let queryItems = components.queryItems else { assertionFailure(); return nil }
-            guard Set(queryItems.map({ $0.name })) == Set([Components.SingleDiscussion.QueryItems.DiscussionObjectURI.name]) else { assertionFailure(); return nil }
-            var contactGroupURI: URL?
-            for queryItem in queryItems {
-                if queryItem.name == Components.ContactGroupDetails.QueryItems.ContactGroupURI.name, let value = queryItem.value {
-                    contactGroupURI = URL(string: value)
-                }
-            }
-            guard contactGroupURI != nil else { return nil }
-            self = .contactGroupDetails(contactGroupURI: contactGroupURI!)
-        case Components.ContactIdentityDetails.host:
-            guard let queryItems = components.queryItems else { assertionFailure(); return nil }
-            guard Set(queryItems.map({ $0.name })) == Set([Components.ContactIdentityDetails.QueryItems.ContactIdentityURI.name]) else { assertionFailure(); return nil }
-            var contactIdentityURI: URL?
-            for queryItem in queryItems {
-                if queryItem.name == Components.ContactIdentityDetails.QueryItems.ContactIdentityURI.name, let value = queryItem.value {
-                    contactIdentityURI = URL(string: value)
-                }
-            }
-            guard contactIdentityURI != nil else { return nil }
-            self = .contactIdentityDetails(contactIdentityURI: contactIdentityURI!)
-        case Components.AirDrop.host:
-            guard let queryItems = components.queryItems else { assertionFailure(); return nil }
-            var fileURL: URL?
-            for queryItem in queryItems {
-                if queryItem.name == Components.AirDrop.QueryItems.FileURL.name, let value = queryItem.value {
-                    fileURL = URL(string: value)
-                }
-            }
-            guard fileURL != nil else { assertionFailure(); return nil }
-            self = .airDrop(fileURL: fileURL!)
-        case Components.QRCodeScan.host:
-            self = .qrCodeScan
-        case Components.MyId.host:
-            guard let queryItems = components.queryItems else { assertionFailure(); return nil }
-            guard Set(queryItems.map({ $0.name })) == Set([Components.MyId.QueryItems.OwnedIdentityURI.name]) else { assertionFailure(); return nil }
-            var ownedIdentityURI: URL?
-            for queryItem in queryItems {
-                if queryItem.name == Components.MyId.QueryItems.OwnedIdentityURI.name, let value = queryItem.value {
-                    ownedIdentityURI = URL(string: value)
-                }
-            }
-            guard ownedIdentityURI != nil else { return nil }
-            self = .myId(ownedIdentityURI: ownedIdentityURI!)
-        case Components.RequestRecordPermission.host:
-            self = .requestRecordPermission
-        case Components.Settings.host:
-            self = .settings
-        case Components.BackupSettings.host:
-            self = .backupSettings
-        default:
-            assertionFailure()
             return nil
+        }
+        switch host {
+        case .latestDiscussions:
+            self = .latestDiscussions
+        case .singleDiscussion:
+            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
+            self = .singleDiscussion(discussionObjectURI: url)
+        case .invitations:
+            self = .invitations
+        case .contactGroupDetails:
+            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
+            self = .contactGroupDetails(contactGroupURI: url)
+        case .contactIdentityDetails:
+            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
+            self = .contactIdentityDetails(contactIdentityURI: url)
+        case .airDrop:
+            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
+            self = .airDrop(fileURL: url)
+        case .qrCodeScan:
+            self = .qrCodeScan
+        case .myId:
+            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
+            self = .myId(ownedIdentityURI: url)
+        case .requestRecordPermission:
+            self = .requestRecordPermission
+        case .settings:
+            self = .settings
+        case .backupSettings:
+            self = .backupSettings
+        case .message:
+            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
+            self = .message(messageObjectURI: url)
         }
     }
     

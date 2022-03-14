@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct HStackOrVStack<Content: View>: View {
     
     let useHStack: Bool

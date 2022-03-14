@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct DateInfosOfSentMessageToSingleContact: View {
     
     var dateRead: String?
@@ -36,7 +36,7 @@ struct DateInfosOfSentMessageToSingleContact: View {
 }
 
 
-@available(iOS 13, *)
+
 struct DateInfosOfSentMessageToSingleContact_Previews: PreviewProvider {
     
     static var dateRead: Date? = nil

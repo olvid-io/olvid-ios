@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
+
 extension List {
 
     @ViewBuilder
@@ -34,19 +34,19 @@ extension List {
 }
 
 
-@available(iOS 13, *)
+
 struct ObvProgressView: View {
     var body: some View {
         if #available(iOS 14, *) {
             ProgressView()
         } else {
-            ObvActivityIndicator(isAnimating: .constant(true), style: .large)
+            ObvActivityIndicator(isAnimating: .constant(true), style: .large, color: nil)
         }
     }
 }
 
 
-@available(iOS 13.0, *)
+
 extension View {
     @ViewBuilder
     func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
@@ -58,7 +58,7 @@ extension View {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct DottedCircle: View {
     let radius: CGFloat
     let pi = Double.pi

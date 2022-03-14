@@ -26,6 +26,8 @@ import ObvEncoder
 
 public final class EncryptedData: NSObject, Sequence, Xorable, Authenticable, Decodable, ObvCodable {
     
+    static func makeError(message: String) -> Error { NSError(domain: "EncryptedData", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     public typealias Index = Data.Index
 
     fileprivate let _data: Data
@@ -166,7 +168,7 @@ extension EncryptedData {
         if let encryptedDataAsData = encryptedDataAsString.dataFromHexString() {
             self.init(data: encryptedDataAsData)
         } else {
-            throw NSError()
+            throw Self.makeError(message: "Failed to get hex string from encryptedDataAsString")
         }
     }
 }

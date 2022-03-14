@@ -44,6 +44,9 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
     private let loadedItemProviders: [LoadedItemProvider]
     private let completionHandler: ((Bool) -> Void)?
     
+    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private func makeError(message: String) -> Error { Self.makeError(message: message) }
+
     init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, loadedItemProviders: [LoadedItemProvider], completionHandler: ((Bool) -> Void)?, log: OSLog) {
         self.draftObjectID = draftObjectID
         self.loadedItemProviders = loadedItemProviders
@@ -168,7 +171,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
     private func createDraftFyleJoin(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
         if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
             guard PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
-                throw NSError()
+                throw makeError(message: "Could not create PersistedDraftFyleJoin")
             }
         }
     }

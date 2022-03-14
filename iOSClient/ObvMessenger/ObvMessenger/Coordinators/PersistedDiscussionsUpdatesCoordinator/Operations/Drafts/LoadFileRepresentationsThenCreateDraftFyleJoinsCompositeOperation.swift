@@ -83,6 +83,9 @@ final class LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation: O
 /// to an appropriate location for the `DraftFyleJoin`.
 fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: OperationWithSpecificReasonForCancel<CreateDraftFyleJoinsFromLoadedFileRepresentationsOperationReasonForCancel> {
         
+    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private func makeError(message: String) -> Error { Self.makeError(message: message) }
+
     private func cancelAndContinue(withReason reason: CreateDraftFyleJoinsFromLoadedFileRepresentationsOperationReasonForCancel) {
         guard self.reasonForCancel == nil else { return }
         self.reasonForCancel = reason
@@ -194,7 +197,7 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
     private func createDraftFyleJoin(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
         if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
             guard PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
-                throw NSError()
+                throw makeError(message: "Could not create PersistedDraftFyleJoin")
             }
         }
     }

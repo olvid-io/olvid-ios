@@ -22,7 +22,6 @@ import ObvTypes
 import ObvEngine
 
 
-@available(iOS 13, *)
 struct BetaConfigurationActivationView: View {
     
     let betaConfiguration: BetaConfiguration
@@ -71,7 +70,6 @@ struct BetaConfigurationActivationView: View {
 }
 
 
-@available(iOS 13, *)
 struct BetaConfigurationActivationView_Previews: PreviewProvider {
     
     private static let betaConfiguration = BetaConfiguration(beta: true)

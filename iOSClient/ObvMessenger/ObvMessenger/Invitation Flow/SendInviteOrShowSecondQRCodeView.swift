@@ -20,7 +20,6 @@
 import SwiftUI
 import ObvEngine
 
-@available(iOS 13, *)
 struct SendInviteOrShowSecondQRCodeView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -143,7 +142,6 @@ struct SendInviteOrShowSecondQRCodeView: View {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct IdentitySection: View {
     
     let urlIdentity: ObvURLIdentity
@@ -185,7 +183,6 @@ fileprivate struct IdentitySection: View {
 }
 
 
-@available(iOS 13, *)
 struct InviteFromADistanceSection: View {
     
     let urlIdentity: ObvURLIdentity
@@ -211,7 +208,6 @@ struct InviteFromADistanceSection: View {
 
 
 
-@available(iOS 13, *)
 fileprivate struct InviteFromADistanceCard: View {
     
     let urlIdentity: ObvURLIdentity
@@ -244,7 +240,6 @@ fileprivate struct InviteFromADistanceCard: View {
 
 
 
-@available(iOS 13, *)
 struct InviteLocallySection: View {
 
     @Binding var showQRCodeFullScreen: Bool
@@ -270,7 +265,6 @@ struct InviteLocallySection: View {
 
 
 
-@available(iOS 13, *)
 struct InviteLocallyCard: View {
 
     @Binding var showQRCodeFullScreen: Bool
@@ -332,7 +326,6 @@ struct InviteLocallyCard: View {
 
 
 
-@available(iOS 13, *)
 fileprivate struct SectionTitle: View {
     
     let text: Text
@@ -353,7 +346,6 @@ fileprivate struct SectionTitle: View {
 
 
 
-@available(iOS 13, *)
 struct SendInviteOrShowSecondQRCodeView_Previews: PreviewProvider {
     
     static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!

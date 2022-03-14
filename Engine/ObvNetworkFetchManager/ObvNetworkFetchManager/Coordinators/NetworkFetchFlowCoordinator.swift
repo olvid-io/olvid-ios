@@ -55,9 +55,7 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate {
 
     init(prng: PRNGService) {
         self.prng = prng
-        if #available(iOS 12, *) {
-            monitorNetworkChanges()
-        }
+        monitorNetworkChanges()
     }
     
     private var nwPathMonitor: AnyObject? // Actually an NWPathMonitor, but this is only available since iOS 12 and since we support iOS 11, we cannot specify the type
@@ -76,7 +74,7 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         delegateManager.wellKnownCacheDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
-        delegateManager.webSocketDelegate?.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+        delegateManager.webSocketDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
     }
     
     // MARK: - Session's Challenge/Response/Token related methods
@@ -217,7 +215,7 @@ extension NetworkFetchFlowCoordinator {
             
             // We pass the token to the WebSocket coordinator
             do {
-                delegateManager.webSocketDelegate?.setServerSessionToken(to: token, for: identity)
+                delegateManager.webSocketDelegate.setServerSessionToken(to: token, for: identity)
             }
         }
         
@@ -783,7 +781,7 @@ extension NetworkFetchFlowCoordinator {
                 return
             }
             
-            delegateManager.webSocketDelegate?.setServerSessionToken(to: serverSession, for: identity)
+            delegateManager.webSocketDelegate.setServerSessionToken(to: serverSession, for: identity)
             
         }
     }
@@ -1086,7 +1084,6 @@ extension NetworkFetchFlowCoordinator {
 
     // MARK: - Monitor Network Path Status
     
-    @available(iOS 12.0, *)
     private func monitorNetworkChanges() {
         nwPathMonitor = NWPathMonitor()
         (nwPathMonitor as? NWPathMonitor)?.start(queue: DispatchQueue(label: "NetworkFetchMonitor"))
@@ -1094,11 +1091,10 @@ extension NetworkFetchFlowCoordinator {
     }
 
     
-    @available(iOS 12.0, *)
     private func networkPathDidChange(nwPath: NWPath) {
         // The nwPath status changes very early during the network status change. This is the reason why we wait before trying to reconnect. This is not bullet proof though, as the `networkPathDidChange` method does not seem to be called at every network change... This is unfortunate. Last but not least, it is very hard to work with nwPath.status so we don't even look at it.
         DispatchQueue(label: "Queue dispatching work on network change").async { [weak self] in
-            self?.delegateManager?.webSocketDelegate?.connectAll()
+            self?.delegateManager?.webSocketDelegate.reconnectAll()
             self?.resetAllFailedFetchAttempsCountersAndRetryFetching()
         }
     }
@@ -1151,7 +1147,7 @@ extension NetworkFetchFlowCoordinator {
         }
 
         for ownedIdentity in ownedIdentitiesOnServer {
-            delegateManager.webSocketDelegate?.setWebSocketServerURL(to: newWellKnownJSON.serverConfig.webSocketURL, for: ownedIdentity)
+            delegateManager.webSocketDelegate.setWebSocketServerURL(to: newWellKnownJSON.serverConfig.webSocketURL, for: ownedIdentity)
         }
 
         // On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed with Matthieu that this is better ;-)
@@ -1179,7 +1175,7 @@ extension NetworkFetchFlowCoordinator {
             return
         }
 
-        delegateManager.webSocketDelegate?.updateWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
+        delegateManager.webSocketDelegate.updateWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
 
         ObvNetworkFetchNotificationNew.wellKnownHasBeenUpdated(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
             .postOnOperationQueue(operationQueue: self.queueForPostingNotifications, within: notificationDelegate)

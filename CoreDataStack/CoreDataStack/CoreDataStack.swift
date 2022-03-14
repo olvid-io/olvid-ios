@@ -67,17 +67,12 @@ final public class CoreDataStack<PersistentContainerType: NSPersistentContainer>
     
     public var viewContext: NSManagedObjectContext {
         let viewContext = persistentContainer.viewContext
-        if #available(iOS 13.0, *) {
-            automaticallyMergesChangesFromParentWithAnimation()
-        } else {
-            viewContext.automaticallyMergesChangesFromParent = true
-        }
+        automaticallyMergesChangesFromParentWithAnimation()
         viewContext.transactionAuthor = transactionAuthor
         return viewContext
     }
     
 
-    @available(iOS 13.0, *)
     private func automaticallyMergesChangesFromParentWithAnimation() {
         guard !automaticallyMergesChangesFromParentWithAnimationWasCalled else { return }
         defer { automaticallyMergesChangesFromParentWithAnimationWasCalled = true }

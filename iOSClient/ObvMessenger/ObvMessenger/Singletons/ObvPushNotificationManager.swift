@@ -83,6 +83,7 @@ final class ObvPushNotificationManager {
     func tryToRegisterToPushNotifications() {
         assert(Thread.isMainThread)
         guard let obvEngine = self.obvEngine else { assertionFailure(); return }
+        let log = self.log
         let tokens: (pushToken: Data, voipToken: Data?)?
         if ObvMessengerConstants.isRunningOnRealDevice {
             if let _currentDeviceToken = currentDeviceToken {
@@ -97,13 +98,19 @@ final class ObvPushNotificationManager {
 
         do {
             os_log("🍎 Will call registerToPushNotificationFor (tokens is %{public}@, voipToken is %{public}@)", log: log, type: .info, tokens == nil ? "nil" : "set", tokens?.voipToken == nil ? "nil" : "set")
-            try obvEngine.registerToPushNotificationFor(deviceTokens: tokens, kickOtherDevices: kickOtherDevicesOnNextRegister, useMultiDevice: false)
+            try obvEngine.registerToPushNotificationFor(deviceTokens: tokens, kickOtherDevices: kickOtherDevicesOnNextRegister, useMultiDevice: false) { result in
+                switch result {
+                case .failure(let error):
+                    os_log("🍎 We Could not register to push notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
+                case .success:
+                    os_log("🍎 Youpi, we successfully subscribed to remote push notifications", log: log, type: .info)
+                }
+            }
             kickOtherDevicesOnNextRegister = false
         } catch {
             os_log("🍎 We Could not register to push notifications", log: log, type: .fault)
             return
         }
-        os_log("🍎 Youpi, we successfully subscribed to remote push notifications", log: log, type: .info)
     }
     
 }

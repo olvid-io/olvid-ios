@@ -20,7 +20,6 @@
 import UIKit
 
 
-@available(iOS 13.0, *)
 struct MessageCellConstants {
     
     static let bubbleMaxWidth = CGFloat(241) // 2*120 + 1

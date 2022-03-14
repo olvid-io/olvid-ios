@@ -20,7 +20,7 @@
 import SwiftUI
 import ObvEngine
 
-@available(iOS 13, *)
+
 struct TrustOriginsView: View {
     
     let trustOrigins: [ObvTrustOrigin]
@@ -40,7 +40,7 @@ struct TrustOriginsView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct TrustOriginCell: View {
 
     let trustOrigin: ObvTrustOrigin
@@ -119,7 +119,7 @@ fileprivate struct TrustOriginCell: View {
 
 
 
-@available(iOS 13, *)
+
 struct TrustOriginsView_Previews: PreviewProvider {
     
     static let dateFormatter: DateFormatter = {

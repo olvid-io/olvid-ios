@@ -71,6 +71,7 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
     let participantCount: Int
     let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
     private let compressedSessionDescription: Data
+    private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
 
     enum CodingKeys: String, CodingKey {
         case sessionDescriptionType = "sdt"
@@ -81,6 +82,7 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
         case participantCount = "c"
         case groupUid = "gi"
         case groupOwner = "go"
+        case rawGatheringPolicy = "gp"
     }
 
     func encode() throws -> Data {
@@ -96,13 +98,14 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
         try container.encode(turnPassword, forKey: .turnPassword)
         try container.encode(turnServers, forKey: .turnServers)
         try container.encode(participantCount, forKey: .participantCount)
+        try container.encode(rawGatheringPolicy, forKey: .rawGatheringPolicy)
         if let groupId = groupId {
             try container.encode(groupId.groupUid.raw, forKey: .groupUid)
             try container.encode(groupId.groupOwner.getIdentity(), forKey: .groupOwner)
         }
     }
 
-    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) throws {
+    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, gatheringPolicy: GatheringPolicy) throws {
         self.sessionDescriptionType = sessionDescriptionType
         self.sessionDescription = sessionDescription
         self.turnUserName = turnUserName
@@ -112,6 +115,7 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
         self.compressedSessionDescription = try ObvCompressor.compress(data)
         self.participantCount = participantCount
         self.groupId = groupId
+        self.rawGatheringPolicy = gatheringPolicy.rawValue
     }
 
     init(from decoder: Decoder) throws {
@@ -125,6 +129,7 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
         let data = try ObvCompressor.decompress(self.compressedSessionDescription)
         guard let sessionDescription = String(data: data, encoding: .utf8) else { throw Self.makeError(message: "Could not decompress session description") }
         self.sessionDescription = sessionDescription
+        self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
 
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
@@ -138,6 +143,11 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
         } else {
             throw Self.makeError(message: "Could determine if the message is part of a group or not. Discarding the message.")
         }
+    }
+
+    var gatheringPolicy: GatheringPolicy? {
+        guard let rawGatheringPolicy = rawGatheringPolicy else { return nil }
+        return GatheringPolicy(rawValue: rawGatheringPolicy)
     }
 
 }
@@ -243,17 +253,20 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
     let sessionDescriptionType: String
     let sessionDescription: String
     private let compressedSessionDescription: Data
+    private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
 
     enum CodingKeys: String, CodingKey {
         case sessionDescriptionType = "sdt"
         case compressedSessionDescription = "sd"
+        case rawGatheringPolicy = "gp"
     }
 
-    init(sessionDescriptionType: String, sessionDescription: String) throws {
+    init(sessionDescriptionType: String, sessionDescription: String, gatheringPolicy: GatheringPolicy) throws {
         self.sessionDescriptionType = sessionDescriptionType
         self.sessionDescription = sessionDescription
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
         self.compressedSessionDescription = try ObvCompressor.compress(data)
+        self.rawGatheringPolicy = gatheringPolicy.rawValue
     }
 
     init(from decoder: Decoder) throws {
@@ -263,8 +276,13 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
         let data = try ObvCompressor.decompress(self.compressedSessionDescription)
         guard let sessionDescription = String(data: data, encoding: .utf8) else { throw Self.makeError(message: "Could not decompress session description") }
         self.sessionDescription = sessionDescription
+        self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
     }
 
+    var gatheringPolicy: GatheringPolicy? {
+        guard let rawGatheringPolicy = rawGatheringPolicy else { return nil }
+        return GatheringPolicy(rawValue: rawGatheringPolicy)
+    }
 }
 
 struct NewParticipantAnswerMessageJSON: WebRTCInnerMessageJSON {
@@ -301,5 +319,35 @@ struct NewParticipantAnswerMessageJSON: WebRTCInnerMessageJSON {
 struct KickMessageJSON: WebRTCInnerMessageJSON {
 
     var messageType: WebRTCMessageJSON.MessageType { .kick }
+
+}
+
+struct IceCandidateJSON: Codable, Equatable {
+
+    var sdp: String
+    var sdpMLineIndex: Int32
+    var sdpMid: String?
+
+    enum CodingKeys: String, CodingKey {
+        case sdp = "sdp"
+        case sdpMLineIndex = "li"
+        case sdpMid = "id"
+    }
+}
+
+extension IceCandidateJSON: WebRTCInnerMessageJSON {
+    var messageType: WebRTCMessageJSON.MessageType { .newIceCandidate }
+}
+
+
+struct RemoveIceCandidatesMessageJSON: WebRTCInnerMessageJSON {
+
+    var messageType: WebRTCMessageJSON.MessageType { .removeIceCandidates }
+
+    var candidates: [IceCandidateJSON]
+
+    enum CodingKeys: String, CodingKey {
+        case candidates = "cs"
+    }
 
 }

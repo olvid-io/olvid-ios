@@ -209,3 +209,9 @@ notifications:
 - name: contactWasRevokedAsCompromisedWithinEngine
   params:
       - {name: obvContactIdentity, type: ObvContactIdentity}
+- name: ContactObvCapabilitiesWereUpdated
+  params:
+  - {name: contact, type: ObvContactIdentity}
+- name: OwnedIdentityCapabilitiesWereUpdated
+  params:
+  - {name: ownedIdentity, type: ObvOwnedIdentity}

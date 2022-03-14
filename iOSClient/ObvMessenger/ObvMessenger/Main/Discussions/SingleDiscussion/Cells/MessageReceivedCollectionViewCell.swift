@@ -277,4 +277,6 @@ extension MessageReceivedCollectionViewCell: CellWithMessage {
     var isDeleteActionAvailable: Bool { true }
 
     var isCallActionAvailable: Bool { false }
+
+    var isDeleteOwnReactionActionAvailable: Bool { false }
 }

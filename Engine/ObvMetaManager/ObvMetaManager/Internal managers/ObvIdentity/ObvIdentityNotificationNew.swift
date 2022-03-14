@@ -52,6 +52,8 @@ public enum ObvIdentityNotificationNew {
 	case contactWasUpdatedWithinTheIdentityManager(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case contactIsActiveChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, isActive: Bool, flowId: FlowIdentifier)
 	case contactWasRevokedAsCompromised(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+	case contactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+	case ownedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 
 	private enum Name {
 		case contactIdentityIsNowTrusted
@@ -73,6 +75,8 @@ public enum ObvIdentityNotificationNew {
 		case contactWasUpdatedWithinTheIdentityManager
 		case contactIsActiveChanged
 		case contactWasRevokedAsCompromised
+		case contactObvCapabilitiesWereUpdated
+		case ownedIdentityCapabilitiesWereUpdated
 
 		private var namePrefix: String { String(describing: ObvIdentityNotificationNew.self) }
 
@@ -104,6 +108,8 @@ public enum ObvIdentityNotificationNew {
 			case .contactWasUpdatedWithinTheIdentityManager: return Name.contactWasUpdatedWithinTheIdentityManager.name
 			case .contactIsActiveChanged: return Name.contactIsActiveChanged.name
 			case .contactWasRevokedAsCompromised: return Name.contactWasRevokedAsCompromised.name
+			case .contactObvCapabilitiesWereUpdated: return Name.contactObvCapabilitiesWereUpdated.name
+			case .ownedIdentityCapabilitiesWereUpdated: return Name.ownedIdentityCapabilitiesWereUpdated.name
 			}
 		}
 	}
@@ -213,6 +219,17 @@ public enum ObvIdentityNotificationNew {
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
+				"flowId": flowId,
+			]
+		case .contactObvCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, flowId: let flowId):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"contactIdentity": contactIdentity,
+				"flowId": flowId,
+			]
+		case .ownedIdentityCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity, flowId: let flowId):
+			info = [
+				"ownedIdentity": ownedIdentity,
 				"flowId": flowId,
 			]
 		}
@@ -406,6 +423,25 @@ public enum ObvIdentityNotificationNew {
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(ownedIdentity, contactIdentity, flowId)
+		}
+	}
+
+	public static func observeContactObvCapabilitiesWereUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.contactObvCapabilitiesWereUpdated.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(ownedIdentity, contactIdentity, flowId)
+		}
+	}
+
+	public static func observeOwnedIdentityCapabilitiesWereUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.ownedIdentityCapabilitiesWereUpdated.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(ownedIdentity, flowId)
 		}
 	}
 

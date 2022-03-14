@@ -19,17 +19,21 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct ObvActivityIndicator: UIViewRepresentable {
     
     @Binding var isAnimating: Bool
     let style: UIActivityIndicatorView.Style
+    let color: UIColor?
     
     func makeUIView(context: UIViewRepresentableContext<ObvActivityIndicator>) -> UIActivityIndicatorView {
         return UIActivityIndicatorView(style: style)
     }
     
     func updateUIView(_ uiView: UIActivityIndicatorView, context: UIViewRepresentableContext<ObvActivityIndicator>) {
+        if let color = self.color {
+            uiView.color = color
+        }
         isAnimating ? uiView.startAnimating() : uiView.stopAnimating()
     }
 }

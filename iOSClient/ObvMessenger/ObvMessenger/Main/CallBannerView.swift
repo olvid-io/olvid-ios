@@ -54,13 +54,7 @@ final class CallBannerView: UIView {
     }
 
     private var fontForLabel: UIFont {
-        let font: UIFont
-        if #available(iOS 13.0, *) {
-            font = UIFont.rounded(forTextStyle: .body)
-        } else {
-            font = UIFont.systemFont(ofSize: UIFont.systemFontSize, weight: .regular)
-        }
-        return font
+        UIFont.rounded(forTextStyle: .body)
     }
 
     private let verticalPadding = CGFloat(8)

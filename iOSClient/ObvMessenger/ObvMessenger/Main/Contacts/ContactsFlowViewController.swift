@@ -123,29 +123,11 @@ extension ContactsFlowViewController {
 
 extension ContactsFlowViewController: AllContactsViewControllerDelegate {
 
-    func userDidSelectOwnedIdentity() {
-        assertionFailure("This is a legacy delegate method that should never be called")
-        guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: self.ownedCryptoId, within: ObvStack.shared.viewContext) else { return }
-        let singleOwnedIdentityViewController = SingleIdentityViewController(persistedObvOwnedIdentity: persistedObvOwnedIdentity)
-        singleOwnedIdentityViewController.delegate = self
-        singleOwnedIdentityViewController.navigationItem.largeTitleDisplayMode = .never
-        pushViewController(singleOwnedIdentityViewController, animated: true)
-    }
-    
     func userDidSelect(_ contact: PersistedObvContactIdentity, within nav: UINavigationController?) {
-        if #available(iOS 13, *) {
-            let vc = SingleContactIdentityViewHostingController(contact: contact, obvEngine: obvEngine)
-            vc.delegate = self
-            if let nav = nav {
-                nav.pushViewController(vc, animated: true)
-            }
-        } else {
-            guard let singleContactViewController = try? SingleContactViewController(persistedObvContactIdentity: contact) else { return }
-            singleContactViewController.delegate = self
-            singleContactViewController.navigationItem.largeTitleDisplayMode = .never
-            if let nav = nav {
-                nav.pushViewController(singleContactViewController, animated: true)
-            }
+        let vc = SingleContactIdentityViewHostingController(contact: contact, obvEngine: obvEngine)
+        vc.delegate = self
+        if let nav = nav {
+            nav.pushViewController(vc, animated: true)
         }
     }
 
@@ -158,62 +140,4 @@ extension ContactsFlowViewController: AllContactsViewControllerDelegate {
         presentedViewController?.dismiss(animated: true)
     }
 
-}
-
-
-// MARK: - SingleOwnedIdentityViewControllerDelegate
-
-// Should only be used under iOS12 or less
-extension ContactsFlowViewController: SingleOwnedIdentityViewControllerDelegate {
-
-    func editOwnedPublishedIdentityDetails() {
-        
-        if #available(iOS 13, *) {
-            assertionFailure()
-        }
-        
-        guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: ownedCryptoId) else { return }
-
-        assert(obvOwnedIdentity.signedUserDetails == nil)
-        assert(!obvOwnedIdentity.isKeycloakManaged)
-
-        let details = obvOwnedIdentity.publishedIdentityDetails.coreDetails
-        let photoURL = obvOwnedIdentity.publishedIdentityDetails.photoURL
-        let displaynameMaker = DisplaynameStruct(firstName: details.firstName,
-                                                 lastName: details.lastName,
-                                                 company: details.company,
-                                                 position: details.position,
-                                                 photoURL: photoURL)
-        let displayNameChooserViewController = DisplayNameChooserViewController(displaynameMaker: displaynameMaker,
-                                                                                completionHandlerOnSave: userWantsToSaveOwnedIdentityDetails,
-                                                                                serverAndAPIKey: nil)
-        
-        let nav = ObvNavigationController(rootViewController: displayNameChooserViewController)
-        displayNameChooserViewController.navigationItem.leftBarButtonItem = UIBarButtonItem.forClosing(target: self, action: #selector(dismissDisplayNameChooserViewController))
-        self.present(nav, animated: true)
-        
-    }
-    
-    
-    private func userWantsToSaveOwnedIdentityDetails(displaynameMaker: DisplaynameStruct) {
-        defer { dismissDisplayNameChooserViewController() }
-        guard displaynameMaker.isValid, let newCoreIdentityDetails = displaynameMaker.identityDetails else { return }
-        
-        do {
-            let obvOwnedIdentity = try obvEngine.getOwnedIdentity(with: ownedCryptoId)
-            let publishedDetails = obvOwnedIdentity.publishedIdentityDetails
-            let newDetails = ObvIdentityDetails(coreDetails: newCoreIdentityDetails,
-                                                photoURL: publishedDetails.photoURL)
-            try obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: newDetails)
-        } catch {
-            os_log("Could not update owned identity latest details", log: log, type: .error)
-        }
-        
-    }
-    
-    @objc private func dismissDisplayNameChooserViewController() {
-        presentedViewController?.view.endEditing(true)
-        presentedViewController?.dismiss(animated: true)
-    }
-    
 }

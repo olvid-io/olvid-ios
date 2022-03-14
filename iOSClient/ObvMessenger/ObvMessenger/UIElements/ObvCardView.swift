@@ -20,7 +20,7 @@
 import SwiftUI
 
 /// A View Builder allowing to create a card around the content.
-@available(iOS 13, *)
+
 struct ObvCardView<Content: View>: View {
     
     let shadow: Bool
@@ -60,7 +60,7 @@ struct ObvCardView<Content: View>: View {
 }
 
 
-@available(iOS 13, *)
+
 struct ObvCardView_Previews: PreviewProvider {
     static var previews: some View {
         Group {

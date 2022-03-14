@@ -25,26 +25,27 @@ import ObvEngine
 @objc(Fyle)
 final class Fyle: NSManagedObject {
     
+    private static let entityName = "Fyle"
+
     // MARK: - Properties
 
     @NSManaged var intrinsicFilename: String?
     @NSManaged private(set) var sha256: Data
-    @NSManaged private(set) var url: URL
-    
     
     // MARK: - Relationship
     
     @NSManaged private(set) var allDraftFyleJoins: Set<PersistedDraftFyleJoin>
     @NSManaged private(set) var allFyleMessageJoinWithStatus: Set<FyleMessageJoinWithStatus>
 
-    // MARK: - Internal constants
+    // MARK: - Other variables
     
-    private static let entityName = "Fyle"
-    static let sha256Key = "sha256"
-    private static let urlKey = "url"
-    private static let allDraftFyleJoinsKey = "allDraftFyleJoins"
-    private static let allFyleMessageJoinWithStatusKey = "allFyleMessageJoinWithStatus"
+    private var filenameOnDisk: String {
+        sha256.hexString()
+    }
     
+    var url: URL {
+        Fyle.getFileURL(lastPathComponent: filenameOnDisk)
+    }
     
     // MARK: - Initializer
 
@@ -52,7 +53,6 @@ final class Fyle: NSManagedObject {
         let entityDescription = NSEntityDescription.entity(forEntityName: Fyle.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.sha256 = sha256
-        self.url = Fyle.getFileURL(lastPathComponent: sha256.hexString())
         
         self.allDraftFyleJoins = Set<PersistedDraftFyleJoin>()
         self.allFyleMessageJoinWithStatus = Set<ReceivedFyleMessageJoinWithStatus>()
@@ -157,6 +157,20 @@ extension Fyle {
 
 extension Fyle {
     
+    struct Predicate {
+        enum Key: String {
+            case sha256 = "sha256"
+            case allDraftFyleJoins = "allDraftFyleJoins"
+            case allFyleMessageJoinWithStatus = "allFyleMessageJoinWithStatus"
+        }
+        fileprivate static func withSha256(_ sha256: Data) -> NSPredicate {
+            NSPredicate.init(Key.sha256, EqualToData: sha256)
+        }
+        fileprivate static var isOrphaned: NSPredicate {
+            NSPredicate(format: "%K.@count == 0 AND %K.@count == 0", Key.allFyleMessageJoinWithStatus.rawValue, Key.allDraftFyleJoins.rawValue)
+        }
+    }
+
     @nonobjc static func fetchRequest() -> NSFetchRequest<Fyle> {
         return NSFetchRequest<Fyle>(entityName: Fyle.entityName)
     }
@@ -167,7 +181,7 @@ extension Fyle {
     
     static func get(sha256: Data, within context: NSManagedObjectContext) throws -> Fyle? {
         let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", Fyle.sha256Key, sha256 as CVarArg)
+        request.predicate = Predicate.withSha256(sha256)
         request.fetchLimit = 1
         let fyles = try context.fetch(request)
         return fyles.first
@@ -175,27 +189,26 @@ extension Fyle {
         
     static func getAllOrphaned(within context: NSManagedObjectContext) throws -> [Fyle] {
         let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
-        request.predicate = NSPredicate(format: "%K.@count == 0 AND %K.@count == 0", allFyleMessageJoinWithStatusKey, allDraftFyleJoinsKey)
+        request.predicate = Predicate.isOrphaned
         return try context.fetch(request)
     }
     
-    static func getAllURLs(within context: NSManagedObjectContext) throws -> [URL] {
-        let request = NSFetchRequest<NSDictionary>(entityName: Fyle.entityName)
-        request.resultType = .dictionaryResultType
-        request.propertiesToFetch = [urlKey]
-        let results: [NSDictionary] = try context.fetch(request)
-        guard let urls = results.compactMap({ $0[urlKey] }) as? [URL] else {
-            throw makeError(message: "Could not extract all fyle's urls")
-        }
-        guard urls.count == results.count else {
-            throw makeError(message: "Could not retrieve all fyle's urls")
-        }
-        return urls
+    
+    static func getAllFilenames(within context: NSManagedObjectContext) throws -> [String] {
+        let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
+        request.propertiesToFetch = [Predicate.Key.sha256.rawValue]
+        let results = try context.fetch(request)
+        let filenamesOnDisk = results.map({ $0.filenameOnDisk })
+        return filenamesOnDisk
     }
     
-    static func noFyleIsPointingToURL(_ url: URL, within context: NSManagedObjectContext) throws -> Bool {
+    
+    static func noFyleReferencesTheURL(_ url: URL, within context: NSManagedObjectContext) throws -> Bool {
         let request = NSFetchRequest<NSManagedObjectID>(entityName: Fyle.entityName)
-        request.predicate = NSPredicate(format: "%K == %@", urlKey, url as NSURL)
+        let filename = url.lastPathComponent
+        guard let sha256 = Data(hexString: filename) else { return true }
+        assert(sha256.count == 32)
+        request.predicate = Predicate.withSha256(sha256)
         request.resultType = .managedObjectIDResultType
         request.fetchLimit = 1
         let objects: [NSManagedObjectID] = try context.fetch(request)

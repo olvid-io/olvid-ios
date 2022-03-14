@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
 struct CircledCameraButtonView: View {
     
     enum ActiveSheet: Identifiable {
@@ -163,7 +162,6 @@ struct CircledCameraButtonView: View {
 }
 
 
-@available(iOS 13.0, *)
 struct CircledCameraButtonView_Previews: PreviewProvider {
     static var previews: some View {
         CircledCameraButtonView(profilePicture: Binding<UIImage?>.constant(nil))

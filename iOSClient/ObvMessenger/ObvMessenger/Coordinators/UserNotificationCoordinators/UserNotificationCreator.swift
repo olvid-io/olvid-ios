@@ -24,6 +24,16 @@ import ObvEngine
 import Intents
 import os.log
 
+struct UserNotificationKeys {
+    static let id = "id"
+    static let deepLink = "deepLink"
+    static let persistedDiscussionObjectURI = "persistedDiscussionObjectURI"
+    static let reactionTimestamp = "reactionTimestamp"
+    static let callUUID = "callUUID"
+    static let messageIdentifierForNotification = "messageIdentifierForNotification"
+    static let persistedInvitationUUID = "persistedInvitationUUID"
+}
+
 struct UserNotificationCreator {
 
     private static let thumbnailPhotoSide = CGFloat(300)
@@ -42,7 +52,7 @@ struct UserNotificationCreator {
 
         let notificationId = ObvUserNotificationIdentifier.missedCall(callUUID: callUUID)
 
-        var incomingMessageIntent: INSendMessageIntent?
+        var sendMessageIntent: INSendMessageIntent?
 
         switch hideNotificationContent {
 
@@ -52,23 +62,21 @@ struct UserNotificationCreator {
             notificationContent.body = Strings.MissedCall.title
 
             let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussion.objectID.uriRepresentation())
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
-            notificationContent.userInfo["persistedDiscussionObjectURI"] = discussion.objectID.uriRepresentation().absoluteString
-            notificationContent.userInfo["callUUID"] = callUUID.uuidString
-            notificationContent.userInfo["messageIdentifierForNotification"] = notificationId.getIdentifier()
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.objectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
 
             if #available(iOS 15.0, *) {
-                incomingMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, urlForStoringPNGThumbnail: nil)
+                sendMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, showGroupName: true, urlForStoringPNGThumbnail: nil)
             }
             
         case .partially:
 
             notificationContent.body = Strings.MissedCall.title
             let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussion.objectID.uriRepresentation())
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
-            notificationContent.userInfo["persistedDiscussionObjectURI"] = discussion.objectID.uriRepresentation().absoluteString
-            notificationContent.userInfo["callUUID"] = callUUID.uuidString
-            notificationContent.userInfo["messageIdentifierForNotification"] = notificationId.getIdentifier()
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.objectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
 
         case .completely:
 
@@ -77,14 +85,14 @@ struct UserNotificationCreator {
             notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
             
             let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
         }
-        
-        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent, hideNotificationContent: hideNotificationContent)
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
         if #available(iOS 15.0, *),
-           let incomingMessageIntent = incomingMessageIntent,
-           let updatedNotificationContent = try? notificationContent.updating(from: incomingMessageIntent) {
+           let sendMessageIntent = sendMessageIntent,
+           let updatedNotificationContent = try? notificationContent.updating(from: sendMessageIntent) {
             return (notificationId, updatedNotificationContent)
         } else {
             return (notificationId, notificationContent)
@@ -116,8 +124,8 @@ struct UserNotificationCreator {
         case .no:
 
             notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageIdentifierFromEngine)
-            
-            notificationContent.title = Strings.NewPersistedMessageReceived.title(contact.customOrFullDisplayName)
+
+            notificationContent.title = contact.customOrFullDisplayName
             if discussion is PersistedGroupDiscussion {
                 notificationContent.subtitle = discussion.title
             }
@@ -139,12 +147,12 @@ struct UserNotificationCreator {
             }
 
             let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussion.typedObjectID.uriRepresentation().url)
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
-            notificationContent.userInfo["persistedDiscussionObjectURI"] = discussion.typedObjectID.uriRepresentation().absoluteString
-            notificationContent.userInfo["messageIdentifierForNotification"] = notificationId.getIdentifier()
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.typedObjectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
 
             if #available(iOS 15.0, *) {
-                incomingMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+                incomingMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, showGroupName: true, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             }
 
         case .partially:
@@ -156,9 +164,9 @@ struct UserNotificationCreator {
             notificationContent.body = Strings.NewPersistedMessageReceivedHiddenContent.body
 
             let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussion.typedObjectID.uriRepresentation().url)
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
-            notificationContent.userInfo["persistedDiscussionObjectURI"] = discussion.typedObjectID.uriRepresentation().absoluteString
-            notificationContent.userInfo["messageIdentifierForNotification"] = notificationId.getIdentifier()
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.typedObjectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
 
         case .completely:
 
@@ -169,11 +177,11 @@ struct UserNotificationCreator {
             notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
             
             let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
 
         }
         
-        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent, hideNotificationContent: hideNotificationContent)
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
         if #available(iOS 15.0, *),
            let incomingMessageIntent = incomingMessageIntent,
@@ -188,11 +196,12 @@ struct UserNotificationCreator {
     static func buildSendMessageIntent(notificationContent: UNNotificationContent,
                                        contact: PersistedObvContactIdentity,
                                        discussion: PersistedDiscussion,
+                                       showGroupName: Bool,
                                        urlForStoringPNGThumbnail: URL?) -> INSendMessageIntent? {
         guard let ownedIdentity = contact.ownedIdentity else { return nil }
         var recipients = [ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)]
         var speakableGroupName: INSpeakableString?
-        if let groupDiscussion = discussion as? PersistedGroupDiscussion {
+        if showGroupName, let groupDiscussion = discussion as? PersistedGroupDiscussion {
             if let contactIdentities = groupDiscussion.contactGroup?.contactIdentities {
                 for contact in contactIdentities {
                     recipients += [contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)]
@@ -201,7 +210,9 @@ struct UserNotificationCreator {
             }
         }
 
-        let person = contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
+        let person = contact.createINPerson(
+            storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
+            thumbnailSide: thumbnailPhotoSide)
         let intent = INSendMessageIntent(
             recipients: recipients,
             outgoingMessageType: .outgoingMessageText,
@@ -309,12 +320,12 @@ struct UserNotificationCreator {
             
             // Whatever the exact category, we want to add a deep link to the invitations
             let deepLink = ObvDeepLink.invitations
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             
             switch obvDialog.category {
             case .acceptInvite(contactIdentity: _):
                 notificationId = ObvUserNotificationIdentifier.acceptInvite(persistedInvitationUUID: persistedInvitationUUID)
-                notificationContent.userInfo["persistedInvitationUUID"] = persistedInvitationUUID.uuidString
+                notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
             case .sasExchange(contactIdentity: _, sasToDisplay: _, numberOfBadEnteredSas: let numberOfBadEnteredSas):
                 guard numberOfBadEnteredSas == 0 else { return nil } // Do not show any notification when the user enters a bad SAS
                 notificationId = ObvUserNotificationIdentifier.sasExchange(persistedInvitationUUID: persistedInvitationUUID)
@@ -322,10 +333,10 @@ struct UserNotificationCreator {
                 notificationId = ObvUserNotificationIdentifier.mutualTrustConfirmed(persistedInvitationUUID: persistedInvitationUUID)
             case .acceptMediatorInvite(contactIdentity: _, mediatorIdentity: _):
                 notificationId = ObvUserNotificationIdentifier.acceptMediatorInvite(persistedInvitationUUID: persistedInvitationUUID)
-                notificationContent.userInfo["persistedInvitationUUID"] = persistedInvitationUUID.uuidString
+                notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
             case .acceptGroupInvite(groupMembers: _, groupOwner: _):
                 notificationId = ObvUserNotificationIdentifier.acceptGroupInvite(persistedInvitationUUID: persistedInvitationUUID)
-                notificationContent.userInfo["persistedInvitationUUID"] = persistedInvitationUUID.uuidString
+                notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
             case .autoconfirmedContactIntroduction(contactIdentity: _, mediatorIdentity: _):
                 notificationId = ObvUserNotificationIdentifier.autoconfirmedContactIntroduction(persistedInvitationUUID: persistedInvitationUUID)
             case .increaseMediatorTrustLevelRequired(contactIdentity: _, mediatorIdentity: _):
@@ -346,12 +357,12 @@ struct UserNotificationCreator {
             
             // Even for an invitation, we navigate to the list of latest discussions
             let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
 
         }
-        
-        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent, hideNotificationContent: hideNotificationContent)
-        
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
+
         return (notificationId, notificationContent)
 
     }
@@ -365,9 +376,11 @@ struct UserNotificationCreator {
         notificationContent.body = NSLocalizedString("REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED_NOTIFICATION_BODY", comment: "")
 
         let deepLink = ObvDeepLink.requestRecordPermission
-        notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
 
+        notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
         let notificationId = ObvUserNotificationIdentifier.staticIdentifier
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
         return (notificationId, notificationContent)
     }
@@ -381,20 +394,93 @@ struct UserNotificationCreator {
         notificationContent.body = NSLocalizedString("REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED_NOTIFICATION_BODY", comment: "")
 
         let deepLink = ObvDeepLink.requestRecordPermission
-        notificationContent.userInfo["deepLink"] = deepLink.url.absoluteString
+        notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
 
         let notificationId = ObvUserNotificationIdentifier.staticIdentifier
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
         return (notificationId, notificationContent)
     }
 
-    private static func setThreadAndCategory(notificationId: ObvUserNotificationIdentifier, notificationContent: UNMutableNotificationContent, hideNotificationContent: ObvMessengerSettings.Privacy.HideNotificationContentType) {
+    static func createReactionNotification(reaction: PersistedMessageReactionReceived) -> (notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent)? {
+        guard let message = reaction.message else { return nil }
+        guard let contact = reaction.contact else { return nil }
+        return createReactionNotification(message: message, contact: contact, emoji: reaction.emoji, reactionTimestamp: reaction.timestamp)
+    }
+
+    static func createReactionNotification(message: PersistedMessage, contact: PersistedObvContactIdentity, emoji: String, reactionTimestamp: Date) -> (notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent) {
+
+        let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
+
+        let discussion = message.discussion
+
+        let notificationContent = UNMutableNotificationContent()
+        notificationContent.sound = UNNotificationSound.default
+
+        var sendMessageIntent: INSendMessageIntent?
+        let notificationId: ObvUserNotificationIdentifier
+
+        switch hideNotificationContent {
+        case .no:
+            notificationId = .newReaction(messageURI: message.objectID.uriRepresentation(), contactURI: contact.objectID.uriRepresentation())
+
+            notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@_%@", comment: ""), emoji, message.textBody ?? "")
+            if #available(iOS 15.0, *) {
+                sendMessageIntent = buildSendMessageIntent(notificationContent: notificationContent,
+                                                           contact: contact,
+                                                           discussion: discussion, showGroupName: false,
+                                                           urlForStoringPNGThumbnail: nil)
+            } else {
+                notificationContent.title = contact.customOrFullDisplayName
+                notificationContent.subtitle = ""
+            }
+
+            let deepLink = ObvDeepLink.message(messageObjectURI: message.objectID.uriRepresentation())
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.reactionTimestamp] = reactionTimestamp
+
+        case .partially:
+            notificationId = .newReactionNotificationWithHiddenContent
+
+            notificationContent.title = Strings.NewPersistedReactionReceivedHiddenContent.title
+            notificationContent.subtitle = ""
+            notificationContent.body = Strings.NewPersistedReactionReceivedHiddenContent.body
+
+            let deepLink = ObvDeepLink.message(messageObjectURI: message.objectID.uriRepresentation())
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+        case .completely:
+            notificationId = ObvUserNotificationIdentifier.staticIdentifier
+
+            notificationContent.title = Strings.NewPersistedMessageReceivedMinimal.title
+            notificationContent.subtitle = ""
+            notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
+
+            let deepLink = ObvDeepLink.latestDiscussions
+            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+        }
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
+
+        if #available(iOS 15.0, *),
+           let sendMessageIntent = sendMessageIntent,
+           let updatedNotificationContent = try? notificationContent.updating(from: sendMessageIntent) {
+            return (notificationId, updatedNotificationContent)
+        } else {
+            return (notificationId, notificationContent)
+        }
+    }
+
+    private static func setThreadAndCategory(notificationId: ObvUserNotificationIdentifier, notificationContent: UNMutableNotificationContent) {
+        let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
+
         notificationContent.threadIdentifier = notificationId.getThreadIdentifier()
         // We only set a category if the user does not hide the notification content:
         // Since we use categories to provide interaction within the notification (like accepting or rejectecting an invitation), it would make no sense if the notification does not display any content.
         if let category = notificationId.getCategory(), hideNotificationContent == .no {
             notificationContent.categoryIdentifier = category.getIdentifier()
         }
+        notificationContent.userInfo[UserNotificationKeys.id] = notificationId.id.rawValue
     }
     
 }

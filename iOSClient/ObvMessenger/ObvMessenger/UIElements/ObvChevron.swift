@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct ObvChevron: View {
     
     var selected: Bool
@@ -49,7 +49,7 @@ struct ObvChevron: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct ObvChevronForTesting: View {
     
     @State private var selected: Bool = false
@@ -66,7 +66,7 @@ fileprivate struct ObvChevronForTesting: View {
 }
 
 
-@available(iOS 13, *)
+
 struct ObvChevron_Previews: PreviewProvider {
     
     @State private var tapped: Bool = false

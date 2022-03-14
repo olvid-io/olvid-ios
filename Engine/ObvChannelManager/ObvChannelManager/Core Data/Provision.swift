@@ -87,6 +87,8 @@ class Provision: NSManagedObject, ObvManagedObject {
     weak static var delegateManager: ObvChannelDelegateManager!
     var obvContext: ObvContext?
 
+    static func makeError(message: String) -> Error { NSError(domain: "Provision", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     // MARK: - Initializer
     
     convenience init?(fullRatchetingCount: Int, obliviousChannel: ObvObliviousChannel, seedForNextProvisionedReceiveKey: Seed) {
@@ -181,7 +183,9 @@ extension Provision {
     /// - Returns: `true` if such a provision already exist, false otherwise.
     /// - Throws: An error the count request fails
     static func exists(obliviousChannel: ObvObliviousChannel, fullRatchetingCount: Int) throws -> Bool {
-        guard let obvContext = obliviousChannel.obvContext else { throw NSError() }
+        guard let obvContext = obliviousChannel.obvContext else {
+            throw Self.makeError(message: "obliviousChannel has not obvContext")
+        }
         let request: NSFetchRequest<Provision> = Provision.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@ AND %K == %d",
                                         obliviousChannelCurrentDeviceUidKey, obliviousChannel.currentDeviceUid,

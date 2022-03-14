@@ -133,6 +133,7 @@ enum ObvSystemIcon {
     case xmark
     case xmarkCircleFill
     case xmarkOctagonFill
+    case heartSlashFill
 
     var systemName: String {
         switch self {
@@ -442,12 +443,13 @@ enum ObvSystemIcon {
             } else {
                 return "link"
             }
+        case .heartSlashFill:
+            return "heart.slash.fill"
         }
     }
 }
 
 
-@available(iOS 13, *)
 extension Image {
 
     init(systemIcon: ObvSystemIcon) {
@@ -456,7 +458,6 @@ extension Image {
 
 }
 
-@available(iOS 13.0, *)
 extension UIImage {
 
     convenience init?(systemIcon: ObvSystemIcon, withConfiguration configuration: UIImage.Configuration? = nil) {

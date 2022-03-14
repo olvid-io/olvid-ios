@@ -51,6 +51,42 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
 
     }
     
+    
+    private func cleanOldTemporaryMigrationFiles() {
+        os_log("Deleting old temporary migration files...", log: log, type: .info)
+        let uuidPattern = "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+        let uuidLength = 36
+        let uuidRegex: NSRegularExpression
+        do {
+            uuidRegex = try NSRegularExpression(pattern: uuidPattern, options: .caseInsensitive)
+        } catch {
+            os_log("Could not construct expression for detecting UUID: %{public}@", log: log, type: .fault, error.localizedDescription)
+            return
+        }
+        let directory = PersistentContainerType.defaultDirectoryURL()
+        do {
+            let directoryContents = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
+            let oldTemporaryFiles = directoryContents.filter({ uuidRegex.firstMatch(in: $0.lastPathComponent, options: .anchored, range: NSRange(location: 0, length: min($0.lastPathComponent.count, uuidLength))) != nil })
+            var numberOfDeletedFiles = 0
+            for oldTemporaryFile in oldTemporaryFiles {
+                do {
+                    try FileManager.default.removeItem(at: oldTemporaryFile)
+                } catch {
+                    os_log("Could not clean old temporary database file: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    continue
+                }
+                numberOfDeletedFiles += 1
+            }
+            os_log("Number of deleted old temporary migration files: %{public}d", log: log, type: .info, numberOfDeletedFiles)
+        } catch {
+            os_log("Could not clean old temporary migration files: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
+    }
+
+    
     public func initializeCoreDataStack() throws {
 
         os_log("Initializing Core Data Stack %{public}@", log: log, type: .info, storeName)
@@ -77,6 +113,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                 try performMigration()
             } else {
                 migrationRunningLog.addEvent(message: "No migration needed")
+                cleanOldTemporaryMigrationFiles()
             }
         } catch {
             migrationRunningLog.addEvent(message: "The migration failed: \(error.localizedDescription). Domain: \((error as NSError).domain)")
@@ -150,15 +187,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     
     public func getAllManagedObjectModels() throws -> [NSManagedObjectModel] {
         let urls = try getURLsOfAllManagedObjectModelVersions()
-        // Hack required for the 18th version of the database
-        let filteredURLs: [URL]
-        if #available(iOS 13, *) {
-            filteredURLs = urls
-        } else {
-            filteredURLs = urls.filter({$0.lastPathComponent != "ObvMessenger 18.mom"})
-        }
-        // End Hack
-        let models = filteredURLs.compactMap { NSManagedObjectModel(contentsOf: $0) }
+        let models = urls.compactMap { NSManagedObjectModel(contentsOf: $0) }
         return models
     }
     
@@ -386,10 +415,6 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     }
 
     
-    open func performPostMigrationWork(forSourceModel sourceModel: NSManagedObjectModel, destinationModel: NSManagedObjectModel) throws {
-        fatalError("Must be overwritten by subclass")
-    }
-
 }
 
 

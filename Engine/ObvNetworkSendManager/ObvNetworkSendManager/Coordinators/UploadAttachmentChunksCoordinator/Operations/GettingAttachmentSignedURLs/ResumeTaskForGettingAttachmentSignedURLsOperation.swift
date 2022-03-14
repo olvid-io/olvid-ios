@@ -107,7 +107,7 @@ final class ResumeTaskForGettingAttachmentSignedURLsOperation: Operation {
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
 
-            let allSignedURLsAreNil = attachment.chunks.reduce(true) { $0 && $1.signedURL == nil }
+            let allSignedURLsAreNil = attachment.chunks.allSatisfy({ $0.signedURL == nil })
             guard allSignedURLsAreNil else {
                 return cancel(withReason: .nonNilSignedURLWasFound)
             }

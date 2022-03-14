@@ -70,10 +70,8 @@ final class WellKnownDownloadOperation: OperationWithSpecificReasonForCancel<Wel
             
             var urlRequest = URLRequest(url: url, cachePolicy: .reloadIgnoringCacheData, timeoutInterval: 60)
             urlRequest.allowsCellularAccess = true
-            if #available(iOS 13.0, *) {
-                urlRequest.allowsConstrainedNetworkAccess = true
-                urlRequest.allowsExpensiveNetworkAccess = true
-            }
+            urlRequest.allowsConstrainedNetworkAccess = true
+            urlRequest.allowsExpensiveNetworkAccess = true
             
             
             let task = URLSession.shared.dataTask(with: urlRequest) { (data, response, error) in

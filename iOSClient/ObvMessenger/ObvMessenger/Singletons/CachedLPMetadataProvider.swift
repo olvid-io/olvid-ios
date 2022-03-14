@@ -23,7 +23,6 @@ import LinkPresentation
 
 
 /// This shall replace most of what is done in the extension of LPMetadataProviderUtils
-@available(iOS 13.0, *)
 final class CachedLPMetadataProvider {
     
     static let shared = CachedLPMetadataProvider()
@@ -44,8 +43,8 @@ final class CachedLPMetadataProvider {
         assert(Thread.isMainThread)
         
         do {
-            if let cachedLinkMetada = try LPMetadataProvider.getCachedLinkMetada(for: URL) {
-                cacheHit(cachedLinkMetada)
+            if let cachedLinkMetadata = try LPMetadataProvider.getCachedLinkMetadata(for: URL) {
+                cacheHit(cachedLinkMetadata)
                 return
             }
         } catch let error {
@@ -75,7 +74,7 @@ final class CachedLPMetadataProvider {
             assert(!Thread.isMainThread)
             if error == nil && metadata != nil {
                 do {
-                    try LPMetadataProvider.storeLinkMetada(metadata!, for: URL)
+                    try LPMetadataProvider.storeLinkMetadata(metadata!, for: URL)
                 } catch let error {
                     os_log("Could not store link metadata: %{public}@", log: CachedLPMetadataProvider.log, type: .error, error.localizedDescription)
                 }

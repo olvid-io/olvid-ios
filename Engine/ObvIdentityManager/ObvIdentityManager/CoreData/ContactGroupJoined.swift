@@ -88,8 +88,7 @@ final class ContactGroupJoined: ContactGroup {
         self.groupOwner = groupOwner
         self.trustedDetails = try ContactGroupDetailsTrusted(contactGroupJoined: self,
                                                              groupDetailsElementsWithPhoto: groupInformationWithPhoto.groupDetailsElementsWithPhoto,
-                                                             identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                                             notificationDelegate: delegateManager.notificationDelegate)
+                                                             delegateManager: delegateManager)
         
     }
     
@@ -112,19 +111,19 @@ final class ContactGroupJoined: ContactGroup {
 
     func updatePhotoURL(with url: URL?, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedDetails.version == version {
-            try self.publishedDetails.setPhotoURL(with: url, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.publishedDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
         }
         if self.trustedDetails.version == version {
-            try self.trustedDetails.setPhotoURL(with: url, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.trustedDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
         }
     }
 
     func updatePhoto(withData photoData: Data, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedDetails.version == version {
-            try self.publishedDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.publishedDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
         }
         if self.trustedDetails.version == version {
-            try self.trustedDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.trustedDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
         }
     }
 
@@ -214,9 +213,9 @@ extension ContactGroupJoined {
     }
 
     
-    func getPublishedJoinedGroupInformationWithPhoto() throws -> GroupInformationWithPhoto {
+    func getPublishedJoinedGroupInformationWithPhoto(identityPhotosDirectory: URL) throws -> GroupInformationWithPhoto {
         let groupInformation = try getPublishedJoinedGroupInformation()
-        let photoURL = publishedDetails.photoURL
+        let photoURL = publishedDetails.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         let groupInformationWithPhoto = GroupInformationWithPhoto(groupInformation: groupInformation,
                                                                   photoURL: photoURL)
         return groupInformationWithPhoto
@@ -231,9 +230,9 @@ extension ContactGroupJoined {
         return groupInformation
     }
 
-    func getTrustedJoinedGroupInformationWithPhoto() throws -> GroupInformationWithPhoto {
+    func getTrustedJoinedGroupInformationWithPhoto(identityPhotosDirectory: URL) throws -> GroupInformationWithPhoto {
         let groupInformation = try getTrustedJoinedGroupInformation()
-        let photoURL = trustedDetails.photoURL
+        let photoURL = trustedDetails.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         let groupInformationWithPhoto = GroupInformationWithPhoto(groupInformation: groupInformation,
                                                                   photoURL: photoURL)
         return groupInformationWithPhoto
@@ -245,12 +244,11 @@ extension ContactGroupJoined {
         guard publishedDetails.version > trustedDetails.version else {
             throw ObvIdentityManagerError.invalidGroupDetailsVersion.error(withDomain: errorDomain)
         }
-        let groupDetailsElementsWithPhoto = try publishedDetails.getGroupDetailsElementsWithPhoto()
-        try self.trustedDetails.delete(within: obvContext)
+        let groupDetailsElementsWithPhoto = try publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+        try self.trustedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         _ = try ContactGroupDetailsTrusted(contactGroupJoined: self,
                                            groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                           identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                           notificationDelegate: delegateManager.notificationDelegate)
+                                           delegateManager: delegateManager)
         notificationRelatedChanges.insert(.updatedTrustedDetails)
     }
 
@@ -259,7 +257,8 @@ extension ContactGroupJoined {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: String(describing: self))
   
-        guard try self.publishedDetails.getGroupDetailsElementsWithPhoto().version != authoritativeDetailsElements.version else {
+        let publishedGroupDetailsElementsWithPhoto = try self.publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+        guard publishedGroupDetailsElementsWithPhoto.version != authoritativeDetailsElements.version else {
             os_log("No need to update the (local) published details of contact group joined since they are identical to the received authoritative details", log: log, type: .info)
             return
         }
@@ -268,34 +267,32 @@ extension ContactGroupJoined {
         
         // If we reach this point, the (local) published details are distinct to the authoritative details.
         // We replace the local (published) details by the ones we just received.
-        let currentTrustedDetails = try self.trustedDetails.getGroupDetailsElementsWithPhoto()
+        let currentTrustedDetails = try self.trustedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
         let trustedDetailsWithResetVersionNumber = GroupDetailsElementsWithPhoto(coreDetails: currentTrustedDetails.coreDetails,
                                                                                  version: -1,
                                                                                  photoServerKeyAndLabel: currentTrustedDetails.photoServerKeyAndLabel,
                                                                                  photoURL: currentTrustedDetails.photoURL)
-        try self.trustedDetails.delete(within: obvContext)
-        try self.publishedDetails.delete(within: obvContext)
+        try self.trustedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        try self.publishedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         
         let authoritativeDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: authoritativeDetailsElements, photoURL: nil)
         _ = try ContactGroupDetailsPublished(contactGroup: self,
                                              groupDetailsElementsWithPhoto: authoritativeDetailsElementsWithPhoto,
-                                             identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                             notificationDelegate: delegateManager.notificationDelegate)
+                                             delegateManager: delegateManager)
         _ = try ContactGroupDetailsTrusted(contactGroupJoined: self,
                                            groupDetailsElementsWithPhoto: trustedDetailsWithResetVersionNumber,
-                                           identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                           notificationDelegate: delegateManager.notificationDelegate)
+                                           delegateManager: delegateManager)
 
     }
     
     
-    func getJoinedGroupStructure() throws -> GroupStructure {
+    func getJoinedGroupStructure(identityPhotosDirectory: URL) throws -> GroupStructure {
         
         let groupMembers = Set(self.groupMembers.map { $0.cryptoIdentity })
         let pendingGroupMembers = self.getPendingGroupMembersWithCoreDetails()
         let groupMembersVersion = self.groupMembersVersion
-        let publishedGroupDetailsWithPhoto = try self.publishedDetails.getGroupDetailsElementsWithPhoto()
-        let trustedGroupDetails = try self.trustedDetails.getGroupDetailsElementsWithPhoto()
+        let publishedGroupDetailsWithPhoto = try self.publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: identityPhotosDirectory)
+        let trustedGroupDetails = try self.trustedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: identityPhotosDirectory)
 
         let groupStructure = GroupStructure.createJoinedGroupStructure(
             groupUid: groupUid,

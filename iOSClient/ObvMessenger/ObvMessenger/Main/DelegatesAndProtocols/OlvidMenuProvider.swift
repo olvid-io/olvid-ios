@@ -23,7 +23,7 @@ import SwiftUI
 
 protocol OlvidMenuProvider: UIViewController {
     
-    @available(iOS 13, *)
+    
     func provideMenu() -> UIMenu
     
     @available(iOS, introduced: 13, deprecated: 14, message: "Use provideMenu() instead")
@@ -34,7 +34,7 @@ protocol OlvidMenuProvider: UIViewController {
 
 extension UIViewController {
     
-    @available(iOS 13, *)
+    
     func getFirstMenuAvailable() -> UIMenu? {
         assert(Thread.isMainThread)
         var currentViewController: UIViewController? = self

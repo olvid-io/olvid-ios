@@ -72,11 +72,7 @@ class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
     private var keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)? {
         didSet {
             guard self.keycloakDetails != nil else { return }
-            if #available(iOS 13, *) {
-                self.newKeycloakDetailsAvailable()
-            } else {
-                assertionFailure()
-            }
+            self.newKeycloakDetailsAvailable()
         }
     }
     
@@ -108,16 +104,14 @@ extension OnboardingFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey {
+        if ObvMessengerSettings.MDM.isConfiguredFromMDM,
+           let mdmConfigurationURI = ObvMessengerSettings.MDM.Configuration.uri,
+           let olvidURL = OlvidURL(urlRepresentation: mdmConfigurationURI) {
+            AppStateManager.shared.handleOlvidURL(olvidURL)
+        } else if let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey {
             self.serverAndAPIKey = ServerAndAPIKey(server: ObvMessengerConstants.serverURL, apiKey: hardcodedAPIKey)
         } else {
-            let welcomeScreenVC: UIViewController
-            if #available(iOS 13, *) {
-                welcomeScreenVC = WelcomeScreenHostingController(delegate: self)
-            } else {
-                welcomeScreenVC = WelcomeScreenViewController()
-                (welcomeScreenVC as? WelcomeScreenViewController)?.delegate = self
-            }
+            let welcomeScreenVC = WelcomeScreenHostingController(delegate: self)
             flowNavigationController = ObvNavigationController(rootViewController: welcomeScreenVC)
             flowNavigationController!.setNavigationBarHidden(false, animated: false)
             flowNavigationController!.navigationBar.prefersLargeTitles = true
@@ -133,7 +127,6 @@ extension OnboardingFlowViewController {
 extension OnboardingFlowViewController {
 
     // Called whenever a new keycloak configuration is available
-    @available(iOS 13, *)
     private func newKeycloakDetailsAvailable() {
         
         guard let keycloakDetails = self.keycloakDetails else { assertionFailure(); return }
@@ -149,7 +142,7 @@ extension OnboardingFlowViewController {
 
         let displayNameChooserView = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: completionHandlerOnSave)
         let displayNameChooserVC = UIHostingController(rootView: displayNameChooserView)
-        displayNameChooserVC.title = DisplayNameChooserViewController.Strings.titleMyId
+        displayNameChooserVC.title = CommonString.Title.myId
         DispatchQueue.main.async { [weak self] in
             self?.flowNavigationController?.pushViewController(displayNameChooserVC, animated: true)
             self?.flowNavigationController!.setNavigationBarHidden(false, animated: true)
@@ -171,13 +164,7 @@ extension OnboardingFlowViewController {
         switch currentVC {
         case nil:
 
-            let welcomeScreenVC: UIViewController
-            if #available(iOS 13, *) {
-                welcomeScreenVC = WelcomeScreenHostingController(delegate: self)
-            } else {
-                welcomeScreenVC = WelcomeScreenViewController()
-                (welcomeScreenVC as? WelcomeScreenViewController)?.delegate = self
-            }
+            let welcomeScreenVC = WelcomeScreenHostingController(delegate: self)
             flowNavigationController = ObvNavigationController(rootViewController: welcomeScreenVC)
             flowNavigationController!.setNavigationBarHidden(false, animated: false)
             flowNavigationController!.navigationBar.prefersLargeTitles = true
@@ -187,55 +174,39 @@ extension OnboardingFlowViewController {
                 _self.displayContentController(content: _self.flowNavigationController!)
             }
 
-        case is QRCodeScannerViewController,
-             is WelcomeScreenViewController:
+        case is QRCodeScannerViewController:
 
-            let displayNameChooserVC: UIViewController
-            if #available(iOS 13.0, *) {
-                let singleIdentity: SingleIdentity
-                if serverAndAPIKey != ObvMessengerConstants.defaultServerAndAPIKey {
-                    singleIdentity = SingleIdentity(serverAndAPIKeyToShow: serverAndAPIKey, identityDetails: unmanagedIdentityDetails)
-                } else {
-                    singleIdentity = SingleIdentity(serverAndAPIKeyToShow: nil, identityDetails: self.unmanagedIdentityDetails)
-                }
-                let displayNameChooserView = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: completionHandlerOnSave)
-                displayNameChooserVC = UIHostingController(rootView: displayNameChooserView)
-                displayNameChooserVC.title = DisplayNameChooserViewController.Strings.titleMyId
+            let singleIdentity: SingleIdentity
+            if serverAndAPIKey != ObvMessengerConstants.defaultServerAndAPIKey {
+                singleIdentity = SingleIdentity(serverAndAPIKeyToShow: serverAndAPIKey, identityDetails: unmanagedIdentityDetails)
             } else {
-                let completionHandlerOnSave: (DisplaynameStruct) -> Void = {
-                    if let identityDetails = $0.identityDetails {
-                        completionHandlerOnSave(identityDetails, $0.photoURL)
-                    }
-                }
-                displayNameChooserVC = DisplayNameChooserViewController(
-                    displaynameMaker: DisplaynameStruct(),
-                    completionHandlerOnSave: completionHandlerOnSave,
-                    serverAndAPIKey: serverAndAPIKey)
+                singleIdentity = SingleIdentity(serverAndAPIKeyToShow: nil, identityDetails: self.unmanagedIdentityDetails)
             }
+            let displayNameChooserView = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: completionHandlerOnSave)
+            let displayNameChooserVC = UIHostingController(rootView: displayNameChooserView)
+            displayNameChooserVC.title = CommonString.Title.myId
             DispatchQueue.main.async { [weak self] in
                 self?.flowNavigationController?.pushViewController(displayNameChooserVC, animated: true)
                 self?.flowNavigationController!.setNavigationBarHidden(false, animated: true)
             }
 
         default:
-            if #available(iOS 13, *) {
-                if currentVC is WelcomeScreenHostingController  || currentVC is IdentityProviderManualConfigurationHostingView {
-                    
-                    let singleIdentity: SingleIdentity
-                    if serverAndAPIKey != ObvMessengerConstants.defaultServerAndAPIKey {
-                        singleIdentity = SingleIdentity(serverAndAPIKeyToShow: serverAndAPIKey, identityDetails: self.unmanagedIdentityDetails)
-                    } else {
-                        singleIdentity = SingleIdentity(serverAndAPIKeyToShow: nil, identityDetails: self.unmanagedIdentityDetails)
-                    }
-                    let displayNameChooserView = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: completionHandlerOnSave)
-                    let displayNameChooserVC = UIHostingController(rootView: displayNameChooserView)
-                    displayNameChooserVC.title = DisplayNameChooserViewController.Strings.titleMyId
-                    DispatchQueue.main.async { [weak self] in
-                        self?.flowNavigationController?.pushViewController(displayNameChooserVC, animated: true)
-                        self?.flowNavigationController!.setNavigationBarHidden(false, animated: true)
-                    }
-                    
+            if currentVC is WelcomeScreenHostingController  || currentVC is IdentityProviderManualConfigurationHostingView {
+                
+                let singleIdentity: SingleIdentity
+                if serverAndAPIKey != ObvMessengerConstants.defaultServerAndAPIKey {
+                    singleIdentity = SingleIdentity(serverAndAPIKeyToShow: serverAndAPIKey, identityDetails: self.unmanagedIdentityDetails)
+                } else {
+                    singleIdentity = SingleIdentity(serverAndAPIKeyToShow: nil, identityDetails: self.unmanagedIdentityDetails)
                 }
+                let displayNameChooserView = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: completionHandlerOnSave)
+                let displayNameChooserVC = UIHostingController(rootView: displayNameChooserView)
+                displayNameChooserVC.title = CommonString.Title.myId
+                DispatchQueue.main.async { [weak self] in
+                    self?.flowNavigationController?.pushViewController(displayNameChooserVC, animated: true)
+                    self?.flowNavigationController!.setNavigationBarHidden(false, animated: true)
+                }
+                
             }
             
         }
@@ -409,20 +380,12 @@ extension OnboardingFlowViewController {
         
         // Transition to the next UIViewController
         DispatchQueue.main.async { [weak self] in
-            if #available(iOS 13, *) {
-                let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: { [weak self] in
-                    self?.subscribeToLocalNotifications()
-                })
-                vc.navigationItem.setHidesBackButton(true, animated: false)
-                vc.navigationController?.setNavigationBarHidden(true, animated: false)
-                self?.flowNavigationController?.pushViewController(vc, animated: true)
-            } else {
-                let localNotificationsSubscriberVC = LocalNotificationsSubscriberViewController()
-                localNotificationsSubscriberVC.delegate = self
-                localNotificationsSubscriberVC.title = Strings.localNotificationsSubscriberVCTitle
-                localNotificationsSubscriberVC.navigationItem.setHidesBackButton(true, animated: false)
-                self?.flowNavigationController?.pushViewController(localNotificationsSubscriberVC, animated: true)
-            }
+            let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: { [weak self] in
+                self?.subscribeToLocalNotifications()
+            })
+            vc.navigationItem.setHidesBackButton(true, animated: false)
+            vc.navigationController?.setNavigationBarHidden(true, animated: false)
+            self?.flowNavigationController?.pushViewController(vc, animated: true)
         }
 
     }
@@ -430,16 +393,35 @@ extension OnboardingFlowViewController {
     
     private func newKeycloakConfigIsAvailable() {
         assert(Thread.isMainThread)
-        guard let flowNavigationController = self.flowNavigationController else { assertionFailure(); return }
-        // If we are not currently showing the appropriate VC to display the new external keycloak config, we reset the navigation stack
+
         guard let externalKeycloakConfig = self.externalKeycloakConfig else { return }
-        if #available(iOS 13, *) {
-            let identityProviderValidationHostingViewController = IdentityProviderValidationHostingViewController(keycloakConfig: externalKeycloakConfig, delegate: self)
-            if flowNavigationController.viewControllers.first(where: { $0 is IdentityProviderValidationHostingViewController }) != nil {
-                guard let welcomeScreenVC = flowNavigationController.viewControllers.first as? WelcomeScreenHostingController else { assertionFailure(); return }
-                flowNavigationController.setViewControllers([welcomeScreenVC, identityProviderValidationHostingViewController], animated: true)
+
+        if let flowNavigationController = self.flowNavigationController {
+            
+            // If we are not currently showing the appropriate VC to display the new external keycloak config, we reset the navigation stack
+            if #available(iOS 13, *) {
+                let identityProviderValidationHostingViewController = IdentityProviderValidationHostingViewController(keycloakConfig: externalKeycloakConfig, isConfiguredFromMDM: false, delegate: self)
+                if flowNavigationController.viewControllers.first(where: { $0 is IdentityProviderValidationHostingViewController }) != nil {
+                    guard let welcomeScreenVC = flowNavigationController.viewControllers.first as? WelcomeScreenHostingController else { assertionFailure(); return }
+                    flowNavigationController.setViewControllers([welcomeScreenVC, identityProviderValidationHostingViewController], animated: true)
+                } else {
+                    flowNavigationController.pushViewController(identityProviderValidationHostingViewController, animated: true)
+                }
+            }
+            
+        } else {
+            
+            // This happens when the Keycloak configuration comes from an MDM. In that case, the flow is no set yet. We set is now.
+            
+            if #available(iOS 13, *) {
+                let identityProviderValidationHostingViewController = IdentityProviderValidationHostingViewController(keycloakConfig: externalKeycloakConfig, isConfiguredFromMDM: true, delegate: self)
+                flowNavigationController = ObvNavigationController(rootViewController: identityProviderValidationHostingViewController)
+                flowNavigationController!.setNavigationBarHidden(false, animated: false)
+                flowNavigationController!.navigationBar.prefersLargeTitles = true
+                displayContentController(content: flowNavigationController!)
             } else {
-                flowNavigationController.pushViewController(identityProviderValidationHostingViewController, animated: true)
+                assertionFailure("No need to support iOS < 13")
+                return
             }
         }
 
@@ -470,12 +452,8 @@ extension OnboardingFlowViewController: LocalNotificationsSubscriberViewControll
             }
             
             DispatchQueue.main.async {
-                if #available(iOS 13, *) {
-                    let vc = OwnedIdentityGeneratedHostingController(startUsingOlvidAction: { [weak self] in self?.startUsingOlvid() })
-                    _self.flowNavigationController?.pushViewController(vc, animated: true)
-                } else {
-                    _self.startUsingOlvid()
-                }
+                let vc = OwnedIdentityGeneratedHostingController(startUsingOlvidAction: { [weak self] in self?.startUsingOlvid() })
+                _self.flowNavigationController?.pushViewController(vc, animated: true)
             }
         }
         
@@ -484,7 +462,7 @@ extension OnboardingFlowViewController: LocalNotificationsSubscriberViewControll
 }
 
 
-extension OnboardingFlowViewController: OwnedIdentityGeneratedViewControllerDelegate {
+extension OnboardingFlowViewController {
     
     func startUsingOlvid() {
         delegate?.onboardingIsFinished(olvidURLScannedDuringOnboarding: externalOlvidURL)
@@ -493,10 +471,9 @@ extension OnboardingFlowViewController: OwnedIdentityGeneratedViewControllerDele
 }
 
 
-extension OnboardingFlowViewController: WelcomeScrenViewControllerDelegate, WelcomeScreenHostingControllerDelegate {
+extension OnboardingFlowViewController: WelcomeScreenHostingControllerDelegate {
     
     /// Call from the first view controller (`WelcomeScreenHostingController`) when the user chooses to scan a QR code.
-    @available(iOS 13, *)
     func userWantsWantsToScanQRCode() {
         assert(Thread.isMainThread)
         let vc = ScannerHostingView(buttonType: .back, delegate: self)
@@ -568,17 +545,10 @@ extension OnboardingFlowViewController: WelcomeScrenViewControllerDelegate, Welc
     }
     
     func userWantsToRestoreBackup() {
-        if #available(iOS 13, *) {
-            let vc = BackupRestoreViewHostingController()
-            vc.delegate = self
-            flowNavigationController?.pushViewController(vc, animated: true)
-            flowNavigationController!.setNavigationBarHidden(false, animated: true)
-        } else {
-            let backupRestoreVC = BackupRestoreViewController()
-            backupRestoreVC.delegate = self
-            flowNavigationController?.pushViewController(backupRestoreVC, animated: true)
-            flowNavigationController!.setNavigationBarHidden(false, animated: true)
-        }
+        let vc = BackupRestoreViewHostingController()
+        vc.delegate = self
+        flowNavigationController?.pushViewController(vc, animated: true)
+        flowNavigationController!.setNavigationBarHidden(false, animated: true)
     }
     
     
@@ -596,13 +566,9 @@ extension OnboardingFlowViewController: WelcomeScrenViewControllerDelegate, Welc
     
     private func userChooseToUseManualIdentityProvider() {
         assert(Thread.isMainThread)
-        if #available(iOS 13, *) {
-            let vc = IdentityProviderManualConfigurationHostingView(delegate: self)
-            flowNavigationController?.pushViewController(vc, animated: true)
-            flowNavigationController!.setNavigationBarHidden(false, animated: true)
-        } else {
-            assertionFailure()
-        }
+        let vc = IdentityProviderManualConfigurationHostingView(delegate: self)
+        flowNavigationController?.pushViewController(vc, animated: true)
+        flowNavigationController!.setNavigationBarHidden(false, animated: true)
     }
 
     
@@ -622,7 +588,6 @@ extension OnboardingFlowViewController: WelcomeScrenViewControllerDelegate, Welc
 
 // MARK: - IdentityProviderManualConfigurationHostingViewDelegate
 
-@available(iOS 13, *)
 extension OnboardingFlowViewController: IdentityProviderManualConfigurationHostingViewDelegate {
     
     func userWantsToValidateManualKeycloakConfiguration(keycloakConfig: KeycloakConfiguration) {
@@ -635,7 +600,6 @@ extension OnboardingFlowViewController: IdentityProviderManualConfigurationHosti
 
 // MARK: - IdentityProviderValidationHostingViewControllerDelegate
 
-@available(iOS 13, *)
 extension OnboardingFlowViewController: IdentityProviderValidationHostingViewControllerDelegate {
     
     func newKeycloakState(_ keycloakState: ObvKeycloakState) {
@@ -655,10 +619,8 @@ extension OnboardingFlowViewController: IdentityProviderValidationHostingViewCon
 
 // MARK: - BackupRestoreViewHostingControllerDelegate
 
-@available(iOS 13, *)
 extension OnboardingFlowViewController: BackupRestoreViewHostingControllerDelegate {
  
-    @available(iOS 13, *)
     func userWantToRestoreBackupFromCloud() {
         guard let backupRestoreViewHostingController = flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController else {
             assertionFailure()
@@ -720,7 +682,6 @@ extension OnboardingFlowViewController: BackupRestoreViewHostingControllerDelega
     }
     
     
-    @available(iOS 13, *)
     func proceedWithBackupFile(atUrl url: URL) {
         // For iOS 13+ only
         assert(Thread.isMainThread)
@@ -732,100 +693,8 @@ extension OnboardingFlowViewController: BackupRestoreViewHostingControllerDelega
 }
 
 
-extension OnboardingFlowViewController: BackupRestoreViewControllerDelegate {
-    
-    func userWantsToRestoreBackupFromFileLegacy() {
-        // We do *not* specify ObvUTIUtils.kUTTypeOlvidBackup here. It does not work under Google Drive.
-        // And it never works within the simulator.
-        let documentTypes = [kUTTypeItem] as [String] // 2020-03-13 Custom UTIs do not work in the simulator
-        let documentPicker = UIDocumentPickerViewController(documentTypes: documentTypes, in: .import)
-        documentPicker.delegate = self
-        documentPicker.allowsMultipleSelection = false
-        present(documentPicker, animated: true)
-    }
- 
-    
-    func userWantToRestoreBackupFromCloudLegacy() {
-        guard let backupRestoreViewController = flowNavigationController?.viewControllers.last as? BackupRestoreViewController else {
-            assertionFailure()
-            return
-        }
-        let log = self.log
-        let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-        container.accountStatus { (accountStatus, error) in
-            guard accountStatus == .available else {
-                os_log("The iCloud account isn't available. We cannot perform restore backup.", log: log, type: .fault)
-                backupRestoreViewController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .icloudAccountStatusIsNotAvailable)
-                return
-            }
-            // - iCloud is available. Look for a backup to restore
-            let predicate = NSPredicate(value: true)
-            let query = CKQuery(recordType: AppBackupCoordinator.recordType, predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let queryOp = CKQueryOperation(query: query)
-            queryOp.resultsLimit = 1
-            queryOp.recordFetchedBlock = { record in
-                guard let asset = record["encryptedBackupFile"] as? CKAsset else {
-                    backupRestoreViewController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
-                    return
-                }
-                guard let url = asset.fileURL else {
-                    backupRestoreViewController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
-                    return
-                }
-                guard let creationDate = record.creationDate else {
-                    backupRestoreViewController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveCreationDate)
-                    return
-                }
-                DispatchQueue.main.async {
-                    backupRestoreViewController.backupFileSelected(atURL: url, creationDate: creationDate)
-                }
-            }
-            queryOp.queryCompletionBlock = { (cursor, error) in
-                guard error == nil else {
-                    backupRestoreViewController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .iCloudError(description: error!.localizedDescription))
-                    return
-                }
-                if cursor == nil {
-                    backupRestoreViewController.noMoreCloudBackupToFetch()
-                }
-            }
-            container.privateCloudDatabase.add(queryOp)
-        }
-
-    }
-    
-    
-    private func debugCustomUTIs() {
-        let pathExt = "olvidbackup"
-        if let utiArray = UTTypeCreateAllIdentifiersForTag(kUTTagClassFilenameExtension, pathExt as NSString, nil)?.takeRetainedValue() as? [String] {
-            print("Have UTIs for .\(pathExt):")
-            for uti in utiArray {
-                if let dict = UTTypeCopyDeclaration(uti as NSString)?.takeUnretainedValue() as? [String: Any] {
-                    print("\(uti) = \(dict)")
-                }
-            }
-        }
-    }
-    
-    
-    func proceedWithBackupFileLegacy(atUrl url: URL) {
-        assert(Thread.isMainThread)
-        if #available(iOS 13, *) {
-            assertionFailure()
-        } else {
-            let backupKeyVerifierVC = BackupKeyVerifierViewController()
-            backupKeyVerifierVC.backupFileURL = url
-            backupKeyVerifierVC.delegate = self
-            flowNavigationController?.pushViewController(backupKeyVerifierVC, animated: true)
-        }
-    }
-    
-}
-
 // MARK: - ScannerHostingViewDelegate
 
-@available(iOS 13, *)
 extension OnboardingFlowViewController: ScannerHostingViewDelegate {
     
     func scannerViewActionButtonWasTapped() {
@@ -906,11 +775,7 @@ extension OnboardingFlowViewController: UIDocumentPickerDelegate {
             // If we reach this point, we can start processing the backup file located at tempBackupFileUrl
             
             DispatchQueue.main.async {
-                if #available(iOS 13, *) {
-                    (self?.flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController)?.backupFileSelected(atURL: tempBackupFileUrl)
-                } else {
-                    (self?.flowNavigationController?.viewControllers.last as? BackupRestoreViewController)?.backupFileSelected(atURL: tempBackupFileUrl)
-                }
+                (self?.flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController)?.backupFileSelected(atURL: tempBackupFileUrl)
             }
         }
         
@@ -918,15 +783,13 @@ extension OnboardingFlowViewController: UIDocumentPickerDelegate {
     
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         assert(Thread.isMainThread)
-        if #available(iOS 13, *) {
-            (flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController)?.userCanceledSelectionOfBackupFile()
-        }
+        (flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController)?.userCanceledSelectionOfBackupFile()
     }
     
 }
 
 
-extension OnboardingFlowViewController: BackupKeyVerifierViewControllerDelegate, BackupKeyTesterDelegate {
+extension OnboardingFlowViewController: BackupKeyTesterDelegate {
     
     func userWantsToRestoreBackupIdentifiedByRequestUuid(_ backupRequestUuid: UUID) {
         let log = self.log

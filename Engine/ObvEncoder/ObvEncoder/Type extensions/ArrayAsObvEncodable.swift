@@ -24,6 +24,8 @@ import ObvTypes
 
 public extension Array where Element == ObvEncoded {
     
+    private static func makeError(message: String) -> Error { NSError(domain: "Array<ObvEncoded>", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     init?(_ obvEncoded: ObvEncoded) {
         guard obvEncoded.byteId == .list else { return nil }
         if let unpackedElements = ObvEncoded.unpack(obvEncoded) {
@@ -44,37 +46,51 @@ public extension Array where Element == ObvEncoded {
     }
     
     func decode<T0: ObvDecodable>() throws -> T0 {
-        guard self.count == 1 else { throw NSError() }
+        guard self.count == 1 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try self[0].decode()
     }
 
     func decode<T0: ObvDecodable, T1: ObvDecodable>() throws -> (T0, T1) {
-        guard self.count == 2 else { throw NSError() }
+        guard self.count == 2 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try (self[0].decode(), self[1].decode())
     }
 
     func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable>() throws -> (T0, T1, T2) {
-        guard self.count == 3 else { throw NSError() }
+        guard self.count == 3 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try (self[0].decode(), self[1].decode(), self[2].decode())
     }
 
     func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable>() throws -> (T0, T1, T2, T3) {
-        guard self.count == 4 else { throw NSError() }
+        guard self.count == 4 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try (self[0].decode(), self[1].decode(), self[2].decode(), self[3].decode())
     }
 
     func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable>() throws -> (T0, T1, T2, T3, T4) {
-        guard self.count == 5 else { throw NSError() }
+        guard self.count == 5 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try (self[0].decode(), self[1].decode(), self[2].decode(), self[3].decode(), self[4].decode())
     }
 
     func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5) {
-        guard self.count == 6 else { throw NSError() }
+        guard self.count == 6 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try (self[0].decode(), self[1].decode(), self[2].decode(), self[3].decode(), self[4].decode(), self[5].decode())
     }
 
     func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable, T6: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5, T6) {
-        guard self.count == 7 else { throw NSError() }
+        guard self.count == 7 else {
+            throw Self.makeError(message: "Array decode failed (unexpected count)")
+        }
         return try (self[0].decode(), self[1].decode(), self[2].decode(), self[3].decode(), self[4].decode(), self[5].decode(), self[6].decode())
     }
 

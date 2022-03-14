@@ -21,7 +21,6 @@ import UIKit
 import CoreData
 
 
-@available(iOS 13.0, *)
 final class FyleProgressView: UIView {
     
     enum FyleProgressViewConfiguration: Equatable {

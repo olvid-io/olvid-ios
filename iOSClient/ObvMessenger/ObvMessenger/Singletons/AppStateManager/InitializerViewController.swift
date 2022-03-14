@@ -41,11 +41,7 @@ final class InitializerViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if #available(iOS 13, *) {
-            activityIndicatorView = UIActivityIndicatorView(style: .large)
-        } else {
-            activityIndicatorView = UIActivityIndicatorView(style: .whiteLarge)
-        }
+        activityIndicatorView = UIActivityIndicatorView(style: .large)
         
         let launchScreenStoryBoard = UIStoryboard(name: "LaunchScreen", bundle: nil)
         guard let launchViewController = launchScreenStoryBoard.instantiateInitialViewController() else { assertionFailure(); return }
@@ -59,7 +55,9 @@ final class InitializerViewController: UIViewController {
         self.view.addSubview(activityIndicatorView)
         
         exportRunningLogButton.translatesAutoresizingMaskIntoConstraints = false
-        exportRunningLogButton.setImage(UIImage.makeSystemImage(systemName: ObvSystemIcon.squareAndArrowUp.systemName, size: 30.0), for: .normal)
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 30.0, weight: .bold)
+        let image = UIImage(systemIcon: .squareAndArrowUp, withConfiguration: symbolConfiguration)
+        exportRunningLogButton.setImage(image, for: .normal)
         exportRunningLogButton.addTarget(self, action: #selector(exportRunningLogButtonTapped), for: .touchUpInside)
         exportRunningLogButton.alpha = 0
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(20)) { [weak self] in

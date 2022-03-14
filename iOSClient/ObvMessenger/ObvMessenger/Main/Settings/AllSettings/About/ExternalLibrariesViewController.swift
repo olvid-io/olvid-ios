@@ -143,16 +143,17 @@ final class LicenceViewController: UIViewController {
         title = licence.name
 
         var items: [UIBarButtonItem] = []
-        items += [UIBarButtonItem(systemName: ObvSystemIcon.network.systemName, style: .plain, target: self, action: #selector(networkButtonTapped))]
+        items += [BlockBarButtonItem(systemIcon: .network) {
+            guard let url = self.licence.link else { return }
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }]
         navigationItem.rightBarButtonItems = items
 
         textView.text = licence.text
         textView.isEditable = false
         textView.isSelectable = false
         textView.contentInsetAdjustmentBehavior = .never
-        if #available(iOS 13.0, *) {
-            textView.font = UIFont.monospacedSystemFont(ofSize: 7.5, weight: .regular)
-        }
+        textView.font = UIFont.monospacedSystemFont(ofSize: 7.5, weight: .regular)
         textView.translatesAutoresizingMaskIntoConstraints = false
         self.view.addSubview(textView)
 
@@ -170,12 +171,6 @@ final class LicenceViewController: UIViewController {
         super.viewWillLayoutSubviews()
         textView.contentOffset = .zero
     }
-
-    @objc func networkButtonTapped() {
-        guard let url = licence.link else { return }
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
-    }
-
 
 }
 

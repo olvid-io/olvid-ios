@@ -21,6 +21,8 @@ import Foundation
 import OlvidUtils
 import ObvEngine
 import os.log
+import CoreData
+import ObvTypes
 
 
 final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -106,9 +108,63 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                     }
                 } catch let error {
                     os_log("Could not get a set of all contacts of the owned identity: %{public}@", log: log, type: .error, error.localizedDescription)
+                    assertionFailure()
+                    // We continue anyway
+                }
+                
+                // For each existing contact within the app, make sure the information is in sync with the information within the engine
+
+                var objectIDsOfContactsToRefreshInViewContext = Set<NSManagedObjectID>()
+
+                do {
+                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, within: obvContext.context)
+                    for contact in persistedContacts {
+                        guard let obvContact = existingContacts.first(where: { contact.cryptoId == $0.cryptoId }) else {
+                            assertionFailure()
+                            continue
+                        }
+                        try contact.updateContact(with: obvContact)
+                        if !contact.changedValues().isEmpty {
+                            objectIDsOfContactsToRefreshInViewContext.insert(contact.typedObjectID.objectID)
+                        }
+                    }
+                } catch {
+                    os_log("Could sync the existing persisted contacts with the information received from the engine: %{public}@", log: log, type: .error, error.localizedDescription)
+                    assertionFailure()
+                    // We continue anyway
+                }
+                
+                // For each existing contact within the app, make sure the capabilities are in sync with the information within the engine
+                
+                do {
+                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, within: obvContext.context)
+                    let contactCapabilities = try obvEngine.getCapabilitiesOfAllContactsOfOwnedIdentity(ownedIdentity.cryptoId)
+                    for contact in persistedContacts {
+                        let capabilities = contactCapabilities[contact.cryptoId] ?? Set<ObvCapability>()
+                        contact.setContactCapabilities(to: capabilities)
+                        if !contact.changedValues().isEmpty {
+                            objectIDsOfContactsToRefreshInViewContext.insert(contact.typedObjectID.objectID)
+                        }
+                    }
+                } catch {
+                    os_log("Could sync the existing persisted contacts with the information received from the engine: %{public}@", log: log, type: .error, error.localizedDescription)
+                    assertionFailure()
                     // We continue anyway
                 }
 
+
+                // The view context my have to refresh certain contacts at this point
+                
+                if !objectIDsOfContactsToRefreshInViewContext.isEmpty {
+                    DispatchQueue.main.async {
+                        let objectsToRefresh = ObvStack.shared.viewContext.registeredObjects
+                            .filter({ objectIDsOfContactsToRefreshInViewContext.contains($0.objectID) })
+                        objectsToRefresh.forEach { objectID in
+                            ObvStack.shared.viewContext.refresh(objectID, mergeChanges: true)
+                        }
+                    }
+                }
+                
             }
 
         }

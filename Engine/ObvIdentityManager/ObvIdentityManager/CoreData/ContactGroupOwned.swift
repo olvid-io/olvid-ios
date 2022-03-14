@@ -80,8 +80,7 @@ final class ContactGroupOwned: ContactGroup {
 
         self.latestDetails = try ContactGroupDetailsLatest(contactGroupOwned: self,
                                                            groupDetailsElementsWithPhoto: groupInformationWithPhoto.groupDetailsElementsWithPhoto,
-                                                           identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                                           notificationDelegate: delegateManager.notificationDelegate)
+                                                           delegateManager: delegateManager)
         
     }
 
@@ -102,21 +101,21 @@ final class ContactGroupOwned: ContactGroup {
 
 
     func updatePhotoURL(with url: URL?, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
-        if self.publishedDetails.version == version && self.publishedDetails.photoURL != url {
-            try self.publishedDetails.setPhotoURL(with: url, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+        if self.publishedDetails.version == version && self.publishedDetails.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) != url {
+            try self.publishedDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
         }
         if self.latestDetails.version == version {
-            try self.latestDetails.setPhotoURL(with: url, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.latestDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
         }
     }
 
     
     func updatePhoto(withData photoData: Data, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedDetails.version == version {
-            try self.publishedDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.publishedDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
         }
         if self.latestDetails.version == version {
-            try self.latestDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.latestDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
         }
     }
 
@@ -136,9 +135,9 @@ extension ContactGroupOwned {
     }
 
     
-    func getPublishedOwnedGroupInformationWithPhoto() throws -> GroupInformationWithPhoto {
+    func getPublishedOwnedGroupInformationWithPhoto(identityPhotosDirectory: URL) throws -> GroupInformationWithPhoto {
         let groupInformation = try getPublishedOwnedGroupInformation()
-        let photoURL = publishedDetails.photoURL
+        let photoURL = publishedDetails.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         let groupInformationWithPhoto = GroupInformationWithPhoto(groupInformation: groupInformation,
                                                                   photoURL: photoURL)
         return groupInformationWithPhoto
@@ -152,11 +151,10 @@ extension ContactGroupOwned {
         guard groupDetailsElementsWithPhoto.version == 1 + publishedDetails.version else {
             throw ObvIdentityManagerError.invalidGroupDetailsVersion.error(withDomain: ContactGroupOwned.errorDomain)
         }
-        try self.latestDetails.delete(within: obvContext)
+        try self.latestDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         self.latestDetails = try ContactGroupDetailsLatest(contactGroupOwned: self,
                                                            groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                                           identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                                           notificationDelegate: delegateManager.notificationDelegate)
+                                                           delegateManager: delegateManager)
         notificationRelatedChanges.insert(.updatedLatestDetails)
     }
     
@@ -165,20 +163,19 @@ extension ContactGroupOwned {
         guard let obvContext = self.obvContext else {
             throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroupOwned.errorDomain)
         }
-        try self.latestDetails.delete(within: obvContext)
-        let groupDetailsElementsWithPhoto = try publishedDetails.getGroupDetailsElementsWithPhoto()
+        try self.latestDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        let groupDetailsElementsWithPhoto = try publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
         self.latestDetails = try ContactGroupDetailsLatest(contactGroupOwned: self,
                                                            groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                                           identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                                           notificationDelegate: delegateManager.notificationDelegate)
+                                                           delegateManager: delegateManager)
         notificationRelatedChanges.insert(.discardedLatestDetails)
     }
     
     
     func publishDetailsLatest(delegateManager: ObvIdentityDelegateManager) throws {
-        let groupDetailsElementsWithPhoto = try latestDetails.getGroupDetailsElementsWithPhoto()
+        let groupDetailsElementsWithPhoto = try latestDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
         try super.updateDetailsPublished(with: groupDetailsElementsWithPhoto.groupDetailsElements, delegateManager: delegateManager)
-        try publishedDetails.setPhotoURL(with: groupDetailsElementsWithPhoto.photoURL, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+        try publishedDetails.setGroupPhoto(with: groupDetailsElementsWithPhoto.photoURL, delegateManager: delegateManager)
     }
     
     
@@ -192,14 +189,14 @@ extension ContactGroupOwned {
     }
 
     
-    func getOwnedGroupStructure() throws -> GroupStructure {
+    func getOwnedGroupStructure(identityPhotosDirectory: URL) throws -> GroupStructure {
         
         let groupMembers = Set(self.groupMembers.map { $0.cryptoIdentity })
         let pendingGroupMembers = self.getPendingGroupMembersWithCoreDetails()
         let groupMembersVersion = self.groupMembersVersion
-        let publishedGroupDetailsWithPhoto = try self.publishedDetails.getGroupDetailsElementsWithPhoto()
+        let publishedGroupDetailsWithPhoto = try self.publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: identityPhotosDirectory)
         
-        let latestGroupDetailsWithPhoto = try self.latestDetails.getGroupDetailsElementsWithPhoto()
+        let latestGroupDetailsWithPhoto = try self.latestDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: identityPhotosDirectory)
         let declinedPendingGroupMembers = self.getDeclinedPendingGroupMembersWithCoreDetails()
         let groupStructure = try GroupStructure.createOwnedGroupStructure(
             groupUid: groupUid,
@@ -272,7 +269,9 @@ extension ContactGroupOwned {
             })
         
         let reallyNewPendingMemberObjects: Set<PendingGroupMember> = Set( try newPendingMemberIdentities.map { (contact) in
-            let coreDetails = contact.publishedIdentityDetails?.identityDetails.coreDetails ?? contact.trustedIdentityDetails.identityDetails.coreDetails
+            let publishedCoreDetails = contact.publishedIdentityDetails?.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+            let trustedCoreDetails = contact.trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+            let coreDetails = publishedCoreDetails ?? trustedCoreDetails
             let cryptoIdentityWithCoreDetails = CryptoIdentityWithCoreDetails(cryptoIdentity: contact.cryptoIdentity,
                                                                               coreDetails: coreDetails)
             return try PendingGroupMember(contactGroup: self,

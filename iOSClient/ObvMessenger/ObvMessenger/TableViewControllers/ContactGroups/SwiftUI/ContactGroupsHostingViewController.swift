@@ -23,7 +23,7 @@ import CoreData
 import os.log
 import ObvTypes
 
-@available(iOS 13.0, *)
+
 final class ContactGroupsHostingViewController: UIHostingController<GroupsView>, GroupsViewStoreDelegate {
         
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: "ContactGroupsHostingViewController"))
@@ -65,13 +65,13 @@ final class ContactGroupsHostingViewController: UIHostingController<GroupsView>,
 }
 
 
-@available(iOS 13.0, *)
+
 protocol GroupsViewStoreDelegate: AnyObject {
     func userWantsToSeeContactGroupDetails(of group: PersistedContactGroup)
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate class GroupsViewStore: NSObject, ObservableObject, UISearchResultsUpdating {
     
     @Published var fetchRequest: NSFetchRequest<PersistedContactGroup>
@@ -128,7 +128,7 @@ fileprivate class GroupsViewStore: NSObject, ObservableObject, UISearchResultsUp
 }
 
 
-@available(iOS 13.0, *)
+
 struct GroupsView: View {
     
     @ObservedObject fileprivate var store: GroupsViewStore
@@ -145,7 +145,7 @@ struct GroupsView: View {
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate struct GroupsScrollingView: View {
     
     let nsFetchRequest: NSFetchRequest<PersistedContactGroup>
@@ -181,7 +181,7 @@ fileprivate struct GroupsScrollingView: View {
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate struct GroupsInnerViewList: View {
     
     var fetchRequest: FetchRequest<PersistedContactGroup>
@@ -242,7 +242,7 @@ fileprivate struct GroupsInnerViewList: View {
 }
 
 
-@available(iOS 13.0, *)
+
 struct GroupCellView: View {
 
     @ObservedObject var group: PersistedContactGroup

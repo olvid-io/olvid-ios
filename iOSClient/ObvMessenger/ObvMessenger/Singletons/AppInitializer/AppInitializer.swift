@@ -49,9 +49,7 @@ final class AppInitializer {
         // Perform a few initializations that must be done before application launching is finished or that must be performed on the main thread
         let appStateManager = AppStateManager.shared
         appStateManager.appType = .mainApp
-        if #available(iOS 13.0, *) {
-            _ = BackgroundTasksManager.shared
-        }
+        _ = BackgroundTasksManager.shared
         _ = AppTheme.shared
 
         self.fileSystemService = FileSystemService()
@@ -65,6 +63,9 @@ final class AppInitializer {
             ObvMessengerInternalNotification.observeAppStateChanged(queue: OperationQueue.main) { [weak self] (previousState, currentState) in
                 self?.processAppStateChangedNotification(previousState: previousState, currentState: currentState)
             },
+            ObvMessengerInternalNotification.observeListMessagesOnServerBackgroundTaskWasLaunched(queue: OperationQueue.main) { [weak self] success in
+                self?.processListMessagesOnServerBackgroundTaskWasLaunched(success: success)
+            },
         ])
     }
     
@@ -74,6 +75,32 @@ final class AppInitializer {
         if !previousState.isInitializedAndActive && currentState.isInitializedAndActive {
             guard let obvEngine = self.obvEngine else { return } // The obvEngine is nil when the initialization operation cancels
             obvEngine.applicationIsInitializedAndActive()
+        }
+        
+        // Check whether we connect/disconnect websockets
+        
+        let previousStateNeededWebsockets = previousState.isInitializedAndActive || (previousState.aCallRequiresNetworkConnection && currentState.isInitialized)
+        let currentStateNeedsWebsockets = currentState.isInitializedAndActive || (currentState.aCallRequiresNetworkConnection && currentState.isInitialized)
+        
+        switch (previousStateNeededWebsockets, currentStateNeedsWebsockets) {
+        case (false, true):
+            do {
+                os_log("🏁☎️🏓 Will request the engine to connect websockets", log: log, type: .info)
+                try obvEngine?.downloadMessagesAndConnectWebsockets()
+            } catch {
+                os_log("Could not download messages not connect websockets, although a call requires connection: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        case (true, false):
+            os_log("🏁☎️🏓 Will request the engine to disconnect websockets", log: log, type: .info)
+            do {
+                try obvEngine?.disconnectWebsockets()
+            } catch {
+                os_log("Could not disconnect websockets: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        default:
+            break
         }
     }
     
@@ -176,8 +203,10 @@ final class AppInitializer {
                 // We are receiving a notification indicating new data is available on the server
 
                 let completionHandlerForEngine: (UIBackgroundFetchResult) -> Void = { (result) in
-                    defer { completionHandler(result) }
                     os_log("🌊 Calling the completion handler of the remote notification tagged as %{public}@. The result is %{public}@", log: log, type: .info, tag.uuidString, result.debugDescription)
+                    DispatchQueue.main.async {
+                        completionHandler(result)
+                    }
                 }
 
                 _self.queueForTransferingRemoteNotificationToEngine.async {
@@ -242,10 +271,10 @@ final class AppInitializer {
             os_log("Call to Application continue user activity with webpage URL %{public}@", log: log, type: .info, url.debugDescription)
             // This is typically called when scanning (tapping?) an invite link
             return openOlvidURL(url)
-        } else if let startAudioCallIntent = userActivity.interaction?.intent as? INStartAudioCallIntent {
+        } else if let startCallIntent = userActivity.interaction?.intent as? INStartCallIntent {
             AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive { [weak self] in
                 guard let obvEngine = self?.obvEngine else { return }
-                let op = ProcessINStartAudioCallIntentOperation(startAudioCallIntent: startAudioCallIntent, obvEngine: obvEngine)
+                let op = ProcessINStartCallIntentOperation(startCallIntent: startCallIntent, obvEngine: obvEngine)
                 self?.internalQueue.addOperation(op)
             }
             return true
@@ -279,21 +308,48 @@ final class AppInitializer {
     }
     
     
-    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        assert(Thread.isMainThread)
+    /// This method processes the notification sent after launching a background task for listing messages on the server.
+    private func processListMessagesOnServerBackgroundTaskWasLaunched(success: @escaping (Bool) -> Void) {
         let log = self.log
         internalQueue.addOperation { [weak self] in
             let tag = UUID()
             os_log("We are performing a background fetch. We tag it as @{public}@", log: log, type: .info, tag.uuidString)
             let completionHandlerForEngine: (UIBackgroundFetchResult) -> Void = { (result) in
-                defer { completionHandler(result) }
                 os_log("Calling the completion handler of the background fetch tagged as @{public}@. The result is %{public}@", log: log, type: .info, tag.uuidString, result.debugDescription)
-                if result == .failed { assertionFailure() }
+                switch result {
+                case .newData, .noData:
+                    success(true)
+                case .failed:
+                    assertionFailure()
+                    success(false)
+                @unknown default:
+                    assertionFailure()
+                    success(true)
+                }
             }
-            guard let obvEngine = self?.obvEngine else { assertionFailure(); completionHandler(.failed); return }
+            guard let obvEngine = self?.obvEngine else { assertionFailure(); success(false); return }
             DispatchQueue(label: "Queue created for handling background fetch tagged \(tag.uuidString)").async {
                 obvEngine.application(performFetchWithCompletionHandler: completionHandlerForEngine)
             }
         }
     }
+    
+}
+
+
+
+extension AppDelegate {
+
+    func scheduleBackgroundTaskForListingMessagesOnServer() {
+        let earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval(minutes: 15))
+        do {
+            try BackgroundTasksManager.shared.submit(task: .listMessagesOnServer, earliestBeginDate: earliestBeginDate)
+        } catch {
+            guard ObvMessengerConstants.isRunningOnRealDevice else { assertionFailure("We should not be scheduling BG tasks on a simulator as they are unsuported"); return }
+            os_log("🤿 Could not schedule next expiration: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
+    }
+    
 }

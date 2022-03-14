@@ -403,6 +403,11 @@ extension SentMessageCell {
         return rcv
     }
 
+    var isDeleteOwnReactionActionAvailable: Bool {
+        guard let message = message else { return false }
+        return message.reactions.contains { $0 is PersistedMessageReactionSent }
+    }
+
 }
 
 

@@ -30,10 +30,6 @@ import OlvidUtils
 class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     
     private static let entityName = "ContactIdentityDetails"
-    private static let serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
-    private static let photoURLKey = "photoURL"
-    private static let photoServerKeyEncodedKey = "photoServerKeyEncoded"
-    private static let photoServerLabelKey = "photoServerLabel"
     
     private static let errorDomain = String(describing: ContactIdentityDetails.self)
     
@@ -42,7 +38,7 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
 
     // MARK: - Attributes
     
-    @NSManaged var photoURL: URL?
+    @NSManaged private var photoFilename: String?
     @NSManaged internal var serializedIdentityCoreDetails: Data // Shall *not* be called from outside this class (but cannot be made private, since the setter must remain accessible to its subclasses. I miss the protected keyword...)
     @NSManaged var version: Int
     @NSManaged private var photoServerKeyEncoded: Data?
@@ -52,19 +48,29 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     
     @NSManaged private(set) var contactIdentity: ContactIdentity
     
-    
     // MARK: - Other variables
     
     weak var delegateManager: ObvIdentityDelegateManager?
 
-    var identityDetails: ObvIdentityDetails {
-        let data = kvoSafePrimitiveValue(forKey: ContactIdentityDetails.serializedIdentityCoreDetails) as! Data
+    
+    func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
+        guard let photoFilename = photoFilename else { return nil }
+        let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
+        return url
+    }
+    
+    
+    func getIdentityDetails(identityPhotosDirectory: URL) -> ObvIdentityDetails {
+        let data = kvoSafePrimitiveValue(forKey: Predicate.Key.serializedIdentityCoreDetails.rawValue) as! Data
         let coreDetails = try! ObvIdentityCoreDetails(data)
+        let photoURL = getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         return ObvIdentityDetails(coreDetails: coreDetails, photoURL: photoURL)
     }
     
-    var identityDetailsElements: IdentityDetailsElements {
-        IdentityDetailsElements(version: version, coreDetails: identityDetails.coreDetails, photoServerKeyAndLabel: photoServerKeyAndLabel)
+    func getIdentityDetailsElements(identityPhotosDirectory: URL) -> IdentityDetailsElements {
+        let coreDetails = getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails
+        return IdentityDetailsElements(version: version, coreDetails: coreDetails, photoServerKeyAndLabel: photoServerKeyAndLabel)
     }
 
     /// The setter should only be called from one of the `ContactIdentityDetails` subclasses
@@ -96,7 +102,7 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
 
 extension ContactIdentityDetails {
     
-    convenience init?(contactIdentity: ContactIdentity, coreDetails: ObvIdentityCoreDetails, photoURL: URL?, version: Int, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, entityName: String, delegateManager: ObvIdentityDelegateManager) {
+    convenience init?(contactIdentity: ContactIdentity, coreDetails: ObvIdentityCoreDetails, version: Int, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, entityName: String, delegateManager: ObvIdentityDelegateManager) {
         
         guard let obvContext = contactIdentity.obvContext else { return nil }
         
@@ -104,7 +110,7 @@ extension ContactIdentityDetails {
         self.init(entity: entityDescription, insertInto: obvContext)
         
         do { self.serializedIdentityCoreDetails = try coreDetails.encode() } catch { return nil }
-        self.photoURL = photoURL
+        self.photoFilename = nil // When creating a contact, we don't have her photo. It will come later.
         self.version = version
         self.photoServerKeyAndLabel = photoServerKeyAndLabel
         
@@ -118,7 +124,7 @@ extension ContactIdentityDetails {
     convenience init(serializedIdentityCoreDetails: Data, version: Int, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, entityName: String, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
-        self.photoURL = nil // This is ok
+        self.photoFilename = nil // This is ok
         self.photoServerKeyAndLabel = photoServerKeyAndLabel
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
         self.version = version
@@ -134,8 +140,8 @@ extension ContactIdentityDetails {
         return path
     }
 
-    func delete(within obvContext: ObvContext) throws {
-        if let currentPhotoURL = self.photoURL {
+    func delete(identityPhotosDirectory: URL, within obvContext: ObvContext) throws {
+        if let currentPhotoURL = getPhotoURL(identityPhotosDirectory: identityPhotosDirectory) {
             try obvContext.addContextDidSaveCompletionHandler { error in
                 guard error == nil else { return }
                 if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
@@ -146,44 +152,53 @@ extension ContactIdentityDetails {
         obvContext.delete(self)
     }
 
-    func setPhoto(data: Data, creatingNewFileIn directory: URL, notificationDelegate: ObvNotificationDelegate) throws {
+    
+    func setContactPhoto(data: Data, delegateManager: ObvIdentityDelegateManager) throws {
         assert(photoServerKeyAndLabel != nil)
-        guard let photoURLInEngine = freshPath(in: directory) else { throw makeError(message: "Could not get fresh path for photo") }
+        guard let photoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
         try data.write(to: photoURLInEngine)
-        try setPhotoURL(with: photoURLInEngine, creatingNewFileIn: directory, notificationDelegate: notificationDelegate)
+        try setContactPhoto(with: photoURLInEngine, delegateManager: delegateManager)
         try FileManager.default.removeItem(at: photoURLInEngine) // The previous call created another hard link so we can delete the file we just created
     }
     
-    func setPhotoURL(with newPhotoURL: URL?, creatingNewFileIn directory: URL, notificationDelegate: ObvNotificationDelegate) throws {
+    
+    /// Updates the photo of the contact on the basis of the new URL. If the new URL is identical to the current one, this method does nothing. Otherwise,
+    /// the file referenced by the old URL is deleted. At that point, if the new URL is non `nil`, the file at this URL is copied into the `diretory` passed as parameter, using
+    /// a random filename, and this new filename is saved.
+    func setContactPhoto(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws {
         
-        guard self.photoURL != newPhotoURL else { return }
-        if let currentPhotoURL = self.photoURL, let _newPhotoURL = newPhotoURL {
-            guard !FileManager.default.contentsEqual(atPath: currentPhotoURL.path, andPath: _newPhotoURL.path) else {
+        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); throw makeError(message: "The notification delegate is not set") }
+        let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
+        
+        guard currentPhotoURL != newPhotoURL else { return }
+        
+        if let currentPhotoURL = currentPhotoURL, let newPhotoURL = newPhotoURL {
+            guard !FileManager.default.contentsEqual(atPath: currentPhotoURL.path, andPath: newPhotoURL.path) else {
                 return
             }
         }
         
         // Whatever the new photo URL, we delete the previous version
-        if let previousPhotoURL = self.photoURL {
-            if FileManager.default.fileExists(atPath: previousPhotoURL.path) {
-                try FileManager.default.removeItem(at: previousPhotoURL)
+        if let currentPhotoURL = currentPhotoURL {
+            if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
+                try FileManager.default.removeItem(at: currentPhotoURL)
             }
-            self.photoURL = nil
+            self.photoFilename = nil
         }
-        assert(self.photoURL == nil)
+        assert(getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) == nil)
         
         // If there is a new photo URL, we move it to the engine if required, or simply make a hard link if it is already within the engine.
         // Creating a hard link prevents the deletion of a photo referenced by another ContactGroupDetails instance.
         if let newPhotoURL = newPhotoURL {
             assert(photoServerKeyAndLabel != nil)
             assert(FileManager.default.fileExists(atPath: newPhotoURL.path))
-            guard let newPhotoURLInEngine = freshPath(in: directory) else { throw makeError(message: "Could not get fresh path for photo") }
-            if newPhotoURL.deletingLastPathComponent() == directory {
+            guard let newPhotoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
+            if newPhotoURL.deletingLastPathComponent() == delegateManager.identityPhotosDirectory {
                 try FileManager.default.linkItem(at: newPhotoURL, to: newPhotoURLInEngine)
             } else {
                 try FileManager.default.moveItem(at: newPhotoURL, to: newPhotoURLInEngine)
             }
-            self.photoURL = newPhotoURLInEngine
+            self.photoFilename = newPhotoURLInEngine.lastPathComponent
         }
         
         // Notify of the change
@@ -214,14 +229,20 @@ extension ContactIdentityDetails {
     }
 
     struct Predicate {
-        static var withoutPhotoURL: NSPredicate {
-            NSPredicate(format: "%K == NIL", ContactIdentityDetails.photoURLKey)
+        enum Key: String {
+            case serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
+            case photoFilename = "photoFilename"
+            case photoServerKeyEncoded = "photoServerKeyEncoded"
+            case photoServerLabel = "photoServerLabel"
+        }
+        static var withoutPhotoFilename: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.photoFilename)
         }
         static var withPhotoServerKey: NSPredicate {
-            NSPredicate(format: "%K != NIL", ContactIdentityDetails.photoServerKeyEncodedKey)
+            NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
         }
         static var withPhotoServerLabel: NSPredicate {
-            NSPredicate(format: "%K != NIL", ContactIdentityDetails.photoServerLabelKey)
+            NSPredicate(withNonNilValueForKey: Key.photoServerLabel)
         }
         static var withPhotoServerKeyAndLabel: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -230,20 +251,21 @@ extension ContactIdentityDetails {
             ])
         }
     }
-
-    static func getAllPhotoURLs(with obvContext: ObvContext) throws -> Set<URL> {
+    
+    
+    static func getAllPhotoFilenames(within obvContext: ObvContext) throws -> Set<String> {
         let request: NSFetchRequest<ContactIdentityDetails> = ContactIdentityDetails.fetchRequest()
-        request.propertiesToFetch = [ContactIdentityDetails.photoURLKey]
+        request.propertiesToFetch = [Predicate.Key.photoFilename.rawValue]
         let details = try obvContext.fetch(request)
-        let photoURLs = Set(details.compactMap({ $0.photoURL }))
-        return photoURLs
+        let photoFilenames = Set(details.compactMap({ $0.photoFilename }))
+        return photoFilenames
     }
     
     
-    static func getAllWithMissingPhotoURL(within obvContext: ObvContext) throws -> [ContactIdentityDetails] {
+    static func getAllWithMissingPhotoFilename(within obvContext: ObvContext) throws -> [ContactIdentityDetails] {
         let request: NSFetchRequest<ContactIdentityDetails> = ContactIdentityDetails.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withoutPhotoURL,
+            Predicate.withoutPhotoFilename,
             Predicate.withPhotoServerKeyAndLabel,
         ])
         let items = try obvContext.fetch(request)

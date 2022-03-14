@@ -28,7 +28,7 @@ public protocol ObvChannelDelegate: ObvManager {
     // Posting a channel message to send
     
     /// The returned set contains all the crypto identities to which the message was successfully posted.
-    func post(_: ObvChannelMessageToSend, randomizedWith: PRNGService, within: ObvContext) throws -> Set<ObvCryptoIdentity>
+    func post(_: ObvChannelMessageToSend, randomizedWith: PRNGService, within: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>]
     
     // Decrypting an application message
     

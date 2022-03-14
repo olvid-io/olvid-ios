@@ -30,7 +30,7 @@ protocol ObvChannel {
     var cryptoSuiteVersion: SuiteVersion { get }
     
     /// The returned set contains all the crypto identities to which the `message` was successfully posted.
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within context: ObvContext) throws -> Set<ObvCryptoIdentity>
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>]
     
     static func acceptableChannelsForPosting(_ message: ObvChannelMessageToSend, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvChannel]
     
@@ -63,7 +63,8 @@ extension ObvNetworkChannel {
         return (messageKey, headers)
     }
 
-    private static func generateObvNetworkMessageToSend(from message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend? {
+    /// Generates one or more `ObvNetworkMessageToSend` for the given `ObvChannelMessageToSend`. The reasons why multiple messages can be returned is that we generate one message for server URL found in the destination identities.
+    private static func generateObvNetworkMessagesToSend(from message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService) throws -> [ObvNetworkMessageToSend] {
         
         let wrapperMessage: ObvChannelMessageToSendWrapper?
         switch message.messageType {
@@ -78,39 +79,53 @@ extension ObvNetworkChannel {
             // Dialog/Server Queries messages are not intended to be sent over the network as protocol or application messages
             wrapperMessage = nil
         }
-        guard let msg = wrapperMessage else { return nil }
-        return try? msg.generateObvNetworkMessageToSend()
+        guard let msg = wrapperMessage else { throw makeError(message: "Could not construct wrapper message") }
+        return try msg.generateObvNetworkMessagesToSend()
         
     }
     
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ObvNetworkChannel")
                 
         guard let networkPostDelegate = delegateManager.networkPostDelegate else {
             os_log("The network post delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The network post delegate is not set")
         }
 
         guard let acceptableChannels = try Self.acceptableChannelsForPosting(message, delegateManager: delegateManager, within: obvContext) as? [ObvNetworkChannel] else {
             throw Self.makeError(message: "Could not cast to [ObvNetworkChannel]")
         }
         
-        guard acceptableChannels.count > 0 else {
+        guard !acceptableChannels.isEmpty else {
             os_log("Could not find any acceptable channel for posting message", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "Could not find any acceptable channel for posting message")
         }
         
-        guard let (messageKey, headers) = generateMessageKeyAndHeaders(using: acceptableChannels, randomizedWith: prng) else { throw NSError() }
-        guard let networkMessage = generateObvNetworkMessageToSend(from: message, messageKey: messageKey, headers: headers, randomizedWith: prng) else { throw NSError() }
+        guard let (messageKey, headers) = generateMessageKeyAndHeaders(using: acceptableChannels, randomizedWith: prng) else {
+            throw Self.makeError(message: "Could not generate message key and headers")
+        }
         
-        try networkPostDelegate.post(networkMessage, within: obvContext)
+        let networkMessages = try generateObvNetworkMessagesToSend(from: message, messageKey: messageKey, headers: headers, randomizedWith: prng)
+        guard !networkMessages.isEmpty else {
+            throw Self.makeError(message: "Could not generate obv network message to send")
+        }
         
-        // If we reach this point, the network post delegate accepted the netwirk message.
-        // We can consider the message as "posted" for all the identities for which we had a header.
+        try networkMessages.forEach { networkMessage in
+            try networkPostDelegate.post(networkMessage, within: obvContext)
+        }
         
-        let postedCryptoIdentities = Set(headers.map({ $0.toIdentity }))
-        return postedCryptoIdentities
+        // If we reach this point, the network post delegate accepted the network messages.
+        // We can consider the messages as "posted" for all the identities for which we had a header.
         
+        let messageIdsForCryptoIdentities = Dictionary(grouping: networkMessages, by: { $0.messageId })
+            .mapValues {
+                $0.reduce(Set<ObvCryptoIdentity>()) {
+                    $0.union($1.headers.map { $0.toIdentity })
+                }
+            }
+        
+        return messageIdsForCryptoIdentities
+                
     }
 }

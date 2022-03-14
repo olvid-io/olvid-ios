@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
 fileprivate extension OlvidButton.Style {
 
     func backgroundColor(isEnabled: Bool) -> Color {
@@ -48,7 +47,6 @@ fileprivate extension OlvidButton.Style {
 }
 
 /// This SwiftUI view represents a large blue or standard button with rounded corners.
-@available(iOS 13, *)
 struct OlvidButton: View {
     
     static let height: CGFloat = 50
@@ -126,7 +124,6 @@ struct OlvidButton: View {
 }
 
 
-@available(iOS 13, *)
 struct OlvidButtonAction: Identifiable {
     let id = UUID()
     let action: () -> Void
@@ -135,7 +132,6 @@ struct OlvidButtonAction: Identifiable {
     let style: OlvidButton.Style = .blue
 }
 
-@available(iOS 13, *)
 struct OlvidButtonSquare: View {
 
     let style: OlvidButton.Style

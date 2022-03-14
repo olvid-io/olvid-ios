@@ -28,7 +28,6 @@ class ContactsTableViewController: UITableViewController {
     
     let allowDeletion: Bool
     let disableContactsWithoutDevice: Bool
-    let persistedObvOwnedIdentity: PersistedObvOwnedIdentity?
     var titleChipTextForIdentity = [ObvCryptoId: String]()
     var cellBackgroundColor: UIColor?
     var customSelectionStyle = CustomSelectionStyle.system
@@ -84,10 +83,6 @@ class ContactsTableViewController: UITableViewController {
     private var tableViewHeightAnchorConstraint: NSLayoutConstraint?
     private var notificationTokens = [NSObjectProtocol]()
 
-    var showOwnedIdentity: Bool {
-        return self.persistedObvOwnedIdentity != nil && self.searchPredicate == nil
-    }
-    
     // Delegate
     
     weak var delegate: ContactsTableViewControllerDelegate?
@@ -126,12 +121,7 @@ class ContactsTableViewController: UITableViewController {
     
     // MARK: - Initializer
     
-    init(showOwnedIdentityWithCryptoId ownedCryptoId: ObvCryptoId?, disableContactsWithoutDevice: Bool, allowDeletion: Bool = false) {
-        if let ownedCryptoId = ownedCryptoId {
-            self.persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext)
-        } else {
-            self.persistedObvOwnedIdentity = nil
-        }
+    init(disableContactsWithoutDevice: Bool, allowDeletion: Bool = false) {
         self.disableContactsWithoutDevice = disableContactsWithoutDevice
         self.allowDeletion = allowDeletion
         super.init(nibName: nil, bundle: nil)
@@ -146,21 +136,12 @@ class ContactsTableViewController: UITableViewController {
     // MARK: Mapping between index paths
     
     private func tvIndexPathFromFrcIndexPath(_ frcIndexPath: IndexPath) -> IndexPath {
-        if self.persistedObvOwnedIdentity == nil {
-            return frcIndexPath
-        } else {
-            return IndexPath(row: frcIndexPath.row, section: frcIndexPath.section+1)
-        }
+        return frcIndexPath
     }
     
     
     private func frcIndexPathFromTvIndexPath(_ tvIndexPath: IndexPath) -> IndexPath {
-        guard tvIndexPath.section > 0 else { return tvIndexPath }
-        if self.persistedObvOwnedIdentity == nil {
-            return tvIndexPath
-        } else {
-            return IndexPath(row: tvIndexPath.row, section: tvIndexPath.section-1)
-        }
+        return tvIndexPath
     }
     
 }
@@ -176,10 +157,6 @@ extension ContactsTableViewController {
         self.tableView?.rowHeight = UITableView.automaticDimension
         self.tableView?.estimatedRowHeight = UITableView.automaticDimension
 
-        if self.persistedObvOwnedIdentity != nil {
-            self.observeChangesMadeToPersistedObvOwnedIdentity()
-        }
-        
         resetTableViewContentInset()
         registerTableViewCell()
         configureSearchController()
@@ -226,26 +203,6 @@ extension ContactsTableViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         selectedContactsDuringLastSearch.removeAll()
-    }
-
-    
-    private func observeChangesMadeToPersistedObvOwnedIdentity() {
-        guard let persistedObvOwnedIdentity = self.persistedObvOwnedIdentity else { return }
-        let NotificationName = Notification.Name.NSManagedObjectContextDidSave
-        let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { (notification) in
-            guard let userInfo = notification.userInfo else { return }
-            if let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject>, !updatedObjects.isEmpty {
-                let updatedPersistedObvOwnedIdentities = updatedObjects.compactMap { $0 as? PersistedObvOwnedIdentity }
-                let updatedPersistedObvOwnedIdentityObjectIDs = updatedPersistedObvOwnedIdentities.map { $0.objectID }
-                if updatedPersistedObvOwnedIdentityObjectIDs.contains(persistedObvOwnedIdentity.objectID) {
-                    DispatchQueue.main.async { [weak self] in
-                        persistedObvOwnedIdentity.managedObjectContext?.mergeChanges(fromContextDidSave: notification)
-                        self?.tableView.reloadRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
-                    }
-                }
-            }
-        }
-        notificationTokens.append(token)
     }
 
 }
@@ -300,25 +257,12 @@ extension ContactsTableViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
         guard fetchedResultsController.sections != nil else { return 0 }
-        if showOwnedIdentity {
-            return fetchedResultsController.sections!.count + 1
-        } else {
-            return fetchedResultsController.sections!.count
-        }
+        return fetchedResultsController.sections!.count
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        if !showOwnedIdentity {
-            let sectionInfo = fetchedResultsController.sections![section]
-            return sectionInfo.numberOfObjects
-        } else {
-            if section == 0 {
-                return 1
-            } else {
-                let sectionInfo = fetchedResultsController.sections![section-1]
-                return sectionInfo.numberOfObjects
-            }
-        }
+        let sectionInfo = fetchedResultsController.sections![section]
+        return sectionInfo.numberOfObjects
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -330,17 +274,7 @@ extension ContactsTableViewController {
         case .checkmark: cell.selectionStyle = .none
         case .xmark: cell.selectionStyle = .none
         }
-        // Configure the rest of the cell
-        if showOwnedIdentity, let persistedObvOwnedIdentity = self.persistedObvOwnedIdentity {
-            if indexPath.section == 0 {
-                configure(cell, with: persistedObvOwnedIdentity)
-            } else {
-                let frcIndexPath = frcIndexPathFromTvIndexPath(indexPath)
-                configure(cell, withObjectAtIndexPath: frcIndexPath)
-            }
-        } else {
-            configure(cell, withObjectAtIndexPath: indexPath)
-        }
+        configure(cell, withObjectAtIndexPath: indexPath)
         return cell
     }
 
@@ -410,19 +344,7 @@ extension ContactsTableViewController {
         cell.setCircleDiameter(to: 80.0)
         cell.stopSpinner() // In case the cell was reused
     }
-    
-    
-    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        guard showOwnedIdentity else { return nil }
-        switch section {
-        case 0:
-            return Strings.SectionTitle.myOlvidCard
-        case 1:
-            return CommonString.Word.Contacts
-        default:
-            return nil
-        }
-    }
+        
 }
 
 
@@ -439,15 +361,7 @@ extension ContactsTableViewController {
     override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let log = self.log
         let frcIndexPath: IndexPath
-        if showOwnedIdentity {
-            if indexPath.section == 0 {
-                return UISwipeActionsConfiguration(actions: [])
-            } else {
-                frcIndexPath = frcIndexPathFromTvIndexPath(indexPath)
-            }
-        } else {
-            frcIndexPath = indexPath
-        }
+        frcIndexPath = indexPath
         guard allowDeletion else {
             let configuration = UISwipeActionsConfiguration(actions: [])
             return configuration
@@ -468,20 +382,7 @@ extension ContactsTableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let frcIndexPath: IndexPath
-        if showOwnedIdentity {
-            if indexPath.section == 0 {
-                delegate?.userDidSelectOwnedIdentity()
-                return
-            } else {
-                frcIndexPath = frcIndexPathFromTvIndexPath(indexPath)
-            }
-        } else {
-            if self.persistedObvOwnedIdentity == nil {
-                frcIndexPath = indexPath
-            } else {
-                frcIndexPath = frcIndexPathFromTvIndexPath(indexPath)
-            }
-        }
+        frcIndexPath = indexPath
         let persistedContactIdentity = fetchedResultsController.object(at: frcIndexPath)
         
         guard !disableContactsWithoutDevice || !persistedContactIdentity.devices.isEmpty else {
@@ -534,15 +435,7 @@ extension ContactsTableViewController {
     
     override func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
         let frcIndexPath: IndexPath
-        if showOwnedIdentity {
-            if indexPath.section == 0 {
-                return
-            } else {
-                frcIndexPath = frcIndexPathFromTvIndexPath(indexPath)
-            }
-        } else {
-            frcIndexPath = indexPath
-        }
+        frcIndexPath = indexPath
         
         let persistedContactIdentity = fetchedResultsController.object(at: frcIndexPath)
         
@@ -600,7 +493,7 @@ extension ContactsTableViewController: UISearchResultsUpdating {
     func updateSearchResults(for searchController: UISearchController) {
         if let searchedText = searchController.searchBar.text, !searchedText.isEmpty {
             self.searchPredicate = NSPredicate(format: "%K contains[cd] %@",
-                                               PersistedObvContactIdentity.fullDisplayNameKey, searchedText)
+                                               PersistedObvContactIdentity.Predicate.Key.fullDisplayName.rawValue, searchedText)
         } else {
             self.searchPredicate = nil
         }

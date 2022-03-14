@@ -19,6 +19,7 @@
 
 import Foundation
 import UIKit
+import ObvTypes
 
 struct ObvMessengerConstants {
     
@@ -177,6 +178,13 @@ struct ObvMessengerConstants {
     }
 
     // Notifications
+    
     static let requestIdentifiersOfSilentNotificationsAddedByExtension = "requestIdentifiersOfSilentNotificationsAddedByExtension"
     static let requestIdentifiersOfFullNotificationsAddedByExtension = "requestIdentifiersOfFullNotificationsAddedByExtension"
+    
+    // Capabilities
+    
+    static let supportedObvCapabilities: Set<ObvCapability> = {
+        [.webrtcContinuousICE]
+    }()
 }

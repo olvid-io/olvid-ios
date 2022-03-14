@@ -41,11 +41,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Register for push notifications
         application.registerForRemoteNotifications()
 
-        /* Enabling Updating with Background App Refresh. This will trigger a periodic call to:
-         * optional func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void)
-         */
-        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
-
         // Set the shortcut item in case we were launched via a home screen quick action (and the app was not already loaded in memory)
         if let shortcutItem = launchOptions?[UIApplication.LaunchOptionsKey.shortcutItem] as? UIApplicationShortcutItem {
             self.appInitializer.application(application, performActionFor: shortcutItem, completionHandler: { _ in })
@@ -79,12 +74,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
         obvEngine?.applicationDidEnterBackground()
-        if #available(iOS 13.0, *) {
-            BackgroundTasksManager.shared.cancelAllPendingBGTask()
-            scheduleBackgroundTaskForCleaningExpiredMessages()
-            scheduleBackgroundTaskForApplyingRetentionPolicies()
-            scheduleBackgroundTaskForUpdatingBadge()
-        }
+        BackgroundTasksManager.shared.cancelAllPendingBGTask()
+        scheduleBackgroundTaskForCleaningExpiredMessages()
+        scheduleBackgroundTaskForApplyingRetentionPolicies()
+        scheduleBackgroundTaskForUpdatingBadge()
+        scheduleBackgroundTaskForListingMessagesOnServer()
     }
     
     
@@ -144,11 +138,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         os_log("🌊 application:handleEventsForBackgroundURLSession:completionHandler called with identifier: %{public}@", log: log, type: .info, identifier)
         // Typically called when a background URLSession was initiated from an extension, but that extension did not finish the job
         appInitializer.application(application, handleEventsForBackgroundURLSession: identifier, completionHandler: completionHandler)
-    }
-    
-    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        os_log("🌊 Application performFetchWithCompletionHandler", log: log, type: .info)
-        appInitializer.application(application, performFetchWithCompletionHandler: completionHandler)
     }
     
 }

@@ -63,6 +63,8 @@ final class UserNotificationsCoordinator: NSObject {
         observePersistedMessageReceivedWasDeletedNotifications()
         observeUserRequestedDeletionOfPersistedDiscussionNotifications()
         observeReportCallEventNotifications()
+        observePersistedMessageReactionReceived()
+        observePersistedMessageReactionReceivedWasDeletedNotifications()
     }
     
     deinit {
@@ -139,6 +141,16 @@ extension UserNotificationsCoordinator {
     }
 
     
+    /// When a received reaction message is deleted (for whatever reason), we want to removing any existing notification related
+    /// to this reaction
+    private func observePersistedMessageReactionReceivedWasDeletedNotifications() {
+        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageReactionReceivedWasDeleted { (messageURI, contactURI) in
+            let notificationCenter = UNUserNotificationCenter.current()
+            let notificationId = ObvUserNotificationIdentifier.newReaction(messageURI: messageURI, contactURI: contactURI)
+            UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
+        })
+    }
+
     /// When a received message is deleted (for whatever reason), we want to removing any existing notification related
     /// to this message
     private func observePersistedMessageReceivedWasDeletedNotifications() {
@@ -235,16 +247,65 @@ extension UserNotificationsCoordinator {
                             discussion: discussion,
                             urlForStoringPNGThumbnail: nil,
                             badge: nil)
-                        /*
-                         2021-01-11: The following line was commented out. The reason is that we noticed in the header of the addNotificationRequest method of the API (called within scheduleNotification) that this call will "will replace an existing notification request with the same identifier". So there is no need to remove it beforehand ourselves.
-                         */
                         UserNotificationsScheduler.filteredScheduleNotification(discussion: discussion, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
                     }
                 }
             }
         }
     }
-    
+
+    private func observePersistedMessageReactionReceived() {
+        let NotificationName = NSNotification.Name.NSManagedObjectContextDidSave
+        let notificationCenter = UNUserNotificationCenter.current()
+        let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { (notification) in
+            guard let userInfo = notification.userInfo else { return }
+            var currentReactionNotificationTimestamps: [String: Date] = [:]
+            func update(_ requests: [UNNotificationRequest]) {
+                for request in requests {
+                    guard request.content.userInfo[UserNotificationKeys.id] as? Int == ObvUserNotificationID.newReaction.rawValue else { continue }
+                    guard let timestamp = request.content.userInfo[UserNotificationKeys.reactionTimestamp] as? Date else { assertionFailure(); continue }
+                    currentReactionNotificationTimestamps[request.identifier] = timestamp
+                }
+            }
+            let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? Set()
+            let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? Set()
+            let insertedAndUpdatedObjects = insertedObjects.union(updatedObjects)
+            guard !insertedAndUpdatedObjects.isEmpty else { return }
+            let insertedAndUpdatedReactions = insertedAndUpdatedObjects.compactMap { $0 as? PersistedMessageReactionReceived }
+            guard !insertedAndUpdatedReactions.isEmpty else { return }
+            let group = DispatchGroup()
+            do {
+                group.enter()
+                notificationCenter.getDeliveredNotifications { deliveredNotifications in
+                    let deliveredNotificationsRequests = deliveredNotifications.map { $0.request }
+                    update(deliveredNotificationsRequests)
+                    group.leave()
+                }
+            }
+            do {
+                group.enter()
+                notificationCenter.getPendingNotificationRequests { pendingNotificationsRequests in
+                    update(pendingNotificationsRequests)
+                    group.leave()
+                }
+            }
+            group.wait()
+            for reaction in insertedAndUpdatedReactions {
+                guard let discussion = reaction.message?.discussion else { continue }
+                guard let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(reaction: reaction) else { continue }
+
+                if let currentTimestamp = currentReactionNotificationTimestamps[notificationId.getIdentifier()] {
+                    if currentTimestamp >= reaction.timestamp {
+                        // If it there is aleady a notification with a more recent date we must not update it
+                        continue
+                    }
+                }
+
+                UserNotificationsScheduler.filteredScheduleNotification(discussion: discussion, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+            }
+        }
+        observationTokens.append(token)
+    }
 }
 
 

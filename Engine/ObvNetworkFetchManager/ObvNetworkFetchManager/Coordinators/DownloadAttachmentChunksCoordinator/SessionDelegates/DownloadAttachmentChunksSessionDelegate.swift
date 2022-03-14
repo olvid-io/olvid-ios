@@ -222,15 +222,11 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
             obvContext.performAndWait {
                 
                 defer {
-                    if #available(iOS 13, *) {
-                        do {
-                            try fh.close()
-                        } catch {
-                            os_log("Could not close file handler: %{public}@", log: log, type: .fault)
-                            assertionFailure()
-                        }
-                    } else {
-                        fh.closeFile()
+                    do {
+                        try fh.close()
+                    } catch {
+                        os_log("Could not close file handler: %{public}@", log: log, type: .fault)
+                        assertionFailure()
                     }
                 }
                 

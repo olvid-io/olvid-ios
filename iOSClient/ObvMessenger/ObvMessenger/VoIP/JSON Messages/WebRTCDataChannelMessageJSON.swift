@@ -107,27 +107,37 @@ struct ContactBytesAndNameJSON: Codable {
 
     let byteContactIdentity: Data
     let displayName: String
+    private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
 
     enum CodingKeys: String, CodingKey {
         case byteContactIdentity = "id"
         case displayName = "name"
+        case rawGatheringPolicy = "gp"
     }
 
-    init(byteContactIdentity: Data, displayName: String) {
+    init(byteContactIdentity: Data, displayName: String, gatheringPolicy: GatheringPolicy) {
         self.byteContactIdentity = byteContactIdentity
         self.displayName = displayName
+        self.rawGatheringPolicy = gatheringPolicy.rawValue
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.byteContactIdentity = try values.decode(Data.self, forKey: .byteContactIdentity)
         self.displayName = try values.decode(String.self, forKey: .displayName)
+        self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(byteContactIdentity, forKey: .byteContactIdentity)
         try container.encode(displayName, forKey: .displayName)
+        try container.encode(rawGatheringPolicy, forKey: .rawGatheringPolicy)
+    }
+
+    var gatheringPolicy: GatheringPolicy? {
+        guard let rawGatheringPolicy = rawGatheringPolicy else { return nil }
+        return GatheringPolicy(rawValue: rawGatheringPolicy)
     }
 
 }
@@ -148,7 +158,8 @@ struct UpdateParticipantsMessageJSON: WebRTCDataChannelInnerMessageJSON {
             guard callParticipant.state == .connected || callParticipant.state == .reconnecting else { continue }
             guard let bytesContactIdentity = callParticipant.contactIdentity?.getIdentity() else { continue }
             guard let displayName = callParticipant.fullDisplayName else { continue }
-            callParticipants_.append(ContactBytesAndNameJSON(byteContactIdentity: bytesContactIdentity, displayName: displayName))
+            guard let gatheringPolicy = callParticipant.gatheringPolicy else { continue }
+            callParticipants_.append(ContactBytesAndNameJSON(byteContactIdentity: bytesContactIdentity, displayName: displayName, gatheringPolicy: gatheringPolicy))
         }
         self.callParticipants = callParticipants_
     }

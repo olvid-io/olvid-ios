@@ -298,7 +298,6 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
 }
 
 
-@available(iOS 13.0, *)
 private final class NameLabel: ViewForOlvidStack {
     
     private let label = UILabel()

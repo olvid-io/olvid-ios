@@ -46,6 +46,8 @@ final public class ObvEncoded: NSObject, Decodable {
         return innerData.count
     }
     
+    static func makeError(message: String) -> Error { NSError(domain: "ObvEncoded", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     public var rawData: Data {
         let innerDataCount = innerData.count
         var encodedData = Data(count: 5 + innerDataCount)
@@ -106,37 +108,51 @@ final public class ObvEncoded: NSObject, Decodable {
 extension ObvEncoded {
     
     public func decode<DecodedType: ObvDecodable>() throws -> DecodedType {
-        guard let decodedValue: DecodedType = DecodedType(self) else { throw NSError() }
+        guard let decodedValue: DecodedType = DecodedType(self) else {
+            throw Self.makeError(message: "decode failed (1)")
+        }
         return decodedValue
     }
     
     public func decode<T0: ObvDecodable, T1: ObvDecodable>() throws -> (T0, T1) {
-        guard let encodedElements = [ObvEncoded](self, expectedCount: 2) else { throw NSError() }
+        guard let encodedElements = [ObvEncoded](self, expectedCount: 2) else {
+            throw Self.makeError(message: "decode failed (2)")
+        }
         return try encodedElements.decode()
     }
 
     public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable>() throws -> (T0, T1, T2) {
-        guard let encodedElements = [ObvEncoded](self, expectedCount: 3) else { throw NSError() }
+        guard let encodedElements = [ObvEncoded](self, expectedCount: 3) else {
+            throw Self.makeError(message: "decode failed (3)")
+        }
         return try encodedElements.decode()
     }
 
     public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable>() throws -> (T0, T1, T2, T3) {
-        guard let encodedElements = [ObvEncoded](self, expectedCount: 4) else { throw NSError() }
+        guard let encodedElements = [ObvEncoded](self, expectedCount: 4) else {
+            throw Self.makeError(message: "decode failed (4)")
+        }
         return try encodedElements.decode()
     }
 
     public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable>() throws -> (T0, T1, T2, T3, T4) {
-        guard let encodedElements = [ObvEncoded](self, expectedCount: 5) else { throw NSError() }
+        guard let encodedElements = [ObvEncoded](self, expectedCount: 5) else {
+            throw Self.makeError(message: "decode failed (5)")
+        }
         return try encodedElements.decode()
     }
 
     public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5) {
-        guard let encodedElements = [ObvEncoded](self, expectedCount: 6) else { throw NSError() }
+        guard let encodedElements = [ObvEncoded](self, expectedCount: 6) else {
+            throw Self.makeError(message: "decode failed (6)")
+        }
         return try encodedElements.decode()
     }
 
     public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable, T6: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5, T6) {
-        guard let encodedElements = [ObvEncoded](self, expectedCount: 7) else { throw NSError() }
+        guard let encodedElements = [ObvEncoded](self, expectedCount: 7) else {
+            throw Self.makeError(message: "decode failed (7)")
+        }
         return try encodedElements.decode()
     }
 
@@ -228,7 +244,7 @@ extension ObvEncoded {
             ObvEncoded(withRawData: encodedDataAsRawData) != nil {
             self.init(withRawData: encodedDataAsRawData)!
         } else {
-            throw NSError()
+            throw Self.makeError(message: "ObvEncoded init failed")
         }
     }
 }

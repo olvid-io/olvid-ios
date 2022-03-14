@@ -24,7 +24,6 @@ import ObvTypes
 import ObvMetaManager
 import Combine
 
-@available(iOS 13.0, *)
 class SingleIdentity: Identifiable, Hashable, ObservableObject {
     
     let id = UUID()
@@ -311,7 +310,6 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
 }
 
 
-@available(iOS 13.0, *)
 protocol SingleContactIdentityDelegate: AnyObject {
     func userWantsToPerformAnIntroduction(forContact: SingleContactIdentity)
     func userWantsToDeleteContact(_ contact: SingleContactIdentity, completion: @escaping (Bool) -> Void)
@@ -322,7 +320,6 @@ protocol SingleContactIdentityDelegate: AnyObject {
 }
 
 
-@available(iOS 13.0, *)
 final class SingleContactIdentity: SingleIdentity {
 
     weak var delegate: SingleContactIdentityDelegate?
@@ -708,7 +705,6 @@ final class SingleContactIdentity: SingleIdentity {
 }
 
 
-@available(iOS 13.0, *)
 final class ContactGroup: Identifiable, Hashable, ObservableObject {
 
     let id = UUID()
@@ -834,7 +830,6 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
 
 }
 
-@available(iOS 13.0, *)
 struct ProfilePictureView: View {
 
     let profilePicture: UIImage?
@@ -897,7 +892,6 @@ struct ProfilePictureView: View {
 }
 
 
-@available(iOS 13.0, *)
 struct ProfilePictureAction {
     let title: String
     let handler: () -> Void
@@ -908,7 +902,6 @@ struct ProfilePictureAction {
 }
 
 
-@available(iOS 13.0, *)
 struct IdentityCardContentView: View {
     
     @ObservedObject var model: SingleIdentity
@@ -939,7 +932,6 @@ enum PreferredDetails {
     case customOrTrusted
 }
 
-@available(iOS 13.0, *)
 struct ContactIdentityCardContentView: View {
     
     @ObservedObject var model: SingleContactIdentity
@@ -990,7 +982,6 @@ struct ContactIdentityCardContentView: View {
 
 }
 
-@available(iOS 13.0, *)
 struct GroupCardContentView: View {
     
     @ObservedObject var model: ContactGroup
@@ -1038,7 +1029,6 @@ enum CircleAndTitlesEditionMode {
     case nicknameAndPicture(action: () -> Void)
 }
 
-@available(iOS 13.0, *)
 struct CircleAndTitlesView: View {
     
     private let titlePart1: String?
@@ -1155,7 +1145,6 @@ struct CircleAndTitlesView: View {
     }
 }
 
-@available(iOS 13.0, *)
 fileprivate struct FullScreenProfilePictureView: View {
     @Environment(\.presentationMode) var presentationMode
     var photo: UIImage? // We use a binding here because this is what a SingleIdentity exposes
@@ -1179,7 +1168,6 @@ fileprivate struct FullScreenProfilePictureView: View {
 
 }
 
-@available(iOS 13.0, *)
 fileprivate struct BackgroundBlurView: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let effect = UIBlurEffect(style: .regular)
@@ -1194,7 +1182,6 @@ fileprivate struct BackgroundBlurView: UIViewRepresentable {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct TextView: View {
     
     let titlePart1: String?
@@ -1286,7 +1273,6 @@ fileprivate struct TextView: View {
 
 
 
-@available(iOS 13.0, *)
 struct IdentityCardContentView_Previews: PreviewProvider {
     
     static let contacts = [

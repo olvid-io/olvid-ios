@@ -57,6 +57,8 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
     func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) throws
     
     func getWebSocketState(ownedIdentity: ObvCryptoIdentity, completionHander: @escaping (Result<(URLSessionTask.State,TimeInterval?),Error>) -> Void)
+    func connectWebsockets(flowId: FlowIdentifier)
+    func disconnectWebsockets(flowId: FlowIdentifier)
 
     func getTurnCredentials(ownedIdenty: ObvCryptoIdentity, callUuid: UUID, username1: String, username2: String, flowId: FlowIdentifier)
 

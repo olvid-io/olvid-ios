@@ -20,7 +20,7 @@
 import SwiftUI
 
 
-@available(iOS 13, *)
+
 struct ObvSimpleListItemView: View {
     
     private let title: Text

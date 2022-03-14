@@ -483,3 +483,14 @@ notifications:
 - name: requestSyncAppDatabasesWithEngine
   params:
   - {name: completion, type: "(Result<Void,Error>) -> Void", escaping: true}
+- name: persistedMessageReactionReceivedWasDeleted
+  params:
+  - {name: messageURI, type: URL}
+  - {name: contactURI, type: URL}
+- name: uiRequiresSignedOwnedDetails
+  params:
+  - {name: ownedIdentityCryptoId, type: ObvCryptoId}
+  - {name: completion, type: "(SignedUserDetails?) -> Void", escaping: true}
+- name: listMessagesOnServerBackgroundTaskWasLaunched
+  params:
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}

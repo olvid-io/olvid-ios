@@ -35,6 +35,9 @@ final class ContactIdentityCoordinator {
     
     private static let errorDomain = String(describing: ContactIdentityCoordinator.self)
     
+    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private func makeError(message: String) -> Error { Self.makeError(message: message) }
+
     init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
         self.obvEngine = obvEngine
         self.internalQueue = operationQueue
@@ -106,6 +109,9 @@ final class ContactIdentityCoordinator {
             },
             ObvEngineNotificationNew.observeUpdatedContactIdentity(within: NotificationCenter.default) { [weak self] (obvContactIdentity, trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated) in
                 self?.processUpdatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated)
+            },
+            ObvEngineNotificationNew.observeContactObvCapabilitiesWereUpdated(within: NotificationCenter.default) { [weak self] (obvContactIdentity) in
+                self?.processContactObvCapabilitiesWereUpdated(obvContactIdentity: obvContactIdentity)
             },
         ])
      
@@ -329,7 +335,7 @@ extension ContactIdentityCoordinator {
     
     private func userWantsToDeleteContact(with contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, viewController: UIViewController, completionHandler: ((Bool) -> Void)?, confirmed: Bool) {
         
-        assert(Thread.current == Thread.main)
+        assert(Thread.isMainThread)
         
         guard self.currentOwnedCryptoId == ownedCryptoId else { return }
         
@@ -436,6 +442,17 @@ extension ContactIdentityCoordinator {
         }
     }
         
+    
+    private func processContactObvCapabilitiesWereUpdated(obvContactIdentity: ObvContactIdentity) {
+        let op1 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
     
     private func observeNewTrustedContactIdentity() {
         let NotificationType = ObvEngineNotification.NewTrustedContactIdentity.self
@@ -630,7 +647,7 @@ extension ContactIdentityCoordinator {
         
         guard let persistedContactIdentity = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, within: context) else {
             os_log("Could not find persisted contact identity", log: log, type: .error)
-            throw NSError()
+            throw makeError(message: "Could not find persisted contact identity")
         }
 
         // When a contact is deleted, we lock the one2one we have we this contact and, only then, we delete the contact.
@@ -640,7 +657,7 @@ extension ContactIdentityCoordinator {
         if let oneToOneDiscussion = try PersistedOneToOneDiscussion.get(objectID: persistedContactIdentity.oneToOneDiscussion.objectID, within: context) as? PersistedOneToOneDiscussion {
             guard let persistedDiscussionOneToOneLocked = PersistedDiscussionOneToOneLocked(persistedOneToOneDiscussionToLock: oneToOneDiscussion) else {
                 os_log("Could not lock the persisted oneToOne discussion", log: log, type: .error)
-                throw NSError()
+                throw makeError(message: "Could not lock the persisted oneToOne discussion")
             }
             
             _ = try PersistedMessageSystem(.contactWasDeleted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: persistedDiscussionOneToOneLocked)

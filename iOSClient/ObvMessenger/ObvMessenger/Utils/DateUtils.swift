@@ -102,7 +102,7 @@ extension TimeInterval {
 
 extension Date {
 
-    @available(iOS 13.0, *)
+    
     var relativeFormatted: String {
         let calendar = Calendar.current
         if calendar.isDateInToday(self) || calendar.isDateInYesterday(self) {

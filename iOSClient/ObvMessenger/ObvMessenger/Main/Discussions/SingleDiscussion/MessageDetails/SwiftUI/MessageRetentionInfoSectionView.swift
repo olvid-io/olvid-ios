@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
+
 struct MessageRetentionInfoSectionView: View {
     
     let timeBasedDeletionDateString: String?
@@ -54,7 +54,7 @@ struct MessageRetentionInfoSectionView: View {
 
 
 
-@available(iOS 13.0, *)
+
 struct MessageRetentionInfoView_Previews: PreviewProvider {
     
     static var previews: some View {

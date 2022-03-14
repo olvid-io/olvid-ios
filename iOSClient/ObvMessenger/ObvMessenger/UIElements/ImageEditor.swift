@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
+
 struct ImageEditor: View {
 
     @Binding var image: UIImage?
@@ -349,7 +349,7 @@ struct ImageEditor: View {
 
 }
 
-@available(iOS 13.0, *)
+
 struct Landscape<Content>: View where Content: View {
     let content: () -> Content
     let height = UIScreen.main.bounds.width

@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct HUDView: View {
     
     enum Category {
@@ -40,7 +40,7 @@ struct HUDView: View {
     
 }
 
-@available(iOS 13, *)
+
 fileprivate struct HUDInnerView: View {
     
     let category: HUDView.Category
@@ -56,7 +56,7 @@ fileprivate struct HUDInnerView: View {
         Group {
             switch category {
             case .progress:
-                ObvActivityIndicator(isAnimating: .constant(true), style: .large)
+                ObvActivityIndicator(isAnimating: .constant(true), style: .large, color: nil)
                     .frame(width: width, height: height, alignment: .center)
             case .checkmark:
                 Image(systemName: "checkmark.circle")
@@ -86,7 +86,7 @@ fileprivate struct HUDInnerView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct HUDView_Previews: PreviewProvider {
     static var previews: some View {
         Group {

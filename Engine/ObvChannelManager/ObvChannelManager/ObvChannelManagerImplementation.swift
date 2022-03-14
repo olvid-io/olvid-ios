@@ -42,10 +42,7 @@ public final class ObvChannelManagerImplementation: ObvChannelDelegate, ObvProce
     
     private static let errorDomain = "ObvChannelManagerImplementation"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     private weak var contextCreator: ObvCreateContextDelegate?
     
@@ -90,34 +87,50 @@ extension ObvChannelManagerImplementation {
     public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
         switch delegateType {
         case .ObvCreateContextDelegate:
-            guard let delegate = delegate as? ObvCreateContextDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvCreateContextDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvCreateContextDelegate)")
+            }
             self.contextCreator = delegate
         case .ObvIdentityDelegate:
-            guard let delegate = delegate as? ObvIdentityDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvIdentityDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvIdentityDelegate)")
+            }
             delegateManager.identityDelegate = delegate
         case .ObvKeyWrapperForIdentityDelegate:
-            guard let delegate = delegate as? ObvKeyWrapperForIdentityDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvKeyWrapperForIdentityDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvKeyWrapperForIdentityDelegate)")
+            }
             delegateManager.keyWrapperForIdentityDelegate = delegate
         case .ObvNetworkPostDelegate:
-            guard let delegate = delegate as? ObvNetworkPostDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNetworkPostDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvNetworkPostDelegate)")
+            }
             delegateManager.networkPostDelegate = delegate
         case .ObvNetworkFetchDelegate:
-            guard let delegate = delegate as? ObvNetworkFetchDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNetworkFetchDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvNetworkFetchDelegate)")
+            }
             delegateManager.networkFetchDelegate = delegate
         case .ObvProtocolDelegate:
-            guard let delegate = delegate as? ObvProtocolDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvProtocolDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvProtocolDelegate)")
+            }
             delegateManager.protocolDelegate = delegate
         case .ObvFullRatchetProtocolStarterDelegate:
-            guard let delegate = delegate as? ObvFullRatchetProtocolStarterDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvFullRatchetProtocolStarterDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvFullRatchetProtocolStarterDelegate)")
+            }
             delegateManager.fullRatchetProtocolStarterDelegate = delegate
         case .ObvNotificationDelegate:
-            guard let delegate = delegate as? ObvNotificationDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNotificationDelegate else {
+                throw Self.makeError(message: "Failed to fulfill delegates (ObvNotificationDelegate)")
+            }
             delegateManager.notificationDelegate = delegate
         default:
-            throw NSError()
-            
+            throw Self.makeError(message: "Failed to fulfill delegates (default)")
         }
     }
+    
     
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
 
@@ -201,11 +214,11 @@ extension ObvChannelManagerImplementation {
     
     // MARK: Posting a message
     
-    public func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+    public func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
         os_log("Posting a message within obvContext: %{public}@", log: log, type: .info, obvContext.name)
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
-        let postedCryptoIdentities = try message.channelType.obvChannelType.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
-        return postedCryptoIdentities
+        let messageIdentifiersForCryptoIdentities = try message.channelType.obvChannelType.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        return messageIdentifiersForCryptoIdentities
     }
     
     

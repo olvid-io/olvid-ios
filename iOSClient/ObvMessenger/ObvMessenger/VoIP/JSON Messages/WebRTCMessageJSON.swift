@@ -32,6 +32,8 @@ struct WebRTCMessageJSON: Codable {
         case newParticipantOffer = 7
         case newParticipantAnswer = 8
         case kick = 9
+        case newIceCandidate = 10
+        case removeIceCandidates = 11
 
         var description: String {
             switch self {
@@ -45,6 +47,17 @@ struct WebRTCMessageJSON: Codable {
             case .newParticipantOffer: return "newParticipantOffer"
             case .newParticipantAnswer: return "newParticipantAnswer"
             case .kick: return "kick"
+            case .newIceCandidate: return "newIceCandidate"
+            case .removeIceCandidates: return "removeIceCandidates"
+            }
+        }
+
+        var isAllowedToBeRelayed: Bool {
+            switch self {
+            case .startCall, .answerCall, .rejectCall, .ringing, .busy, .kick:
+                return false
+            case .hangedUp, .reconnect, .newParticipantOffer, .newParticipantAnswer, .newIceCandidate, .removeIceCandidates:
+                return true
             }
         }
     }

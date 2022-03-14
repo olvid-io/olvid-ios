@@ -21,7 +21,7 @@ import UIKit
 
 
 
-@available(iOS 13.0, *)
+
 final class EphemeralityInformationsView: ViewForOlvidStack {
     
     init() {
@@ -102,7 +102,7 @@ final class EphemeralityInformationsView: ViewForOlvidStack {
 
 
 
-@available(iOS 13.0, *)
+
 final fileprivate class ImageAndLabelView: ViewForOlvidStack {
     
     private let label = UILabel()

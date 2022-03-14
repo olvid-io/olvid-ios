@@ -57,7 +57,7 @@ final class WindowsManager {
     private var keepCallWindowUntilNonCallKitIncomingCallIsHandled = false
     
     private var preferAppViewOverCallView = false
-    private var currentState = AppState.justLaunched(iOSAppState: .notActive, authenticateAutomaticallyNextTime: true, callInProgress: nil)
+    private var currentState = AppState.justLaunched(iOSAppState: .notActive, authenticateAutomaticallyNextTime: true, callInProgress: nil, aCallRequiresNetworkConnection: false)
 
     private var observationTokens = [NSObjectProtocol]()
     
@@ -205,13 +205,13 @@ extension WindowsManager {
         
         switch currentState {
         
-        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             transitionCurrentWindowTo(window: initializerWindow, animated: true)
 
-        case .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             transitionCurrentWindowTo(window: initializerWindow, animated: true)
 
-        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
+        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: _):
             
             switch iOSAppState {
             case .inBackground:
@@ -353,11 +353,7 @@ extension WindowsManager {
 extension WindowsManager {
     
     private func makeCallViewController(call: Call) -> UIViewController {
-        if #available(iOS 13, *) {
-            return CallViewHostingController(call: call)
-        } else {
-            return CallViewController(call: call)
-        }
+        CallViewHostingController(call: call)
     }
     
 }

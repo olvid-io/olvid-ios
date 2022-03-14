@@ -21,7 +21,7 @@ import LinkPresentation
 import CryptoKit
 import os.log
 
-@available(iOS 13.0, *)
+
 extension LPMetadataProvider {
     
     private static let errorDomain = "LPMetadataProvider"
@@ -42,8 +42,8 @@ extension LPMetadataProvider {
     func getCachedOrStartFetchingMetadata(for URL: URL, cacheHit: (LPLinkMetadata?) -> Void, completionHandler: @escaping (LPLinkMetadata?, Error?) -> Void) {
         
         do {
-            if let cachedLinkMetada = try LPMetadataProvider.getCachedLinkMetada(for: URL) {
-                cacheHit(cachedLinkMetada)
+            if let cachedLinkMetadata = try LPMetadataProvider.getCachedLinkMetadata(for: URL) {
+                cacheHit(cachedLinkMetadata)
                 return
             }
         } catch let error {
@@ -60,7 +60,7 @@ extension LPMetadataProvider {
         startFetchingMetadata(for: URL) { (metadata, error) in
             if error == nil && metadata != nil {
                 do {
-                    try LPMetadataProvider.storeLinkMetada(metadata!, for: URL)
+                    try LPMetadataProvider.storeLinkMetadata(metadata!, for: URL)
                 } catch let error {
                     os_log("Could not store link metadata: %{public}@", log: LPMetadataProvider.log, type: .error, error.localizedDescription)
                 }
@@ -72,7 +72,7 @@ extension LPMetadataProvider {
     }
 
     
-    static func getCachedLinkMetada(for url: URL) throws -> LPLinkMetadata? {
+    static func getCachedLinkMetadata(for url: URL) throws -> LPLinkMetadata? {
         guard let fileNameForArchiving = url.toFileNameForArchiving() else { return nil }
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true, attributes: nil)
         let filePath = tempDir.appendingPathComponent(fileNameForArchiving)
@@ -93,17 +93,15 @@ extension LPMetadataProvider {
     }
     
     
-    static func storeLinkMetada(_ metadata: LPLinkMetadata, for url: URL) throws {
+    static func storeLinkMetadata(_ metadata: LPLinkMetadata, for url: URL) throws {
         guard let fileNameForArchiving = url.toFileNameForArchiving() else {
             return
         }
-        let archivedData = NSMutableData()
-        let archiver = NSKeyedArchiver(forWritingWith: archivedData)
-        archiver.requiresSecureCoding = true
+        let archiver = NSKeyedArchiver(requiringSecureCoding: true)
         metadata.encode(with: archiver)
-        archiver.finishEncoding()
+        let data = archiver.encodedData
         let filePath = tempDir.appendingPathComponent(fileNameForArchiving)
-        try archivedData.write(to: filePath)
+        try data.write(to: filePath)
     }
     
     
@@ -129,7 +127,7 @@ extension LPMetadataProvider {
 }
 
 
-@available(iOS 13.0, *)
+
 private extension URL {
     
     func toFileNameForArchiving() -> String? {

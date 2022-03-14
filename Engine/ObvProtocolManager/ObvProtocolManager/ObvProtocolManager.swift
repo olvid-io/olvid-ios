@@ -417,4 +417,11 @@ extension ObvProtocolManager {
     public func getInitialMessageForTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, signature: Data) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ownedIdentity, remoteIdentity: remoteIdentity, signature: signature)
     }
+    
+    public func getInitialMessageForAddingOwnCapabilities(ownedIdentity: ObvCryptoIdentity, newOwnCapabilities: Set<ObvCapability>) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForAddingOwnCapabilities(
+            ownedIdentity: ownedIdentity,
+            newOwnCapabilities: newOwnCapabilities)
+    }
+
 }

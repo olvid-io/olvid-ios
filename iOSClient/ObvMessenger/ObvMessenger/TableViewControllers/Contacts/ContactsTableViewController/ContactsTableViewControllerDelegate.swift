@@ -26,7 +26,5 @@ protocol ContactsTableViewControllerDelegate: AnyObject {
     
     func userDidDeselect(_: PersistedObvContactIdentity)
     
-    func userDidSelectOwnedIdentity()
-    
     func userWantsToDeleteContact(with: ObvCryptoId, forOwnedCryptoId: ObvCryptoId, completionHandler: @escaping (Bool) -> Void)
 }

@@ -75,12 +75,7 @@ extension OwnedGroupEditionFlowViewController {
         switch editionType {
         case .create:
             let mode = MultipleContactsMode.all
-            let button: MultipleContactsButton
-            if #available(iOS 13.0, *) {
-                button = .floating(title: CommonString.Word.Next, systemIcon: .personCropCircleFillBadgeCheckmark)
-            } else {
-                button = .done(CommonString.Word.Next)
-            }
+            let button: MultipleContactsButton = .floating(title: CommonString.Word.Next, systemIcon: .personCropCircleFillBadgeCheckmark)
 
             let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
                 self.selectedGroupMembers = selectedContacts
@@ -93,12 +88,7 @@ extension OwnedGroupEditionFlowViewController {
 
         case .addGroupMembers(groupUid: _, currentGroupMembers: let currentGroupMembers):
             let mode = MultipleContactsMode.excluded(from: currentGroupMembers)
-            let button: MultipleContactsButton
-            if #available(iOS 13.0, *) {
-                button = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeCheckmark)
-            } else {
-                button = .done()
-            }
+            let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeCheckmark)
 
             let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
                 self.selectedGroupMembers = selectedContacts
@@ -111,12 +101,7 @@ extension OwnedGroupEditionFlowViewController {
         case .removeGroupMembers(groupUid: _, currentGroupMembers: let currentGroupMembers):
             let mode = MultipleContactsMode.restricted(to: currentGroupMembers)
 
-            let button: MultipleContactsButton
-            if #available(iOS 13.0, *) {
-                button = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeMinus)
-            } else {
-                button = .done()
-            }
+            let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeMinus)
 
             let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: false, allowMultipleSelection: true, showExplanation: false, selectionStyle: .multiply) { selectedContacts in
                 self.selectedGroupMembers = selectedContacts
@@ -127,23 +112,10 @@ extension OwnedGroupEditionFlowViewController {
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)
             
         case .editGroupDetails(obvContactGroup: let obvContactGroup):
-            let groupEditionVC: UIViewController
-            if #available(iOS 13.0, *) {
-                let contactGroup = ContactGroup(obvContactGroup: obvContactGroup)
-                let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewHostingController(contactGroup: contactGroup, editionType: .edit) {
-                    // REMARK no done button here, we publish in one step unlike doneButtonTapped()
-                    self.userWantsToPublishEditedOwnedContactGroup(contactGroup: contactGroup, groupUid: obvContactGroup.groupUid)
-                }
-                groupEditionVC = ownedGroupEditionFlowVC
-            } else {
-                let groupEditionDetailsChooserVC = GroupEditionDetailsChooserViewController(ownedCryptoId: ownedCryptoId)
-                groupEditionDetailsChooserVC.delegate = self
-                groupEditionVC = groupEditionDetailsChooserVC
-                let coreDetails = obvContactGroup.trustedOrLatestCoreDetails
-                groupEditionDetailsChooserVC.set(groupName: coreDetails.name, groupDescription: coreDetails.description)
-                doneButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneButtonTapped))
-                doneButtonItem!.isEnabled = false
-                groupEditionVC.navigationItem.setRightBarButton(doneButtonItem!, animated: false)
+            let contactGroup = ContactGroup(obvContactGroup: obvContactGroup)
+            let groupEditionVC = OwnedGroupEditionFlowViewHostingController(contactGroup: contactGroup, editionType: .edit) {
+                // REMARK no done button here, we publish in one step unlike doneButtonTapped()
+                self.userWantsToPublishEditedOwnedContactGroup(contactGroup: contactGroup, groupUid: obvContactGroup.groupUid)
             }
             groupEditionVC.title = Strings.groupEditionTitle
             let cancelButtonItem = UIBarButtonItem.forClosing(target: self, action: #selector(cancelButtonTapped))
@@ -195,22 +167,11 @@ extension OwnedGroupEditionFlowViewController {
         
         switch editionType {
         case .create:
-            let groupEditionVC: UIViewController
-            if #available(iOS 13.0, *) {
-                let contactGroup = ContactGroup()
-                let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewHostingController(contactGroup: contactGroup, editionType: .create) {
-                    self.createButtonTapped()
-                }
-                ownedGroupEditionFlowVC.delegate = self
-                groupEditionVC = ownedGroupEditionFlowVC
-            } else {
-                let groupEditionDetailsChooserVC = GroupEditionDetailsChooserViewController(ownedCryptoId: ownedCryptoId)
-                groupEditionDetailsChooserVC.delegate = self
-                groupEditionVC = groupEditionDetailsChooserVC
-                createButtonItem = UIBarButtonItem(title: CommonString.Word.Create, style: UIBarButtonItem.Style.done, target: self, action: #selector(createButtonTapped))
-                createButtonItem!.isEnabled = false
-                groupEditionDetailsChooserVC.navigationItem.setRightBarButton(createButtonItem!, animated: false)
+            let contactGroup = ContactGroup()
+            let groupEditionVC = OwnedGroupEditionFlowViewHostingController(contactGroup: contactGroup, editionType: .create) {
+                self.createButtonTapped()
             }
+            groupEditionVC.delegate = self
             flowNavigationController.pushViewController(groupEditionVC, animated: true)
         case .addGroupMembers:
             break
@@ -274,7 +235,6 @@ extension OwnedGroupEditionFlowViewController {
 
     }
 
-    @available(iOS 13.0, *)
     // REMARK we do the publication in one step, thus the code differs with doneButtonTapped
     private func userWantsToPublishEditedOwnedContactGroup(contactGroup: ContactGroup, groupUid: UID) {
         DispatchQueue(label: "Queue for publishing new owned Id").async { [weak self] in

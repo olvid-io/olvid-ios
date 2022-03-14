@@ -888,6 +888,32 @@ extension ChannelCreationWithContactDeviceProtocol {
                 os_log("Could not post ack message", log: log, type: .fault)
                 return CancelledState()
             }
+            
+            // Make sure this device capabilities are sent to Bob's device
+            
+            do {
+                
+                let newProtocolInstanceUid = UID.gen(with: prng)
+                let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                                      cryptoProtocolId: .ContactCapabilitiesDiscovery,
+                                                      protocolInstanceUid: newProtocolInstanceUid)
+                let message = DeviceCapabilitiesDiscoveryProtocol.InitialSingleContactDeviceMessage(coreProtocolMessage: coreMessage,
+                                                                                                     contactIdentity: contactIdentity,
+                                                                                                     contactDeviceUid: contactDeviceUid,
+                                                                                                     isResponse: false)
+                guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
+                }
+                do {
+                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    os_log("Failed to inform our contact of the current device capabilities", log: log, type: .fault)
+                    assertionFailure()
+                    // Continue anyway
+                }
+
+            }
 
             // Return the new state
             
@@ -984,6 +1010,32 @@ extension ChannelCreationWithContactDeviceProtocol {
             } catch {
                 os_log("Could not delete the ChannelCreationWithContactDeviceProtocolInstance", log: log, type: .fault)
                 return CancelledState()
+            }
+
+            // Make sure this device capabilities are sent to Alice's device
+            
+            do {
+                
+                let newProtocolInstanceUid = UID.gen(with: prng)
+                let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                                      cryptoProtocolId: .ContactCapabilitiesDiscovery,
+                                                      protocolInstanceUid: newProtocolInstanceUid)
+                let message = DeviceCapabilitiesDiscoveryProtocol.InitialSingleContactDeviceMessage(coreProtocolMessage: coreMessage,
+                                                                                                     contactIdentity: contactIdentity,
+                                                                                                     contactDeviceUid: contactDeviceUid,
+                                                                                                     isResponse: false)
+                guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
+                }
+                do {
+                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    os_log("Failed to inform our contact of the current device capabilities", log: log, type: .fault)
+                    assertionFailure()
+                    // Continue anyway
+                }
+
             }
 
             // Return the new state

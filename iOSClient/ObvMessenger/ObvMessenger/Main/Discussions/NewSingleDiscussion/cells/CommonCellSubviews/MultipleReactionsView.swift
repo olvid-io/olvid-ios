@@ -47,7 +47,7 @@ struct ReactionAndCount: Equatable, Hashable, Comparable, Identifiable {
     }
 }
 
-@available(iOS 13.0, *)
+
 final class MultipleReactionsView: ViewForOlvidStack {
     
     
@@ -160,7 +160,7 @@ final class MultipleReactionsView: ViewForOlvidStack {
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate final class ReactionView: ViewForOlvidStack {
     
     private let emoji = UILabel()

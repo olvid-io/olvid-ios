@@ -621,4 +621,24 @@ extension ProtocolStarterCoordinator {
         }
         return initialMessageToSend
     }
+    
+    
+    func getInitialMessageForAddingOwnCapabilities(ownedIdentity: ObvCryptoIdentity, newOwnCapabilities: Set<ObvCapability>) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .ContactCapabilitiesDiscovery,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let message = DeviceCapabilitiesDiscoveryProtocol.InitialForAddingOwnCapabilitiesMessage(
+            coreProtocolMessage: coreMessage,
+            newOwnCapabilities: newOwnCapabilities)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
 }

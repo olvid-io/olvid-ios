@@ -130,8 +130,7 @@ class ContactGroup: NSManagedObject, ObvManagedObject {
         let groupDetailsElementsWithPhoto = groupInformationWithPhoto.groupDetailsElementsWithPhoto
         self.publishedDetails = try ContactGroupDetailsPublished(contactGroup: self,
                                                                  groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                                                 identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                                                 notificationDelegate: delegateManager.notificationDelegate)
+                                                                 delegateManager: delegateManager)
         
         self.delegateManager = delegateManager
         
@@ -189,7 +188,8 @@ extension ContactGroup {
             if oldPublishedDetails.photoServerKeyAndLabel == nil {
                 groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: groupDetailsElements, photoURL: nil)
             } else {
-                groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: groupDetailsElements, photoURL: publishedDetails.photoURL)
+                let photoURL = publishedDetails.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+                groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: groupDetailsElements, photoURL: photoURL)
             }
         } else {
             self.labelToDelete = oldPublishedDetails.photoServerLabel
@@ -197,20 +197,19 @@ extension ContactGroup {
         }
         self.publishedDetails = try ContactGroupDetailsPublished(contactGroup: self,
                                                                  groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
-                                                                 identityPhotosDirectory: delegateManager.identityPhotosDirectory,
-                                                                 notificationDelegate: delegateManager.notificationDelegate)
-        try oldPublishedDetails.delete(within: obvContext)
+                                                                 delegateManager: delegateManager)
+        try oldPublishedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
 
         notificationRelatedChanges.insert(.publishedDetails)
 
     }
     
     
-    func getGroupStructure() throws -> GroupStructure {
+    func getGroupStructure(identityPhotosDirectory: URL) throws -> GroupStructure {
         if let ownedGroup = self as? ContactGroupOwned {
-            return try ownedGroup.getOwnedGroupStructure()
+            return try ownedGroup.getOwnedGroupStructure(identityPhotosDirectory: identityPhotosDirectory)
         } else if let joinedGroup = self as? ContactGroupJoined {
-            return try joinedGroup.getJoinedGroupStructure()
+            return try joinedGroup.getJoinedGroupStructure(identityPhotosDirectory: identityPhotosDirectory)
         } else {
             throw makeError(message: "Unknown ContactGroup subclass. This is a bug.")
         }

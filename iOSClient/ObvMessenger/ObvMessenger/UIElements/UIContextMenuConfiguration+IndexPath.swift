@@ -19,7 +19,7 @@
 
 import UIKit
 
-@available(iOS 13.0, *)
+
 extension UIContextMenuConfiguration {
     
     convenience init(indexPath: IndexPath, previewProvider: UIContextMenuContentPreviewProvider?, actionProvider: UIContextMenuActionProvider? = nil) {

@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
 struct MuteButtonView: View {
 
     var actionToggleAudio: () -> Void
@@ -38,7 +37,6 @@ struct MuteButtonView: View {
 }
 
 
-@available(iOS 13.0, *)
 struct AudioButtonView: View {
 
     let audioInputs: [AudioInput]
@@ -78,7 +76,7 @@ struct AudioButtonView: View {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct DiscussionButtonView: View {
 
     var actionDiscussions: () -> Void
@@ -95,7 +93,7 @@ struct DiscussionButtonView: View {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct AddParticipantButtonView: View {
 
     var actionAddParticipant: () -> Void
@@ -112,7 +110,7 @@ struct AddParticipantButtonView: View {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct HangupDeclineButtonView: View {
 
     var callState: CallState
@@ -139,7 +137,7 @@ struct HangupDeclineButtonView: View {
 
 }
 
-@available(iOS 13.0, *)
+
 struct AcceptButtonView: View {
 
     var actionAccept: () -> Void
@@ -155,7 +153,7 @@ struct AcceptButtonView: View {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct CallSettingsButtonsView: View {
 
     var actionToggleAudio: () -> Void
@@ -180,7 +178,6 @@ struct CallSettingsButtonsView: View {
 
 
 
-@available(iOS 13.0, *)
 struct CallSettingsButtonsView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
@@ -222,7 +219,7 @@ struct CallSettingsButtonsView_Previews: PreviewProvider {
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate struct CallSettingsButtonsMockView: View {
 
     @ObservedObject var object: MockObject
@@ -241,7 +238,6 @@ fileprivate struct CallSettingsButtonsMockView: View {
 
 
 
-@available(iOS 13.0, *)
 fileprivate class MockObject: ObservableObject {
     @Published private(set) var isMuted: Bool = true
     func actionToggleAudio() {

@@ -1049,7 +1049,7 @@
 
 "Please choose the location of the backup file you wish to restore." = "Choisissez l'emplacement du fichier de sauvegarde que vous souhaitez restaurer.";
 
-"Choose From a file to pick a backup file create from a manual backup." = "Choisissez « Depuis un fichier » pour effectuer une sauvegarde manuellement.";
+"Choose From a file to pick a backup file create from a manual backup." = "Choisissez « Depuis un fichier » pour restaurer une sauvegarde effectuée manuellement.";
 
 "Choose From the cloud to select an account used for automatic backups." = "Choisissez « Depuis le cloud » pour restaurer une sauvarde effectuée automatiquement.";
 
@@ -2143,7 +2143,7 @@
 
 "CONFIGURATION_SCAN" = "Scan de configuration";
 
-"IDENTITY_PROVIDER_CONFIGURED_SUCCESS" = "Le fournisseur d'identités de votre société a été configuré avec succès. Appuyez sur le bouton ci-dessous pour vous authentifier auprès de ce dernier et récupérer vos informations personnelles.";
+"IDENTITY_PROVIDER_CONFIGURED_SUCCESS" = "Le fournisseur d'identités de votre société a été configuré avec succès. Appuyez sur « S'authentifier » pour vous y connecter et récupérer vos informations personnelles.";
 
 "IDENTITY_PROVIDER_CONFIGURED_FAILURE" = "Le fournisseur d'identités de votre société ne semble pas disponible. Veuillez contacter votre administrateur.";
 
@@ -2163,13 +2163,13 @@
 
 "OTHER_DEVICE" = "Autre appareil";
 
-"NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES" = "Personaliser la composition de message";
+"NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES" = "Personnaliser la composition de message";
 
 "NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_HEADER" = "Ordre préféré des boutons de composition de message";
 
 "NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER" = "Le premier bouton apparaitra juste à côté la zone de composition du message de vos messages. Nous vous recommandons de placer les boutons que vous utilisez le plus au sommet de la liste, de façon à les atteindre en une touche.";
 
-"COMPOSE_MESSAGE_SETTINGS" = "Personaliser";
+"COMPOSE_MESSAGE_SETTINGS" = "Personnaliser";
 
 "OPEN_SOURCE_LICENCES" = "Licences Open Source";
 
@@ -2183,7 +2183,7 @@
 
 "DEFAULT_EMOJI_AT_APP_LEVEL" = "Emoji rapide";
 
-"QUICK_EMOJI_EXPLANATION" = "L'emoji rapide est accessible quand la zone de composition de message ne contient pas de texte. Appuyer sur cet emoji l'envoie immédiatement. Appuyer deux (ou trois) fois en envoie deux (ou trois). Vous pouvez personaliser ici l'emoji rapide par défaut pour toutes les discussions. Ce choix peut-être outrepassé au niveau de chaque discussion, en personnalisant l'emoji rapide de la discussion.";
+"QUICK_EMOJI_EXPLANATION" = "L'emoji rapide est accessible quand la zone de composition de message ne contient pas de texte. Appuyer sur cet emoji l'envoie immédiatement. Appuyer deux (ou trois) fois en envoie deux (ou trois). Vous pouvez personnaliser ici l'emoji rapide par défaut pour toutes les discussions. Ce choix peut-être outrepassé au niveau de chaque discussion, en personnalisant l'emoji rapide de la discussion.";
 
 "DISCUSSION_QUICK_EMOJI" = "Emoji rapide pour cette discussion";
 
@@ -2202,3 +2202,19 @@
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" = "Nous avons détecté que vous utilisez une version d'iOS que Olvid ne supportera plus, à partir de la prochaine mise à jour. Nous vous présentons toutes nos excuses. Si possible, nous vous recommandons de mettre à jour iOS.\nPour ce faire, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_SHOULD_UPGRADE" = "Nous avons détecté que vous n'utilisez pas la dernière version d'iOS. Vous être en train de passer à côté de fonctionnalités importantes d'Olvid. Pour profiter d'Olvid au maximum, vous devriez mettre à jour iOS.\nPour ce faire, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" = "Pour vous assurez que vous utilisez la dernière version d'iOS, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";
+
+"MESSAGE_REACTION_NOTIFICATION_%@_%@" = "A réagi %@ à : %@";
+
+"NEW_REACTION" = "Nouvelle réaction";
+"TAP_TO_SEE_THE_REACTION" = "Appuyez pour voir la réaction.";
+
+/* Notification title */
+"NEW_REACTION_FROM_%@" = "Nouvelle réaction de %@";
+
+"CAPABILITIES" = "Capacités";
+
+"CAPABILITY_WEBRTC_CONTINUOUS_ICE" = "VoIP v2";
+
+"DELETE_OWN_REACTION" = "Supprimer ma réaction";
+
+"VALIDATING_ENTERPRISE_CONFIGURATION" = "Configuration automatique en cours...";

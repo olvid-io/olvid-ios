@@ -103,10 +103,6 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         return hardlinks
     }
 
-
-    
-    private let supportedImageTypeIdentifiers = Set<String>([UTType.jpeg.identifier, UTType.png.identifier, UTType.gif.identifier])
-    
     override func updateConfiguration(using state: UICellConfigurationState) {
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
@@ -498,6 +494,10 @@ extension ReceivedMessageCell {
         return rcv
     }
 
+    var isDeleteOwnReactionActionAvailable: Bool {
+        guard let message = message else { return false }
+        return message.reactions.contains { $0 is PersistedMessageReactionSent }
+    }
 }
 
 

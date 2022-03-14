@@ -76,8 +76,7 @@ extension ObvAutoGrowingTextView {
             let recognizerSuperView = recognizerView.superview {
             
             let menuController = UIMenuController.shared
-            menuController.setTargetRect(recognizerView.frame, in: recognizerSuperView)
-            menuController.setMenuVisible(true, animated: true)
+            menuController.showMenu(from: recognizerSuperView, rect: recognizerView.frame)
             recognizerView.becomeFirstResponder()
             
             

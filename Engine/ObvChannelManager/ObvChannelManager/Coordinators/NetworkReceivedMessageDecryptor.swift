@@ -34,10 +34,7 @@ final class NetworkReceivedMessageDecryptor: NetworkReceivedMessageDecryptorDele
  
     private static let errorDomain = "NetworkReceivedMessageDecryptor"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
 }
 
@@ -50,7 +47,7 @@ extension NetworkReceivedMessageDecryptor {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: NetworkReceivedMessageDecryptor.logCategory)
             os_log("The Channel Delegate Manager is not set", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "The Channel Delegate Manager is not set")
         }
         
         // We try to decrypt the received message with an Oblivious channel. If it does not work, then we are not dealing with an application message so we throw an error.
@@ -157,7 +154,7 @@ extension NetworkReceivedMessageDecryptor {
                 do {
                     guard receivedApplicationMessage.attachmentsInfos.count == obvChannelReceivedMessage.attachmentCount else {
                         os_log("Invalid count of attachment infos", log: log, type: .fault)
-                        throw NSError()
+                        throw Self.makeError(message: "Invalid count of attachment infos")
                     }
                     try networkFetchDelegate.set(
                         remoteCryptoIdentity: receivedApplicationMessage.remoteCryptoIdentity,

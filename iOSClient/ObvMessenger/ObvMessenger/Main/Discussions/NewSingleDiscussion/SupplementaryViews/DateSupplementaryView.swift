@@ -20,7 +20,6 @@
 import UIKit
 
 
-@available(iOS 13.0, *)
 final class DateSupplementaryView: UICollectionReusableView {
     
     var text: String? {

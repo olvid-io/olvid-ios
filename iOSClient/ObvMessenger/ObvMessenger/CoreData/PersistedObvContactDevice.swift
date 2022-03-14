@@ -30,8 +30,8 @@ final class PersistedObvContactDevice: NSManagedObject, Identifiable {
     private static let entityName = "PersistedObvContactDevice"
     static let identifierKey = "identifier"
     static let rawIdentityKey = "rawIdentity"
-    static let identityIdentityKey = [PersistedObvContactDevice.rawIdentityKey, PersistedObvContactIdentity.identityKey].joined(separator: ".")
-    static let identityOwnedIdentityIdentityKey = [PersistedObvContactDevice.rawIdentityKey, PersistedObvContactIdentity.ownedIdentityIdentityKey].joined(separator: ".")
+    static let identityIdentityKey = [PersistedObvContactDevice.rawIdentityKey, PersistedObvContactIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
+    static let identityOwnedIdentityIdentityKey = [PersistedObvContactDevice.rawIdentityKey, PersistedObvContactIdentity.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
 
     private static let errorDomain = "PersistedObvContactDevice"
     

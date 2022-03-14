@@ -40,6 +40,8 @@ protocol HashFunctionBasedOnCommonCrypto {
 
 extension HashFunction where Self: HashFunctionBasedOnCommonCrypto {
     
+    static func makeError(message: String) -> Error { NSError(domain: "HashFunction", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     static var outputLength: Int {
         return Int(ccOutputLength)
     }
@@ -60,7 +62,7 @@ extension HashFunction where Self: HashFunctionBasedOnCommonCrypto {
         let hashFunction = Self()
         
         guard let fileStream = InputStream(fileAtPath: url.path) else {
-            throw NSError()
+            throw Self.makeError(message: "Failed to create InputStream")
         }
         fileStream.open()
         let bufferSize = 64_000

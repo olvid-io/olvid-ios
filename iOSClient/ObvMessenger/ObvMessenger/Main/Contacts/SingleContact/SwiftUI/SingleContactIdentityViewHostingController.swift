@@ -30,7 +30,7 @@ protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
     func userWantsToEditContactNickname(persistedContactObjectId: NSManagedObjectID)
 }
 
-@available(iOS 13, *)
+
 final class SingleContactIdentityViewHostingController: UIHostingController<SingleContactIdentityView>, SingleContactIdentityDelegate, SomeSingleContactViewController {
     
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SingleContactIdentityViewHostingController")
@@ -113,7 +113,7 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         let contactsPresentationVC = ContactsPresentationViewController(ownedCryptoId: ownedIdentity.cryptoId, presentedContactCryptoId: persistedContact.cryptoId) {
             self.dismissPresentedViewController()
         }
-        contactsPresentationVC.title = SingleContactViewController.Strings.contactsTVCTitle(contact.publishedContactDetails?.coreDetails.getDisplayNameWithStyle(.short) ??
+        contactsPresentationVC.title = CommonString.Title.introduceTo(contact.publishedContactDetails?.coreDetails.getDisplayNameWithStyle(.short) ??
                                                                                                 persistedContact.identityCoreDetails.getDisplayNameWithStyle(.short))
         present(contactsPresentationVC, animated: true)
     }

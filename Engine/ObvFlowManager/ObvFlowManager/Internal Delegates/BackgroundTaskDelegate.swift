@@ -27,15 +27,16 @@ protocol BackgroundTaskDelegate {
     
     func observeEngineNotifications()
 
+    func startNewFlow(completionHandler: (() -> Void)?) throws -> FlowIdentifier
+    
     // Posting message and attachments
 
-    func startBackgroundActivityForPostingApplicationMessageAttachments(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], completionHandler: (() -> Void)?) -> FlowIdentifier?
-    func startBackgroundActivityForStoringBackgroundURLSessionCompletionHandler() -> FlowIdentifier?
+    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier])
     
     // Resuming a protocol
     
-    func startBackgroundActivityForStartingOrResumingProtocol() -> FlowIdentifier?
-    
+    func startBackgroundActivityForStartingOrResumingProtocol() throws -> FlowIdentifier
+
     // Downloading messages, downloading/pausing attachment
     
     func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> FlowIdentifier?

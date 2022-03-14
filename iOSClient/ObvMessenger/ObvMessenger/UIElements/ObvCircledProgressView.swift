@@ -189,16 +189,12 @@ class ObvCircledProgressView: UIView {
     private func showSpinner() {
         assert(Thread.current == Thread.main)
         guard spinner == nil else { return }
-        if #available(iOS 13.0, *) {
-            spinner = UIActivityIndicatorView(style: .large)
-            spinner!.translatesAutoresizingMaskIntoConstraints = false
-            self.addSubview(spinner!)
-            spinner!.pinAllSidesToSides(of: self)
-            spinner!.hidesWhenStopped = true
-            spinner!.startAnimating()
-        } else {
-            // Fallback on earlier versions
-        }
+        spinner = UIActivityIndicatorView(style: .large)
+        spinner!.translatesAutoresizingMaskIntoConstraints = false
+        self.addSubview(spinner!)
+        spinner!.pinAllSidesToSides(of: self)
+        spinner!.hidesWhenStopped = true
+        spinner!.startAnimating()
     }
     
     private func hideSpinner() {

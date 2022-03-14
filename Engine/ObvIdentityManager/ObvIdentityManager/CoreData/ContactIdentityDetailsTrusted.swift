@@ -43,7 +43,6 @@ final class ContactIdentityDetailsTrusted: ContactIdentityDetails {
     convenience init?(contactIdentity: ContactIdentity, identityCoreDetails: ObvIdentityCoreDetails, version: Int, delegateManager: ObvIdentityDelegateManager) {
         self.init(contactIdentity: contactIdentity,
                   coreDetails: identityCoreDetails,
-                  photoURL: nil,
                   version: version,
                   photoServerKeyAndLabel: nil,
                   entityName: ContactIdentityDetailsTrusted.entityName,
@@ -73,14 +72,16 @@ extension ContactIdentityDetailsTrusted {
         }
         
         self.version = contactIdentityDetailsPublished.version
+        let identityPhotosDirectory = delegateManager.identityPhotosDirectory
 
-        if contactIdentityDetailsPublished.identityDetails.coreDetails != self.identityDetails.coreDetails {
+        if contactIdentityDetailsPublished.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails != self.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails {
             self.serializedIdentityCoreDetails = contactIdentityDetailsPublished.serializedIdentityCoreDetails
         }
         
         self.photoServerKeyAndLabel = contactIdentityDetailsPublished.photoServerKeyAndLabel
-        
-        try setPhotoURL(with: contactIdentityDetailsPublished.photoURL, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+
+        let photoURLOfPublishedDetails = contactIdentityDetailsPublished.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
+        try setContactPhoto(with: photoURLOfPublishedDetails, delegateManager: delegateManager)
     }
 
     // This method assumes that the signature on the signed details is valid. It replace the values of the trusted details with that found in the signed details
@@ -115,10 +116,11 @@ extension ContactIdentityDetailsTrusted {
 
         if !isDeleted {
             
+            let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
             let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
             let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
                             NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
-                            NotificationType.Key.trustedIdentityDetails: self.identityDetails] as [String: Any]
+                            NotificationType.Key.trustedIdentityDetails: trustedIdentityDetails] as [String: Any]
             notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
 
         }

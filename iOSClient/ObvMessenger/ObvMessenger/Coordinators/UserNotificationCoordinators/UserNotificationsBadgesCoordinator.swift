@@ -76,9 +76,7 @@ final class UserNotificationsBadgesCoordinator: NSObject {
         observeNSManagedObjectContextDidSaveNotifications()
         observeNSManagedObjectContextObjectsDidChangeNotifications()
         observeNeedToRecomputeAllBadges()
-        if #available(iOS 13.0, *) {
-            observeUpdateBadgeBackgroundTaskWasLaunchedNotifications()
-        }
+        observeUpdateBadgeBackgroundTaskWasLaunchedNotifications()
     }
     
     
@@ -123,7 +121,6 @@ extension UserNotificationsBadgesCoordinator {
 
     }
 
-    @available(iOS 13.0, *)
     private func observeUpdateBadgeBackgroundTaskWasLaunchedNotifications() {
         notificationTokens.append(ObvMessengerInternalNotification.observeUpdateBadgeBackgroundTaskWasLaunched() { (completion) in
             let completionHandler: (Bool) -> Void = { (success) in

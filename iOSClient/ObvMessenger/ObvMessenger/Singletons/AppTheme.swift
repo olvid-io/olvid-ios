@@ -295,111 +295,78 @@ final class ObvSemanticColorScheme {
         switch name {
         case .edmond:
 
-            if #available(iOS 13, *) {
-                label = UIColor.label
-                secondaryLabel = UIColor.secondaryLabel
-                tertiaryLabel = UIColor.tertiaryLabel
-                quaternaryLabel = UIColor.quaternaryLabel
-                systemFill = UIColor.systemFill
-                secondarySystemFill = UIColor.secondarySystemFill
-                tertiarySystemFill = UIColor.tertiarySystemFill
-                quaternarySystemFill = UIColor.quaternarySystemFill
-                placeholderText = UIColor.placeholderText
-                systemBackground = UIColor { (traitCollection: UITraitCollection) in
-                    if traitCollection.userInterfaceStyle == .dark {
-                        return UIColor.systemBackground
-                    } else {
-                        return UIColor.secondarySystemBackground
-                    }
+            label = UIColor.label
+            secondaryLabel = UIColor.secondaryLabel
+            tertiaryLabel = UIColor.tertiaryLabel
+            quaternaryLabel = UIColor.quaternaryLabel
+            systemFill = UIColor.systemFill
+            secondarySystemFill = UIColor.secondarySystemFill
+            tertiarySystemFill = UIColor.tertiarySystemFill
+            quaternarySystemFill = UIColor.quaternarySystemFill
+            placeholderText = UIColor.placeholderText
+            systemBackground = UIColor { (traitCollection: UITraitCollection) in
+                if traitCollection.userInterfaceStyle == .dark {
+                    return UIColor.systemBackground
+                } else {
+                    return UIColor.secondarySystemBackground
                 }
-                secondarySystemBackground = UIColor { (traitCollection: UITraitCollection) in
-                    if traitCollection.userInterfaceStyle == .dark {
-                        return UIColor.secondarySystemBackground
-                    } else {
-                        return UIColor.systemBackground
-                    }
+            }
+            secondarySystemBackground = UIColor { (traitCollection: UITraitCollection) in
+                if traitCollection.userInterfaceStyle == .dark {
+                    return UIColor.secondarySystemBackground
+                } else {
+                    return UIColor.systemBackground
                 }
-                tertiarySystemBackground = UIColor.tertiarySystemBackground
-                discussionScreenBackground = UIColor { (traitCollection: UITraitCollection) in
-                    if traitCollection.userInterfaceStyle == .dark {
-                        return .black
-                    } else {
-                        return .white
-                    }
+            }
+            tertiarySystemBackground = UIColor.tertiarySystemBackground
+            discussionScreenBackground = UIColor { (traitCollection: UITraitCollection) in
+                if traitCollection.userInterfaceStyle == .dark {
+                    return .black
+                } else {
+                    return .white
                 }
-                receivedCellBackground = UIColor { (traitCollection: UITraitCollection) in
-                    if traitCollection.userInterfaceStyle == .dark {
-                        return UIColor.secondarySystemBackground
-                    } else {
-                        return UIColor(named: "EdmondSurfaceDark")!
-                    }
+            }
+            receivedCellBackground = UIColor { (traitCollection: UITraitCollection) in
+                if traitCollection.userInterfaceStyle == .dark {
+                    return UIColor.secondarySystemBackground
+                } else {
+                    return UIColor(named: "EdmondSurfaceDark")!
                 }
-                newReceivedCellBackground = UIColor { (traitCollection: UITraitCollection) in
-                    if traitCollection.userInterfaceStyle == .dark {
-                        return UIColor.systemFill
-                    } else {
-                        return UIColor(named: "EdmondSurfaceDark")!
-                    }
+            }
+            newReceivedCellBackground = UIColor { (traitCollection: UITraitCollection) in
+                if traitCollection.userInterfaceStyle == .dark {
+                    return UIColor.systemFill
+                } else {
+                    return UIColor(named: "EdmondSurfaceDark")!
                 }
-                receivedCellBody = UIColor.label
-                receivedCellLink = UIColor.secondaryLabel
-                receivedCellReplyToBackground = UIColor.tertiarySystemBackground
-                newReceivedCellReplyToBackground = UIColor { (traitCollection: UITraitCollection) in
-                    if traitCollection.userInterfaceStyle == .dark {
-                        return UIColor.systemFill
-                    } else {
-                        return UIColor(named: "EdmondSurfaceDark")!
-                    }
+            }
+            receivedCellBody = UIColor.label
+            receivedCellLink = UIColor.secondaryLabel
+            receivedCellReplyToBackground = UIColor.tertiarySystemBackground
+            newReceivedCellReplyToBackground = UIColor { (traitCollection: UITraitCollection) in
+                if traitCollection.userInterfaceStyle == .dark {
+                    return UIColor.systemFill
+                } else {
+                    return UIColor(named: "EdmondSurfaceDark")!
                 }
-                receivedCellReplyToBody = UIColor.secondaryLabel
-                tapToRead = UIColor.secondaryLabel
-                cellDate = UIColor.tertiaryLabel
-                sentCellReplyToBackground = UIColor.tertiarySystemBackground
-                sentCellReplyToBody = UIColor.secondaryLabel
-                sentCellReplyToLink = UIColor.secondaryLabel
-                link = UIColor.link
-                
-                adaptiveOlvidBlue = UIColor { (traitCollection: UITraitCollection) in
-                    traitCollection.userInterfaceStyle == .dark ? UIColor(named: "OlvidDark")! : UIColor(named: "OlvidLight")!
-                }
-                adaptiveOlvidBlueReversed = UIColor { (traitCollection: UITraitCollection) in
-                    traitCollection.userInterfaceStyle == .dark ? UIColor(named: "OlvidLight")! : UIColor(named: "OlvidDark")!
-                }
-
-                orange = UIColor { (traitCollection: UITraitCollection) in
-                    traitCollection.userInterfaceStyle == .dark ? UIColor(named: "EdmondSecondary900")! : UIColor(named: "EdmondSecondary800")!
-                }
-
-            } else {
-                label = UIColor(named: "EdmondBlackTextHighEmphasis")!
-                secondaryLabel = UIColor(named: "EdmondBlackTextMediumEmphasis")!
-                tertiaryLabel = UIColor(named: "EdmondBlackTextDisabled")!
-                quaternaryLabel = UIColor(named: "EdmondBlackTextDisabled")!
-                systemFill = UIColor(named: "EdmondTextOnPrimaryDisabled")!
-                secondarySystemFill = UIColor(named: "EdmondTextOnPrimaryDisabled")!
-                tertiarySystemFill = UIColor(named: "EdmondTextOnPrimaryDisabled")!
-                quaternarySystemFill = UIColor(named: "EdmondTextOnPrimaryDisabled")!
-                placeholderText = UIColor.lightGray
-                systemBackground = UIColor.white
-                secondarySystemBackground = UIColor(displayP3Red: 242/255, green: 242/255, blue: 247/255, alpha: 1.0)
-                tertiarySystemBackground = UIColor.white
-                discussionScreenBackground = UIColor.white
-                receivedCellBackground = UIColor(named: "EdmondSurfaceDark")!
-                newReceivedCellBackground = UIColor(named: "EdmondSurfaceDark")!
-                receivedCellBody = UIColor(named: "EdmondBlackTextHighEmphasis")!
-                receivedCellLink = UIColor(named: "EdmondBlackTextMediumEmphasis")!
-                receivedCellReplyToBackground = UIColor.white
-                newReceivedCellReplyToBackground = UIColor(named: "EdmondSurfaceDark")!
-                receivedCellReplyToBody = UIColor(named: "EdmondBlackTextHighEmphasis")!
-                tapToRead = UIColor(named: "EdmondBlackTextMediumEmphasis")!
-                cellDate = UIColor(named: "EdmondBlackTextDisabled")!
-                sentCellReplyToBackground = .white
-                sentCellReplyToBody = UIColor(named: "EdmondBlackTextHighEmphasis")!
-                sentCellReplyToLink = UIColor(named: "EdmondBlackTextMediumEmphasis")!
-                link = UIColor(named: "EdmondBlackTextHighEmphasis")!
-                adaptiveOlvidBlue = UIColor(named: "OlvidLight")!
-                adaptiveOlvidBlueReversed = UIColor(named: "OlvidDark")!
-                orange = UIColor(named: "EdmondSecondary800")!
+            }
+            receivedCellReplyToBody = UIColor.secondaryLabel
+            tapToRead = UIColor.secondaryLabel
+            cellDate = UIColor.tertiaryLabel
+            sentCellReplyToBackground = UIColor.tertiarySystemBackground
+            sentCellReplyToBody = UIColor.secondaryLabel
+            sentCellReplyToLink = UIColor.secondaryLabel
+            link = UIColor.link
+            
+            adaptiveOlvidBlue = UIColor { (traitCollection: UITraitCollection) in
+                traitCollection.userInterfaceStyle == .dark ? UIColor(named: "OlvidDark")! : UIColor(named: "OlvidLight")!
+            }
+            adaptiveOlvidBlueReversed = UIColor { (traitCollection: UITraitCollection) in
+                traitCollection.userInterfaceStyle == .dark ? UIColor(named: "OlvidLight")! : UIColor(named: "OlvidDark")!
+            }
+            
+            orange = UIColor { (traitCollection: UITraitCollection) in
+                traitCollection.userInterfaceStyle == .dark ? UIColor(named: "EdmondSecondary900")! : UIColor(named: "EdmondSecondary800")!
             }
             
             olvidLight = UIColor(named: "OlvidLight")!
@@ -453,11 +420,7 @@ final class ObvImages {
     let groupImage: UIImage
     
     init() {
-        if #available(iOS 13, *) {
-            self.groupImage = UIImage(systemName: "person.3.fill")!
-        } else {
-            self.groupImage = UIImage(named: "group")!
-        }
+        self.groupImage = UIImage(systemName: "person.3.fill")!
     }
     
 }

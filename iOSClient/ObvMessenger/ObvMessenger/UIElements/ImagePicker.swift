@@ -20,7 +20,7 @@
 import SwiftUI
 import PhotosUI
 
-@available(iOS 13.0, *)
+
 class ImagePickerCoordinator: NSObject, UINavigationControllerDelegate {
     let parent: ImagePicker
 
@@ -30,7 +30,7 @@ class ImagePickerCoordinator: NSObject, UINavigationControllerDelegate {
 
 }
 
-@available(iOS 13.0, *)
+
 extension ImagePickerCoordinator: UIImagePickerControllerDelegate {
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
         if let image = info[.originalImage] as? UIImage {
@@ -59,7 +59,7 @@ extension ImagePickerCoordinator: PHPickerViewControllerDelegate {
     }
 }
 
-@available(iOS 13.0, *)
+
 struct ImagePicker: UIViewControllerRepresentable {
 
     @Binding var image: UIImage?

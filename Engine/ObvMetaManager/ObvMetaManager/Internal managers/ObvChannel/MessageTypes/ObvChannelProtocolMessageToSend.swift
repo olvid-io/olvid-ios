@@ -24,7 +24,6 @@ import ObvEncoder
 /// Public structure that will be used within the protocol manager
 public struct ObvChannelProtocolMessageToSend: ObvChannelMessageToSend {
     
-    public let messageId: MessageIdentifier
     public let messageType = ObvChannelMessageType.ProtocolMessage
     public let timestamp: Date
     
@@ -33,8 +32,7 @@ public struct ObvChannelProtocolMessageToSend: ObvChannelMessageToSend {
     public let encodedElements: ObvEncoded
     public let partOfFullRatchetProtocolOfTheSendSeed: Bool
     
-    public init(messageId: MessageIdentifier, channelType: ObvChannelSendChannelType, timestamp: Date, encodedElements: ObvEncoded, partOfFullRatchetProtocolOfTheSendSeed: Bool = false) {
-        self.messageId = messageId
+    public init(channelType: ObvChannelSendChannelType, timestamp: Date, encodedElements: ObvEncoded, partOfFullRatchetProtocolOfTheSendSeed: Bool = false) {
         self.channelType = channelType
         self.encodedElements = encodedElements
         self.timestamp = timestamp

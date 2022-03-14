@@ -20,7 +20,7 @@
 import SwiftUI
 import ObvTypes
 
-@available(iOS 13, *)
+
 struct ContactDetailedInfosView: View {
 
     @ObservedObject var contact: PersistedObvContactIdentity
@@ -124,6 +124,19 @@ struct ContactDetailedInfosView: View {
                             value: contact.isCertifiedByOwnKeycloak ? CommonString.Word.Yes : CommonString.Word.No)
                     } header: {
                         Text("Details")
+                    }
+                    
+                    Section {
+                        ForEach(ObvCapability.allCases) { capability in
+                            switch capability {
+                            case .webrtcContinuousICE:
+                                ObvSimpleListItemView(
+                                    title: Text("CAPABILITY_WEBRTC_CONTINUOUS_ICE"),
+                                    value: contact.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No)
+                            }
+                        }
+                    } header: {
+                        Text("CAPABILITIES")
                     }
                     
                     Section {

@@ -50,17 +50,31 @@ extension AuthenticatedEncryptionKey {
 }
 
 public final class AuthenticatedEncryptionKeyDecoder {
+    
+    static func makeError(message: String) -> Error { NSError(domain: "AuthenticatedEncryptionKeyDecoder", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    
     public static func decode(_ encodedKey: ObvEncoded) throws -> AuthenticatedEncryptionKey {
-        guard encodedKey.byteId == .symmetricKey else { throw NSError() }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else { throw NSError() }
-        guard algorithmClassByteId == .authenticatedEncryption else { throw NSError() }
-        guard let implementationByteId = AuthenticatedEncryptionImplementationByteId(rawValue: implementationByteIdValue) else { throw NSError() }
+        guard encodedKey.byteId == .symmetricKey else {
+            throw Self.makeError(message: "encodedKey.byteId is not .symmetricKey")
+        }
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else {
+            throw Self.makeError(message: "CryptographicKeyDecoder decoding failed")
+        }
+        guard algorithmClassByteId == .authenticatedEncryption else {
+            throw Self.makeError(message: "algorithmClassByteId is not .authenticatedEncryption")
+        }
+        guard let implementationByteId = AuthenticatedEncryptionImplementationByteId(rawValue: implementationByteIdValue) else {
+            throw Self.makeError(message: "AuthenticatedEncryptionImplementationByteId init failed")
+        }
         switch implementationByteId {
         case .CTR_AES_256_THEN_HMAC_SHA_256:
-            guard let key = AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(obvDictionaryOfInternalElements: obvDic) else { throw NSError() }
+            guard let key = AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(obvDictionaryOfInternalElements: obvDic) else {
+                throw Self.makeError(message: "AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key init failed")
+            }
             return key
         }
     }
+    
 }
 
 

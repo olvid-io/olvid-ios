@@ -210,9 +210,7 @@ extension BackupTableViewController {
             if ObvMessengerSettings.BetaConfiguration.showBetaSettings {
                 shownAutomaticBackupRows += [.automaticCleaning]
             }
-            if #available(iOS 13.0, *) {
-                shownAutomaticBackupRows += [.listBackups]
-            }
+            shownAutomaticBackupRows += [.listBackups]
             return shownAutomaticBackupRows.count
         }
     }
@@ -355,24 +353,16 @@ extension BackupTableViewController {
                 if self.backupKeyInformation == nil {
                     obvEngine.generateNewBackupKey()
                 } else {
-                    if #available(iOS 13, *) {
-                        let vc = BackupKeyVerifierViewHostingController(obvEngine: obvEngine, dismissAction: { [weak self] in
-                            self?.dismiss(animated: true)
-                        }, dismissThenGenerateNewBackupKeyAction: { [weak self] in
-                            self?.dismiss(animated: true, completion: {
-                                self?.obvEngine.generateNewBackupKey()
-                            })
+                    let vc = BackupKeyVerifierViewHostingController(obvEngine: obvEngine, dismissAction: { [weak self] in
+                        self?.dismiss(animated: true)
+                    }, dismissThenGenerateNewBackupKeyAction: { [weak self] in
+                        self?.dismiss(animated: true, completion: {
+                            self?.obvEngine.generateNewBackupKey()
                         })
-                        let nav = UINavigationController(rootViewController: vc)
-                        present(nav, animated: true) {
-                            tableView.deselectRow(at: indexPath, animated: true)
-                        }
-                    } else {
-                        let backupKeyVerifierVC = BackupKeyVerifierViewController()
-                        let nav = UINavigationController(rootViewController: backupKeyVerifierVC)
-                        present(nav, animated: true) {
-                            tableView.deselectRow(at: indexPath, animated: true)
-                        }
+                    })
+                    let nav = UINavigationController(rootViewController: vc)
+                    present(nav, animated: true) {
+                        tableView.deselectRow(at: indexPath, animated: true)
                     }
                 }
             }
@@ -405,12 +395,10 @@ extension BackupTableViewController {
             case .automaticCleaning:
                 break
             case .listBackups:
-                if #available(iOS 13.0, *) {
-                    tableView.deselectRow(at: indexPath, animated: true)
-                    let backupView = ICloudBackupListViewController()
-                    backupView.delegate = self
-                    navigationController?.pushViewController(backupView, animated: true)
-                }
+                tableView.deselectRow(at: indexPath, animated: true)
+                let backupView = ICloudBackupListViewController()
+                backupView.delegate = self
+                navigationController?.pushViewController(backupView, animated: true)
             }
         }
     }

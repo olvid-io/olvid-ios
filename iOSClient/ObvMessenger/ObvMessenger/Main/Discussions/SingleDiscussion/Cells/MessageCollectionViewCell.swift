@@ -645,7 +645,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
     
     
     private func insertCollectionOfFylesViewForShowingAttachments(hideProgresses: Bool) {
-        let allAttachmentsAreWiped = attachments.reduce(true) { $0 && $1.isWiped }
+        let allAttachmentsAreWiped = attachments.allSatisfy { $0.isWiped }
         guard !allAttachmentsAreWiped else { return }
         roundedRectStackViewWidthConstraintWhenShowingFyles.isActive = true
         assert(collectionOfFylesView == nil)
@@ -778,7 +778,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
     }
     
     
-    @available(iOS 13.0, *)
+    
     private func displayLinkMetadata(_ metadata: LPLinkMetadata, for message: PersistedMessage, animate: Bool) {
         guard linkView == nil else { return }
         linkView = LPLinkView(metadata: metadata)

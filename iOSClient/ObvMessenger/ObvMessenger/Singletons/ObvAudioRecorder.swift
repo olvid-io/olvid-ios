@@ -75,7 +75,7 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
             return
         }
         do {
-            try recordingSession.setCategory(.playAndRecord, mode: .default)
+            try recordingSession.setCategory(.record, mode: .default)
             try recordingSession.setActive(true)
             recordingSession.requestRecordPermission() { granted in
                 guard granted else {
@@ -99,6 +99,7 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
 
     enum StopRecordingError: Error {
         case noRecordingsInProgress
+        case noAudioRecorderAvailable
     }
 
     func stopRecording(completionHandler: @escaping (Result<URL, StopRecordingError>) -> Void) {
@@ -106,7 +107,11 @@ final class ObvAudioRecorder: NSObject, AVAudioRecorderDelegate {
             completionHandler(.failure(.noRecordingsInProgress))
             return
         }
-        guard let audioRecorder = audioRecorder else { assertionFailure(); return }
+        guard let audioRecorder = audioRecorder else {
+            assertionFailure()
+            completionHandler(.failure(.noAudioRecorderAvailable))
+            return
+        }
 
         let url = audioRecorder.url
         audioRecorder.stop()

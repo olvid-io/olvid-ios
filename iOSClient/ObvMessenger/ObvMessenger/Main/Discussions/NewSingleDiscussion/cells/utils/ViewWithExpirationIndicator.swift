@@ -20,7 +20,7 @@
 import UIKit
 
 
-@available(iOS 13.0, *)
+
 protocol ViewWithExpirationIndicator: UIView {
     
     var expirationIndicator: ExpirationIndicatorView { get }
@@ -29,7 +29,7 @@ protocol ViewWithExpirationIndicator: UIView {
 }
 
 
-@available(iOS 13.0, *)
+
 extension ViewWithExpirationIndicator {
     
     func refreshCellCountdown() {

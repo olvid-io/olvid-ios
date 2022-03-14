@@ -23,7 +23,6 @@ import ObvTypes
 import os.log
 
 
-@available(iOS 13.0, *)
 final class KeycloakBindingStore {
     
     let keycloakConfig: KeycloakConfiguration
@@ -79,13 +78,18 @@ final class KeycloakBindingStore {
                                                 return
                                             }
                                         }
+                                        guard let rawAuthState = try? authState.serialize() else {
+                                            completionHandler(.failure(Self.makeError(message: "Unable to serialize AuthState.")))
+                                            return
+                                        }
+
 
                                         let obvKeycloakState = ObvKeycloakState(
                                             keycloakServer: keycloakConfig.serverURL,
                                             clientId: keycloakConfig.clientId,
                                             clientSecret: keycloakConfig.clientSecret,
                                             jwks: jwks,
-                                            rawAuthState: authState.serialize,
+                                            rawAuthState: rawAuthState,
                                             signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
                                             latestLocalRevocationListTimestamp: nil)
                                         
@@ -106,7 +110,7 @@ final class KeycloakBindingStore {
 }
 
 
-@available(iOS 13.0, *)
+
 struct BindingUseIdentityProviderView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -176,7 +180,7 @@ struct BindingUseIdentityProviderView: View {
 
 
 
-@available(iOS 13.0, *)
+
 fileprivate struct BindingExplanationCardView: View {
     var body: some View {
         ObvCardView {
@@ -196,7 +200,7 @@ fileprivate struct BindingExplanationCardView: View {
 
 
 
-@available(iOS 13.0, *)
+
 fileprivate struct BindingButtonsView: View {
     
     let authenticateAction: () -> Void

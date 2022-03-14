@@ -41,6 +41,7 @@ protocol CellWithMessage: UICollectionViewCell {
 
     var isDeleteActionAvailable: Bool { get }
     var isEditBodyActionAvailable: Bool { get }
+    var isDeleteOwnReactionActionAvailable: Bool { get }
 
     var isInfoActionAvailable: Bool { get }
     var infoViewController: UIViewController? { get }

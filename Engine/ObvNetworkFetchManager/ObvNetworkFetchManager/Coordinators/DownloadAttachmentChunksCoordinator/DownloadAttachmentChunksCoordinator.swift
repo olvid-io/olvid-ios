@@ -218,11 +218,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             guard !operationsToQueue.isEmpty else { return }
             
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                self?.internalOperationQueue.addBarrierBlock({})
-            } else {
-                self?.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            self?.internalOperationQueue.addBarrierBlock({})
             self?.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: false)
 
         }
@@ -270,11 +266,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
                                                                                           contextCreator: contextCreator,
                                                                                           attachmentChunkDownloadProgressTracker: _self)
             
-            if #available(iOS 13, *) {
-                self?.internalOperationQueue.addBarrierBlock({})
-            } else {
-                self?.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            self?.internalOperationQueue.addBarrierBlock({})
             self?.internalOperationQueue.addOperation(operation)
             
         } // End of localQueue.async
@@ -329,11 +321,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
                                                      flowId: flowId)
             }
 
-            if #available(iOS 13, *) {
-                self?.internalOperationQueue.addBarrierBlock({})
-            } else {
-                self?.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            self?.internalOperationQueue.addBarrierBlock({})
             self?.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
             
         }
@@ -442,11 +430,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             }
                         
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                _self.internalOperationQueue.addBarrierBlock({})
-            } else {
-                _self.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            _self.internalOperationQueue.addBarrierBlock({})
             _self.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
             
             // We notify that the attachment has been taken care of. This will be catched by the flow manager.
@@ -518,11 +502,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             guard !operationsToQueue.isEmpty else { return }
                         
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                _self.internalOperationQueue.addBarrierBlock({})
-            } else {
-                _self.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            _self.internalOperationQueue.addBarrierBlock({})
             _self.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
         
             ObvNetworkFetchNotificationNew.inboxAttachmentWasTakenCareOf(attachmentId: attachmentId, flowId: flowId)
@@ -625,11 +605,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
     
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String) {
         guard let handler = removeHandlerForIdentifier(identifier) else { return }
-        if #available(iOS 13, *) {
-            internalOperationQueue.addBarrierBlock({})
-        } else {
-            internalOperationQueue.waitUntilAllOperationsAreFinished()
-        }
+        internalOperationQueue.addBarrierBlock({})
         internalOperationQueue.addOperation {
             DispatchQueue.main.async {
                 handler()
@@ -755,11 +731,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         localQueue.async { [weak self] in
             
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                self?.internalOperationQueue.addBarrierBlock({})
-            } else {
-                self?.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            self?.internalOperationQueue.addBarrierBlock({})
 
             let op = MarkInboxAttachmentAsPausedOrResumedOperation(attachmentId: attachmentId, targetStatus: .paused, logSubsystem: delegateManager.logSubsystem, flowId: flowId, contextCreator: contextCreator, delegate: self)
             self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)
@@ -830,11 +802,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         localQueue.async { [weak self] in
             
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                self?.internalOperationQueue.addBarrierBlock({})
-            } else {
-                self?.internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            self?.internalOperationQueue.addBarrierBlock({})
 
             let op = MarkInboxAttachmentAsPausedOrResumedOperation(attachmentId: attachmentId, targetStatus: .resumed, logSubsystem: delegateManager.logSubsystem, flowId: flowId, contextCreator: contextCreator, delegate: self)
             self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)

@@ -36,7 +36,7 @@ public enum ObvChannelSendChannelType {
     case ServerQuery(ownedIdentity: ObvCryptoIdentity) // The identity is one of our own, used to receive the server response
     
     /// Only owned identities can "send" on a channel. Note that when sending a message to self, the `fromOwnedIdentity` is identical to the `toIdentity`
-    public var fromOwnedIdentity: ObvCryptoIdentity? {
+    public var fromOwnedIdentity: ObvCryptoIdentity {
         switch self {
         case .Local(ownedIdentity: let fromOwnedIdentity),
              .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: let fromOwnedIdentity),
@@ -44,10 +44,9 @@ public enum ObvChannelSendChannelType {
              .AsymmetricChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let fromOwnedIdentity),
              .AsymmetricChannelBroadcast(to: _, fromOwnedIdentity: let fromOwnedIdentity),
              .UserInterface(uuid: _, ownedIdentity: let fromOwnedIdentity, dialogType: _),
-             .ServerQuery(ownedIdentity: let fromOwnedIdentity):
+             .ServerQuery(ownedIdentity: let fromOwnedIdentity),
+             .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity):
             return fromOwnedIdentity
-        case .AllConfirmedObliviousChannelsWithContactIdentities:
-            return nil
         }
     }
     

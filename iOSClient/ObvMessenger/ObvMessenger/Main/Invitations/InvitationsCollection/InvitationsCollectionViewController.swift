@@ -1005,10 +1005,11 @@ extension InvitationsCollectionViewController {
                                                    left: collectionView.contentInset.left,
                                                    bottom: bottom + extraBottomInset,
                                                    right: collectionView.contentInset.right)
-        collectionView.scrollIndicatorInsets = UIEdgeInsets(top: collectionView.scrollIndicatorInsets.top,
-                                                            left: collectionView.scrollIndicatorInsets.left,
-                                                            bottom: bottom + extraBottomInset,
-                                                            right: collectionView.scrollIndicatorInsets.right)
+        collectionView.scrollIndicatorInsets = UIEdgeInsets(
+            top: collectionView.verticalScrollIndicatorInsets.top,
+            left: collectionView.horizontalScrollIndicatorInsets.left,
+            bottom: bottom + extraBottomInset,
+            right: collectionView.horizontalScrollIndicatorInsets.right)
         
     }
 

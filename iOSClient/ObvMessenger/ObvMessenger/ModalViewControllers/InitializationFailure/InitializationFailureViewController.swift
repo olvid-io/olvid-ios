@@ -72,12 +72,7 @@ class InitializationFailureViewController: UIViewController {
             self.shareButton.isHidden = true
         }
         
-        let copyButton: UIBarButtonItem
-        if #available(iOS 13.0, *) {
-            copyButton = UIBarButtonItem(image: UIImage(systemName: "doc.on.doc"), style: .plain, target: self, action: #selector(copyErrorMessageClipboardButtonTapped))
-        } else {
-            copyButton = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(copyErrorMessageClipboardButtonTapped))
-        }
+        let copyButton = UIBarButtonItem(image: UIImage(systemName: "doc.on.doc"), style: .plain, target: self, action: #selector(copyErrorMessageClipboardButtonTapped))
         self.navigationItem.setRightBarButton(copyButton, animated: false)
         self.thankYouLabel.isHidden = true
     }

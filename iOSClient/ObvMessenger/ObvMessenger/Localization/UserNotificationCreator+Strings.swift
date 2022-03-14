@@ -30,10 +30,6 @@ extension UserNotificationCreator {
         }
         
         struct NewPersistedMessageReceived {
-            static let title = { (contactIdentityDisplayName: String) in
-                String.localizedStringWithFormat(NSLocalizedString("New message from %@", comment: "Notification title"), contactIdentityDisplayName)
-                
-            }
             static let body = { (firstAttachmentName: String, numberOfOtherAttachments: Int) -> String in
                 let s1 = String.localizedStringWithFormat(NSLocalizedString("%@ and", comment: ""), firstAttachmentName)
                 let s2 = String.localizedStringWithFormat(NSLocalizedString("n more attachments", comment: "Notification body"), numberOfOtherAttachments)
@@ -44,6 +40,11 @@ extension UserNotificationCreator {
         struct NewPersistedMessageReceivedHiddenContent {
             static let title = NSLocalizedString("New message", comment: "")
             static let body = NSLocalizedString("Tap to see the message", comment: "")
+        }
+
+        struct NewPersistedReactionReceivedHiddenContent {
+            static let title = NSLocalizedString("NEW_REACTION", comment: "")
+            static let body = NSLocalizedString("TAP_TO_SEE_THE_REACTION", comment: "")
         }
 
         struct NewInvitationReceivedHiddenContent {

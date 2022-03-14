@@ -263,7 +263,7 @@ extension OutboxAttachment {
     }
     
     var allChunksHaveSignedUrls: Bool {
-        return chunks.reduce(true) { $0 && $1.signedURL != nil }
+        return chunks.allSatisfy { $0.signedURL != nil }
     }
     
     func getAppropriateOperationQueuePriority() -> Operation.QueuePriority {
@@ -312,7 +312,7 @@ extension OutboxAttachment {
                                         cancelExternallyRequestedKey)
         let items = try obvContext.fetch(request)
             .filter { (attachment) -> Bool in
-                let allChunksHaveSignedURLs = attachment.chunks.reduce(true) { $0 && $1.signedURL != nil }
+                let allChunksHaveSignedURLs = attachment.chunks.allSatisfy({ $0.signedURL != nil })
                 return allChunksHaveSignedURLs }
             .filter { (attachment) -> Bool in
                 !attachment.acknowledged }

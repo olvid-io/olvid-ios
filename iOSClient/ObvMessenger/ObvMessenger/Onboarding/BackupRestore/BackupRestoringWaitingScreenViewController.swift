@@ -25,13 +25,7 @@ class BackupRestoringWaitingScreenViewController: UIViewController {
     @IBOutlet weak var mainLabel: UILabel!
     @IBOutlet weak var tryAgainButton: UIButton!
     @IBOutlet weak var stackView: UIStackView!
-    private let spinner: UIActivityIndicatorView = {
-        if #available(iOS 13, *) {
-            return UIActivityIndicatorView(style: .medium)
-        } else {
-            return UIActivityIndicatorView(style: .gray)
-        }
-    }()
+    private let spinner: UIActivityIndicatorView = UIActivityIndicatorView(style: .medium)
     
     private var restoreFailed = false
     var backupRequestUuid: UUID?

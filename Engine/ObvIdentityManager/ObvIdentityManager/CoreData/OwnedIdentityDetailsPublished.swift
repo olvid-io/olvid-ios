@@ -42,7 +42,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     
     @NSManaged private var photoServerKeyEncoded: Data?
     @NSManaged private(set) var photoServerLabel: String?
-    @NSManaged private(set) var photoURL: URL?
+    @NSManaged private var photoFilename: String?
     @NSManaged private var serializedIdentityCoreDetails: Data
     @NSManaged private(set) var version: Int
 
@@ -54,6 +54,13 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     
     private var notificationRelatedChanges: NotificationRelatedChanges = []
     private var labelToDelete: String?
+
+    func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
+        guard let photoFilename = photoFilename else { return nil }
+        let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
+        return url
+    }
 
     var delegateManager: ObvIdentityDelegateManager? {
         return ownedIdentity.delegateManager
@@ -69,14 +76,16 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         return PhotoServerKeyAndLabel(key: key, label: label)
     }
     
-    var identityDetails: ObvIdentityDetails {
+    func getIdentityDetails(identityPhotosDirectory: URL) -> ObvIdentityDetails {
         let data = kvoSafePrimitiveValue(forKey: OwnedIdentityDetailsPublished.serializedIdentityCoreDetailsKey) as! Data
         let coreDetails = try! ObvIdentityCoreDetails(data)
+        let photoURL = getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         return ObvIdentityDetails(coreDetails: coreDetails, photoURL: photoURL)
     }
 
-    var identityDetailsElements: IdentityDetailsElements {
-        IdentityDetailsElements(version: version, coreDetails: identityDetails.coreDetails, photoServerKeyAndLabel: photoServerKeyAndLabel)
+    func getIdentityDetailsElements(identityPhotosDirectory: URL) -> IdentityDetailsElements {
+        let coreDetails = getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails
+        return IdentityDetailsElements(version: version, coreDetails: coreDetails, photoServerKeyAndLabel: photoServerKeyAndLabel)
     }
     
     // MARK: - Initializer
@@ -90,10 +99,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         self.ownedIdentity = ownedIdentity
         
         do {
-            _ = try setPhotoURL(with: identityDetails.photoURL,
-                                creatingNewFileIn: delegateManager.identityPhotosDirectory,
-                                notificationDelegate: delegateManager.notificationDelegate,
-                                within: obvContext)
+            _ = try setOwnedIdentityPhotot(with: identityDetails.photoURL, delegateManager: delegateManager)
         } catch {
             return nil
         }
@@ -110,14 +116,14 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         self.init(entity: entityDescription, insertInto: obvContext)
         self.photoServerKeyEncoded = backupItem.photoServerKeyEncoded
         self.photoServerLabel = backupItem.photoServerLabel
-        self.photoURL = nil // This is ok
+        self.photoFilename = nil // This is ok
         self.serializedIdentityCoreDetails = backupItem.serializedIdentityCoreDetails
         self.version = backupItem.version
     }
     
     
-    func delete(within obvContext: ObvContext) throws {
-        if let currentPhotoURL = self.photoURL {
+    func delete(identityPhotosDirectory: URL, within obvContext: ObvContext) throws {
+        if let currentPhotoURL = self.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory) {
             try obvContext.addContextDidSaveCompletionHandler { error in
                 guard error == nil else { return }
                 if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
@@ -129,46 +135,51 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     }
 
     
-    func setPhoto(data: Data, creatingNewFileIn directory: URL, notificationDelegate: ObvNotificationDelegate, within obvContext: ObvContext) throws {
-        guard let photoURLInEngine = freshPath(in: directory) else { throw makeError(message: "Could not get fresh path for photo") }
+    func setOwnedIdentityPhoto(data: Data, delegateManager: ObvIdentityDelegateManager) throws {
+        guard let photoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
         try data.write(to: photoURLInEngine)
-        _ = try setPhotoURL(with: photoURLInEngine, creatingNewFileIn: directory, notificationDelegate: notificationDelegate, within: obvContext)
+        _ = try setOwnedIdentityPhotot(with: photoURLInEngine, delegateManager: delegateManager)
         try FileManager.default.removeItem(at: photoURLInEngine) // The previous call created another hard link so we can delete the file we just created
     }
 
     
-    private func setPhotoURL(with newPhotoURL: URL?, creatingNewFileIn directory: URL, notificationDelegate: ObvNotificationDelegate, within obvContext: ObvContext) throws -> Bool {
+    private func setOwnedIdentityPhotot(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
         
-        guard self.photoURL != newPhotoURL else { return false }
-        if let currentPhotoURL = self.photoURL, let _newPhotoURL = newPhotoURL {
-            guard !FileManager.default.contentsEqual(atPath: currentPhotoURL.path, andPath: _newPhotoURL.path) else {
+        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); throw makeError(message: "The notification delegate is not set") }
+        let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
+
+        guard currentPhotoURL != newPhotoURL else { return false }
+        
+        if let currentPhotoURL = currentPhotoURL, let newPhotoURL = newPhotoURL {
+            guard !FileManager.default.contentsEqual(atPath: currentPhotoURL.path, andPath: newPhotoURL.path) else {
                 return false
             }
         }
         
         // Whatever the new photo URL, we delete the previous version
-        if let previousPhotoURL = self.photoURL {
-            if FileManager.default.fileExists(atPath: previousPhotoURL.path) {
-                try FileManager.default.removeItem(at: previousPhotoURL)
+        if let currentPhotoURL = currentPhotoURL {
+            if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
+                try FileManager.default.removeItem(at: currentPhotoURL)
             }
-            self.photoURL = nil
+            self.photoFilename = nil
         }
-        assert(self.photoURL == nil)
-        
+        assert(getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) == nil)
+
         // If there is a new photo URL, we move it to the engine if required, or simply make a hard link if it is already within the engine.
         // Creating a hard link prevents the deletion of a photo referenced by another ContactGroupDetails instance.
         if let newPhotoURL = newPhotoURL {
             assert(FileManager.default.fileExists(atPath: newPhotoURL.path))
-            guard let newPhotoURLInEngine = freshPath(in: directory) else { throw makeError(message: "Could not get fresh path for photo") }
-            if newPhotoURL.deletingLastPathComponent() == directory {
+            guard let newPhotoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
+            if newPhotoURL.deletingLastPathComponent() == delegateManager.identityPhotosDirectory {
                 try FileManager.default.linkItem(at: newPhotoURL, to: newPhotoURLInEngine)
             } else {
                 try FileManager.default.moveItem(at: newPhotoURL, to: newPhotoURLInEngine)
             }
-            self.photoURL = newPhotoURLInEngine
+            self.photoFilename = newPhotoURLInEngine.lastPathComponent
         }
         
         // Notify of the change
+        guard let obvContext = self.obvContext else { assertionFailure(); return true }
         let ownedCryptoIdentity = self.ownedIdentity.cryptoIdentity
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { return }
@@ -204,11 +215,13 @@ extension OwnedIdentityDetailsPublished {
 
     func updateWithNewIdentityDetails(_ newIdentityDetails: ObvIdentityDetails, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         var detailsWereUpdated = false
-        if newIdentityDetails.coreDetails != self.identityDetails.coreDetails {
+        let currentCoreDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+        let newCoreDetails = newIdentityDetails.coreDetails
+        if newCoreDetails != currentCoreDetails {
             self.serializedIdentityCoreDetails = try newIdentityDetails.coreDetails.encode()
             detailsWereUpdated = true
         }
-        if try setPhotoURL(with: newIdentityDetails.photoURL, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate, within: obvContext) {
+        if try setOwnedIdentityPhotot(with: newIdentityDetails.photoURL, delegateManager: delegateManager) {
             self.photoServerKeyEncoded = nil
             self.labelToDelete = self.photoServerLabel
             notificationRelatedChanges.insert(.photoServerLabel)
@@ -239,16 +252,14 @@ extension OwnedIdentityDetailsPublished {
     }
 
     struct Predicate {
-        
         enum Key: String {
             case photoServerLabel = "photoServerLabel"
             case photoServerKeyEncoded = "photoServerKeyEncoded"
-            case photoURL = "photoURL"
+            case photoFilename = "photoFilename"
             case ownedIdentity = "ownedIdentity"
         }
-        
-        static var withoutPhotoURL: NSPredicate {
-            NSPredicate(withNilValueForKey: Key.photoURL)
+        static var withoutPhotoFilename: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.photoFilename)
         }
         static var withPhotoServerKey: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
@@ -267,21 +278,21 @@ extension OwnedIdentityDetailsPublished {
         }
     }
     
-    static func getAllWithMissingPhotoURL(within obvContext: ObvContext) throws -> [OwnedIdentityDetailsPublished] {
+    static func getAllWithMissingPhotoFilename(within obvContext: ObvContext) throws -> [OwnedIdentityDetailsPublished] {
         let request: NSFetchRequest<OwnedIdentityDetailsPublished> = OwnedIdentityDetailsPublished.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withoutPhotoURL,
+            Predicate.withoutPhotoFilename,
             Predicate.withPhotoServerKeyAndLabel,
         ])
         let items = try obvContext.fetch(request)
         return items
     }
     
-    static func getAllPhotoURLs(with obvContext: ObvContext) throws -> Set<URL> {
+    static func getAllPhotoURLs(identityPhotosDirectory: URL, with obvContext: ObvContext) throws -> Set<URL> {
         let request: NSFetchRequest<OwnedIdentityDetailsPublished> = OwnedIdentityDetailsPublished.fetchRequest()
-        request.propertiesToFetch = [Predicate.Key.photoURL.rawValue]
+        request.propertiesToFetch = [Predicate.Key.photoFilename.rawValue]
         let details = try obvContext.fetch(request)
-        let photoURLs = Set(details.compactMap({ $0.photoURL }))
+        let photoURLs = Set(details.compactMap({ $0.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory) }))
         return photoURLs
     }
     

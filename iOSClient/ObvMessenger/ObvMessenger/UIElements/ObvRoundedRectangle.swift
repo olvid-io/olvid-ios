@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct ObvRoundedRectangle: Shape {
     
     var tl: CGFloat = 16.0

@@ -22,7 +22,7 @@ import SwiftUI
 import Combine
 
 
-@available(iOS 13, *)
+
 final class DiscussionsDefaultSettingsHostingViewController: UIHostingController<DiscussionsDefaultSettingsWrapperView> {
 
     fileprivate let model: DiscussionsDefaultSettingsViewModel
@@ -47,7 +47,7 @@ final class DiscussionsDefaultSettingsHostingViewController: UIHostingController
 }
 
 
-@available(iOS 13, *)
+
 final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
 
     var doSendReadReceipt: Binding<Bool>!
@@ -188,7 +188,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
 
 
 
-@available(iOS 13, *)
+
 struct DiscussionsDefaultSettingsWrapperView: View {
     
     @ObservedObject fileprivate var model: DiscussionsDefaultSettingsViewModel
@@ -210,7 +210,7 @@ struct DiscussionsDefaultSettingsWrapperView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct DiscussionsDefaultSettingsView: View {
     
     @Binding var doSendReadReceipt: Bool
@@ -398,7 +398,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
 
 
 
-@available(iOS 13, *)
+
 struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
     
     static var previews: some View {

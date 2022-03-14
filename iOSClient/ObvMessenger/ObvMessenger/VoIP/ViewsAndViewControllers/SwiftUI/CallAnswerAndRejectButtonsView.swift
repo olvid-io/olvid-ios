@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
 struct CallAnswerAndRejectButtonsView: View {
     var callState: CallState
     var actionReject: () -> Void
@@ -46,7 +45,6 @@ struct CallAnswerAndRejectButtonsView: View {
 
 
 
-@available(iOS 13.0, *)
 struct CallAnswerAndRejectButtonsView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
@@ -84,7 +82,6 @@ struct CallAnswerAndRejectButtonsView_Previews: PreviewProvider {
     }
 }
 
-@available(iOS 13.0, *)
 fileprivate struct CallAnswerAndRejectButtonsMockView: View {
     @ObservedObject var object: MockObject
     var body: some View {
@@ -98,7 +95,6 @@ fileprivate struct CallAnswerAndRejectButtonsMockView: View {
 }
 
 
-@available(iOS 13.0, *)
 fileprivate class MockObject: ObservableObject {
     @Published private(set) var showAcceptButton = true
     @Published private(set) var showAddPartcipantButton = false

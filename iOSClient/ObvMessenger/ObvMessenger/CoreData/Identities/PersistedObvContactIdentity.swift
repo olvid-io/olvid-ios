@@ -31,25 +31,8 @@ final class PersistedObvContactIdentity: NSManagedObject {
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedObvContactIdentity.self))
     
     private static let entityName = "PersistedObvContactIdentity"
-    
-    static let customDisplayNameKey = "customDisplayName"
-    static let identityKey = "identity"
-    private static let sortDisplayNameKey = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
-    static let devicesKey = "devices"
-    static let fullDisplayNameKey = "fullDisplayName"
-    static let rawOwnedIdentityKey = "rawOwnedIdentity"
-    static let rawStatusKey = "rawStatus"
-    static let customPhotoFilename = "customPhotoFilename"
-    static let ownedIdentityIdentityKey = [rawOwnedIdentityKey, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
-    private static let contactGroupsKey = "contactGroups"
-    private static let isActiveKey = "isActive"
-    private static let isCertifiedByOwnKeycloakKey = "isCertifiedByOwnKeycloak"
-    private static let errorDomain = "PersistedObvContactIdentity"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+        
+    private static func makeError(message: String) -> Error { NSError(domain: "PersistedObvContactIdentity", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: - Attributes
 
@@ -65,6 +48,7 @@ final class PersistedObvContactIdentity: NSManagedObject {
     @NSManaged private(set) var sortDisplayName: String // Should be renamed normalizedSortAndSearchKey
     @NSManaged private(set) var photoURL: URL?
     @NSManaged private(set) var customPhotoFilename: String?
+    @NSManaged private var capabilityWebrtcContinuousICE: Bool
 
     // MARK: - Relationships
 
@@ -303,6 +287,41 @@ extension PersistedObvContactIdentity {
 }
 
 
+// MARK: - Capabilities
+
+extension PersistedObvContactIdentity {
+    
+    func setContactCapabilities(to newCapabilities: Set<ObvCapability>) {
+        for capability in ObvCapability.allCases {
+            switch capability {
+            case .webrtcContinuousICE:
+                self.capabilityWebrtcContinuousICE = newCapabilities.contains(capability)
+            }
+        }
+    }
+    
+    
+    var allCapabilitites: Set<ObvCapability> {
+        var capabilitites = Set<ObvCapability>()
+        for capability in ObvCapability.allCases {
+            switch capability {
+            case .webrtcContinuousICE:
+                if self.capabilityWebrtcContinuousICE {
+                    capabilitites.insert(capability)
+                }
+            }
+        }
+        return capabilitites
+    }
+    
+    
+    func supportsCapability(_ capability: ObvCapability) -> Bool {
+        allCapabilitites.contains(capability)
+    }
+    
+}
+
+
 // MARK: - Other functions
 
 extension PersistedObvContactIdentity {
@@ -322,56 +341,121 @@ extension PersistedObvContactIdentity {
         return NSFetchRequest<PersistedObvContactIdentity>(entityName: self.entityName)
     }
     
+    struct Predicate {
+        enum Key: String {
+            case customDisplayName = "customDisplayName"
+            case identity = "identity"
+            case sortDisplayName = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
+            case devices = "devices"
+            case fullDisplayName = "fullDisplayName"
+            case rawOwnedIdentity = "rawOwnedIdentity"
+            case rawStatus = "rawStatus"
+            case customPhotoFilename = "customPhotoFilename"
+            case contactGroups = "contactGroups"
+            case isActive = "isActive"
+            case isCertifiedByOwnKeycloak = "isCertifiedByOwnKeycloak"
+            case capabilityWebrtcContinuousICE = "capabilityWebrtcContinuousICE"
+            static var ownedIdentityIdentity: String {
+                [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+            }
+        }
+        static func withCryptoId(_ cryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.identity, EqualToData: cryptoId.getIdentity())
+        }
+        static func withCryptoIdIn(_ cryptoIds: Set<ObvCryptoId>) -> NSPredicate {
+            let identities = cryptoIds.map { $0.getIdentity() as NSData }
+            return NSPredicate(format: "%K IN %@", Key.identity.rawValue, identities)
+        }
+        static func ofOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
+            NSPredicate(Key.rawOwnedIdentity, equalTo: ownedIdentity)
+        }
+        static func ofOwnedIdentityWithCryptoId(_ ownedIdentityCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedIdentityCryptoId.getIdentity())
+        }
+        static func correspondingToObvContactIdentity(_ obvContactIdentity: ObvContactIdentity) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withCryptoId(obvContactIdentity.cryptoId),
+                ofOwnedIdentityWithCryptoId(obvContactIdentity.ownedIdentity.cryptoId),
+            ])
+        }
+        static func excludedContactCryptoIds(excludedIdentities: Set<ObvCryptoId>) -> NSPredicate {
+            let excludedIdentities: [NSData] = excludedIdentities.map { $0.getIdentity() as NSData }
+            return NSPredicate(format: "NOT %K IN %@", Key.identity.rawValue, excludedIdentities)
+        }
+        static func restrictedToContactCryptoIds(identities: Set<ObvCryptoId>) -> NSPredicate {
+            let identities: [NSData] = identities.map { $0.getIdentity() as NSData }
+            return NSPredicate(format: "%K IN %@", Key.identity.rawValue, identities)
+        }
+        static var isCertifiedByOwnKeycloakIsTrue: NSPredicate {
+            NSPredicate(Key.isCertifiedByOwnKeycloak, is: true)
+        }
+        static func inPersistedContactGroup(_ persistedContactGroup: PersistedContactGroup) -> NSPredicate {
+            NSPredicate(format: "%@ IN %K", persistedContactGroup, Key.contactGroups.rawValue)
+        }
+    }
+    
+    
     static func get(cryptoId: ObvCryptoId, ownedIdentity: PersistedObvOwnedIdentity) throws -> PersistedObvContactIdentity? {
         guard let context = ownedIdentity.managedObjectContext else { throw makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        identityKey, cryptoId.getIdentity() as NSData,
-                                        ownedIdentityIdentityKey, ownedIdentity.cryptoId.getIdentity() as NSData)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCryptoId(cryptoId),
+            Predicate.ofOwnedIdentity(ownedIdentity),
+        ])
+        request.fetchLimit = 1
         return try context.fetch(request).first
     }
+    
     
     static func get(contactCryptoId: ObvCryptoId, ownedIdentityCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        identityKey, contactCryptoId.getIdentity() as NSData,
-                                        ownedIdentityIdentityKey, ownedIdentityCryptoId.getIdentity() as NSData)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCryptoId(contactCryptoId),
+            Predicate.ofOwnedIdentityWithCryptoId(ownedIdentityCryptoId),
+        ])
+        request.fetchLimit = 1
         return try context.fetch(request).first
     }
 
+    
     static func get(persisted obvContactIdentity: ObvContactIdentity, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        identityKey, obvContactIdentity.cryptoId.getIdentity() as NSData,
-                                        ownedIdentityIdentityKey, obvContactIdentity.ownedIdentity.cryptoId.getIdentity() as NSData)
+        request.predicate = Predicate.correspondingToObvContactIdentity(obvContactIdentity)
+        request.fetchLimit = 1
         return try context.fetch(request).first
     }
     
+    
     static func getAllContactOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: sortDisplayNameKey, ascending: true)]
-        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        request.predicate = Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId)
+        request.fetchBatchSize = 1_000
         return try context.fetch(request)
     }
+    
 
     static func markAllContactOfOwnedIdentityAsNotCertifiedBySameKeycloak(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isCertifiedByOwnKeycloakIsTrue,
-            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
         ])
+        request.fetchBatchSize = 1_000
         let contacts = try context.fetch(request)
         for contact in contacts {
             contact.isCertifiedByOwnKeycloak = false
         }
     }
     
+    
     static func getAllContactsWithCryptoId(in cryptoIds: Set<ObvCryptoId>, ofOwnedIdentity ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<PersistedObvContactIdentity> {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        let identities = cryptoIds.map { $0.getIdentity() as NSData }
-        request.predicate = NSPredicate(format: "%K == %@ AND %K IN %@",
-                                        ownedIdentityIdentityKey, ownedCryptoId.getIdentity() as NSData,
-                                        identityKey, identities)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCryptoIdIn(cryptoIds),
+            Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
+        ])
+        request.fetchBatchSize = 1_000
         let contacts = Set(try context.fetch(request))
         return contacts
     }
@@ -380,32 +464,31 @@ extension PersistedObvContactIdentity {
     static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
         return try context.existingObject(with: objectID) as? PersistedObvContactIdentity
     }
+    
 
     static func get(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
         return try context.existingObject(with: objectID.objectID) as? PersistedObvContactIdentity
     }
+    
 
-    static func getAll(within context: NSManagedObjectContext) -> [PersistedObvContactIdentity]? {
+    static func getAll(within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        do {
-            return try context.fetch(request)
-        } catch {
-            return nil
-        }
-
+        return try context.fetch(request)
     }
 
     
-    static func countContactsOfOwnedIdentity(_ ownedIdentity: ObvCryptoId, within context: NSManagedObjectContext) throws -> Int {
+    static func countContactsOfOwnedIdentity(_ ownedIdentityCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Int {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = Predicate.withOwnedCryptoId(ownedIdentity)
+        request.predicate = Predicate.ofOwnedIdentityWithCryptoId(ownedIdentityCryptoId)
+        request.resultType = .countResultType
         let count = try context.count(for: request)
         return count
     }
 
+    
     static func getAllCustomPhotoURLs(within context: NSManagedObjectContext) throws -> Set<URL> {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.propertiesToFetch = [PersistedObvContactIdentity.customPhotoFilename]
+        request.propertiesToFetch = [Predicate.Key.customPhotoFilename.rawValue]
         let details = try context.fetch(request)
         let photoURLs = Set(details.compactMap({ $0.customPhotoURL }))
         return photoURLs
@@ -417,61 +500,33 @@ extension PersistedObvContactIdentity {
 // MARK: - Convenience NSFetchedResultsController creators
 
 extension PersistedObvContactIdentity {
-    
-    private struct Predicate {
-        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
-            NSPredicate(format: "%K == %@", PersistedObvContactIdentity.ownedIdentityIdentityKey, ownedCryptoId.getIdentity() as NSData)
-        }
-        static func excludedContactCryptoIds(excludedIdentities: Set<ObvCryptoId>) -> NSPredicate {
-            let excludedIdentities: [NSData] = excludedIdentities.map { $0.getIdentity() as NSData }
-            return NSPredicate(format: "NOT %K IN %@", PersistedObvContactIdentity.identityKey, excludedIdentities)
-        }
-        static func restrictedToContactCryptoIds(identities: Set<ObvCryptoId>) -> NSPredicate {
-            let identities: [NSData] = identities.map { $0.getIdentity() as NSData }
-            return NSPredicate(format: "%K IN %@", PersistedObvContactIdentity.identityKey, identities)
-        }
-        static var isCertifiedByOwnKeycloakIsTrue: NSPredicate {
-            NSPredicate(format: "%K == TRUE", PersistedObvContactIdentity.isCertifiedByOwnKeycloakKey)
-        }
-    }
-    
+        
     static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSPredicate {
-        return Predicate.withOwnedCryptoId(ownedCryptoId)
+        return Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId)
     }
+
     
     static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, excludedContactCryptoIds: Set<ObvCryptoId>) -> NSPredicate {
         NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
             Predicate.excludedContactCryptoIds(excludedIdentities: excludedContactCryptoIds),
         ])
     }
 
+    
     static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, restrictedToContactCryptoIds: Set<ObvCryptoId>) -> NSPredicate {
         NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
             Predicate.restrictedToContactCryptoIds(identities: restrictedToContactCryptoIds),
         ])
     }
     
+    
     static func getPredicateForContactGroup(_ persistedContactGroup: PersistedContactGroup) -> NSPredicate {
-        return NSPredicate(format: "%@ IN %K", persistedContactGroup, contactGroupsKey)
+        Predicate.inPersistedContactGroup(persistedContactGroup)
     }
     
-    static func getFetchedResultsControllerForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, excludedContactCryptoIds: Set<ObvCryptoId>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
-        let predicate = getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, excludedContactCryptoIds: excludedContactCryptoIds)
-        return getFetchedResultsController(predicate: predicate, within: context)
-    }
-
-    static func getFetchRequestForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, excludedContactCryptoIds: Set<ObvCryptoId>, andPredicate: NSPredicate? = nil) -> NSFetchRequest<PersistedObvContactIdentity> {
-        let predicate = getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, excludedContactCryptoIds: excludedContactCryptoIds)
-        return getFetchRequestForAllContactsOfOwnedIdentity(with: ownedCryptoId, predicate: predicate, and: andPredicate)
-    }
-
-    static func getFetchRequestForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, restrictedToContactCryptoIds: Set<ObvCryptoId>, andPredicate: NSPredicate? = nil) -> NSFetchRequest<PersistedObvContactIdentity> {
-        let predicate = getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, restrictedToContactCryptoIds: restrictedToContactCryptoIds)
-        return getFetchRequestForAllContactsOfOwnedIdentity(with: ownedCryptoId, predicate: predicate, and: andPredicate)
-    }
-
+    
     static func getFetchRequestForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, predicate: NSPredicate, and andPredicate: NSPredicate? = nil) -> NSFetchRequest<PersistedObvContactIdentity> {
         let _predicate: NSPredicate
         if let andPredicate = andPredicate {
@@ -481,10 +536,11 @@ extension PersistedObvContactIdentity {
         }
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = _predicate
-        request.sortDescriptors = [NSSortDescriptor(key: sortDisplayNameKey, ascending: true)]
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
         request.fetchBatchSize = 1_000
         return request
     }
+    
     
     static func getFetchedResultsControllerForContactGroup(_ persistedContactGroup: PersistedContactGroup) throws -> NSFetchedResultsController<PersistedObvContactIdentity> {
         guard let context = persistedContactGroup.managedObjectContext else { throw NSError() }
@@ -495,7 +551,7 @@ extension PersistedObvContactIdentity {
     
     static func getFetchedResultsController(predicate: NSPredicate, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
         let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: sortDisplayNameKey, ascending: true)]
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
         fetchRequest.predicate = predicate
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
                                                                   managedObjectContext: context,
@@ -503,6 +559,7 @@ extension PersistedObvContactIdentity {
                                                                   cacheName: nil)
         return fetchedResultsController
     }
+    
 }
 
 // MARK: - Siri and Intent integration
@@ -591,17 +648,17 @@ extension PersistedObvContactIdentity {
                         
         } else {
           
-            if changedKeys.contains(PersistedObvContactIdentity.customDisplayNameKey) {
+            if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) {
                 ObvMessengerInternalNotification.persistedContactHasNewCustomDisplayName(contactCryptoId: cryptoId)
                     .postOnDispatchQueue()
             }
             
-            if changedKeys.contains(PersistedObvContactIdentity.rawStatusKey), let ownedCryptoId = ownedIdentity?.cryptoId {
+            if changedKeys.contains(Predicate.Key.rawStatus.rawValue), let ownedCryptoId = ownedIdentity?.cryptoId {
                 ObvMessengerInternalNotification.persistedContactHasNewStatus(contactCryptoId: cryptoId, ownedCryptoId: ownedCryptoId)
                     .postOnDispatchQueue()
             }
             
-            if changedKeys.contains(PersistedObvContactIdentity.isActiveKey) {
+            if changedKeys.contains(Predicate.Key.isActive.rawValue) {
                 let typedObjectID = self.typedObjectID
                 DispatchQueue.main.async {
                     // We refresh the object in the view context (if it exists) prior sending the notification
@@ -614,7 +671,7 @@ extension PersistedObvContactIdentity {
             }
 
             // Since the discussion title depends on both the custom name and the full display name of the contact, we send an appropriate notification if one of two changed.
-            if changedKeys.contains(PersistedObvContactIdentity.customDisplayNameKey) || changedKeys.contains(PersistedObvContactIdentity.fullDisplayNameKey) {
+            if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) || changedKeys.contains(Predicate.Key.fullDisplayName.rawValue) {
                 guard let ownedIdentityObjectID = self.ownedIdentity?.typedObjectID else { return }
                 ObvMessengerInternalNotification.aOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: ownedIdentityObjectID)
                     .postOnDispatchQueue()

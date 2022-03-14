@@ -101,7 +101,7 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject {
     }
     
     var canBeDeleted: Bool {
-        let allAttachmentsCanBeDeleted = attachments.reduce(true) { $0 && $1.canBeDeleted }
+        let allAttachmentsCanBeDeleted = attachments.allSatisfy({ $0.canBeDeleted })
         return allAttachmentsCanBeDeleted && (uploaded || cancelExternallyRequested)
     }
     

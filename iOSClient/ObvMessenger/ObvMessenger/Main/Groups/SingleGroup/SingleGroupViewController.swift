@@ -282,7 +282,13 @@ extension SingleGroupViewController {
         items += [UIBarButtonItem(barButtonSystemItem: UIBarButtonItem.SystemItem.compose, target: self, action: #selector(editGroupButtonTapped))]
 
         if !persistedContactGroup.contactIdentities.isEmpty {
-            items += [UIBarButtonItem(systemName: ObvSystemIcon.phoneFill.systemName, style: .plain, target: self, action: #selector(callButtonTapped))]
+            items += [BlockBarButtonItem(systemIcon: .phoneFill) {
+                if let groupId = try? self.persistedContactGroup.getGroupId() {
+                    let contactIdentities = self.persistedContactGroup.contactIdentities
+
+                    ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
+                }
+            }]
         }
 
         self.navigationItem.rightBarButtonItems = items
@@ -331,7 +337,7 @@ extension SingleGroupViewController {
     private func configureAndAddMembersTVC() throws {
         
         let predicate = PersistedObvContactIdentity.getPredicateForContactGroup(self.persistedContactGroup)
-        let contactsTVC = ContactsTableViewController(showOwnedIdentityWithCryptoId: nil, disableContactsWithoutDevice: false, allowDeletion: false)
+        let contactsTVC = ContactsTableViewController(disableContactsWithoutDevice: false, allowDeletion: false)
         contactsTVC.cellBackgroundColor = AppTheme.shared.colorScheme.tertiarySystemBackground
         contactsTVC.predicate = predicate
         contactsTVC.delegate = self
@@ -559,14 +565,6 @@ extension SingleGroupViewController {
 
     }
 
-    @objc func callButtonTapped() {
-        if let groupId = try? persistedContactGroup.getGroupId() {
-            let contactIdentities = persistedContactGroup.contactIdentities
-
-            ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
-        }
-    }
-
     private func setGroupNameCustom(to groupNameCustom: String) {
         guard obvContactGroup.groupType == .joined else { return }
         ObvStack.shared.performBackgroundTask { [weak self] (context) in
@@ -600,10 +598,6 @@ extension SingleGroupViewController {
 // MARK: - ContactsTableViewControllerDelegate
 
 extension SingleGroupViewController: ContactsTableViewControllerDelegate {
-
-    func userDidSelectOwnedIdentity() {
-        // Never called
-    }
     
     func userWantsToDeleteContact(with: ObvCryptoId, forOwnedCryptoId: ObvCryptoId, completionHandler: @escaping (Bool) -> Void) {
         assertionFailure("Should never be called")

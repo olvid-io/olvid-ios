@@ -21,7 +21,6 @@ import SwiftUI
 import ObvTypes
 import ObvEngine
 
-@available(iOS 13, *)
 struct LicenseActivationView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -73,7 +72,7 @@ struct LicenseActivationView: View {
                                 if #available(iOS 14.0, *) {
                                     ProgressView("Looking for the new license")
                                 } else {
-                                    ObvActivityIndicator(isAnimating: .constant(true), style: .large)
+                                    ObvActivityIndicator(isAnimating: .constant(true), style: .large, color: nil)
                                 }
                                 Spacer()
                             }.padding(.top)
@@ -118,7 +117,6 @@ struct LicenseActivationView: View {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct UnableToActivateLicenseView: View {
     
     enum Category {
@@ -173,7 +171,6 @@ fileprivate struct UnableToActivateLicenseView: View {
 
 
 
-@available(iOS 13, *)
 struct LicenseActivationView_Previews: PreviewProvider {
     
     private static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!

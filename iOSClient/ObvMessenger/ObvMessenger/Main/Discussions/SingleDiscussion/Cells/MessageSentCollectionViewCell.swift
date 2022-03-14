@@ -147,7 +147,7 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
         }
     }
     
-    @available(iOS 13, *)
+    
     private func imageForMessageStatus(_ status: PersistedMessageSent.MessageStatus) -> UIImage {
         let configuration = UIImage.SymbolConfiguration(textStyle: UIFont.TextStyle.footnote, scale: .small)
         switch status {
@@ -289,5 +289,5 @@ extension MessageSentCollectionViewCell: CellWithMessage {
     }
 
     var isCallActionAvailable: Bool { false }
-
+    var isDeleteOwnReactionActionAvailable: Bool { false }
 }

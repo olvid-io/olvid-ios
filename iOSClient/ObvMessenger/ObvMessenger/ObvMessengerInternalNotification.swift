@@ -177,6 +177,9 @@ enum ObvMessengerInternalNotification {
 	case uiRequiresSignedContactDetails(ownedIdentityCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, completion: (SignedUserDetails?) -> Void)
 	case preferredComposeMessageViewActionsDidChange
 	case requestSyncAppDatabasesWithEngine(completion: (Result<Void,Error>) -> Void)
+	case persistedMessageReactionReceivedWasDeleted(messageURI: URL, contactURI: URL)
+	case uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: (SignedUserDetails?) -> Void)
+	case listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -322,6 +325,9 @@ enum ObvMessengerInternalNotification {
 		case uiRequiresSignedContactDetails
 		case preferredComposeMessageViewActionsDidChange
 		case requestSyncAppDatabasesWithEngine
+		case persistedMessageReactionReceivedWasDeleted
+		case uiRequiresSignedOwnedDetails
+		case listMessagesOnServerBackgroundTaskWasLaunched
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -477,6 +483,9 @@ enum ObvMessengerInternalNotification {
 			case .uiRequiresSignedContactDetails: return Name.uiRequiresSignedContactDetails.name
 			case .preferredComposeMessageViewActionsDidChange: return Name.preferredComposeMessageViewActionsDidChange.name
 			case .requestSyncAppDatabasesWithEngine: return Name.requestSyncAppDatabasesWithEngine.name
+			case .persistedMessageReactionReceivedWasDeleted: return Name.persistedMessageReactionReceivedWasDeleted.name
+			case .uiRequiresSignedOwnedDetails: return Name.uiRequiresSignedOwnedDetails.name
+			case .listMessagesOnServerBackgroundTaskWasLaunched: return Name.listMessagesOnServerBackgroundTaskWasLaunched.name
 			}
 		}
 	}
@@ -1099,6 +1108,20 @@ enum ObvMessengerInternalNotification {
 		case .requestSyncAppDatabasesWithEngine(completion: let completion):
 			info = [
 				"completion": completion,
+			]
+		case .persistedMessageReactionReceivedWasDeleted(messageURI: let messageURI, contactURI: let contactURI):
+			info = [
+				"messageURI": messageURI,
+				"contactURI": contactURI,
+			]
+		case .uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: let ownedIdentityCryptoId, completion: let completion):
+			info = [
+				"ownedIdentityCryptoId": ownedIdentityCryptoId,
+				"completion": completion,
+			]
+		case .listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: let completionHandler):
+			info = [
+				"completionHandler": completionHandler,
 			]
 		}
 		return info
@@ -2348,6 +2371,32 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let completion = notification.userInfo!["completion"] as! (Result<Void,Error>) -> Void
 			block(completion)
+		}
+	}
+
+	static func observePersistedMessageReactionReceivedWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (URL, URL) -> Void) -> NSObjectProtocol {
+		let name = Name.persistedMessageReactionReceivedWasDeleted.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let messageURI = notification.userInfo!["messageURI"] as! URL
+			let contactURI = notification.userInfo!["contactURI"] as! URL
+			block(messageURI, contactURI)
+		}
+	}
+
+	static func observeUiRequiresSignedOwnedDetails(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, @escaping (SignedUserDetails?) -> Void) -> Void) -> NSObjectProtocol {
+		let name = Name.uiRequiresSignedOwnedDetails.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedIdentityCryptoId = notification.userInfo!["ownedIdentityCryptoId"] as! ObvCryptoId
+			let completion = notification.userInfo!["completion"] as! (SignedUserDetails?) -> Void
+			block(ownedIdentityCryptoId, completion)
+		}
+	}
+
+	static func observeListMessagesOnServerBackgroundTaskWasLaunched(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (@escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+		let name = Name.listMessagesOnServerBackgroundTaskWasLaunched.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
+			block(completionHandler)
 		}
 	}
 

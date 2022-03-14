@@ -43,14 +43,13 @@ final class ObvLocalChannel: ObvChannel {
         self.ownedIdentity = ownedIdentity
     }
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> MessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvLocalChannel.logCategory)
         
         guard let protocolDelegate = delegateManager.protocolDelegate else {
             os_log("The protocol delegate is not set", log: log, type: .fault)
-            assertionFailure()
-            return
+            throw Self.makeError(message: "The protocol delegate is not set")
         }
 
         switch message.messageType {
@@ -60,7 +59,7 @@ final class ObvLocalChannel: ObvChannel {
             
             guard let message = message as? ObvChannelProtocolMessageToSend else {
                 os_log("Could not cast to protocol message", log: log, type: .fault)
-                throw NSError()
+                throw Self.makeError(message: "Could not cast to protocol message")
             }
                         
             guard let toIdentity = message.channelType.toIdentity else {
@@ -68,10 +67,7 @@ final class ObvLocalChannel: ObvChannel {
                 throw ObvLocalChannel.makeError(message: "The channel type has no toIdentity, which is unexpected")
             }
             
-            guard let ownedIdentity = message.channelType.fromOwnedIdentity else {
-                assertionFailure()
-                throw ObvLocalChannel.makeError(message: "The channel type has no fromOwnedIdentity, which is unexpected")
-            }
+            let ownedIdentity = message.channelType.fromOwnedIdentity
             
             guard toIdentity == ownedIdentity else {
                 assertionFailure()
@@ -88,24 +84,26 @@ final class ObvLocalChannel: ObvChannel {
                         
             try protocolDelegate.process(receivedMessage, within: obvContext)
             
+            return messageId
+            
         case .ApplicationMessage:
             os_log("Trying to post an application message on a local channel (not implemented)", log: log, type: .fault)
-            assertionFailure()
+            throw ObvLocalChannel.makeError(message: "Trying to post an application message on a local channel (not implemented)")
             
         case .DialogMessage:
             os_log("Trying to post a dialog message on a local channel (not implemented)", log: log, type: .fault)
-            assertionFailure()
+            throw ObvLocalChannel.makeError(message: "Trying to post a dialog message on a local channel (not implemented)")
 
         case .ServerQuery:
             os_log("Trying to post a server query on a local channel (not implemented)", log: log, type: .fault)
-            assertionFailure()
+            throw ObvLocalChannel.makeError(message: "Trying to post a server query on a local channel (not implemented)")
 
         case .DialogResponseMessage:
             os_log("Posting a dialog response message on a local channel", log: log, type: .debug)
             
             guard let message = message as? ObvChannelDialogResponseMessageToSend else {
                 os_log("Could not cast to dialog response message to send", log: log, type: .fault)
-                throw NSError()
+                throw ObvLocalChannel.makeError(message: "Could not cast to dialog response message to send")
             }
 
             let receivedMessage = ObvProtocolReceivedDialogResponse(toOwnedIdentity: ownedIdentity,
@@ -116,13 +114,18 @@ final class ObvLocalChannel: ObvChannel {
                                                                     dialogUuid: message.uuid)
             
             try protocolDelegate.process(receivedMessage, within: obvContext)
+
+            let randomUid = UID.gen(with: prng)
+            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
+
+            return messageId
             
         case .ServerResponse:
             os_log("Posting a server response message on a local channel", log: log, type: .debug)
 
             guard let message = message as? ObvChannelServerResponseMessageToSend else {
                 os_log("Could not cast to server response message to send", log: log, type: .fault)
-                throw NSError()
+                throw ObvLocalChannel.makeError(message: "Could not cast to server response message to send")
             }
             
             let receivedMessage = ObvProtocolReceivedServerResponse(toOwnedIdentity: ownedIdentity,
@@ -133,6 +136,11 @@ final class ObvLocalChannel: ObvChannel {
 
             try protocolDelegate.process(receivedMessage, within: obvContext)
             
+            let randomUid = UID.gen(with: prng)
+            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
+
+            return messageId
+
         }
     }
     
@@ -174,7 +182,7 @@ extension ObvLocalChannel {
         return acceptableChannels
     }
     
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvLocalChannel.logCategory)
 
@@ -183,12 +191,15 @@ extension ObvLocalChannel {
             throw ObvLocalChannel.makeError(message: "No acceptable local channel found")
         }
         
-        for localChannel in acceptableChannels {
-            try localChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        guard acceptableChannels.count == 1, let acceptableLocalChannel = acceptableChannels.first else {
+            os_log("Unexpected number of local channels found. Expecting 1, go %d", log: log, type: .error, acceptableChannels.count)
+            throw ObvLocalChannel.makeError(message: "Unexpected number of local channels found")
         }
         
-        let postedIdentities = Set(acceptableChannels.map({ $0.ownedIdentity }))
-        return postedIdentities
+        let messageId = try acceptableLocalChannel.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        let ownedIdentity = acceptableLocalChannel.ownedIdentity
+        
+        return [messageId: Set([ownedIdentity])]
         
     }
 

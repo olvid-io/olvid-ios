@@ -22,8 +22,6 @@ import ObvEngine
 
 protocol AllContactsViewControllerDelegate: AnyObject {
     
-    func userDidSelectOwnedIdentity()
-    
     func userDidSelect(_: PersistedObvContactIdentity, within: UINavigationController?)
 
     func userDidDeselect(_: PersistedObvContactIdentity)

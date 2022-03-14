@@ -89,40 +89,24 @@ extension AllGroupsViewController {
     
     
     private func addAndConfigureContactGroupsTableViewController() {
-        
-        if #available(iOS 13.0, *) {
-            let vc = ContactGroupsHostingViewController(ownedCryptoId: ownedCryptoId, delegate: self)
-            vc.delegate = self
-            navigationItem.searchController = vc.searchController
-            vc.willMove(toParent: self)
-            self.addChild(vc)
-            vc.didMove(toParent: self)
-            vc.view.translatesAutoresizingMaskIntoConstraints = false
-            self.view.insertSubview(vc.view, at: 0)
-            self.view.pinAllSidesToSides(of: vc.view)
-        } else {
-            let frc = PersistedContactGroup.getFetchedResultsControllerForAllContactGroupsOfOwnedIdentity(with: self.ownedCryptoId, within: ObvStack.shared.viewContext)
-            let groupsTVC = ContactGroupsTableViewController(fetchedResultsController: frc)
-            groupsTVC.delegate = self
-            groupsTVC.willMove(toParent: self)
-            self.addChild(groupsTVC)
-            groupsTVC.didMove(toParent: self)
-            groupsTVC.view.frame = self.view.bounds
-            self.view.insertSubview(groupsTVC.view, at: 0)
-        }
-        
+        let vc = ContactGroupsHostingViewController(ownedCryptoId: ownedCryptoId, delegate: self)
+        vc.delegate = self
+        navigationItem.searchController = vc.searchController
+        vc.willMove(toParent: self)
+        self.addChild(vc)
+        vc.didMove(toParent: self)
+        vc.view.translatesAutoresizingMaskIntoConstraints = false
+        self.view.insertSubview(vc.view, at: 0)
+        self.view.pinAllSidesToSides(of: vc.view)
+
         navigationItem.hidesSearchBarWhenScrolling = false
 
     }
     
     /// This method is used when deeplinks need to navigate through the hierarchy
     func selectRowOfContactGroup(_ contactGroup: PersistedContactGroup) {
-        if let vc = children.first as? ContactGroupsTableViewController {
+        if let vc = children.first as? ContactGroupsHostingViewController {
             vc.selectRowOfContactGroup(contactGroup)
-        } else if #available(iOS 13.0, *) {
-            if let vc = children.first as? ContactGroupsHostingViewController {
-                vc.selectRowOfContactGroup(contactGroup)
-            }
         }
     }
 }
@@ -141,7 +125,6 @@ extension AllGroupsViewController {
 
 // MARK: - ContactGroupsHostingViewControllerDelegate
 
-@available(iOS 13.0, *)
 extension AllGroupsViewController: ContactGroupsHostingViewControllerDelegate {
     
     func userWantsToSeeContactGroupDetails(of group: PersistedContactGroup) {
@@ -166,13 +149,8 @@ extension AllGroupsViewController: ContactGroupsTableViewControllerDelegate {
 extension AllGroupsViewController: CanScrollToTop {
     
     func scrollToTop() {
-        if let vc = children.first as? ContactGroupsTableViewController {
-            guard vc.tableView.numberOfSections > 0 && vc.tableView.numberOfRows(inSection: 0) > 0 else { return }
-            vc.tableView.scrollToRow(at: IndexPath.init(row: 0, section: 0), at: .top, animated: true)
-        } else if #available(iOS 13.0, *) {
-            if let vc = children.first as? ContactGroupsHostingViewController {
-                vc.scrollToTop()
-            }
+        if let vc = children.first as? ContactGroupsHostingViewController {
+            vc.scrollToTop()
         }
     }
     

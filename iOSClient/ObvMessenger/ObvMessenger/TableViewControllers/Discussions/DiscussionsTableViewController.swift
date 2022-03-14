@@ -41,8 +41,6 @@ class DiscussionsTableViewController: UITableViewController {
         }
     }
     
-    // At least one of these two arrays is expected to be of the same size as `allFetchRequests`
-    private var allSegmentTitles: [String] = []
     private var allSegmentImages: [UIImage] = []
     
     private var fetchRequest: NSFetchRequest<PersistedDiscussion>! {
@@ -138,12 +136,6 @@ class DiscussionsTableViewController: UITableViewController {
     func setFetchRequestsAndImages(_ fetchRequestsAndImages: [(NSFetchRequest<PersistedDiscussion>, UIImage)]) {
         self.allFetchRequests = fetchRequestsAndImages.map { $0.0 }
         self.allSegmentImages = fetchRequestsAndImages.map { $0.1 }
-    }
-
-    
-    func setFetchRequestsAndTitles(_ fetchRequestsAndTitles: [(NSFetchRequest<PersistedDiscussion>, String)]) {
-        self.allFetchRequests = fetchRequestsAndTitles.map { $0.0 }
-        self.allSegmentTitles = fetchRequestsAndTitles.map { $0.1 }
     }
 
     private var notificationTokens = [NSObjectProtocol]()
@@ -308,13 +300,8 @@ extension DiscussionsTableViewController {
             cell.delegate = self
             cell.selectionStyle = .none
             for index in 0..<self.allFetchRequests.count {
-                if index < allSegmentImages.count {
-                    cell.segmentedControl.insertSegment(with: allSegmentImages[index], at: index, animated: false)
-                } else if index < allSegmentTitles.count {
-                    cell.segmentedControl.insertSegment(withTitle: allSegmentTitles[index], at: index, animated: false)
-                } else {
-                    assert(false)
-                }
+                assert(index < allSegmentImages.count)
+                cell.segmentedControl.insertSegment(with: allSegmentImages[index], at: index, animated: false)
             }
             cell.segmentedControl.selectedSegmentIndex = allFetchRequests.firstIndex(of: fetchRequest) ?? 0
             return cell

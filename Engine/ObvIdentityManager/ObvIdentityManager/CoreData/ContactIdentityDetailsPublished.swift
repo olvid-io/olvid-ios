@@ -45,7 +45,6 @@ final class ContactIdentityDetailsPublished: ContactIdentityDetails {
         
         self.init(contactIdentity: contactIdentity,
                   coreDetails: contactIdentityDetailsElements.coreDetails,
-                  photoURL: nil,
                   version: contactIdentityDetailsElements.version,
                   photoServerKeyAndLabel: contactIdentityDetailsElements.photoServerKeyAndLabel,
                   entityName: ContactIdentityDetailsPublished.entityName,
@@ -74,13 +73,13 @@ extension ContactIdentityDetailsPublished {
 
         self.version = newContactIdentityDetailsElements.version
         
-        if newContactIdentityDetailsElements.coreDetails != self.identityDetails.coreDetails {
+        if newContactIdentityDetailsElements.coreDetails != self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails {
             self.serializedIdentityCoreDetails = try newContactIdentityDetailsElements.coreDetails.encode()
         }
         
         if newContactIdentityDetailsElements.photoServerKeyAndLabel != self.photoServerKeyAndLabel {
             self.photoServerKeyAndLabel = newContactIdentityDetailsElements.photoServerKeyAndLabel
-            try setPhotoURL(with: nil, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try setContactPhoto(with: nil, delegateManager: delegateManager)
         }
         
     }
@@ -114,10 +113,11 @@ extension ContactIdentityDetailsPublished {
         
         if !isDeleted {
             
+            let publishedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
             let NotificationType = ObvIdentityNotification.NewPublishedContactIdentityDetails.self
             let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
                             NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
-                            NotificationType.Key.publishedIdentityDetails: self.identityDetails] as [String: Any]
+                            NotificationType.Key.publishedIdentityDetails: publishedIdentityDetails] as [String: Any]
             notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
 
         } 

@@ -28,6 +28,7 @@ import AVFoundation
 protocol DiscussionViewController: UIViewController {
     var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { get }
     func addAttachmentFromAirDropFile(at url: URL)
+    func scrollTo(message: PersistedMessage)
 }
 
 final class SingleDiscussionViewController: UICollectionViewController, DiscussionViewController, SomeSingleDiscussionViewController {
@@ -297,15 +298,19 @@ extension SingleDiscussionViewController {
 
         if !(discussion is PersistedDiscussionGroupLocked) {
             var items: [UIBarButtonItem] = []
-            items += [UIBarButtonItem(systemName: ObvSystemIcon.ellipsisCircle.systemName, style: .plain, target: self, action: #selector(settingsButtonTapped))]
+            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 18.0, weight: .bold)
+            let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
+            items += [UIBarButtonItem(image: ellipsisImage, style: .plain, target: self, action: #selector(settingsButtonTapped))]
 
             if discussion.isCallAvailable, AppStateManager.shared.appType == .mainApp {
-                items += [UIBarButtonItem(systemName: ObvSystemIcon.phoneFill.systemName, style: .plain, target: self, action: #selector(callButtonTapped))]
+                let phoneImage = UIImage(systemIcon: .phoneFill, withConfiguration: symbolConfiguration)
+                items += [UIBarButtonItem(image: phoneImage, style: .plain, target: self, action: #selector(callButtonTapped))]
             }
             if #available(iOS 14.0, *), let muteNotificationEndDate = discussion.localConfiguration.currentMuteNotificationsEndDate {
                 let unmuteDateFormatted = PersistedDiscussionLocalConfiguration.formatDateForMutedNotification(muteNotificationEndDate)
+                let muteIcon = UIImage(systemIcon: ObvMessengerConstants.muteIcon, withConfiguration: symbolConfiguration)
                 let unmuteButton = UIBarButtonItem(
-                    systemName: ObvMessengerConstants.muteIcon.systemName,
+                    image: muteIcon,
                     style: .plain,
                     title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted),
                     actions: [UIAction(title:
@@ -540,7 +545,23 @@ extension SingleDiscussionViewController {
             }
         }
     }
-    
+
+    func scrollTo(message: PersistedMessage) {
+        if let message = try? fetchedResultsController.managedObjectContext.existingObject(with: message.objectID) as? PersistedMessage,
+           let indexPath = fetchedResultsController.indexPath(forObject: message),
+           let collectionView = self.collectionView as? ObvCollectionView {
+            guard let cell = collectionView.cellForItem(at: indexPath) else {
+                // The cell might be to high...
+                collectionView.adjustedScrollToItem(at: indexPath, at: .top, animated: true)
+                return
+            }
+            let cellRect = cell.contentView.convert(cell.contentView.bounds, to: collectionView)
+            guard !collectionView.bounds.inset(by: collectionView.safeAreaInsets).contains(cellRect) else {
+                return
+            }
+            collectionView.adjustedScrollToItem(at: indexPath, at: .top, animated: true)
+        }
+    }
     
     private func markAllVisibleMessageReceivedAsNotNew() {
         do {
@@ -899,13 +920,13 @@ extension SingleDiscussionViewController {
     }
     
     
-    @available(iOS 13.0, *)
+    
     override func collectionView(_ collectionView: UICollectionView, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
         // This describes what should be done when the user taps *in* the cell. For now, we simply dismiss the preview.
         animator.preferredCommitStyle = .dismiss
     }
     
-    @available(iOS 13.0, *)
+    
     override func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
         
         guard let cell = collectionView.cellForItem(at: indexPath) as? CellWithMessage else { return nil }
@@ -928,19 +949,19 @@ extension SingleDiscussionViewController {
     }
     
     
-    @available(iOS 13.0, *)
+    
     override func collectionView(_ collectionView: UICollectionView, previewForHighlightingContextMenuWithConfiguration configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
         return getUITargetedPreviewInCollectionView(collectionView, previewForContextMenuWithConfiguration: configuration)
     }
     
 
-    @available(iOS 13.0, *)
+    
     override func collectionView(_ collectionView: UICollectionView, previewForDismissingContextMenuWithConfiguration configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
         return getUITargetedPreviewInCollectionView(collectionView, previewForContextMenuWithConfiguration: configuration)
     }
     
     
-    @available(iOS 13.0, *)
+    
     private func getUITargetedPreviewInCollectionView(_ collectionView: UICollectionView, previewForContextMenuWithConfiguration configuration: UIContextMenuConfiguration) -> UITargetedPreview? {
         guard let indexPath = configuration.indexPath else { return nil }
         guard let cell = collectionView.cellForItem(at: indexPath) as? CellWithMessage else { return nil }
@@ -956,7 +977,7 @@ extension SingleDiscussionViewController {
     }
     
     
-    @available(iOS 13.0, *)
+    
     private func makeActionProvider(for cell: CellWithMessage) -> (([UIMenuElement]) -> UIMenu?) {
         return { (suggestedActions) in
 

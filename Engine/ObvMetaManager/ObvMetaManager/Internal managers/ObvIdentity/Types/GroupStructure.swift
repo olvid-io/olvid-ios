@@ -54,11 +54,13 @@ public struct GroupStructure {
         case joined
     }
     
+    static func makeError(message: String) -> Error { NSError(domain: "GroupStructure", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     
     private init(groupUid: UID, publishedGroupDetailsWithPhoto: GroupDetailsElementsWithPhoto, trustedOrLatestGroupDetailsWithPhoto: GroupDetailsElementsWithPhoto, ownedIdentity: ObvCryptoIdentity, groupMembers: Set<ObvCryptoIdentity>, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, declinedPendingGroupMembers: Set<ObvCryptoIdentity>, groupMembersVersion: Int, groupType: GroupType, groupOwner: ObvCryptoIdentity?) throws {
         let cryptoIdentitiesOfPendingGroupMembers = Set(pendingGroupMembers.map { $0.cryptoIdentity })
         guard declinedPendingGroupMembers.isSubset(of: cryptoIdentitiesOfPendingGroupMembers) else {
-            throw NSError()
+            throw Self.makeError(message: "declined pending memebers is no subset of cryptoIdentitiesOfPendingGroupMembers")
         }
         self.groupUid = groupUid
         self.publishedGroupDetailsWithPhoto = publishedGroupDetailsWithPhoto

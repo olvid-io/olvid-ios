@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
 struct RoundedButtonView: View {
     var size: CGFloat = 60
     let icon: AudioInputIcon
@@ -66,7 +65,6 @@ struct RoundedButtonView: View {
 }
 
 
-@available(iOS 13.0, *)
 struct CallSettingButtonStyle: PrimitiveButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
@@ -81,7 +79,6 @@ struct CallSettingButtonStyle: PrimitiveButtonStyle {
 
 // MARK: - Previews
 
-@available(iOS 13.0, *)
 struct RoundedButtonView_Previews: PreviewProvider {
 
     fileprivate static let mockObject = MockObject()
@@ -181,7 +178,6 @@ struct RoundedButtonView_Previews: PreviewProvider {
 }
 
 
-@available(iOS 13.0, *)
 fileprivate class MockObject: ObservableObject {
     @Published private(set) var isOn: Bool = false
     func toggle() {
@@ -191,7 +187,6 @@ fileprivate class MockObject: ObservableObject {
 }
 
 
-@available(iOS 13.0, *)
 fileprivate struct RoundedButtonMockView: View {
     @ObservedObject var object: MockObject
     var body: some View {

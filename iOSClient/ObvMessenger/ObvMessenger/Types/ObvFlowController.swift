@@ -24,12 +24,13 @@ import os.log
 import CoreData
 
 
-protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleContactViewControllerDelegate, SingleGroupViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate {
+protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate {
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
 
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
+    func userWantsToDisplay(persistedMessage message: PersistedMessage)
     
     /// The implementation of this method shoud observe NewLockedPersistedDiscussion and call replaceDiscussionViewController
     func observePersistedDiscussionWasLockedNotifications()
@@ -89,6 +90,15 @@ extension ObvFlowController {
 extension ObvFlowController {
     
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion) {
+        userWantsToDisplayImpl(persistedDiscussion: discussion, messageToShow: nil)
+    }
+
+    func userWantsToDisplay(persistedMessage message: PersistedMessage) {
+        let discussion = message.discussion
+        userWantsToDisplayImpl(persistedDiscussion: discussion, messageToShow: message)
+    }
+
+    private func userWantsToDisplayImpl(persistedDiscussion discussion: PersistedDiscussion, messageToShow: PersistedMessage?) {
                 
         assert(Thread.isMainThread)
         assert(discussion.managedObjectContext == ObvStack.shared.viewContext)
@@ -98,17 +108,22 @@ extension ObvFlowController {
         // Dismiss any presented view controller
         if let presentedViewController = presentedViewController {
             presentedViewController.dismiss(animated: true, completion: { [weak self] in
-                self?.popOrPushDiscussionViewController(for: discussion)
+                self?.popOrPushDiscussionViewController(for: discussion, messageToShow: messageToShow)
             })
         } else {
-            popOrPushDiscussionViewController(for: discussion)
+            popOrPushDiscussionViewController(for: discussion, messageToShow: messageToShow)
         }
-
     }
 
-    private func buildSingleDiscussionVC(discussion: PersistedDiscussion) -> DiscussionViewController {
+    private func buildSingleDiscussionVC(discussion: PersistedDiscussion, messageToShow: PersistedMessage?) -> DiscussionViewController {
         if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
-            let singleDiscussionVC = NewSingleDiscussionViewController(discussion: discussion, delegate: self)
+            let initialScroll: NewSingleDiscussionViewController.InitialScroll
+            if let messageToShow = messageToShow {
+                initialScroll = .specificMessage(messageToShow)
+            } else {
+                initialScroll = .newMessageSystemOrLastMessage
+            }
+            let singleDiscussionVC = NewSingleDiscussionViewController(discussion: discussion, delegate: self, initialScroll: initialScroll)
             singleDiscussionVC.hidesBottomBarWhenPushed = true
             return singleDiscussionVC
         } else {
@@ -125,7 +140,7 @@ extension ObvFlowController {
         }
     }
     
-    private func popOrPushDiscussionViewController(for discussion: PersistedDiscussion) {
+    private func popOrPushDiscussionViewController(for discussion: PersistedDiscussion, messageToShow: PersistedMessage?) {
         
         assert(Thread.isMainThread)
         assert(discussion.managedObjectContext == ObvStack.shared.viewContext)
@@ -136,6 +151,9 @@ extension ObvFlowController {
             guard discussionVC.discussionObjectID == discussion.typedObjectID else { continue }
             // If we reach this point, there exists an appropriate SingleDiscussionViewController within the navigation stack, so we pop to this VC and return
             popToViewController(discussionVC, animated: true)
+            if let messageToShow = messageToShow {
+                discussionVC.scrollTo(message: messageToShow)
+            }
             return
         }
         
@@ -143,7 +161,7 @@ extension ObvFlowController {
         
         // If we reach this point, we need to push a new SingleDiscussionViewController.
 
-        let discussionVC = buildSingleDiscussionVC(discussion: discussion)
+        let discussionVC = buildSingleDiscussionVC(discussion: discussion, messageToShow: messageToShow)
         showDetailViewController(discussionVC, sender: self)
 
         // There might be some AirDrop'ed files, add them to the discussion draft
@@ -164,7 +182,7 @@ extension ObvFlowController {
             if let discussionVC = currentVC as? DiscussionViewController,
                 discussionVC.discussionObjectID.uriRepresentation() == discussionToReplace,
                 let discussion = try? PersistedDiscussion.get(objectID: newDiscussionId, within: ObvStack.shared.viewContext) {
-                newVC = buildSingleDiscussionVC(discussion: discussion)
+                newVC = buildSingleDiscussionVC(discussion: discussion, messageToShow: nil)
             } else {
                 newVC = currentVC
             }
@@ -205,14 +223,8 @@ extension ObvFlowController {
                 return
             }
 
-            if #available(iOS 13, *) {
-                vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
-                (vcToPresent as? SingleContactIdentityViewHostingController)?.delegate = self
-            } else {
-                guard let singleContactVC = try? SingleContactViewController(persistedObvContactIdentity: contactIdentity) else { return }
-                singleContactVC.delegate = self
-                vcToPresent = singleContactVC
-            }
+            vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
+            (vcToPresent as? SingleContactIdentityViewHostingController)?.delegate = self
 
         } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
             
@@ -246,15 +258,8 @@ extension ObvFlowController {
             return
         }
 
-        let vcToPresent: UIViewController
-        if #available(iOS 13, *) {
-            vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
-            (vcToPresent as? SingleContactIdentityViewHostingController)?.delegate = self
-        } else {
-            guard let singleContactVC = try? SingleContactViewController(persistedObvContactIdentity: contactIdentity) else { return }
-            singleContactVC.delegate = self
-            vcToPresent = singleContactVC
-        }
+        let vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
+        vcToPresent.delegate = self
 
         let closeButton = BlockBarButtonItem.forClosing { [weak self] in self?.presentedViewController?.dismiss(animated: true) }
         vcToPresent.navigationItem.setLeftBarButton(closeButton, animated: false)
@@ -362,30 +367,15 @@ extension ObvFlowController {
         let appropriateNav = nav ?? self
 
         for vc in appropriateNav.children {
-            if #available(iOS 13, *) {
-                guard let singleContactIdentityViewHostingController = vc as? SingleContactIdentityViewHostingController else { continue }
-                guard singleContactIdentityViewHostingController.contactCryptoId == persistedContact.cryptoId else { continue }
-                // If we reach this point, there exists an appropriate SingleContactViewController within the navigation stack, so we pop to this VC and return
-                appropriateNav.popToViewController(singleContactIdentityViewHostingController, animated: true)
-                return
-            } else {
-                guard let singleContactViewController = vc as? SingleContactViewController else { continue }
-                guard singleContactViewController.persistedObvContactIdentity.cryptoId == persistedContact.cryptoId else { continue }
-                // If we reach this point, there exists an appropriate SingleContactViewController within the navigation stack, so we pop to this VC and return
-                appropriateNav.popToViewController(singleContactViewController, animated: true)
-                return
-            }
+            guard let singleContactIdentityViewHostingController = vc as? SingleContactIdentityViewHostingController else { continue }
+            guard singleContactIdentityViewHostingController.contactCryptoId == persistedContact.cryptoId else { continue }
+            // If we reach this point, there exists an appropriate SingleContactViewController within the navigation stack, so we pop to this VC and return
+            appropriateNav.popToViewController(singleContactIdentityViewHostingController, animated: true)
+            return
         }
         // If we reach this point, we could not find an appropriate VC within the navigation stack, so we push a new one
-        let vcToPush: UIViewController
-        if #available(iOS 13, *) {
-            vcToPush = SingleContactIdentityViewHostingController(contact: persistedContact, obvEngine: obvEngine)
-            (vcToPush as? SingleContactIdentityViewHostingController)?.delegate = self
-        } else {
-            guard let singleContactViewController = try? SingleContactViewController(persistedObvContactIdentity: persistedContact) else { return }
-            singleContactViewController.delegate = self
-            vcToPush = singleContactViewController
-        }
+        let vcToPush = SingleContactIdentityViewHostingController(contact: persistedContact, obvEngine: obvEngine)
+        vcToPush.delegate = self
         appropriateNav.pushViewController(vcToPush, animated: true)
         
     }

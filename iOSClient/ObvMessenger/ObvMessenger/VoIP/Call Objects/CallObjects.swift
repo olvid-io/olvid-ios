@@ -399,7 +399,20 @@ extension WebRTCCall: CallParticipantDelegate {
         return ownedIdentity > contactIdentity
     }
 
+    func sendMessage(message: WebRTCInnerMessageJSON, forStartingCall: Bool, to callParticipant: CallParticipant) {
+        guard let uuidForWebRTC = self.uuidForWebRTC else { assertionFailure(); return }
+
+        do {
+            let webrtcMessage = try message.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC)
+            self.sendWebRTCMessage(to: callParticipant, message: webrtcMessage, forStartingCall: forStartingCall, completion: {})
+        } catch {
+            assertionFailure()
+            return
+        }
+    }
+
     func updateParticipant(newCallParticipants: [ContactBytesAndNameJSON]) {
+        os_log("☎️ Entering updateParticipant(newCallParticipants: [ContactBytesAndNameJSON])", log: log, type: .info)
         CallHelper.checkQueue() // OK
         guard let ownedIdentity = self.ownedIdentity else { assertionFailure(); return }
         guard let incomingCall = self as? IncomingWebrtcCall else { assertionFailure(); return }
@@ -407,13 +420,13 @@ extension WebRTCCall: CallParticipantDelegate {
 
         guard let turnCredentials = self.callParticipants.first?.turnCredentials else { assertionFailure(); return }
 
-        var newCallParticipantNames: [ObvCryptoId: String] = [:]
+        var newCallParticipantNamesAndGatheringPolicies: [ObvCryptoId: (String, GatheringPolicy)] = [:]
         var newParticipantsId: Set<ObvCryptoId> = Set()
         for newParticipant in newCallParticipants {
             let byteContactIdentity = newParticipant.byteContactIdentity
             guard let contactCryptoId = try? ObvCryptoId.init(identity: byteContactIdentity) else { assertionFailure(); continue }
             newParticipantsId.insert(contactCryptoId)
-            newCallParticipantNames[contactCryptoId] = newParticipant.displayName
+            newCallParticipantNamesAndGatheringPolicies[contactCryptoId] = (newParticipant.displayName, newParticipant.gatheringPolicy ?? .gatherOnce)
         }
 
         var currentParticipantsId: Set<ObvCryptoId> = Set()
@@ -424,6 +437,8 @@ extension WebRTCCall: CallParticipantDelegate {
 
         let participantsToAdd = newParticipantsId.subtracting(currentParticipantsId)
         let participantsToRemove = currentParticipantsId.subtracting(newParticipantsId)
+
+        os_log("☎️ We have %d participant(s) to add", log: log, type: .info, participantsToAdd.count)
 
         for participantToAdd in participantsToAdd {
             guard participantToAdd != ownedIdentity else { continue } /// the received array contains the user himself
@@ -436,12 +451,12 @@ extension WebRTCCall: CallParticipantDelegate {
                 }
             }
             let shouldISendTheOfferToCallParticipant = self.shouldISendTheOfferToCallParticipant(contactIdentity: participantToAdd)
+            guard let (fullName, gatheringPolicy) = newCallParticipantNamesAndGatheringPolicies[participantToAdd] else { assertionFailure(); return }
             let callParticipant: CallParticipant
-            let peerConnectionHolder = shouldISendTheOfferToCallParticipant ? WebrtcPeerConnectionHolder() : nil
+            let peerConnectionHolder = shouldISendTheOfferToCallParticipant ? WebrtcPeerConnectionHolder(gatheringPolicy: gatheringPolicy) : nil
             if let identityID = identityID {
                 callParticipant = CallParticipantImpl.createRecipient(contactID: identityID, peerConnectionHolder: peerConnectionHolder)
             } else {
-                guard let fullName = newCallParticipantNames[participantToAdd] else { assertionFailure(); return }
                 callParticipant = CallParticipantImpl.createRecipient(cryptoID: participantToAdd, fullName: fullName, peerConnectionHolder: peerConnectionHolder)
             }
             addParticipant(callParticipant: callParticipant, report: true)
@@ -450,9 +465,11 @@ extension WebRTCCall: CallParticipantDelegate {
             guard callParticipant.contactIdentity != nil else { assertionFailure(); return }
 
             if shouldISendTheOfferToCallParticipant {
+                os_log("☎️ Will set credentials for offer to a call participant", log: log, type: .info, participantsToAdd.count)
                 callParticipant.setCredentialsForOffer(turnCredentials: turnCredentials)
                 callParticipant.createOffer()
             } else {
+                os_log("☎️ No need to send offer to the call participant", log: log, type: .info, participantsToAdd.count)
                 /// check if we already received the offer the CallParticipant is supposed to send us
                 if let (date, newParticipantOfferMessage) = incomingCall.receivedOfferMessages.removeValue(forKey: .cryptoId( participantToAdd)) {
 
@@ -461,6 +478,9 @@ extension WebRTCCall: CallParticipantDelegate {
             }
 
         }
+        
+        os_log("☎️ We have %d participant(s) to remove", log: log, type: .info, participantsToRemove.count)
+        
         for participantToRemove in participantsToRemove {
             guard let participant = getParticipant(contact: .cryptoId(participantToRemove)) else { assertionFailure(); continue }
             guard participant.role != .caller else { continue }
@@ -472,12 +492,10 @@ extension WebRTCCall: CallParticipantDelegate {
 
     // MARK: - Post office service
 
-    private static let allowedRelayMessageTypes: [WebRTCMessageJSON.MessageType] = [.hangedUp, .reconnect, .newParticipantAnswer, .newParticipantOffer]
-
     func relay(from: ObvCryptoId, to: ObvCryptoId, messageType: WebRTCMessageJSON.MessageType, messagePayload: String) {
         CallHelper.checkQueue() // OK
 
-        guard WebRTCCall.allowedRelayMessageTypes.contains(messageType) else { assertionFailure(); return }
+        guard messageType.isAllowedToBeRelayed else { assertionFailure(); return }
 
         guard let participant = getParticipant(contact: .cryptoId(to)) else { return }
         let message: WebRTCDataChannelMessageJSON
@@ -523,7 +541,7 @@ extension WebRTCCall: CallParticipantDelegate {
             ObvMessengerInternalNotification.newWebRTCMessageToSend(webrtcMessage: message, contactID: contactID, forStartingCall: forStartingCall, completion: completion)
                 .postOnDispatchQueue()
         case .unknown(let cryptoID, _):
-            guard WebRTCCall.allowedRelayMessageTypes.contains(message.messageType) else { assertionFailure(); return }
+            guard message.messageType.isAllowedToBeRelayed else { assertionFailure(); return }
             guard let incomingCall = self as? IncomingCall else { assertionFailure(); return }
             guard let caller = incomingCall.callerCallParticipant else { return }
             let toContactIdentity = cryptoID.getIdentity()
@@ -541,6 +559,7 @@ extension WebRTCCall: CallParticipantDelegate {
     func offerCallCompleted(for callParticipant: CallParticipant, result: Result<TurnSessionWithCredentials, Error>) {
         CallHelper.checkQueue() // OK
         guard let uuidForWebRTC = self.uuidForWebRTC else { assertionFailure(); return }
+        guard let gatheringPolicy = callParticipant.gatheringPolicy else { assertionFailure(); return }
         guard callParticipant.contactIdentificationStatus != nil else { assertionFailure(); return }
         switch result {
         case .success((let sessionDescriptionType, let sessionDescription, let turnUserName, let turnPassword, let turnServers)):
@@ -575,9 +594,20 @@ extension WebRTCCall: CallParticipantDelegate {
                         }
                     }
 
-                    message = try IncomingCallMessageJSON(sessionDescriptionType: sessionDescriptionType, sessionDescription: sessionDescription, turnUserName: turnUserName, turnPassword: turnPassword, turnServers: turnServers, participantCount: callParticipants.count, groupId: flitredGroupId)
+                    message = try IncomingCallMessageJSON(
+                        sessionDescriptionType: sessionDescriptionType,
+                        sessionDescription: sessionDescription,
+                        turnUserName: turnUserName,
+                        turnPassword: turnPassword,
+                        turnServers: turnServers,
+                        participantCount: callParticipants.count,
+                        groupId: flitredGroupId,
+                        gatheringPolicy: gatheringPolicy)
                 } else { assert(self is IncomingCall)
-                    message = try NewParticipantOfferMessageJSON(sessionDescriptionType: sessionDescriptionType, sessionDescription: sessionDescription)
+                    message = try NewParticipantOfferMessageJSON(
+                        sessionDescriptionType: sessionDescriptionType,
+                        sessionDescription: sessionDescription,
+                        gatheringPolicy: gatheringPolicy)
                 }
                 webrtcMessage = try message.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC)
             } catch {
@@ -775,9 +805,14 @@ final class OutgoingWebRTCCall: WebRTCCall, OutgoingCall {
 
     init(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], delegate: OutgoingWebRTCCallDelegate, usesCallKit: Bool, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
         CallHelper.checkQueue() // OK
-        let callParticipants = contactIDs.map { CallParticipantImpl.createRecipient(contactID: $0) }
+        let callParticipants = contactIDs.map { Self.createRecipient(contactID: $0) }
         let participant = callParticipants.first!
         super.init(callParticipants: callParticipants, usesCallKit: usesCallKit, uuidForWebRTC: nil, delegate: delegate, ownedIdentity: participant.ownedIdentity, groupId: groupId)
+    }
+
+    static func createRecipient(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> CallParticipant {
+        let contactInfo = CallHelper.getContactInfo(contactID)
+        return CallParticipantImpl.createRecipient(contactID: contactID, gatheringPolicy: contactInfo?.gatheringPolicy ?? .gatherOnce)
     }
 
     // MARK: Starting an outgoing call
@@ -832,7 +867,7 @@ final class OutgoingWebRTCCall: WebRTCCall, OutgoingCall {
         guard !contactIDs.isEmpty else { return }
         let callIsMuted = isMuted
         for contactID in contactIDs {
-            let callParticipant = CallParticipantImpl.createRecipient(contactID: contactID)
+            let callParticipant = Self.createRecipient(contactID: contactID)
 
             guard callParticipant.ownedIdentity == ownedIdentity else {
                 os_log("☎️ Trying to add contact to call for a different ownedIdentity", log: log, type: .info)
@@ -1025,6 +1060,22 @@ extension CallParticipantImpl: WebrtcPeerConnectionHolderDelegate {
             _self.delegate?.restartCallCompleted(for: _self, result: result)
         }
     }
+
+    func sendNewIceCandidateMessage(candidate: RTCIceCandidate) {
+        OperationQueue.main.addOperation { [weak self] in
+            guard let _self = self else { return }
+            _self.delegate?.sendMessage(message: candidate.toJSON, forStartingCall: false, to: _self)
+        }
+    }
+
+    func sendRemoveIceCandidatesMessages(candidates: [RTCIceCandidate]) {
+        OperationQueue.main.addOperation { [weak self] in
+            guard let _self = self else { return }
+            let message = RemoveIceCandidatesMessageJSON(candidates: candidates.map({ $0.toJSON }))
+            _self.delegate?.sendMessage(message: message, forStartingCall: false, to: _self)
+        }
+    }
+
 }
 
 final class CallParticipantImpl: CallParticipant {
@@ -1041,6 +1092,10 @@ final class CallParticipantImpl: CallParticipant {
     var timeoutTimer: Timer?
 
     private var peerConnectionHolder: WebrtcPeerConnectionHolder?
+
+    var gatheringPolicy: GatheringPolicy? {
+        peerConnectionHolder?.gatheringPolicy
+    }
 
     weak var delegate: CallParticipantDelegate?
 
@@ -1117,8 +1172,9 @@ final class CallParticipantImpl: CallParticipant {
     func updateRecipient(newParticipantOfferMessage: NewParticipantOfferMessageJSON, turnCredentials: TurnCredentials) {
         assert(role == .recipient)
         assert(self.peerConnectionHolder == nil)
-        self.peerConnectionHolder = WebrtcPeerConnectionHolder(newParticipantOfferMessage: newParticipantOfferMessage,
-                                                               turnCredentials: turnCredentials)
+        self.peerConnectionHolder = WebrtcPeerConnectionHolder(
+            newParticipantOfferMessage: newParticipantOfferMessage,
+            turnCredentials: turnCredentials)
         self.peerConnectionHolder?.delegate = self
     }
 
@@ -1128,8 +1184,9 @@ final class CallParticipantImpl: CallParticipant {
         return self.init(role: .caller, contactIdentificationStatus: .known(contactID: contactID), peerConnectionHolder: peerConnectionHolder)
     }
 
-    static func createRecipient(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> Self {
-        return createRecipient(contactID: contactID, peerConnectionHolder: WebrtcPeerConnectionHolder())
+    static func createRecipient(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, gatheringPolicy: GatheringPolicy) -> Self {
+        let peerConnectionHolder = WebrtcPeerConnectionHolder(gatheringPolicy: gatheringPolicy)
+        return createRecipient(contactID: contactID, peerConnectionHolder: peerConnectionHolder)
     }
 
     /// Create a `recipient` participant for an outgoing call
@@ -1232,7 +1289,9 @@ final class CallParticipantImpl: CallParticipant {
         CallHelper.checkQueue() // OK
         setPeerState(to: .reconnecting)
 
-        peerConnectionHolder?.createRestartOffer()
+        if case .gatherOnce = gatheringPolicy {
+            peerConnectionHolder?.createRestartOffer()
+        }
     }
 
     func closeConnection() {
@@ -1381,6 +1440,19 @@ final class CallParticipantImpl: CallParticipant {
         }
     }
 
+    func processIceCandidatesJSON(message: IceCandidateJSON) {
+        CallHelper.checkQueue() // OK
+        guard let peerConnectionHolder = self.peerConnectionHolder else { return }
+        peerConnectionHolder.addIceCandidate(iceCandidate: message.iceCandidate)
+    }
+
+    func processRemoveIceCandidatesMessageJSON(message: RemoveIceCandidatesMessageJSON) {
+        CallHelper.checkQueue() // OK
+        guard let peerConnectionHolder = self.peerConnectionHolder else { return }
+        peerConnectionHolder.removeIceCandidates(iceCandidates: message.iceCandidates)
+    }
+
+
 }
 
 // MARK: - WebrtcPeerConnectionHolderDelegate
@@ -1395,6 +1467,18 @@ fileprivate protocol WebrtcPeerConnectionHolderDelegate: AnyObject {
     func createOfferResult(_ result: Result<TurnSessionWithCredentials, Error>)
     func createAnswerResult(_ result: Result<TurnSession, Error>)
     func createRestartResult(_ result: Result<ReconnectCallMessageJSON, Error>)
+
+    func sendNewIceCandidateMessage(candidate: RTCIceCandidate)
+    func sendRemoveIceCandidatesMessages(candidates: [RTCIceCandidate])
+}
+
+extension GatheringPolicy {
+    var rtcPolicy: RTCContinualGatheringPolicy {
+        switch self {
+        case .gatherOnce: return .gatherOnce
+        case .gatherContinually: return .gatherContinually
+        }
+    }
 }
 
 // MARK: - WebrtcPeerConnectionHolder
@@ -1406,14 +1490,23 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
     private static let errorDomain = "WebrtcPeerConnectionHolder"
 
     private let outgoingCall: Bool
+    let gatheringPolicy: GatheringPolicy
     private let queueForIceGathering = DispatchQueue(label: "Queue for ice gathering")
 
     private var iceCandidates = [RTCIceCandidate]()
+    private var pendingRemoteIceCandidates = [RTCIceCandidate]()
+    private var readyToForwardRemoteIceCandidates = false {
+        didSet {
+            guard readyToForwardRemoteIceCandidates else { return }
+            os_log("☎️❄️ Forwarding remote ICE candidates is ready", log: self.log, type: .info)
+            drainRemoteIceCandidates()
+        }
+    }
     private var iceGatheringCompletedWasCalled = false
     private var reconnectOfferCounter: Int = 0
     private var reconnectAnswerCounter: Int = 0
 
-    private static let audioCodecs = Set(["opus", "PCMU", "PCMA", "telephone-event"])
+    private static let audioCodecs = Set(["opus", "PCMU", "PCMA", "telephone-event", "red"])
 
     private var dataChannelWorker: DataChannelWorker?
     weak var delegate: WebrtcPeerConnectionHolderDelegate?
@@ -1464,6 +1557,7 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         self.sessionDescription = incomingCallMessage.sessionDescription
         self.turnServersURL = incomingCallMessage.turnServers
         self.outgoingCall = false
+        self.gatheringPolicy = incomingCallMessage.gatheringPolicy ?? .gatherOnce
         super.init()
     }
 
@@ -1474,12 +1568,14 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         self.sessionDescription = newParticipantOfferMessage.sessionDescription
         self.turnServersURL = turnCredentials.turnServers
         self.outgoingCall = false
+        self.gatheringPolicy = newParticipantOfferMessage.gatheringPolicy ?? .gatherOnce
         super.init()
     }
 
     /// Used during the init of an outgoing call
-    override init() {
+    init(gatheringPolicy: GatheringPolicy) {
         self.outgoingCall = true
+        self.gatheringPolicy = gatheringPolicy
         super.init()
     }
 
@@ -1521,9 +1617,10 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         rtcConfiguration.iceServers = [iceServer]
         rtcConfiguration.iceTransportPolicy = .relay
         rtcConfiguration.sdpSemantics = .unifiedPlan
-        rtcConfiguration.continualGatheringPolicy = .gatherOnce
+        rtcConfiguration.continualGatheringPolicy = gatheringPolicy.rtcPolicy
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil,
                                               optionalConstraints: nil)
+        os_log("☎️❄️ Create Peer Connection with %{public}@ policy", log: log, type: .info, gatheringPolicy.localizedDescription)
         peerConnection = WebrtcPeerConnectionHolder.factory.peerConnection(with: rtcConfiguration, constraints: constraints, delegate: self)
         assert(peerConnection != nil)
         peerConnection?.addOlvidTracks(factory: WebrtcPeerConnectionHolder.factory)
@@ -1544,7 +1641,6 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
 
     func createOffer() {
         assert(peerConnection == nil)
-        os_log("☎️ Create Peer Connection", log: log, type: .info)
         createPeerConnection()
 
         os_log("☎️ Create Data Channel", log: log, type: .info)
@@ -1570,15 +1666,21 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
                 _self.delegate?.createOfferResult(.failure(error))
                 return
             }
-            // We start the ICE gathering by setting the local description.
-            _self.currentCompletion = .offer
+            if case .gatherOnce = _self.gatheringPolicy {
+                // We start the ICE gathering by setting the local description.
+                _self.currentCompletion = .offer
+            }
             _self.peerConnection?.setLocalDescription(filteredLocalRTCSessionDescription) { (error) in
                 guard error == nil else {
                     _self.currentCompletion = nil
                     _self.delegate?.createOfferResult(.failure(error!))
                     return
                 }
+                if case .gatherContinually = _self.gatheringPolicy {
+                    _self.createOfferResult()
+                }
             }
+
         }
     }
 
@@ -1631,13 +1733,18 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
                     return
                 }
 
-                // We start the ICE gathering by setting the local description.
-                _self.currentCompletion = .answer
+                if case .gatherOnce = _self.gatheringPolicy {
+                    // We start the ICE gathering by setting the local description.
+                    _self.currentCompletion = .answer
+                }
                 peerConnection.setLocalDescription(filteredLocalRTCSessionDescription) { (error) in
                     guard error == nil else {
                         _self.delegate?.createAnswerResult(.failure(error!))
                         _self.currentCompletion = nil
                         return
+                    }
+                    if case .gatherContinually = _self.gatheringPolicy {
+                        _self.createAnswerResult()
                     }
                 }
             }
@@ -1654,7 +1761,7 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         guard let peerConnection = peerConnection else { assertionFailure(); return }
 
         let mediaConstraints = RTCMediaConstraints(
-            mandatoryConstraints: [kRTCMediaConstraintsIceRestart: kRTCMediaConstraintsValueTrue],
+            mandatoryConstraints: nil,
             optionalConstraints: nil)
         let log = self.log
         peerConnection.answer(for: mediaConstraints) { [weak self] (rtcSessionDescription, error) in
@@ -1685,16 +1792,24 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
 
             assert(filteredLocalRTCSessionDescription.type == .answer)
 
-            // We start the ICE gathering by setting the local description. We store the completion handler so as to call it later, from one of the delegate methods.
-            _self.currentCompletion = .restart
+
+            if case .gatherOnce = _self.gatheringPolicy {
+                // We start the ICE gathering by setting the local description. We store the completion handler so as to call it later, from one of the delegate methods.
+                _self.currentCompletion = .restart
+            }
             _self.peerConnection?.setLocalDescription(filteredLocalRTCSessionDescription) { (error) in
                 guard error == nil else {
                     _self.delegate?.createRestartResult(.failure(error!))
                     _self.currentCompletion = nil
                     return
                 }
+                if case .gatherContinually = _self.gatheringPolicy {
+                    _self.createRestartResult()
+                }
             }
-            _self.resetGatheringState()
+            if case .gatherOnce = _self.gatheringPolicy {
+                _self.resetGatheringState()
+            }
         }
     }
 
@@ -1702,7 +1817,7 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         guard let peerConnection = peerConnection else { assertionFailure(); return }
 
         let mediaConstraints = RTCMediaConstraints(
-            mandatoryConstraints: [kRTCMediaConstraintsIceRestart: kRTCMediaConstraintsValueTrue],
+            mandatoryConstraints: nil,
             optionalConstraints: nil)
         let log = self.log
         peerConnection.offer(for: mediaConstraints) { [weak self] (rtcSessionDescription, error) in
@@ -1731,16 +1846,23 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
 
             assert(filteredLocalRTCSessionDescription.type == .offer)
 
-            // We start the ICE gathering by setting the local description. We store the completion handler so as to call it later, from one of the delegate methods.
-            _self.currentCompletion = .restart
+            if case .gatherOnce = _self.gatheringPolicy {
+                // We start the ICE gathering by setting the local description. We store the completion handler so as to call it later, from one of the delegate methods.
+                _self.currentCompletion = .restart
+            }
             _self.peerConnection?.setLocalDescription(filteredLocalRTCSessionDescription) { (error) in
                 guard error == nil else {
                     _self.delegate?.createRestartResult(.failure(error!))
                     _self.currentCompletion = nil
                     return
                 }
+                if case .gatherContinually = _self.gatheringPolicy {
+                    _self.createRestartResult()
+                }
             }
-            _self.resetGatheringState()
+            if case .gatherOnce = _self.gatheringPolicy {
+                _self.resetGatheringState()
+            }
         }
     }
 
@@ -1764,6 +1886,7 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         }
 
         reconnectOfferCounter += 1
+        peerConnection.restartIce()
         internalRestartOffer()
     }
 
@@ -1817,7 +1940,9 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
             }
 
             os_log("☎️ Creating answer for restart offer", log: log, type: .info)
+            peerConnection.restartIce()
             internalRestartAnwser()
+
         case .answer:
             guard reconnectCounter == reconnectOfferCounter else {
                 os_log("☎️ Received restart answer with bad counter %{public}@ vs. %{public}@", log: log, type: .info, String(reconnectCounter), String(reconnectOfferCounter))
@@ -1845,6 +1970,7 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
     }
 
     private func resetGatheringState() {
+        guard case .gatherOnce = gatheringPolicy else { assertionFailure(); return }
         queueForIceGathering.sync { [weak self] in
             self?.iceGatheringCompletedWasCalled = false
         }
@@ -1861,12 +1987,38 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         do {
             self.dataChannelWorker = try DataChannelWorker(with: peerConnection)
             self.dataChannelWorker?.delegate = self
-        } catch {
-            os_log("Could not create DataChannelWorker: %{public}@", log: log, type: .fault)
+        } catch(let error) {
+            os_log("Could not create DataChannelWorker: %{public}@", log: log, type: .fault, error.localizedDescription)
             return
         }
     }
 
+    func addIceCandidate(iceCandidate: RTCIceCandidate) {
+        os_log("☎️❄️ addIceCandidate called", log: self.log, type: .info)
+        if readyToForwardRemoteIceCandidates {
+            guard let peerConnection = peerConnection else { assertionFailure(); return }
+            peerConnection.add(iceCandidate) { error in
+                guard error == nil else {
+                    os_log("☎️❄️ Failed to add remote ICE candidate: %{public}@", log: self.log, type: .fault, error!.localizedDescription)
+                    return
+                }
+            }
+        } else {
+            os_log("☎️❄️ Not ready to forward remote ICE candidates, add candidate to pending list (count %{public}@)", log: self.log, type: .info, String(pendingRemoteIceCandidates.count))
+            pendingRemoteIceCandidates.append(iceCandidate)
+        }
+    }
+
+    func removeIceCandidates(iceCandidates: [RTCIceCandidate]) {
+        os_log("☎️❄️ removeIceCandidates called", log: self.log, type: .info)
+        if readyToForwardRemoteIceCandidates {
+            guard let peerConnection = peerConnection else { assertionFailure(); return }
+            peerConnection.remove(iceCandidates)
+        } else {
+            os_log("☎️❄️ Not ready to forward remote ICE candidates, remove candidates from pending list (count %{public}@)", log: self.log, type: .info, String(pendingRemoteIceCandidates.count))
+            pendingRemoteIceCandidates.removeAll { iceCandidates.contains($0) }
+        }
+    }
 
     // MARK: Implementing RTCPeerConnectionDelegate
 
@@ -1908,7 +2060,8 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {
-        os_log("☎️ Peer Connection Ice Gathering State changed to: %{public}@", log: log, type: .info, newState.debugDescription)
+        os_log("☎️❄️ Peer Connection Ice Gathering State changed to: %{public}@", log: log, type: .info, newState.debugDescription)
+        guard case .gatherOnce = gatheringPolicy else { return }
         switch newState {
         case .new:
             break
@@ -1916,10 +2069,10 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
             resetGatheringState()
         case .complete:
             if iceCandidates.isEmpty && connectionState == nil {
-                os_log("☎️ No TURN candidates found", log: log, type: .info)
+                os_log("☎️❄️ No ICE candidates found", log: log, type: .info)
             } else {
                 // We have all we need to send the local description to the caller.
-                os_log("☎️ Calls completed ICE Gathering with %{public}@ candidates", log: self.log, type: .info, String(self.iceCandidates.count))
+                os_log("☎️❄️ Calls completed ICE Gathering with %{public}@ candidates", log: self.log, type: .info, String(self.iceCandidates.count))
                 queueForIceGathering.async { [weak self] in
                     self?.iceGatheringCompleted()
                 }
@@ -1929,26 +2082,35 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
         }
     }
 
-
     func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
-        os_log("☎️ Peer Connection didGenerate RTCIceCandidate", log: log, type: .info)
-        iceCandidates.append(candidate)
-        if iceCandidates.count == 1 { /// At least one candidate, we wait one second and hope that the other candidate will be added.
-            let queue = DispatchQueue(label: "Sleeping queue", qos: .userInitiated)
-            queue.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
-                guard let _self = self else { return }
-                os_log("☎️ Calls ICE Gathering after waiting with %{public}@ candidates", log: _self.log, type: .info, String(_self.iceCandidates.count))
-                self?.queueForIceGathering.async {
-                    self?.iceGatheringCompleted()
+        os_log("☎️❄️ Peer Connection didGenerate RTCIceCandidate", log: log, type: .info)
+        switch gatheringPolicy {
+        case .gatherOnce:
+            iceCandidates.append(candidate)
+            if iceCandidates.count == 1 { /// At least one candidate, we wait one second and hope that the other candidate will be added.
+                let queue = DispatchQueue(label: "Sleeping queue", qos: .userInitiated)
+                queue.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
+                    guard let _self = self else { return }
+                    os_log("☎️❄️ Calls ICE Gathering after waiting with %{public}@ candidates", log: _self.log, type: .info, String(_self.iceCandidates.count))
+                    self?.queueForIceGathering.async {
+                        self?.iceGatheringCompleted()
+                    }
                 }
             }
+        case .gatherContinually:
+            print(candidate)
+            delegate?.sendNewIceCandidateMessage(candidate: candidate)
         }
     }
 
-
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {
-        os_log("☎️ Peer Connection didRemove RTCIceCandidate", log: log, type: .info)
-        iceCandidates.removeAll { candidates.contains($0) }
+        os_log("☎️❄️ Peer Connection didRemove RTCIceCandidate", log: log, type: .info)
+        switch gatheringPolicy {
+        case .gatherOnce:
+            iceCandidates.removeAll { candidates.contains($0) }
+        case .gatherContinually:
+            delegate?.sendRemoveIceCandidatesMessages(candidates: candidates)
+        }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
@@ -1958,9 +2120,83 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
 
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {
         os_log("☎️ Peer Connection should negociate RTCPeerConnection", log: log, type: .info)
+        guard case .gatherOnce = gatheringPolicy else { return }
         resetGatheringState()
     }
 
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChangeLocalCandidate local: RTCIceCandidate, remoteCandidate remote: RTCIceCandidate, lastReceivedMs lastDataReceivedMs: Int32, changeReason reason: String) {
+        os_log("☎️❄️ Peer Connection didChangeLocalCandidate: %{public}@", log: log, type: .info, reason)
+    }
+
+
+    func drainRemoteIceCandidates() {
+        guard case .gatherContinually = gatheringPolicy else { return }
+        guard readyToForwardRemoteIceCandidates else { return }
+        guard !pendingRemoteIceCandidates.isEmpty else { return }
+        os_log("☎️❄️ Drain remote %{public}@ ICE candidate(s)", log: self.log, type: .info, String(pendingRemoteIceCandidates.count))
+        for iceCandidate in pendingRemoteIceCandidates {
+            addIceCandidate(iceCandidate: iceCandidate)
+        }
+        pendingRemoteIceCandidates.removeAll()
+    }
+
+    private func createAnswerResult() {
+        guard let localDescription = peerConnection?.localDescription else { assertionFailure(); return }
+        let sessionDescriptionType = RTCSessionDescription.string(for: localDescription.type)
+        delegate?.createAnswerResult(
+            .success((sessionDescriptionType: sessionDescriptionType,
+                      sessionDescription: localDescription.sdp)))
+        self.readyToForwardRemoteIceCandidates = true
+    }
+
+    private func createOfferResult() {
+        guard let turnUserName = self.turnUserName,
+              let turnPassword = self.turnPassword else {
+                  assertionFailure()
+                  return
+              }
+        guard let localDescription = peerConnection?.localDescription else { assertionFailure(); return }
+        let sessionDescriptionType = RTCSessionDescription.string(for: localDescription.type)
+        delegate?.createOfferResult(
+            .success((sessionDescriptionType: sessionDescriptionType,
+                      sessionDescription: localDescription.sdp,
+                      turnUserName: turnUserName,
+                      turnPassword: turnPassword,
+                      turnServersURL: turnServersURL)))
+        self.readyToForwardRemoteIceCandidates = true
+    }
+
+    private func createRestartResult() {
+        guard let localDescription = peerConnection?.localDescription else { assertionFailure(); return }
+        let sessionDescriptionType = RTCSessionDescription.string(for: localDescription.type)
+        let reconnectCounter: Int
+        let peerReconnectCounterToOverride: Int
+        if case .offer = localDescription.type {
+            reconnectCounter = reconnectOfferCounter
+            peerReconnectCounterToOverride = reconnectAnswerCounter
+        } else {
+            assert(localDescription.type == .answer)
+            reconnectCounter = reconnectAnswerCounter
+            peerReconnectCounterToOverride = -1
+        }
+
+        let reconnectCallMessage: ReconnectCallMessageJSON
+        do {
+            reconnectCallMessage = try ReconnectCallMessageJSON(
+                sessionDescriptionType: sessionDescriptionType,
+                sessionDescription: localDescription.sdp,
+                reconnectCounter: reconnectCounter,
+                peerReconnectCounterToOverride: peerReconnectCounterToOverride)
+        } catch {
+            os_log("☎️ Could not create ReconnectCallMessageJSON: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            self.delegate?.createRestartResult(.failure(error))
+            return
+        }
+        os_log("☎️ Build a ReconnectCallMessageJSON: %{public}@", log: log, type: .info, reconnectCallMessage.sessionDescriptionType)
+        self.delegate?.createRestartResult(.success(reconnectCallMessage))
+
+    }
 
     private func iceGatheringCompleted() {
         guard !iceGatheringCompletedWasCalled else { return }
@@ -1968,60 +2204,16 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
 
         os_log("☎️ ICE gathering is completed", log: log, type: .info)
 
-        guard let localDescription = peerConnection?.localDescription else { assertionFailure(); return }
-
         guard let currentCompletion = self.currentCompletion else { return }
-        let sessionDescriptionType = RTCSessionDescription.string(for: localDescription.type)
         switch currentCompletion {
         case .answer:
-            delegate?.createAnswerResult(
-                .success((sessionDescriptionType: sessionDescriptionType,
-                          sessionDescription: localDescription.sdp)))
-            self.currentCompletion = nil
+            createAnswerResult()
         case .offer:
-            guard let turnUserName = self.turnUserName,
-                  let turnPassword = self.turnPassword else {
-                      assertionFailure()
-                      return
-                  }
-            delegate?.createOfferResult(
-                .success((sessionDescriptionType: sessionDescriptionType,
-                          sessionDescription: localDescription.sdp,
-                          turnUserName: turnUserName,
-                          turnPassword: turnPassword,
-                          turnServersURL: turnServersURL)))
-            self.currentCompletion = nil
+            createOfferResult()
         case .restart:
-            let reconnectCounter: Int
-            let peerReconnectCounterToOverride: Int
-            if case .offer = localDescription.type {
-                reconnectCounter = reconnectOfferCounter
-                peerReconnectCounterToOverride = reconnectAnswerCounter
-            } else {
-                assert(localDescription.type == .answer)
-                reconnectCounter = reconnectAnswerCounter
-                peerReconnectCounterToOverride = -1
-            }
-
-            let reconnectCallMessage: ReconnectCallMessageJSON
-            do {
-                reconnectCallMessage = try ReconnectCallMessageJSON(
-                    sessionDescriptionType: sessionDescriptionType,
-                    sessionDescription: localDescription.sdp,
-                    reconnectCounter: reconnectCounter,
-                    peerReconnectCounterToOverride: peerReconnectCounterToOverride)
-            } catch {
-                os_log("☎️ Could not create ReconnectCallMessageJSON: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                self.currentCompletion = nil
-                self.delegate?.createRestartResult(.failure(error))
-                return
-            }
-            self.currentCompletion = nil
-            os_log("☎️ Build a ReconnectCallMessageJSON: %{public}@", log: log, type: .info, reconnectCallMessage.sessionDescriptionType)
-            self.delegate?.createRestartResult(.success(reconnectCallMessage))
-
+            createRestartResult()
         }
+        self.currentCompletion = nil
     }
 
 
@@ -2046,6 +2238,24 @@ fileprivate final class WebrtcPeerConnectionHolder: NSObject, RTCPeerConnectionD
     }
 
 
+}
+
+fileprivate extension IceCandidateJSON {
+    var iceCandidate: RTCIceCandidate {
+        RTCIceCandidate(sdp: sdp, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
+    }
+}
+
+fileprivate extension RemoveIceCandidatesMessageJSON {
+    var iceCandidates: [RTCIceCandidate] {
+        candidates.map { $0.iceCandidate }
+    }
+}
+
+fileprivate extension RTCIceCandidate {
+    var toJSON: IceCandidateJSON {
+        IceCandidateJSON(sdp: sdp, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
+    }
 }
 
 
@@ -2159,35 +2369,24 @@ extension WebrtcPeerConnectionHolder {
             processedAudioLines.append(processedFirstLine)
         }
         // 2. Filter subsequent lines
-        var indexOfOpusLinesToSkip = Set<Int>()
+        let rtpmapOrOptionPattern = try NSRegularExpression(pattern: "^a=(rtpmap|fmtp|rtcp-fb):([0-9]+)\\s+", options: .anchorsMatchLines)
+
         for i in 1..<audioLines.count {
-            guard !indexOfOpusLinesToSkip.contains(i) else { continue }
             let line = audioLines[i]
-            guard let result = rtpmapPattern.firstMatch(in: line, options: [], range: NSRange(location: 0, length: line.count)) else {
+            guard let result = rtpmapOrOptionPattern.firstMatch(in: line, options: [], range: NSRange(location: 0, length: line.count)) else {
                 processedAudioLines.append(line)
                 continue
             }
-            let formatRange = result.range(at: 1)
+            let lineTypeRange = result.range(at: 1)
+            let lineType = (line as NSString).substring(with: lineTypeRange)
+            let formatRange = result.range(at: 2)
             let format = (line as NSString).substring(with: formatRange)
             guard formatsToKeep.contains(format) else { continue }
-            processedAudioLines.append(line)
-            if let opusFormat = opusFormat, format == opusFormat {
-                // We need to modify the two lines following the opus line declaration: we write them "by hand"
-                do {
-                    let line = audioLines[i+1]
-                    let fb = try NSRegularExpression(pattern: "^a=rtcp-fb:\(opusFormat)\\s+", options: .anchorsMatchLines)
-                    guard fb.numberOfMatches(in: line, options: [], range: NSRange(location: 0, length: line.count)) > 0 else { throw NSError() }
-                    indexOfOpusLinesToSkip.insert(i+1)
-                    processedAudioLines.append(line)
-                }
-                do {
-                    let line = audioLines[i+2]
-                    let fb = try NSRegularExpression(pattern: "^a=fmtp:\(opusFormat)\\s+", options: .anchorsMatchLines)
-                    guard fb.numberOfMatches(in: line, options: [], range: NSRange(location: 0, length: line.count)) > 0 else { throw NSError() }
-                    indexOfOpusLinesToSkip.insert(i+2)
-                    let modifiedLine = line.appending(self.additionalOpusOptions)
-                    processedAudioLines.append(modifiedLine)
-                }
+            if let opusFormat = opusFormat, format == opusFormat, "ftmp" == lineType {
+                let modifiedLine = line.appending(self.additionalOpusOptions)
+                processedAudioLines.append(modifiedLine)
+            } else {
+                processedAudioLines.append(line)
             }
         }
         return processedAudioLines

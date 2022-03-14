@@ -19,7 +19,8 @@
 
 import UIKit
 
-class BackupKeyViewerViewController: UIViewController {
+/// This view controller is presented when a new backup is generated. It allows to see it once (and only once).
+final class BackupKeyViewerViewController: UIViewController {
 
     var backupKeyString: String!
     

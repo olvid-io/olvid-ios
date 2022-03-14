@@ -80,78 +80,9 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
     @objc func ownedCircledInitialsBarButtonItemWasTapped() {
         assert(Thread.isMainThread)
         guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        if #available(iOS 13, *) {
-            let deepLink = ObvDeepLink.myId(ownedIdentityURI: ownedIdentity.objectID.uriRepresentation())
-            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-                .postOnDispatchQueue()
-        } else {
-            let vc = SingleIdentityViewController(persistedObvOwnedIdentity: ownedIdentity)
-            vc.delegate = self
-            let closeButton = BlockBarButtonItem.forClosing { [weak self] in self?.presentedViewController?.dismiss(animated: true) }
-            vc.navigationItem.setLeftBarButton(closeButton, animated: false)
-            let nav = UINavigationController(rootViewController: vc)
-            present(nav, animated: true)
-        }
+        let deepLink = ObvDeepLink.myId(ownedIdentityURI: ownedIdentity.objectID.uriRepresentation())
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+            .postOnDispatchQueue()
     }
 
-}
-
-
-// Should only be used under iOS12 or less
-extension ShowOwnedIdentityButtonUIViewController: SingleOwnedIdentityViewControllerDelegate {
-
-    func editOwnedPublishedIdentityDetails() {
-        
-        if #available(iOS 13, *) {
-            assertionFailure()
-        }
-        
-        guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: ownedCryptoId) else { return }
-        
-        assert(obvOwnedIdentity.signedUserDetails == nil)
-        assert(!obvOwnedIdentity.isKeycloakManaged)
-
-        let details = obvOwnedIdentity.publishedIdentityDetails.coreDetails
-        let displaynameMaker = DisplaynameStruct(firstName: details.firstName,
-                                                 lastName: details.lastName,
-                                                 company: details.company,
-                                                 position: details.position,
-                                                 photoURL: obvOwnedIdentity.publishedIdentityDetails.photoURL)
-        let displayNameChooserViewController = DisplayNameChooserViewController(displaynameMaker: displaynameMaker,
-                                                                                completionHandlerOnSave: userWantsToSaveOwnedIdentityDetails,
-                                                                                serverAndAPIKey: nil)
-        
-        let nav = ObvNavigationController(rootViewController: displayNameChooserViewController)
-        displayNameChooserViewController.navigationItem.leftBarButtonItem = UIBarButtonItem.forClosing(target: self, action: #selector(dismissDisplayNameChooserViewController))
-        if let presentedVC = self.presentedViewController {
-            presentedVC.present(nav, animated: true)
-        } else {
-            self.present(nav, animated: true)
-        }
-        
-    }
-    
-    
-    private func userWantsToSaveOwnedIdentityDetails(displaynameMaker: DisplaynameStruct) {
-        defer { dismissDisplayNameChooserViewController() }
-        guard displaynameMaker.isValid, let newCoreIdentityDetails = displaynameMaker.identityDetails else { return }
-        
-        do {
-            let obvOwnedIdentity = try obvEngine.getOwnedIdentity(with: ownedCryptoId)
-            let publishedDetails = obvOwnedIdentity.publishedIdentityDetails
-            let newDetails = ObvIdentityDetails(coreDetails: newCoreIdentityDetails,
-                                                photoURL: publishedDetails.photoURL)
-            try obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: newDetails)
-        } catch {
-            os_log("Could not update owned identity latest details", log: log, type: .error)
-        }
-        
-    }
-    
-    
-    @objc private func dismissDisplayNameChooserViewController() {
-        presentedViewController?.view.endEditing(true)
-        presentedViewController?.dismiss(animated: true)
-    }
-    
 }

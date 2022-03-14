@@ -266,7 +266,6 @@ extension AppBackupCoordinator {
         case operationError(_: Error)
     }
 
-    @available(iOS 13, *)
     final class CKRecordIterator: ObservableObject {
 
         let container: CKContainer
@@ -367,7 +366,6 @@ extension AppBackupCoordinator {
 
     }
 
-    @available(iOS 13, *)
     static func buildAllCloudBackupsIterator(identifierForVendor: UUID? = nil) -> CKRecordIterator {
         let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
 

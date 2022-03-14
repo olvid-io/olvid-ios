@@ -28,48 +28,41 @@ import OlvidUtils
 @objc(OwnedDevice)
 final class OwnedDevice: NSManagedObject, ObvManagedObject {
 
-    private static let errorDomain = "OwnedDevice"
-
-    // MARK: Internal constants
-    
     private static let entityName = "OwnedDevice"
-    private static let uidKey = "uid"
-    private static let currentDeviceIdentityKey = "currentDeviceIdentity"
-    private static let remoteDeviceIdentityKey = "remoteDeviceIdentity"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    private static func makeError(message: String) -> Error { NSError(domain: "OwnedDevice", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
+    
     // MARK: Attributes
     
     @NSManaged private(set) var uid: UID // Unique (not enforced)
+    @NSManaged private var rawCapabilities: String?
+
     
     // MARK: Relationships
     
     /// If this device the current device of an owned identity, then currentDeviceIdentity is not nil and remoteDeviceIdentity is nil. If this device is a remote device of an owned identity (thus the current device of this identity on some other physical device), then currentDeviceIdentity is nil and remoteDeviceIdentity is not nil. In both cases, one (and only one) of these two relationships is not nil. This is captured by the computed variable `identity`.
     private(set) var currentDeviceIdentity: OwnedIdentity? {
         get {
-            let item = kvoSafePrimitiveValue(forKey: OwnedDevice.currentDeviceIdentityKey) as! OwnedIdentity?
+            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.currentDeviceIdentity.rawValue) as! OwnedIdentity?
             item?.obvContext = self.obvContext
             return item
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedDevice.currentDeviceIdentityKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.currentDeviceIdentity.rawValue)
         }
     }
     
     private(set) var remoteDeviceIdentity: OwnedIdentity? {
         get {
-            let item = kvoSafePrimitiveValue(forKey: OwnedDevice.remoteDeviceIdentityKey) as! OwnedIdentity?
+            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.remoteDeviceIdentity.rawValue) as! OwnedIdentity?
             item?.obvContext = self.obvContext
             return item
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedDevice.remoteDeviceIdentityKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.remoteDeviceIdentity.rawValue)
         }
     }
+    
     
     // MARK: Other variables
     
@@ -85,7 +78,8 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         }
     }
 
-    
+    private var changedKeys = Set<String>()
+
     // MARK: - Initializers
     
     /// This initializer creates the current device of the owned identity. It should only be called at the time we create an owned identity
@@ -100,6 +94,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         uid = UID.gen(with: prng)
         currentDeviceIdentity = ownedIdentity
         remoteDeviceIdentity = nil
+        self.rawCapabilities = nil // Set later
         self.delegateManager = delegateManager
     }
     
@@ -115,6 +110,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         self.uid = remoteDeviceUid
         currentDeviceIdentity = nil
         remoteDeviceIdentity = ownedIdentity
+        self.rawCapabilities = nil // Set later
         self.delegateManager = delegateManager
     }
 
@@ -123,6 +119,27 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         let entityDescription = NSEntityDescription.entity(forEntityName: OwnedDevice.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.uid = backupItem.uid
+        self.rawCapabilities = nil // Set later
+    }
+    
+}
+
+// MARK: - Capabilities
+
+extension OwnedDevice {
+    
+    var allCapabilities: Set<ObvCapability> {
+        guard let split = self.rawCapabilities?.split(separator: "|") else { return Set<ObvCapability>() }
+        return Set(split.compactMap({ ObvCapability(rawValue: String($0)) }))
+    }
+
+    func setCapabilities(newCapabilities: Set<ObvCapability>) {
+        let newRawCapabilities = Set(newCapabilities.map({ $0.rawValue }))
+        self.setRawCapabilities(newRawCapabilities: newRawCapabilities)
+    }
+    
+    func setRawCapabilities(newRawCapabilities: Set<String>) {
+        self.rawCapabilities = newRawCapabilities.joined(separator: "|")
     }
     
 }
@@ -136,11 +153,25 @@ extension OwnedDevice {
         return NSFetchRequest<OwnedDevice>(entityName: OwnedDevice.entityName)
     }
     
+    
+    struct Predicate {
+        enum Key: String {
+            case uid = "uid"
+            case rawCapabilities = "rawCapabilities"
+            case currentDeviceIdentity = "currentDeviceIdentity"
+            case remoteDeviceIdentity = "remoteDeviceIdentity"
+        }
+        static func withUid(_ uid: UID) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.uid.rawValue, uid)
+        }
+    }
+
+    
     /// This class method returns an OwnedDevice, but only if it is the current device.
-    static func get(currentDeviceUid: UID, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> OwnedDevice? {
+    static func get(currentDeviceUid: UID, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedDevice? {
         let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", OwnedDevice.uidKey, currentDeviceUid)
-        let item = (try? obvContext.fetch(request))?.first
+        request.predicate = Predicate.withUid(currentDeviceUid)
+        let item = (try obvContext.fetch(request)).first
         if item?.currentDeviceIdentity == nil {
             return nil
         }
@@ -149,10 +180,10 @@ extension OwnedDevice {
     }
 
     /// This class method returns an OwnedDevice, but only if it is *not* the current device.
-    static func get(remoteDeviceUid: UID, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> OwnedDevice? {
+    static func get(remoteDeviceUid: UID, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedDevice? {
         let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", OwnedDevice.uidKey, remoteDeviceUid)
-        let item = (try? obvContext.fetch(request))?.first
+        request.predicate = Predicate.withUid(remoteDeviceUid)
+        let item = (try obvContext.fetch(request)).first
         if item?.remoteDeviceIdentity == nil {
             return nil
         }
@@ -171,6 +202,47 @@ extension OwnedDevice {
         return values
     }
     
+}
+
+
+// MARK: - Notify on changes
+
+extension OwnedDevice {
+    
+    override func willSave() {
+        super.willSave()
+        
+        changedKeys = Set<String>(self.changedValues().keys)
+
+    }
+
+    override func didSave() {
+        super.didSave()
+        
+        defer {
+            changedKeys.removeAll()
+        }
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog.init(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: OwnedDevice.entityName)
+            os_log("The delegate manager is not set (1) - Ok during a backup restore", log: log, type: .fault)
+            return
+        }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedDevice.entityName)
+
+        guard let flowId = obvContext?.flowId else {
+            os_log("The obvContext is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        if !isDeleted && changedKeys.contains(Predicate.Key.rawCapabilities.rawValue) {
+            ObvIdentityNotificationNew.ownedIdentityCapabilitiesWereUpdated(ownedIdentity: self.identity.cryptoIdentity, flowId: flowId)
+                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+        }
+        
+    }
 }
 
 

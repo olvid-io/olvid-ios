@@ -20,7 +20,6 @@
 import UIKit
 import SwiftUI
 
-@available(iOS 13.0, *)
 final class CallViewHostingController: UIHostingController<CallView> {
     
     let wrappedCall: ObservableCallWrapper

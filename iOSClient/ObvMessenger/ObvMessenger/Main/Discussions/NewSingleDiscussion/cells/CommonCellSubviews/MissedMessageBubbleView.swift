@@ -20,7 +20,6 @@
 import UIKit
 
 /// This view displays the count of missed message.
-@available(iOS 13.0, *)
 final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners {
 
     struct Configuration: Equatable, Hashable {

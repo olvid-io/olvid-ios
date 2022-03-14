@@ -41,6 +41,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     private var observationTokens = [NSObjectProtocol]()
     private var unreadMessagesSystemMessage: PersistedMessageSystem?
+    private let initialScroll: InitialScroll
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
     private let internalQueue = DispatchQueue(label: "NewSingleDiscussionViewController internal queue")
     private let hidingView = UIView()
@@ -146,10 +147,15 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         return df
     }()
 
+    enum InitialScroll {
+        case specificMessage(_: PersistedMessage)
+        case newMessageSystemOrLastMessage
+    }
 
-    init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate) {
+    init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate, initialScroll: InitialScroll) {
         self.draftObjectID = discussion.draft.typedObjectID
         self.discussionObjectID = discussion.typedObjectID
+        self.initialScroll = initialScroll
         super.init(nibName: nil, bundle: nil)
         self.composeMessageView = NewComposeMessageView(
             draft: discussion.draft,
@@ -266,11 +272,21 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 self?.hidingView.isHidden = true
             }
         }
-        if let unreadMessagesSystemMessage = unreadMessagesSystemMessage {
-            guard let indexPath = frc.indexPath(forObject: unreadMessagesSystemMessage) else { assertionFailure(); return }
-            collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completion)
-        } else {
-            collectionView.adjustedScrollToBottom(completion: completion)
+        switch initialScroll {
+        case .specificMessage(let message):
+            guard let indexPath = frc.indexPath(forObject: message) else { assertionFailure(); return }
+            let completionAndAnimate = { [weak self] in
+                completion()
+                self?.animateItem(at: indexPath)
+            }
+            collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completionAndAnimate)
+        case .newMessageSystemOrLastMessage:
+            if let unreadMessagesSystemMessage = unreadMessagesSystemMessage {
+                guard let indexPath = frc.indexPath(forObject: unreadMessagesSystemMessage) else { assertionFailure(); return }
+                collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completion)
+            } else {
+                collectionView.adjustedScrollToBottom(completion: completion)
+            }
         }
     }
     
@@ -1311,6 +1327,16 @@ extension NewSingleDiscussionViewController {
                 children.append(action)
             }
 
+            // Delete reaction action
+            if cell.isDeleteOwnReactionActionAvailable {
+                let action = UIAction(title: CommonString.Title.deleteOwnReaction) { (_) in
+                    guard let messageID = cell.persistedMessageObjectID else { return }
+                    ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: nil).postOnDispatchQueue()
+                }
+                action.image = UIImage(systemIcon: .heartSlashFill)
+                children.append(action)
+            }
+
             // Delete message action
             if cell.isDeleteActionAvailable {
                 let action = UIAction(title: CommonString.Word.Delete) { [weak self] (_) in
@@ -1418,6 +1444,27 @@ extension NewSingleDiscussionViewController {
             }
         }
     }
+
+    private func animateItem(at indexPath: IndexPath) {
+        guard let cell = collectionView.cellForItem(at: indexPath) else { return }
+        UIView.animateKeyframes(withDuration: 0.5, delay: 0.2, options: []) {
+            cell.transform = .init(scaleX: 1.1, y: 1.1)
+        } completion: { _ in
+            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) {
+                cell.transform = .identity
+            }
+        }
+    }
+
+    
+    func scrollTo(message: PersistedMessage) {
+        assert(Thread.isMainThread)
+        guard let frc = self.frc else { return }
+        guard let message = try? PersistedMessage.get(with: message.typedObjectID, within: frc.managedObjectContext) else { return }
+        guard let indexPath = frc.indexPath(forObject: message) else { return }
+        scrollToItemAtIndexPath(indexPath)
+    }
+    
     
     enum ScrollingType: CustomDebugStringConvertible {
 
@@ -1453,19 +1500,6 @@ extension NewSingleDiscussionViewController {
 @available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
-    private func applyTopSafeAreaInsetsToContentInset() {
-        collectionView.contentInset = UIEdgeInsets(
-            top: collectionView.safeAreaInsets.top,
-            left: collectionView.contentInset.left,
-            bottom: collectionView.contentInset.bottom,
-            right: collectionView.contentInset.right)
-        collectionView.scrollIndicatorInsets = UIEdgeInsets(
-            top: collectionView.safeAreaInsets.top,
-            left: collectionView.scrollIndicatorInsets.left,
-            bottom: collectionView.contentInset.bottom,
-            right: collectionView.scrollIndicatorInsets.left)
-    }
-    
     func newComposeMessageView(_ newComposeMessageView: NewComposeMessageView, newFrame frame: CGRect) {
 
         guard viewDidLoadWasCalled else { return }
@@ -1489,9 +1523,9 @@ extension NewSingleDiscussionViewController {
             right: collectionView.contentInset.right)
         collectionView.scrollIndicatorInsets = UIEdgeInsets(
             top: collectionView.contentInset.top,
-            left: collectionView.scrollIndicatorInsets.left,
+            left: collectionView.verticalScrollIndicatorInsets.left,
             bottom: bottom,
-            right: collectionView.scrollIndicatorInsets.left)
+            right: collectionView.verticalScrollIndicatorInsets.left)
 
         // Scroll if required
         

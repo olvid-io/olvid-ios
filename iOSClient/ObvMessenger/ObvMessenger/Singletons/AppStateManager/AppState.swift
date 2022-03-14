@@ -49,9 +49,9 @@ typealias CallAndState = (call: Call, state: CallState)
 
 enum AppState: CustomDebugStringConvertible, Equatable {
     
-    case justLaunched(iOSAppState: IOSAppState, authenticateAutomaticallyNextTime: Bool, callInProgress: CallAndState?)
-    case initializing(iOSAppState: IOSAppState, authenticateAutomaticallyNextTime: Bool, callInProgress: CallAndState?)
-    case initialized(iOSAppState: IOSAppState, authenticated: Bool, authenticateAutomaticallyNextTime: Bool, callInProgress: CallAndState?)
+    case justLaunched(iOSAppState: IOSAppState, authenticateAutomaticallyNextTime: Bool, callInProgress: CallAndState?, aCallRequiresNetworkConnection: Bool)
+    case initializing(iOSAppState: IOSAppState, authenticateAutomaticallyNextTime: Bool, callInProgress: CallAndState?, aCallRequiresNetworkConnection: Bool)
+    case initialized(iOSAppState: IOSAppState, authenticated: Bool, authenticateAutomaticallyNextTime: Bool, callInProgress: CallAndState?, aCallRequiresNetworkConnection: Bool)
 
     var raw: RawAppState {
         switch self {
@@ -63,18 +63,18 @@ enum AppState: CustomDebugStringConvertible, Equatable {
     
     var iOSAppState: IOSAppState {
         switch self {
-        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             return iOSAppState
-        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             return iOSAppState
-        case .initialized(iOSAppState: let iOSAppState, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .initialized(iOSAppState: let iOSAppState, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             return iOSAppState
         }
     }
     
     var isInitializedAndActive: Bool {
         switch self {
-        case .initialized(iOSAppState: let iOSState, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .initialized(iOSAppState: let iOSState, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             return iOSState == .active
         default:
             return false
@@ -106,54 +106,54 @@ enum AppState: CustomDebugStringConvertible, Equatable {
         switch self {
         case .justLaunched, .initializing:
             return false
-        case .initialized(iOSAppState: _, authenticated: let authenticated, authenticateAutomaticallyNextTime: _, callInProgress: _):
+        case .initialized(iOSAppState: _, authenticated: let authenticated, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: _):
             return authenticated
         }
     }
     
     var debugDescription: String {
         switch self {
-        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let next, callInProgress: let callAndState):
+        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let next, callInProgress: let callAndState, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             if let callAndState = callAndState {
-                return "Just Launched (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: \(callAndState.call.uuid.uuidString.prefix(4)) | \(callAndState.state))"
+                return "Just Launched (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: \(callAndState.call.uuid.uuidString.prefix(4)) | \(callAndState.state), aCallRequiresNetworkConnection: \(aCallRequiresNetworkConnection))"
             } else {
-                return "Just Launched (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: None)"
+                return "Just Launched (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: None, aCallRequiresNetworkConnection: \(aCallRequiresNetworkConnection))"
             }
-        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let next, callInProgress: let callAndState):
+        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let next, callInProgress: let callAndState, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             if let callAndState = callAndState {
-                return "Initializing (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: \(callAndState.call.uuid.uuidString.prefix(4)) | \(callAndState.state))"
+                return "Initializing (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: \(callAndState.call.uuid.uuidString.prefix(4)) | \(callAndState.state), aCallRequiresNetworkConnection: \(aCallRequiresNetworkConnection))"
             } else {
-                return "Initializing (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: None)"
+                return "Initializing (\(iOSAppState), authenticateAutomaticallyNextTime: \(next), callInProgress: None, aCallRequiresNetworkConnection: \(aCallRequiresNetworkConnection))"
             }
-        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let next, callInProgress: let callAndState):
+        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let next, callInProgress: let callAndState, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             if let callAndState = callAndState {
-                return "Initialized (\(iOSAppState), authenticated: \(authenticated), authenticateAutomaticallyNextTime: \(next), callInProgress: \(callAndState.call.uuid.uuidString.prefix(4)) | \(callAndState.state))"
+                return "Initialized (\(iOSAppState), authenticated: \(authenticated), authenticateAutomaticallyNextTime: \(next), callInProgress: \(callAndState.call.uuid.uuidString.prefix(4)) | \(callAndState.state), aCallRequiresNetworkConnection: \(aCallRequiresNetworkConnection))"
             } else {
-                return "Initialized (\(iOSAppState), authenticated: \(authenticated), authenticateAutomaticallyNextTime: \(next), callInProgress: None)"
+                return "Initialized (\(iOSAppState), authenticated: \(authenticated), authenticateAutomaticallyNextTime: \(next), callInProgress: None, aCallRequiresNetworkConnection: \(aCallRequiresNetworkConnection))"
             }
         }
     }
     
     static func == (lhs: AppState, rhs: AppState) -> Bool {
         switch lhs {
-        case .justLaunched(iOSAppState: let a0, authenticateAutomaticallyNextTime: let a1, callInProgress: let a2):
+        case .justLaunched(iOSAppState: let a0, authenticateAutomaticallyNextTime: let a1, callInProgress: let a2, aCallRequiresNetworkConnection: let a3):
             switch rhs {
-            case .justLaunched(iOSAppState: let b0, authenticateAutomaticallyNextTime: let b1, callInProgress: let b2):
-                return a0 == b0 && a1 == b1 && a2?.call.uuid == b2?.call.uuid && a2?.state == b2?.state
+            case .justLaunched(iOSAppState: let b0, authenticateAutomaticallyNextTime: let b1, callInProgress: let b2, aCallRequiresNetworkConnection: let b3):
+                return a0 == b0 && a1 == b1 && a2?.call.uuid == b2?.call.uuid && a2?.state == b2?.state && a3 == b3
             default:
                 return false
             }
-        case .initializing(iOSAppState: let a0, authenticateAutomaticallyNextTime: let a1, callInProgress: let a2):
+        case .initializing(iOSAppState: let a0, authenticateAutomaticallyNextTime: let a1, callInProgress: let a2, aCallRequiresNetworkConnection: let a3):
             switch rhs {
-            case .initializing(iOSAppState: let b0, authenticateAutomaticallyNextTime: let b1, callInProgress: let b2):
-                return a0 == b0 && a1 == b1 && a2?.call.uuid == b2?.call.uuid && a2?.state == b2?.state
+            case .initializing(iOSAppState: let b0, authenticateAutomaticallyNextTime: let b1, callInProgress: let b2, aCallRequiresNetworkConnection: let b3):
+                return a0 == b0 && a1 == b1 && a2?.call.uuid == b2?.call.uuid && a2?.state == b2?.state && a3 == b3
             default:
                 return false
             }
-        case .initialized(iOSAppState: let a0, authenticated: let a1, authenticateAutomaticallyNextTime: let a2, callInProgress: let a3):
+        case .initialized(iOSAppState: let a0, authenticated: let a1, authenticateAutomaticallyNextTime: let a2, callInProgress: let a3, aCallRequiresNetworkConnection: let a4):
             switch rhs {
-            case .initialized(iOSAppState: let b0, authenticated: let b1, authenticateAutomaticallyNextTime: let b2, callInProgress: let b3):
-                return a0 == b0 && a1 == b1 && a2 == b2 && a3?.call.uuid == b3?.call.uuid && a3?.state == b3?.state
+            case .initialized(iOSAppState: let b0, authenticated: let b1, authenticateAutomaticallyNextTime: let b2, callInProgress: let b3, aCallRequiresNetworkConnection: let b4):
+                return a0 == b0 && a1 == b1 && a2 == b2 && a3?.call.uuid == b3?.call.uuid && a3?.state == b3?.state && a4 == b4
             default:
                 return false
             }
@@ -162,12 +162,20 @@ enum AppState: CustomDebugStringConvertible, Equatable {
 
     var callInProgress: Call? {
         switch self {
-        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: let callAndState):
-            return callAndState?.call
-        case .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: let callAndState):
-            return callAndState?.call
-        case .initialized(iOSAppState: _, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: let callAndState):
+        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: let callAndState, aCallRequiresNetworkConnection: _),
+                .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: let callAndState, aCallRequiresNetworkConnection: _),
+                .initialized(iOSAppState: _, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: let callAndState, aCallRequiresNetworkConnection: _):
             return callAndState?.call
         }
     }
+    
+    var aCallRequiresNetworkConnection: Bool {
+        switch self {
+        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection),
+                .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection),
+                .initialized(iOSAppState: _, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: _, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            return aCallRequiresNetworkConnection
+        }
+    }
+    
 }

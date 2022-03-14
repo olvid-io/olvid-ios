@@ -23,7 +23,7 @@ import ObvEngine
 import CoreData
 
 
-@available(iOS 13, *)
+
 struct SingleContactIdentityView: View {
     
     @ObservedObject var contact: SingleContactIdentity
@@ -39,7 +39,7 @@ struct SingleContactIdentityView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct SingleContactIdentityInnerView: View {
     
     @ObservedObject var contact: SingleContactIdentity
@@ -120,7 +120,7 @@ struct SingleContactIdentityInnerView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct GroupsCardView: View {
     
     private var fetchRequest: FetchRequest<PersistedContactGroup>
@@ -160,7 +160,7 @@ fileprivate struct GroupsCardView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct GroupCellsStackView: View {
     
     private var fetchRequest: FetchRequest<PersistedContactGroup>
@@ -208,7 +208,7 @@ fileprivate struct GroupCellsStackView: View {
 
 
 
-@available(iOS 13, *)
+
 fileprivate struct TrustOriginsCardView: View {
     
     let trustOrigins: [ObvTrustOrigin]
@@ -237,7 +237,7 @@ fileprivate struct TrustOriginsCardView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct ContactIdentityCardViews: View {
     
     @ObservedObject var contact: SingleContactIdentity
@@ -292,7 +292,7 @@ fileprivate struct ContactIdentityCardViews: View {
     
 }
 
-@available(iOS 13, *)
+
 fileprivate struct BottomButtonsView: View {
 
     let contact: SingleContactIdentity
@@ -339,7 +339,7 @@ fileprivate struct BottomButtonsView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct CreatingChannelExplanationView: View {
     
     let restartChannelCreationButtonTapped: () -> Void
@@ -353,7 +353,7 @@ fileprivate struct CreatingChannelExplanationView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
                     Spacer()
-                    ObvActivityIndicator(isAnimating: .constant(true), style: .medium)
+                    ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
                 }
                 HStack {
                     Text("ESTABLISHING_SECURE_CHANNEL_EXPLANATION")
@@ -377,7 +377,7 @@ fileprivate struct CreatingChannelExplanationView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct ContactIsNotActiveExplanationView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -420,7 +420,7 @@ fileprivate struct ContactIsNotActiveExplanationView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct ContactCanBeReblockedExplanationView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -462,7 +462,7 @@ fileprivate struct ContactCanBeReblockedExplanationView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct ContactIdentityCardView: View {
 
     @ObservedObject var contact: SingleContactIdentity
@@ -503,7 +503,7 @@ struct ContactIdentityCardView: View {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct TopLeftText: View {
     
     let text: Text
@@ -526,7 +526,7 @@ fileprivate struct TopLeftText: View {
 }
 
 
-@available(iOS 13, *)
+
 struct SingleContactIdentityView_Previews: PreviewProvider {
     
     static let otherCoreDetails = try! ObvIdentityCoreDetails(firstName: "Steve",

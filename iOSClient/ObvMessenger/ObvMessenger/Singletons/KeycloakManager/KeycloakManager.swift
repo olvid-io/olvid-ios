@@ -446,7 +446,7 @@ final class KeycloakManager: NSObject {
 
         os_log("🧥 Call to authenticate", log: KeycloakManager.log, type: .info)
 
-        let kRedirectURI = "https://openid-redirect.olvid.io/"
+        let kRedirectURI = "https://\(ObvMessengerConstants.Host.forOpenIdRedirect)/"
 
         guard let redirectURI = URL(string: kRedirectURI) else {
             completion(.failure(KeycloakManager.makeError(message: "Error creating URL for : \(kRedirectURI)")))
@@ -1499,7 +1499,7 @@ extension KeycloakManager: OIDAuthStateChangeDelegate {
             return
         }
         do {
-            let rawAuthState = state.serialize
+            let rawAuthState = try state.serialize()
             try obvEngine.saveKeycloakAuthState(with: ownedCryptoId, rawAuthState: rawAuthState)
         } catch {
             os_log("🧥 Could not save authState: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
@@ -1516,12 +1516,14 @@ extension KeycloakManager: OIDAuthStateChangeDelegate {
 
 extension OIDAuthState {
 
-    var serialize: Data {
-        NSKeyedArchiver.archivedData(withRootObject: self)
+    func serialize() throws -> Data {
+        try NSKeyedArchiver.archivedData(withRootObject: self, requiringSecureCoding: true)
     }
 
     static func deserialize(from data: Data) -> OIDAuthState? {
-        return NSKeyedUnarchiver.unarchiveObject(with: data) as? OIDAuthState
+        guard let unarchiver = try? NSKeyedUnarchiver(forReadingFrom: data) else { return nil }
+        unarchiver.requiresSecureCoding = false
+        return unarchiver.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? OIDAuthState
     }
 
 }
@@ -1534,7 +1536,6 @@ extension UserDetails {
     }
 }
 
-@available(iOS 13.0, *)
 extension SingleIdentity {
 
     convenience init(userDetails: UserDetails) {
@@ -1879,7 +1880,8 @@ extension KeycloakManager {
         }
 
         do {
-            try obvEngine.saveKeycloakAuthState(with: ownedCryptoId, rawAuthState: authState.serialize)
+            let rawAuthState = try authState.serialize()
+            try obvEngine.saveKeycloakAuthState(with: ownedCryptoId, rawAuthState: rawAuthState)
         } catch {
             os_log("🧥 Could not save the new auth state within the engine", log: KeycloakManager.log, type: .fault)
             assertionFailure()

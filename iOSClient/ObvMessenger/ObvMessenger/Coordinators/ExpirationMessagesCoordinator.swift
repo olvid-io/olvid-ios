@@ -40,9 +40,7 @@ final class ExpirationMessagesCoordinator {
     init() {
         observeAppStateChangedNotifications()
         observeNewMessageExpirationNotifications()
-        if #available(iOS 13, *) {
-            observeCleanExpiredMessagesBackgroundTaskWasLaunched()
-        }
+        observeCleanExpiredMessagesBackgroundTaskWasLaunched()
     }
     
     
@@ -75,7 +73,6 @@ final class ExpirationMessagesCoordinator {
     }
     
     
-    @available(iOS 13, *)
     private func observeCleanExpiredMessagesBackgroundTaskWasLaunched() {
         observationTokens.append(ObvMessengerInternalNotification.observeCleanExpiredMessagesBackgroundTaskWasLaunched { (completion) in
             let completionHandler: (Bool) -> Void = { (success) in
@@ -189,7 +186,6 @@ protocol ScheduleNextTimerOperationDelegate: AnyObject {
 
 // MARK: - Extending AppDelegate for managing the background task allowing to wipe expired messages
 
-@available(iOS 13.0, *)
 extension AppDelegate {
 
     /// If there exists at least one message expiration in database, this method schedules a background task allowing to perform a wipe of the associated message in the background.

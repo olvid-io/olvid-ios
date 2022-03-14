@@ -170,7 +170,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     }
     
     func tryChangeStatusToDownloaded() throws {
-        let allChunksAreDownloaded = chunks.reduce(true) { $0 && $1.cleartextChunkWasWrittenToAttachmentFile }
+        let allChunksAreDownloaded = chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
         guard allChunksAreDownloaded else { throw InboxAttachment.makeError(message: "Tryingin to change status to downloaded but at least one chunk is not downloaded yet") }
         self.status = .downloaded
     }
@@ -327,7 +327,7 @@ extension InboxAttachment {
     
     
     var attachmentFileIsComplete: Bool {
-        return chunks.reduce(true) { $0 && $1.cleartextChunkWasWrittenToAttachmentFile }
+        return chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
     }
     
     func createSession() -> InboxAttachmentSession? {
@@ -343,7 +343,7 @@ extension InboxAttachment {
 extension InboxAttachment {
     
     var allChunksHaveSignedURLs: Bool {
-        return chunks.reduce(true) { $0 && $1.signedURL != nil }
+        return chunks.allSatisfy { $0.signedURL != nil }
     }
     
     func setChunksSignedURLs(_ urls: [URL]) throws {
@@ -451,7 +451,7 @@ extension InboxAttachment {
         }
         try chunks[chunkNumber].decryptAndWriteToAttachmentFileThenDeleteEncryptedChunk(atFileHandle: fh, withKey: key, offset: offset, withinInbox: inbox)
         // Check whether the attachment is fully downloaded
-        let allCleartextChunksWereWrittenToAttachmentFile = chunks.reduce(true) { $0 && $1.cleartextChunkWasWrittenToAttachmentFile }
+        let allCleartextChunksWereWrittenToAttachmentFile = chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
         if allCleartextChunksWereWrittenToAttachmentFile {
             status = .downloaded
         }
@@ -493,7 +493,7 @@ extension InboxAttachment {
                                         rawStatusKey, Status.resumeRequested.rawValue)
         let items = try obvContext.fetch(request)
             .filter { (attachment) -> Bool in
-                let allChunksHaveSignedURLs = attachment.chunks.reduce(true) { $0 && $1.signedURL != nil }
+                let allChunksHaveSignedURLs = attachment.chunks.allSatisfy({ $0.signedURL != nil })
                 return allChunksHaveSignedURLs }
             .filter { (attachment) -> Bool in
                 !attachment.isDownloaded }

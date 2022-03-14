@@ -22,7 +22,6 @@ import CoreData
 import Combine
 import os.log
 
-@available(iOS 13, *)
 final class DiscussionSettingsHostingViewController: UIHostingController<DiscussionExpirationSettingsWrapperView>, DiscussionExpirationSettingsViewModelDelegate {
 
     fileprivate let model: DiscussionExpirationSettingsViewModel
@@ -60,7 +59,6 @@ protocol DiscussionExpirationSettingsViewModelDelegate: AnyObject {
     func dismissAction()
 }
 
-@available(iOS 13, *)
 final class DiscussionExpirationSettingsViewModel: ObservableObject {
 
     weak var delegate: DiscussionExpirationSettingsViewModelDelegate?
@@ -166,7 +164,6 @@ fileprivate extension PersistedDiscussionLocalConfiguration {
 
 }
 
-@available(iOS 13, *)
 extension PersistedDiscussionSharedConfiguration {
 
     func setReadOnce(model: DiscussionExpirationSettingsViewModel, to value: Bool) {
@@ -253,7 +250,6 @@ enum OptionalFetchContentRichURLsMetadataChoice: Int, CaseIterable, Identifiable
     }
 }
 
-@available(iOS 13, *)
 struct DiscussionExpirationSettingsWrapperView: View {
 
     @ObservedObject fileprivate var model: DiscussionExpirationSettingsViewModel
@@ -308,7 +304,7 @@ struct DiscussionExpirationSettingsWrapperView: View {
 
 }
 
-@available(iOS 13, *)
+
 fileprivate struct DiscussionExpirationSettingsView: View {
 
     @Binding var changed: Bool
@@ -633,7 +629,6 @@ struct ChangeDefaultEmojiView: View {
 }
 
 
-@available(iOS 13, *)
 struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
 
     static var previews: some View {
@@ -679,7 +674,6 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
 }
 
 
-@available(iOS 13, *)
 struct ObvLabel: View {
 
     let title: LocalizedStringKey

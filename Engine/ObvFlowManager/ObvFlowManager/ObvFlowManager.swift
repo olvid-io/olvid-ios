@@ -25,8 +25,8 @@ import ObvTypes
 import OlvidUtils
 
 
-public final class ObvFlowManager: ObvFlowDelegate {    
-    
+public final class ObvFlowManager: ObvFlowDelegate {
+        
     // MARK: Instance variables
     
     public var logSubsystem: String { return delegateManager.logSubsystem }
@@ -42,6 +42,10 @@ public final class ObvFlowManager: ObvFlowDelegate {
     
     let prng: PRNGService
     
+    private static func makeError(message: String) -> Error {
+        NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     /// Strong reference to the delegate manager, which keeps strong references to all external and internal delegate requirements.
     let delegateManager: ObvFlowDelegateManager
     
@@ -86,20 +90,28 @@ extension ObvFlowManager {
     
     // Posting message and attachments
     
-    public func startBackgroundActivityForPostingApplicationMessageAttachments(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], completionHandler: (() -> Void)? = nil) -> FlowIdentifier? {
-        return self.delegateManager.backgroundTaskDelegate?.startBackgroundActivityForPostingApplicationMessageAttachments(messageId: messageId, attachmentIds: attachmentIds, completionHandler: completionHandler)
+    public func startNewFlow(completionHandler: (() -> Void)?) throws -> FlowIdentifier {
+        guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
+            throw Self.makeError(message: "The backgroundTaskDelegate is not set")
+        }
+        return try backgroundTaskDelegate.startNewFlow(completionHandler: completionHandler)
     }
     
-    
-    public func startBackgroundActivityForStoringBackgroundURLSessionCompletionHandler() -> FlowIdentifier? {
-        return self.delegateManager.backgroundTaskDelegate?.startBackgroundActivityForStoringBackgroundURLSessionCompletionHandler()
+    public func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier]) throws {
+        guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
+            throw Self.makeError(message: "The backgroundTaskDelegate is not set")
+        }
+        backgroundTaskDelegate.addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId: flowId, messageId: messageId, attachmentIds: attachmentIds)
     }
+    
 
-    
     // Resuming a protocol
     
-    public func startBackgroundActivityForStartingOrResumingProtocol() -> FlowIdentifier? {
-        return self.delegateManager.backgroundTaskDelegate?.startBackgroundActivityForStartingOrResumingProtocol()
+    public func startBackgroundActivityForStartingOrResumingProtocol() throws -> FlowIdentifier {
+        guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
+            throw Self.makeError(message: "The backgroundTaskDelegate is not set")
+        }
+        return try backgroundTaskDelegate.startBackgroundActivityForStartingOrResumingProtocol()
     }
     
     
@@ -124,8 +136,8 @@ extension ObvFlowManager {
     
     // Handling the completion handler received together with a remote push notification
     
-    public func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) -> FlowIdentifier? {
-        return self.delegateManager.remoteNotificationDelegate.startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler: handler)
+    public func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier {
+        try self.delegateManager.remoteNotificationDelegate.startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler: handler)
     }
 
     public func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {

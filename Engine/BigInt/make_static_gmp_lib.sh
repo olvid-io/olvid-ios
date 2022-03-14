@@ -3,7 +3,7 @@
 GMP_VERSION="6.1.2"
 PLATFORMPATH="/Applications/Xcode.app/Contents/Developer/Platforms"
 TOOLSPATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
-export IPHONEOS_DEPLOYMENT_TARGET="11" # can be set to 10.3 with Xcode 8.3.3
+export IPHONEOS_DEPLOYMENT_TARGET="13" # can be set to 10.3 with Xcode 8.3.3
 pwd=`pwd`
 
 findLatestSDKVersion()

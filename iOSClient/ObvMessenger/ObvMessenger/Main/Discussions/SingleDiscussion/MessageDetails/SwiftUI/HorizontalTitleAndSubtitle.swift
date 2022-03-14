@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
+
 struct HorizontalTitleAndSubtitle: View {
     
     let title: String
@@ -39,7 +39,7 @@ struct HorizontalTitleAndSubtitle: View {
 
 
 
-@available(iOS 13.0, *)
+
 struct HorizontalTitleAndSubtitle_Previews: PreviewProvider {
     
     private static let stores: [(title: String, date: Date)] = [

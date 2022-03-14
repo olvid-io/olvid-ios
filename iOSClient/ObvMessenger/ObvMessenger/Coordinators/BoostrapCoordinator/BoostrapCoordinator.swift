@@ -35,6 +35,8 @@ final class BootstrapCoordinator {
     private static let errorDomain = "BootstrapCoordinator"
     private func makeError(message: String) -> Error { NSError(domain: BootstrapCoordinator.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
+    private var bootstrapOnIsInitializedAndActiveWasPerformed = false
+    
     init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
         self.obvEngine = obvEngine
         self.internalQueue = operationQueue
@@ -75,18 +77,18 @@ final class BootstrapCoordinator {
 
 extension BootstrapCoordinator {
     
-    
     private func processAppStateChanged(previousState: AppState, currentState: AppState) {
         if !previousState.isInitializedAndActive && currentState.isInitializedAndActive {
-            if #available(iOS 13, *) {
-                removeOldCachedURLMetadata()
-            }
+            guard !bootstrapOnIsInitializedAndActiveWasPerformed else { return }
+            defer { bootstrapOnIsInitializedAndActiveWasPerformed = true }
+            removeOldCachedURLMetadata()
             resendPreviousObvEngineNewUserDialogToPresentNotifications()
             sendUnsentDrafts()
             if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
                 AppBackupCoordinator.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
             }
             deleteOldPendingRepliedTo()
+            resetOwnObvCapabilities()
         }
     }
     
@@ -105,7 +107,6 @@ extension BootstrapCoordinator {
     }
     
     
-    @available(iOS 13.0, *)
     private func removeOldCachedURLMetadata() {
         let dateLimit = Date().addingTimeInterval(TimeInterval(integerLiteral: -ObvMessengerConstants.TTL.cachedURLMetadata))
         LPMetadataProvider.removeCachedURLMetadata(olderThan: dateLimit)
@@ -202,6 +203,15 @@ extension BootstrapCoordinator {
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
+    }
+    
+    
+    private func resetOwnObvCapabilities() {
+        do {
+            try obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)
+        } catch {
+            assertionFailure("Could not set capabilities")
+        }
     }
 
 }

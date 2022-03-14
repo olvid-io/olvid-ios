@@ -24,7 +24,6 @@ disabled_rules:
   - unused_enumerated
   - is_disjoint
   - for_where
-  - reduce_boolean
   - force_cast
   - force_try
   - weak_delegate
@@ -33,11 +32,11 @@ disabled_rules:
   - redundant_objc_attribute
   - nsobject_prefer_isequal
   - unused_setter_value
-custom_rules:
-  commented_code:
-    regex: '(?<!:|\/)\/\/\h*[a-z.](?!wiftlint)'
-    message: "Comment starting with lowercase letter - did you forget to delete old code?"
-  multiline_commented_code:
-    regex: '^\s*[a-z]'
-    match_kinds: comment
-    message: "Comment starting with lowercase letter - did you forget to delete old code?"
+#custom_rules:
+#  commented_code:
+#    regex: '(?<!:|\/)\/\/\h*[a-z.](?!wiftlint)'
+#    message: "Comment starting with lowercase letter - did you forget to delete old code?"
+#  multiline_commented_code:
+#    regex: '^\s*[a-z]'
+#    match_kinds: comment
+#    message: "Comment starting with lowercase letter - did you forget to delete old code?"

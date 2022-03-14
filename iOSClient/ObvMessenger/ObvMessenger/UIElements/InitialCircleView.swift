@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct InitialCircleView: View {
 
     let circledTextView: Text?
@@ -73,7 +73,7 @@ struct InitialCircleView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct InitialCircleView_Previews: PreviewProvider {
     
     private struct TestData: Identifiable {

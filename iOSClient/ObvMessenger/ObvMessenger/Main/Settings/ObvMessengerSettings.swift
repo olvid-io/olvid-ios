@@ -446,10 +446,43 @@ struct ObvMessengerSettings {
         }
     }
 
+    // MARK: - MDM
+    
+    struct MDM {
+        
+        private struct Key {
+            static let mdmConfigurationKey = "com.apple.configuration.managed"
+        }
+        
+        private static let standardUserDefaults = UserDefaults.standard
+        static var configuration: [String: Any]? { standardUserDefaults.dictionary(forKey: Key.mdmConfigurationKey) }
+        
+        static var isConfiguredFromMDM: Bool {
+            configuration != nil
+        }
+        
+        struct Configuration {
+            
+            private struct Key {
+                static let URI = "keycloak_configuration_uri"
+            }
+            
+            static var uri: URL? {
+                guard let mdmConfiguration = MDM.configuration else { return nil }
+                guard let rawValue = mdmConfiguration[Key.URI] else { assertionFailure(); return nil }
+                guard let stringValue = rawValue as? String else { assertionFailure(); return nil }
+                guard let value = URL(string: stringValue) else { assertionFailure(); return nil }
+                return value
+            }
+            
+        }
+        
+    }
+    
 }
 
 
-@available(iOS 13.0, *)
+
 final class ObvMessengerPreferredEmojisListObservable: ObservableObject {
 
     @Published var emojis: [String] = ObvMessengerSettings.Emoji.preferredEmojisList {
@@ -546,7 +579,7 @@ extension GlobalSettingsBackupItem {
 
 
 /// This singleton makes it possible to observe certain changes made to the settings.
-@available(iOS 13.0, *)
+
 final class ObvMessengerSettingsObservableObject: ObservableObject {
     
     static let shared = ObvMessengerSettingsObservableObject()

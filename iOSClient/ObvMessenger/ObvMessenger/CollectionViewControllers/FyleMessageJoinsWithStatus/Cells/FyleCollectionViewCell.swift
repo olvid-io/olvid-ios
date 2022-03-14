@@ -78,6 +78,7 @@ class FyleCollectionViewCell: UICollectionViewCell {
     
     
     override func prepareForReuse() {
+        super.prepareForReuse()
         self.fyle = nil
         self.thumbnailObservationToken = nil
         _ = self.imageViewPlaceholder.subviews.map { $0.removeFromSuperview() }
@@ -134,17 +135,6 @@ extension FyleCollectionViewCell {
     
     private func setPreview(with fyleElement: FyleElement, thumbnailType: ThumbnailType) {
         
-        if #available(iOS 13, *) {
-            setPreview_iOS13AndAbove(with: fyleElement, thumbnailType: thumbnailType)
-        } else {
-            setPreview_iOS12AndBelow(with: fyleElement, thumbnailType: thumbnailType)
-        }
-        
-    }
-    
-    @available(iOS 13.0, *)
-    private func setPreview_iOS13AndAbove(with fyleElement: FyleElement, thumbnailType: ThumbnailType) {
-        
         let completionHandler = { (thumbnail: Thumbnail) in
             DispatchQueue.main.async { [weak self] in
                 guard let _self = self else { return }
@@ -182,75 +172,6 @@ extension FyleCollectionViewCell {
                                                           thumbnailType: thumbnailType,
                                                           completionHandler: completionHandler)
             .postOnDispatchQueue()
-    }
-    
-    
-    private func setPreview_iOS12AndBelow(with fyleElement: FyleElement, thumbnailType: ThumbnailType) {
-        
-        if #available(iOS 13, *) {
-            assert(false)
-        }
-        
-        // No preview of readOnce images under iOS11 and iOS12
-        guard thumbnailType == .normal else { return }
-        
-        let thumbnailWorker = ThumbnailWorker(fyleElement: fyleElement)
-        let maxPixelSize = Int(max(FyleCollectionViewCell.intrinsicHeight, FyleCollectionViewCell.intrinsicWidth) * 3)
-        
-        let thumbnail: UIImage?
-        do {
-            thumbnail = try thumbnailWorker.getCachedThumbnailForIOS12orReturnNilOnIOS13(maxPixelSize: maxPixelSize)
-        } catch {
-            return
-        }
-        
-        if let thumbnail = thumbnail {
-            let imageView = UIImageView(image: thumbnail)
-            imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            imageView.contentMode = .scaleAspectFill
-            imageView.isHidden = true
-            imageView.frame = CGRect(origin: CGPoint.zero, size: imageViewPlaceholder.bounds.size)
-            imageViewPlaceholder.addSubview(imageView)
-            UIView.transition(with: imageViewPlaceholder, duration: 0.3, options: .transitionCrossDissolve, animations: {
-                imageView.isHidden = false
-            })
-            self.setCornersStyle(to: .rounded)
-            return
-        } else {
-            thumbnailObservationToken = thumbnailWorker.observe(\.thumbnailCreated) { (object, change) in
-                if thumbnailWorker.thumbnailCreated {
-                    do {
-                        guard let thumbnail = try thumbnailWorker.getCachedThumbnailForIOS12orReturnNilOnIOS13(maxPixelSize: maxPixelSize) else { return }
-                        DispatchQueue.main.async { [weak self] in
-                            guard let _self = self else { return }
-                            
-                            // Make sure we have the thumbnail corresponding to the current attachment (in case the cell was reused)
-                            guard thumbnailWorker.fyleElement.fyleURL == _self.fyle?.url else {
-                                return
-                            }
-
-                            let imageView = UIImageView(image: thumbnail)
-                            imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                            imageView.contentMode = .scaleAspectFill
-                            imageView.isHidden = true
-                            imageView.frame = CGRect(origin: CGPoint.zero, size: _self.imageViewPlaceholder.bounds.size)
-                            self?.imageViewPlaceholder.addSubview(imageView)
-                            UIView.transition(with: _self.imageViewPlaceholder, duration: 0.3, options: .transitionCrossDissolve, animations: {
-                                imageView.isHidden = false
-                            })
-                            self?.setCornersStyle(to: .rounded)
-                        }
-                    } catch {
-                        return
-                    }
-                }
-            }
-            thumbnailWorker.createThumbnail(maxPixelSize: maxPixelSize)
-            self.imageViewPlaceholder.backgroundColor = appTheme.colorScheme.surfaceMedium
-            _ = self.imageViewPlaceholder.subviews.map { $0.removeFromSuperview() }
-            self.setCornersStyle(to: .rounded)
-        }
-        
     }
     
     

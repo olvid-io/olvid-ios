@@ -21,7 +21,7 @@ import UIKit
 import SwiftUI
 
 
-@available(iOS 13, *)
+
 struct BlurView: UIViewRepresentable {
     typealias UIViewType = UIVisualEffectView
     

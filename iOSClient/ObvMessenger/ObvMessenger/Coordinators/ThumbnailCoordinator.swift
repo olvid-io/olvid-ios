@@ -118,45 +118,33 @@ final class ThumbnailCoordinator {
             case .visibilityRestricted:
                 
                 // If we are dealing with a "visibilityRestricted" attachment, we do not return a proper preview, but a static symbol image
-                if #available(iOS 13, *) {
-                    guard let image = UIImage(systemName: "timer") else { assertionFailure(); return }
-                    let thumbnail = Thumbnail(fyleURL: fyleElement.fyleURL, fileName: fyleElement.fileName, size: size, image: image, isSymbol: true)
-                    completionHandler(thumbnail)
-                    return
-                } else {
-                    assertionFailure()
-                    return
-                }
+                guard let image = UIImage(systemName: "timer") else { assertionFailure(); return }
+                let thumbnail = Thumbnail(fyleURL: fyleElement.fyleURL, fileName: fyleElement.fileName, size: size, image: image, isSymbol: true)
+                completionHandler(thumbnail)
+                return
                 
             case .wiped:
                 
                 // If we are dealing with a "readOnce" attachment, we do not return a proper preview, but a static symbol image
-                if #available(iOS 13, *) {
-                    guard let image = UIImage(systemName: "flame.fill") else { assertionFailure(); return }
-                    let thumbnail = Thumbnail(fyleURL: fyleElement.fyleURL, fileName: fyleElement.fileName, size: size, image: image, isSymbol: true)
-                    completionHandler(thumbnail)
-                    return
-                } else {
-                    assertionFailure()
-                    return
-                }
+                guard let image = UIImage(systemName: "flame.fill") else { assertionFailure(); return }
+                let thumbnail = Thumbnail(fyleURL: fyleElement.fyleURL, fileName: fyleElement.fileName, size: size, image: image, isSymbol: true)
+                completionHandler(thumbnail)
+                return
                 
             case .normal:
                 
                 guard fyleElement.fullFileIsAvailable else {
-                    if #available(iOS 13, *) {
-                        self?.createSymbolThumbnail_iOS13AndAbove(uti: fyleElement.uti) { (image) in
-                            guard let image = image else {
-                                os_log("Could not generate an appropriate thumbnail for uti %{public}@", log: log, type: .fault, fyleElement.uti)
-                                assertionFailure()
-                                return
-                            }
-                            let thumbnail = Thumbnail(fyleURL: fyleElement.fyleURL, fileName: fyleElement.fileName, size: size, image: image, isSymbol: true)
-                            self?.queueForNotifications.addOperation {
-                                completionHandler(thumbnail)
-                            }
+                    self?.createSymbolThumbnail(uti: fyleElement.uti) { (image) in
+                        guard let image = image else {
+                            os_log("Could not generate an appropriate thumbnail for uti %{public}@", log: log, type: .fault, fyleElement.uti)
+                            assertionFailure()
                             return
                         }
+                        let thumbnail = Thumbnail(fyleURL: fyleElement.fyleURL, fileName: fyleElement.fileName, size: size, image: image, isSymbol: true)
+                        self?.queueForNotifications.addOperation {
+                            completionHandler(thumbnail)
+                        }
+                        return
                     }
                     return
                 }
@@ -170,16 +158,13 @@ final class ThumbnailCoordinator {
                 // If we reach this point, no previous thumbnail exists for the fyle. We create it.
                 
                 let completionHandlerForRequestHardLinkToFyle = { [weak self] (hardLinkToFyle: HardLinkToFyle) in
-                    if #available(iOS 13, *) {
-                        self?.createThumbnail_iOS13AndAbove(hardLinkToFyle: hardLinkToFyle, size: size, uti: hardLinkToFyle.uti) { (image, isSymbol) in
-                            let thumbnail = Thumbnail(fyleURL: hardLinkToFyle.fyleURL, fileName: hardLinkToFyle.fileName, size: size, image: image, isSymbol: isSymbol)
-                            if !isSymbol {
-                                self?.thumbnails.insert(thumbnail)
-                            }
-                            completionHandler(thumbnail)
+                    guard let _self = self else { return }
+                    _self.createThumbnail(hardLinkToFyle: hardLinkToFyle, size: size, uti: hardLinkToFyle.uti) { (image, isSymbol) in
+                        let thumbnail = Thumbnail(fyleURL: hardLinkToFyle.fyleURL, fileName: hardLinkToFyle.fileName, size: size, image: image, isSymbol: isSymbol)
+                        if !isSymbol {
+                            self?.thumbnails.insert(thumbnail)
                         }
-                    } else {
-                        return
+                        completionHandler(thumbnail)
                     }
                 }
                 ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement, completionHandler: completionHandlerForRequestHardLinkToFyle).postOnDispatchQueue()
@@ -189,8 +174,8 @@ final class ThumbnailCoordinator {
         
     }
     
-    @available(iOS 13.0, *)
-    private func createThumbnail_iOS13AndAbove(hardLinkToFyle: HardLinkToFyle, size: CGSize, uti: String, completionHandler: @escaping (UIImage, Bool) -> Void) {
+
+    private func createThumbnail(hardLinkToFyle: HardLinkToFyle, size: CGSize, uti: String, completionHandler: @escaping (UIImage, Bool) -> Void) {
         assert(size != CGSize.zero)
         guard let hardlinkURL = hardLinkToFyle.hardlinkURL else {
             os_log("The hardlink within the hardLinkToFyle is nil, which is unexpected", log: log, type: .fault)
@@ -204,7 +189,7 @@ final class ThumbnailCoordinator {
             guard let log = self?.log else { return }
             if thumbnail == nil || error != nil {
                 os_log("The thumbnail generation failed. We try to set an appropriate generic thumbnail", log: log, type: .error)
-                self?.createSymbolThumbnail_iOS13AndAbove(uti: uti) { (thumbnail) in
+                self?.createSymbolThumbnail(uti: uti) { (thumbnail) in
                     guard let thumbnail = thumbnail else {
                         os_log("Could not generate an appropriate thumbnail for uti %{public}@", log: log, type: .fault, uti)
                         return
@@ -223,8 +208,8 @@ final class ThumbnailCoordinator {
 
     }
     
-    @available(iOS 13.0, *)
-    private func createSymbolThumbnail_iOS13AndAbove(uti: String, completionHandler: @escaping (UIImage?) -> Void) {
+
+    private func createSymbolThumbnail(uti: String, completionHandler: @escaping (UIImage?) -> Void) {
         // See CoreServices > UTCoreTypes
         if ObvUTIUtils.uti(uti, conformsTo: "org.openxmlformats.wordprocessingml.document" as CFString) {
             // Word (docx) document

@@ -79,7 +79,7 @@ public class PersistedMessageReaction: NSManagedObject {
     }
     
     
-    private func delete() throws {
+    func delete() throws {
         guard let context = self.managedObjectContext else { throw PersistedMessageReaction.makeError(message: "Cannot find context") }
         context.delete(self)
     }
@@ -119,6 +119,7 @@ final class PersistedMessageReactionSent: PersistedMessageReaction {
 final class PersistedMessageReactionReceived: PersistedMessageReaction {
 
     private static let entityName = "PersistedMessageReactionReceived"
+    private var userInfoForDeletion: [String: Any]?
 
     private static let errorDomain = "PersistedMessageReactionReceived"
     private static func makeError(message: String) -> Error { NSError(domain: PersistedMessageReactionReceived.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -131,6 +132,36 @@ final class PersistedMessageReactionReceived: PersistedMessageReaction {
         guard message.managedObjectContext == contact.managedObjectContext else { throw PersistedMessageReactionReceived.makeError(message: "Incoherent contexts") }
         try self.init(emoji: emoji, timestamp: timestamp, message: message, forEntityName: Self.entityName)
         self.contact = contact
+    }
+
+    private struct UserInfoForDeletionKeys {
+        static let messageURI = "messageURI"
+        static let contactURI = "contactURI"
+    }
+
+    override func prepareForDeletion() {
+        super.prepareForDeletion()
+        guard let message = message,
+              let contact = contact else { return }
+        userInfoForDeletion = [UserInfoForDeletionKeys.messageURI: message.objectID.uriRepresentation(),
+                               UserInfoForDeletionKeys.contactURI: contact.objectID.uriRepresentation()]
+    }
+
+    override func didSave() {
+        super.didSave()
+        defer {
+            self.userInfoForDeletion = nil
+        }
+
+        if isDeleted, let userInfoForDeletion = self.userInfoForDeletion {
+            guard let messageURI = userInfoForDeletion[UserInfoForDeletionKeys.messageURI] as? URL,
+                  let contactURI = userInfoForDeletion[UserInfoForDeletionKeys.contactURI] as? URL else {
+                      assertionFailure()
+                      return
+                  }
+            ObvMessengerInternalNotification.persistedMessageReactionReceivedWasDeleted(messageURI: messageURI, contactURI: contactURI).postOnDispatchQueue()
+
+        }
     }
 
 }

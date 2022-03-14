@@ -62,7 +62,7 @@ fileprivate extension String {
     
     func isValidSas(ofLength length: Int) -> Bool {
         guard self.count == length else { return false }
-        return self.reduce(true) { $0 && $1.isValidSasCharacter() }
+        return self.allSatisfy { $0.isValidSasCharacter() }
     }
     
 }

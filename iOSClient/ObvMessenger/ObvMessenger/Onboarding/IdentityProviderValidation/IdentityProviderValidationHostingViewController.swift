@@ -25,18 +25,18 @@ import ObvTypes
 protocol IdentityProviderValidationHostingViewControllerDelegate: AnyObject {
     func newKeycloakUserDetailsAndStuff(_ keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)
     func newKeycloakState(_ keycloakState: ObvKeycloakState)
+    func userWantsToRestoreBackup()
 }
 
-@available(iOS 13, *)
 final class IdentityProviderValidationHostingViewController: UIHostingController<IdentityProviderValidationHostingView>, IdentityProviderValidationHostingViewStoreDelegate {
  
     weak var delegate: IdentityProviderValidationHostingViewControllerDelegate?
-    private let keycloakConfig: KeycloakConfiguration
+    private let store: IdentityProviderValidationHostingViewStore
     
-    init(keycloakConfig: KeycloakConfiguration, delegate: IdentityProviderValidationHostingViewControllerDelegate) {
-        self.keycloakConfig = keycloakConfig
-        let store = IdentityProviderValidationHostingViewStore(keycloakConfig: keycloakConfig)
+    init(keycloakConfig: KeycloakConfiguration, isConfiguredFromMDM: Bool, delegate: IdentityProviderValidationHostingViewControllerDelegate) {
+        let store = IdentityProviderValidationHostingViewStore(keycloakConfig: keycloakConfig, isConfiguredFromMDM: isConfiguredFromMDM)
         let view = IdentityProviderValidationHostingView(store: store)
+        self.store = store
         super.init(rootView: view)
         store.delegate = self
         self.delegate = delegate
@@ -48,7 +48,7 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = Strings.title
+        title = store.isConfiguredFromMDM ? nil : Strings.title
         navigationItem.largeTitleDisplayMode = .never
         
         let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
@@ -58,7 +58,7 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
     }
     
     @objc func questionmarkCircleButtonTapped() {
-        let view = KeycloakConfigurationDetailsView(keycloakConfig: keycloakConfig)
+        let view = KeycloakConfigurationDetailsView(keycloakConfig: store.keycloakConfig)
         let vc = UIHostingController(rootView: view)
         if #available(iOS 15, *) {
             vc.sheetPresentationController?.detents = [.medium(), .large()]
@@ -72,7 +72,7 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
         static let title = NSLocalizedString("IDENTITY_PROVIDER", comment: "")
     }
 
-    // IdentityProviderValidationHostingViewStore
+    // IdentityProviderValidationHostingViewStoreDelegate
     
     func newKeycloakState(_ keycloakState: ObvKeycloakState) {
         delegate?.newKeycloakState(keycloakState)
@@ -82,19 +82,24 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
         delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff)
     }
 
+    func userWantsToRestoreBackup() {
+        delegate?.userWantsToRestoreBackup()
+    }
+    
 }
 
 
 protocol IdentityProviderValidationHostingViewStoreDelegate: UIViewController {
     func newKeycloakUserDetailsAndStuff(_ keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)
     func newKeycloakState(_ keycloakState: ObvKeycloakState)
+    func userWantsToRestoreBackup()
 }
 
 
-@available(iOS 13, *)
 final class IdentityProviderValidationHostingViewStore: ObservableObject {
     
     fileprivate let keycloakConfig: KeycloakConfiguration
+    fileprivate let isConfiguredFromMDM: Bool
 
     fileprivate var delegate: IdentityProviderValidationHostingViewStoreDelegate?
     
@@ -104,8 +109,9 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
     @Published fileprivate var isAlertPresented = false
     @Published fileprivate var alertType = AlertType.none
     
-    init(keycloakConfig: KeycloakConfiguration) {
+    init(keycloakConfig: KeycloakConfiguration, isConfiguredFromMDM: Bool) {
         self.keycloakConfig = keycloakConfig
+        self.isConfiguredFromMDM = isConfiguredFromMDM
         self.validationStatus = .validating
     }
     
@@ -201,7 +207,11 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
                         }
                     }
                     
-                    let rawAuthState = authState.serialize
+                    guard let rawAuthState = try? authState.serialize() else {
+                        self?.alertType = .badKeycloakServerResponse
+                        self?.isAlertPresented = true
+                        return
+                    }
                     let keycloakState = ObvKeycloakState(
                         keycloakServer: _self.keycloakConfig.serverURL,
                         clientId: _self.keycloakConfig.clientId,
@@ -217,42 +227,77 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
         }
     }
 
+    func userWantsToRestoreBackup() {
+        delegate?.userWantsToRestoreBackup()
+    }
+
 }
 
 
-@available(iOS 13, *)
 struct IdentityProviderValidationHostingView: View {
     
     @ObservedObject var store: IdentityProviderValidationHostingViewStore
     
+    @Environment(\.colorScheme) var colorScheme
+
     var body: some View {
         ZStack {
-            Color(AppTheme.shared.colorScheme.systemBackground)
+            Image("SplashScreenBackground")
+                .resizable()
                 .edgesIgnoringSafeArea(.all)
             VStack(spacing: 0) {
                 switch store.validationStatus {
                 case .validating:
-                    ObvActivityIndicator(isAnimating: .constant(true), style: .large)
-                case .validationFailed, .validated:
-                    HStack {
-                        Spacer()
-                        BigCircledSystemIconView(systemIcon: store.validationStatus.isValidated ? .checkmark : .xmark,
-                                                 backgroundColor: store.validationStatus.isValidated ? .green : .red)
-                        Spacer()
+                    ObvActivityIndicator(isAnimating: .constant(true), style: .large, color: .white)
+                    if store.isConfiguredFromMDM {
+                        HStack {
+                            Spacer()
+                            Text("VALIDATING_ENTERPRISE_CONFIGURATION")
+                                .font(.system(.subheadline, design: .default))
+                                .foregroundColor(.white)
+                            Spacer()
+                        }
+                        .padding(.top, 16)
                     }
-                    .padding(.top, 32)
-                    .padding(.bottom, 32)
-                    Text(store.validationStatus.isValidated ? "IDENTITY_PROVIDER_CONFIGURED_SUCCESS" : "IDENTITY_PROVIDER_CONFIGURED_FAILURE")
-                        .font(.system(.body, design: .default))
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                case .validationFailed, .validated:
+                    if store.isConfiguredFromMDM {
+                        Image("logo")
+                            .resizable()
+                            .scaledToFit()
+                            .padding(.horizontal)
+                            .padding(.bottom, 16)
+                            .frame(maxWidth: 300)
+                            .transition(.scale)
+                    }
+                    ScrollView {
+                        HStack {
+                            Spacer()
+                            BigCircledSystemIconView(systemIcon: store.validationStatus.isValidated ? .checkmark : .xmark,
+                                                     backgroundColor: store.validationStatus.isValidated ? .green : .red)
+                            Spacer()
+                        }
+                        .padding(.top, 32)
+                        .padding(.bottom, 32)
+                        Text(store.validationStatus.isValidated ? "IDENTITY_PROVIDER_CONFIGURED_SUCCESS" : "IDENTITY_PROVIDER_CONFIGURED_FAILURE")
+                            .font(.system(.body, design: .default))
+                            .foregroundColor(.white)
+                    }
                     Spacer()
                     if case .validated(keycloakServerKeyAndConfig: let keycloakServerKeyAndConfig) = store.validationStatus {
                         if store.validationStatus.isValidated {
-                            OlvidButton(style: .blue,
-                                        title: Text("AUTHENTICATE"),
-                                        systemIcon: .personCropCircleBadgeCheckmark,
-                                        action: { store.userWantsToAuthenticate(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig) })
-                                .padding(.bottom, 16)
+                            VStack {
+                                if store.isConfiguredFromMDM {
+                                    OlvidButton(style: colorScheme == .dark ? .standard : .standardAlt,
+                                                title: Text("Restore a backup"),
+                                                systemIcon: .folderCircle,
+                                                action: store.userWantsToRestoreBackup)
+                                }
+                                OlvidButton(style: colorScheme == .dark ? .blue : .white,
+                                            title: Text("AUTHENTICATE"),
+                                            systemIcon: .personCropCircleBadgeCheckmark,
+                                            action: { store.userWantsToAuthenticate(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig) })
+                                    .padding(.bottom, 16)
+                            }
                         }
                     }
                 }
@@ -286,7 +331,6 @@ struct IdentityProviderValidationHostingView: View {
 }
 
 
-@available(iOS 13, *)
 fileprivate struct KeycloakConfigurationDetailsView: View {
     
     let keycloakConfig: KeycloakConfiguration
@@ -320,7 +364,7 @@ fileprivate struct KeycloakConfigurationDetailsView: View {
                 .padding(.bottom, 16)
 
                 OlvidButton(style: .blue,
-                            title: Text("BACK"),
+                            title: Text("Back"),
                             systemIcon: .arrowshapeTurnUpBackwardFill,
                             action: { presentationMode.wrappedValue.dismiss() })
                     .padding(.vertical)
@@ -339,7 +383,6 @@ fileprivate struct KeycloakConfigurationDetailsView: View {
 
 
 
-@available(iOS 13, *)
 fileprivate struct BigCircledSystemIconView: View {
     
     let systemIcon: ObvSystemIcon
@@ -347,7 +390,7 @@ fileprivate struct BigCircledSystemIconView: View {
     
     var body: some View {
         Image(systemIcon: systemIcon)
-            .font(Font.system(size: 64, weight: .heavy, design: .rounded))
+            .font(Font.system(size: 50, weight: .heavy, design: .rounded))
             .foregroundColor(.white)
             .padding(32)
             .background(Circle().fill(backgroundColor))

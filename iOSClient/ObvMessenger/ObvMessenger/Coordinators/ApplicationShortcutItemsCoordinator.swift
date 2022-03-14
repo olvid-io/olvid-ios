@@ -85,14 +85,10 @@ enum ApplicationShortcut: CustomStringConvertible, LosslessStringConvertible {
         }
     }
     
-    var icon: UIApplicationShortcutIcon? {
+    var icon: UIApplicationShortcutIcon {
         switch self {
         case .scanQRCode:
-            if #available(iOS 13, *) {
-                return UIApplicationShortcutIcon(systemImageName: "qrcode.viewfinder")
-            } else {
-                return nil
-            }
+            return UIApplicationShortcutIcon(systemImageName: "qrcode.viewfinder")
         }
     }
     

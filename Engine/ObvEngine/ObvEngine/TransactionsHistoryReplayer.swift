@@ -111,13 +111,8 @@ final class TransactionsHistoryReplayer {
             try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
                 
                 let latestHistoryToken: NSPersistentHistoryToken
-                if #available(iOS 12.0, *) {
-                    guard let token = createContextDelegate.persistentStoreCoordinator.currentPersistentHistoryToken(fromStores: nil) else { return }
-                    latestHistoryToken = token
-                } else {
-                    guard let token = getCurrentPersistentHistoryTokenUnderIOS11(within: obvContext) else { return }
-                    latestHistoryToken = token
-                }
+                guard let token = createContextDelegate.persistentStoreCoordinator.currentPersistentHistoryToken(fromStores: nil) else { return }
+                latestHistoryToken = token
             
                 guard let savedHistoryToken = try readHistoryToken() else {
                     // This happens the very first time, since the token file does not exists.
@@ -131,17 +126,12 @@ final class TransactionsHistoryReplayer {
                 // Create a history fetch request
                 
                 let request: NSPersistentHistoryChangeRequest
-                if #available(iOS 13, *) {
-                    // Create predicates to limit the history to the transactions prior the current token and the last execution of this method
-                    let predicates = [NSPredicate(format: "token <= %@", latestHistoryToken),
-                                      NSPredicate(format: "%@ < token", savedHistoryToken)]
-                    let historyFetchRequest = NSPersistentHistoryTransaction.fetchRequest!
-                    historyFetchRequest.predicate = NSCompoundPredicate(type: .and, subpredicates: predicates)
-                    request = NSPersistentHistoryChangeRequest.fetchHistory(withFetch: historyFetchRequest)
-                } else {
-                    // Simplified request under iOS 12 and before
-                    request = NSPersistentHistoryChangeRequest.fetchHistory(after: savedHistoryToken)
-                }
+                // Create predicates to limit the history to the transactions prior the current token and the last execution of this method
+                let predicates = [NSPredicate(format: "token <= %@", latestHistoryToken),
+                                  NSPredicate(format: "%@ < token", savedHistoryToken)]
+                let historyFetchRequest = NSPersistentHistoryTransaction.fetchRequest!
+                historyFetchRequest.predicate = NSCompoundPredicate(type: .and, subpredicates: predicates)
+                request = NSPersistentHistoryChangeRequest.fetchHistory(withFetch: historyFetchRequest)
                 
                 // Get the results and all the transactions
                 
@@ -198,23 +188,6 @@ final class TransactionsHistoryReplayer {
         }
     }
     
-    @available(iOS, deprecated:12.0, message: "Only used under iOS 11")
-    private func getCurrentPersistentHistoryTokenUnderIOS11(within obvContext: ObvContext) -> NSPersistentHistoryToken? {
-        var timeInterval: TimeInterval = 60 // One minute
-        for _ in 0..<20 {
-            let date = Date(timeIntervalSinceNow: -timeInterval)
-            let request = NSPersistentHistoryChangeRequest.fetchHistory(after: date)
-            guard let result = try? obvContext.execute(request) as? NSPersistentHistoryResult else { return nil }
-            guard let transactions = result.result as? [NSPersistentHistoryTransaction] else { continue }
-            guard !transactions.isEmpty else { continue }
-            if let token = transactions.last?.token {
-                return token
-            }
-            timeInterval *= 2
-        }
-        return nil
-    }
-        
 }
 
 

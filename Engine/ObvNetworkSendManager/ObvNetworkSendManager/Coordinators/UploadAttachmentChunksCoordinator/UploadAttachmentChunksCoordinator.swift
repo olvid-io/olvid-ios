@@ -262,11 +262,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             }
             
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                internalOperationQueue.addBarrierBlock({})
-            } else {
-                internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            internalOperationQueue.addBarrierBlock({})
             internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: false)
 
         }
@@ -335,11 +331,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             }
             
             // We prevent any interference with previous operations
-            if #available(iOS 13, *) {
-                internalOperationQueue.addBarrierBlock({})
-            } else {
-                internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            internalOperationQueue.addBarrierBlock({})
             /* Waiting for the operation to be finished is important:
              * - Waiting for ReCreateURLSessionWithNewDelegateForAttachmentUploadOperation to be finished is important since it is the existence
              *   of the session for a given attachment that allows to decide whether it shall be resumed or not
@@ -396,11 +388,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                                                                                           flowId: flowId,
                                                                                           contextCreator: contextCreator,
                                                                                           attachmentChunkUploadProgressTracker: self)
-            if #available(iOS 13, *) {
-                internalOperationQueue.addBarrierBlock({})
-            } else {
-                internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            internalOperationQueue.addBarrierBlock({})
             internalOperationQueue.addOperation(operation)
 
         } /* end of localQueue.sync */
@@ -458,11 +446,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                                                                                                           sharedContainerIdentifier: sharedContainerIdentifier)
             }
 
-            if #available(iOS 13, *) {
-                internalOperationQueue.addBarrierBlock({})
-            } else {
-                internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            internalOperationQueue.addBarrierBlock({})
             internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
             
         }
@@ -496,11 +480,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
 
         localQueue.async {
 
-            if #available(iOS 13, *) {
-                internalOperationQueue.addBarrierBlock({})
-            } else {
-                internalOperationQueue.waitUntilAllOperationsAreFinished()
-            }
+            internalOperationQueue.addBarrierBlock({})
             
             opToQueue.completionBlock = {
                 guard opToQueue.reasonForCancel == nil else {
@@ -558,11 +538,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                 addStillUploadingCancelledAttachmentsOfMessage(message)
                 
                 // We prevent any interference with previous operations
-                if #available(iOS 13, *) {
-                    internalOperationQueue.addBarrierBlock({})
-                } else {
-                    internalOperationQueue.waitUntilAllOperationsAreFinished()
-                }
+                internalOperationQueue.addBarrierBlock({})
 
                 for attachment in message.attachments {
                     let op1 = MarkAttachmentAsCancelledOperation(attachmentId: attachment.attachmentId, logSubsystem: delegateManager.logSubsystem, contextCreator: contextCreator, flowId: flowId)
@@ -912,11 +888,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String) {
         guard let handler = removeHandlerForIdentifier(identifier) else { return }
-        if #available(iOS 13, *) {
-            internalOperationQueue.addBarrierBlock({})
-        } else {
-            internalOperationQueue.waitUntilAllOperationsAreFinished()
-        }
+        internalOperationQueue.addBarrierBlock({})
         internalOperationQueue.addOperation {
             DispatchQueue.main.async {
                 handler()

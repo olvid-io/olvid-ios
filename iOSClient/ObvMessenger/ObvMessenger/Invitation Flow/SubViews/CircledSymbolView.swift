@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
 struct CircledSymbolView: View {
 
     let systemName: String
@@ -44,7 +43,6 @@ struct CircledSymbolView: View {
 }
 
 
-@available(iOS 13.0, *)
 struct CircledCameraView: View {
     
     let radius: CGFloat = 28
@@ -54,7 +52,6 @@ struct CircledCameraView: View {
     }
 }
 
-@available(iOS 13.0, *)
 struct CircledPencilView: View {
 
     let radius: CGFloat = 28
@@ -65,7 +62,6 @@ struct CircledPencilView: View {
 }
 
 
-@available(iOS 13.0, *)
 struct CircledCameraView_Previews: PreviewProvider {
     static var previews: some View {
         Group {

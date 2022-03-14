@@ -43,68 +43,8 @@ final class CallCoordinator: NSObject {
     private var currentOutgoingCalls: [OutgoingCall] { currentCalls.compactMap({ $0 as? OutgoingCall }) }
     private var remotelyHangedUpCalls = Set<UUID>()
 
-    private func addCallToCurrentCallsAndNotify(call: Call) {
-        CallHelper.checkQueue() // OK
-        assert(call.state == .initial)
-        os_log("☎️ Adding call to the list of current calls", log: log, type: .info)
-        assert(currentCalls.first(where: { $0.uuid == call.uuid }) == nil, "Trying to add a call that already exists in the list of current calls")
-        currentCalls.append(call)
-    }
-
-
-    private func removeCallFromCurrentCalls(call: Call) {
-        os_log("☎️ Removing call from the list of current calls", log: log, type: .info)
-        CallHelper.checkQueue() // OK
-        assert(call.state.isFinalState)
-        currentCalls.removeAll(where: { $0.uuid == call.uuid })
-        if currentCalls.isEmpty { currentCalls = [] } // Yes, we need to make sure the calls are properly freed...
-        if let incomingCall = call as? IncomingCall {
-            messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.append(incomingCall.messageIdentifierFromEngine)
-        }
-        if let newCall = currentCalls.first {
-            assert(!newCall.state.isFinalState)
-            ObvMessengerInternalNotification.callHasBeenUpdated(call: newCall, updateKind: .state(newState: newCall.state)).postOnDispatchQueue()
-        } else {
-            ObvMessengerInternalNotification.noMoreCallInProgress.postOnDispatchQueue()
-        }
-    }
-
-
-    private func createIncomingCall(encryptedPushKitNotification: EncryptedPushNotification) -> IncomingCall? {
-        CallHelper.checkQueue() // OK
-        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(encryptedPushKitNotification.messageIdentifierFromEngine) else {
-            return nil
-        }
-        let incomingCall = IncomingWebrtcCall(encryptedPushNotification: encryptedPushKitNotification, delegate: self)
-        addCallToCurrentCallsAndNotify(call: incomingCall)
-        return incomingCall
-    }
-
-    private func createIncomingCall(incomingCallMessage: IncomingCallMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, uuidForWebRTC: UUID, messageIdentifierFromEngine: Data, messageUploadTimestampFromServer: Date) throws -> IncomingCall {
-        CallHelper.checkQueue() // OK
-        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(messageIdentifierFromEngine) else {
-            throw makeError(message: "Call was recently deleted")
-        }
-        let incomingCall = IncomingWebrtcCall(incomingCallMessage: incomingCallMessage,
-                                              contactID: contactID,
-                                              uuidForWebRTC: uuidForWebRTC,
-                                              messageIdentifierFromEngine: messageIdentifierFromEngine,
-                                              messageUploadTimestampFromServer: messageUploadTimestampFromServer,
-                                              delegate: self,
-                                              useCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled)
-        addCallToCurrentCallsAndNotify(call: incomingCall)
-        return incomingCall
-    }
-
-    private func createOutgoingCall(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>],
-                                    groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) -> OutgoingCall {
-        CallHelper.checkQueue() // OK
-        let outgoingCall = OutgoingWebRTCCall(contactIDs: contactIDs, delegate: self, usesCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled, groupId: groupId)
-        addCallToCurrentCallsAndNotify(call: outgoingCall)
-        return outgoingCall
-    }
-
     private var currentAnswerCallActions = [UUID: ObvAnswerCallAction]()
+    private var receivedIceCandidates = [UUID: [(IceCandidateJSON, ParticipantId)]]()
 
     private var pushKitCompletionForIncomingCall = [UUID: () -> Void]()
 
@@ -233,6 +173,80 @@ final class CallCoordinator: NSObject {
 
     }
 
+    private func addCallToCurrentCallsAndNotify(call: Call) {
+        CallHelper.checkQueue() // OK
+        assert(call.state == .initial)
+        os_log("☎️ Adding call to the list of current calls", log: log, type: .info)
+        assert(currentCalls.first(where: { $0.uuid == call.uuid }) == nil, "Trying to add a call that already exists in the list of current calls")
+        currentCalls.append(call)
+
+        AppStateManager.shared.aNewCallRequiresNetworkConnection()
+
+        for (message, contact) in receivedIceCandidates[call.uuid] ?? [] {
+            guard let participant = call.getParticipant(contact: contact) else { assertionFailure(); return }
+            os_log("☎️❄️ Process pending remote IceCandidateJSON message", log: log, type: .info)
+            participant.processIceCandidatesJSON(message: message)
+        }
+    }
+
+
+    private func removeCallFromCurrentCalls(call: Call) {
+        os_log("☎️ Removing call from the list of current calls", log: log, type: .info)
+        CallHelper.checkQueue() // OK
+        assert(call.state.isFinalState)
+        currentCalls.removeAll(where: { $0.uuid == call.uuid })
+        if currentCalls.isEmpty {
+            AppStateManager.shared.noMoreCallRequiresNetworkConnection()
+            // Yes, we need to make sure the calls are properly freed...
+            currentCalls = []
+        }
+        if let incomingCall = call as? IncomingCall {
+            messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.append(incomingCall.messageIdentifierFromEngine)
+        }
+        if let newCall = currentCalls.first {
+            assert(!newCall.state.isFinalState)
+            ObvMessengerInternalNotification.callHasBeenUpdated(call: newCall, updateKind: .state(newState: newCall.state)).postOnDispatchQueue()
+        } else {
+            ObvMessengerInternalNotification.noMoreCallInProgress.postOnDispatchQueue()
+        }
+        receivedIceCandidates[call.uuid] = nil
+    }
+
+
+    private func createIncomingCall(encryptedPushKitNotification: EncryptedPushNotification) -> IncomingCall? {
+        CallHelper.checkQueue() // OK
+        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(encryptedPushKitNotification.messageIdentifierFromEngine) else {
+            return nil
+        }
+        let incomingCall = IncomingWebrtcCall(encryptedPushNotification: encryptedPushKitNotification, delegate: self)
+        addCallToCurrentCallsAndNotify(call: incomingCall)
+        return incomingCall
+    }
+
+    private func createIncomingCall(incomingCallMessage: IncomingCallMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, uuidForWebRTC: UUID, messageIdentifierFromEngine: Data, messageUploadTimestampFromServer: Date) throws -> IncomingCall {
+        CallHelper.checkQueue() // OK
+        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(messageIdentifierFromEngine) else {
+            throw makeError(message: "Call was recently deleted")
+        }
+        let incomingCall = IncomingWebrtcCall(incomingCallMessage: incomingCallMessage,
+                                              contactID: contactID,
+                                              uuidForWebRTC: uuidForWebRTC,
+                                              messageIdentifierFromEngine: messageIdentifierFromEngine,
+                                              messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                                              delegate: self,
+                                              useCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled)
+        addCallToCurrentCallsAndNotify(call: incomingCall)
+        return incomingCall
+    }
+
+    private func createOutgoingCall(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>],
+                                    groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) -> OutgoingCall {
+        CallHelper.checkQueue() // OK
+        let outgoingCall = OutgoingWebRTCCall(contactIDs: contactIDs, delegate: self, usesCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled, groupId: groupId)
+        addCallToCurrentCallsAndNotify(call: outgoingCall)
+        return outgoingCall
+    }
+
 }
 
 
@@ -321,7 +335,7 @@ extension CallCoordinator: PKPushRegistryDelegate {
             os_log("☎️✅ We received a voip notification token: %{public}@", log: log, type: .info, voipToken.hexString())
             ObvPushNotificationManager.shared.currentVoipToken = voipToken
             ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
-        case .complication, .fileProvider:
+        case .fileProvider:
             assertionFailure()
         default:
             assertionFailure()
@@ -522,6 +536,21 @@ extension CallCoordinator {
                 processKickMessageJSON(kickMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
             } catch {
                 os_log("☎️ Could not parse kick message: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
+        case .newIceCandidate:
+            do {
+                os_log("☎️❄️ We received new ICE Candidate message: %{public}@", log: log, type: .info, messageType.description)
+                let iceCandidate = try IceCandidateJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                processIceCandidateMessage(message: iceCandidate, uuidForWebRTC: callIdentifier, contact: contact)
+            } catch {
+                os_log("☎️ Could not parse new ice candidates: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
+        case .removeIceCandidates:
+            do {
+                let removeIceCandidatesMessage = try RemoveIceCandidatesMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                processRemoveIceCandidatesMessage(message: removeIceCandidatesMessage, uuidForWebRTC: callIdentifier, contact: contact)
+            } catch {
+                os_log("☎️ Could not parse remove ice candidates: %{public}@", log: log, type: .fault, error.localizedDescription)
             }
         }
     }
@@ -737,6 +766,39 @@ extension CallCoordinator {
 
         call.setKicked()
         call.endCall()
+    }
+
+    private func processIceCandidateMessage(message: IceCandidateJSON, uuidForWebRTC: UUID, contact: ParticipantId) {
+        CallHelper.checkQueue() // OK
+        guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else {
+            guard !remotelyHangedUpCalls.contains(uuidForWebRTC) else { return }
+            os_log("☎️❄️ Received new remote ICE Candidates for a call that does not exists yet", log: log, type: .info)
+            var candidates = receivedIceCandidates[uuidForWebRTC] ?? []
+            candidates += [(message, contact)]
+            receivedIceCandidates[uuidForWebRTC] = candidates
+            return
+        }
+        guard let participant = call.getParticipant(contact: contact) else { return }
+
+        os_log("☎️❄️ Process IceCandidateJSON message", log: log, type: .info)
+        participant.processIceCandidatesJSON(message: message)
+    }
+
+    private func processRemoveIceCandidatesMessage(message: RemoveIceCandidatesMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId) {
+        CallHelper.checkQueue() // OK
+        guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else {
+            os_log("☎️❄️ Received removed remote ICE Candidates for a call that does not exists yet", log: log, type: .info)
+            guard !remotelyHangedUpCalls.contains(uuidForWebRTC) else { return }
+            var candidates = receivedIceCandidates[uuidForWebRTC] ?? []
+            candidates.removeAll { message.candidates.contains($0.0) }
+            receivedIceCandidates[uuidForWebRTC] = candidates
+
+
+            return }
+        guard let participant = call.getParticipant(contact: contact) else { return }
+
+        os_log("☎️❄️ Process RemoveIceCandidatesMessageJSON message", log: log, type: .info)
+        participant.processRemoveIceCandidatesMessageJSON(message: message)
     }
 
     private func processAppStateChangedNotification(currentState: AppState) {
@@ -1283,6 +1345,7 @@ struct ContactInfoImpl: ContactInfo {
     var sortDisplayName: String
     var photoURL: URL?
     var identityColors: (background: UIColor, text: UIColor)?
+    var gatheringPolicy: GatheringPolicy
 
     init(contact persistedContactIdentity: PersistedObvContactIdentity) {
         self.objectID = persistedContactIdentity.typedObjectID
@@ -1293,6 +1356,7 @@ struct ContactInfoImpl: ContactInfo {
         self.sortDisplayName = persistedContactIdentity.sortDisplayName
         self.photoURL = persistedContactIdentity.customPhotoURL ?? persistedContactIdentity.photoURL
         self.identityColors = persistedContactIdentity.cryptoId.colors
+        self.gatheringPolicy = persistedContactIdentity.supportsCapability(.webrtcContinuousICE) ? .gatherContinually : .gatherOnce
     }
 }
 

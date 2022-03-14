@@ -66,48 +66,26 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         let serverQueryCoordinator = ServerQueryCoordinator(prng: prng, downloadedUserData: downloadedUserData)
         let serverUserDataCoordinator = ServerUserDataCoordinator(prng: prng, downloadedUserData: downloadedUserData)
         let wellKnownCoordinator = WellKnownCoordinator()
-
-        if #available(iOS 13, *) {
-            let webSocketCoordinator = WebSocketCoordinator()
-            delegateManager = ObvNetworkFetchDelegateManager(inbox: inbox,
-                                                             sharedContainerIdentifier: sharedContainerIdentifier,
-                                                             supportBackgroundFetch: supportBackgroundDownloadTasks,
-                                                             networkFetchFlowDelegate: networkFetchFlowCoordinator,
-                                                             getAndSolveChallengeDelegate: getAndSolveChallengeCoordinator,
-                                                             getTokenDelegate: getTokenCoordinator,
-                                                             downloadMessagesAndListAttachmentsDelegate: downloadMessagesAndListAttachmentsCoordinator,
-                                                             downloadAttachmentChunksDelegate: downloadAttachmentChunksCoordinator,
-                                                             deleteMessageAndAttachmentsFromServerDelegate: deleteMessageAndAttachmentsFromServerCoordinator,
-                                                             processRegisteredPushNotificationsDelegate: processRegisteredPushNotificationsCoordinator,
-                                                             webSocketDelegate: webSocketCoordinator,
-                                                             getTurnCredentialsDelegate: getTurnCredentialsCoordinator,
-                                                             queryApiKeyStatusDelegate: queryApiKeyStatusCoordinator,
-                                                             freeTrialQueryDelegate: freeTrialQueryCoordinator,
-                                                             verifyReceiptDelegate: verifyReceiptCoordinator,
-                                                             serverQueryDelegate: serverQueryCoordinator,
-                                                             serverUserDataDelegate: serverUserDataCoordinator,
-                                                             wellKnownCacheDelegate: wellKnownCoordinator)
-            webSocketCoordinator.delegateManager = delegateManager
-        } else {
-            delegateManager = ObvNetworkFetchDelegateManager(inbox: inbox,
-                                                             sharedContainerIdentifier: sharedContainerIdentifier,
-                                                             supportBackgroundFetch: supportBackgroundDownloadTasks,
-                                                             networkFetchFlowDelegate: networkFetchFlowCoordinator,
-                                                             getAndSolveChallengeDelegate: getAndSolveChallengeCoordinator,
-                                                             getTokenDelegate: getTokenCoordinator,
-                                                             downloadMessagesAndListAttachmentsDelegate: downloadMessagesAndListAttachmentsCoordinator,
-                                                             downloadAttachmentChunksDelegate: downloadAttachmentChunksCoordinator,
-                                                             deleteMessageAndAttachmentsFromServerDelegate: deleteMessageAndAttachmentsFromServerCoordinator,
-                                                             processRegisteredPushNotificationsDelegate: processRegisteredPushNotificationsCoordinator,
-                                                             webSocketDelegate: nil,
-                                                             getTurnCredentialsDelegate: getTurnCredentialsCoordinator,
-                                                             queryApiKeyStatusDelegate: queryApiKeyStatusCoordinator,
-                                                             freeTrialQueryDelegate: freeTrialQueryCoordinator,
-                                                             verifyReceiptDelegate: verifyReceiptCoordinator,
-                                                             serverQueryDelegate: serverQueryCoordinator,
-                                                             serverUserDataDelegate: serverUserDataCoordinator,
-                                                             wellKnownCacheDelegate: wellKnownCoordinator)
-        }
+        let webSocketCoordinator = WebSocketCoordinator()
+        
+        delegateManager = ObvNetworkFetchDelegateManager(inbox: inbox,
+                                                         sharedContainerIdentifier: sharedContainerIdentifier,
+                                                         supportBackgroundFetch: supportBackgroundDownloadTasks,
+                                                         networkFetchFlowDelegate: networkFetchFlowCoordinator,
+                                                         getAndSolveChallengeDelegate: getAndSolveChallengeCoordinator,
+                                                         getTokenDelegate: getTokenCoordinator,
+                                                         downloadMessagesAndListAttachmentsDelegate: downloadMessagesAndListAttachmentsCoordinator,
+                                                         downloadAttachmentChunksDelegate: downloadAttachmentChunksCoordinator,
+                                                         deleteMessageAndAttachmentsFromServerDelegate: deleteMessageAndAttachmentsFromServerCoordinator,
+                                                         processRegisteredPushNotificationsDelegate: processRegisteredPushNotificationsCoordinator,
+                                                         webSocketDelegate: webSocketCoordinator,
+                                                         getTurnCredentialsDelegate: getTurnCredentialsCoordinator,
+                                                         queryApiKeyStatusDelegate: queryApiKeyStatusCoordinator,
+                                                         freeTrialQueryDelegate: freeTrialQueryCoordinator,
+                                                         verifyReceiptDelegate: verifyReceiptCoordinator,
+                                                         serverQueryDelegate: serverQueryCoordinator,
+                                                         serverUserDataDelegate: serverUserDataCoordinator,
+                                                         wellKnownCacheDelegate: wellKnownCoordinator)
         
         
         networkFetchFlowCoordinator.delegateManager = delegateManager // Weak reference
@@ -125,7 +103,8 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         serverUserDataCoordinator.delegateManager = delegateManager
         wellKnownCoordinator.delegateManager = delegateManager
         bootstrapWorker.delegateManager = delegateManager
-        
+        webSocketCoordinator.delegateManager = delegateManager
+
         self.log = OSLog(subsystem: delegateManager.logSubsystem, category: "ObvNetworkFetchManagerImplementation")
     }
 }
@@ -190,14 +169,11 @@ extension ObvNetworkFetchManagerImplementation {
     
     
     public func applicationDidStartRunning(flowId: FlowIdentifier) {
-        delegateManager.webSocketDelegate?.applicationDidStartRunning(flowId: flowId)
         delegateManager.networkFetchFlowDelegate.resetAllFailedFetchAttempsCountersAndRetryFetching()
         bootstrapWorker.applicationDidStartRunning()
     }
 
-    public func applicationDidEnterBackground() {
-        delegateManager.webSocketDelegate?.applicationDidEnterBackground()
-    }
+    public func applicationDidEnterBackground() {}
 
 }
 
@@ -218,11 +194,19 @@ extension ObvNetworkFetchManagerImplementation {
     }
     
     public func getWebSocketState(ownedIdentity: ObvCryptoIdentity, completionHander: @escaping (Result<(URLSessionTask.State,TimeInterval?),Error>) -> Void) {
-        delegateManager.webSocketDelegate?.getWebSocketState(ownedIdentity: ownedIdentity, completionHander: completionHander)
+        delegateManager.webSocketDelegate.getWebSocketState(ownedIdentity: ownedIdentity, completionHander: completionHander)
+    }
+    
+    public func connectWebsockets(flowId: FlowIdentifier) {
+        delegateManager.webSocketDelegate.connectAll(flowId: flowId)
+    }
+    
+    public func disconnectWebsockets(flowId: FlowIdentifier) {
+        delegateManager.webSocketDelegate.disconnectAll(flowId: flowId)
     }
     
     public func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) throws {
-        try delegateManager.webSocketDelegate?.sendDeleteReturnReceipt(ownedIdentity: ownedIdentity, serverUid: serverUid)
+        try delegateManager.webSocketDelegate.sendDeleteReturnReceipt(ownedIdentity: ownedIdentity, serverUid: serverUid)
     }
     
     
@@ -305,9 +289,7 @@ extension ObvNetworkFetchManagerImplementation {
             throw makeError(message: "Message does not exist in InboxMessage")
         }
 
-        let allAttachmentsCanBeDownloaded = inboxMessage.attachments.reduce(true) { (result, inboxAttachment) -> Bool in
-            return result && inboxAttachment.canBeDownloaded
-        }
+        let allAttachmentsCanBeDownloaded = inboxMessage.attachments.allSatisfy({ $0.canBeDownloaded })
         
         return allAttachmentsCanBeDownloaded
     }
@@ -330,11 +312,9 @@ extension ObvNetworkFetchManagerImplementation {
             os_log("Message does not exist in InboxMessage", log: log, type: .error)
             throw makeError(message: "Message does not exist in InboxMessage")
         }
-        
-        let allAttachmentsHaveBeenDownloaded = inboxMessage.attachments.reduce(true) { (result, inboxAttachment) -> Bool in
-            return result && inboxAttachment.isDownloaded
-        }
-        
+
+        let allAttachmentsHaveBeenDownloaded = inboxMessage.attachments.allSatisfy({ $0.isDownloaded })
+
         return allAttachmentsHaveBeenDownloaded
     }
 

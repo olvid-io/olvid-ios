@@ -56,6 +56,7 @@ protocol CallParticipantDelegate: AnyObject {
                messageType: WebRTCMessageJSON.MessageType, messagePayload: String)
     func receivedRelayedMessage(from: ObvCryptoId,
                                 messageType: WebRTCMessageJSON.MessageType, messagePayload: String)
+    func sendMessage(message: WebRTCInnerMessageJSON, forStartingCall: Bool, to callParticipant: CallParticipant)
 
     func answerCallCompleted(for callParticipant: CallParticipant,
                              result: Result<TurnSession, Error>)
@@ -106,6 +107,18 @@ extension ObvTurnCredentials: TurnCredentials {
     var turnServers: [String]? { turnServersURL }
 }
 
+enum GatheringPolicy: Int {
+    case gatherOnce = 1
+    case gatherContinually = 2
+
+    var localizedDescription: String {
+        switch self {
+        case .gatherOnce: return "gatherOnce"
+        case .gatherContinually: return "gatherContinually"
+        }
+    }
+}
+
 protocol CallParticipant: AnyObject {
 
     var uuid: UUID { get }
@@ -120,6 +133,7 @@ protocol CallParticipant: AnyObject {
     var info: ParticipantInfo? { get }
     var ownedIdentity: ObvCryptoId? { get }
     var contactIdentity: ObvCryptoId? { get }
+    var gatheringPolicy: GatheringPolicy? { get }
 
     /// Use to be sent to others participants, we do not want to send the displayName that can include custom name
     var fullDisplayName: String? { get }
@@ -153,6 +167,9 @@ protocol CallParticipant: AnyObject {
     func unmute()
 
     func invalidateTimeout()
+
+    func processIceCandidatesJSON(message: IceCandidateJSON)
+    func processRemoveIceCandidatesMessageJSON(message: RemoveIceCandidatesMessageJSON)
 }
 
 protocol ContactInfo {
@@ -164,6 +181,7 @@ protocol ContactInfo {
     var sortDisplayName: String { get }
     var photoURL: URL? { get }
     var identityColors: (background: UIColor, text: UIColor)? { get }
+    var gatheringPolicy: GatheringPolicy { get }
 }
 
 protocol Call: AnyObject {
@@ -301,6 +319,22 @@ enum CallState: Hashable, CustomDebugStringConvertible {
         case .gettingTurnCredentials, .userAnsweredIncomingCall, .initializingCall, .ringing, .initial, .callInProgress, .permissionDeniedByServer: return false
         }
     }
+
+    var localizedString: String {
+        switch self {
+        case .initial: return NSLocalizedString("CALL_STATE_NEW", comment: "")
+        case .gettingTurnCredentials: return NSLocalizedString("CALL_STATE_GETTING_TURN_CREDENTIALS", comment: "")
+        case .kicked: return NSLocalizedString("CALL_STATE_KICKED", comment: "")
+        case .userAnsweredIncomingCall, .initializingCall: return NSLocalizedString("CALL_STATE_INITIALIZING_CALL", comment: "")
+        case .ringing: return NSLocalizedString("CALL_STATE_RINGING", comment: "")
+        case .callRejected: return NSLocalizedString("CALL_STATE_CALL_REJECTED", comment: "")
+        case .callInProgress: return NSLocalizedString("SECURE_CALL_IN_PROGRESS", comment: "")
+        case .hangedUp: return NSLocalizedString("CALL_STATE_HANGED_UP", comment: "")
+        case .permissionDeniedByServer: return NSLocalizedString("CALL_STATE_PERMISSION_DENIED_BY_SERVER", comment: "")
+        case .unanswered: return NSLocalizedString("UNANSWERED", comment: "")
+        case .callInitiationNotSupported: return NSLocalizedString("CALL_INITITION_NOT_SUPPORTED", comment: "")
+        }
+    }
 }
 
 enum PeerState: Hashable, CustomDebugStringConvertible {
@@ -336,6 +370,22 @@ enum PeerState: Hashable, CustomDebugStringConvertible {
         switch self {
         case .callRejected, .hangedUp, .kicked, .timeout: return true
         case .initial, .startCallMessageSent, .ringing, .busy, .connectingToPeer, .connected, .reconnecting: return false
+        }
+    }
+
+    var localizedString: String {
+        switch self {
+        case .initial: return NSLocalizedString("CALL_STATE_NEW", comment: "")
+        case .startCallMessageSent: return NSLocalizedString("CALL_STATE_INCOMING_CALL_MESSAGE_WAS_POSTED", comment: "")
+        case .ringing: return NSLocalizedString("CALL_STATE_RINGING", comment: "")
+        case .busy: return NSLocalizedString("CALL_STATE_BUSY", comment: "")
+        case .callRejected: return NSLocalizedString("CALL_STATE_CALL_REJECTED", comment: "")
+        case .connectingToPeer: return NSLocalizedString("CALL_STATE_CONNECTING_TO_PEER", comment: "")
+        case .connected: return NSLocalizedString("SECURE_CALL_IN_PROGRESS", comment: "")
+        case .reconnecting: return NSLocalizedString("CALL_STATE_RECONNECTING", comment: "")
+        case .hangedUp: return NSLocalizedString("CALL_STATE_HANGED_UP", comment: "")
+        case .kicked: return NSLocalizedString("CALL_STATE_KICKED", comment: "")
+        case .timeout: return NSLocalizedString("CALL_STATE_TIMEOUT", comment: "")
         }
     }
 

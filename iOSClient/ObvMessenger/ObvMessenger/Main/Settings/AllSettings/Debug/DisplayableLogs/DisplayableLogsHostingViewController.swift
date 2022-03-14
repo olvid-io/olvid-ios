@@ -20,7 +20,7 @@
 import SwiftUI
 
 
-@available(iOS 13, *)
+
 final class DisplayableLogsHostingViewController: UIHostingController<DisplayableLogsListView>, DisplayableLogsViewStoreDelegate {
     
     private let store: DisplayableLogsViewStore
@@ -50,7 +50,7 @@ protocol DisplayableLogsViewStoreDelegate: AnyObject {
 }
 
 
-@available(iOS 13, *)
+
 final class DisplayableLogsViewStore: ObservableObject {
     
     private(set) var logFilenames: [String]
@@ -82,7 +82,7 @@ final class DisplayableLogsViewStore: ObservableObject {
 }
 
 
-@available(iOS 13, *)
+
 struct DisplayableLogsListView: View {
     
     @ObservedObject var store: DisplayableLogsViewStore
@@ -97,7 +97,7 @@ struct DisplayableLogsListView: View {
     
 }
 
-@available(iOS 13, *)
+
 struct DisplayableLogsListInnerView: View {
     
     let logFilenames: [String]
@@ -125,7 +125,7 @@ struct DisplayableLogsListInnerView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct DisplayableLogsListInnerView_Previews: PreviewProvider {
     
     private static let logFilenames = [

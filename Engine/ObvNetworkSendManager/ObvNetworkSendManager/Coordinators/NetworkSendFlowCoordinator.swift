@@ -49,9 +49,7 @@ final class NetworkSendFlowCoordinator {
 
     init(outbox: URL) {
         self.outbox = outbox
-        if #available(iOS 12, *) {
-            monitorNetworkChanges()
-        }
+        monitorNetworkChanges()
     }
 
 }
@@ -438,7 +436,6 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     // MARK: - Monitor Network Path Status
     
-    @available(iOS 12.0, *)
     private func monitorNetworkChanges() {
         let monitor = NWPathMonitor()
         monitor.start(queue: DispatchQueue(label: "NetworkSendMonitor"))
@@ -446,7 +443,6 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
 
     
-    @available(iOS 12.0, *)
     private func networkPathDidChange(nwPath: NWPath) {
         guard nwPath.status == .satisfied else { return }
         resetAllFailedSendAttempsCountersAndRetrySending()

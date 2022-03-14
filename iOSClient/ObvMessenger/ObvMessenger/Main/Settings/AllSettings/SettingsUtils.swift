@@ -23,10 +23,6 @@ import UIKit
 extension UITableViewController {
 
     static var settingsTableStyle: UITableView.Style {
-        if #available(iOS 13.0, *) {
-            return .insetGrouped
-        } else {
-            return .grouped
-        }
+        return .insetGrouped
     }
 }

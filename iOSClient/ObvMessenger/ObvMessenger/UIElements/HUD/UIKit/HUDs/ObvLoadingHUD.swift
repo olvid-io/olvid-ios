@@ -41,11 +41,7 @@ final class ObvLoadingHUD: ObvHUDView {
     }
     
     private let activityIndicatorView: UIActivityIndicatorView = {
-        if #available(iOS 13.0, *) {
-            return UIActivityIndicatorView(style: .large)
-        } else {
-            return UIActivityIndicatorView(style: .whiteLarge)
-        }
+        UIActivityIndicatorView(style: .large)
     }()
     private let progressView = UIProgressView(progressViewStyle: .default)
     

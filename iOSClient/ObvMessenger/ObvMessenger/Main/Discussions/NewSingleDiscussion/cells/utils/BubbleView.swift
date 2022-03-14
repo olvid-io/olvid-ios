@@ -23,7 +23,6 @@ import UIKit
 /// This view is typically used as a "background" view in the message cells, e.g., behind the body of a message.
 /// In order to display smooth rounded corners, we do not "simply" apply a corner radius but create a mask layer
 /// from a rounded rectangle.
-@available(iOS 13.0, *)
 final class BubbleView: ViewForOlvidStack {
 
     private let largeCornerRadius = MessageCellConstants.BubbleView.largeCornerRadius

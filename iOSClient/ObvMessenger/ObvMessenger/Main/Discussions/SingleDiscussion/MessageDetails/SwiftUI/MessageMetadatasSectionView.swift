@@ -21,7 +21,7 @@ import SwiftUI
 import ObvEngine
 import CoreData
 
-@available(iOS 13, *)
+
 struct MessageMetadatasSectionView: View {
     
     var fetchRequest: FetchRequest<PersistedMessageTimestampedMetadata>
@@ -51,7 +51,7 @@ struct MessageMetadatasSectionView: View {
     
 }
 
-@available(iOS 13, *)
+
 fileprivate struct MetadataView: View {
     
     let ownedCryptoId: ObvCryptoId
@@ -104,7 +104,7 @@ fileprivate struct MetadataView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct MessageMetadataView_Previews: PreviewProvider {
     
     static var previews: some View {

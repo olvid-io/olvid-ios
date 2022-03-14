@@ -50,7 +50,7 @@ class UITextViewFixed: UITextView {
 
 // MARK: - Looking like a disabled Text View
 
-@available(iOS 13, *)
+
 extension UITextViewFixed {
     
     func lookLikeNotEditable() {

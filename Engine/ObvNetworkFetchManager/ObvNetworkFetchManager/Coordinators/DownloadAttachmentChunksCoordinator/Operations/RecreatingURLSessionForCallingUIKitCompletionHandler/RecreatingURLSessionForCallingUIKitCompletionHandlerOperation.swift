@@ -111,10 +111,8 @@ final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Opera
             sessionConfiguration.allowsCellularAccess = true
             sessionConfiguration.sessionSendsLaunchEvents = true
             sessionConfiguration.shouldUseExtendedBackgroundIdleMode = true
-            if #available(iOS 13.0, *) {
-                sessionConfiguration.allowsConstrainedNetworkAccess = true
-                sessionConfiguration.allowsExpensiveNetworkAccess = true
-            }
+            sessionConfiguration.allowsConstrainedNetworkAccess = true
+            sessionConfiguration.allowsExpensiveNetworkAccess = true
 
             _ = URLSession(configuration: sessionConfiguration,
                            delegate: sessionDelegate,

@@ -92,11 +92,7 @@ extension GetTurnCredentialsCoordinator: GetTurnCredentialsDelegate {
         guard !operationsToQueue.isEmpty else { assertionFailure(); return }
         
         // We prevent any interference with previous operations
-        if #available(iOS 13, *) {
-            internalOperationQueue.addBarrierBlock({})
-        } else {
-            internalOperationQueue.waitUntilAllOperationsAreFinished()
-        }
+        internalOperationQueue.addBarrierBlock({})
         internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: false)
         
     }

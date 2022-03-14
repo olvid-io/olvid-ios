@@ -26,6 +26,8 @@ final class UserNotificationsScheduler {
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "UserNotificationsScheduler")
 
     static func scheduleNotification(notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent, notificationCenter: UNUserNotificationCenter) {
+
+        assert(notificationContent.userInfo[UserNotificationKeys.id] != nil, "You must call setThreadAndCategory on notification creation")
         
         let identifier = notificationId.getIdentifier()
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)

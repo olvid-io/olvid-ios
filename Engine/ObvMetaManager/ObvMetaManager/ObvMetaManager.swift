@@ -131,7 +131,7 @@ public final class ObvMetaManager {
             unfulfilledDelegateRequirements.forEach {
                 debugPrint("[ERROR] The following delegate is required but not provided: \($0)")
             }
-            throw NSError()
+            throw Self.makeError(message: "Unfulfilled delegate requirements")
         }
     }
 
@@ -174,98 +174,126 @@ public final class ObvMetaManager {
                 
             case .ObvBackupDelegate:
                 if let manager = manager as? ObvBackupDelegate {
-                    guard backupDelegate == nil else { throw NSError() }
+                    guard backupDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvBackupDelegate)")
+                    }
                     backupDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvBackupDelegate)
                 }
                 
             case .ObvCreateContextDelegate:
                 if let manager = manager as? ObvCreateContextDelegate {
-                    guard createContextDelegate == nil else { throw NSError() }
+                    guard createContextDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvCreateContextDelegate)")
+                    }
                     createContextDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvCreateContextDelegate)
                 }
                 
             case .ObvNetworkPostDelegate:
                 if let manager = manager as? ObvNetworkPostDelegate {
-                    guard networkPostDelegate == nil else { throw NSError() }
+                    guard networkPostDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvNetworkPostDelegate)")
+                    }
                     networkPostDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvNetworkPostDelegate)
                 }
                 
             case .ObvNetworkFetchDelegate:
                 if let manager = manager as? ObvNetworkFetchDelegate {
-                    guard networkFetchDelegate == nil else { throw NSError() }
+                    guard networkFetchDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvNetworkFetchDelegate)")
+                    }
                     networkFetchDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvNetworkFetchDelegate)
                 }
                 
             case .ObvSolveChallengeDelegate:
                 if let manager = manager as? ObvSolveChallengeDelegate {
-                    guard solveChallengeDelegate == nil else { throw NSError() }
+                    guard solveChallengeDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvSolveChallengeDelegate)")
+                    }
                     solveChallengeDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvSolveChallengeDelegate)
                 }
                 
             case .ObvProcessDownloadedMessageDelegate:
                 if let manager = manager as? ObvProcessDownloadedMessageDelegate {
-                    guard processDownloadedMessageDelegate == nil else { throw NSError() }
+                    guard processDownloadedMessageDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvProcessDownloadedMessageDelegate)")
+                    }
                     processDownloadedMessageDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvProcessDownloadedMessageDelegate)
                 }
                 
             case .ObvChannelDelegate:
                 if let manager = manager as? ObvChannelDelegate {
-                    guard channelDelegate == nil else { throw NSError() }
+                    guard channelDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvChannelDelegate)")
+                    }
                     channelDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvChannelDelegate)
                 }
                 
             case .ObvKeyWrapperForIdentityDelegate:
                 if let manager = manager as? ObvKeyWrapperForIdentityDelegate {
-                    guard keyWrapperForIdentityDelegate == nil else { throw NSError() }
+                    guard keyWrapperForIdentityDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvKeyWrapperForIdentityDelegate)")
+                    }
                     keyWrapperForIdentityDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvKeyWrapperForIdentityDelegate)
                 }
                 
             case .ObvProtocolDelegate:
                 if let manager = manager as? ObvProtocolDelegate {
-                    guard protocolDelegate == nil else { throw NSError() }
+                    guard protocolDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvProtocolDelegate)")
+                    }
                     protocolDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvProtocolDelegate)
                 }
                 
             case .ObvFullRatchetProtocolStarterDelegate:
                 if let manager = manager as? ObvFullRatchetProtocolStarterDelegate {
-                    guard fullRatchetProtocolStarterDelegate == nil else { throw NSError() }
+                    guard fullRatchetProtocolStarterDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvFullRatchetProtocolStarterDelegate)")
+                    }
                     fullRatchetProtocolStarterDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvFullRatchetProtocolStarterDelegate)
                 }
                 
             case .ObvIdentityDelegate:
                 if let manager = manager as? ObvIdentityDelegate {
-                    guard identityDelegate == nil else { throw NSError() }
+                    guard identityDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvIdentityDelegate)")
+                    }
                     identityDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvIdentityDelegate)
                 }
                 
             case .ObvNotificationDelegate:
                 if let manager = manager as? ObvNotificationDelegate {
-                    guard notificationDelegate == nil else { throw NSError() }
+                    guard notificationDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvNotificationDelegate)")
+                    }
                     notificationDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvNotificationDelegate)
                 }
                 
             case .ObvFlowDelegate:
                 if let manager = manager as? ObvFlowDelegate {
-                    guard flowDelegate == nil else { throw NSError() }
+                    guard flowDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvFlowDelegate)")
+                    }
                     flowDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvFlowDelegate)
                 }
 
             case .ObvSimpleFlowDelegate:
                 if let manager = manager as? ObvSimpleFlowDelegate {
-                    guard simpleFlowDelegate == nil else { throw NSError() }
+                    guard simpleFlowDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvSimpleFlowDelegate)")
+                    }
                     simpleFlowDelegate = manager
                     delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvSimpleFlowDelegate)
                 }

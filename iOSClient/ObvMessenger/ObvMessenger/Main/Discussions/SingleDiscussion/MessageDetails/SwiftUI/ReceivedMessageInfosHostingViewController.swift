@@ -23,7 +23,7 @@ import CoreData
 import ObvEngine
 
 
-@available(iOS 13.0, *)
+
 final class ReceivedMessageInfosHostingViewController: UIHostingController<ReceivedMessageInfosView> {
 
     private var store: ReceivedMessageInfosViewStore!
@@ -42,7 +42,7 @@ final class ReceivedMessageInfosHostingViewController: UIHostingController<Recei
 }
 
 
-@available(iOS 13.0, *)
+
 fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
     
     let ownedCryptoId: ObvCryptoId
@@ -117,7 +117,7 @@ fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
 }
 
 
-@available(iOS 13.0, *)
+
 struct ReceivedMessageInfosView: View {
     
     @ObservedObject fileprivate var store: ReceivedMessageInfosViewStore
@@ -136,7 +136,7 @@ struct ReceivedMessageInfosView: View {
 }
 
 
-@available(iOS 13.0, *)
+
 struct ReceivedMessageInfosInnerView: View {
     
     let ownedCryptoId: ObvCryptoId

@@ -60,7 +60,7 @@ extension AllContactsViewController {
 
         if #available(iOS 14, *) {
             navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem()
-        } else if #available(iOS 13.0, *) {
+        } else {
             navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
         }
 
@@ -73,7 +73,6 @@ extension AllContactsViewController {
     }
 
     
-    @available(iOS 13.0, *)
     func provideMenu() -> UIMenu {
         
         // Update the parents menu
@@ -146,56 +145,32 @@ extension AllContactsViewController {
 
     
     private func addAndConfigureContactsTableViewController() {
-        
-        let viewController: UIViewController
         let mode: MultipleContactsMode = .all
-        if #available(iOS 13.0, *) {
-            guard let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: false, allowMultipleSelection: false, showExplanation: true, floatingButtonModel: nil) else { assertionFailure(); return }
-            vc.delegate = self
-            viewController = vc
-            navigationItem.searchController = vc.searchController
-            viewController.willMove(toParent: self)
-            self.addChild(viewController)
-            viewController.didMove(toParent: self)
-            viewController.view.translatesAutoresizingMaskIntoConstraints = false
-            self.view.insertSubview(viewController.view, at: 0)
-            self.view.pinAllSidesToSides(of: viewController.view)
-        } else {
-            let predicate = mode.predicate(with: ownedCryptoId)
-            let contactsTVC = ContactsTableViewController(showOwnedIdentityWithCryptoId: nil, disableContactsWithoutDevice: false)
-            contactsTVC.predicate = predicate
-            contactsTVC.delegate = self
-            contactsTVC.extraBottomInset = 56 + 16 // Fab height plus bottom margin
-            navigationItem.searchController = contactsTVC.searchController
-            viewController = contactsTVC
-            viewController.willMove(toParent: self)
-            self.addChild(viewController)
-            viewController.didMove(toParent: self)
-            viewController.view.frame = self.view.bounds
-            self.view.insertSubview(viewController.view, at: 0)
-        }
-        
+        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: false, allowMultipleSelection: false, showExplanation: true, floatingButtonModel: nil) else { assertionFailure(); return }
+        viewController.delegate = self
+        navigationItem.searchController = viewController.searchController
+        viewController.willMove(toParent: self)
+        self.addChild(viewController)
+        viewController.didMove(toParent: self)
+        viewController.view.translatesAutoresizingMaskIntoConstraints = false
+        self.view.insertSubview(viewController.view, at: 0)
+        self.view.pinAllSidesToSides(of: viewController.view)
+
         navigationItem.hidesSearchBarWhenScrolling = false
     }
     
     
     /// This method is used when deeplinks need to navigate through the hierarchy
     func selectRowOfContactIdentity(_ contactIdentity: PersistedObvContactIdentity) {
-        if let vc = children.first as? ContactsTableViewController {
+        if let vc = children.first as? MultipleContactsHostingViewController {
             vc.selectRowOfContactIdentity(contactIdentity)
-        } else if #available(iOS 13.0, *) {
-            if let vc = children.first as? MultipleContactsHostingViewController {
-                vc.selectRowOfContactIdentity(contactIdentity)
-            }
         }
-        
     }
 
 }
 
 // MARK: - MultipleContactsHostingViewController
 
-@available(iOS 13.0, *)
 extension AllContactsViewController: MultipleContactsHostingViewControllerDelegate {
 
     func userWantsToSeeContactDetails(of contact: PersistedObvContactIdentity) {
@@ -211,28 +186,13 @@ extension AllContactsViewController: ContactsTableViewControllerDelegate {
     func userWantsToDeleteContact(with: ObvCryptoId, forOwnedCryptoId: ObvCryptoId, completionHandler: @escaping (Bool) -> Void) {
         assert(false, "Not implemented")
     }
-    
-    func userDidSelectOwnedIdentity() {
-        delegate?.userDidSelectOwnedIdentity()
-    }
-    
+
     func userDidSelect(_ contact: PersistedObvContactIdentity) {
         delegate?.userDidSelect(contact, within: self.navigationController)
     }
     
     func userDidDeselect(_ contact: PersistedObvContactIdentity) {
         delegate?.userDidDeselect(contact)
-    }
-    
-}
-
-
-// MARK: - OwnedIdentityViewDelegate
-
-extension AllContactsViewController: OwnedIdentityViewDelegate {
-    
-    func ownedIdentityViewWasSelected() {
-        delegate?.userDidSelectOwnedIdentity()
     }
     
 }

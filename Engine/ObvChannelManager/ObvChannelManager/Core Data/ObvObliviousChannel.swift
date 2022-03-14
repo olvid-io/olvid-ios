@@ -203,7 +203,9 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
     // MARK: - Updating the send seed and creating a new provision
     
     func updateSendSeed(with seed: Seed) throws {
-        guard let sendSeed = seed.diversify(with: currentDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { throw NSError() }
+        guard let sendSeed = seed.diversify(with: currentDeviceUid, withCryptoSuite: cryptoSuiteVersion) else {
+            throw Self.makeError(message: "Could not diversify seed (1)")
+        }
         seedForNextSendKey = sendSeed
         numberOfEncryptedMessagesAtTheTimeOfTheLastFullRatchet = numberOfEncryptedMessages
         timestampOfLastFullRatchet = Date()
@@ -212,11 +214,15 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
     
 
     func createNewProvision(with seed: Seed) throws {
-        guard let recvSeed = seed.diversify(with: remoteDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { throw NSError() }
+        guard let recvSeed = seed.diversify(with: remoteDeviceUid, withCryptoSuite: cryptoSuiteVersion) else {
+            throw Self.makeError(message: "Could not diversify seed (2)")
+        }
         fullRatchetingCountOfLastProvision += 1
         guard let provision = Provision(fullRatchetingCount: fullRatchetingCountOfLastProvision,
                                         obliviousChannel: self,
-                                        seedForNextProvisionedReceiveKey: recvSeed) else { throw NSError() }
+                                        seedForNextProvisionedReceiveKey: recvSeed) else {
+            throw Self.makeError(message: "Could create Provision")
+        }
         self.provisions.insert(provision)
     }
     

@@ -138,6 +138,10 @@ struct CommonString {
         static let useApplicationDefault = NSLocalizedString("Use application default", comment: "Title")
         static let callBack = NSLocalizedString("CALL_BACK", comment: "Title")
         static let touchToReturnToCall = NSLocalizedString("Touch to return to call", comment: "Title")
+        static let introduceTo = { (contactIdentityDisplayName: String) in
+            String.localizedStringWithFormat(NSLocalizedString("Introduce %@ to...", comment: "Title of the table listing all identities but the one to introduce"), contactIdentityDisplayName)
+        }
+        static let deleteOwnReaction = NSLocalizedString("DELETE_OWN_REACTION", comment: "Title")
     }
     
     static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")

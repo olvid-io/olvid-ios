@@ -27,7 +27,7 @@ import ObvMetaManager
 
 protocol ObvChannelMessageToSendWrapper {
     init?(message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService)
-    func generateObvNetworkMessageToSend() throws -> ObvNetworkMessageToSend
+    func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend]
 }
 
 
@@ -57,6 +57,10 @@ fileprivate extension ObvChannelMessageToSendWrapper {
 
 struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
+    private static func makeError(message: String) -> Error {
+        NSError(domain: "ObvChannelProtocolMessageToSendWrapper", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     private let protocolMessage: ObvChannelProtocolMessageToSend
     private let messageKey: AuthenticatedEncryptionKey
     private let headers: [ObvNetworkMessageToSend.Header]
@@ -68,7 +72,6 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     private var toIdentity: ObvCryptoIdentity? { return protocolMessage.channelType.toIdentity }
     private var toIdentities: Set<ObvCryptoIdentity>? { return protocolMessage.channelType.toIdentities }
     private var encodedElements: ObvEncoded { return protocolMessage.encodedElements }
-    private var messageId: MessageIdentifier { return protocolMessage.messageId }
     
     // MARK: Initializer
     
@@ -80,39 +83,53 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
         self.prng = prng
     }
     
+    
     // MARK: Generating the `ObvNetworkMessageToSend` structure that can be passed to the `ObvNetworkSendManager`
     
-    func generateObvNetworkMessageToSend() throws -> ObvNetworkMessageToSend {
+    func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend] {
+        
         let encryptedContent = ObvChannelProtocolMessageToSendWrapper.encryptContent(messageKey: messageKey,
                                                                                      type: messageType,
                                                                                      encodedElements: encodedElements,
                                                                                      extendedMessagePayload: nil,
                                                                                      randomizedWith: prng)
-        let serverURL: URL
-        if let toIdentity = self.toIdentity {
-            serverURL = toIdentity.serverURL
-        } else if let toIdentities = self.toIdentities {
-            let serverURLs = Set(toIdentities.map { $0.serverURL })
-            guard serverURLs.count == 1 else { throw NSError() } // All identities mut belong to the same server
-            serverURL = serverURLs.first!
-        } else {
-            throw NSError()
+        
+        // We need to create one ObvNetworkMessageToSend per server on which the ObvChannelProtocolMessageToSendWrapper needs to be sent.
+        // To do so, we first group together the headers pertaining to the same serverURL
+        
+        let headersForServer: [URL: [ObvNetworkMessageToSend.Header]] = Dictionary(grouping: self.headers, by: { $0.toIdentity.serverURL })
+        guard !headersForServer.keys.isEmpty else {
+            throw Self.makeError(message: "Cannot generate ObvNetworkMessageToSend because we cannot determine the destination identity/identities")
         }
         
-        let messageToSend = ObvNetworkMessageToSend(messageId: messageId,
-                                                    encryptedContent: encryptedContent.encryptedMessagePayload,
-                                                    encryptedExtendedMessagePayload: encryptedContent.encryptedExtendedMessagePayload,
-                                                    isAppMessageWithUserContent: false,
-                                                    isVoipMessageForStartingCall: false,
-                                                    serverURL: serverURL,
-                                                    headers: headers)
-        return messageToSend
+        // Now that we have grouped the "to" identities, we generate one ObvNetworkMessageToSend per group
+        
+        let messagesToSend: [ObvNetworkMessageToSend] = headersForServer.map { (serverURL, headersForThisServer) in
+            let uid = UID.gen(with: prng)
+            let ownedCryptoIdentity = self.protocolMessage.channelType.fromOwnedIdentity
+            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoIdentity, uid: uid)
+            return ObvNetworkMessageToSend(messageId: messageId,
+                                           encryptedContent: encryptedContent.encryptedMessagePayload,
+                                           encryptedExtendedMessagePayload: encryptedContent.encryptedExtendedMessagePayload,
+                                           isAppMessageWithUserContent: false,
+                                           isVoipMessageForStartingCall: false,
+                                           serverURL: serverURL,
+                                           headers: headersForThisServer)
+        }
+        
+        return messagesToSend
+        
     }
+    
 }
 
 
 struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
+    private static func makeError(message: String) -> Error {
+        NSError(domain: "ObvChannelApplicationMessageToSendWrapper", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     private let applicationMessage: ObvChannelApplicationMessageToSend
     private let messageKey: AuthenticatedEncryptionKey
     private let headers: [ObvNetworkMessageToSend.Header]
@@ -125,7 +142,6 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
     private var messageType: ObvChannelMessageType { return applicationMessage.messageType }
     private var toIdentity: ObvCryptoIdentity? { return applicationMessage.channelType.toIdentity }
     private var toIdentities: Set<ObvCryptoIdentity>? { return applicationMessage.channelType.toIdentities }
-    private var messageId: MessageIdentifier { return applicationMessage.messageId }
     private var isAppMessageWithUserContent: Bool { return applicationMessage.withUserContent }
     private var isVoipMessageForStartingCall: Bool { return applicationMessage.isVoipMessageForStartingCall }
 
@@ -156,34 +172,42 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
     
     // MARK: Generating the `MessageToSend` structure that can be passed to the `ObvNetworkSendManager`
     
-    func generateObvNetworkMessageToSend() throws -> ObvNetworkMessageToSend {
+    func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend] {
+        
         let encryptedContent = ObvChannelProtocolMessageToSendWrapper.encryptContent(messageKey: messageKey,
                                                                                      type: messageType,
                                                                                      encodedElements: encodedElements,
                                                                                      extendedMessagePayload: applicationMessage.extendedMessagePayload,
                                                                                      randomizedWith: prng)
         
-        let serverURL: URL
-        if let toIdentity = self.toIdentity {
-            serverURL = toIdentity.serverURL
-        } else if let toIdentities = self.toIdentities {
-            let serverURLs = Set(toIdentities.map { $0.serverURL })
-            guard serverURLs.count == 1 else { throw NSError() } // All identities mut belong to the same server
-            serverURL = serverURLs.first!
-        } else {
-            throw NSError()
+        // We need to create one ObvNetworkMessageToSend per server on which the ObvChannelProtocolMessageToSendWrapper needs to be sent.
+        // To do so, we first group together the headers pertaining to the same serverURL
+        
+        let headersForServer: [URL: [ObvNetworkMessageToSend.Header]] = Dictionary(grouping: self.headers, by: { $0.toIdentity.serverURL })
+        guard !headersForServer.keys.isEmpty else {
+            throw Self.makeError(message: "Cannot generate ObvNetworkMessageToSend because we cannot determine the destination identity/identities")
         }
-
-        let messageToSend = ObvNetworkMessageToSend(messageId: messageId,
-                                                    encryptedContent: encryptedContent.encryptedMessagePayload,
-                                                    encryptedExtendedMessagePayload: encryptedContent.encryptedExtendedMessagePayload,
-                                                    isAppMessageWithUserContent: isAppMessageWithUserContent,
-                                                    isVoipMessageForStartingCall: isVoipMessageForStartingCall,
-                                                    serverURL: serverURL,
-                                                    headers: headers,
-                                                    attachments: attachments)
-        return messageToSend
+        
+        // Now that we have grouped the "to" identities, we generate one ObvNetworkMessageToSend per group
+        
+        let messagesToSend: [ObvNetworkMessageToSend] = headersForServer.map { (serverURL, headersForThisServer) in
+            let uid = UID.gen(with: prng)
+            let ownedCryptoIdentity = self.applicationMessage.channelType.fromOwnedIdentity
+            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoIdentity, uid: uid)
+            return ObvNetworkMessageToSend(messageId: messageId,
+                                           encryptedContent: encryptedContent.encryptedMessagePayload,
+                                           encryptedExtendedMessagePayload: encryptedContent.encryptedExtendedMessagePayload,
+                                           isAppMessageWithUserContent: isAppMessageWithUserContent,
+                                           isVoipMessageForStartingCall: isVoipMessageForStartingCall,
+                                           serverURL: serverURL,
+                                           headers: headersForThisServer,
+                                           attachments: attachments)
+        }
+        
+        return messagesToSend
+        
     }
+
 }
 
 // MARK: Extensing the standard ObvChannelApplicationMessageToSend's Attachment struct

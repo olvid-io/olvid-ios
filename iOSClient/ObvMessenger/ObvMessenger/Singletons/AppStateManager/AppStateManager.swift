@@ -62,7 +62,7 @@ final class AppStateManager: LocalAuthenticationViewControllerDelegate {
     }()
     
     // Multiple simultaneous readers, single writer
-    private var _currentState = AppState.justLaunched(iOSAppState: .notActive, authenticateAutomaticallyNextTime: true, callInProgress: nil)
+    private var _currentState = AppState.justLaunched(iOSAppState: .notActive, authenticateAutomaticallyNextTime: true, callInProgress: nil, aCallRequiresNetworkConnection: false)
     private let queueForAccessingCurrentState = DispatchQueue(label: "Queue for accessing _currentState", attributes: .concurrent)
     
 
@@ -172,6 +172,21 @@ final class AppStateManager: LocalAuthenticationViewControllerDelegate {
         ])
     }
     
+    
+    func aNewCallRequiresNetworkConnection() {
+        os_log("🏁☎️ Call to aNewCallRequiresNetworkConnection", log: log, type: .info)
+        let op = UpdateStateOnChangeOfNewCallRequiresNetworkConnection(aCallRequiresNetworkConnection: true)
+        self.internalQueue.addOperation(op)
+    }
+    
+    
+    func noMoreCallRequiresNetworkConnection() {
+        os_log("🏁☎️ Call to noMoreCallRequiresNetworkConnection", log: log, type: .info)
+        let op = UpdateStateOnChangeOfNewCallRequiresNetworkConnection(aCallRequiresNetworkConnection: false)
+        self.internalQueue.addOperation(op)
+    }
+    
+    
     func userWillTryToAuthenticate() {
         assert(Thread.isMainThread)
         userIsAuthenticating = true
@@ -260,32 +275,32 @@ fileprivate final class UpdateCurrentAppStateOperation: Operation {
         let updatedState: AppState
         
         switch AppStateManager.shared.currentState {
-        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
+        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             switch newRawAppState {
             case .justLaunched:
-                updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .initializing:
-                updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .initialized:
-                updatedState = .initialized(iOSAppState: iOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: iOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             }
-        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
+        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             switch newRawAppState {
             case .justLaunched:
-                updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .initializing:
-                updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .initialized:
-                updatedState = .initialized(iOSAppState: iOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: iOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             }
-        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
+        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             switch newRawAppState {
             case .justLaunched:
-                updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .initializing:
-                updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .initialized:
-                updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             }
         }
 
@@ -311,22 +326,22 @@ fileprivate final class UpdateCurrentIOSAppStateOperation: Operation {
         
         switch AppStateManager.shared.currentState {
 
-        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
-            updatedState = .justLaunched(iOSAppState: newIOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+        case .justLaunched(iOSAppState: _, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            updatedState = .justLaunched(iOSAppState: newIOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
 
-        case .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
-            updatedState = .initializing(iOSAppState: newIOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+        case .initializing(iOSAppState: _, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            updatedState = .initializing(iOSAppState: newIOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
 
-        case .initialized(iOSAppState: _, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress):
+        case .initialized(iOSAppState: _, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let callInProgress, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             switch newIOSAppState {
             case .inBackground:
-                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth || callInProgress == nil, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth || callInProgress == nil, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .notActive:
-                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth || callInProgress == nil, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: false, authenticateAutomaticallyNextTime: autoAuth || callInProgress == nil, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .mayResignActive:
-                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             case .active:
-                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress)
+                updatedState = .initialized(iOSAppState: newIOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callInProgress, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
             }
         }
         
@@ -345,15 +360,15 @@ fileprivate final class RemoveCallInProgressOperation: Operation {
         let updatedState: AppState
 
         switch AppStateManager.shared.currentState {
-        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let call):
+        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let call, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             assert(call == nil || call!.state.isFinalState)
-            updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: nil)
-        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let call):
+            updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: nil, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
+        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let call, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             assert(call == nil || call!.state.isFinalState)
-            updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: nil)
-        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let call):
+            updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: nil, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
+        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: let call, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
             assert(call == nil || call!.state.isFinalState)
-            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: nil)
+            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: nil, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
         }
         
         AppStateManager.shared.setState(to: updatedState)
@@ -389,12 +404,12 @@ fileprivate final class UpdateStateWithCurrentCallChangesOperation: Operation {
 
         switch AppStateManager.shared.currentState {
         
-        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: _):
-            updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callAndState)
-        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: _):
-            updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callAndState)
-        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: _):
-            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callAndState)
+        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: _, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callAndState, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
+        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: _, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callAndState, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
+        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let autoAuth, callInProgress: _, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: autoAuth, callInProgress: callAndState, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
 
         }
         
@@ -467,12 +482,45 @@ fileprivate final class UpdateStateAfterUserLocalAuthenticationSuccessOperation:
         case .justLaunched, .initializing:
             assertionFailure()
             updatedState = AppStateManager.shared.currentState
-        case .initialized(iOSAppState: let iOSAppState, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: let call):
-            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: true, authenticateAutomaticallyNextTime: false, callInProgress: call)
+        case .initialized(iOSAppState: let iOSAppState, authenticated: _, authenticateAutomaticallyNextTime: _, callInProgress: let call, aCallRequiresNetworkConnection: let aCallRequiresNetworkConnection):
+            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: true, authenticateAutomaticallyNextTime: false, callInProgress: call, aCallRequiresNetworkConnection: aCallRequiresNetworkConnection)
         }
         AppStateManager.shared.setState(to: updatedState)
     }
 }
+
+
+fileprivate final class UpdateStateOnChangeOfNewCallRequiresNetworkConnection: Operation {
+    
+    let aCallRequiresNetworkConnection: Bool
+    
+    init(aCallRequiresNetworkConnection: Bool) {
+        self.aCallRequiresNetworkConnection = aCallRequiresNetworkConnection
+        super.init()
+    }
+    
+    override func main() {
+        
+        let updatedState: AppState
+        
+        switch AppStateManager.shared.currentState {
+        case .justLaunched(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let authenticateAutomaticallyNextTime, callInProgress: let callInProgress, aCallRequiresNetworkConnection: _):
+            updatedState = .justLaunched(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: authenticateAutomaticallyNextTime, callInProgress: callInProgress, aCallRequiresNetworkConnection: self.aCallRequiresNetworkConnection)
+        case .initializing(iOSAppState: let iOSAppState, authenticateAutomaticallyNextTime: let authenticateAutomaticallyNextTime, callInProgress: let callInProgress, aCallRequiresNetworkConnection: _):
+            updatedState = .initializing(iOSAppState: iOSAppState, authenticateAutomaticallyNextTime: authenticateAutomaticallyNextTime, callInProgress: callInProgress, aCallRequiresNetworkConnection: self.aCallRequiresNetworkConnection)
+        case .initialized(iOSAppState: let iOSAppState, authenticated: let authenticated, authenticateAutomaticallyNextTime: let authenticateAutomaticallyNextTime, callInProgress: let callInProgress, aCallRequiresNetworkConnection: _):
+            updatedState = .initialized(iOSAppState: iOSAppState, authenticated: authenticated, authenticateAutomaticallyNextTime: authenticateAutomaticallyNextTime, callInProgress: callInProgress, aCallRequiresNetworkConnection: self.aCallRequiresNetworkConnection)
+        }
+
+        
+        AppStateManager.shared.setState(to: updatedState)
+
+    }
+    
+}
+
+
+
 
 
 protocol OlvidURLHandler: AnyObject {

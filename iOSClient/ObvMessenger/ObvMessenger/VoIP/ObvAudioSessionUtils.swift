@@ -57,7 +57,6 @@ struct AudioInput {
 
 extension AudioInput {
 
-    @available(iOS 13.0, *)
     var toAction: UIAction {
         let state: UIMenuElement.State = isCurrent ? .on : .off
         let image: UIImage?

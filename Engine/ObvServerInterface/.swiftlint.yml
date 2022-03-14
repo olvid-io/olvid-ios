@@ -24,7 +24,6 @@ disabled_rules:
   - unused_enumerated
   - is_disjoint
   - for_where
-  - reduce_boolean
   - force_cast
   - force_try
   - weak_delegate

@@ -122,7 +122,7 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     /// This method throws if the UID passed is not a current device uid. Otherwise, it returns the crypto identity to whom the current device belongs.
     func getOwnedIdentityOfCurrentDeviceUid(_: UID, within: ObvContext) throws -> ObvCryptoIdentity
 
-    func getOwnedIdentityOfRemoteDeviceUid(_: UID, within: ObvContext) -> ObvCryptoIdentity?
+    func getOwnedIdentityOfRemoteDeviceUid(_: UID, within: ObvContext) throws -> ObvCryptoIdentity?
 
     func getCurrentDeviceUidOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> UID
     
@@ -250,6 +250,30 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func setContactForcefullyTrustedByUser(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, forcefullyTrustedByUser: Bool, within obvContext: ObvContext) throws
     
+    // MARK: - API related to contact capabilities
+
+    func getCapabilitiesOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    
+    func getCapabilitiesOfContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>
+
+    func getCapabilitiesOfAllContactsOfOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCapability>]
+    
+    func setRawCapabilitiesOfContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, uid: UID, newRawCapabilities: Set<String>, within obvContext: ObvContext) throws
+
+    // MARK: - API related to own capabilities
+
+    func getCapabilitiesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    
+    func getCapabilitiesOfOwnedIdentities(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCapability>]
+
+    func getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    
+    func getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    
+    func setCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, newCapabilities: Set<ObvCapability>, within obvContext: ObvContext) throws
+    
+    func setRawCapabilitiesOfOtherDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, newRawCapabilities: Set<String>, within obvContext: ObvContext) throws
+
     // MARK: - User Data
 
     func getAllServerDataToSynchronizeWithServer(within obvContext: ObvContext) throws -> (toDelete: Set<UserData>, toRefresh: Set<UserData>)

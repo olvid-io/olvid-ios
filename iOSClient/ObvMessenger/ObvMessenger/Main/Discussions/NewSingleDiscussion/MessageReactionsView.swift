@@ -21,8 +21,7 @@ import Foundation
 import SwiftUI
 import CoreData
 
-@available(iOS 13, *)
-final class MessageReactionsListHostingViewController: UIHostingController<MessageReactionsListView> {
+final class MessageReactionsListHostingViewController: UIHostingController<MessageReactionsListView>, MessageReactionsListViewModelDelegate {
 
     fileprivate let model: MessageReactionsListViewModel
 
@@ -31,23 +30,33 @@ final class MessageReactionsListHostingViewController: UIHostingController<Messa
         assert(message.managedObjectContext == ObvStack.shared.viewContext)
 
         self.model = MessageReactionsListViewModel(messageInViewContext: message)
-
         let view = MessageReactionsListView(model: model)
         super.init(rootView: view)
+        self.model.delegate = self
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func dismiss() {
+        self.dismiss(animated: true)
+    }
+
 }
 
-@available(iOS 13, *)
+fileprivate protocol MessageReactionsListViewModelDelegate: AnyObject {
+    func dismiss()
+}
+
+
 final fileprivate class MessageReactionsListViewModel: ObservableObject {
 
     private(set) var messageInViewContext: PersistedMessage
     @Published var changed: Bool // This allows to "force" the refresh of the view
     private var observationTokens = [NSObjectProtocol]()
+
+    fileprivate weak var delegate: MessageReactionsListViewModelDelegate?
 
     init(messageInViewContext: PersistedMessage) {
         self.messageInViewContext = messageInViewContext
@@ -82,6 +91,11 @@ final fileprivate class MessageReactionsListViewModel: ObservableObject {
                 .filter({ $0.typedObjectID == _self.messageInViewContext.typedObjectID })
             guard !refreshedMessages.isEmpty else { return }
             _self.changed.toggle()
+            if _self.messageInViewContext.reactions.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
+                    _self.delegate?.dismiss()
+                }
+            }
         })
     }
 }
@@ -108,7 +122,7 @@ fileprivate extension PersistedMessageReaction {
 
 }
 
-@available(iOS 13, *)
+
 fileprivate class MessageReaction: Identifiable, Hashable, Comparable {
 
     var id: Int { hashValue }
@@ -153,7 +167,7 @@ fileprivate class MessageReaction: Identifiable, Hashable, Comparable {
 
 }
 
-@available(iOS 13, *)
+
 struct MessageReactionsListView: View {
 
     @ObservedObject fileprivate var model: MessageReactionsListViewModel
@@ -165,7 +179,7 @@ struct MessageReactionsListView: View {
     }
 }
 
-@available(iOS 13, *)
+
 struct MessageReactionsListInnerView: View {
 
     fileprivate let reactions: [MessageReaction]
@@ -206,7 +220,7 @@ struct MessageReactionsListInnerView: View {
     }
 }
 
-@available(iOS 13, *)
+
 fileprivate struct MessageReactionView: View {
 
     let reaction: MessageReaction
@@ -228,7 +242,7 @@ fileprivate struct MessageReactionView: View {
                 Button {
                     userWantsToDeleteItsReaction()
                 } label: {
-                    Image(systemIcon: .trash)
+                    Image(systemIcon: .heartSlashFill)
                 }
                 // Avoid to execute the action when the user tap on every elements of the HStack
                 .buttonStyle(BorderlessButtonStyle())
@@ -247,7 +261,7 @@ fileprivate struct MessageReactionView: View {
     }()
 }
 
-@available(iOS 13, *)
+
 fileprivate struct ContactMessageSender: View {
     @ObservedObject var model: SingleContactIdentity
     let date: Date
@@ -271,7 +285,7 @@ fileprivate struct ContactMessageSender: View {
     }
 }
 
-@available(iOS 13, *)
+
 fileprivate struct OwnedMessageSender: View {
     @ObservedObject var model: SingleIdentity
     let date: Date

@@ -23,7 +23,6 @@ import ObvCrypto
 
 public struct ObvChannelApplicationMessageToSend: ObvChannelMessageToSend {
     
-    public let messageId: MessageIdentifier
     public let messageType = ObvChannelMessageType.ApplicationMessage
     public let channelType: ObvChannelSendChannelType
     public let messagePayload: Data
@@ -32,10 +31,9 @@ public struct ObvChannelApplicationMessageToSend: ObvChannelMessageToSend {
     public let withUserContent: Bool
     public let isVoipMessageForStartingCall: Bool
     
-    public init(messageId: MessageIdentifier, toContactIdentities: Set<ObvCryptoIdentity>, fromIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachments: [Attachment]) {
+    public init(toContactIdentities: Set<ObvCryptoIdentity>, fromIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachments: [Attachment]) {
         self.channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
         self.attachments = attachments
-        self.messageId = messageId
         self.messagePayload = messagePayload
         self.extendedMessagePayload = extendedMessagePayload
         self.withUserContent = withUserContent

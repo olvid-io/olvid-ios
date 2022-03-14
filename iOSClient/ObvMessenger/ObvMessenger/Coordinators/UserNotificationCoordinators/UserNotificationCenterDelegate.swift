@@ -99,20 +99,31 @@ extension UserNotificationCenterDelegate {
             completionHandler(.alert)
             return
         }
-                
+
+        guard let rawId = notification.request.content.userInfo[UserNotificationKeys.id] as? Int,
+              let id = ObvUserNotificationID(rawValue: rawId) else {
+                  assertionFailure()
+                  completionHandler(.alert)
+                  return
+              }
+
         // If we reach this point, we know we are initialized and active. We decide what to show depending on the current activity of the user.
         switch ObvUserActivitySingleton.shared.currentUserActivity {
         case .continueDiscussion(persistedDiscussionObjectID: let currentPersistedDiscussionObjectID):
-            // The current activity type is `continueDiscussion`. We check whether the notification concerns the "single discussion". If this is the case, we do not display the notification, otherwise, we do.
-            if let notificationPersistedDiscussionObjectURI = notification.request.content.userInfo["persistedDiscussionObjectURI"] as? String,
-               let notificationPersistedDiscussionObjectURI = URL(string: notificationPersistedDiscussionObjectURI) {
-                                
-                guard let notificationPersistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: notificationPersistedDiscussionObjectURI) else {
-                    assertionFailure()
-                    completionHandler(.alert)
-                    return
-                }
-                            
+            switch id {
+            case .newReactionNotificationWithHiddenContent, .newReaction:
+                // Always show reaction notification even if it is a reaction for the current discussion.
+                completionHandler(.alert)
+            case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall:
+                // The current activity type is `continueDiscussion`. We check whether the notification concerns the "single discussion". If this is the case, we do not display the notification, otherwise, we do.
+                guard let notificationPersistedDiscussionObjectURI = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
+                      let notificationPersistedDiscussionObjectURI = URL(string: notificationPersistedDiscussionObjectURI),
+                      let notificationPersistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: notificationPersistedDiscussionObjectURI)else {
+                          assertionFailure()
+                          completionHandler(.alert)
+                          return
+                      }
+
                 if notificationPersistedDiscussionObjectID == currentPersistedDiscussionObjectID.objectID {
                     completionHandler([])
                     return
@@ -120,12 +131,17 @@ extension UserNotificationCenterDelegate {
                     completionHandler(.alert)
                     return
                 }
-                
+            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired:
+                completionHandler(.alert)
+                return
+            case .staticIdentifier:
+                assertionFailure()
             }
+
         case .watchLatestDiscussions:
-            // Do not show notifications related to new messages if the user is within the latest discussions view controller. Just play a sound.
-            if notification.request.content.userInfo["persistedDiscussionObjectURI"] != nil {
-                debugPrint(notification.request.identifier)
+            switch id {
+            case .newMessageNotificationWithHiddenContent, .newMessage:
+                // Do not show notifications related to new messages if the user is within the latest discussions view controller. Just play a sound.
                 if requestIdentifiersThatPlayedSound.contains(notification.request.identifier) {
                     completionHandler([])
                     return
@@ -134,9 +150,8 @@ extension UserNotificationCenterDelegate {
                     completionHandler(.sound)
                     return
                 }
-            } else {
+            case .newReactionNotificationWithHiddenContent, .newReaction, .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .missedCall, .staticIdentifier:
                 completionHandler(.alert)
-                return
             }
         case .displayInvitations:
             /* The user is currently looking at the invitiation tab.
@@ -188,7 +203,7 @@ extension UserNotificationCenterDelegate {
 
         switch action {
         case .accept, .decline:
-            guard let persistedInvitationUuidAsString = userInfo["persistedInvitationUUID"] as? String,
+            guard let persistedInvitationUuidAsString = userInfo[UserNotificationKeys.persistedInvitationUUID] as? String,
                   let persistedInvitationUuid = UUID(uuidString: persistedInvitationUuidAsString)
             else {
                 assertionFailure()
@@ -197,7 +212,7 @@ extension UserNotificationCenterDelegate {
             }
             handleInvitationActions(action: action, persistedInvitationUuid: persistedInvitationUuid, completionHandler: completionHandler)
         case .mute:
-            guard let persistedDiscussionObjectURIAsString = userInfo["persistedDiscussionObjectURI"] as? String,
+            guard let persistedDiscussionObjectURIAsString = userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
                   let persistedDiscussionObjectURI = URL(string: persistedDiscussionObjectURIAsString)
             else {
                 assertionFailure()
@@ -228,7 +243,7 @@ extension UserNotificationCenterDelegate {
                 return
             }
         case .callBack:
-            guard let callUUIDAsString = userInfo["callUUID"] as? String,
+            guard let callUUIDAsString = userInfo[UserNotificationKeys.callUUID] as? String,
                   let callUUID = UUID(callUUIDAsString)
             else {
                 assertionFailure()
@@ -381,7 +396,7 @@ extension UserNotificationCenterDelegate {
         
         os_log("🥏 Call to handleDeepLink", log: log, type: .info)
 
-        guard let deepLinkString = response.notification.request.content.userInfo["deepLink"] as? String else {
+        guard let deepLinkString = response.notification.request.content.userInfo[UserNotificationKeys.deepLink] as? String else {
             return
         }
         guard let deepLinkURL = URL(string: deepLinkString) else { return }

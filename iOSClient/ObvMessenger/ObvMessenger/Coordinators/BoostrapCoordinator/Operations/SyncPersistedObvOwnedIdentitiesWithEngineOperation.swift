@@ -116,6 +116,25 @@ final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperat
                 
             }
 
+            // For each existing owned within the app, make sure the capabilities are in sync with the information within the engine
+            
+            do {
+                let persistedOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+                persistedOwnedIdentities.forEach { persistedOwnedIdentity in
+                    do {
+                        let capabilities = try obvEngine.getCapabilitiesOfOwnedIdentity(persistedOwnedIdentity.cryptoId)
+                        persistedOwnedIdentity.setContactCapabilities(to: capabilities)
+                    } catch {
+                        os_log("Could sync the capabilities of one of the owned identity: %{public}@", log: log, type: .error, error.localizedDescription)
+                        assertionFailure()
+                        // We continue anyway
+                    }
+                }
+            } catch {
+                os_log("Could sync the existing persisted owned identities capabilities with the information received from the engine: %{public}@", log: log, type: .error, error.localizedDescription)
+                assertionFailure()
+                // We continue anyway
+            }
             
         }
         

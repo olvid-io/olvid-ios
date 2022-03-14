@@ -243,10 +243,11 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     }
 
     private func observeNotifications() {
-        notificationTokens.append(contentsOf: [
+        notificationTokens.append(
             ObvMessengerInternalNotification.observePreferredComposeMessageViewActionsDidChange(queue: OperationQueue.main) { [weak self] in
-                self?.processPreferredComposeMessageViewActionsDidChange() }
-        ])
+                self?.processPreferredComposeMessageViewActionsDidChange()
+            })
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAudioInterruption), name: AVAudioSession.interruptionNotification, object: nil)
     }
 
     private func setupInternalViews() {
@@ -711,7 +712,11 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
         updateMultipleButtonsStackView()
         hideOrShowButtonsForAvailableWidth(forceUpdate: true)
     }
-        
+
+    @objc private func handleAudioInterruption(_ notification: Notification) {
+        assert(Thread.isMainThread)
+        stopRecordingAudioMessage()
+    }
 }
 
 
@@ -901,24 +906,9 @@ extension NewComposeMessageView {
     }
 
     @objc func microButtonTapped() {
-        let draftObjectID = draft.typedObjectID
+        assert(Thread.isMainThread)
         if ObvAudioRecorder.shared.isRecording {
-            assert(Thread.isMainThread)
-            do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-            ObvAudioRecorder.shared.stopRecording { [weak self] result in
-                guard let _self = self else { return }
-                switch result {
-                case .success(let url):
-                    NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraftFromURLs(draftObjectID: draftObjectID, urls: [url]) { success in
-                        do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID, success: success) } catch { assertionFailure() }
-                    }
-                    .postOnDispatchQueue()
-                    _self.switchToAppropriateRecordingState()
-                case .failure(let error):
-                    os_log("🎤 Failed to record: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
-                    _self.cancelRecordButtonTapped()
-                }
-            }
+            stopRecordingAudioMessage()
         } else {
             animatedEndEditing { [weak self] _ in
                 guard let _self = self else { return }
@@ -977,6 +967,29 @@ extension NewComposeMessageView {
             }
         }
     }
+    
+    
+    private func stopRecordingAudioMessage() {
+        assert(Thread.isMainThread)
+        guard ObvAudioRecorder.shared.isRecording else { return }
+        let draftObjectID = draft.typedObjectID
+        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        ObvAudioRecorder.shared.stopRecording { [weak self] result in
+            guard let _self = self else { return }
+            switch result {
+            case .success(let url):
+                NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraftFromURLs(draftObjectID: draftObjectID, urls: [url]) { success in
+                    do { try CompositionViewFreezeManager.shared.unfreeze(draftObjectID, success: success) } catch { assertionFailure() }
+                }
+                .postOnDispatchQueue()
+                _self.switchToAppropriateRecordingState()
+            case .failure(let error):
+                os_log("🎤 Failed to record: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                _self.cancelRecordButtonTapped()
+            }
+        }
+    }
+    
 
     @objc func cancelRecordButtonTapped() {
         ObvAudioRecorder.shared.cancelRecording()

@@ -20,7 +20,7 @@
 import Foundation
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct ValueWithBinding<Root: TypeWithObjectID, Value> {
     let value: Value
     let objectID: TypeSafeManagedObjectID<Root>?
@@ -75,7 +75,7 @@ struct ValueWithBinding<Root: TypeWithObjectID, Value> {
     }
 }
 
-@available(iOS 13.0, *)
+
 extension Binding {
 
     func map(_ tranform: @escaping (Value) -> Value) -> Binding<Value> {

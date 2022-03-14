@@ -86,6 +86,14 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("getWebSocketState does nothing in this dummy implementation", log: log, type: .error)
     }
 
+    public func connectWebsockets(flowId: FlowIdentifier) {
+        os_log("connectWebsockets does nothing in this dummy implementation", log: log, type: .error)
+    }
+
+    public func disconnectWebsockets(flowId: FlowIdentifier) {
+        os_log("disconnectWebsockets does nothing in this dummy implementation", log: log, type: .error)
+    }
+
     public func downloadMessages(for ownedIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
         os_log("downloadMessages(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
     }

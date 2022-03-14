@@ -85,7 +85,7 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
             do {
                 _ = try obvEngine.post(messagePayload: payload,
                                        extendedPayload: nil,
-                                       withUserContent: false,
+                                       withUserContent: true,
                                        isVoipMessageForStartingCall: false,
                                        attachmentsToSend: [],
                                        toContactIdentitiesWithCryptoId: contactCryptoIds,

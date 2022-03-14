@@ -96,3 +96,12 @@ notifications:
   - {name: ownedIdentity, type: ObvCryptoIdentity}
   - {name: contactIdentity, type: ObvCryptoIdentity}
   - {name: flowId, type: FlowIdentifier}
+- name: contactObvCapabilitiesWereUpdated
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: ownedIdentityCapabilitiesWereUpdated
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}

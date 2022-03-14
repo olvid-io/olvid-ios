@@ -81,6 +81,7 @@ extension ObvSubtitleTableViewCell {
     }
     
     override func prepareForReuse() {
+        super.prepareForReuse()
         isHidden = false
         circledImage = nil
         circlePlaceholderHeightConstraint.constant = defaultCirclePlaceholderHeight

@@ -21,6 +21,7 @@ import UserNotifications
 import ObvEngine
 import os.log
 import OlvidUtils
+import ObvTypes
 
 
 class NotificationService: UNNotificationServiceExtension {
@@ -121,7 +122,7 @@ class NotificationService: UNNotificationServiceExtension {
         var returnValue = false
         
         ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
-            
+
             let messageReceived: PersistedMessageReceived
             do {
                 guard let _message = try PersistedMessageReceived.getAll(messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine, within: context)
@@ -223,10 +224,14 @@ class NotificationService: UNNotificationServiceExtension {
             return false
         }
 
-        guard let messageJSON = persistedItemJSON.message else {
-            os_log("We received a notification for an item that does not contain a valid message, which is unexpected", log: log, type: .fault)
-            assert(false)
+        guard persistedItemJSON.message != nil || persistedItemJSON.reactionJSON != nil else {
+            os_log("We received a notification for an item that does not contain a valid message nor a valid reaction message, which is unexpected", log: log, type: .fault)
             return false
+        }
+
+        if let reactionJSON = persistedItemJSON.reactionJSON {
+            // Optim, don't show a notification is the reaction message delete a reaction.
+            guard reactionJSON.emoji != nil else { return false }
         }
 
         // If there is a return receipt within the json item we received, we use it to send a return receipt for the received obvMessage
@@ -255,9 +260,20 @@ class NotificationService: UNNotificationServiceExtension {
                 os_log("Could not recover the persisted contact identity", log: _self.log, type: .fault)
                 return
             }
+
+            let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+            if let messageJSON = persistedItemJSON.message {
+                groupId = messageJSON.groupId
+            } else if let reactionJSON = persistedItemJSON.reactionJSON {
+                groupId = reactionJSON.groupId
+            } else {
+                os_log("The received item should be a message or a reaction", log: _self.log, type: .fault)
+                assertionFailure()
+                return
+            }
             
             let discussion: PersistedDiscussion
-            if let groupId = messageJSON.groupId {
+            if let groupId = groupId {
                 do {
                     guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
                         os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
@@ -276,23 +292,33 @@ class NotificationService: UNNotificationServiceExtension {
             if !discussion.shouldMuteNotifications {
                 // Construct the notification content
 
-                let textBody: String?
-                if let expiration = messageJSON.expiration,
-                   expiration.visibilityDuration != nil || expiration.readOnce {
-                    textBody = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
-                } else {
-                    textBody = messageJSON.body
+                if let messageJSON = persistedItemJSON.message {
+                    let textBody: String?
+                    if let expiration = messageJSON.expiration,
+                       expiration.visibilityDuration != nil || expiration.readOnce {
+                        textBody = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
+                    } else {
+                        textBody = messageJSON.body
+                    }
+                    let badge = incrAndGetBadge()
+                    let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(
+                        body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
+                        messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine,
+                        contact: persistedContactIdentity,
+                        attachmentsFileNames: [],
+                        discussion: discussion,
+                        urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail(),
+                        badge: badge)
+                    self?.fullAttemptContent = notificationContent
+                } else if let reactionJSON = persistedItemJSON.reactionJSON {
+                    guard let emoji = reactionJSON.emoji else { assertionFailure(); return } // This is test above
+                    guard let message = try? PersistedMessage.findMessageFrom(reference: reactionJSON.messageReference, within: discussion) else { return }
+                    if !message.isWiped {
+                        let (_, notificationContent) = UserNotificationCreator.createReactionNotification(message: message, contact: persistedContactIdentity, emoji: emoji, reactionTimestamp: obvMessage.messageUploadTimestampFromServer)
+                        self?.fullAttemptContent = notificationContent
+                    }
                 }
-                let badge = incrAndGetBadge()
-                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(
-                    body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
-                    messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine,
-                    contact: persistedContactIdentity,
-                    attachmentsFileNames: [],
-                    discussion: discussion,
-                    urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail(),
-                    badge: badge)
-                self?.fullAttemptContent = notificationContent
+
             }
             returnValue = true
         }

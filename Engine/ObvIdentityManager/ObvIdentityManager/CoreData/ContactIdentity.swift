@@ -245,6 +245,12 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         self.trustedIdentityDetails = trustedIdentityDetails
     }
 
+    
+    func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) {
+        self.delegateManager = delegateManager
+        obvContext.delete(self)
+    }
+    
 }
 
 
@@ -268,7 +274,7 @@ extension ContactIdentity {
         }
 
         let details = publishedIdentityDetails ?? trustedIdentityDetails
-        guard let signedUserDetails = details.identityDetails.coreDetails.signedUserDetails else {
+        guard let signedUserDetails = details.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails.signedUserDetails else {
             return
         }
         
@@ -326,7 +332,7 @@ extension ContactIdentity {
         
         if let publishedIdentityDetails = self.publishedIdentityDetails {
             try trustedIdentityDetails.updateWithContactIdentityDetailsPublished(publishedIdentityDetails, delegateManager: delegateManager)
-            try publishedIdentityDetails.delete(within: obvContext)
+            try publishedIdentityDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
             self.publishedIdentityDetails = nil
         }
         
@@ -339,37 +345,35 @@ extension ContactIdentity {
     }
     
     
-    var signedUserDetails: SignedUserDetails? {
-        get throws {
-            let details = publishedIdentityDetails ?? trustedIdentityDetails
-            guard let signedUserDetails = details.identityDetails.coreDetails.signedUserDetails else {
-                return nil
-            }
-            guard let ownKeycloakServer = ownedIdentity.keycloakServer else {
-                return nil
-            }
-            let signedContactUserDetails = try SignedUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
-            return signedContactUserDetails
+    func getSignedUserDetails(identityPhotosDirectory: URL) throws -> SignedUserDetails? {
+        let details = publishedIdentityDetails ?? trustedIdentityDetails
+        guard let signedUserDetails = details.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails.signedUserDetails else {
+            return nil
         }
+        guard let ownKeycloakServer = ownedIdentity.keycloakServer else {
+            return nil
+        }
+        let signedContactUserDetails = try SignedUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
+        return signedContactUserDetails
     }
     
         
-    func updatePhotoURL(with url: URL?, version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+    func updateContactPhoto(with url: URL?, version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if let publishedIdentityDetails = self.publishedIdentityDetails, publishedIdentityDetails.version == version {
-            try publishedIdentityDetails.setPhotoURL(with: url, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try publishedIdentityDetails.setContactPhoto(with: url, delegateManager: delegateManager)
         }
         if self.trustedIdentityDetails.version == version {
-            try self.trustedIdentityDetails.setPhotoURL(with: url, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.trustedIdentityDetails.setContactPhoto(with: url, delegateManager: delegateManager)
         }
     }
 
     
-    func updatePhoto(withData photoData: Data, version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+    func updateContactPhoto(withData photoData: Data, version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if let publishedIdentityDetails = self.publishedIdentityDetails, publishedIdentityDetails.version == version {
-            try publishedIdentityDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try publishedIdentityDetails.setContactPhoto(data: photoData, delegateManager: delegateManager)
         }
         if self.trustedIdentityDetails.version == version {
-            try self.trustedIdentityDetails.setPhoto(data: photoData, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+            try self.trustedIdentityDetails.setContactPhoto(data: photoData, delegateManager: delegateManager)
         }
     }
 
@@ -380,13 +384,13 @@ extension ContactIdentity {
         
         // We check that the identity details that were passed as a parameter are identical to the current published identity details of this contact
         guard let publishedIdentityDetails = self.publishedIdentityDetails else { assertionFailure(); return }
-        guard publishedIdentityDetails.identityDetails == obvIdentityDetails else { assertionFailure(); return }
+        guard publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) == obvIdentityDetails else { assertionFailure(); return }
         
         // We do *not* consider the published/trusted version here. We were asked to trust the published details, so we trust them.
         // We can update the trusted details and delete the published details
         
         try trustedIdentityDetails.updateWithContactIdentityDetailsPublished(publishedIdentityDetails, delegateManager: delegateManager)
-        try publishedIdentityDetails.delete(within: obvContext)
+        try publishedIdentityDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
 
     }
     
@@ -402,8 +406,8 @@ extension ContactIdentity {
             assert(self.publishedIdentityDetails != nil)
             if self.trustedIdentityDetails.photoServerKeyAndLabel == self.publishedIdentityDetails?.photoServerKeyAndLabel {
                 // We copy the photo found in the trusted details into the published details
-                if let trustedPhotoURL = trustedIdentityDetails.photoURL, FileManager.default.fileExists(atPath: trustedPhotoURL.path) {
-                    try publishedIdentityDetails?.setPhotoURL(with: trustedPhotoURL, creatingNewFileIn: delegateManager.identityPhotosDirectory, notificationDelegate: delegateManager.notificationDelegate)
+                if let trustedPhotoURL = trustedIdentityDetails.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory), FileManager.default.fileExists(atPath: trustedPhotoURL.path) {
+                    try publishedIdentityDetails?.setContactPhoto(with: trustedPhotoURL, delegateManager: delegateManager)
                 }
             }
         }
@@ -434,7 +438,9 @@ extension ContactIdentity {
         
         // If we reach this point, the published details have a higher version than the trusted details. We try to "auto-trust" these published details
         
-        guard publishedIdentityDetails.identityDetails.coreDetails.fieldsAreTheSameAndSignedDetailsAreNotConsidered(than: trustedIdentityDetails.identityDetails.coreDetails) else {
+        let publishedCoreDetails = publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+        let trustedCoreDetails = trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+        guard publishedCoreDetails.fieldsAreTheSameAndSignedDetailsAreNotConsidered(than: trustedCoreDetails) else {
             // Since the details displayed to the user are different in the published details than in the trusted details, we cannot auto-trust them
             os_log("Fields are different", log: log, type: .info)
             return
@@ -449,7 +455,7 @@ extension ContactIdentity {
         }
 
         // If we reach this point, we can auto-trust the published details
-        try updateTrustedDetailsWithPublishedDetails(publishedIdentityDetails.identityDetails, delegateManager: delegateManager)
+        try updateTrustedDetailsWithPublishedDetails(publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory), delegateManager: delegateManager)
 
     }
     
@@ -548,6 +554,34 @@ extension ContactIdentity {
 }
 
 
+// MARK: - Capabilities
+
+extension ContactIdentity {
+    
+    func setRawCapabilitiesOfDeviceWithUID(_ deviceUID: UID, newRawCapabilities: Set<String>) throws {
+        guard let device = self.devices.first(where: { $0.uid == deviceUID }) else {
+            throw makeError(message: "Could not find contact device")
+        }
+        device.setRawCapabilities(newRawCapabilities: newRawCapabilities)
+    }
+    
+    
+    var allCapabilities: Set<ObvCapability> {
+        var capabilities = Set<ObvCapability>()
+        ObvCapability.allCases.forEach { capability in
+            switch capability {
+            case .webrtcContinuousICE:
+                if devices.allSatisfy({ $0.allCapabilities.contains(capability) }) {
+                    capabilities.insert(capability)
+                }
+            }
+        }
+        return capabilities
+    }
+    
+}
+
+
 // MARK: - Convenience DB getters
 
 extension ContactIdentity {
@@ -590,8 +624,10 @@ extension ContactIdentity {
     override func prepareForDeletion() {
         super.prepareForDeletion()
         
+        guard let delegateManager = delegateManager else { assertionFailure(); return }
         ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
-        trustedContactIdentityDetailsOnDeletion = trustedIdentityDetails.identityDetails
+        trustedContactIdentityDetailsOnDeletion = trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+        
     }
     
     override func willSave() {

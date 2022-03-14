@@ -20,7 +20,6 @@
 import UIKit
 
 
-@available(iOS 13.0, *)
 public extension UIFont {
 
     static func rounded(ofSize size: CGFloat, weight: UIFont.Weight) -> UIFont {

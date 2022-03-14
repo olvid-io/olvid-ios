@@ -22,7 +22,6 @@ import CoreData
 import ObvEngine
 import ObvTypes
 import os.log
-import UniformTypeIdentifiers
 import MobileCoreServices
 
 @objc(PersistedMessageSent)
@@ -164,25 +163,25 @@ final class PersistedMessageSent: PersistedMessage {
     /// It loops through all infos and set the status to the "minimum" possible status.
     func refreshStatus() {
         let notDeletedUnsortedRecipientsInfos = unsortedRecipientsInfos.filter { !$0.isDeleted }
-        let atLeastOneInfoHasMessageIdentifierFromEngine = notDeletedUnsortedRecipientsInfos.reduce(true) { $0 || $1.messageIdentifierFromEngine != nil }
+        let atLeastOneInfoHasMessageIdentifierFromEngine = notDeletedUnsortedRecipientsInfos.contains(where: { $0.messageIdentifierFromEngine != nil })
         guard atLeastOneInfoHasMessageIdentifierFromEngine else {
             guard self.status < MessageStatus.unprocessed else { return }
             self.status = .unprocessed
             return
         }
-        let allMessageAndAttachmentsAreSent = notDeletedUnsortedRecipientsInfos.reduce(true) { $0 && $1.messageAndAttachmentsAreSent }
+        let allMessageAndAttachmentsAreSent = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.messageAndAttachmentsAreSent }
         guard allMessageAndAttachmentsAreSent else {
             guard self.status < MessageStatus.processing else { return }
             self.status = .processing
             return
         }
-        let allInfosHaveTimestampDelivered = notDeletedUnsortedRecipientsInfos.reduce(true) { $0 && $1.timestampDelivered != nil }
+        let allInfosHaveTimestampDelivered = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.timestampDelivered != nil }
         guard allInfosHaveTimestampDelivered else {
             guard self.status < MessageStatus.sent else { return }
             self.status = .sent
             return
         }
-        let allInfosHaveTimestampRead = notDeletedUnsortedRecipientsInfos.reduce(true) { $0 && $1.timestampRead != nil }
+        let allInfosHaveTimestampRead = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.timestampRead != nil }
         guard allInfosHaveTimestampRead else {
             guard self.status < MessageStatus.delivered else { return }
             self.status = .delivered
@@ -354,6 +353,7 @@ extension PersistedMessageSent {
             join.wipe()
         }
         self.deleteBody()
+        try? self.reactions.forEach { try $0.delete() }
         if let remoteCryptoId = requester?.cryptoId {
             try addMetadata(kind: .remoteWiped(remoteCryptoId: remoteCryptoId), date: Date())
         } else {
@@ -594,13 +594,9 @@ extension PersistedMessageSent {
 
 @available(iOS 14, *)
 extension PersistedMessageSent {
-    
-    var supportedImageTypeIdentifiers: Set<String> {
-        Set<String>(([UTType.jpeg.identifier, UTType.png.identifier, UTType.gif.identifier]))
-    }
-    
+
     var fyleMessageJoinWithStatusesOfImageType: [SentFyleMessageJoinWithStatus] {
-        fyleMessageJoinWithStatuses.filter({ supportedImageTypeIdentifiers.contains($0.uti)  })
+        fyleMessageJoinWithStatuses.filter({ Self.supportedImageTypeIdentifiers.contains($0.uti)  })
     }
 
     var fyleMessageJoinWithStatusesOfAudioType: [SentFyleMessageJoinWithStatus] {

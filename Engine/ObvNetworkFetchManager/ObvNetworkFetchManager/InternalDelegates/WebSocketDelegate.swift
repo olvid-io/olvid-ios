@@ -24,10 +24,9 @@ import OlvidUtils
 
 protocol WebSocketDelegate {
     
-    func applicationDidStartRunning(flowId: FlowIdentifier)
-    func applicationDidEnterBackground()
-
-    func connectAll()
+    func connectAll(flowId: FlowIdentifier)
+    func reconnectAll()
+    func disconnectAll(flowId: FlowIdentifier)
 
     func setWebSocketServerURL(to webSocketServerURL: URL, for identity: ObvCryptoIdentity)
     func setDeviceUid(to deviceUid: UID, for identity: ObvCryptoIdentity)

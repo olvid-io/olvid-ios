@@ -21,7 +21,6 @@ import UIKit
 
 
 /// This view displays the `text` in a bubble. Both the text and bubble color can be specified.
-@available(iOS 13.0, *)
 final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
         
     struct Configuration: Equatable, Hashable {

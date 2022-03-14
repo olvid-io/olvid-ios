@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 
 
+/// See https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Predicates/Articles/pCreating.html
 public extension NSPredicate {
     
     convenience init<T: RawRepresentable>(_ key: T, EqualToUrl url: URL) where T.RawValue == String {
@@ -28,7 +29,11 @@ public extension NSPredicate {
     }
     
     convenience init<T: RawRepresentable>(_ key: T, EqualToData data: Data) where T.RawValue == String {
-        self.init(format: "%K == %@", key.rawValue, data as NSData)
+        self.init(key.rawValue, EqualToData: data)
+    }
+
+    convenience init(_ key: String, EqualToData data: Data) {
+        self.init(format: "%K == %@", key, data as NSData)
     }
 
     convenience init<T: RawRepresentable>(_ key: T, EqualToUuid uuid: UUID) where T.RawValue == String {
@@ -57,6 +62,10 @@ public extension NSPredicate {
 
     convenience init<T: RawRepresentable>(_ key: T, equalTo object: NSManagedObject) where T.RawValue == String {
         self.init(format: "%K == %@", key.rawValue, object)
+    }
+
+    convenience init<T: RawRepresentable>(_ key: T, is bool: Bool) where T.RawValue == String {
+        self.init(format: bool ? "%K == YES" : "%K == NO", key.rawValue)
     }
 
 }

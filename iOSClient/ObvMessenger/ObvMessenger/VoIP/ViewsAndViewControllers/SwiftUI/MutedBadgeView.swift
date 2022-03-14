@@ -19,7 +19,6 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
 struct MutedBadgeView: View {
     static let size: CGFloat = 20.0
     var body: some View {
@@ -32,7 +31,6 @@ struct MutedBadgeView: View {
     }
 }
 
-@available(iOS 13.0, *)
 struct MutedBadgeView_Previews: PreviewProvider {
     static var previews: some View {
         Group {

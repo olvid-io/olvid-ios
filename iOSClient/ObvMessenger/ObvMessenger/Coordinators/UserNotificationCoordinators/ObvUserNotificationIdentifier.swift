@@ -24,8 +24,25 @@ import os.log
 
 // Defining an enum of all the possible user notifications
 
+enum ObvUserNotificationID: Int {
+    case newMessageNotificationWithHiddenContent = 0
+    case newMessage
+    case newReactionNotificationWithHiddenContent
+    case newReaction
+    case acceptInvite
+    case sasExchange
+    case mutualTrustConfirmed
+    case acceptMediatorInvite
+    case acceptGroupInvite
+    case autoconfirmedContactIntroduction
+    case increaseMediatorTrustLevelRequired
+    case missedCall
+
+    case staticIdentifier = 1000
+}
+
 enum ObvUserNotificationIdentifier {
-    
+
     var log: OSLog { OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "ObvUserNotificationIdentifier") }
     
     private static var df: DateFormatter {
@@ -37,11 +54,12 @@ enum ObvUserNotificationIdentifier {
     }
     
     // Receiving a discussion message
-    case newMessageButMinimalInfo
     case newMessageNotificationWithHiddenContent
     case newMessage(messageIdentifierFromEngine: Data)
+    // Receiving a reaction message
+    case newReactionNotificationWithHiddenContent
+    case newReaction(messageURI: URL, contactURI: URL)
     // Receiving a invitation message
-    case newInvitationNotificationWithHiddenContent
     case acceptInvite(persistedInvitationUUID: UUID)
     case sasExchange(persistedInvitationUUID: UUID)
     case mutualTrustConfirmed(persistedInvitationUUID: UUID)
@@ -52,19 +70,15 @@ enum ObvUserNotificationIdentifier {
     case missedCall(callUUID: UUID)
     // Static identifier, when notifications should not disclose any content
     case staticIdentifier
-    
+
     func getIdentifier() -> String {
         switch self {
-        case .newMessageButMinimalInfo:
-            return "newMessageMinimalInfo"
         case .newMessageNotificationWithHiddenContent:
             return "newMessageNotificationWithHiddenContent"
         case .newMessage(messageIdentifierFromEngine: let messageIdentifierFromEngine):
             let stringIdentifier = ObvUserNotificationIdentifier.loadIdentifierForcedInNotificationExtension(messageIdentifierFromEngine: messageIdentifierFromEngine) ?? "newMessage_\(messageIdentifierFromEngine.hexString()))"
             os_log("Returning this newMessage notification identifier: %{public}@", log: log, type: .info, stringIdentifier)
             return stringIdentifier
-        case .newInvitationNotificationWithHiddenContent:
-            return "newInvitationNotificationWithHiddenContent"
         case .acceptInvite(persistedInvitationUUID: let uuid):
             return "acceptInvite_\(uuid.uuidString)"
         case .sasExchange(persistedInvitationUUID: let uuid):
@@ -81,19 +95,43 @@ enum ObvUserNotificationIdentifier {
             return "increaseMediatorTrustLevelRequired_\(uuid.uuidString)"
         case .missedCall(callUUID: let uuid):
             return "missedCall_\(uuid.uuidString)"
+        case .newReaction(messageURI: let messageURI, contactURI: let contactURI):
+            return "reaction_\(messageURI.absoluteString)_\(contactURI.absoluteString)"
+        case .newReactionNotificationWithHiddenContent:
+            return "newMessageNotificationWithHiddenContent"
         case .staticIdentifier:
             return "staticIdentifier"
         }
     }
-    
+
+    var id: ObvUserNotificationID {
+        switch self {
+        case .newMessageNotificationWithHiddenContent: return .newMessageNotificationWithHiddenContent
+        case .newMessage: return .newMessage
+        case .newReactionNotificationWithHiddenContent: return .newReactionNotificationWithHiddenContent
+        case .newReaction: return .newReaction
+        case .acceptInvite: return .acceptInvite
+        case .sasExchange: return .sasExchange
+        case .mutualTrustConfirmed: return .mutualTrustConfirmed
+        case .acceptMediatorInvite: return .acceptMediatorInvite
+        case .acceptGroupInvite: return .acceptGroupInvite
+        case .autoconfirmedContactIntroduction: return .autoconfirmedContactIntroduction
+        case .increaseMediatorTrustLevelRequired: return .increaseMediatorTrustLevelRequired
+        case .missedCall: return .missedCall
+        case .staticIdentifier: return .staticIdentifier
+        }
+    }
+
     func getThreadIdentifier() -> String {
         switch self {
-        case .newMessage, .newMessageButMinimalInfo, .newMessageNotificationWithHiddenContent:
+        case .newMessage, .newMessageNotificationWithHiddenContent:
             return "MessageThread"
-        case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .newInvitationNotificationWithHiddenContent:
+        case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired:
             return "InvitationThread"
         case .missedCall:
-            return "missedCall"
+            return "CallThread"
+        case .newReaction, .newReactionNotificationWithHiddenContent:
+            return "ReactionThread"
         case .staticIdentifier:
             return "StaticThread"
         }
@@ -109,7 +147,7 @@ enum ObvUserNotificationIdentifier {
             return .newMessageCategory
         case .missedCall:
             return .missedCallCategory
-        case .newMessageButMinimalInfo, .sasExchange, .mutualTrustConfirmed, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .newMessageNotificationWithHiddenContent, .staticIdentifier, .newInvitationNotificationWithHiddenContent:
+        case .sasExchange, .mutualTrustConfirmed, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .newMessageNotificationWithHiddenContent, .staticIdentifier, .newReaction, .newReactionNotificationWithHiddenContent:
             return nil
         }
     }
@@ -139,7 +177,7 @@ enum ObvUserNotificationIdentifier {
     }
     
     static func identifierIsStaticIdentifier(identifier: String) -> Bool {
-        identifier == "staticIdentifier"
+        identifier == ObvUserNotificationIdentifier.staticIdentifier.getIdentifier()
     }
 
 }

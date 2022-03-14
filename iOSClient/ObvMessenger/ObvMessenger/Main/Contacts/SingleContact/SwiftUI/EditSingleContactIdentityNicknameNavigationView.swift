@@ -21,7 +21,7 @@ import Foundation
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct EditSingleContactIdentityNicknameNavigationView: View {
 
     @ObservedObject var singleIdentity: SingleContactIdentity

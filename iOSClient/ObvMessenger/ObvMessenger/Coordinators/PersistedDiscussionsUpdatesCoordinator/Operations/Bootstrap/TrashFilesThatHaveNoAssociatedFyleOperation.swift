@@ -48,7 +48,7 @@ final class TrashFilesThatHaveNoAssociatedFyleOperation: OperationWithSpecificRe
             for url in urlsCandidatesForTrash {
                 
                 do {
-                    guard try Fyle.noFyleIsPointingToURL(url, within: context) else { continue }
+                    guard try Fyle.noFyleReferencesTheURL(url, within: context) else { continue }
                 } catch {
                     return cancel(withReason: .coreDataError(error: error))
                 }

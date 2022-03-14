@@ -45,11 +45,11 @@ public struct Chunk {
         do {
             let fd = open(url.path, O_RDONLY)
             guard fd != -1 else {
-                throw NSError()
+                throw Self.makeError(message: "Failed to read from URL (bad fd)")
             }
             guard offset == lseek(fd, Int64(offset), SEEK_SET) else {
                 assertionFailure()
-                throw NSError()
+                throw Self.makeError(message: "Failed to read from URL (bad lseek)")
             }
             let chunkPointer = UnsafeMutableRawPointer.allocate(byteCount: length, alignment: 1)
             let lengthRead = read(fd, chunkPointer, length)
@@ -57,7 +57,7 @@ public struct Chunk {
                 assertionFailure()
                 free(chunkPointer)
                 close(fd)
-                throw NSError()
+                throw Self.makeError(message: "Failed to read from URL (bad length)")
             }
             let chunkData = Data(bytes: chunkPointer, count: length)
             chunk = Chunk(index: index, data: chunkData)
@@ -73,11 +73,11 @@ public struct Chunk {
         let fd = open(url.path, O_RDWR)
         guard fd != -1 else {
             assertionFailure()
-            throw NSError()
+            throw Self.makeError(message: "Failed to read from URL (bad fd)")
         }
         guard offset == lseek(fd, Int64(offset), SEEK_SET) else {
             assertionFailure()
-            throw NSError()
+            throw Self.makeError(message: "Failed to read from URL (bad lseek)")
         }
         let lengthWritten: Int = data.withUnsafeBytes { (rawBufferPtr) in
             guard let rawPtr = rawBufferPtr.baseAddress else { return -1 }
@@ -85,7 +85,7 @@ public struct Chunk {
         }
         guard lengthWritten == data.count else {
             assertionFailure()
-            throw NSError()
+            throw Self.makeError(message: "Failed to read from URL (bad lengthWritten)")
         }
         close(fd)
     }
@@ -101,8 +101,12 @@ public struct Chunk {
     public static func decrypt(encryptedChunk: EncryptedData, with key: AuthenticatedEncryptionKey) throws -> Chunk {
         let authEnc = key.algorithmImplementationByteId.algorithmImplementation
         let rawEncodedChunk = try authEnc.decrypt(encryptedChunk, with: key)
-        guard let encodedChunk = ObvEncoded(withRawData: rawEncodedChunk) else { throw NSError() }
-        guard let chunk = Chunk(encodedChunk) else { throw NSError() }
+        guard let encodedChunk = ObvEncoded(withRawData: rawEncodedChunk) else {
+            throw Self.makeError(message: "ObvEncoded init failed")
+        }
+        guard let chunk = Chunk(encodedChunk) else {
+            throw Self.makeError(message: "Chunk init failed")
+        }
         return chunk
     }
         

@@ -61,20 +61,11 @@ extension AllDiscussionsViewController {
         let discussionsTVC = DiscussionsTableViewController(ownedCryptoId: ownedCryptoId,
                                                             allowDeletion: true,
                                                             withRefreshControl: true)
-        if #available(iOS 13.0, *) {
-            discussionsTVC.setFetchRequestsAndImages([
-                (PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "clock")!),
-                (PersistedOneToOneDiscussion.getFetchRequestForAllOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person")!),
-                (PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
-            ])
-        } else {
-            discussionsTVC.setFetchRequestsAndTitles([
-                (PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId), DiscussionsTableViewController.Strings.latestDiscussions),
-                (PersistedOneToOneDiscussion.getFetchRequestForAllOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), CommonString.Word.Contacts),
-                (PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), CommonString.Word.Groups),
-            ])
-
-        }
+        discussionsTVC.setFetchRequestsAndImages([
+            (PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "clock")!),
+            (PersistedOneToOneDiscussion.getFetchRequestForAllOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person")!),
+            (PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
+        ])
 
         discussionsTVC.view.translatesAutoresizingMaskIntoConstraints = false
         discussionsTVC.delegate = self

@@ -23,6 +23,8 @@ import ObvTypes
 import ObvEngine
 import os.log
 import OlvidUtils
+import UniformTypeIdentifiers
+
 
 @objc(PersistedMessage)
 class PersistedMessage: NSManagedObject {
@@ -190,6 +192,12 @@ class PersistedMessage: NSManagedObject {
         self.sortIndex = newSortIndex
     }
     
+    @available(iOS 14, *)
+    static let supportedImageTypeIdentifiers = Set<String>(([UTType.jpeg.identifier,
+                                                             UTType.png.identifier,
+                                                             UTType.gif.identifier,
+                                                             UTType.heic.identifier ]))
+
 }
 
 // MARK: - Errors
@@ -405,6 +413,8 @@ extension PersistedMessage {
     
     
     func setReactionFromOwnedIdentity(withEmoji emoji: String?, reactionTimestamp: Date) throws {
+        // Never set an emoji on a wiped message
+        guard !self.isWiped else { return }
         if let reaction = reactionFromOwnedIdentity() {
             try reaction.updateEmoji(with: emoji, at: reactionTimestamp)
         } else if let emoji = emoji {
@@ -416,6 +426,8 @@ extension PersistedMessage {
 
     
     func setReactionFromContact(_ contact: PersistedObvContactIdentity, withEmoji emoji: String?, reactionTimestamp: Date) throws {
+        // Never set an emoji on a wiped message
+        guard !self.isWiped else { return }
         if let contactReaction = reactionFromContact(with: contact.cryptoId) {
             try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
         } else if let emoji = emoji {
@@ -613,18 +625,18 @@ extension PersistedMessage {
     }
 
     
-    static func findMessageRepliedTo(replyToJSON: MessageReferenceJSON, within discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        if let replyTo = try PersistedMessageReceived.get(senderSequenceNumber: replyToJSON.senderSequenceNumber,
-                                                          senderThreadIdentifier: replyToJSON.senderThreadIdentifier,
-                                                          contactIdentity: replyToJSON.senderIdentifier,
+    static func findMessageFrom(reference referenceJSON: MessageReferenceJSON, within discussion: PersistedDiscussion) throws -> PersistedMessage? {
+        if let message = try PersistedMessageReceived.get(senderSequenceNumber: referenceJSON.senderSequenceNumber,
+                                                          senderThreadIdentifier: referenceJSON.senderThreadIdentifier,
+                                                          contactIdentity: referenceJSON.senderIdentifier,
                                                           discussion: discussion) {
-            return replyTo
-        } else if let replyTo = try PersistedMessageSent.get(senderSequenceNumber: replyToJSON.senderSequenceNumber,
-                                                             senderThreadIdentifier: replyToJSON.senderThreadIdentifier,
-                                                             ownedIdentity: replyToJSON.senderIdentifier,
+            return message
+        } else if let message = try PersistedMessageSent.get(senderSequenceNumber: referenceJSON.senderSequenceNumber,
+                                                             senderThreadIdentifier: referenceJSON.senderThreadIdentifier,
+                                                             ownedIdentity: referenceJSON.senderIdentifier,
                                                              discussion: discussion) {
-            assert(replyToJSON.senderIdentifier == discussion.ownedIdentity!.cryptoId.getIdentity())
-            return replyTo
+            assert(referenceJSON.senderIdentifier == discussion.ownedIdentity!.cryptoId.getIdentity())
+            return message
         } else {
             return nil
         }

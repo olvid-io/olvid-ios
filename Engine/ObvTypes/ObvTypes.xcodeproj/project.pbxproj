@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		C0DEA3B525D2EDBD002A9A31 /* AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEA3B425D2EDBD002A9A31 /* AppInfo.swift */; };
+		C42E0F05279700E700C05190 /* OlvidUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42E0F04279700E100C05190 /* OlvidUtils.framework */; };
+		C42E0F0E2797011400C05190 /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42E0F0D2797010E00C05190 /* JWS.framework */; };
+		C45E191827916D7900EE9446 /* ObvCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45E191727916D7900EE9446 /* ObvCapability.swift */; };
 		C4765C8F273E8AAF000F3797 /* SignedUserDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */; };
 		C47980F11FA7EA830084E097 /* NSManagedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47980F01FA7EA830084E097 /* NSManagedObject.swift */; };
 		C47D6EBF1FAE76130035D1BC /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C47D6EBE1FAE76060035D1BC /* CoreData.framework */; };
@@ -30,6 +33,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		C42E0F03279700E100C05190 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C49AA9EE261F4A9100E055F9;
+			remoteInfo = OlvidUtils;
+		};
+		C42E0F0C2797010E00C05190 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C42E0F082797010E00C05190 /* JWS.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C026E59D260A367400D0DAD2;
+			remoteInfo = JWS;
+		};
 		C4C11F741FA0879800D5E44B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C4C11F601FA0879800D5E44B /* Project object */;
@@ -42,6 +59,9 @@
 /* Begin PBXFileReference section */
 		C0D2BF70276FE6CB00375179 /* .swiftlint.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
 		C0DEA3B425D2EDBD002A9A31 /* AppInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfo.swift; sourceTree = "<group>"; };
+		C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = OlvidUtils.xcodeproj; path = ../../OlvidUtils/OlvidUtils.xcodeproj; sourceTree = "<group>"; };
+		C42E0F082797010E00C05190 /* JWS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = JWS.xcodeproj; path = ../JWS/JWS.xcodeproj; sourceTree = "<group>"; };
+		C45E191727916D7900EE9446 /* ObvCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCapability.swift; sourceTree = "<group>"; };
 		C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignedUserDetails.swift; sourceTree = "<group>"; };
 		C47980F01FA7EA830084E097 /* NSManagedObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSManagedObject.swift; sourceTree = "<group>"; };
 		C47D6EBE1FAE76060035D1BC /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
@@ -74,6 +94,8 @@
 				C47D6EBF1FAE76130035D1BC /* CoreData.framework in Frameworks */,
 				C4D25D762747BBA9005BAB17 /* JWS.framework in Frameworks */,
 				C4F408EC277CAFB100CA4112 /* OlvidUtils.framework in Frameworks */,
+				C42E0F0E2797011400C05190 /* JWS.framework in Frameworks */,
+				C42E0F05279700E700C05190 /* OlvidUtils.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -88,9 +110,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C42E0F00279700E000C05190 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C42E0F04279700E100C05190 /* OlvidUtils.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C42E0F092797010E00C05190 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C42E0F0D2797010E00C05190 /* JWS.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		C47D6EBD1FAE76060035D1BC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C42E0F082797010E00C05190 /* JWS.xcodeproj */,
+				C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */,
 				C4F408EB277CAFB100CA4112 /* OlvidUtils.framework */,
 				C4D25D752747BBA9005BAB17 /* JWS.framework */,
 				C47D6EBE1FAE76060035D1BC /* CoreData.framework */,
@@ -137,6 +177,7 @@
 				C0DEA3B425D2EDBD002A9A31 /* AppInfo.swift */,
 				C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */,
 				C4D25D732747BB88005BAB17 /* ObvKeycloakState.swift */,
+				C45E191727916D7900EE9446 /* ObvCapability.swift */,
 			);
 			path = ObvTypes;
 			sourceTree = "<group>";
@@ -234,6 +275,16 @@
 			mainGroup = C4C11F5F1FA0879800D5E44B;
 			productRefGroup = C4C11F6A1FA0879800D5E44B /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = C42E0F092797010E00C05190 /* Products */;
+					ProjectRef = C42E0F082797010E00C05190 /* JWS.xcodeproj */;
+				},
+				{
+					ProductGroup = C42E0F00279700E000C05190 /* Products */;
+					ProjectRef = C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				C4C11F681FA0879800D5E44B /* ObvTypes */,
@@ -241,6 +292,23 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		C42E0F04279700E100C05190 /* OlvidUtils.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = OlvidUtils.framework;
+			remoteRef = C42E0F03279700E100C05190 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C42E0F0D2797010E00C05190 /* JWS.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = JWS.framework;
+			remoteRef = C42E0F0C2797010E00C05190 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C4C11F671FA0879800D5E44B /* Resources */ = {
@@ -291,6 +359,7 @@
 				C47980F11FA7EA830084E097 /* NSManagedObject.swift in Sources */,
 				C4D5524921EDF2E700F50D3D /* ObvIdentityDetails.swift in Sources */,
 				C4E47E281FEA69EB005C5AD9 /* KeyId.swift in Sources */,
+				C45E191827916D7900EE9446 /* ObvCapability.swift in Sources */,
 				C4D25D742747BB88005BAB17 /* ObvKeycloakState.swift in Sources */,
 				C0DEA3B525D2EDBD002A9A31 /* AppInfo.swift in Sources */,
 				C497F2DA2284274F00CC67EC /* ObvGroupDetails.swift in Sources */,
@@ -373,6 +442,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -430,6 +500,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
@@ -452,7 +523,7 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = ObvTypes/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvTypes;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
@@ -476,7 +547,7 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = ObvTypes/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvTypes;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";

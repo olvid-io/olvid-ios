@@ -19,7 +19,7 @@
 
 import SwiftUI
 
-@available(iOS 13, *)
+
 struct ReceivedMessageStatusView: View {
     
     let forStatus: PersistedMessageReceived.MessageStatus
@@ -64,7 +64,7 @@ struct ReceivedMessageStatusView: View {
 }
 
 
-@available(iOS 13, *)
+
 struct ReceivedMessageStatusView_Previews: PreviewProvider {
     
     static var previews: some View {

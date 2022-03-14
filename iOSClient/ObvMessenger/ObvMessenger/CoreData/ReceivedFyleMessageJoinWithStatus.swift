@@ -162,7 +162,7 @@ extension ReceivedFyleMessageJoinWithStatus {
             NSPredicate(format: "\(ReceivedFyleMessageJoinWithStatus.fyleKey) != NIL")
         }
         static func withSha256(_ sha256: Data) -> NSPredicate {
-            let key = [ReceivedFyleMessageJoinWithStatus.fyleKey, Fyle.sha256Key].joined(separator: ".")
+            let key = [ReceivedFyleMessageJoinWithStatus.fyleKey, Fyle.Predicate.Key.sha256.rawValue].joined(separator: ".")
             return NSCompoundPredicate(andPredicateWithSubpredicates: [
                 FyleIsNonNil,
                 NSPredicate(format: "\(key) == %@", sha256 as NSData)

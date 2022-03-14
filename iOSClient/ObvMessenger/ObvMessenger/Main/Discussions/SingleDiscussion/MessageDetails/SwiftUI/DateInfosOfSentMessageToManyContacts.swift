@@ -32,7 +32,7 @@ struct Recipient: Identifiable, Hashable {
     let recipientName: String
 }
 
-@available(iOS 13, *)
+
 struct DateInfosOfSentMessageToManyContactsInnverView: View {
     
     let read: [RecipientAndTimestamp]
@@ -78,7 +78,7 @@ struct DateInfosOfSentMessageToManyContactsInnverView: View {
 
 
 
-@available(iOS 13, *)
+
 fileprivate struct DateInfosOfSentMessageToManyContactsInnverView_Previews: PreviewProvider {
     
     private static let read = [

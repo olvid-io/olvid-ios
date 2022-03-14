@@ -20,6 +20,7 @@
 import Foundation
 import MobileCoreServices
 
+
 final class ObvUTIUtils {
     
     static let kUTTypeOlvidBackup = "io.olvid.type.olvidbackup" as CFString
@@ -138,4 +139,5 @@ final class ObvUTIUtils {
         default: return nil
         }
     }
+
 }

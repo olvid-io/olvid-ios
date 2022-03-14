@@ -21,7 +21,6 @@ import UIKit
 import LinkPresentation
 
 
-@available(iOS 13.0, *)
 final class SingleLinkView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
     
     enum Configuration: Equatable, Hashable {

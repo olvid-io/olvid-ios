@@ -144,16 +144,13 @@ struct GenericProtocolMessageToSend {
     
     func generateObvChannelProtocolMessageToSend(with prng: PRNGService) -> ObvChannelProtocolMessageToSend? {
         switch channelType {
-        case .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: let ownedIdentity),
-             .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: _, fromOwnedIdentity: let ownedIdentity),
-             .AsymmetricChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let ownedIdentity),
-             .AsymmetricChannelBroadcast(to: _, fromOwnedIdentity: let ownedIdentity),
-             .Local(ownedIdentity: let ownedIdentity),
-             .ObliviousChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let ownedIdentity, necessarilyConfirmed: _):
-            let uid = UID.gen(with: prng)
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: uid)
-            return ObvChannelProtocolMessageToSend(messageId: messageId,
-                                                   channelType: channelType,
+        case .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity,
+             .AllConfirmedObliviousChannelsWithContactIdentities,
+             .AsymmetricChannel,
+             .AsymmetricChannelBroadcast,
+             .Local,
+             .ObliviousChannel:
+            return ObvChannelProtocolMessageToSend(channelType: channelType,
                                                    timestamp: timestamp,
                                                    encodedElements: encodedElements,
                                                    partOfFullRatchetProtocolOfTheSendSeed: partOfFullRatchetProtocolOfTheSendSeed)

@@ -485,48 +485,41 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     /// This method aynchronously lists all the files of the Fyles directory and compare this list to the list of entries of the `Fyles` database.
     /// Each file that cannot be found is a candidate for being trashed. We do not trash the file right away though, since we are doing this work
-    /// asynchronously : some other operation may have created a `Fyle` while we were doing the comparison. Instead, we consider we pass
-    /// the list of candidates to an appropriate operations that will perform checks and trash the files if appropriate, in an synchronous way.
+    /// asynchronously : some other operation may have created a `Fyle` while we were doing the comparison. Instead, we pass
+    /// the list of candidates to an appropriate operations that will perform checks and trash the files if appropriate, in a synchronous way.
     private func trashOrphanedFilesFoundInTheFylesDirectory() {
 
         let log = self.log
 
         ObvStack.shared.performBackgroundTask { [weak self] (context) in
             
-            let allFileNamesOnDisk: Set<String>
+            let namesOfFilesOnDisk: Set<String>
             do {
                 let allFilesInFyle = try Set(FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forFyles, includingPropertiesForKeys: nil))
-                allFileNamesOnDisk = Set(allFilesInFyle.map({ $0.lastPathComponent }))
+                namesOfFilesOnDisk = Set(allFilesInFyle.map({ $0.lastPathComponent }))
             } catch {
                 os_log("Could not list the files of the Fyles directory: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
                                     
-            let allURLsToKeep: Set<URL>
-            let allFileNamesToKeep: Set<String>
+            let namesOfFilesToKeep: Set<String>
             do {
-                allURLsToKeep = Set(try Fyle.getAllURLs(within: context))
-                allFileNamesToKeep = Set(allURLsToKeep.map({ $0.lastPathComponent }))
+                namesOfFilesToKeep = Set(try Fyle.getAllFilenames(within: context))
             } catch {
-                os_log("Could not get all Fyle URLs: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not get all Fyle's filenames: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
 
-            let fileNamesCandidatesForTrash = allFileNamesOnDisk.subtracting(allFileNamesToKeep)
-            let urlsCandidatesForTrash = Set(fileNamesCandidatesForTrash.map({ Fyle.getFileURL(lastPathComponent: $0) }))
+            let namesOfFilesCandidatesForTrash = namesOfFilesOnDisk.subtracting(namesOfFilesToKeep)
+            let urlsOfFilesCandidatesForTrash = Set(namesOfFilesCandidatesForTrash.map({ Fyle.getFileURL(lastPathComponent: $0) }))
             
-            guard allURLsToKeep.intersection(urlsCandidatesForTrash).isEmpty else {
-                assertionFailure()
-                return
-            }
-            
-            guard !urlsCandidatesForTrash.isEmpty else {
+            guard !urlsOfFilesCandidatesForTrash.isEmpty else {
                 return
             }
 
-            let op = TrashFilesThatHaveNoAssociatedFyleOperation(urlsCandidatesForTrash: urlsCandidatesForTrash)
+            let op = TrashFilesThatHaveNoAssociatedFyleOperation(urlsCandidatesForTrash: urlsOfFilesCandidatesForTrash)
             self?.internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
 

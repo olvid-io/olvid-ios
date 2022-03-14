@@ -22,7 +22,6 @@ import BackgroundTasks
 import os.log
 
 
-@available(iOS 13.0, *)
 final class BackgroundTasksManager {
     
     static let shared = BackgroundTasksManager()
@@ -35,6 +34,7 @@ final class BackgroundTasksManager {
         case cleanExpiredMessages = "io.olvid.clean.expired.messages"
         case applyRetentionPolicies = "io.olvid.apply.retention.policies"
         case updateBadge = "io.olvid.update.badge"
+        case listMessagesOnServer = "io.list.messages.on.server"
 
         var identifier: String { rawValue }
         
@@ -46,6 +46,8 @@ final class BackgroundTasksManager {
                 return "Apply retention policies"
             case .updateBadge:
                 return "Update badge"
+            case .listMessagesOnServer:
+                return "List messages on server"
             }
         }
 
@@ -72,6 +74,10 @@ final class BackgroundTasksManager {
                     ObvMessengerInternalNotification.updateBadgeBackgroundTaskWasLaunched { [weak self] (success) in
                         self?.commonCompletion(obvTask: obvTask, backgroundTask: backgroundTask, success: success)
                     }.postOnDispatchQueue()
+                case .listMessagesOnServer:
+                    ObvMessengerInternalNotification.listMessagesOnServerBackgroundTaskWasLaunched { [weak self] (success) in
+                        self?.commonCompletion(obvTask: obvTask, backgroundTask: backgroundTask, success: success)
+                    }.postOnDispatchQueue()
                 }
             }
         }
@@ -91,7 +97,7 @@ final class BackgroundTasksManager {
 
     
     func submit(task: ObvBackgroundTask, earliestBeginDate: Date?) throws {
-        ObvDisplayableLogs.shared.log("Submitting background task '\(task.description)' with earliest begin date \(String(describing: earliestBeginDate?.description))")
+        // ObvDisplayableLogs.shared.log("Submitting background task '\(task.description)' with earliest begin date \(String(describing: earliestBeginDate?.description))")
         // We do not schedule BG tasks when running in the simulator as they are not supported
         guard ObvMessengerConstants.isRunningOnRealDevice else { return }
         let request = BGAppRefreshTaskRequest(identifier: task.identifier)

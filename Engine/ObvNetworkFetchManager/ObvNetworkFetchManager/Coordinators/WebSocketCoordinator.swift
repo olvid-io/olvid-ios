@@ -27,7 +27,7 @@ import ObvServerInterface
 import ObvEncoder
 
 
-@available(iOS 13, *)
+
 final class WebSocketCoordinator: NSObject {
     
     weak var delegateManager: ObvNetworkFetchDelegateManager?
@@ -60,21 +60,21 @@ final class WebSocketCoordinator: NSObject {
 }
 
 
-@available(iOS 13, *)
+
 extension WebSocketCoordinator: WebSocketDelegate {
     
     // MARK: - Reacting the App lifecycle changes
 
-    func applicationDidStartRunning(flowId: FlowIdentifier) {
+    func connectAll(flowId: FlowIdentifier) {
         self.alwaysReconnect = true
         self.updateListOfOwnedIdentities(flowId: flowId)
         self.updateListOfWebSocketServerURLs(flowId: flowId)
         self.startPerformingPingTestsOnRunningWebSockets()
-        connectAll()
+        reconnectAll()
     }
     
     
-    func applicationDidEnterBackground() {
+    func disconnectAll(flowId: FlowIdentifier) {
         self.alwaysReconnect = false
         self.stopPerformingPingTestsOnRunningWebSockets()
         disconnectAll()
@@ -208,7 +208,8 @@ extension WebSocketCoordinator: WebSocketDelegate {
     }
     
 
-    func connectAll() {
+    func reconnectAll() {
+        os_log("🏓❄️ Call to connect all websockets", log: log, type: .info)
         var identities = [ObvCryptoIdentity]()
         AssertCurrentQueue.notOnQueue(internalQueue)
         internalQueue.sync {
@@ -221,6 +222,7 @@ extension WebSocketCoordinator: WebSocketDelegate {
     
     
     private func disconnectAll() {
+        os_log("🏓❄️ Call to disconnect all websockets", log: log, type: .info)
         var allServerURLs = [URL]()
         AssertCurrentQueue.notOnQueue(internalQueue)
         internalQueue.sync {
@@ -577,7 +579,7 @@ extension WebSocketCoordinator: WebSocketDelegate {
 }
 
 
-@available(iOS 13, *)
+
 fileprivate struct DeleteReturnReceipt: Encodable {
     
     enum CodingKeys: String, CodingKey {
@@ -610,7 +612,7 @@ fileprivate struct DeleteReturnReceipt: Encodable {
 
 }
 
-@available(iOS 13, *)
+
 fileprivate struct RegisterMessage: Encodable {
     
     enum CodingKeys: String, CodingKey {
@@ -727,7 +729,7 @@ extension ReturnReceipt: Decodable {
 
 // MARK: - ResponseToRegisterMessage
 
-@available(iOS 13, *)
+
 fileprivate struct ResponseToRegisterMessage: Decodable {
     
     let identity: ObvCryptoIdentity?
@@ -814,7 +816,7 @@ fileprivate struct ResponseToRegisterMessage: Decodable {
 
 // MARK: - NewMessageAvailableMessage
 
-@available(iOS 13, *)
+
 fileprivate struct NewMessageAvailableMessage: Decodable {
     
     let identity: ObvCryptoIdentity
@@ -881,7 +883,7 @@ fileprivate struct NewMessageAvailableMessage: Decodable {
 
 // MARK: - URLSessionWebSocketDelegate
 
-@available(iOS 13, *)
+
 extension WebSocketCoordinator: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol _protocol: String?) {
@@ -999,7 +1001,7 @@ extension WebSocketCoordinator: URLSessionWebSocketDelegate, URLSessionTaskDeleg
 
 // MARK: - Pinging running websockets
 
-@available(iOS 13, *)
+
 extension WebSocketCoordinator {
     
     private func startPerformingPingTestsOnRunningWebSockets() {

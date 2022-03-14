@@ -232,7 +232,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: ComposeMessageViewDo
     }
     
     
-    @available(iOS 13.0, *)
+    
     private func setupAndPresentDocumentCameraViewController() {
         assert(Thread.isMainThread)
         let documentCameraViewController = VNDocumentCameraViewController()
@@ -372,7 +372,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: UIImagePickerControl
 
 // MARK: - VNDocumentCameraViewControllerDelegate
 
-@available(iOS 13.0, *)
+
 extension ComposeMessageViewDocumentPickerAdapterWithDraft: VNDocumentCameraViewControllerDelegate {
     
     

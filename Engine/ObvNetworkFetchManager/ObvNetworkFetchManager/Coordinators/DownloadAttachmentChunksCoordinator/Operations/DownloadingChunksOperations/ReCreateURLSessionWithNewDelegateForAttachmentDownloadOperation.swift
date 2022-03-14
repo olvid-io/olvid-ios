@@ -139,10 +139,8 @@ final class ReCreateURLSessionWithNewDelegateForAttachmentDownloadOperation: Ope
             sessionConfiguration.allowsCellularAccess = true
             sessionConfiguration.sessionSendsLaunchEvents = true
             sessionConfiguration.shouldUseExtendedBackgroundIdleMode = true
-            if #available(iOS 13.0, *) {
-                sessionConfiguration.allowsConstrainedNetworkAccess = true
-                sessionConfiguration.allowsExpensiveNetworkAccess = true
-            }
+            sessionConfiguration.allowsConstrainedNetworkAccess = true
+            sessionConfiguration.allowsExpensiveNetworkAccess = true
 
             self.urlSession = URLSession(configuration: sessionConfiguration,
                                          delegate: sessionDelegate,

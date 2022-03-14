@@ -19,7 +19,6 @@
 
 import UIKit
 
-@available(iOS 13.0, *)
 final class WipedView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
     
     enum Configuration: Equatable, Hashable {

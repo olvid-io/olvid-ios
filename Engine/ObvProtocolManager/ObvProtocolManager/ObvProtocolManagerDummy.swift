@@ -178,6 +178,11 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForTrustEstablishmentWithMutualScanProtocol does nothing in this dummy implementation")
     }
 
+    public func getInitialMessageForAddingOwnCapabilities(ownedIdentity: ObvCryptoIdentity, newOwnCapabilities: Set<ObvCapability>) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
+    }
+
 
     // MARK: - Implementing ObvManager
     

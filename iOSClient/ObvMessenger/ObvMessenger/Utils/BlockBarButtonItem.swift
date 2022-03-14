@@ -43,24 +43,16 @@ final class BlockBarButtonItem: UIBarButtonItem {
         self.actionHandler = actionHandler
     }
 
-    convenience init(systemName: String, actionHandler: (() -> Void)?) {
-        self.init(systemName: systemName, style: .plain, target: nil, action: #selector(barButtonItemPressed))
-        self.target = self
-        self.actionHandler = actionHandler
-    }
-
     convenience init(systemIcon: ObvSystemIcon, actionHandler: (() -> Void)?) {
-        self.init(systemName: systemIcon.systemName, style: .plain, target: nil, action: #selector(barButtonItemPressed))
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 18.0, weight: .bold)
+        let image = UIImage(systemIcon: systemIcon, withConfiguration: symbolConfiguration)
+        self.init(image: image, style: .plain, target: nil, action: #selector(barButtonItemPressed))
         self.target = self
         self.actionHandler = actionHandler
     }
     
     static func forClosing(actionHandler: (() -> Void)?) -> UIBarButtonItem {
-        if #available(iOS 13, *) {
-            return BlockBarButtonItem(barButtonSystemItem: .close, actionHandler: actionHandler)
-        } else {
-            return BlockBarButtonItem(barButtonSystemItem: .done, actionHandler: actionHandler)
-        }
+        return BlockBarButtonItem(barButtonSystemItem: .close, actionHandler: actionHandler)
     }
 
     @objc func barButtonItemPressed(sender: UIBarButtonItem) {

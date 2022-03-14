@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.18 (490)] - 2022-01-28
+
+- Great improvements made to secure calls ! Including better quality in poor network conditions and reduced connecting time. Please note that your contact must also use the latest version of Olvid.
+- A user notification is shown when a contact reacts to one of your messages.
+- Adds supports for HEIC photos.
+- The onboarding is now compatible with all majors MDM vendors.
+- Updating the design of the group creation screens.
+- Fixes issues concerning reactions and ephemeral messages.
+- It is now easier to remove a reaction to a message.
+- While recording a voice message, receiving a call cancels the recording and immediately attach it to the discussion draft.
+
 ## [0.9.17 (484)] - 2022-01-10
 
 - Fixes a potential timing attack on the implementation of scalar multiplication on EC (many thanks to Ryad Benadjila for pointing it out to us!)

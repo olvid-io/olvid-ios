@@ -22,7 +22,6 @@ import QuickLookThumbnailing
 import ObvTypes
 
 
-@available(iOS 13.0, *)
 final class SingleDiscussionTitleView: UIView {
     
     private let title: String

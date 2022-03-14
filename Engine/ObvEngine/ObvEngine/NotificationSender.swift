@@ -409,6 +409,12 @@ extension ObvEngine {
             ObvIdentityNotificationNew.observeContactWasRevokedAsCompromised(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, flowId in
                 self?.processContactWasRevokedAsCompromised(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
             },
+            ObvIdentityNotificationNew.observeContactObvCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, flowId in
+                self?.processContactObvCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
+            },
+            ObvIdentityNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, flowId in
+                self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, flowId: flowId)
+            },
         ])
         
         do {
@@ -807,6 +813,52 @@ extension ObvEngine {
 
         }
 
+    }
+    
+    
+    private func processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+        
+        guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
+        guard let createContextDelegate = self.createContextDelegate else { assertionFailure(); return }
+        let appNotificationCenter = self.appNotificationCenter
+
+        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+            
+            guard let obvOwnedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedIdentity, identityDelegate: identityDelegate, within: obvContext) else {
+                os_log("Could not create an ObvOwnedIdentity structure", log: self.log, type: .fault)
+                assertionFailure()
+                return
+            }
+            
+            ObvEngineNotificationNew.OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: obvOwnedIdentity)
+                .postOnBackgroundQueue(within: appNotificationCenter)
+
+        }
+
+    }
+    
+    private func processContactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+        
+        guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
+        guard let createContextDelegate = self.createContextDelegate else { assertionFailure(); return }
+        let appNotificationCenter = self.appNotificationCenter
+
+        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+            
+            guard let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactIdentity,
+                                                              ownedCryptoIdentity: ownedIdentity,
+                                                              identityDelegate: identityDelegate, within: obvContext) else {
+                os_log("Could not create an ObvContactIdentity structure", log: self.log, type: .fault)
+                assertionFailure()
+                return
+            }
+
+            ObvEngineNotificationNew.ContactObvCapabilitiesWereUpdated(contact: obvContactIdentity)
+                .postOnBackgroundQueue(within: appNotificationCenter)
+
+        }
+
+        
     }
 
     
