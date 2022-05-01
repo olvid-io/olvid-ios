@@ -23,136 +23,199 @@ import ObvEngine
 import CoreData
 import os.log
 
+
+@MainActor
 final class ObservableCallWrapper: ObservableObject {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ObservableCallWrapper.self))
 
-    let call: Call
+    let call: GenericCall
     private var tokens: [NSObjectProtocol] = []
 
-    var isOutgoingCall: Bool { call is OutgoingCall }
+    var isOutgoingCall: Bool { call.direction == .outgoing }
 
-    @Published var callParticipantDatas: [CallParticipantData] = []
+    @Published var callParticipantDatas = Set<CallParticipantData>()
     @Published var isCallIsAnswered: Bool = false
     @Published var initialParticipantCount: Int?
     @Published var startTimestamp: Date?
     @Published var isMuted = false
-    @Published var state: CallState = .initial
+    @Published var callIsInInitialState: Bool = true
     @Published var audioIcon: AudioInputIcon = .sf("iphone")
     @Published var audioInputs: [AudioInput] = ObvAudioSessionUtils.shared.getAllInputs()
+    @Published var callHeadline: String
 
     private var selectedGroupMembers = Set<PersistedObvContactIdentity>()
 
-    func actionReject() {
-        call.endCall()
+    nonisolated func actionReject() {
+        call.userRequestedToEndCall()
     }
 
-    func actionAccept() {
-        guard let incomingCall = call as? IncomingCall else { return }
-        switch incomingCall.state {
-        case .initial, .ringing:
-            incomingCall.answerCall()
-        default:
-            return
+    
+    nonisolated func actionAccept() {
+        Task {
+            await call.userRequestedToAnswerCall()
         }
     }
+    
 
-    func actionAddParticipant(_ selectedContacts: Set<PersistedObvContactIdentity>) {
-        let contactIDs = selectedContacts.map { $0.typedObjectID }
-        ObvMessengerInternalNotification.userWantsToAddParticipants(call: call, contactIDs: contactIDs).postOnDispatchQueue()
+    nonisolated func actionAddParticipant(_ selectedContacts: Set<PersistedObvContactIdentity>) {
+        assert(Thread.isMainThread)
+        for contact in selectedContacts {
+            assert(contact.managedObjectContext == ObvStack.shared.viewContext)
+        }
+        let contactIds: [OlvidUserId] = selectedContacts.compactMap { persistedContact in
+            guard let ownCryptoId = persistedContact.ownedIdentity?.cryptoId else { return nil }
+            return OlvidUserId.known(contactObjectID: persistedContact.typedObjectID,
+                                     ownCryptoId: ownCryptoId,
+                                     remoteCryptoId: persistedContact.cryptoId,
+                                     displayName: persistedContact.fullDisplayName)
+        }
+        VoIPNotification.userWantsToAddParticipants(call: call, contactIds: contactIds)
+            .postOnDispatchQueue()
     }
 
-    func actionKick(_ callParticipant: CallParticipant) {
-        ObvMessengerInternalNotification.userWantsToKickParticipant(call: call, callParticipant: callParticipant).postOnDispatchQueue()
+    
+    nonisolated func actionKick(_ callParticipant: CallParticipant) {
+        VoIPNotification.userWantsToKickParticipant(call: call, callParticipant: callParticipant)
+            .postOnDispatchQueue()
     }
 
-    func actionToggleAudio() {
-        if call.isMuted {
-            call.unmute()
-        } else {
-            call.mute()
+    
+    nonisolated func actionToggleAudio() {
+        Task {
+            await call.userRequestedToToggleAudio()
         }
     }
+    
 
-    func actionDiscussions() {
+    nonisolated func actionDiscussions() {
         ObvMessengerInternalNotification.toggleCallView.postOnDispatchQueue()
     }
 
-    init(call: Call) {
+    
+    init(call: GenericCall) {
         self.call = call
-        let callUuid = call.uuid
-        self.tokens += [ObvMessengerInternalNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] (updatedCall, updateKind) in
-            guard updatedCall.uuid == callUuid else { return }
-            switch updateKind {
-            case .state, .mute:
-                break
-            case .callParticipantChange:
-                self?.updateCallParticipants()
-            }
-            self?.update()
-        }]
-        self.tokens += [ObvMessengerInternalNotification.observeCallParticipantHasBeenUpdated(queue: OperationQueue.main) { [weak self] (updatedParticipant, updateKind) in
-            if let callParticipant = self?.callParticipantDatas.first(where: { $0.id == updatedParticipant.uuid}) {
-                callParticipant.update()
-            }
-        }]
-        self.tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: OperationQueue.main, using: { [weak self] notification in
-            guard let _self = self else { return }
-            _self.update()
-        }))
-        updateCallParticipants()
-        update()
-    }
-
-    private func updateCallParticipants() {
-        let currentParticipantsId = self.callParticipantDatas
-        let newParticipantsId = call.callParticipants.map {
-            CallParticipantData(callParticipant: $0, startTimestamp: self.startTimestamp)
-        }
-
-        let changes = newParticipantsId.difference(from: currentParticipantsId)
-
-        for change in changes {
-            guard case let .insert(_, element: newParticipant, associatedWith: _) = change else { continue }
-            self.callParticipantDatas += [newParticipant]
-        }
-
-        // We wait some seconds to show the new participants list
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-            for change in changes {
-                guard case let .remove(_, element: removedParticipant, associatedWith: _) = change else { continue }
-                self.callParticipantDatas.removeAll(where: { $0 == removedParticipant})
-            }
+        self.callHeadline = ""
+        self.tokens.append(contentsOf: [
+            VoIPNotification.observeCallHasBeenUpdated { (updatedCall, updateKind) in
+                Task { [weak self] in await self?.processCallHasBeenUpdated(updatedCall: updatedCall, updateKind: updateKind) }
+            },
+            VoIPNotification.observeCallParticipantHasBeenUpdated(queue: OperationQueue.main) { [weak self] (updatedParticipant, updateKind) in
+                Task { [weak self] in
+                    assert(Thread.isMainThread)
+                    guard let callParticipant = self?.callParticipantDatas.first(where: { $0.id == updatedParticipant.uuid}) else { return }
+                    await callParticipant.update()
+                    await self?.update()
+                }
+            },
+            NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { _ in
+                Task { [weak self] in await self?.update() }
+            },
+        ])
+        Task { [weak self] in
+            await updateCallParticipants()
+            await self?.update()
         }
     }
+    
+    
+    private func processCallHasBeenUpdated(updatedCall: CallEssentials, updateKind: CallUpdateKind) async {
+        assert(Thread.isMainThread)
+        guard updatedCall.uuid == call.uuid else { return }
+        switch updateKind {
+        case .state, .mute:
+            break
+        case .callParticipantChange:
+            await updateCallParticipants()
+        }
+        await update()
+    }
 
-    private func update() {
+    
+    private func updateCallParticipants() async {
+        
+        let callParticipants = await call.getCallParticipants()
+        let newParticipantDatas = await withTaskGroup(of: CallParticipantData.self, returning: Set<CallParticipantData>.self) { taskGroup in
+            for callParticipant in callParticipants {
+                taskGroup.addTask {
+                    return await CallParticipantData(callParticipant: callParticipant, startTimestamp: self.startTimestamp)
+                }
+            }
+            var collected = Set<CallParticipantData>()
+            for await value in taskGroup {
+                collected.insert(value)
+            }
+            return collected
+        }
+
+        let callParticipantsToInsert = newParticipantDatas.subtracting(self.callParticipantDatas)
+        let callParticipantsToRemove = self.callParticipantDatas.subtracting(newParticipantDatas)
+        
+        for participant in callParticipantsToInsert {
+            withAnimation {
+                _ = self.callParticipantDatas.insert(participant)
+            }
+        }
+
+        for participant in callParticipantsToRemove {
+            withAnimation {
+                _ = self.callParticipantDatas.remove(participant)
+            }
+        }
+
+        
+        
+    }
+
+    
+    private func update() async {
+        assert(Thread.isMainThread)
         // Update isCallIsAnswered
-        if let incomingCall = call as? IncomingWebrtcCall {
-            switch incomingCall.state {
+        switch call.direction {
+        case .incoming:
+            switch await call.state {
             case .initial, .ringing:
                 /// We never show the answerCallButton when we use call kit
-                isCallIsAnswered = incomingCall.usesCallKit
-                initialParticipantCount = incomingCall.initialParticipantCount
+                isCallIsAnswered = call.usesCallKit
+                initialParticipantCount = call.initialParticipantCount
 
             default:
                 isCallIsAnswered = true
             }
-        } else {
+        case .outgoing:
             isCallIsAnswered = true
         }
         // Update the startTimestamp
 
-        if self.startTimestamp == nil, let start = self.call.stateDate[.callInProgress] {
+        if self.startTimestamp == nil, let start = await call.getStateDates()[.callInProgress] {
             self.startTimestamp = start
             for participant in callParticipantDatas {
                 participant.startTimestamp = start
             }
         }
         // Update muteIsOn
-        isMuted = call.isMuted
+        Task {
+            let isMuted = await call.isMuted
+            DispatchQueue.main.async {
+                self.isMuted = isMuted
+            }
+        }
         // Update state
-        state = call.state
+        let callState = await call.state
+        callIsInInitialState = callState == .initial
+        
+        // Update the call headline
+        if callState != .callInProgress {
+            callHeadline = callState.localizedString
+        } else {
+            // If we reach this point, the call is not a group call and it is in progess.
+            // We always display the call state, unless the (only) participant is connecting or reconnecting
+            if let singleParticipantState = callParticipantDatas.first?.state, [PeerState.connectingToPeer, PeerState.reconnecting].contains(singleParticipantState) {
+                callHeadline = singleParticipantState.localizedString
+            } else {
+                callHeadline = callState.localizedString
+            }
+        }
 
         audioInputs = ObvAudioSessionUtils.shared.getAllInputs()
 
@@ -170,8 +233,14 @@ struct CallView: View {
 
     @ObservedObject var wrappedCall: ObservableCallWrapper
 
+    private var sortedCallParticipantDatas: [CallParticipantData] {
+        wrappedCall.callParticipantDatas.sorted {
+            $0.name < $1.name
+        }
+    }
+    
     var body: some View {
-        InnerCallView(callParticipantDatas: wrappedCall.callParticipantDatas,
+        InnerCallView(callParticipantDatas: sortedCallParticipantDatas,
                       isOutgoingCall: wrappedCall.isOutgoingCall,
                       startTimestamp: wrappedCall.startTimestamp,
                       isMuted: wrappedCall.isMuted,
@@ -180,7 +249,8 @@ struct CallView: View {
                       discussionsIsOn: false,
                       isCallIsAnswered: wrappedCall.isCallIsAnswered,
                       initialParticipantCount: wrappedCall.initialParticipantCount,
-                      callState: wrappedCall.state,
+                      callIsInInitialState: wrappedCall.callIsInInitialState,
+                      callHeadline: wrappedCall.callHeadline,
 
                       actionToggleAudio: wrappedCall.actionToggleAudio,
                       actionDiscussions: wrappedCall.actionDiscussions,
@@ -253,7 +323,8 @@ fileprivate struct InnerCallView: View {
     let discussionsIsOn: Bool
     let isCallIsAnswered: Bool
     let initialParticipantCount: Int?
-    let callState: CallState
+    let callIsInInitialState: Bool
+    let callHeadline: String
 
     let actionToggleAudio: () -> Void
     let actionDiscussions: () -> Void
@@ -339,7 +410,7 @@ fileprivate struct InnerCallView: View {
 
         }
 
-        result += [CallButton(AnyView(HangupDeclineButtonView(callState: callState, actionReject: actionReject)),
+        result += [CallButton(AnyView(HangupDeclineButtonView(callIsInInitialState: callIsInInitialState, actionReject: actionReject)),
                               bottom: true)]
 
         if showAcceptButton {
@@ -381,9 +452,8 @@ fileprivate struct InnerCallView: View {
                     VStack {
                         if isGroupCall {
                             CounterView(startTimestamp: startTimestamp)
-                        }
-                        if !isGroupCall || callState != .callInProgress {
-                            Text(callState.localizedString)
+                        } else {
+                            Text(callHeadline)
                                 .font(Font.headline.smallCaps())
                                 .foregroundColor(Color(.tertiaryLabel))
                         }
@@ -412,7 +482,10 @@ fileprivate struct InnerCallView: View {
             }
         }
         .sheet(isPresented: $showAddParticipantView) {
-            MultipleContactsView(ownedCryptoId: ownedIdentity, mode: .excluded(from: Set(callParticipantDatas.compactMap { $0.callParticipant?.contactIdentity })), button: .floating(title: CommonString.Word.Call, systemIcon: .phoneFill), disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
+            let contactsToExclude = Set(callParticipantDatas.compactMap { $0.callParticipant?.remoteCryptoId })
+            // We allow to call any contact (even non OneToOne) when this is done via a group discussion.
+            let mode = MultipleContactsMode.excluded(from: contactsToExclude, oneToOneStatus: .any)
+            MultipleContactsView(ownedCryptoId: ownedIdentity, mode: mode, button: .floating(title: CommonString.Word.Call, systemIcon: .phoneFill), disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
                 actionAddParticipant(selectedContacts)
                 showAddParticipantView = false
             } dismissAction: {
@@ -423,7 +496,8 @@ fileprivate struct InnerCallView: View {
 
 }
 
-class CallParticipantData: ObservableObject, Identifiable, Equatable {
+
+final class CallParticipantData: ObservableObject, Identifiable, Equatable, Hashable {
 
     static func == (lhs: CallParticipantData, rhs: CallParticipantData) -> Bool {
         return lhs.callParticipant?.uuid == rhs.callParticipant?.uuid
@@ -431,38 +505,47 @@ class CallParticipantData: ObservableObject, Identifiable, Equatable {
 
     var callParticipant: CallParticipant?
     var id: UUID
-    @Published var name: String?
+    @Published var name: String
     @Published var photoURL: URL?
     @Published var isMuted = false
-    @Published var status: String = ""
+    @Published var state: PeerState
     @Published var startTimestamp: Date?
-
-    /// For preview purpose
-    fileprivate init(name: String?, isMuted: Bool, state: PeerState) {
+    
+    /// For preview purposes
+    fileprivate init(name: String, isMuted: Bool, state: PeerState) {
         self.callParticipant = nil
         self.id = UUID()
         self.name = name
         self.isMuted = isMuted
-        self.status = state.localizedString
+        self.state = state
         self.startTimestamp = Date()
     }
 
-    init(callParticipant: CallParticipant, startTimestamp: Date?) {
+    @MainActor
+    init(callParticipant: CallParticipant, startTimestamp: Date?) async {
+        assert(Thread.isMainThread)
         self.callParticipant = callParticipant
         self.id = callParticipant.uuid
         self.startTimestamp = startTimestamp
-        update()
+        self.name = callParticipant.displayName
+        self.isMuted = await callParticipant.getContactIsMuted()
+        self.state = await callParticipant.getPeerState()
+        self.photoURL = callParticipant.photoURL
     }
 
-    func update() {
-        self.name = callParticipant?.displayName
-        self.isMuted = callParticipant?.contactIsMuted ?? false
-        self.status = callParticipant?.state.localizedString ?? ""
-        self.photoURL = callParticipant?.photoURL
+    @MainActor
+    func update() async {
+        assert(Thread.isMainThread)
+        guard let callParticipant = callParticipant else { return }
+        self.name = callParticipant.displayName
+        self.isMuted = await callParticipant.getContactIsMuted()
+        self.state = await callParticipant.getPeerState()
+        debugPrint("☎️ ****** CHANGED INTERFACE PARTICIPANT STATE TO \(self.state.debugDescription)")
+        self.photoURL = callParticipant.photoURL
     }
 
     var circledTextView: Text? {
-        if let cdn = name, let char = cdn.first {
+        if let char = name.first {
             return Text(String(char))
         } else {
             return nil
@@ -480,12 +563,16 @@ class CallParticipantData: ObservableObject, Identifiable, Equatable {
                            circleBackgroundColor: callParticipant?.identityColors?.background,
                            circleTextColor: callParticipant?.identityColors?.text,
                            circledTextView: circledTextView,
-                           imageSystemName: "person",
+                           systemImage: .person,
                            showGreenShield: false,
                            showRedShield: false,
                            customCircleDiameter: customCircleDiameter)
     }
 
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+    
 }
 
 struct ParticipantView: View {
@@ -502,7 +589,7 @@ struct ParticipantView: View {
     @State private var showingKickConfirmationActionSheet: Bool = false
 
     var participantName: String {
-        var result = callParticipantData.name ?? "..."
+        var result = callParticipantData.name
         if !isCallIsAnswered,
            let initialParticipantCount = initialParticipantCount,
            initialParticipantCount > 1 {
@@ -515,10 +602,10 @@ struct ParticipantView: View {
         HStack {
             if imagesOnTheLeft {
                 Button(action: {
-                    guard case .known(let contactID) = callParticipantData.callParticipant?.contactIdentificationStatus else { return }
+                    guard let contactObjectID = callParticipantData.callParticipant?.userId.contactObjectID else { return }
                     ObvStack.shared.viewContext.perform {
-                        guard let persistedContact = try? PersistedObvContactIdentity.get(objectID: contactID, within: ObvStack.shared.viewContext) else { return }
-                        let discussionObjectURI = persistedContact.oneToOneDiscussion.objectID.uriRepresentation()
+                        guard let persistedContact = try? PersistedObvContactIdentity.get(objectID: contactObjectID, within: ObvStack.shared.viewContext) else { return }
+                        guard let discussionObjectURI = try? persistedContact.oneToOneDiscussion?.objectID.uriRepresentation() else { assertionFailure(); return }
                         let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussionObjectURI)
                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                             .postOnDispatchQueue()
@@ -537,7 +624,7 @@ struct ParticipantView: View {
                     .foregroundColor(Color(.label))
                     .overlay(callParticipantData.isMuted ? AnyView(MutedBadgeView().offset(x: MutedBadgeView.size / 2, y: -0)) : AnyView(EmptyView()), alignment: Alignment(horizontal: .trailing, vertical: .top))
                 if isGroupCall {
-                    Text(callParticipantData.status)
+                    Text(callParticipantData.state.localizedString)
                         .font(.callout)
                         .foregroundColor(Color(.tertiaryLabel))
                 } else {
@@ -602,7 +689,8 @@ struct InnerCallView_Previews: PreviewProvider {
                           discussionsIsOn: false,
                           isCallIsAnswered: true,
                           initialParticipantCount: nil,
-                          callState: .callInProgress,
+                          callIsInInitialState: false,
+                          callHeadline: CallState.callInProgress.localizedString,
 
                           actionToggleAudio: {},
                           actionDiscussions: {},
@@ -621,7 +709,8 @@ struct InnerCallView_Previews: PreviewProvider {
                           discussionsIsOn: false,
                           isCallIsAnswered: true,
                           initialParticipantCount: nil,
-                          callState: .callInProgress,
+                          callIsInInitialState: false,
+                          callHeadline: CallState.callInProgress.localizedString,
 
                           actionToggleAudio: {},
                           actionDiscussions: {},
@@ -640,7 +729,8 @@ struct InnerCallView_Previews: PreviewProvider {
                           discussionsIsOn: false,
                           isCallIsAnswered: true,
                           initialParticipantCount: nil,
-                          callState: .callInProgress,
+                          callIsInInitialState: false,
+                          callHeadline: CallState.callInProgress.localizedString,
 
                           actionToggleAudio: {},
                           actionDiscussions: {},

@@ -30,7 +30,7 @@ final class NewCircledInitialsView: UIView {
     private let redShieldView = UIImageView()
     private let greenShieldView = UIImageView()
     
-    func configureWith(foregroundColor: UIColor, backgroundColor: UIColor, icon: ObvSystemIcon, stringForInitial: String?, photoURL: URL?, showGreenShield: Bool, showRedShield: Bool) {
+    func configureWith(foregroundColor: UIColor, backgroundColor: UIColor, icon: ObvSystemIcon?, stringForInitial: String?, photoURL: URL?, showGreenShield: Bool, showRedShield: Bool) {
         prepareForReuse()
         roundedClipView.backgroundColor = backgroundColor
         setupIconView(icon: icon, tintColor: foregroundColor)
@@ -43,7 +43,7 @@ final class NewCircledInitialsView: UIView {
     func configureWith(icon: ObvSystemIcon) {
         prepareForReuse()
         roundedClipView.backgroundColor = appTheme.colorScheme.systemFill
-        setupIconView(icon: .person, tintColor: appTheme.colorScheme.secondaryLabel)
+        setupIconView(icon: icon, tintColor: appTheme.colorScheme.secondaryLabel)
     }
     
     private func prepareForReuse() {
@@ -54,8 +54,8 @@ final class NewCircledInitialsView: UIView {
     }
     
     
-    private func setupIconView(icon: ObvSystemIcon, tintColor: UIColor) {
-        if #available(iOS 13, *) {
+    private func setupIconView(icon: ObvSystemIcon?, tintColor: UIColor) {
+        if let icon = icon {
             let configuration = UIImage.SymbolConfiguration(weight: .black)
             let iconImage = UIImage(systemIcon: icon, withConfiguration: configuration)
             iconView.image = iconImage
@@ -63,6 +63,7 @@ final class NewCircledInitialsView: UIView {
             iconView.backgroundColor = backgroundColor
             iconView.tintColor = tintColor
         } else {
+            iconView.image = nil
             iconView.isHidden = true
         }
         chooseAppropriateRepresentation()
@@ -80,14 +81,28 @@ final class NewCircledInitialsView: UIView {
     
     
     private func setupPictureView(imageURL: URL?) {
-        guard let imageURL = imageURL else { return }
+        guard let imageURL = imageURL else {
+            pictureView.image = nil
+            pictureView.isHidden = true
+            return
+        }
         guard FileManager.default.fileExists(atPath: imageURL.path) else {
             // This happens when we are in the middle of a group details edition.
             // The imageURL should soon be changed to a valid one.
+            pictureView.image = nil
+            pictureView.isHidden = true
             return
         }
-        guard let data = try? Data(contentsOf: imageURL) else { return }
-        guard let image = UIImage(data: data) else { return }
+        guard let data = try? Data(contentsOf: imageURL) else {
+            pictureView.image = nil
+            pictureView.isHidden = true
+            return
+        }
+        guard let image = UIImage(data: data) else {
+            pictureView.image = nil
+            pictureView.isHidden = true
+            return
+        }
         pictureView.image = image
         pictureView.isHidden = false
         chooseAppropriateRepresentation()
@@ -98,8 +113,8 @@ final class NewCircledInitialsView: UIView {
         if !pictureView.isHidden {
             iconView.isHidden = true
             initialView.isHidden = true
-        } else if !initialView.isHidden {
-            iconView.isHidden = true
+        } else if !iconView.isHidden {
+            initialView.isHidden = true
         }
     }
     

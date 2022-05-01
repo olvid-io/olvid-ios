@@ -43,7 +43,11 @@ public extension NSPredicate {
     convenience init<T: RawRepresentable>(_ key: T, EqualToInt int: Int) where T.RawValue == String {
         self.init(format: "%K == %d", key.rawValue, int)
     }
-    
+
+    convenience init<T: RawRepresentable>(_ key: T, DistinctFromInt int: Int) where T.RawValue == String {
+        self.init(format: "%K != %d", key.rawValue, int)
+    }
+
     convenience init<T: RawRepresentable>(withNonNilValueForKey key: T) where T.RawValue == String {
         self.init(format: "%K != NIL", key.rawValue)
     }

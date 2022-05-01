@@ -429,9 +429,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C47BB50E1F6952C900B6E189 /* Build configuration list for PBXNativeTarget "ObvCrypto" */;
 			buildPhases = (
+				C47BB4F71F6952C900B6E189 /* Headers */,
 				C47BB4F51F6952C900B6E189 /* Sources */,
 				C47BB4F61F6952C900B6E189 /* Frameworks */,
-				C47BB4F71F6952C900B6E189 /* Headers */,
 				C0B4A4CD276E859400816D8D /* ShellScript */,
 			);
 			buildRules = (

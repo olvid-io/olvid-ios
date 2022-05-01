@@ -45,7 +45,7 @@ class ObvSubtitleTableViewCell: UITableViewCell, ObvTableViewCellWithActivityInd
     var title: String = "" { didSet { setTitle(); refreshCircledInitials() } }
     var subtitle: String = "" { didSet { setSubtitle() } }
     var identityColors: (background: UIColor, text: UIColor)? { didSet { refreshCircledInitials() } }
-    var circledImage: UIImage? = nil { didSet { refreshCircledInitials() } }
+    var circledIcon: ObvSystemIcon? = nil { didSet { refreshCircledInitials() } }
     var circledImageURL: URL? = nil { didSet { refreshCircledInitials() } }
     var showGreenShield: Bool = false { didSet { refreshCircledInitials() } }
     var showRedShield: Bool = false { didSet { refreshCircledInitials() } }
@@ -80,10 +80,13 @@ extension ObvSubtitleTableViewCell {
         
     }
     
+    func configureCircledInitialsWith(icon: ObvSystemIcon) {
+        circledInitials.configureWith(icon: icon)
+    }
+    
     override func prepareForReuse() {
         super.prepareForReuse()
         isHidden = false
-        circledImage = nil
         circlePlaceholderHeightConstraint.constant = defaultCirclePlaceholderHeight
         removeChipLabelAndChipImageView()
         removeTitleChip()
@@ -111,7 +114,7 @@ extension ObvSubtitleTableViewCell {
         circledInitials.configureWith(
             foregroundColor: self.identityColors?.text ?? appTheme.colorScheme.secondaryLabel,
             backgroundColor: self.identityColors?.background ?? appTheme.colorScheme.secondarySystemFill,
-            icon: .textBubbleFill, // Never shown
+            icon: circledIcon,
             stringForInitial: title,
             photoURL: circledImageURL,
             showGreenShield: showGreenShield,

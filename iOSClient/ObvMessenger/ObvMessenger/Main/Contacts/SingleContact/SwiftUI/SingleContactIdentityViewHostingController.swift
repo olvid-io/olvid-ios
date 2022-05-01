@@ -28,6 +28,9 @@ protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
     func userWantsToDisplay(persistedContactGroup: PersistedContactGroup, within nav: UINavigationController?)
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToEditContactNickname(persistedContactObjectId: NSManagedObjectID)
+    func userWantsToInviteContactToOneToOne(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
+    func userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
+    func userWantsToSyncOneToOneStatusOfContact(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 }
 
 
@@ -174,6 +177,22 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         })
         let vc = UIHostingController(rootView: view)
         present(vc, animated: true)
+    }
+    
+    func userWantsToInviteContactToOneToOne() {
+        guard let persistedContact = contact.persistedContact else { return }
+        delegate?.userWantsToInviteContactToOneToOne(persistedContactObjectID: persistedContact.typedObjectID)
+    }
+    
+    func userWantsToCancelSentInviteContactToOneToOne() {
+        guard let persistedContact = contact.persistedContact else { return }
+        guard let ownedIdentity = persistedContact.ownedIdentity else { return }
+        delegate?.userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ownedIdentity.cryptoId, contactCryptoId: persistedContact.cryptoId)
+    }
+    
+    func userWantsToSyncOneToOneStatusOfContact() {
+        guard let persistedContact = contact.persistedContact else { return }
+        delegate?.userWantsToSyncOneToOneStatusOfContact(persistedContactObjectID: persistedContact.typedObjectID)
     }
     
     // MARK: - Implementing ContactsPresentationViewControllerDelegate for contact introduction

@@ -96,6 +96,7 @@
 		C4E7548E234F369B00AB14EE /* ObvEngineMappingModel_v19_to_v20.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C4E7548D234F369B00AB14EE /* ObvEngineMappingModel_v19_to_v20.xcmappingmodel */; };
 		C4E75490234F37FD00AB14EE /* OutboxMessageToOutboxMessageMigrationPolicyV19ToV20.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E7548F234F37FD00AB14EE /* OutboxMessageToOutboxMessageMigrationPolicyV19ToV20.swift */; };
 		C4E7DF2724E1C25D00DB847D /* InboxAttachmentToInboxAttachmentMigrationPolicyV25ToV26.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C4E7DF2624E1C25D00DB847D /* InboxAttachmentToInboxAttachmentMigrationPolicyV25ToV26.xcmappingmodel */; };
+		C4EED31727AC9FA100DF6E9C /* MigrationEngineDatabase_v36_to_v37.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C4EED31627AC9FA100DF6E9C /* MigrationEngineDatabase_v36_to_v37.xcmappingmodel */; };
 		C4EFACEC25F44592001DBE41 /* InboxAttachmentToInboxAttachmentMigrationPolicyV28ToV29.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C4EFACEB25F44592001DBE41 /* InboxAttachmentToInboxAttachmentMigrationPolicyV28ToV29.xcmappingmodel */; };
 		C4EFACEF25F446B5001DBE41 /* ContactIdentityDetailsTrustedToContactIdentityDetailsTrustedMigrationPolicyV28ToV29.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EFACEE25F446B5001DBE41 /* ContactIdentityDetailsTrustedToContactIdentityDetailsTrustedMigrationPolicyV28ToV29.swift */; };
 		C4F72FB525A38F83003D2363 /* README-Migration_v27_to_v28.txt in Resources */ = {isa = PBXBuildFile; fileRef = C4F72FB425A38F83003D2363 /* README-Migration_v27_to_v28.txt */; };
@@ -138,13 +139,17 @@
 		C400BC4424BE009500E890D7 /* README-Migration_v24_to_v25.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "README-Migration_v24_to_v25.txt"; sourceTree = "<group>"; };
 		C400BC4624BE01CB00E890D7 /* ObvEngineMappingModel_v24_to_v25.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v24_to_v25.xcmappingmodel; sourceTree = "<group>"; };
 		C400BC4824BE02D800E890D7 /* InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25.swift; sourceTree = "<group>"; };
+		C4010FAF27B2ADE000D4FE2D /* MigrationEngineDatabase_v37_to_v38.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationEngineDatabase_v37_to_v38.md; sourceTree = "<group>"; };
 		C407258E2496CAD100DA9742 /* UtilsForMigrationV22ToV23.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilsForMigrationV22ToV23.swift; sourceTree = "<group>"; };
 		C409C64722E1BB34009F35C1 /* ObvEngine-v18.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v18.xcdatamodel"; sourceTree = "<group>"; };
 		C40A2F67246EDC5E00F539E7 /* ObvEngine-v22.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v22.xcdatamodel"; sourceTree = "<group>"; };
 		C40ABEC622DCAF00005AC092 /* ObvEngine-v17.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v17.xcdatamodel"; sourceTree = "<group>"; };
+		C40D070027AABD8200D39C0F /* ObvEngine-v39.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v39.xcdatamodel"; sourceTree = "<group>"; };
+		C40D070627AABDD600D39C0F /* MigrationEngineDatabase_v38_to_v39.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationEngineDatabase_v38_to_v39.md; sourceTree = "<group>"; };
 		C40F458E21B493A6000E76BD /* ObvEngine-v5.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v5.xcdatamodel"; sourceTree = "<group>"; };
 		C40F853926C3D07E000AB07C /* ObvEngine-v33.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v33.xcdatamodel"; sourceTree = "<group>"; };
 		C412F07F2794DF5100EEF71E /* MigrationEngineDatabase_v35_to_v36.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationEngineDatabase_v35_to_v36.md; sourceTree = "<group>"; };
+		C414B8E7279FF9A40013C1E5 /* ObvEngine-v37.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v37.xcdatamodel"; sourceTree = "<group>"; };
 		C416516A278EDF3800714113 /* ObvEngine-v35.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v35.xcdatamodel"; sourceTree = "<group>"; };
 		C4165174278EE2F700714113 /* ContactIdentityDetailsTrustedToContactIdentityDetailsTrustedMigrationPolicyV34ToV35.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactIdentityDetailsTrustedToContactIdentityDetailsTrustedMigrationPolicyV34ToV35.swift; sourceTree = "<group>"; };
 		C4165176278EE3AF00714113 /* ContactIdentityDetailsPublishedToContactIdentityDetailsPublishedMigrationPolicyV34ToV35.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactIdentityDetailsPublishedToContactIdentityDetailsPublishedMigrationPolicyV34ToV35.swift; sourceTree = "<group>"; };
@@ -244,6 +249,7 @@
 		C4C9E4AF279040B5001BFC08 /* OwnedIdentityDetailsPublishedToOwnedIdentityDetailsPublishedMigrationPolicyV34ToV35.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityDetailsPublishedToOwnedIdentityDetailsPublishedMigrationPolicyV34ToV35.swift; sourceTree = "<group>"; };
 		C4CCBBA221E8C2E900E82E1A /* ObvEngine-v9.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v9.xcdatamodel"; sourceTree = "<group>"; };
 		C4D1011622AA92E300490759 /* ObvEngineMappingModel_v11_to_v12.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v11_to_v12.xcmappingmodel; sourceTree = "<group>"; };
+		C4D290E627A57F6000E160C5 /* ObvEngine-v38.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v38.xcdatamodel"; sourceTree = "<group>"; };
 		C4D2C6CD21DE442400DA237D /* ObvEngine-v8.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v8.xcdatamodel"; sourceTree = "<group>"; };
 		C4DC60FB242D126900FDA967 /* ObvEngineMappingModel_v20_to_v21.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v20_to_v21.xcmappingmodel; sourceTree = "<group>"; };
 		C4DC60FD242D141800FDA967 /* OutboxMessageToOutboxMessageMigrationPolicyV20ToV21.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutboxMessageToOutboxMessageMigrationPolicyV20ToV21.swift; sourceTree = "<group>"; };
@@ -262,6 +268,8 @@
 		C4E7548F234F37FD00AB14EE /* OutboxMessageToOutboxMessageMigrationPolicyV19ToV20.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutboxMessageToOutboxMessageMigrationPolicyV19ToV20.swift; sourceTree = "<group>"; };
 		C4E7DF2624E1C25D00DB847D /* InboxAttachmentToInboxAttachmentMigrationPolicyV25ToV26.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = InboxAttachmentToInboxAttachmentMigrationPolicyV25ToV26.xcmappingmodel; sourceTree = "<group>"; };
 		C4E84E5224B74F27006DB03E /* ObvEngine-v25.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v25.xcdatamodel"; sourceTree = "<group>"; };
+		C4EED31627AC9FA100DF6E9C /* MigrationEngineDatabase_v36_to_v37.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = MigrationEngineDatabase_v36_to_v37.xcmappingmodel; sourceTree = "<group>"; };
+		C4EED31827AC9FB600DF6E9C /* MigrationEngineDatabase_v36_to_v37.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationEngineDatabase_v36_to_v37.md; sourceTree = "<group>"; };
 		C4EFACEB25F44592001DBE41 /* InboxAttachmentToInboxAttachmentMigrationPolicyV28ToV29.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = InboxAttachmentToInboxAttachmentMigrationPolicyV28ToV29.xcmappingmodel; sourceTree = "<group>"; };
 		C4EFACEE25F446B5001DBE41 /* ContactIdentityDetailsTrustedToContactIdentityDetailsTrustedMigrationPolicyV28ToV29.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactIdentityDetailsTrustedToContactIdentityDetailsTrustedMigrationPolicyV28ToV29.swift; sourceTree = "<group>"; };
 		C4F71B482700795800CE8C4E /* README_engine_migration_v32_to_v33.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README_engine_migration_v32_to_v33.md; sourceTree = "<group>"; };
@@ -295,12 +303,28 @@
 			path = v24_to_v25;
 			sourceTree = "<group>";
 		};
+		C4010FAA27B2ADC000D4FE2D /* v37_to_v38 */ = {
+			isa = PBXGroup;
+			children = (
+				C4010FAF27B2ADE000D4FE2D /* MigrationEngineDatabase_v37_to_v38.md */,
+			);
+			path = v37_to_v38;
+			sourceTree = "<group>";
+		};
 		C40A2FAF246EDE5200F539E7 /* v21_to_v22 */ = {
 			isa = PBXGroup;
 			children = (
 				C46DBBBD2498A3DB0049AC43 /* README-Migration_v21_to_v22.txt */,
 			);
 			path = v21_to_v22;
+			sourceTree = "<group>";
+		};
+		C40D070527AABDB600D39C0F /* v38_to_v39 */ = {
+			isa = PBXGroup;
+			children = (
+				C40D070627AABDD600D39C0F /* MigrationEngineDatabase_v38_to_v39.md */,
+			);
+			path = v38_to_v39;
 			sourceTree = "<group>";
 		};
 		C40F45F321B4963A000E76BD /* v4_to_v5 */ = {
@@ -317,6 +341,15 @@
 				C412F07F2794DF5100EEF71E /* MigrationEngineDatabase_v35_to_v36.md */,
 			);
 			path = v35_to_v36;
+			sourceTree = "<group>";
+		};
+		C414B8EC279FF9E40013C1E5 /* v36_to_v37 */ = {
+			isa = PBXGroup;
+			children = (
+				C4EED31827AC9FB600DF6E9C /* MigrationEngineDatabase_v36_to_v37.md */,
+				C4EED31627AC9FA100DF6E9C /* MigrationEngineDatabase_v36_to_v37.xcmappingmodel */,
+			);
+			path = v36_to_v37;
 			sourceTree = "<group>";
 		};
 		C416516F278EDF6700714113 /* v34_to_v35 */ = {
@@ -485,6 +518,9 @@
 		C490F83421A42C7900A0C036 /* Migration */ = {
 			isa = PBXGroup;
 			children = (
+				C40D070527AABDB600D39C0F /* v38_to_v39 */,
+				C4010FAA27B2ADC000D4FE2D /* v37_to_v38 */,
+				C414B8EC279FF9E40013C1E5 /* v36_to_v37 */,
 				C412F07A2794DF3500EEF71E /* v35_to_v36 */,
 				C416516F278EDF6700714113 /* v34_to_v35 */,
 				C4F79CDF2760F9CF004AF9C0 /* v33_to_v34 */,
@@ -971,6 +1007,7 @@
 				C48736C021FF56FC001A5467 /* PendingGroupMemberToPendingGroupMemberMigrationPolicyV8ToV9.swift in Sources */,
 				C475DE3A22A7DC010084F0DF /* LinkBetweenProtocolInstancesMigrationPolicyV11ToV12.swift in Sources */,
 				C4504EAA21B5518A00425321 /* ObvEngineMappingModel_v4_to_v5.xcmappingmodel in Sources */,
+				C4EED31727AC9FA100DF6E9C /* MigrationEngineDatabase_v36_to_v37.xcmappingmodel in Sources */,
 				C4C9E4AE27904039001BFC08 /* ObvEngineMappingModel_v34_to_v35.xcmappingmodel in Sources */,
 				C475DE3222A7D8AC0084F0DF /* ProtocolInstanceToProtocolInstanceMigrationPolicyV11ToV12.swift in Sources */,
 				C430798C22AD465800BB8496 /* OwnedIdentityToOwnedIdentityMigrationPolicyV12ToV13.swift in Sources */,
@@ -1217,6 +1254,9 @@
 		C42A52A021A0D4F1005FEEB5 /* ObvEngine.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				C40D070027AABD8200D39C0F /* ObvEngine-v39.xcdatamodel */,
+				C4D290E627A57F6000E160C5 /* ObvEngine-v38.xcdatamodel */,
+				C414B8E7279FF9A40013C1E5 /* ObvEngine-v37.xcdatamodel */,
 				C425FB5227918799005B2710 /* ObvEngine-v36.xcdatamodel */,
 				C416516A278EDF3800714113 /* ObvEngine-v35.xcdatamodel */,
 				C4765C10273E691D000F3797 /* ObvEngine-v34.xcdatamodel */,
@@ -1254,7 +1294,7 @@
 				C490F82821A42B5A00A0C036 /* ObvEngine-v2.xcdatamodel */,
 				C42A52A121A0D4F1005FEEB5 /* ObvEngine.xcdatamodel */,
 			);
-			currentVersion = C425FB5227918799005B2710 /* ObvEngine-v36.xcdatamodel */;
+			currentVersion = C40D070027AABD8200D39C0F /* ObvEngine-v39.xcdatamodel */;
 			path = ObvEngine.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

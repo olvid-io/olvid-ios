@@ -471,15 +471,15 @@ extension ProtocolStarterCoordinator {
     }
     
     
-    func getInitiateContactDeletionMessageForObliviousChannelManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+    func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .ObliviousChannelManagement,
+                                              cryptoProtocolId: .ContactManagement,
                                               protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = ObliviousChannelManagementProtocol.InitiateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToDelete)
+        let initialMessage = ContactManagementProtocol.InitiateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToDelete)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw NSError()
@@ -488,7 +488,7 @@ extension ProtocolStarterCoordinator {
 
     }
 
-    func getInitiateAddKeycloakContactMessageForObliviousChannelManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
+    func getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
 
@@ -641,4 +641,62 @@ extension ProtocolStarterCoordinator {
         return initialMessageToSend
         
     }
+    
+    
+    func getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .OneToOneContactInvitation,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let message = OneToOneContactInvitationProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            assertionFailure()
+            throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+    
+    }
+    
+    
+    func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .ContactManagement,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let message = ContactManagementProtocol.InitiateContactDowngradeMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            assertionFailure()
+            throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+    
+    }
+
+    
+    func getInitialMessageForOneStatusSyncRequest(ownedIdentity: ObvCryptoIdentity, contactsToSync: Set<ObvCryptoIdentity>) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .OneToOneContactInvitation,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let message = OneToOneContactInvitationProtocol.InitialOneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, contactsToSync: contactsToSync)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            assertionFailure()
+            throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+    
 }

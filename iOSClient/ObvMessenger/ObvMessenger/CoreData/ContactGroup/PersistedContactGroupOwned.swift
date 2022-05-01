@@ -59,17 +59,23 @@ final class PersistedContactGroupOwned: PersistedContactGroup {
 
 extension PersistedContactGroupOwned {
     
-    convenience init?(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) {
+    convenience init(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) throws {
         
-        guard contactGroup.groupType == .owned else { return nil }
-
-        guard let owner = try? PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else { return nil }
-
-        self.init(contactGroup: contactGroup,
-                  groupName: contactGroup.publishedCoreDetails.name,
-                  category: .owned,
-                  forEntityName: PersistedContactGroupOwned.entityName,
-                  within: context)
+        guard contactGroup.groupType == .owned else {
+            assertionFailure()
+            throw Self.makeError(message: "Unexpected group type")
+        }
+        
+        guard let owner = try PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not find owned identity")
+        }
+        
+        try self.init(contactGroup: contactGroup,
+                      groupName: contactGroup.publishedCoreDetails.name,
+                      category: .owned,
+                      forEntityName: PersistedContactGroupOwned.entityName,
+                      within: context)
         
         self.rawStatus = Status.noLatestDetails.rawValue
         self.owner = owner

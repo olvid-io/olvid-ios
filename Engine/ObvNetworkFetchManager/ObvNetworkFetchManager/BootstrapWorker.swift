@@ -217,16 +217,15 @@ extension BootstrapWorker {
                 }
             }
             
-            // Process the messages that are not yet processed.
+            // Process the messages that are not yet processed
 
             do {
                 let messagesToProcess = messages.filter({ !$0.isProcessed })
                 messages.removeAll(where: { messagesToProcess.contains($0) })
-                let messageIds = messagesToProcess.map({ $0.messageId })
-                delegateManager.networkFetchFlowDelegate.processUnprocessedMessages(messageIds: messageIds, flowId: flowId)
+                delegateManager.networkFetchFlowDelegate.processUnprocessedMessages(flowId: flowId)
             }
             
-            // The remaining messages are already process.
+            // The remaining messages are already processed
             
             do {
                 for msg in messages {

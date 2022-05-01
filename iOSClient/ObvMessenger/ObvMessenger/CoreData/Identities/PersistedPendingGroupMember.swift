@@ -81,15 +81,17 @@ final class PersistedPendingGroupMember: NSManagedObject {
 
 extension PersistedPendingGroupMember {
     
-    convenience init?(genericIdentity: ObvGenericIdentity, contactGroup: PersistedContactGroup) {
+    convenience init(genericIdentity: ObvGenericIdentity, contactGroup: PersistedContactGroup) throws {
         
-        guard let context = contactGroup.managedObjectContext else { return nil }
+        guard let context = contactGroup.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedPendingGroupMember.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
         self.declined = false
-        do { self.serializedIdentityCoreDetails = try genericIdentity.currentIdentityDetails.coreDetails.encode() } catch { return nil }
+        self.serializedIdentityCoreDetails = try genericIdentity.currentIdentityDetails.coreDetails.encode()
         self.fullDisplayName = genericIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
         self.identity = genericIdentity.cryptoId.getIdentity()
         self.rawGroupOwnerIdentity = contactGroup.ownerIdentity

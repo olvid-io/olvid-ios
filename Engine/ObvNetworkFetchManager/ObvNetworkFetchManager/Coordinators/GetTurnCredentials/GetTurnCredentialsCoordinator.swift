@@ -30,7 +30,7 @@ final class GetTurnCredentialsCoordinator {
     fileprivate let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     fileprivate let logCategory = "GetTurnCredentialsCoordinator"
     private let localQueue = DispatchQueue(label: "GetTurnCredentialsCoordinatorQueue")
-    private let queueForNotifications = OperationQueue()
+    private let queueForNotifications = DispatchQueue(label: "GetTurnCredentialsCoordinator queue for posting notifications")
     private var internalOperationQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.name = "Queue for GetTurnCredentialsCoordinator operations"
@@ -128,7 +128,7 @@ extension GetTurnCredentialsCoordinator: GetTurnCredentialsTracker {
             os_log("☎️ Notifying about new Turn Credentials received from server", log: log, type: .info)
 
             ObvNetworkFetchNotificationNew.turnCredentialsReceived(ownedIdentity: ownedIdentity, callUuid: callUuid, turnCredentialsWithTurnServers: turnCredentialsWithTurnServers, flowId: flowId)
-                .postOnOperationQueue(operationQueue: queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
         case .failure(let error):
             os_log("Cannot retrive turn server URLs %{public}@", log: log, type: .info, error.localizedDescription)
             return
@@ -195,7 +195,7 @@ extension GetTurnCredentialsCoordinator: GetTurnCredentialsTracker {
             }
             
             ObvNetworkFetchNotificationNew.turnCredentialsReceptionFailure(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-                .postOnOperationQueue(operationQueue: queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
 
         case .aTaskDidBecomeInvalidWithError,
              .couldNotParseServerResponse,
@@ -203,13 +203,13 @@ extension GetTurnCredentialsCoordinator: GetTurnCredentialsTracker {
              .noOutputAvailable,
              .wellKnownNotCached:
             ObvNetworkFetchNotificationNew.turnCredentialsReceptionFailure(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-                .postOnOperationQueue(operationQueue: queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
         case .permissionDenied:
             ObvNetworkFetchNotificationNew.turnCredentialsReceptionPermissionDenied(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-                .postOnOperationQueue(operationQueue: queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
         case .serverDoesNotSupportCalls:
             ObvNetworkFetchNotificationNew.turnCredentialServerDoesNotSupportCalls(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-                .postOnOperationQueue(operationQueue: queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
         }
         
     }

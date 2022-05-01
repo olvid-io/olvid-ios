@@ -26,7 +26,7 @@ import os.log
 final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<SyncPersistedObvOwnedIdentityWithEngineOperationReasonForCancel> {
     
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SyncPersistedObvOwnedIdentitiesWithEngineOperation.self))
 
     init(obvEngine: ObvEngine) {
         self.obvEngine = obvEngine
@@ -122,8 +122,9 @@ final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperat
                 let persistedOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
                 persistedOwnedIdentities.forEach { persistedOwnedIdentity in
                     do {
-                        let capabilities = try obvEngine.getCapabilitiesOfOwnedIdentity(persistedOwnedIdentity.cryptoId)
-                        persistedOwnedIdentity.setContactCapabilities(to: capabilities)
+                        if let capabilities = try obvEngine.getCapabilitiesOfOwnedIdentity(persistedOwnedIdentity.cryptoId) {
+                            persistedOwnedIdentity.setContactCapabilities(to: capabilities)
+                        }
                     } catch {
                         os_log("Could sync the capabilities of one of the owned identity: %{public}@", log: log, type: .error, error.localizedDescription)
                         assertionFailure()

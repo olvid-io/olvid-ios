@@ -48,7 +48,7 @@ final class ObvNetworkSendDelegateManager {
     var contextCreator: ObvCreateContextDelegate?
     var notificationDelegate: ObvNotificationDelegate?
     weak var channelDelegate: ObvChannelDelegate?
-    weak var identityDelegate: ObvIdentityDelegate?
+    var identityDelegate: ObvIdentityDelegate? // DEBUG 2022-03-15 Allows to keep a strong reference to the identity delegate, required when uploading large attachment within the share extension
     var simpleFlowDelegate: ObvSimpleFlowDelegate? // DEBUG 2019-10-17 Allows to keep a strong reference to the simpleFlowDelegate, required when uploading large attachment within the share extension
 
     // MARK: Initialiazer

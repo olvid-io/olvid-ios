@@ -49,23 +49,35 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion {
 
 extension PersistedOneToOneDiscussion {
     
-    convenience init?(contactIdentity: PersistedObvContactIdentity, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) {
+    convenience init(contactIdentity: PersistedObvContactIdentity, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
         guard let ownedIdentity = contactIdentity.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it was just deleted.", log: PersistedOneToOneDiscussion.log, type: .error)
-            return nil
+            throw Self.makeError(message: "Could not find owned identity. This is ok if it was just deleted.")
         }
-        self.init(title: contactIdentity.nameForSettingOneToOneDiscussionTitle,
-                  ownedIdentity: ownedIdentity,
-                  forEntityName: PersistedOneToOneDiscussion.entityName,
-                  sharedConfigurationToKeep: sharedConfigurationToKeep,
-                  localConfigurationToKeep: localConfigurationToKeep)
-        
+        try self.init(title: contactIdentity.nameForSettingOneToOneDiscussionTitle,
+                      ownedIdentity: ownedIdentity,
+                      forEntityName: PersistedOneToOneDiscussion.entityName,
+                      sharedConfigurationToKeep: sharedConfigurationToKeep,
+                      localConfigurationToKeep: localConfigurationToKeep)
+
         self.contactIdentity = contactIdentity
-        
+
         if insertDiscussionIsEndToEndEncryptedSystemMessage {
             try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false)
         }
 
+    }
+    
+    /// Should only be called from PersistedObvContactIdentity
+    func delete(doCreateLockedDiscussion: Bool) throws {
+        if doCreateLockedDiscussion {
+            guard let persistedDiscussionOneToOneLocked = PersistedDiscussionOneToOneLocked(persistedOneToOneDiscussionToLock: self) else {
+                os_log("Could not lock the persisted oneToOne discussion", log: log, type: .error)
+                throw Self.makeError(message: "Could not lock the persisted oneToOne discussion")
+            }
+            _ = try PersistedMessageSystem(.contactWasDeleted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: persistedDiscussionOneToOneLocked)
+        }
+        try self.delete()
     }
     
 }
@@ -106,25 +118,6 @@ extension PersistedOneToOneDiscussion {
         return fetchRequest
     }
 
-
-    /// This method always returns a `PersistedOneToOneDiscussion` since it creates it if required. As a consequence, it cannot be called
-    /// on the view context.
-    static func getOrCreate(with contact: PersistedObvContactIdentity) throws -> PersistedOneToOneDiscussion {
-        guard let context = contact.managedObjectContext else { throw makeError(message: "Cannot find context") }
-        assert(context != ObvStack.shared.viewContext)
-        var discussion: PersistedOneToOneDiscussion? = nil
-        do {
-            let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
-            request.predicate = NSPredicate(format: "%K == %@", PersistedOneToOneDiscussion.contactIdentityKey, contact)
-            request.fetchLimit = 1
-            discussion = (try context.fetch(request)).first
-        }
-        if discussion == nil {
-            discussion = PersistedOneToOneDiscussion(contactIdentity: contact)
-        }
-        guard let returnedDiscussion = discussion else { throw makeError(message: "Cannot find discussion") }
-        return returnedDiscussion
-    }
 
     /// This method returs a `PersistedOneToOneDiscussion` if it can be found, and `nil` otherwise.
     static func get(with contact: PersistedObvContactIdentity) throws -> PersistedOneToOneDiscussion? {

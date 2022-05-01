@@ -24,7 +24,7 @@ import OlvidUtils
 
 final class UpdateDraftConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<UpdateDraftConfigurationOperationReasonForCancel> {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UpdateDraftConfigurationOperation.self))
 
     let value: PersistedDiscussionSharedConfigurationValue?
     let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
@@ -36,23 +36,24 @@ final class UpdateDraftConfigurationOperation: ContextualOperationWithSpecificRe
     }
 
     override func main() {
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            let draft: PersistedDraft?
+        guard let obvContext = self.obvContext else {
+            return cancel(withReason: .contextIsNil)
+        }
+
+        obvContext.performAndWait {
             do {
-                draft = try PersistedDraft.get(objectID: draftObjectID, within: context)
+                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindDraft)
+                }
+                draft.update(with: value)
+                let draftObjectID = self.draftObjectID
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    ObvMessengerInternalNotification.draftExpirationWasBeenUpdated(persistedDraftObjectID: draftObjectID).postOnDispatchQueue()
+                }
             } catch(let error) {
                 return cancel(withReason: .coreDataError(error: error))
             }
-            guard let draft = draft else {
-                return cancel(withReason: .couldNotFindDraft)
-            }
-            draft.update(with: value)
-            do {
-                try context.save(logOnFailure: log)
-            } catch(let error) {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            ObvMessengerInternalNotification.draftExpirationWasBeenUpdated(persistedDraftObjectID: draftObjectID).postOnDispatchQueue()
         }
     }
 
@@ -60,12 +61,13 @@ final class UpdateDraftConfigurationOperation: ContextualOperationWithSpecificRe
 
 enum UpdateDraftConfigurationOperationReasonForCancel: LocalizedErrorWithLogType {
 
+    case contextIsNil
     case coreDataError(error: Error)
     case couldNotFindDraft
 
     var logType: OSLogType {
         switch self {
-        case .coreDataError:
+        case .coreDataError, .contextIsNil:
             return .fault
         case .couldNotFindDraft:
             return .error
@@ -74,6 +76,7 @@ enum UpdateDraftConfigurationOperationReasonForCancel: LocalizedErrorWithLogType
 
     var errorDescription: String? {
         switch self {
+        case .contextIsNil: return "Context is nil"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
         case .couldNotFindDraft:

@@ -66,6 +66,7 @@ struct IdentityHeaderView_Previews: PreviewProvider {
         publishedContactDetails: nil,
         contactStatus: .noNewPublishedDetails,
         contactHasNoDevice: false,
+        contactIsOneToOne: true,
         isActive: true)
     
     static var previews: some View {

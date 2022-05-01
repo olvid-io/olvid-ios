@@ -62,7 +62,7 @@ final class DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFrom
 
     private(set) var reasonForCancel: ReasonForCancel?
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFromEngineAndAssociatedToDeletedContactIdentityOperation.self))
 
     private func cancel(withReason reason: ReasonForCancel) {
         assert(self.reasonForCancel == nil)

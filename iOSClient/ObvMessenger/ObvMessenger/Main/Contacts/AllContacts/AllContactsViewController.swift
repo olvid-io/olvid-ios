@@ -29,6 +29,8 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     private var notificationTokens = [NSObjectProtocol]()
     private var sortButtonItem: UIBarButtonItem?
     private var sortButtonItemTimer: Timer?
+    private let oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus
+    private let showExplanation: Bool
 
     // Delegates
     
@@ -36,9 +38,11 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     
     // MARK: - Initializer
     
-    init(ownedCryptoId: ObvCryptoId) {
+    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool) {
+        self.oneToOneStatus = oneToOneStatus
+        self.showExplanation = showExplanation
         super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllContactsViewController")
-        self.title = CommonString.Word.Contacts
+        self.title = title
         observeContactsSortOrderDidChangeNotifications()
     }
     
@@ -110,8 +114,35 @@ extension AllContactsViewController {
             children: sortActions)
         
         menuElements.append(sortMenu)
+        
+        switch oneToOneStatus {
+        case .nonOneToOne:
+            break
+        default:
+            let showOtherKnownUserAction = UIAction(title: NSLocalizedString("OTHER_KNOWN_USERS", comment: ""),
+                                                    image: UIImage(systemIcon: .personCropCircleBadgeQuestionmark)) { [weak self] _ in
+                self?.presentViewControllerOfAllNonOneToOneContacts()
+            }
+
+            menuElements.append(showOtherKnownUserAction)
+        }
 
         return UIMenu(title: "", image: nil, identifier: nil, options: .displayInline, children: menuElements)
+    }
+    
+    
+    private func presentViewControllerOfAllNonOneToOneContacts() {
+        assert(Thread.isMainThread)
+        let vc = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .nonOneToOne, title: NSLocalizedString("OTHER_KNOWN_USERS", comment: ""), showExplanation: false)
+        vc.delegate = self.delegate
+        vc.replaceOwnedIdentityButton(byIcon: .xmarkCircle, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
+        let nav = UINavigationController(rootViewController: vc)
+        self.present(nav, animated: true)
+    }
+    
+    @objc
+    private func dismissViewControllerOfAllNonOneToOneContacts() {
+        presentedViewController?.dismiss(animated: true)
     }
     
     
@@ -133,7 +164,7 @@ extension AllContactsViewController {
 
     private func observeContactsSortOrderDidChangeNotifications() {
         if #available(iOS 14.0, *) {
-            let token = ObvMessengerInternalNotification.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
+            let token = ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
                 guard let _self = self else { return }
                 _self.sortButtonItemTimer?.invalidate()
                 _self.sortButtonItem?.menu = _self.provideMenu()
@@ -145,8 +176,8 @@ extension AllContactsViewController {
 
     
     private func addAndConfigureContactsTableViewController() {
-        let mode: MultipleContactsMode = .all
-        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: false, allowMultipleSelection: false, showExplanation: true, floatingButtonModel: nil) else { assertionFailure(); return }
+        let mode: MultipleContactsMode = .all(oneToOneStatus: self.oneToOneStatus)
+        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: false, allowMultipleSelection: false, showExplanation: showExplanation, floatingButtonModel: nil) else { assertionFailure(); return }
         viewController.delegate = self
         navigationItem.searchController = viewController.searchController
         viewController.willMove(toParent: self)

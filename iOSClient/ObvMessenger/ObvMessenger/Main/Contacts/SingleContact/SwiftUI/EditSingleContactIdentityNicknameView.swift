@@ -118,6 +118,7 @@ struct EditSingleContactIdentityNicknameView_Previews: PreviewProvider {
             publishedContactDetails: nil,
             contactStatus: .seenPublishedDetails,
             contactHasNoDevice: false,
+            contactIsOneToOne: true,
             isActive: true),
         SingleContactIdentity(firstName: "Marco",
                               lastName: "Polo",
@@ -128,6 +129,7 @@ struct EditSingleContactIdentityNicknameView_Previews: PreviewProvider {
                               publishedContactDetails: nil,
                               contactStatus: .seenPublishedDetails,
                               contactHasNoDevice: false,
+                              contactIsOneToOne: true,
                               isActive: true),
     ]
 

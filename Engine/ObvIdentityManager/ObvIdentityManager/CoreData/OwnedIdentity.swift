@@ -451,14 +451,17 @@ extension OwnedIdentity {
     }
     
     
-    var allCapabilities: Set<ObvCapability> {
+    /// Returns `nil` if the own capabilities are not known yet (i.e., when no device has capabilities)
+    var allCapabilities: Set<ObvCapability>? {
+        var capabilitiesOfDevicesWithKnownCapabilities = otherDevices.compactMap({ $0.allCapabilities })
+        if let currentDeviceCapabilities = currentDevice.allCapabilities {
+            capabilitiesOfDevicesWithKnownCapabilities.append(currentDeviceCapabilities)
+        }
+        guard !capabilitiesOfDevicesWithKnownCapabilities.isEmpty else { return nil }
         var capabilities = Set<ObvCapability>()
         ObvCapability.allCases.forEach { capability in
-            switch capability {
-            case .webrtcContinuousICE:
-                if otherDevices.allSatisfy({ $0.allCapabilities.contains(capability) }) && currentDevice.allCapabilities.contains(capability) {
-                    capabilities.insert(capability)
-                }
+            if capabilitiesOfDevicesWithKnownCapabilities.allSatisfy({ $0.contains(capability) }) {
+                capabilities.insert(capability)
             }
         }
         return capabilities
@@ -563,8 +566,8 @@ extension OwnedIdentity {
                 assertionFailure()
                 return
             }
-            let notification = ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-            notification.postOnDispatchQueue(withLabel: "Queue for sending a backupableManagerDatabaseContentChanged notification", within: notificationDelegate)
+            ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
         }
 
     }

@@ -8,25 +8,6 @@ notifications:
 - name: messagesAreNotNewAnymore
   params:
   - {name: persistedMessageObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedMessage>>}
-- name: persistedContactGroupHasUpdatedContactIdentities
-  params:
-  - {name: persistedContactGroupObjectID, type: NSManagedObjectID}
-  - {name: insertedContacts, type: Set<PersistedObvContactIdentity>}
-  - {name: removedContacts, type: Set<PersistedObvContactIdentity>}
-- name: persistedDiscussionHasNewTitle
-  params:
-  - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-  - {name: title, type: String}
-- name: newDraftToSend
-  params:
-  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
-- name: draftWasSent
-  params:
-  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
-- name: newOrUpdatedPersistedInvitation
-  params:
-  - {name: obvDialog, type: ObvDialog}
-  - {name: persistedInvitationUUID, type: UUID}
 - name: persistedMessageReceivedWasDeleted
   params:
   - {name: objectID, type: NSManagedObjectID}
@@ -34,27 +15,6 @@ notifications:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: sortIndex, type: Double}
   - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-- name: newPersistedObvContactDevice
-  params:
-  - {name: contactDeviceObjectID, type: NSManagedObjectID}
-  - {name: contactCryptoId, type: ObvCryptoId}
-- name: deletedPersistedObvContactDevice
-  params:
-  - {name: contactCryptoId, type: ObvCryptoId}
-- name: persistedContactWasInserted
-  params:
-  - {name: objectID, type: NSManagedObjectID}
-  - {name: contactCryptoId, type: ObvCryptoId}
-- name: persistedContactWasDeleted
-  params:
-  - {name: objectID, type: NSManagedObjectID}
-  - {name: identity, type: Data}
-- name: persistedContactHasNewCustomDisplayName
-  params:
-  - {name: contactCryptoId, type: ObvCryptoId}
-- name: newPersistedObvOwnedIdentity
-  params:
-  - {name: ownedCryptoId, type: ObvCryptoId}
 #- name: appDelegateLifecycleNotification
 #  params:
 #  - {name: previousStatus, type: AppDelegateLifecycle.AppDelegateStatus}
@@ -66,20 +26,11 @@ notifications:
   params:
   - {name: newOwnedCryptoId, type: ObvCryptoId}
   - {name: apiKey, type: UUID}
-- name: ownedIdentityWasDeactivated
-  params:
-  - {name: ownedIdentityObjectID, type: NSManagedObjectID}
-- name: ownedIdentityWasReactivated
-  params:
-  - {name: ownedIdentityObjectID, type: NSManagedObjectID}
 - name: userWantsToPerfomCloudKitBackupNow
 - name: externalTransactionsWereMergedIntoViewContext
 - name: userWantsToPerfomBackupForExportNow
   params:
   - {name: sourceView, type: UIView}
-- name: newMessageExpiration
-  params:
-  - {name: expirationDate, type: Date}
 - name: newMuteExpiration
   params:
   - {name: expirationDate, type: Date}
@@ -87,9 +38,6 @@ notifications:
   params:
   - {name: launchedByBackgroundTask, type: Bool}
   - {name: completionHandler, type: (Bool) -> Void}
-- name: persistedMessageHasNewMetadata
-  params:
-  - {name: persistedMessageObjectID, type: NSManagedObjectID}
 - name: fyleMessageJoinWithStatusHasNewProgress
   params:
   - {name: objectID, type: NSManagedObjectID}
@@ -99,7 +47,7 @@ notifications:
   - {name: objectIDs, type: [NSManagedObjectID]}
 - name: userWantsToCallAndIsAllowedTo
   params:
-  - {name: contactIDs, type: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]}
+  - {name: contactIds, type: [OlvidUserId]}
   - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
 - name: userWantsToSelectAndCallContacts
   params:
@@ -109,28 +57,12 @@ notifications:
   params:
   - {name: contactIDs, type: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]}
   - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
-- name: userWantsToKickParticipant
-  params:
-  - {name: call, type: Call}
-  - {name: callParticipant, type: CallParticipant}
-- name: userWantsToAddParticipants
-  params:
-  - {name: call, type: Call}
-  - {name: contactIDs, type: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]}
 - name: newWebRTCMessageWasReceived
   params:
   - {name: webrtcMessage, type: WebRTCMessageJSON}
-  - {name: contactID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
+  - {name: contactId, type: OlvidUserId}
   - {name: messageUploadTimestampFromServer, type: Date}
   - {name: messageIdentifierFromEngine, type: Data}
-- name: callHasBeenUpdated
-  params:
-  - {name: call, type: Call}
-  - {name: updateKind, type: CallUpdateKind}
-- name: callParticipantHasBeenUpdated
-  params:
-  - {name: callParticipant, type: CallParticipant}
-  - {name: updateKind, type: CallParticipantUpdateKind}
 - name: toggleCallView
 - name: hideCallView
 - name: newObvMessageWasReceivedViaPushKitNotification
@@ -141,7 +73,6 @@ notifications:
   - {name: webrtcMessage, type: WebRTCMessageJSON}
   - {name: contactID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
   - {name: forStartingCall, type: Bool}
-  - {name: completion, type: () -> Void, escaping: true}
 - name: isCallKitEnabledSettingDidChange
 - name: isIncludesCallsInRecentsEnabledSettingDidChange
 - name: networkInterfaceTypeChanged
@@ -165,12 +96,6 @@ notifications:
   - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
   - {name: deletionType, type: DeletionType}
   - {name: completionHandler, type: (Bool) -> Void, escaping: true}
-- name: reportCallEvent
-  params:
-  - {name: callUUID, type: UUID}
-  - {name: callReport, type: CallReport}
-  - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
-  - {name: ownedCryptoId, type: ObvCryptoId}
 - name: newCallLogItem
   params:
   - {name: objectID, type: TypeSafeManagedObjectID<PersistedCallLogItem>}
@@ -182,9 +107,6 @@ notifications:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: firstContactCryptoId, type: ObvCryptoId}
   - {name: secondContactCryptoIds, type: Set<ObvCryptoId>}
-- name: showCallViewControllerForAnsweringNonCallKitIncomingCall
-  params:
-  - {name: incomingCall, type: IncomingCall}
 - name: userWantsToShareOwnPublishedDetails
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
@@ -217,10 +139,6 @@ notifications:
 - name: persistedMessageReceivedWasRead
   params:
   - {name: persistedMessageReceivedObjectID, type: NSManagedObjectID}
-- name: aReadOncePersistedMessageSentWasSent
-  params:
-  - {name: persistedMessageSentObjectID, type: NSManagedObjectID}
-  - {name: persistedDiscussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
 - name: userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration
   params:
   - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
@@ -248,13 +166,6 @@ notifications:
   params:
   - {name: launchedByBackgroundTask, type: Bool}
   - {name: completionHandler, type: (Bool) -> Void}
-- name: persistedMessageSystemWasDeleted
-  params:
-  - {name: objectID, type: NSManagedObjectID}
-  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-- name: anOldDiscussionSharedConfigurationWasReceived
-  params:
-  - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
 - name: userWantsToSendEditedVersionOfSentMessage
   params:
   - {name: sentMessageObjectID, type: NSManagedObjectID}
@@ -310,10 +221,6 @@ notifications:
   params:
   - {name: contactCryptoId, type: ObvCryptoId}
   - {name: ownedCryptoId, type: ObvCryptoId}
-- name: persistedContactHasNewStatus
-  params:
-  - {name: contactCryptoId, type: ObvCryptoId}
-  - {name: ownedCryptoId, type: ObvCryptoId}
 - name: contactIdentityDetailsWereUpdated
   params:
   - {name: contactCryptoId, type: ObvCryptoId}
@@ -339,50 +246,18 @@ notifications:
 - name: requestHardLinkToFyle
   params:
   - {name: fyleElement, type: FyleElement}
-  - {name: completionHandler, type: ((HardLinkToFyle) -> Void)}
+  - {name: completionHandler, type: "((HardLinkToFyle) -> Void)", escaping: true}
 - name: requestAllHardLinksToFyles
   params:
   - {name: fyleElements, type: [FyleElement]}
-  - {name: completionHandler, type: "(([HardLinkToFyle?]) -> Void)"}
-- name: persistedDiscussionWasDeleted
-  params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-- name: newLockedPersistedDiscussion
-  params:
-  - {name: previousDiscussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: newLockedDiscussionId, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-- name: persistedMessagesWereDeleted
-  params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: messageUriRepresentations, type: Set<TypeSafeURL<PersistedMessage>>}
-- name: persistedMessagesWereWiped
-  params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: messageUriRepresentations, type: Set<TypeSafeURL<PersistedMessage>>}
-- name: draftToSendWasReset
-  params:
-  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
-- name: draftFyleJoinWasDeleted
-  params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: draftUriRepresentation, type: TypeSafeURL<PersistedDraft>}
-  - {name: draftFyleJoinUriRepresentation, type: TypeSafeURL<PersistedDraftFyleJoin>}
-- name: shareExtensionExtensionContextWillCompleteRequest
+  - {name: completionHandler, type: "(([HardLinkToFyle?]) -> Void)", escaping: true}
 - name: userWantsToRemoveDraftFyleJoin
   params:
   - {name: draftFyleJoinObjectID, type: TypeSafeManagedObjectID<PersistedDraftFyleJoin>}
-- name: AppInitializationEnded
 - name: userWantsToChangeContactsSortOrder
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: sortOrder, type: ContactsSortOrder}
-- name: contactsSortOrderDidChange
-- name: identityColorStyleDidChange
-- name: userWantsToUpdateDiscussionLocalConfiguration
-  params:
-  - {name: value, type: PersistedDiscussionLocalConfigurationValue}
-  - {name: localConfigurationObjectID, type: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>}
 - name: userWantsToUpdateLocalConfigurationOfDiscussion
   params:
   - {name: value, type: PersistedDiscussionLocalConfigurationValue}
@@ -462,31 +337,20 @@ notifications:
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: contactCryptoId, type: ObvCryptoId}
-- name: persistedContactIsActiveChanged
-  params:
-  - {name: contactID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
 - name: installedOlvidAppIsOutdated
   params:
   - {name: presentingViewController, type: "UIViewController?"}
 - name: userOwnedIdentityWasRevokedByKeycloak
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
-- name: aOneToOneDiscussionTitleNeedsToBeReset
-  params:
-  - {name: ownedIdentityObjectID, type: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>}
 - name: uiRequiresSignedContactDetails
   params:
   - {name: ownedIdentityCryptoId, type: ObvCryptoId}
   - {name: contactCryptoId, type: ObvCryptoId}
   - {name: completion, type: "(SignedUserDetails?) -> Void", escaping: true}
-- name: preferredComposeMessageViewActionsDidChange
 - name: requestSyncAppDatabasesWithEngine
   params:
   - {name: completion, type: "(Result<Void,Error>) -> Void", escaping: true}
-- name: persistedMessageReactionReceivedWasDeleted
-  params:
-  - {name: messageURI, type: URL}
-  - {name: contactURI, type: URL}
 - name: uiRequiresSignedOwnedDetails
   params:
   - {name: ownedIdentityCryptoId, type: ObvCryptoId}
@@ -494,3 +358,7 @@ notifications:
 - name: listMessagesOnServerBackgroundTaskWasLaunched
   params:
   - {name: completionHandler, type: (Bool) -> Void, escaping: true}
+- name: userWantsToSendOneToOneInvitationToContact
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: contactCryptoId, type: ObvCryptoId}

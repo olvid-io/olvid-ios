@@ -29,7 +29,7 @@ import OlvidUtils
 
 public struct DeviceDiscoveryForContactIdentityProtocol: ConcreteCryptoProtocol {
     
-    private static let logCategory = "DeviceDiscoveryForContactIdentityProtocol"
+    static let logCategory = "DeviceDiscoveryForContactIdentityProtocol"
     
     static let id = CryptoProtocolId.DeviceDiscoveryForContactIdentity
     
@@ -100,19 +100,6 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForContactIdentityProtocol.logCategory)
-            os_log("DeviceDiscoveryForContactIdentityProtocol: starting StartChildProtocolStep", log: log, type: .info)
-            defer { os_log("DeviceDiscoveryForContactIdentityProtocol: ending StartChildProtocolStep", log: log, type: .info) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
 
             let contactIdentity = receivedMessage.contactIdentity
             
@@ -182,13 +169,6 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForContactIdentityProtocol.logCategory)
-            os_log("DeviceDiscoveryForContactIdentityProtocol: starting ProcessChildProtocolStateStep", log: log, type: .info)
-            defer { os_log("DeviceDiscoveryForContactIdentityProtocol: ending ProcessChildProtocolStateStep", log: log, type: .info) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity: ObvCryptoIdentity
             do {

@@ -30,7 +30,7 @@ class FyleMessageJoinWithStatus: NSManagedObject {
     private static let fyleKey = "fyle"
     internal static let rawStatusKey = "rawStatus"
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: FyleMessageJoinWithStatus.self))
     private static func makeError(message: String) -> Error {
         NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
     }
@@ -53,14 +53,8 @@ class FyleMessageJoinWithStatus: NSManagedObject {
     // MARK: - Other variables
     
     var message: PersistedMessage? {
-        if let join = self as? SentFyleMessageJoinWithStatus {
-            return join.sentMessage
-        } else if let join = self as? ReceivedFyleMessageJoinWithStatus {
-            return join.receivedMessage
-        } else {
-            assertionFailure()
-            return nil
-        }
+        assertionFailure("Must be overriden by subclasses")
+        return nil
     }
 
     var readOnce: Bool {
@@ -68,14 +62,8 @@ class FyleMessageJoinWithStatus: NSManagedObject {
     }
     
     var fullFileIsAvailable: Bool {
-        if let received = self as? ReceivedFyleMessageJoinWithStatus {
-            return received.status == .complete
-        } else if self is SentFyleMessageJoinWithStatus {
-            return true
-        } else {
-            assertionFailure("Unknown FyleMessageJoinWithStatus subclass")
-            return false
-        }
+        assertionFailure("Must be overriden by subclasses")
+        return false
     }
 
     var fyleElement: FyleElement? {

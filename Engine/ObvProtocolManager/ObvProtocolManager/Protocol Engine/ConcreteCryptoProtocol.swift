@@ -33,6 +33,8 @@ protocol ConcreteCryptoProtocol: CustomStringConvertible {
     static func stateId(fromRawValue rawValue: Int) -> ConcreteProtocolStateId?
     static func messageId(fromRawValue rawValue: Int) -> ConcreteProtocolMessageId?
     
+    static var logCategory: String { get }
+
     var ownedIdentity: ObvCryptoIdentity { get }
     var prng: PRNGService { get }
     var obvContext: ObvContext { get }
@@ -82,6 +84,8 @@ extension ConcreteCryptoProtocol {
                   within: obvContext)
     }
     
+    var logCategory: String { Self.logCategory }
+
     func getConcreteProtocolMessage(from message: ReceivedMessage) -> ConcreteProtocolMessage? {
         guard let messageId = Self.messageId(fromRawValue: message.protocolMessageRawId) else {
             return nil

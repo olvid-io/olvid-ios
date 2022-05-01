@@ -31,21 +31,35 @@ final class ContactTrustLevelWatcher {
     weak var delegateManager: ObvProtocolDelegateManager! 
 
     private let prng: PRNGService
-    private let internalQueue = DispatchQueue(label: "ContactTrustLevelWatcherQueue")
+    private let internalQueue = OperationQueue.createSerialQueue(name: "ContactTrustLevelWatcherQueue", qualityOfService: .background)
     private let logCategory = String(describing: ContactTrustLevelWatcher.self)
     private var notificationTokens = [NSObjectProtocol]()
-    
+
     init(prng: PRNGService) {
         self.prng = prng
     }
     
     func finalizeInitialization() {
-        self.observeContactTrustLevelWasIncreasedNotifications()
-        self.reEvaluateAllProtocolInstanceWaitingForTrustLevelIncrease()
+        
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            let log = OSLog(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: "ContactTrustLevelWatcher")
+            os_log("The notification delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        notificationTokens.append(contentsOf: [
+            ObvIdentityNotificationNew.observeContactIdentityOneToOneStatusChanged(within: notificationDelegate, queue: internalQueue) { [weak self] (ownedIdentity, contactIdentity, flowId) in
+                self?.processContactIdentityOneToOneStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
+            },
+        ])
+        
+        self.reEvaluateAllProtocolInstanceWaitingForContactUpgradeToOneToOne()
     }
     
-    /// This method, launched when finalizing the initialization, goes trough all protocol instances that wait for a trust level increase. It checks whether this level is now sufficient and, if this is the case, send the appropriate message to re-launch the protocol instance. This code is only meaningfull in the rare cases where a notification of Trust Level increase has been "missed".
-    private func reEvaluateAllProtocolInstanceWaitingForTrustLevelIncrease() {
+    /// This method, launched when finalizing the initialization, goes trough all protocol instances that wait for a contact to be promoted to OneToOne.
+    /// This code is only meaningfull in the rare cases where a notification of Trust Level increase has been "missed".
+    private func reEvaluateAllProtocolInstanceWaitingForContactUpgradeToOneToOne() {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
@@ -64,7 +78,7 @@ final class ContactTrustLevelWatcher {
             return
         }
 
-        self.internalQueue.async {
+        self.internalQueue.addOperation {
             let randomFlowId = FlowIdentifier()
             contextCreator.performBackgroundTaskAndWait(flowId: randomFlowId) { [weak self] (obvContext) in
                 
@@ -72,11 +86,11 @@ final class ContactTrustLevelWatcher {
                 
                 var contextNeedsToBeSaved = false
                 
-                let protocolInstances: Set<ProtocolInstanceWaitingForTrustLevelIncrease>
+                let protocolInstances: Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne>
                 do {
-                    protocolInstances = try ProtocolInstanceWaitingForTrustLevelIncrease.getAll(delegateManager: _self.delegateManager, within: obvContext)
+                    protocolInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(delegateManager: _self.delegateManager, within: obvContext)
                 } catch {
-                    os_log("Could not query the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
+                    os_log("Could not query the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
                     return
                 }
                 guard !protocolInstances.isEmpty else {
@@ -86,28 +100,24 @@ final class ContactTrustLevelWatcher {
                 
                 for protocolInstance in protocolInstances {
                     
-                    guard (try? identityDelegate.isIdentity(protocolInstance.contactCryptoIdentity, aContactIdentityOfTheOwnedIdentity: protocolInstance.ownedCryptoIdentity, within: obvContext)) == true else {
-                        continue
-                    }
-                    
-                    guard (try? identityDelegate.isContactIdentityActive(ownedIdentity: protocolInstance.ownedCryptoIdentity, contactIdentity: protocolInstance.contactCryptoIdentity, within: obvContext)) == true else {
-                        continue
-                    }
-                    
-                    let contactTrustLevel: TrustLevel
                     do {
-                        contactTrustLevel = try identityDelegate.getTrustLevel(forContactIdentity: protocolInstance.contactCryptoIdentity,
-                                                                                   ofOwnedIdentity: protocolInstance.ownedCryptoIdentity,
-                                                                                   within: obvContext)
+                        guard try identityDelegate.isIdentity(protocolInstance.contactCryptoIdentity, aContactIdentityOfTheOwnedIdentity: protocolInstance.ownedCryptoIdentity, within: obvContext) else {
+                            continue
+                        }
+                        
+                        guard try identityDelegate.isContactIdentityActive(ownedIdentity: protocolInstance.ownedCryptoIdentity, contactIdentity: protocolInstance.contactCryptoIdentity, within: obvContext) else {
+                            continue
+                        }
+                        
+                        guard try identityDelegate.isOneToOneContact(ownedIdentity: protocolInstance.ownedCryptoIdentity, contactIdentity: protocolInstance.contactCryptoIdentity, within: obvContext) else {
+                            continue
+                        }
                     } catch {
-                        os_log("Could not get the trust level of a contact", log: log, type: .fault)
+                        os_log("Error when evaluating if we can re-launch a protocol instance waiting for contact upgrade to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure()
                         continue
                     }
-                    
-                    guard contactTrustLevel >= protocolInstance.targetTrustLevel else {
-                        continue
-                    }
-                    
+                                        
                     // If we reach this point, there exists a contact that reached a high enough trust level in order to re-launch a protocol instance.
                     
                     let message = protocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel()
@@ -141,75 +151,81 @@ final class ContactTrustLevelWatcher {
         
     }
     
-    private func observeContactTrustLevelWasIncreasedNotifications() {
+    
+    private func processContactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
             return
         }
         
-        let NotificationType = ObvIdentityNotification.ContactTrustLevelWasIncreased.self
-        let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-            debugPrint("Within observeContactTrustLevelWasIncreasedNotifications")
-            guard let _self = self else { return }
-            guard let (ownedIdentity, contactIdentity, trustLevelOfContactIdentity, flowId) = NotificationType.parse(notification) else { return }
-            
-            guard let contextCreator = _self.delegateManager.contextCreator else {
-                os_log("The context creator is not set", log: log, type: .fault)
-                return
-            }
-            
-            guard let channelDelegate = _self.delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return
-            }
-            
-            _self.internalQueue.async {
-                contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                    // Query the ProtocolInstanceWaitingForTrustLevelIncrease to see if there is a protocol instance to "wake up"
-                    let protocolInstances: Set<ProtocolInstanceWaitingForTrustLevelIncrease>
-                    do {
-                        protocolInstances = try ProtocolInstanceWaitingForTrustLevelIncrease.get(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, maxTrustLevel: trustLevelOfContactIdentity, delegateManager: _self.delegateManager, within: obvContext)
-                    } catch {
-                        os_log("Could not query the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return
-                    }
-                    guard !protocolInstances.isEmpty else {
-                        os_log("Did not find any protocol instance to notify of the trust level increase of the contact", log: log, type: .debug)
-                        return
-                    }
-                    
-                    // For each protocol instance, create a ReceivedMessage and post it
-                    
-                    for waitingProtocolInstance in protocolInstances {
-                        
-                        let message = waitingProtocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel()
-                        guard let protocolMessageToSend = message.generateObvChannelProtocolMessageToSend(with: _self.prng) else {
-                            os_log("Could not generate protocol message to send", log: log, type: .fault)
-                            return
-                        }
-                        
-                        do {
-                            _ = try channelDelegate.post(protocolMessageToSend, randomizedWith: _self.prng, within: obvContext)
-                        } catch {
-                            os_log("Could not post message", log: log, type: .fault)
-                            return
-                        }
-                        
-                    }
+        guard let identityDelegate = self.delegateManager.identityDelegate else {
+            os_log("The identity delegate is not set", log: log, type: .fault)
+            return
+        }
 
-                    do {
-                        try obvContext.save(logOnFailure: log)
-                    } catch {
-                        os_log("Could not process the increase in the contact trust level", log: log, type: .fault)
-                    }
+        guard let channelDelegate = delegateManager.channelDelegate else {
+            os_log("The channel delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
+
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+
+            do {
+                guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
+                    return
                 }
+            } catch {
+                os_log("Could not test whether the contact is a OneToOne contact: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
 
+            // Query the ProtocolInstanceWaitingForContactUpgradeToOneToOne to see if there is a protocol instance to "wake up"
+            let protocolInstances: Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne>
+            do {
+                protocolInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, delegateManager: delegateManager, within: obvContext)
+            } catch {
+                os_log("Could not query the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
+                return
+            }
+            guard !protocolInstances.isEmpty else {
+                os_log("Did not find any protocol instance to notify of the trust level increase of the contact", log: log, type: .debug)
+                return
+            }
+            
+            // For each protocol instance, create a ReceivedMessage and post it
+            
+            for waitingProtocolInstance in protocolInstances {
+                
+                let message = waitingProtocolInstance.getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel()
+                guard let protocolMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    os_log("Could not generate protocol message to send", log: log, type: .fault)
+                    return
+                }
+                
+                do {
+                    _ = try channelDelegate.post(protocolMessageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    os_log("Could not post message", log: log, type: .fault)
+                    return
+                }
+                
+            }
+            
+            do {
+                try obvContext.save(logOnFailure: log)
+            } catch {
+                os_log("Could not process the increase in the contact trust level", log: log, type: .fault)
             }
         }
-        notificationTokens.append(token)
+
+        
     }
     
 }

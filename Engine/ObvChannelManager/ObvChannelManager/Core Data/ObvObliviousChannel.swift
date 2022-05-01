@@ -46,6 +46,8 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
+    private static let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
+
     // MARK: General Attributes and Properties
     
     @NSManaged private(set) var currentDeviceUid: UID                   // Part of primary key
@@ -239,6 +241,7 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
     
     func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header {
         let (keyId, channelKey) = selfRatchet()!
+        os_log("🔑 Wrapping message key with key id (%{public}@)", log: Self.log, type: .info, keyId.raw.hexString())
         let wrappedMessageKey = ObvObliviousChannel.wrap(messageKey, and: keyId, with: channelKey, randomizedWith: prng)
         let header = ObvNetworkMessageToSend.Header(toIdentity: remoteCryptoIdentity, deviceUid: remoteDeviceUid, wrappedMessageKey: wrappedMessageKey)
         numberOfEncryptedMessages += 1
@@ -279,7 +282,7 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
         let provisionedKeys = try KeyMaterial.getAll(cryptoKeyId: keyId, currentDeviceUid: deviceUid, within: obvContext)
         // Given the keyId of the received message, we might have several candidate for the decryption key (i.e., several provisioned received keys). We try them one by one until one successfully decrypts the message
         
-        os_log("Number of potential provisioned keys for this key id: %d", log: log, type: .debug, provisionedKeys.count)
+        os_log("🔑 Number of potential provisioned keys for this key id (%{public}@): %d", log: log, type: .info, keyId.raw.hexString(), provisionedKeys.count)
         
         for provisionedKey in provisionedKeys {
             
@@ -665,24 +668,18 @@ extension ObvObliviousChannel {
         if self.isConfirmed && notificationRelatedChanges.contains(.isConfirmed) {
             
             os_log("Posting a NewConfirmedObliviousChannel notification", log: log, type: .debug)
-            let NotificationType = ObvChannelNotification.NewConfirmedObliviousChannel.self
-            let userInfo = [NotificationType.Key.currentDeviceUid: currentDeviceUid,
-                            NotificationType.Key.remoteCryptoIdentity: remoteCryptoIdentity,
-                            NotificationType.Key.remoteDeviceUid: remoteDeviceUid]
-            DispatchQueue(label: "Queue for sending a NewConfirmedObliviousChannel notification").async {
-                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            }
+            ObvChannelNotification.newConfirmedObliviousChannel(currentDeviceUid: currentDeviceUid,
+                                                                remoteCryptoIdentity: remoteCryptoIdentity,
+                                                                remoteDeviceUid: remoteDeviceUid)
+            .postOnBackgroundQueue(within: notificationDelegate)
 
         } else if isDeleted && self.isConfirmed {
             
             os_log("Posting a DeletedConfirmedObliviousChannel notification", log: log, type: .debug)
-            let NotificationType = ObvChannelNotification.DeletedConfirmedObliviousChannel.self
-            let userInfo = [NotificationType.Key.currentDeviceUid: currentDeviceUid,
-                            NotificationType.Key.remoteCryptoIdentity: remoteCryptoIdentity,
-                            NotificationType.Key.remoteDeviceUid: remoteDeviceUid]
-            DispatchQueue(label: "Queue for sending a DeletedConfirmedObliviousChannel notification").async {
-                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            }
+            ObvChannelNotification.deletedConfirmedObliviousChannel(currentDeviceUid: currentDeviceUid,
+                                                                    remoteCryptoIdentity: remoteCryptoIdentity,
+                                                                    remoteDeviceUid: remoteDeviceUid)
+            .postOnBackgroundQueue(within: notificationDelegate)
 
         }
         

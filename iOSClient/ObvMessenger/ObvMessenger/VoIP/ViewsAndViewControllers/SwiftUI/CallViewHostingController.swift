@@ -23,8 +23,10 @@ import SwiftUI
 final class CallViewHostingController: UIHostingController<CallView> {
     
     let wrappedCall: ObservableCallWrapper
+    let callUUID: UUID
 
-    init(call: Call) {
+    init(call: GenericCall) {
+        self.callUUID = call.uuid
         self.wrappedCall = ObservableCallWrapper(call: call)
         super.init(rootView: CallView(wrappedCall: wrappedCall))
     }

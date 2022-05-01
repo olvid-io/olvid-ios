@@ -27,7 +27,7 @@ import OlvidUtils
 /// For inbound messages, we delete all readOnce messages that are marked as "read".
 final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: WipeOrDeleteReadOnceMessagesOperation.self))
     
     /// If `true`, received messages remain untouched. Typically `true` when starting Olvid, and `false` when going to background.
     /// Setting this value to `true` makes it possible to avoid deleting messages when entering fast (e.g. by tapping a notification) in a discussion in auto-read mode.
@@ -136,12 +136,12 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
                     
                     for discussionUriRepresentation in wipedMessageInfos.map({ $0.discussionUriRepresentation }) {
                         let messageUriRepresentations = Set(wipedMessageInfos.filter({ $0.discussionUriRepresentation == discussionUriRepresentation }).map({ $0.messageUriRepresentation }))
-                        ObvMessengerInternalNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+                        ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
                             .postOnDispatchQueue()
                     }
                     for discussionUriRepresentation in deletedMessageInfos.map({ $0.discussionUriRepresentation }) {
                         let messageUriRepresentations = Set(deletedMessageInfos.filter({ $0.discussionUriRepresentation == discussionUriRepresentation }).map({ $0.messageUriRepresentation }))
-                        ObvMessengerInternalNotification.persistedMessagesWereDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+                        ObvMessengerCoreDataNotification.persistedMessagesWereDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
                             .postOnDispatchQueue()
                     }
                 }

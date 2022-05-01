@@ -41,7 +41,7 @@ class OwnedIdentityIsNotActiveViewController: UIViewController {
         reactivateButton.setTitle(Strings.reactivateIdentity, for: .normal)
         
         // Always dismiss this view controller if the identity is reactivated
-        notificationTokens.append(ObvMessengerInternalNotification.observeOwnedIdentityWasReactivated(queue: OperationQueue.main, block: { [weak self] (_) in
+        notificationTokens.append(ObvMessengerCoreDataNotification.observeOwnedIdentityWasReactivated(queue: OperationQueue.main, block: { [weak self] (_) in
             self?.dismissPresentedViewController()
         }))
         

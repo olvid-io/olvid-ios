@@ -66,6 +66,10 @@ public final class ObvChannelManagerImplementation: ObvChannelDelegate, ObvProce
         ObvObliviousChannel.delegateManager = delegateManager // Weak reference
         Provision.delegateManager = delegateManager // Weak reference
     }
+ 
+    public func setObvUserInterfaceChannelDelegate(_ obvUserInterfaceChannelDelegate: ObvUserInterfaceChannelDelegate) {
+        delegateManager.obvUserInterfaceChannelDelegate = obvUserInterfaceChannelDelegate
+    }
     
 }
 
@@ -188,12 +192,8 @@ extension ObvChannelManagerImplementation {
             
             do {
                 try obvContext.addContextDidSaveCompletionHandler { (_) in
-                    let NotificationType = ObvChannelNotification.NetworkReceivedMessageWasProcessed.self
-                    let userInfo = [NotificationType.Key.messageId: encryptedMessage.messageId,
-                                    NotificationType.Key.flowId: obvContext.flowId] as [String: Any]
-                    DispatchQueue(label: "Queue for posting a NetworkReceivedMessageWasProcessed notification").async {
-                        notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                    }
+                    ObvChannelNotification.networkReceivedMessageWasProcessed(messageId: encryptedMessage.messageId, flowId: obvContext.flowId)
+                        .postOnBackgroundQueue(within: notificationDelegate)
                 }
             } catch {
                 os_log("Could not add completion handler into obvContext", log: log, type: .fault)
@@ -235,6 +235,7 @@ extension ObvChannelManagerImplementation {
         try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
             try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
             applicationMessage = try delegateManager.networkReceivedMessageDecryptorDelegate.decrypt(receivedMessage, within: obvContext)
+            // We do *not* save the context so as to *not* delete the decryption key, making it possible to decrypt the (full) message reveived by the network manager.
         }
         guard let message = applicationMessage else {
             os_log("Application message is nil, which is unexpected at this point", log: log, type: .fault)
@@ -321,4 +322,9 @@ extension ObvChannelManagerImplementation {
         return try ObvObliviousChannel.getAllKnownRemoteDeviceUids(within: obvContext)
     }
     
+}
+
+
+public protocol ObvUserInterfaceChannelDelegate: AnyObject {
+    func newUserDialogToPresent(obvChannelDialogMessageToSend: ObvChannelDialogMessageToSend, within obvContext: ObvContext) throws
 }

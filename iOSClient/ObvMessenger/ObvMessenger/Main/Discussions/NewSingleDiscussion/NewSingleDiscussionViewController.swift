@@ -42,7 +42,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var observationTokens = [NSObjectProtocol]()
     private var unreadMessagesSystemMessage: PersistedMessageSystem?
     private let initialScroll: InitialScroll
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewSingleDiscussionViewController.self))
     private let internalQueue = DispatchQueue(label: "NewSingleDiscussionViewController internal queue")
     private let hidingView = UIView()
     private var initialScrollWasPerformed = false
@@ -54,7 +54,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var atLeastOneSnapshotWasApplied = false
     private var isRegisteredToKeyboardNotifications = false
     private var backgroundEffectViewForComposeView: UIVisualEffectView!
-    
+
     @Published private var messagesToReconfigure = Set<TypeSafeManagedObjectID<PersistedMessage>>()
     private var cancellables = [AnyCancellable]()
     
@@ -320,7 +320,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 guard discussion.localConfiguration.typedObjectID == objectId else { return }
                 _self.configureNavigationTitle()
             },
-            ObvMessengerInternalNotification.observePersistedContactGroupHasUpdatedContactIdentities(queue: OperationQueue.main) { [weak self] _,_,_ in
+            ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities(queue: OperationQueue.main) { [weak self] _,_,_ in
                 self?.configureNewComposeMessageViewVisibility(animate: true)
             },
             ObvMessengerInternalNotification.observeCurrentUserActivityDidChange(queue: OperationQueue.main) { [weak self] (previousUserActivity, currentUserActivity) in
@@ -329,7 +329,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 guard _self.discussionObjectID == previousUserActivity.persistedDiscussionObjectID, _self.discussionObjectID != currentUserActivity.persistedDiscussionObjectID else { return }
                 _self.theUserLeftTheDiscussion()
             },
-            ObvMessengerInternalNotification.observePersistedContactIsActiveChanged(queue: OperationQueue.main) { [weak self] _ in
+            ObvMessengerCoreDataNotification.observePersistedContactIsActiveChanged(queue: OperationQueue.main) { [weak self] _ in
                 self?.configureNewComposeMessageViewVisibility(animate: true)
             },
         ])
@@ -406,7 +406,7 @@ extension NewSingleDiscussionViewController {
                 let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
                 let unmuteImage = UIImage(systemIcon: .moonZzzFill, withConfiguration: symbolConfiguration)
                 let unmuteAction = UIAction.init(title: Strings.unmuteNotifications, image: UIImage(systemIcon: .moonZzzFill)) { _ in
-                    ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(muteNotificationsDuration: nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+                    ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(muteNotificationsDuration: nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
                 }
                 let menuElements: [UIMenuElement] = [unmuteAction]
                 let menu = UIMenu(title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted), children: menuElements)
@@ -1010,7 +1010,7 @@ extension NewSingleDiscussionViewController {
     
     /// We observe deletion of system messages so as to update the system message cell counting new messages if appropriate.
     private func updateNewMessageCellOnDeletionOfRelevantSystemMessages() {
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageSystemWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, discussionObjectID) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageSystemWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, discussionObjectID) in
             guard let _self = self else { return }
             guard discussionObjectID == _self.discussionObjectID else { return }
             let messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
@@ -1247,6 +1247,7 @@ extension NewSingleDiscussionViewController {
             }
 
             if cell.isSharingActionAvailable {
+
                 // Share all photos at once
                 if let itemProvidersForImages = cell.itemProvidersForImages, itemProvidersForImages.count > 0 {
                     let action = UIAction(title: Strings.sharePhotos(itemProvidersForImages.count)) { [weak self] (_) in

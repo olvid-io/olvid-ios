@@ -35,15 +35,13 @@ final class AboutSettingsTableViewController: UITableViewController {
         title = CommonString.Word.About
     }
 
-}
 
+    // MARK: - UITableViewDataSource
 
-// MARK: - UITableViewDataSource
-
-extension AboutSettingsTableViewController {
 
     private enum Section: Int, CaseIterable {
         case version = 0
+        case minimumVersionsFromServer
         case legal
         case alert
     }
@@ -51,6 +49,15 @@ extension AboutSettingsTableViewController {
     private enum VersionRows: Int, CaseIterable {
         case version = 0
     }
+    
+    private enum MinimumVersionsFromServerRow: Int, CaseIterable {
+        case minimumSupportedVersion = 0
+        case minimumRecommendedVersion
+        case goToAppStore
+        
+    }
+    
+    private var shownMinimumVersionsFromServerRows = Set<MinimumVersionsFromServerRow>()
 
     private enum LegalRows: Int, CaseIterable {
         case termsOfUse = 0
@@ -70,6 +77,12 @@ extension AboutSettingsTableViewController {
         guard let section = Section(rawValue: section) else { assertionFailure(); return 0 }
         switch section {
         case .version: return VersionRows.allCases.count
+        case .minimumVersionsFromServer:
+            shownMinimumVersionsFromServerRows.formUnion([.minimumRecommendedVersion, .minimumSupportedVersion])
+            if ObvMessengerConstants.bundleVersionAsInt < max(ObvMessengerSettings.AppVersionAvailable.latest ?? 0, ObvMessengerSettings.AppVersionAvailable.minimum ?? 0) {
+                shownMinimumVersionsFromServerRows.insert(.goToAppStore)
+            }
+            return shownMinimumVersionsFromServerRows.count
         case .legal: return LegalRows.allCases.count
         case .alert: return AlertRows.allCases.count
         }
@@ -87,6 +100,68 @@ extension AboutSettingsTableViewController {
                 cell.textLabel?.text = CommonString.Word.Version
                 cell.detailTextLabel?.text = ObvMessengerConstants.fullVersion
                 cell.selectionStyle = .none
+                return cell
+            }
+
+        case .minimumVersionsFromServer:
+            guard let row = MinimumVersionsFromServerRow(rawValue: indexPath.row) else { assertionFailure(); return UITableViewCell() }
+            switch row {
+            case .minimumSupportedVersion:
+                let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
+                cell.selectionStyle = .none
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = Strings.minimumSupportedVersion
+                    if let version = ObvMessengerSettings.AppVersionAvailable.minimum {
+                        configuration.secondaryText = String(describing: version)
+                    } else {
+                        configuration.secondaryText = CommonString.Word.Unavailable
+                    }
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = Strings.minimumSupportedVersion
+                    if let version = ObvMessengerSettings.AppVersionAvailable.minimum {
+                        cell.detailTextLabel?.text = String(describing: version)
+                    } else {
+                        cell.detailTextLabel?.text = CommonString.Word.Unavailable
+                    }
+                    cell.selectionStyle = .none
+                }
+                return cell
+            case .minimumRecommendedVersion:
+                let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = Strings.minimumRecommendedVersion
+                    if let version = ObvMessengerSettings.AppVersionAvailable.latest {
+                        configuration.secondaryText = String(describing: version)
+                    } else {
+                        configuration.secondaryText = CommonString.Word.Unavailable
+                    }
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = Strings.minimumRecommendedVersion
+                    if let version = ObvMessengerSettings.AppVersionAvailable.latest {
+                        cell.detailTextLabel?.text = String(describing: version)
+                    } else {
+                        cell.detailTextLabel?.text = CommonString.Word.Unavailable
+                    }
+                    cell.selectionStyle = .none
+                }
+                return cell
+            case .goToAppStore:
+                let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = Strings.upgradeOlvidNow
+                    configuration.textProperties.color = AppTheme.shared.colorScheme.link
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = Strings.upgradeOlvidNow
+                    cell.detailTextLabel?.text = nil
+                    cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
+                }
+                cell.selectionStyle = .default
                 return cell
             }
 
@@ -139,20 +214,31 @@ extension AboutSettingsTableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let section = Section(rawValue: indexPath.section) else { assertionFailure(); return }
 
+        defer {
+            tableView.deselectRow(at: indexPath, animated: true)
+        }
+        
         switch section {
         case .version:
             break
+        case .minimumVersionsFromServer:
+            guard let row = MinimumVersionsFromServerRow(rawValue: indexPath.row) else { assertionFailure(); return }
+            switch row {
+            case .minimumSupportedVersion, .minimumRecommendedVersion:
+                break
+            case .goToAppStore:
+                guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
+                UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
+            }
         case .legal:
             guard let row = LegalRows(rawValue: indexPath.row) else { assertionFailure(); return }
             switch row {
             case .termsOfUse:
                 let url = ObvMessengerConstants.urlToOlvidTermsOfUse
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                tableView.deselectRow(at: indexPath, animated: true)
             case .privacyPolicy:
                 let url = ObvMessengerConstants.urlToOlvidPrivacyPolicy
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                tableView.deselectRow(at: indexPath, animated: true)
             case .acknowlegments:
                 let vc = ExternalLibrariesViewController()
                 self.navigationController?.pushViewController(vc, animated: true)
@@ -164,7 +250,6 @@ extension AboutSettingsTableViewController {
                 ObvMessengerSettings.Alert.resetAllAlerts()
                 ObvMessengerInternalNotification.UserRequestedToResetAllAlerts
                     .postOnDispatchQueue()
-                tableView.deselectRow(at: indexPath, animated: true)
             }
         }
     }
@@ -182,6 +267,9 @@ extension AboutSettingsTableViewController {
         static let termsOfUse = NSLocalizedString("TERMS_OF_USE", comment: "")
         static let privacyPolicy = NSLocalizedString("PRIVACY_POLICY", comment: "")
         static let openSourceLicences = NSLocalizedString("OPEN_SOURCE_LICENCES", comment: "")
+        static let minimumSupportedVersion = NSLocalizedString("MINIMUM_SUPPORTED_VERSION", comment: "")
+        static let minimumRecommendedVersion = NSLocalizedString("MINIMUM_RECOMMENDED_VERSION", comment: "")
+        static let upgradeOlvidNow = NSLocalizedString("UPGRADE_OLVID_NOW", comment: "")
 
     }
     

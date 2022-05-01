@@ -40,7 +40,7 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>
 		<key>NSExtensionPrincipalClass</key>
-		<string>ShareExtensionGatekeeperViewController</string>
+		<string>ShareViewController</string>
 	</dict>
 	<key>OBV_APP_GROUP_IDENTIFIER</key>
 	<string>$(OBV_APP_GROUP_IDENTIFIER)</string>

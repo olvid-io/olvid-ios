@@ -29,35 +29,35 @@ class CXCallManager: ObvCallManager {
     private let callController = CXCallController()
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CXCallManager.self))
 
-    func requestEndCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestEndCallAction(call: Call) async throws {
         let endCallAction = CXEndCallAction(call: call.uuid)
         let transaction = CXTransaction()
         transaction.addAction(endCallAction)
-        requestTransaction(transaction, completion: completion)
+        try await requestTransaction(transaction)
     }
 
-    func requestAnswerCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
-        let answerCallAction = CXAnswerCallAction(call: call.uuid)
+    func requestAnswerCallAction(incomingCall: Call) async throws {
+        let answerCallAction = CXAnswerCallAction(call: incomingCall.uuid)
         let transaction = CXTransaction()
         transaction.addAction(answerCallAction)
-        requestTransaction(transaction, completion: completion)
+        try await requestTransaction(transaction)
     }
 
-    func requestMuteCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestMuteCallAction(call: Call) async throws {
         let muteCallAction = CXSetMutedCallAction(call: call.uuid, muted: true)
         let transaction = CXTransaction()
         transaction.addAction(muteCallAction)
-        requestTransaction(transaction, completion: completion)
+        try await requestTransaction(transaction)
     }
 
-    func requestUnmuteCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestUnmuteCallAction(call: Call) async throws {
         let muteCallAction = CXSetMutedCallAction(call: call.uuid, muted: false)
         let transaction = CXTransaction()
         transaction.addAction(muteCallAction)
-        requestTransaction(transaction, completion: completion)
+        try await requestTransaction(transaction)
     }
 
-    func requestStartCallAction(call: Call, contactIdentifier: String, handleValue: String, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestStartCallAction(call: Call, contactIdentifier: String, handleValue: String) async throws {
         let handle = CXHandle(type: .generic, value: handleValue)
 
         let startCallAction = CXStartCallAction(call: call.uuid, handle: handle)
@@ -65,21 +65,13 @@ class CXCallManager: ObvCallManager {
 
         let transaction = CXTransaction()
         transaction.addAction(startCallAction)
-        requestTransaction(transaction, completion: completion)
+        try await requestTransaction(transaction)
     }
 
-    private func requestTransaction(_ transaction: CXTransaction, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    
+    private func requestTransaction(_ transaction: CXTransaction) async throws {
         os_log("☎️ Requesting transaction with %{public}d action(s). The first is: %{public}@", log: log, type: .error, transaction.actions.count, transaction.actions.first ?? "nil")
-        callController.request(transaction) { error in
-            if let error = error {
-                guard let cxError = error as? CXErrorCodeRequestTransactionError else {
-                    completion?(.unknown)
-                    assertionFailure(); return
-                }
-                completion?(cxError.obvError)
-            }
-            completion?(nil)
-        }
+        try await callController.request(transaction)
     }
 
 }
@@ -197,9 +189,13 @@ class CXObvProvider: ObvProvider {
         self.provider.setDelegate(self.delegate, queue: queue)
     }
 
-    func reportNewIncomingCall(with UUID: UUID, update: ObvCallUpdate, completion: @escaping (ObvErrorCodeIncomingCallError?) -> Void) {
+    func reportNewIncomingCall(with UUID: UUID, update: ObvCallUpdate, completion: @escaping (Result<Void,Error>) -> Void) {
         provider.reportNewIncomingCall(with: UUID, update: update.cxCallUpdate) { error in
-            completion((error as? CXErrorCodeIncomingCallError)?.obvError)
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
         }
     }
 
@@ -228,7 +224,8 @@ class CXObvProvider: ObvProvider {
         provider.invalidate()
     }
 
-    func reportNewCancelledIncomingCall(completionHandler: @escaping () -> Void) {
+
+    func reportNewCancelledIncomingCall() {
         let uuid = UUID()
         let update = ObvCallUpdateImpl(remoteHandle_: nil,
                                        localizedCallerName: "...",
@@ -237,14 +234,19 @@ class CXObvProvider: ObvProvider {
                                        supportsUngrouping: false,
                                        supportsDTMF: false,
                                        hasVideo: false)
-        provider.reportNewIncomingCall(with: uuid, update: update.cxCallUpdate) { (error) in
-            let callController = CXCallController()
-            let endCallAction = CXEndCallAction(call: uuid)
-            let transaction = CXTransaction()
-            transaction.addAction(endCallAction)
-            callController.request(transaction) { error in
-                completionHandler()
-            }
+        provider.reportNewIncomingCall(with: uuid, update: update.cxCallUpdate) { [weak self] _ in
+            self?.endReportedIncomingCall(with: uuid, inSeconds: 2)
+        }
+    }
+    
+    
+    func endReportedIncomingCall(with uuid: UUID, inSeconds: Int) {
+        let callController = CXCallController()
+        let endCallAction = CXEndCallAction(call: uuid)
+        let transaction = CXTransaction()
+        transaction.addAction(endCallAction)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(inSeconds)) {
+            Task { try await callController.request(transaction) }
         }
     }
 
@@ -308,41 +310,45 @@ class CXObvProviderDelegate: NSObject, CXProviderDelegate {
     }
 
     func providerDidBegin(_ provider: CXProvider) {
-        delegate?.providerDidBegin()
+        Task { [weak self] in await self?.delegate?.providerDidBegin() }
     }
     func providerDidReset(_ provider: CXProvider) {
-        delegate?.providerDidReset()
+        Task { [weak self] in await self?.delegate?.providerDidReset() }
     }
     func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-        delegate?.provider(perform: action)
+        guard let delegate = delegate else { assertionFailure(); action.fail(); return }
+        Task { await delegate.provider(perform: action) }
     }
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
-        delegate?.provider(perform: action)
+        guard let delegate = delegate else { assertionFailure(); action.fail(); return }
+        Task { await delegate.provider(perform: action) }
     }
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-        delegate?.provider(perform: action)
+        guard let delegate = delegate else { assertionFailure(); action.fail(); return }
+        Task { await delegate.provider(perform: action) }
     }
     func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
-        delegate?.provider(perform: action)
+        Task { [weak self] in await self?.delegate?.provider(perform: action) }
     }
     func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
-        delegate?.provider(perform: action)
+        Task { [weak self] in await self?.delegate?.provider(perform: action) }
     }
     func provider(_ provider: CXProvider, perform action: CXPlayDTMFCallAction) {
-        delegate?.provider(perform: action)
+        Task { [weak self] in await self?.delegate?.provider(perform: action) }
     }
     func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
         if let obvAction = action as? ObvAction {
-            delegate?.provider(timedOutPerforming: obvAction)
+            Task { [weak self] in await self?.delegate?.provider(timedOutPerforming: obvAction) }
         } else {
             assertionFailure()
+            action.fail()
         }
     }
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        delegate?.provider(didActivate: audioSession)
+        Task { [weak self] in await self?.delegate?.provider(didActivate: audioSession) }
     }
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-        delegate?.provider(didDeactivate: audioSession)
+        Task { [weak self] in await self?.delegate?.provider(didDeactivate: audioSession) }
     }
 }
 
@@ -386,5 +392,33 @@ class CXCallObserverTest: NSObject, CXCallObserverDelegate {
     func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
         print("☎️ CX Observe call changed uuid=", call.uuid, " isOutgoing=", call.isOutgoing, " isOnHold=", call.isOnHold, " hasConnected=", call.hasConnected, " hasEnded=", call.hasEnded)
         print("☎️ CX Number of ObvCall=", callObserver.calls.count)
+    }
+}
+
+
+
+// MARK: - ObvErrorCodeRequestTransactionError
+
+enum ObvErrorCodeRequestTransactionError: Int {
+    case unknown = 0
+    case unentitled = 1
+    case unknownCallProvider = 2
+    case emptyTransaction = 3
+    case unknownCallUUID = 4
+    case callUUIDAlreadyExists = 5
+    case invalidAction = 6
+    case maximumCallGroupsReached = 7
+
+    var localizedDescription: String {
+        switch self {
+        case .unknown: return "unknown"
+        case .unentitled: return "unentitled"
+        case .unknownCallProvider: return "unknownCallProvider"
+        case .emptyTransaction: return "emptyTransaction"
+        case .unknownCallUUID: return "unknownCallUUID"
+        case .callUUIDAlreadyExists: return "callUUIDAlreadyExists"
+        case .invalidAction: return "invalidAction"
+        case .maximumCallGroupsReached: return "maximumCallGroupsReached"
+        }
     }
 }

@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<MarkAllMessagesAsNotNewWithinDiscussionOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAllMessagesAsNotNewWithinDiscussionOperation.self))
 
     private let persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?
     private let persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>?

@@ -99,7 +99,7 @@ extension ObvNetworkChannel {
         
         guard !acceptableChannels.isEmpty else {
             os_log("Could not find any acceptable channel for posting message", log: log, type: .error)
-            throw Self.makeError(message: "Could not find any acceptable channel for posting message")
+            return [:]
         }
         
         guard let (messageKey, headers) = generateMessageKeyAndHeaders(using: acceptableChannels, randomizedWith: prng) else {

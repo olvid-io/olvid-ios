@@ -255,7 +255,7 @@ fileprivate final class NewQRCodeScannerViewController: UIViewController, AVCapt
         fatalError("init(coder:) has not been implemented")
     }
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewQRCodeScannerViewController.self))
     private let captureSession = AVCaptureSession()
     private var videoPreviewLayer: AVCaptureVideoPreviewLayer!
     

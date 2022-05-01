@@ -26,7 +26,7 @@ import OlvidUtils
 
 final class DeleteAllJsonMessagesSavedByNotificationExtension: OperationWithSpecificReasonForCancel<DeleteAllJsonMessagesSavedByNotificationExtensionReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllJsonMessagesSavedByNotificationExtension.self))
 
     override func main() {
         

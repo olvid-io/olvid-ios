@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.0 (495)] - 2022-03-24
+
+- New behavior of your address book! Now, an Olvid user becomes a contact only if you explicitly agree. You are now in full control of your address book!
+- A new list of "other" Olvid users is now accessible from the "Contacts" tab. Typically, these users are part of the same discussion groups as you. Inviting these users to be a contact of yours can be done in one tap!
+- A group invite from a contact is now automatically accepted.
+- You still need to explicitly accept group invites from Olvid users who are not part of your contacts.
+- Sharing with Olvid is now easier and you can now share content into multiple discussions at once!
+- Support for new emojis.
+- The reactions are larger and easier to tap.
+- Bugfix: The reactions were not properly refreshed (it required manual scrolling to actually see an update). This is fixed.
+- Bugfix: Fixes an issue with user notifications that wouldn't show after an upgrade (until the first restart of the app)
+- Bugfix: a double tap on an image would sometimes show a large version of the image instead of of the panel of reactions. This is fixed.
+- Many important improvements made to calls, especially for group calls.
+- The receipt indicator of sent messages is more reliable.
+- If the app version is outdated, an alert recommends an upgrade.
+- Upgrade of a third-party library.
+
 ## [0.9.18 (490)] - 2022-01-28
 
 - Great improvements made to secure calls ! Including better quality in poor network conditions and reduced connecting time. Please note that your contact must also use the latest version of Olvid.

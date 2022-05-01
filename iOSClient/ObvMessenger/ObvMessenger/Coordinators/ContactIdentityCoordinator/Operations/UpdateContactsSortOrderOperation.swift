@@ -42,7 +42,7 @@ final class UpdateContactsSortOrderOperation: OperationWithSpecificReasonForCanc
 
             let persistedObvContactIdentites: [PersistedObvContactIdentity]
             do {
-                persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, within: context)
+                persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: context)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

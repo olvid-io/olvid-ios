@@ -73,18 +73,6 @@ extension IdentityDetailsPublicationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: IdentityDetailsPublicationProtocol.logCategory)
-            os_log("IdentityDetailsPublicationProtocol: starting StartPhotoUploadStep", log: log, type: .debug)
-            defer { os_log("IdentityDetailsPublicationProtocol: ending StartPhotoUploadStep", log: log, type: .debug) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
 
             let version = receivedMessage.version
             
@@ -184,18 +172,6 @@ extension IdentityDetailsPublicationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: IdentityDetailsPublicationProtocol.logCategory)
-            os_log("IdentityDetailsPublicationProtocol: starting SendDetailsStep", log: log, type: .debug)
-            defer { os_log("IdentityDetailsPublicationProtocol: ending SendDetailsStep", log: log, type: .debug) }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
             
             let ownedIdentityDetailsElements = startState.ownedIdentityDetailsElements
             
@@ -249,18 +225,6 @@ extension IdentityDetailsPublicationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: IdentityDetailsPublicationProtocol.logCategory)
-            os_log("IdentityDetailsPublicationProtocol: starting ReceiveDetailsStep", log: log, type: .debug)
-            defer { os_log("IdentityDetailsPublicationProtocol: ending ReceiveDetailsStep", log: log, type: .debug) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
 
             let contactIdentityDetailsElements = receivedMessage.contactIdentityDetailsElements
 

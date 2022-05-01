@@ -23,7 +23,7 @@ import ObvEngine
 
 final class DiscussionsFlowViewController: UINavigationController, ObvFlowController {
 
-    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DiscussionsFlowViewController.self))
 
     var ownedCryptoId: ObvCryptoId!
     private var observationTokens = [NSObjectProtocol]()
@@ -158,7 +158,7 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
     }
 
     func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
             guard let _self = self else { return }
             _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
         })

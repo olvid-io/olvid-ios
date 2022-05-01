@@ -33,7 +33,7 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
 
     
     private let persistedDraft: PersistedDraft
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ComposeMessageDataSourceWithDraft.self))
     private let fetchedResultsController: NSFetchedResultsController<PersistedDraftFyleJoin>
     private var itemChanges = [(type: NSFetchedResultsChangeType, indexPath: IndexPath?, newIndexPath: IndexPath?)]()
 

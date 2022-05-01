@@ -108,9 +108,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4ACF7C8205AC28300F44105 /* Build configuration list for PBXNativeTarget "ObvNotificationCenter" */;
 			buildPhases = (
+				C4ACF7BD205AC28300F44105 /* Headers */,
 				C4ACF7BB205AC28300F44105 /* Sources */,
 				C4ACF7BC205AC28300F44105 /* Frameworks */,
-				C4ACF7BD205AC28300F44105 /* Headers */,
 				C4ACF7BE205AC28300F44105 /* Resources */,
 				C0B4A4FF276F7D8500816D8D /* ShellScript */,
 			);

@@ -43,6 +43,7 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
     public override func main() {
 
         let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
+        defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext

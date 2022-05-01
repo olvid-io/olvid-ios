@@ -36,7 +36,7 @@ final class ObvPushNotificationManager {
         }
         set {
             guard let token = newValue else { return }
-            userDefaults.set(token, forKey: "io.olvid.ObvPushNotificationManager.push.token")
+            userDefaults.set(token, forKey: "io.olvid.ObvPushNotificationManager.push.token") // User defaults are thread safe
         }
     }
 
@@ -46,7 +46,7 @@ final class ObvPushNotificationManager {
         }
         set {
             guard let token = newValue else { return }
-            userDefaults.set(token, forKey: "io.olvid.ObvPushNotificationManager.voip.token")
+            userDefaults.set(token, forKey: "io.olvid.ObvPushNotificationManager.voip.token")  // User defaults are thread safe
         }
     }
 
@@ -55,61 +55,68 @@ final class ObvPushNotificationManager {
     // Private variables
     
     private var notificationTokens = [NSObjectProtocol]()
-
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ObvPushNotificationManager.self))
+    private let internalQueue = OperationQueue.createSerialQueue(name: "ObvPushNotificationManager internal queue")
 
+    
     private init() {
         observeNotifications()
     }
     
+    
     private func observeNotifications() {
-        notificationTokens.append(ObvEngineNotificationNew.observeServerRequiresThisDeviceToRegisterToPushNotifications(within: NotificationCenter.default) { [weak self] (ownedCryptoId) in
-            guard let _self = self else { return }
-            os_log("Since the server reported that we need to register to push notification, we do so now", log: _self.log, type: .info)
-            DispatchQueue.main.async {
+        notificationTokens.append(contentsOf: [
+            ObvEngineNotificationNew.observeServerRequiresThisDeviceToRegisterToPushNotifications(within: NotificationCenter.default) { [weak self] (ownedCryptoId) in
+                guard let _self = self else { return }
+                os_log("Since the server reported that we need to register to push notification, we do so now", log: _self.log, type: .info)
                 _self.tryToRegisterToPushNotifications()
-            }
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeIsCallKitEnabledSettingDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.tryToRegisterToPushNotifications()
-        })
+            },
+            ObvMessengerSettingsNotifications.observeIsCallKitEnabledSettingDidChange { [weak self] in
+                self?.tryToRegisterToPushNotifications()
+            },
+        ])
     }
     
+
     func doKickOtherDevicesOnNextRegister() {
-        assert(Thread.current == Thread.main)
-        self.kickOtherDevicesOnNextRegister = true
+        internalQueue.addOperation { [weak self] in
+            self?.kickOtherDevicesOnNextRegister = true
+        }
     }
+    
     
     func tryToRegisterToPushNotifications() {
-        assert(Thread.isMainThread)
-        guard let obvEngine = self.obvEngine else { assertionFailure(); return }
-        let log = self.log
-        let tokens: (pushToken: Data, voipToken: Data?)?
-        if ObvMessengerConstants.isRunningOnRealDevice {
-            if let _currentDeviceToken = currentDeviceToken {
-                let voipToken = ObvMessengerSettings.VoIP.isCallKitEnabled ? currentVoipToken : nil
-                tokens = (_currentDeviceToken, voipToken)
+        internalQueue.addOperation { [weak self] in
+            guard let _self = self else { return }
+            guard let obvEngine = _self.obvEngine else { assertionFailure(); return }
+            let log = _self.log
+            let tokens: (pushToken: Data, voipToken: Data?)?
+            if ObvMessengerConstants.isRunningOnRealDevice {
+                if let _currentDeviceToken = _self.currentDeviceToken {
+                    let voipToken = ObvMessengerSettings.VoIP.isCallKitEnabled ? _self.currentVoipToken : nil
+                    tokens = (_currentDeviceToken, voipToken)
+                } else {
+                    tokens = nil
+                }
             } else {
                 tokens = nil
             }
-        } else {
-            tokens = nil
-        }
-
-        do {
-            os_log("🍎 Will call registerToPushNotificationFor (tokens is %{public}@, voipToken is %{public}@)", log: log, type: .info, tokens == nil ? "nil" : "set", tokens?.voipToken == nil ? "nil" : "set")
-            try obvEngine.registerToPushNotificationFor(deviceTokens: tokens, kickOtherDevices: kickOtherDevicesOnNextRegister, useMultiDevice: false) { result in
-                switch result {
-                case .failure(let error):
-                    os_log("🍎 We Could not register to push notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
-                case .success:
-                    os_log("🍎 Youpi, we successfully subscribed to remote push notifications", log: log, type: .info)
+            
+            do {
+                os_log("🍎 Will call registerToPushNotificationFor (tokens is %{public}@, voipToken is %{public}@)", log: log, type: .info, tokens == nil ? "nil" : "set", tokens?.voipToken == nil ? "nil" : "set")
+                try obvEngine.registerToPushNotificationFor(deviceTokens: tokens, kickOtherDevices: _self.kickOtherDevicesOnNextRegister, useMultiDevice: false) { result in
+                    switch result {
+                    case .failure(let error):
+                        os_log("🍎 We Could not register to push notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    case .success:
+                        os_log("🍎 Youpi, we successfully subscribed to remote push notifications", log: log, type: .info)
+                    }
                 }
+                _self.kickOtherDevicesOnNextRegister = false
+            } catch {
+                os_log("🍎 We Could not register to push notifications", log: log, type: .fault)
+                return
             }
-            kickOtherDevicesOnNextRegister = false
-        } catch {
-            os_log("🍎 We Could not register to push notifications", log: log, type: .fault)
-            return
         }
     }
     

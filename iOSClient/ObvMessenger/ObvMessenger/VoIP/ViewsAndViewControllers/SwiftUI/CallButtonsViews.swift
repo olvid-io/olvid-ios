@@ -113,11 +113,11 @@ struct AddParticipantButtonView: View {
 
 struct HangupDeclineButtonView: View {
 
-    var callState: CallState
+    var callIsInInitialState: Bool // True iff callState == .initial
     var actionReject: () -> Void
 
     var body: some View {
-        if callState == .initial {
+        if callIsInInitialState {
             RoundedButtonView(icon: .sf("xmark"),
                               text: nil, // "Decline",
                               backgroundColor: Color.red,

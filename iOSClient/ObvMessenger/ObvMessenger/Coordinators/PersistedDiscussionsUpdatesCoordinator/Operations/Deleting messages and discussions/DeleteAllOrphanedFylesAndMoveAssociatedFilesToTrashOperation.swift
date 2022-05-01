@@ -27,7 +27,7 @@ import OlvidUtils
 /// For each orphaned fyle, we first move the associated file (on disk) to the trash.
 final class DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation: ContextualOperationWithSpecificReasonForCancel<DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperationReasonForCancel> {
  
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation.self))
     
     override func main() {
         

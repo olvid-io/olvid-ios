@@ -52,6 +52,10 @@ public struct GroupInvitationProtocol: ConcreteCryptoProtocol {
         self.instanceUid = instanceUid
     }
     
+    static func makeError(message: String) -> Error {
+        NSError(domain: "GroupInvitationProtocol", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     static func stateId(fromRawValue rawValue: Int) -> ConcreteProtocolStateId? {
         return StateId(rawValue: rawValue)
     }

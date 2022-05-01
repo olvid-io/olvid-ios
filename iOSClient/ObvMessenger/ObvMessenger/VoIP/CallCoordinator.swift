@@ -27,83 +27,80 @@ import AVKit
 import WebRTC
 import OlvidUtils
 
-final class CallCoordinator: NSObject {
 
-    private static let errorDomain = "CallCoordinator"
-    private func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: CallCoordinator.errorDomain, code: 0, userInfo: userInfo)
-    }
+final actor CallCoordinator: ObvErrorMaker {
 
-    private var voipRegistry: PKPushRegistry!
+    static let errorDomain = "CallCoordinator"
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CallCoordinator.self))
 
+    private let pushRegistryHandler: ObvPushRegistryHandler
+
+    private var continuationsWaitingForCallKitVoIPNotification = [Data: CheckedContinuation<UUID, Never>]()
+    private var filteredIncomingCalls = [UUID]()
     private var currentCalls = [Call]()
     private var messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls = [Data]()
-    private var currentIncomingCalls: [IncomingCall] { currentCalls.compactMap({ $0 as? IncomingCall }) }
-    private var currentOutgoingCalls: [OutgoingCall] { currentCalls.compactMap({ $0 as? OutgoingCall }) }
+    private var currentIncomingCalls: [Call] { currentCalls.filter({ $0.direction == .incoming }) }
+    private var currentOutgoingCalls: [Call] { currentCalls.filter({ $0.direction == .outgoing }) }
     private var remotelyHangedUpCalls = Set<UUID>()
 
-    private var currentAnswerCallActions = [UUID: ObvAnswerCallAction]()
-    private var receivedIceCandidates = [UUID: [(IceCandidateJSON, ParticipantId)]]()
+    private var receivedIceCandidates = [UUID: [(IceCandidateJSON, OlvidUserId)]]()
 
-    private var pushKitCompletionForIncomingCall = [UUID: () -> Void]()
+    /// When receiving a pushkit notification, we do not immediately create a call like we used to do in previous versions of this framework.
+    /// Instead, we add an element to this dictionary, indexed by message Ids from the engine. The values are UUID to use with CallKit and when creating the (incoming) call instance
+    private var receivedCallKitVoIPNotifications = [Data: UUID]()
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CallCoordinator.self))
     private let obvEngine: ObvEngine
     private var notificationTokens = [NSObjectProtocol]()
     private var notificationForVoIPRegister: NSObjectProtocol?
-    private var didRegisterToVoIPNotifications = false
-    private var callToPerformAfterAppStateBecomesActive: (contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)? = nil
+    private var callToPerformAfterAppStateBecomesActive: (contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)? = nil
 
-    private var cxProvider: CXObvProvider?
-    private var ncxProvider: NCXObvProvider?
+    private let cxProvider: CXObvProvider
+    private let ncxProvider: NCXObvProvider
+
     private func provider(isCallKit: Bool) -> ObvProvider {
         RTCAudioSession.sharedInstance().useManualAudio = isCallKit
-        if isCallKit {
-            Concurrency.sync(lock: "Synchronize CXObvProvider.instance") {
-                if cxProvider == nil {
-                    cxProvider = CXObvProvider(configuration: type(of: self).providerConfiguration)
-                    cxProvider!.setDelegate(self, queue: DispatchQueue.main)
-                }
-            }
-            return cxProvider!
-        } else {
-            Concurrency.sync(lock: "Synchronize NCXObvProvider.instance") {
-                if ncxProvider == nil {
-                    ncxProvider = NCXObvProvider.instance
-                    ncxProvider?.setConfiguration(type(of: self).providerConfiguration)
-                    ncxProvider!.setDelegate(self, queue: DispatchQueue.main)
-                }
-            }
-            return ncxProvider!
-        }
+        return isCallKit ? cxProvider : ncxProvider
     }
 
     init(obvEngine: ObvEngine) {
+        let cxProvider = CXObvProvider(configuration: CallCoordinator.providerConfiguration)
         self.obvEngine = obvEngine
+        self.cxProvider = cxProvider
+        self.ncxProvider = NCXObvProvider.instance
+        self.pushRegistryHandler = ObvPushRegistryHandler(obvEngine: obvEngine, cxObvProvider: cxProvider)
+        ncxProvider.setConfiguration(CallCoordinator.providerConfiguration)
+        cxProvider.setDelegate(self, queue: nil)
+        ncxProvider.setDelegate(self, queue: nil)
+    }
 
-        super.init()
+    private let queueForPostingNotifications = DispatchQueue(label: "Call queue for posting notifications")
+
+    /// Must be called soon after init
+    func finalizeInitialisation() {
         listenToNotifications()
         /// Force provider initialization
         _ = provider(isCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled)
-
-
         if AppStateManager.shared.currentState.isInitialized {
-            registerForVoIPPushes()
+            pushRegistryHandler.registerForVoIPPushes(delegate: self)
         } else {
-            let log = self.log
-            notificationForVoIPRegister = ObvMessengerInternalNotification.observeAppStateChanged { [weak self] _, currentState in
-                os_log("☎️ The call coordinator observed that the app state did change to %{public}@", log: log, type: .info, currentState.debugDescription)
-                guard currentState.isInitialized else { return }
-                os_log("☎️ Since the app is initialized, we can register for VoIP push notifications", log: log, type: .info)
-                if let notificationForVoIPRegister = self?.notificationForVoIPRegister {
-                    NotificationCenter.default.removeObserver(notificationForVoIPRegister)
-                    self?.notificationForVoIPRegister = nil
-                }
-                self?.registerForVoIPPushes()
+            notificationForVoIPRegister = ObvMessengerInternalNotification.observeAppStateChanged {  _, currentState in
+                Task { [weak self] in await self?.registerForVoIPPushesOnAppStateChange(currentState: currentState) }
             }
         }
     }
+
+
+    private func registerForVoIPPushesOnAppStateChange(currentState: AppState) {
+        os_log("☎️ The call coordinator observed that the app state did change to %{public}@", log: Self.log, type: .info, currentState.debugDescription)
+        guard currentState.isInitialized else { return }
+        os_log("☎️ Since the app is initialized, we can register for VoIP push notifications", log: Self.log, type: .info)
+        if let notificationForVoIPRegister = self.notificationForVoIPRegister {
+            NotificationCenter.default.removeObserver(notificationForVoIPRegister)
+            self.notificationForVoIPRegister = nil
+        }
+        pushRegistryHandler.registerForVoIPPushes(delegate: self)
+    }
+
 
     /// The app's provider configuration, representing its CallKit capabilities
     private static var providerConfiguration: ObvProviderConfiguration {
@@ -118,955 +115,791 @@ final class CallCoordinator: NSObject {
         return providerConfiguration
     }
 
-    func registerForVoIPPushes() {
-        let log = self.log
-        DispatchQueue.main.async {
-            guard !self.didRegisterToVoIPNotifications else { return }
-            defer { self.didRegisterToVoIPNotifications = true }
-            os_log("☎️ Registering for VoIP push notifications", log: log, type: .info)
-            self.voipRegistry = PKPushRegistry(queue: nil)
-            self.voipRegistry.delegate = self
-            self.voipRegistry.desiredPushTypes = [.voIP]
-        }
-    }
 
     private func listenToNotifications() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeNewWebRTCMessageWasReceived(object: nil, queue: OperationQueue.main) { [weak self] (webrtcMessage, contactID, messageUploadTimestampFromServer, messageIdentifierFromEngine) in
-            self?.processReceivedWebRTCMessage(messageType: webrtcMessage.messageType, serializedMessagePayload: webrtcMessage.serializedMessagePayload, callIdentifier: webrtcMessage.callIdentifier, contact: .persisted(contactID), messageUploadTimestampFromServer: messageUploadTimestampFromServer, messageIdentifierFromEngine: messageIdentifierFromEngine)
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallAndIsAllowedTo(object: nil, queue: OperationQueue.main) { [weak self] (contactIDs, groupId) in
-            self?.processUserWantsToCallNotification(contactIDs: contactIDs, groupId: groupId)
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] (call, updateKind) in
-            self?.processCallHasBeenUpdatedNotification(call: call, updateKind: updateKind)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeCallerTurnCredentialsReceived(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (ownedIdentity, callUuid, turnCredentials) in
-            self?.processCallerTurnCredentialsReceivedNotification(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid, turnCredentials: turnCredentials)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeCallerTurnCredentialsReceptionFailure(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (ownedIdentity, callUuid) in
-            self?.processCallerTurnCredentialsReceptionFailureNotification(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeCallerTurnCredentialsReceptionPermissionDenied(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (ownedIdentity, callUuid) in
-            self?.processCallerTurnCredentialsReceptionPermissionDeniedNotification(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeCallerTurnCredentialsServerDoesNotSupportCalls(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (ownedIdentity, callUuid) in
-            self?.processTurnCredentialsServerDoesNotSupportCalls(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid)
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeNetworkInterfaceTypeChanged(queue: OperationQueue.main) { [weak self] (isConnected) in
-            self?.processNetworkStatusChangedNotification(isConnected: isConnected)
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeIsCallKitEnabledSettingDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.processIsCallKitEnabledSettingDidChangeNotification()
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeIsIncludesCallsInRecentsEnabledSettingDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.processIsIncludesCallsInRecentsEnabledSettingDidChangeNotification()
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserWantsToKickParticipant(queue: OperationQueue.main) { [weak self] (call, callParticipant) in
-            self?.processUserWantsToKickParticipant(call: call, callParticipant: callParticipant)
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserWantsToAddParticipants(queue: OperationQueue.main) { [weak self] (call, contactIDs) in
-            self?.processUserWantsToAddParticipants(call: call, contactIDs: contactIDs)
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged(queue: OperationQueue.main) { [weak self] (_, currentState) in
-            self?.processAppStateChangedNotification(currentState: currentState)
-        })
 
+        // VoIP notifications
+
+        notificationTokens.append(contentsOf: [
+            VoIPNotification.observeUserWantsToKickParticipant { (call, callParticipant) in
+                Task { [weak self] in await self?.processUserWantsToKickParticipant(call: call, callParticipant: callParticipant) }
+            },
+            VoIPNotification.observeUserWantsToAddParticipants { [weak self] (call, contactIds) in
+                Task { [weak self] in await self?.processUserWantsToAddParticipants(call: call, contactIds: contactIds) }
+            },
+        ])
+
+        // Internal notifications
+
+        notificationTokens.append(contentsOf: [
+            ObvMessengerInternalNotification.observeNewWebRTCMessageWasReceived { (webrtcMessage, contactId, messageUploadTimestampFromServer, messageIdentifierFromEngine) in
+                Task { [weak self] in
+                    await self?.processReceivedWebRTCMessage(messageType: webrtcMessage.messageType,
+                                                             serializedMessagePayload: webrtcMessage.serializedMessagePayload,
+                                                             callIdentifier: webrtcMessage.callIdentifier,
+                                                             contact: contactId,
+                                                             messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                                                             messageIdentifierFromEngine: messageIdentifierFromEngine)
+                }
+            },
+            ObvMessengerInternalNotification.observeUserWantsToCallAndIsAllowedTo { (contactIds, groupId) in
+                Task { [weak self] in await self?.processUserWantsToCallNotification(contactIds: contactIds, groupId: groupId) }
+            },
+            ObvMessengerInternalNotification.observeNetworkInterfaceTypeChanged { [weak self] (isConnected) in
+                Task { [weak self] in await self?.processNetworkStatusChangedNotification(isConnected: isConnected) }
+            },
+            ObvMessengerInternalNotification.observeIsCallKitEnabledSettingDidChange { [weak self] in
+                Task { [weak self] in await self?.processIsCallKitEnabledSettingDidChangeNotification() }
+            },
+            ObvMessengerInternalNotification.observeIsIncludesCallsInRecentsEnabledSettingDidChange { [weak self] in
+                Task { [weak self] in await self?.processIsIncludesCallsInRecentsEnabledSettingDidChangeNotification() }
+            },
+            ObvMessengerInternalNotification.observeAppStateChanged { [weak self] (_, currentState) in
+                Task { [weak self] in await self?.processAppStateChangedNotification(currentState: currentState) }
+            },
+        ])
+
+        // Engine notifications
+
+        notificationTokens.append(contentsOf: [
+            ObvEngineNotificationNew.observeCallerTurnCredentialsReceived(within: NotificationCenter.default) { [weak self] (ownedIdentity, callUuid, turnCredentials) in
+                Task { [weak self] in await  self?.processCallerTurnCredentialsReceivedNotification(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid, turnCredentials: turnCredentials) }
+            },
+            ObvEngineNotificationNew.observeCallerTurnCredentialsReceptionFailure(within: NotificationCenter.default) { [weak self] (ownedIdentity, callUuid) in
+                Task { [weak self] in await self?.processCallerTurnCredentialsReceptionFailureNotification(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid) }
+            },
+            ObvEngineNotificationNew.observeCallerTurnCredentialsReceptionPermissionDenied(within: NotificationCenter.default) { [weak self] (ownedIdentity, callUuid) in
+                Task { [weak self] in await self?.processCallerTurnCredentialsReceptionPermissionDeniedNotification(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid) }
+            },
+            ObvEngineNotificationNew.observeCallerTurnCredentialsServerDoesNotSupportCalls(within: NotificationCenter.default) { [weak self] (ownedIdentity, callUuid) in
+                Task { [weak self] in await self?.processTurnCredentialsServerDoesNotSupportCalls(ownedIdentity: ownedIdentity, uuidForWebRTC: callUuid) }
+            },
+        ])
     }
 
-    private func addCallToCurrentCallsAndNotify(call: Call) {
-        CallHelper.checkQueue() // OK
-        assert(call.state == .initial)
-        os_log("☎️ Adding call to the list of current calls", log: log, type: .info)
+
+    private func addCallToCurrentCalls(call: Call) async throws {
+        let callState = await call.state
+        assert(callState == .initial)
+        os_log("☎️ Adding call to the list of current calls", log: Self.log, type: .info)
+
         assert(currentCalls.first(where: { $0.uuid == call.uuid }) == nil, "Trying to add a call that already exists in the list of current calls")
         currentCalls.append(call)
 
         AppStateManager.shared.aNewCallRequiresNetworkConnection()
 
-        for (message, contact) in receivedIceCandidates[call.uuid] ?? [] {
-            guard let participant = call.getParticipant(contact: contact) else { assertionFailure(); return }
-            os_log("☎️❄️ Process pending remote IceCandidateJSON message", log: log, type: .info)
-            participant.processIceCandidatesJSON(message: message)
-        }
     }
 
 
-    private func removeCallFromCurrentCalls(call: Call) {
-        os_log("☎️ Removing call from the list of current calls", log: log, type: .info)
-        CallHelper.checkQueue() // OK
-        assert(call.state.isFinalState)
+    private func removeCallFromCurrentCalls(call: Call) async throws {
+        os_log("☎️ Removing call from the list of current calls", log: Self.log, type: .info)
+        let callState = await call.state
+        assert(callState.isFinalState)
+
         currentCalls.removeAll(where: { $0.uuid == call.uuid })
         if currentCalls.isEmpty {
             AppStateManager.shared.noMoreCallRequiresNetworkConnection()
             // Yes, we need to make sure the calls are properly freed...
             currentCalls = []
         }
-        if let incomingCall = call as? IncomingCall {
-            messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.append(incomingCall.messageIdentifierFromEngine)
+        if call.direction == .incoming {
+            assert(call.messageIdentifierFromEngine != nil)
+            if let messageIdentifierFromEngine = call.messageIdentifierFromEngine {
+                messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.append(messageIdentifierFromEngine)
+            }
         }
         if let newCall = currentCalls.first {
-            assert(!newCall.state.isFinalState)
-            ObvMessengerInternalNotification.callHasBeenUpdated(call: newCall, updateKind: .state(newState: newCall.state)).postOnDispatchQueue()
+            let newCallState = await newCall.state
+            assert(!newCallState.isFinalState)
+            let newCallEssentials = await newCall.callEssentials
+            VoIPNotification.callHasBeenUpdated(callEssentials: newCallEssentials, updateKind: .state(newState: newCallState))
+                .postOnDispatchQueue(queueForPostingNotifications)
         } else {
-            ObvMessengerInternalNotification.noMoreCallInProgress.postOnDispatchQueue()
+            ObvMessengerInternalNotification.noMoreCallInProgress
+                .postOnDispatchQueue(queueForPostingNotifications)
         }
-        receivedIceCandidates[call.uuid] = nil
+        receivedIceCandidates[call.uuidForWebRTC] = nil
     }
 
 
-    private func createIncomingCall(encryptedPushKitNotification: EncryptedPushNotification) -> IncomingCall? {
-        CallHelper.checkQueue() // OK
-        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(encryptedPushKitNotification.messageIdentifierFromEngine) else {
-            return nil
-        }
-        let incomingCall = IncomingWebrtcCall(encryptedPushNotification: encryptedPushKitNotification, delegate: self)
-        addCallToCurrentCallsAndNotify(call: incomingCall)
-        return incomingCall
-    }
-
-    private func createIncomingCall(incomingCallMessage: IncomingCallMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, uuidForWebRTC: UUID, messageIdentifierFromEngine: Data, messageUploadTimestampFromServer: Date) throws -> IncomingCall {
-        CallHelper.checkQueue() // OK
-        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(messageIdentifierFromEngine) else {
-            throw makeError(message: "Call was recently deleted")
-        }
-        let incomingCall = IncomingWebrtcCall(incomingCallMessage: incomingCallMessage,
-                                              contactID: contactID,
-                                              uuidForWebRTC: uuidForWebRTC,
-                                              messageIdentifierFromEngine: messageIdentifierFromEngine,
-                                              messageUploadTimestampFromServer: messageUploadTimestampFromServer,
-                                              delegate: self,
-                                              useCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled)
-        addCallToCurrentCallsAndNotify(call: incomingCall)
-        return incomingCall
-    }
-
-    private func createOutgoingCall(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>],
-                                    groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) -> OutgoingCall {
-        CallHelper.checkQueue() // OK
-        let outgoingCall = OutgoingWebRTCCall(contactIDs: contactIDs, delegate: self, usesCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled, groupId: groupId)
-        addCallToCurrentCallsAndNotify(call: outgoingCall)
+    private func createOutgoingCall(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) async throws -> Call {
+        let outgoingCall = try await Call.createOutgoingCall(contactIds: contactIds,
+                                                             delegate: self,
+                                                             usesCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled,
+                                                             groupId: groupId,
+                                                             queueForPostingNotifications: queueForPostingNotifications)
+        try await addCallToCurrentCalls(call: outgoingCall)
+        assert(outgoingCall.direction == .outgoing)
         return outgoingCall
     }
 
 }
 
 
+// MARK: - Processing notifications
+
 extension CallCoordinator {
 
     private func processIsCallKitEnabledSettingDidChangeNotification() {
-        CallHelper.checkQueue() // OK
-                                /// Force provider initialization
+        // Force provider initialization
         _ = provider(isCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled)
     }
 
+
     private func processIsIncludesCallsInRecentsEnabledSettingDidChangeNotification() {
-        CallHelper.checkQueue() // OK
         let provider = self.provider(isCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled)
         var configuration = provider.configuration_
         configuration.includesCallsInRecents = ObvMessengerSettings.VoIP.isIncludesCallsInRecentsEnabled
         provider.configuration_ = configuration
     }
 
-    private func processNetworkStatusChangedNotification(isConnected: Bool) {
-        CallHelper.checkQueue() // OK
-        for call in currentCalls {
-            call.createRestartOffer()
-        }
-    }
 
-
-    private func processCallerTurnCredentialsReceptionFailureNotification(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️ Processing a CallerTurnCredentialsReceptionFailure notification", log: log, type: .fault)
-        guard let call = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        call.endCall()
-    }
-
-    private func processCallerTurnCredentialsReceptionPermissionDeniedNotification(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️ Processing a CallerTurnCredentialsReceptionPermissionDenied notification", log: log, type: .fault)
-        guard let call = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        call.setPermissionDeniedByServer()
-    }
-
-    private func processTurnCredentialsServerDoesNotSupportCalls(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️ Processing a TurnCredentialsServerDoesNotSupportCalls notification", log: log, type: .fault)
-        guard let call = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        call.setCallInitiationNotSupported()
-        ObvMessengerInternalNotification.serverDoesNotSupportCall.postOnDispatchQueue()
-    }
-
-    private func processCallerTurnCredentialsReceivedNotification(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID, turnCredentials: ObvTurnCredentials) {
-        CallHelper.checkQueue() // OK
-        let currentOutgoingCalls = self.currentCalls.compactMap({ $0 as? OutgoingWebRTCCall })
-        guard let outgoingCall = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        outgoingCall.setTurnCredentials(turnCredentials: turnCredentials)
-        outgoingCall.offerCall()
-    }
-
-
-    func processCallHasBeenUpdatedNotification(call: Call, updateKind: CallUpdateKind) {
-        CallHelper.checkQueue() // OK
-        switch updateKind {
-        case .state:
-            if call.state.isFinalState {
-                removeCallFromCurrentCalls(call: call)
-            }
-        case .mute:
-            break
-        case .callParticipantChange:
-            if call.callParticipants.isEmpty {
-                call.endCall()
-            }
-        }
-    }
-
-}
-
-// MARK: - PKPushRegistryDelegate
-
-extension CallCoordinator: PKPushRegistryDelegate {
-
-    func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
-        CallHelper.checkQueue() // OK
-        switch pushCredentials.type {
-        case .voIP:
-            let voipToken = pushCredentials.token
-            os_log("☎️✅ We received a voip notification token: %{public}@", log: log, type: .info, voipToken.hexString())
-            ObvPushNotificationManager.shared.currentVoipToken = voipToken
-            ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
-        case .fileProvider:
-            assertionFailure()
-        default:
-            assertionFailure()
-        }
-    }
-
-
-    func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
-        guard type == .voIP else { return }
-        CallHelper.checkQueue() // OK
-        os_log("☎️❌ Push Registry did invalidate push token", log: log, type: .info)
-        ObvPushNotificationManager.shared.currentVoipToken = nil
-        ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
-    }
-
-
-    func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
-        CallHelper.checkQueue() // OK
-
-        guard type == .voIP else { completion(); assertionFailure(); return }
-        os_log("☎️✅ We received a voip notification", log: log, type: .info)
-        let log = self.log
-
-        let myCompletion = {
-            os_log("☎️ Calling the PushKit completion handler", log: log, type: .info)
-            DispatchQueue.main.async {
-                completion()
-            }
-        }
-
-        guard let encryptedNotification = EncryptedPushNotification(dict: payload.dictionaryPayload) else {
-            os_log("☎️ Could not extract encrypted notification", log: log, type: .fault)
-            /// We are not be able to make a link between this call and the received IncomingCallMessageJSON , we report a cancelled call to respect PushKit constraints.
-            self.provider(isCallKit: true).reportNewCancelledIncomingCall() {
-                myCompletion()
-            }
-            assertionFailure()
-            return
-        }
-
-        let incomingCall: IncomingCall
-        if let _incomingCall = self.currentIncomingCalls.filter({ $0.messageIdentifierFromEngine == encryptedNotification.messageIdentifierFromEngine }).first {
-            /// This happens in the case we already received the IncomingCallMessageJSON message
-            os_log("☎️🐰 The incoming call already exists, the websocket was faster than the VoIP notification", log: log, type: .info)
-            incomingCall = _incomingCall
-            _incomingCall.pushKitNotificationReceived()
-        } else if let _incomingCall = self.createIncomingCall(encryptedPushKitNotification: encryptedNotification) {
-            /// The call does not exists, we create a call without information and wait for the IncomingCallMessageJSON to get the information
-            os_log("☎️🐰 The incoming call does not exist yet, the VoIP notification was faster than the websocket", log: log, type: .info)
-            incomingCall = _incomingCall
-        } else {
-            /// The call is already ended, we report a call to respect PushKit constraints
-            os_log("☎️🐰 The call was already ended", log: log, type: .info)
-            self.provider(isCallKit: true).reportNewCancelledIncomingCall() {
-                myCompletion()
-            }
-            return
-        }
-        assert(incomingCall.usesCallKit)
-
-        let update = ObvCallUpdateImpl.make(with: incomingCall, engine: self.obvEngine)
-        os_log("☎️ Call to reportNewIncomingCall", log: log, type: .info)
-
-        func decryptAndSendPushKitNotification() {
-            DispatchQueue(label: "Queue for decrypting and encrypted PushKit notification").async {
-                do {
-                    let obvMessage = try self.obvEngine.decrypt(encryptedPushNotification: encryptedNotification)
-                    /// We send the obvMessage to the PersistedDiscussionsUpdatesCoordinator, who will pass us back an IncomingCallMessageJSON
-                    ObvMessengerInternalNotification.newObvMessageWasReceivedViaPushKitNotification(obvMessage: obvMessage).postOnDispatchQueue()
-                } catch {
-                    os_log("☎️ Could not decrypt received voip notification, the contained message has certainly been decrypted after being received by the webSocket", log: log, type: .info)
-                    /// We do *not* call the completion. It will be called when the ringing message will be sent
-                    return
-                }
-            }
-        }
-
-        self.provider(isCallKit: true).reportNewIncomingCall(with: incomingCall.uuid, update: update) { [weak self] (error) in
-            guard let _self = self else { return }
-            CallHelper.checkQueue() // OK
-            os_log("☎️ Inside reportNewIncomingCall", log: log, type: .info)
-            guard error == nil else {
-                switch error! {
-                case .unknown, .unentitled, .callUUIDAlreadyExists, .maximumCallGroupsReached:
-                    os_log("☎️ reportNewIncomingCall failed -> ending call", log: log, type: .error)
-                    assertionFailure()
-                    myCompletion()
-                    return
-                case .filteredByDoNotDisturb, .filteredByBlockList:
-                    if let callerInfo = incomingCall.callerCallParticipant?.info {
-                        os_log("☎️ reportNewIncomingCall filtered (busy/blocked) -> ending call", log: log, type: .info)
-                        self?.sendRejectMessageToContact(for: incomingCall)
-                        incomingCall.setUnanswered()
-                        incomingCall.endCall()
-                        os_log("☎️ reportNewIncomingCall filtered (busy/blocked) -> report missed call", log: log, type: .info)
-                        _self.report(call: incomingCall, report: .filteredIncomingCall(caller: callerInfo, participantCount: nil))
-                    } else {
-                        os_log("☎️ reportNewIncomingCall filtered (busy/blocked) -> set call has been filtered", log: log, type: .info)
-                        incomingCall.callHasBeenFiltered = true
-                        /// To be able to report the missing call  we need to decrypt the message to be able to know the caller
-                        decryptAndSendPushKitNotification()
+    private func processNetworkStatusChangedNotification(isConnected: Bool) async {
+        os_log("☎️ Processing a network status changed notification", log: Self.log, type: .info)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for call in currentCalls {
+                taskGroup.addTask {
+                    do {
+                        try await call.restartIceIfAppropriate()
+                    } catch {
+                        os_log("☎️ Could not restart ICE after a network status change: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                        assertionFailure()
                     }
-                    /// Do not inform the caller about DoNotDisturb/BlockList
-                }
-                myCompletion()
-                /// REMARK requests EndCallAction here does not work with CallKit
-                return
-            }
-            /// We store the completion handler and try to send the ringing message (which only succeeds if the incomingCall message was previously received and decrypted)
-            _self.pushKitCompletionForIncomingCall[incomingCall.uuid] = myCompletion
-            if incomingCall.ringingMessageShouldBeSent {
-                if let ringingMessageWasSent = self?.sendRingingMessageToContactIfPossible(for: incomingCall), ringingMessageWasSent {
-                    incomingCall.ringingMessageShouldBeSent = false
                 }
             }
-            /// In case the call to `sendRingingMessageToContactIfPossible` failed, we now try to decrypt the pushkit notification content.
-            /// If this succeeds, we notify the call coordinator who will notify us back with a incomingCall JSON message that, when received by this coordinator, will trigger the `sendRingingMessageToContactIfPossible` again.
-            decryptAndSendPushKitNotification()
         }
     }
-    
+
+
+    private func processCallerTurnCredentialsReceptionFailureNotification(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID) async {
+        os_log("☎️ Processing a CallerTurnCredentialsReceptionFailure notification", log: Self.log, type: .fault)
+        guard let call = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
+        await call.endCallAsPermissionWasDeniedByServer()
+    }
+
+
+    private func processCallerTurnCredentialsReceptionPermissionDeniedNotification(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID) async {
+        os_log("☎️ Processing a CallerTurnCredentialsReceptionPermissionDenied notification", log: Self.log, type: .fault)
+        guard let call = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
+        await call.endCallAsPermissionWasDeniedByServer()
+    }
+
+
+    private func processTurnCredentialsServerDoesNotSupportCalls(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID) async {
+        os_log("☎️ Processing a TurnCredentialsServerDoesNotSupportCalls notification", log: Self.log, type: .fault)
+        guard let call = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
+        await call.endCallAsInitiationNotSupported()
+        ObvMessengerInternalNotification.serverDoesNotSupportCall
+            .postOnDispatchQueue(queueForPostingNotifications)
+    }
+
+
+    /// This method is called when receiving the credentials allowing to make an outgoing call. At this point, the outgoing call has already been created and is waiting for these credentials.
+    /// Under the hood, the caller has a peer connection holder which of the call participants, but these connection holders do *not* have a WebRTC peer connection yet.
+    /// Setting the credentials will create these peer connections.
+    private func processCallerTurnCredentialsReceivedNotification(ownedIdentity: ObvCryptoId, uuidForWebRTC: UUID, turnCredentials: ObvTurnCredentials) async {
+        let currentOutgoingCalls = self.currentCalls.filter({ $0.direction == .outgoing })
+        guard let outgoingCall = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
+        await outgoingCall.setTurnCredentials(turnCredentials)
+    }
+
 }
 
-// MARK: - Events leading to a new call
+
+
+// MARK: - ObvPushRegistryHandlerDelegate
+
+extension CallCoordinator: ObvPushRegistryHandlerDelegate {
+
+    /// When using CallKit, we always wait until the pushkit notification is received before creating an incoming call.
+    /// When we receive it, we do not create an "empty" call instance like we used to do in previous versions of the framework.
+    /// Instead, we simply add an element to the `receivedCallKitVoIPNotifications` dictionary.
+    /// This essentially is what this method is about.
+    func successfullyReportedNewIncomingCallToCallKit(uuidForCallKit: UUID, messageIdentifierFromEngine: Data) async {
+
+        // If the incoming call was recently deleted, we just dismiss the CallKit UI (that we just showed) and terminate.
+
+        guard !messageIdentifiersFromEngineOfRecentlyDeletedIncomingCalls.contains(messageIdentifierFromEngine) else {
+            cxProvider.endReportedIncomingCall(with: uuidForCallKit, inSeconds: 2)
+            return
+        }
+
+        // Add an entry to the receivedCallKitVoIPNotifications array
+
+        assert(receivedCallKitVoIPNotifications[messageIdentifierFromEngine] == nil)
+        receivedCallKitVoIPNotifications[messageIdentifierFromEngine] = uuidForCallKit
+
+        // We may have already received a start call message (in case we are in a CallKit scenario and the WebSocket was faster than the VoIP notification)
+        // In that situation, we know the StartCall processing method is waiting that the VoIP push notification is received before creating the incoming call and adding it to the list of current call.
+        // The following two lines allows to "unblock" the start call processing method.
+
+        if let continuation = continuationsWaitingForCallKitVoIPNotification.removeValue(forKey: messageIdentifierFromEngine) {
+            continuation.resume(returning: uuidForCallKit)
+        }
+
+    }
+
+
+    func failedToReportNewIncomingCallToCallKit(callUUID: UUID, error: Error) async {
+
+        let incomingCallError = ObvErrorCodeIncomingCallError(rawValue: (error as NSError).code) ?? .unknown
+        switch incomingCallError {
+        case .unknown, .unentitled, .callUUIDAlreadyExists, .maximumCallGroupsReached:
+            os_log("☎️ reportNewIncomingCall failed -> ending call: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+            assertionFailure()
+        case .filteredByDoNotDisturb, .filteredByBlockList:
+            os_log("☎️ reportNewIncomingCall filtered (busy/blocked) -> set call has been filtered", log: Self.log, type: .info)
+            filteredIncomingCalls.append(callUUID)
+        }
+
+    }
+
+}
+
+
+
+// MARK: - Processing received WebRTC messages
 
 extension CallCoordinator {
 
-    func processReceivedWebRTCMessage(messageType: WebRTCMessageJSON.MessageType, serializedMessagePayload: String, callIdentifier: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data?) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️ We received %{public}@ message", log: log, type: .info, messageType.description)
-        switch messageType {
-        case .startCall:
-            do {
-                let incomingCallMessage = try IncomingCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processIncomingCallMessage(incomingCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer, messageIdentifierFromEngine: messageIdentifierFromEngine)
-            } catch {
-                os_log("☎️ Could not parse start call message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .answerCall:
-            do {
-                let answerIncomingCallMessage = try AnswerIncomingCallJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processAnswerIncomingCallMessage(answerIncomingCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse answer call message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .rejectCall:
-            do {
+    internal func processReceivedWebRTCMessage(messageType: WebRTCMessageJSON.MessageType, serializedMessagePayload: String, callIdentifier: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data?) async {
+        if case .hangedUp = messageType {
+            os_log("☎️🛑 We received %{public}@ message", log: Self.log, type: .info, messageType.description)
+        } else {
+            os_log("☎️ We received %{public}@ message", log: Self.log, type: .info, messageType.description)
+        }
+        do {
+            switch messageType {
+
+            case .startCall:
+                let startCallMessage = try StartCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                guard let messageIdentifierFromEngine = messageIdentifierFromEngine else { assertionFailure(); return }
+                try await processStartCallMessage(startCallMessage,
+                                                  uuidForWebRTC: callIdentifier,
+                                                  userId: contact,
+                                                  messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                                                  messageIdentifierFromEngine: messageIdentifierFromEngine)
+
+            case .answerCall:
+                let answerCallMessage = try AnswerCallJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                try await processAnswerCallMessage(answerCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .rejectCall:
                 let rejectCallMessage = try RejectCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processRejectCallMessage(rejectCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse reject call message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .hangedUp:
-            do {
+                try await processRejectCallMessage(rejectCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .hangedUp:
                 let hangedUpMessage = try HangedUpMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processHangedUpMessage(hangedUpMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse hang up message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .ringing:
-            do {
+                try await processHangedUpMessage(hangedUpMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .ringing:
                 _ = try RingingMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processRingingMessageJSON(uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse ringing message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .busy:
-            do {
+                try await processRingingMessageJSON(uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .busy:
                 _ = try BusyMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processBusyMessageJSON(uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse busy message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .reconnect:
-            do {
+                try await processBusyMessageJSON(uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .reconnect:
                 let reconnectCallMessage = try ReconnectCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processReconnectCallMessageJSON(reconnectCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse reconnect call message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .newParticipantAnswer:
-            do {
+                try await processReconnectCallMessageJSON(reconnectCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .newParticipantAnswer:
                 let newParticipantAnswer = try NewParticipantAnswerMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processNewParticipantAnswerMessageJSON(newParticipantAnswer, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse new participant answer message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .newParticipantOffer:
-            do {
+                try await processNewParticipantAnswerMessageJSON(newParticipantAnswer, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .newParticipantOffer:
                 let newParticipantOffer = try NewParticipantOfferMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processNewParticipantOfferMessageJSON(newParticipantOffer, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse new participant offer message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .kick:
-            do {
+                try await processNewParticipantOfferMessageJSON(newParticipantOffer, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .kick:
                 let kickMessage = try KickMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processKickMessageJSON(kickMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not parse kick message: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .newIceCandidate:
-            do {
-                os_log("☎️❄️ We received new ICE Candidate message: %{public}@", log: log, type: .info, messageType.description)
+                try await processKickMessageJSON(kickMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .newIceCandidate:
+                os_log("☎️❄️ We received new ICE Candidate message: %{public}@", log: Self.log, type: .info, messageType.description)
                 let iceCandidate = try IceCandidateJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processIceCandidateMessage(message: iceCandidate, uuidForWebRTC: callIdentifier, contact: contact)
-            } catch {
-                os_log("☎️ Could not parse new ice candidates: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        case .removeIceCandidates:
-            do {
+                try await processIceCandidateMessage(message: iceCandidate, uuidForWebRTC: callIdentifier, contact: contact)
+
+            case .removeIceCandidates:
                 let removeIceCandidatesMessage = try RemoveIceCandidatesMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
-                processRemoveIceCandidatesMessage(message: removeIceCandidatesMessage, uuidForWebRTC: callIdentifier, contact: contact)
-            } catch {
-                os_log("☎️ Could not parse remove ice candidates: %{public}@", log: log, type: .fault, error.localizedDescription)
+                try await processRemoveIceCandidatesMessage(message: removeIceCandidatesMessage, uuidForWebRTC: callIdentifier, contact: contact)
+
             }
+        } catch {
+            os_log("☎️ Could not parse or process the WebRTCMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
         }
     }
 
 
-    /// This method processes a received IncomingCallMessageJSON. In case we use CallKit and Olvid is in the background, this message is probably first received first within a PushKit notification, that gets decrypted very fast, which eventually triggers this method. Note that
+    /// This method processes a received StartCallMessageJSON. In case we use CallKit and Olvid is in the background, this message is probably first received first within a PushKit notification, that gets decrypted very fast, which eventually triggers this method. Note that
     /// since decrypting a notification does *not* delete the decryption key, it almost certain that this method will get called a second time: the message will be fetched from the server, decrypted as usual, which eventually triggers this method again.
-    private func processIncomingCallMessage(_ incomingCallMessage: IncomingCallMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data?) {
-        CallHelper.checkQueue() // OK
-        let log = self.log
+    private func processStartCallMessage(_ startCallMessage: StartCallMessageJSON, uuidForWebRTC: UUID, userId: OlvidUserId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data) async throws {
+
+        // If the call was already terminated, discard this message
 
         guard !remotelyHangedUpCalls.contains(uuidForWebRTC) else {
             return
         }
 
-        /// We check that the `IncomingCallMessageJSON` is not too old. If this is the case, we ignore it
+        // If the call already exists in the current calls, we do nothing. This can happen when decrypting the VoIP notification first (when using CallKit), then receiving the start call message via the network In that case, we can receive the start call message twice. We only consider the first occurence
+
+        guard currentIncomingCalls.first(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine }) == nil else {
+            os_log("We already received this start call message (which can occur when using CallKit). We discard this one.", log: Self.log, type: .info)
+            return
+        }
+
+        // We check that the `StartCallMessageJSON` is not too old. If this is the case, we ignore it
+
         let timeInterval = Date().timeIntervalSince(messageUploadTimestampFromServer) // In seconds
-        guard timeInterval < WebRTCCall.callTimeout else {
-            os_log("☎️ We received an old IncomingCallMessageJSON, uploaded %{timeInterval}f seconds ago on the server. We ignore it.", log: log, type: .info, timeInterval)
+        guard timeInterval < Call.acceptableTimeIntervalForStartCallMessages else {
+            os_log("☎️ We received an old StartCallMessageJSON, uploaded %{timeInterval}f seconds ago on the server. We ignore it.", log: Self.log, type: .info, timeInterval)
             return
         }
 
-        os_log("☎️ We received a fresh IncomingCallMessageJSON, uploaded %{timeInterval}f seconds ago on the server.", log: log, type: .info, timeInterval)
+        os_log("☎️ We received a fresh StartCallMessageJSON, uploaded %{timeInterval}f seconds ago on the server.", log: Self.log, type: .info, timeInterval)
 
-        guard case let .persisted(contactID) = contact else { assertionFailure(); return }
-        guard let messageIdentifierFromEngine = messageIdentifierFromEngine else { assertionFailure(); return }
+        // In the CallKit case, we are not in charge of inserting the incoming call in the `currentIncomingCalls` array.
+        // In that case, we wait until this is done.
+        // In the non-CallKit case, we are in charge and we insert it right away.
 
-        let incomingCall: IncomingCall
-        if let _incomingCall = currentIncomingCalls.filter({ $0.messageIdentifierFromEngine == messageIdentifierFromEngine }).first {
-            incomingCall = _incomingCall
-            incomingCall.setDecryptedElements(incomingCallMessage: incomingCallMessage, contactID: contactID, uuidForWebRTC: uuidForWebRTC)
-            provider(isCallKit: incomingCall.usesCallKit).reportCall(with: incomingCall.uuid, updated: ObvCallUpdateImpl.make(with: incomingCall, engine: obvEngine))
+        let useCallKit = ObvMessengerSettings.VoIP.isCallKitEnabled
+        let callUUID: UUID
+        if useCallKit {
+            callUUID = await waitUntilCallKitVoIPIsReceived(messageIdentifierFromEngine: messageIdentifierFromEngine)
         } else {
-            do {
-                incomingCall = try createIncomingCall(incomingCallMessage: incomingCallMessage, contactID: contactID, uuidForWebRTC: uuidForWebRTC, messageIdentifierFromEngine: messageIdentifierFromEngine, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-            } catch {
-                os_log("☎️ Could not create new incoming call: %{public}@", log: log, type: .error, error.localizedDescription)
-                return
-            }
+            callUUID = UUID()
         }
+        let incomingCall = await Call.createIncomingCall(uuid: callUUID,
+                                                         startCallMessage: startCallMessage,
+                                                         contactId: userId,
+                                                         uuidForWebRTC: uuidForWebRTC,
+                                                         messageIdentifierFromEngine: messageIdentifierFromEngine,
+                                                         messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                                                         delegate: self,
+                                                         useCallKit: useCallKit,
+                                                         queueForPostingNotifications: queueForPostingNotifications)
 
-        guard !incomingCall.usesCallKit else {
-            /// REMARK the contactID may be undecrypted in `pushRegistry didReceiveIncomingPushWith`, we used this block to preform some tasks once the contactID is decrypted.
-            if incomingCall.ringingMessageShouldBeSent {
-                let ringingMessageWasSent = self.sendRingingMessageToContactIfPossible(for: incomingCall)
-                if ringingMessageWasSent {
-                    incomingCall.ringingMessageShouldBeSent = false
-                }
-            }
+        try await addCallToCurrentCalls(call: incomingCall)
 
-            if incomingCall.callHasBeenFiltered {
-                self.sendRejectMessageToContact(for: incomingCall)
-                os_log("☎️ processIncomingCallMessage: end the filtered call", log: log, type: .info)
-                incomingCall.setUnanswered()
-                incomingCall.endCall()
-                if let callerInfo = incomingCall.callerCallParticipant?.info {
-                    os_log("☎️ processIncomingCallMessage: report a filtered call", log: log, type: .info)
-                    self.report(call: incomingCall, report: .filteredIncomingCall(caller: callerInfo, participantCount: incomingCallMessage.participantCount))
-                }
-                return
-            }
-            /// REMARK, this call will invalidate current timer. and replace it to have a better completion handler since we know the contactID
-            incomingCall.scheduleCallTimeout()
-            return
+        assert(incomingCall.direction == .incoming)
+
+        // Now that we know for sure that the incoming call is part of the current calls, we can process the
+        // ICE candidates we may already have received
+
+        for (iceCandidate, contact) in receivedIceCandidates[incomingCall.uuidForWebRTC] ?? [] {
+            os_log("☎️❄️ Process pending remote IceCandidateJSON message", log: Self.log, type: .info)
+            try? await incomingCall.processIceCandidatesJSON(iceCandidate: iceCandidate, participantId: contact)
         }
-        /// REMARK  In non callKit mode the contactID is decrypted
+        receivedIceCandidates[incomingCall.uuidForWebRTC] = nil
 
-        provider(isCallKit: false).reportNewIncomingCall(with: incomingCall.uuid, update: ObvCallUpdateImpl.make(with: incomingCall, engine: obvEngine)) { [weak self] (error) in
-            CallHelper.checkQueue() // OK
+        // Finish the processing
 
-            guard error == nil else {
-                switch error! {
-                case .unknown, .unentitled, .callUUIDAlreadyExists, .filteredByDoNotDisturb, .filteredByBlockList:
-                    os_log("☎️ reportNewIncomingCall failed -> ending call", log: log, type: .error)
-                case .maximumCallGroupsReached:
-                    os_log("☎️ reportNewIncomingCall maximumCallGroupsReached -> ending call", log: log, type: .error)
-                    self?.sendBusyMessageToContact(for: incomingCall)
-                    self?.report(call: incomingCall, report: .missedIncomingCall(caller: incomingCall.callerCallParticipant?.info, participantCount: incomingCallMessage.participantCount))
-                }
-                incomingCall.setUnanswered()
-                incomingCall.endCall()
+        if incomingCall.usesCallKit {
+
+            guard !filteredIncomingCalls.contains(where: { $0 == incomingCall.uuid }) else {
+                os_log("☎️ processStartCallMessage: end the filtered call", log: Self.log, type: .info)
+                await incomingCall.endCallAsReportingAnIncomingCallFailed(error: .filteredByDoNotDisturb)
                 return
             }
-            ObvMessengerInternalNotification.showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: incomingCall).postOnDispatchQueue()
-            let ringingMessageWasSent = self?.sendRingingMessageToContactIfPossible(for: incomingCall)
-            if ringingMessageWasSent == true {
-                incomingCall.ringingMessageShouldBeSent = false
+
+            // Update the CallKit UI
+
+            let callUpdate = await ObvCallUpdateImpl.make(with: incomingCall)
+            self.provider(isCallKit: true).reportCall(with: incomingCall.uuid, updated: callUpdate)
+
+            // Send the ringing message
+
+            await sendRingingMessageToCaller(forIncomingCall: incomingCall)
+
+        } else {
+
+            await provider(isCallKit: false).reportNewIncomingCall(with: incomingCall.uuid, update: ObvCallUpdateImpl.make(with: incomingCall)) { result in
+                Task { [weak self] in
+                    guard let _self = self else { return }
+                    switch result {
+                    case .failure(let error):
+                        let incomingCallError = ObvErrorCodeIncomingCallError(rawValue: (error as NSError).code) ?? .unknown
+                        switch incomingCallError {
+                        case .unknown, .unentitled, .callUUIDAlreadyExists, .filteredByDoNotDisturb, .filteredByBlockList:
+                            os_log("☎️ reportNewIncomingCall failed -> ending call", log: Self.log, type: .error)
+                        case .maximumCallGroupsReached:
+                            os_log("☎️ reportNewIncomingCall maximumCallGroupsReached -> ending call", log: Self.log, type: .error)
+                            await Self.report(call: incomingCall, report: .missedIncomingCall(caller: incomingCall.callerCallParticipant?.info, participantCount: startCallMessage.participantCount))
+                        }
+                        await incomingCall.endCallAsReportingAnIncomingCallFailed(error: incomingCallError)
+                    case .success:
+                        VoIPNotification.showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: incomingCall)
+                            .postOnDispatchQueue(_self.queueForPostingNotifications)
+                        await self?.sendRingingMessageToCaller(forIncomingCall: incomingCall)
+                    }
+                }
             }
-            incomingCall.scheduleCallTimeout()
 
         }
 
     }
 
-    private func processAnswerIncomingCallMessage(_ answerIncomingCallMessage: AnswerIncomingCallJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
-        let log = self.log
+
+    /// In case we use CallKit, we insert a call in the `currentCalls` array when receiving the start call message, not when receiving the VoIP notification.
+    /// Yet, in the case we use CallKit, we first need to wait until we receive a CallKit VoIP notification. The fact that we received this notification
+    /// is materialized by the insertion of a new element in the `receivedCallKitVoIPNotifications` dictionary, and the "start call message"
+    /// processing method waits until this event occurs.
+    /// This method (using a patern based on async/await continuations) allows to do just that. To make it work, we must resume the continuation
+    /// stored in the `continuationsWaitingForCallKitVoIPNotification` array at the time we add an element in the  insert the `receivedCallKitVoIPNotifications array.
+    private func waitUntilCallKitVoIPIsReceived(messageIdentifierFromEngine: Data) async -> UUID {
+        if let uuidForCallKit = receivedCallKitVoIPNotifications[messageIdentifierFromEngine] {
+            return uuidForCallKit
+        }
+        return await withCheckedContinuation { (continuation: CheckedContinuation<UUID, Never>) in
+            Task {
+                if let uuidForCallKit = receivedCallKitVoIPNotifications[messageIdentifierFromEngine] {
+                    continuation.resume(returning: uuidForCallKit)
+                } else {
+                    assert(continuationsWaitingForCallKitVoIPNotification[messageIdentifierFromEngine] == nil)
+                    continuationsWaitingForCallKitVoIPNotification[messageIdentifierFromEngine] = continuation
+                }
+            }
+        }
+    }
+
+
+    private func processAnswerCallMessage(_ answerCallMessage: AnswerCallJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let outgoingCall = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        let outgoingCallUuid = outgoingCall.uuid
-        guard let participant = outgoingCall.getParticipant(contact: contact) else { return }
-        outgoingCall.processAnswerIncomingCallJSON(callParticipant: participant, answerIncomingCallMessage) {  [weak self] (error) in
-            OperationQueue.main.addOperation {
-                guard let call = self?.currentOutgoingCalls.first(where: { $0.uuid == outgoingCallUuid }) else { return }
-                guard error == nil else {
-                    os_log("Could not set remote description -> ending call", log: log, type: .fault)
-                    participant.closeConnection()
-                    assertionFailure()
-                    return
-                }
-                self?.provider(isCallKit: call.usesCallKit).reportOutgoingCall(with: outgoingCallUuid, connectedAt: nil)
-                self?.report(call: call, report: .acceptedOutgoingCall(from: participant.info))
-            }
+        guard let participant = await outgoingCall.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
+        provider(isCallKit: outgoingCall.usesCallKit).reportOutgoingCall(with: outgoingCall.uuid, startedConnectingAt: nil)
+        do {
+            try await outgoingCall.processAnswerCallJSON(callParticipant: participant, answerCallMessage)
+        } catch {
+            os_log("Could not set remote description -> ending call", log: Self.log, type: .fault)
+            try await participant.closeConnection()
+            assertionFailure()
+            throw error
         }
+        Self.report(call: outgoingCall, report: .acceptedOutgoingCall(from: participant.info))
     }
 
 
-    private func processRejectCallMessage(_ rejectCallMessage: RejectCallMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+    private func processRejectCallMessage(_ rejectCallMessage: RejectCallMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let call = currentCalls.filter({ $0.uuidForWebRTC == uuidForWebRTC }).first else { return }
-        guard let participant = call.getParticipant(contact: contact) else { return }
-        guard call is OutgoingCall else { return }
-        guard [.startCallMessageSent, .ringing].contains(participant.state) else { return }
+        guard let participant = await call.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
+        guard call.direction == .outgoing else { return }
+        let participantState = await participant.getPeerState()
+        guard [.startCallMessageSent, .ringing].contains(participantState) else { return }
 
-        participant.setPeerState(to: .callRejected)
-        report(call: call, report: .rejectedOutgoingCall(from: participant.info))
+        try await participant.setPeerState(to: .callRejected)
+        Self.report(call: call, report: .rejectedOutgoingCall(from: participant.info))
     }
 
-    private func processHangedUpMessage(_ hangedUpMessage: HangedUpMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+
+    private func processHangedUpMessage(_ hangedUpMessage: HangedUpMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let call = currentCalls.filter({ $0.uuidForWebRTC == uuidForWebRTC }).first else {
             remotelyHangedUpCalls.insert(uuidForWebRTC)
             return
         }
-        if let incomingCall = call as? IncomingCall, call.state == .initial {
-            call.setUnanswered()
-            report(call: call, report: .missedIncomingCall(caller: incomingCall.callerCallParticipant?.info, participantCount: incomingCall.initialParticipantCount))
+        let callStateIsInitial = await call.state == .initial
+        if call.direction == .incoming && callStateIsInitial {
+            await Self.report(call: call, report: .missedIncomingCall(caller: call.callerCallParticipant?.info, participantCount: call.initialParticipantCount))
         }
-        guard let participant = call.getParticipant(contact: contact) else { return }
-
-        participant.setPeerState(to: .hangedUp)
-        call.updateStateFromPeerStates()
+        try await call.callParticipantDidHangUp(participantId: contact)
     }
 
-    private func processBusyMessageJSON(uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+
+    private func processBusyMessageJSON(uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let call = currentCalls.filter({ $0.uuidForWebRTC == uuidForWebRTC }).first else { return }
-        guard let participant = call.getParticipant(contact: contact) else { return }
-        guard participant.state == .startCallMessageSent else { return }
+        guard let participant = await call.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
+        guard await participant.getPeerState() == .startCallMessageSent else { return }
 
-        participant.setPeerState(to: .busy)
-        report(call: call, report: .busyOutgoingCall(from: participant.info))
+        try await participant.setPeerState(to: .busy)
+        Self.report(call: call, report: .busyOutgoingCall(from: participant.info))
     }
 
-    private func processRingingMessageJSON(uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+
+    private func processRingingMessageJSON(uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let outgoingCall = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        guard let participant = outgoingCall.getParticipant(contact: contact) else { return }
-        guard participant.state == .startCallMessageSent else { return }
+        guard let participant = await outgoingCall.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
+        guard await participant.getPeerState() == .startCallMessageSent else { return }
 
-        participant.setPeerState(to: .ringing)
+        try await participant.setPeerState(to: .ringing)
     }
 
-    private func processReconnectCallMessageJSON(_ reconnectCallMessage: ReconnectCallMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+
+    private func processReconnectCallMessageJSON(_ reconnectCallMessage: ReconnectCallMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        guard let participant = call.getParticipant(contact: contact) else { return }
-        call.handleReconnectCallMessage(callParticipant: participant, reconnectCallMessage)
+        guard let participant = await call.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
+        try await call.handleReconnectCallMessage(callParticipant: participant, reconnectCallMessage)
     }
 
-    private func processNewParticipantAnswerMessageJSON(_ newParticipantAnswer: NewParticipantAnswerMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+
+    private func processNewParticipantAnswerMessageJSON(_ newParticipantAnswer: NewParticipantAnswerMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
+        os_log("☎️ Call to processNewParticipantAnswerMessageJSON", log: Self.log, type: .info)
         guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        guard let participant = call.getParticipant(contact: contact) else { return }
+        guard let participant = await call.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
         guard participant.role == .recipient else { return }
-        guard let contactIdentity = participant.contactIdentity else { assertionFailure(); return }
-        guard call.shouldISendTheOfferToCallParticipant(contactIdentity: contactIdentity) else { return }
-        participant.setRemoteDescription(sessionDescriptionType: newParticipantAnswer.sessionDescriptionType, sessionDescription: newParticipantAnswer.sessionDescription) { error in
-            guard error == nil else { assertionFailure(); return }
-        }
+        let remoteCryptoId = participant.remoteCryptoId
+        guard call.shouldISendTheOfferToCallParticipant(cryptoId: remoteCryptoId) else { return }
+        let sessionDescription = RTCSessionDescription(type: newParticipantAnswer.sessionDescriptionType, sdp: newParticipantAnswer.sessionDescription)
+        os_log("☎️ Will call setRemoteDescription on the participant", log: Self.log, type: .info)
+        try await participant.setRemoteDescription(sessionDescription: sessionDescription)
     }
 
-    func processNewParticipantOfferMessageJSON(_ newParticipantOffer: NewParticipantOfferMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
-                                /// We check that the `NewParticipantOfferMessageJSON` is not too old. If this is the case, we ignore it
+
+    func processNewParticipantOfferMessageJSON(_ newParticipantOffer: NewParticipantOfferMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
+        /// We check that the `NewParticipantOfferMessageJSON` is not too old. If this is the case, we ignore it
         let timeInterval = Date().timeIntervalSince(messageUploadTimestampFromServer) // In seconds
         guard timeInterval < 30 else {
-            os_log("☎️ We received an old NewParticipantOfferMessageJSON, uploaded %{timeInterval}f seconds ago on the server. We ignore it.", log: log, type: .info, timeInterval)
+            os_log("☎️ We received an old NewParticipantOfferMessageJSON, uploaded %{timeInterval}f seconds ago on the server. We ignore it.", log: Self.log, type: .info, timeInterval)
             return
         }
 
-        guard let incomingCall = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) as? IncomingCall else { return }
-        guard let participant = incomingCall.getParticipant(contact: contact) else {
+        guard let incomingCall = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC && $0.direction == .incoming }) else { return }
+        guard let participant = await incomingCall.getParticipant(remoteCryptoId: contact.remoteCryptoId) else {
             // Put the message in queue as we might simply receive the update call participant message later
-            incomingCall.receivedOfferMessages[contact] = (messageUploadTimestampFromServer, newParticipantOffer)
+            await incomingCall.addPendingOffer((messageUploadTimestampFromServer, newParticipantOffer), from: contact)
             return
         }
         guard participant.role == .recipient else { return }
-        guard let contactIdentity = participant.contactIdentity else { assertionFailure(); return }
-        guard !incomingCall.shouldISendTheOfferToCallParticipant(contactIdentity: contactIdentity) else { return }
+        let remoteCryptoId = participant.remoteCryptoId
+        guard !incomingCall.shouldISendTheOfferToCallParticipant(cryptoId: remoteCryptoId) else { return }
 
-        guard let turnCredentials = incomingCall.callerCallParticipant?.turnCredentials else { assertionFailure(); return }
+        guard let turnCredentials = incomingCall.turnCredentialsReceivedFromCaller else { assertionFailure(); return }
 
-        participant.updateRecipient(newParticipantOfferMessage: newParticipantOffer, turnCredentials: turnCredentials)
-        participant.createAnswer()
+        try await participant.updateRecipient(newParticipantOfferMessage: newParticipantOffer, turnCredentials: turnCredentials)
     }
 
-    private func processKickMessageJSON(_ kickMessage: KickMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId, messageUploadTimestampFromServer: Date) {
-        CallHelper.checkQueue() // OK
+
+    private func processKickMessageJSON(_ kickMessage: KickMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId, messageUploadTimestampFromServer: Date) async throws {
         guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        guard let participant = call.getParticipant(contact: contact) else { return }
+        guard let participant = await call.getParticipant(remoteCryptoId: contact.remoteCryptoId) else { return }
         guard participant.role == .caller else { return }
-        os_log("☎️ We received an KickMessageJSON from caller", log: log, type: .info)
-
-        call.setKicked()
-        call.endCall()
+        os_log("☎️ We received an KickMessageJSON from caller", log: Self.log, type: .info)
+        await call.endCallAsLocalUserGotKicked()
     }
 
-    private func processIceCandidateMessage(message: IceCandidateJSON, uuidForWebRTC: UUID, contact: ParticipantId) {
-        CallHelper.checkQueue() // OK
-        guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else {
+
+    private func processIceCandidateMessage(message: IceCandidateJSON, uuidForWebRTC: UUID, contact: OlvidUserId) async throws {
+
+        if let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) {
+
+            os_log("☎️❄️ Process IceCandidateJSON message", log: Self.log, type: .info)
+            try await call.processIceCandidatesJSON(iceCandidate: message, participantId: contact)
+
+        } else {
+
             guard !remotelyHangedUpCalls.contains(uuidForWebRTC) else { return }
-            os_log("☎️❄️ Received new remote ICE Candidates for a call that does not exists yet", log: log, type: .info)
+            os_log("☎️❄️ Received new remote ICE Candidates for a call that does not exists yet. Adding the ICE candidate to the receivedIceCandidates array.", log: Self.log, type: .info)
             var candidates = receivedIceCandidates[uuidForWebRTC] ?? []
             candidates += [(message, contact)]
             receivedIceCandidates[uuidForWebRTC] = candidates
             return
-        }
-        guard let participant = call.getParticipant(contact: contact) else { return }
 
-        os_log("☎️❄️ Process IceCandidateJSON message", log: log, type: .info)
-        participant.processIceCandidatesJSON(message: message)
+        }
+
     }
 
-    private func processRemoveIceCandidatesMessage(message: RemoveIceCandidatesMessageJSON, uuidForWebRTC: UUID, contact: ParticipantId) {
-        CallHelper.checkQueue() // OK
-        guard let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else {
-            os_log("☎️❄️ Received removed remote ICE Candidates for a call that does not exists yet", log: log, type: .info)
+
+    private func processRemoveIceCandidatesMessage(message: RemoveIceCandidatesMessageJSON, uuidForWebRTC: UUID, contact: OlvidUserId) async throws {
+
+        if let call = currentCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) {
+
+            os_log("☎️❄️ Process RemoveIceCandidatesMessageJSON message", log: Self.log, type: .info)
+            try await call.removeIceCandidatesJSON(removeIceCandidatesJSON: message, participantId: contact)
+
+        } else {
+
             guard !remotelyHangedUpCalls.contains(uuidForWebRTC) else { return }
+            os_log("☎️❄️ Received removed remote ICE Candidates for a call that does not exists yet", log: Self.log, type: .info)
             var candidates = receivedIceCandidates[uuidForWebRTC] ?? []
             candidates.removeAll { message.candidates.contains($0.0) }
             receivedIceCandidates[uuidForWebRTC] = candidates
 
+        }
 
-            return }
-        guard let participant = call.getParticipant(contact: contact) else { return }
-
-        os_log("☎️❄️ Process RemoveIceCandidatesMessageJSON message", log: log, type: .info)
-        participant.processRemoveIceCandidatesMessageJSON(message: message)
     }
 
-    private func processAppStateChangedNotification(currentState: AppState) {
-        CallHelper.checkQueue() // OK
+
+    private func processAppStateChangedNotification(currentState: AppState) async {
         guard currentState.isInitializedAndActive else { return }
-        guard let (contactIDs, groupId) = callToPerformAfterAppStateBecomesActive else { return }
+        guard let (contactIds, groupId) = callToPerformAfterAppStateBecomesActive else { return }
         callToPerformAfterAppStateBecomesActive = nil
-        os_log("☎️ The app is now active and there is a saved call to perform", log: log, type: .info)
-        processUserWantsToCallNotification(contactIDs: contactIDs, groupId: groupId)
+        os_log("☎️ The app is now active and there is a saved call to perform", log: Self.log, type: .info)
+        await processUserWantsToCallNotification(contactIds: contactIds, groupId: groupId)
     }
 
-    private func processUserWantsToCallNotification(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
-        CallHelper.checkQueue() // OK
+
+    private func processUserWantsToCallNotification(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) async {
 
         guard AppStateManager.shared.currentState.isInitializedAndActive else {
-            os_log("☎️ App is not yet active, save current call for the next app activation", log: log, type: .info)
-            callToPerformAfterAppStateBecomesActive = (contactIDs, groupId)
+            os_log("☎️ App is not yet active, save current call for the next app activation", log: Self.log, type: .info)
+            callToPerformAfterAppStateBecomesActive = (contactIds, groupId)
             return
         }
 
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] (granted) in
-            guard granted else {
-                ObvMessengerInternalNotification.outgoingCallFailedBecauseUserDeniedRecordPermission
-                    .postOnDispatchQueue()
-                return
-            }
-            OperationQueue.main.addOperation {
-                self?.initiateCall(with: contactIDs, groupId: groupId)
-            }
+        let granted = await AVAudioSession.sharedInstance().requestRecordPermission()
+        if granted {
+            await initiateCall(with: contactIds, groupId: groupId)
+        } else {
+            ObvMessengerInternalNotification.outgoingCallFailedBecauseUserDeniedRecordPermission
+                .postOnDispatchQueue(queueForPostingNotifications)
         }
+
     }
 
-    private func processUserWantsToKickParticipant(call: Call, callParticipant: CallParticipant) {
-        CallHelper.checkQueue() // OK
-        guard let uuidForWebRTC = call.uuidForWebRTC else { return }
-        guard let outgoingCall = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) else { return }
-        guard let contactIdentity = callParticipant.contactIdentity else { return }
-        guard let participant = outgoingCall.getParticipant(contact: .cryptoId(contactIdentity)) else { return }
-        guard participant.role != .caller else { return }
 
-        participant.setPeerState(to: .kicked)
-
-        // Close the Connection
-        participant.closeConnection()
-
-        // Send kick to the kicked participant
-        let kickMessage = KickMessageJSON()
-        if let webrtcMessage = try? kickMessage.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC) {
-            outgoingCall.sendWebRTCMessage(to: participant, message: webrtcMessage, forStartingCall: false, completion: {})
-        }
-
-        // Update the participant list for the other
-        let otherParticipants = call.callParticipants.filter({$0.uuid != callParticipant.uuid})
-        let message: WebRTCDataChannelMessageJSON
-        do {
-            message = try UpdateParticipantsMessageJSON(callParticipants: otherParticipants).embedInWebRTCDataChannelMessageJSON()
-        } catch {
-            os_log("☎️ Could not send UpdateParticipantsMessageJSON: %{public}@", log: log, type: .fault, error.localizedDescription)
+    private func processUserWantsToKickParticipant(call: GenericCall, callParticipant: CallParticipant) async {
+        guard let call = call as? Call else {
+            os_log("☎️ Unknown call type", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
-
-        for otherParticipant in otherParticipants {
-            try? otherParticipant.sendDataChannelMessage(message)
+        guard let outgoingCall = currentOutgoingCalls.first(where: { $0.uuidForWebRTC == call.uuidForWebRTC }) else { return }
+        do {
+            try await outgoingCall.processUserWantsToKickParticipant(callParticipant: callParticipant)
+        } catch {
+            os_log("☎️ Could not properly kick participant: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
         }
     }
 
-    private func processUserWantsToAddParticipants(call: Call, contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]) {
-        CallHelper.checkQueue() // OK
-        guard let uuidForWebRTC = call.uuidForWebRTC else { return }
-        guard currentOutgoingCalls.first(where: { $0.uuidForWebRTC == uuidForWebRTC }) != nil else { return }
-        guard let outgoingCall = call as? OutgoingCall else { return }
 
-        outgoingCall.processUserWantsToAddParticipants(contactIDs: contactIDs)
+    private func processUserWantsToAddParticipants(call: GenericCall, contactIds: [OlvidUserId]) async {
+        guard !contactIds.isEmpty else { assertionFailure(); return }
+        guard let call = call as? Call else {
+            os_log("Unknown call type", log: Self.log, type: .fault)
+            assertionFailure()
+            return
+        }
+        guard currentOutgoingCalls.first(where: { $0.uuidForWebRTC == call.uuidForWebRTC }) != nil else { return }
+        guard call.direction == .outgoing else { return }
+        do {
+            try await call.processUserWantsToAddParticipants(contactIds: contactIds)
+        } catch {
+            os_log("☎️ Could not process processUserWantsToAddParticipants: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
     }
 }
 
-// MARK: - OutgoingWebRTCCallDelegate
 
-extension CallCoordinator: IncomingWebRTCCallDelegate, OutgoingWebRTCCallDelegate {
+// MARK: - Incoming/Outgoing Call Delegate
 
-    func answerCallCompleted(callUUID: UUID, result: Result<Void, Error>) {
-        let log = self.log
-        os_log("☎️ Within answerCallCompleted", log: log, type: .info)
-        OperationQueue.main.addOperation { [weak self] in
-            guard let _self = self else { return }
-            let action = _self.currentAnswerCallActions.removeValue(forKey: callUUID)
-            os_log("☎️ We retrieved the following ObvAnswerCallAction from the array of current ObvAnswerCallAction: %{public}@", log: log, type: .info, action?.debugDescription ?? "None")
-            switch result {
-            case .success:
-                os_log("☎️ The newWebRTCMessageToSend was received by the server. Calling fulfill on the action %{public}@", log: log, type: .info, action?.debugDescription ?? "(nil)")
-                action?.fulfill()
-            case .failure:
-                action?.fail()
-            }
-        }
-    }
+extension CallCoordinator: IncomingCallDelegate, OutgoingCallDelegate {
 
-
-    func turnCredentialsRequiredByOutgoingCall(outgoingCallUuidForWebRTC: UUID, forOwnedIdentity ownedIdentityCryptoId: ObvCryptoId) {
-        CallHelper.checkQueue() // OK
+    func turnCredentialsRequiredByOutgoingCall(outgoingCallUuidForWebRTC: UUID, forOwnedIdentity ownedIdentityCryptoId: ObvCryptoId) async {
         obvEngine.getTurnCredentials(ownedIdenty: ownedIdentityCryptoId, callUuid: outgoingCallUuidForWebRTC)
     }
 
 }
 
+
 // MARK: - Helpers
 
 extension CallCoordinator {
 
-
-    /// This method sends a `RingingMessageJSON` to the caller, but only if both of these are true:
-    /// - the incoming call message has already been decrypted, which we check by looking for the caller contactID and the uuid for webrtc
-    /// - the pushkit notification has been received (when pushkit is enabled), which we check by looking for the pushkit compltion handler
-    /// - Returns: Whether sending the message has succeeded.
-    private func sendRingingMessageToContactIfPossible(for call: IncomingCall) -> Bool {
-        CallHelper.checkQueue() // OK
-
-        os_log("☎️ Within sendRingingMessageToContactIfPossible", log: log, type: .info)
-
-        let log = self.log
-
-        /// We check that we do know the callee, which can only happen if the incoming call JSON message was decrypted
-        guard let caller = call.callerCallParticipant, case .known = caller.contactIdentificationStatus, let uuidForWebRTC = call.uuidForWebRTC else {
-            os_log("☎️ Cannot notify contact that the phone is ringing, since the contact is not determined yet", log: log, type: .info)
-            return false
-        }
-
-        /// In case we use CallKit, we check that we indeed received the pushkit notification, i.e., that the completion handler is set
-        let completion: () -> Void
-        if call.usesCallKit {
-            guard let _completion = pushKitCompletionForIncomingCall.removeValue(forKey: call.uuid) else {
-                os_log("☎️ Cannot notify contact that the phone is ringing, since the call kit completion handler is not available yet", log: log, type: .info)
-                return false
-            }
-            completion = {
-                _completion()
-            }
-        } else {
-            completion = {
-                os_log("☎️ CallKit is not active, no completion handler to call", log: log, type: .info)
-            }
-        }
-
-        /// If we reach this point, it means that we decrypted the incoming call message *and* that we received the pushkit notification (or that pushkit is not active)
-        /// We notify the caller that "we" are ringing. Note that the UI might not be shown yet, but it will soon
-        do {
-            let ringingMessage = RingingMessageJSON()
-            let webrtcMessage = try ringingMessage.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC)
-            call.sendWebRTCMessage(to: caller, message: webrtcMessage, forStartingCall: false, completion: completion)
-            os_log("☎️ newWebRTCMessageToSend was posted with a ringingMessage", log: log, type: .info)
-            return true
-        } catch {
-            os_log("☎️ Could not notify the caller that the phone is ringing", log: log, type: .fault)
-            assertionFailure()
-            return false
-        }
+    /// This method sends a `RingingMessageJSON` to the caller. It makes sure this message is sent only once.
+    private func sendRingingMessageToCaller(forIncomingCall call: Call) async {
+        assert(call.direction == .incoming)
+        os_log("☎️ Within sendRingingMessageToCaller", log: Self.log, type: .info)
+        await call.sendRingingMessageToCaller()
     }
 
+}
 
-    private func sendBusyMessageToContact(for call: IncomingCall) {
-        CallHelper.checkQueue() // OK
-        guard let caller = call.callerCallParticipant, let uuidForWebRTC = call.uuidForWebRTC else {
-            os_log("☎️ Cannot notify contact that the phone is busy, since the contact is not determined yet", log: log, type: .error)
+
+// MARK: - Actions
+
+extension CallCoordinator {
+
+    private func initiateCall(with contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) async {
+
+        guard !contactIds.isEmpty else { assertionFailure(); return }
+
+        os_log("☎️ initiateCall with %{public}@", log: Self.log, type: .info, contactIds.map { $0.debugDescription }.joined(separator: ", "))
+
+        do {
+            try ObvAudioSessionUtils.shared.configureAudioSessionForMakingOrAnsweringCall()
+        } catch {
+            os_log("☎️ Failed to configure audio session: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure() // Continue anyway
+        }
+
+        let sortedContactIds = contactIds.sorted(by: { $0.displayName < $1.displayName })
+
+        let outgoingCall: Call
+        do {
+            outgoingCall = try await createOutgoingCall(contactIds: sortedContactIds, groupId: groupId)
+            assert(outgoingCall.direction == .outgoing)
+        } catch {
+            os_log("☎️ Could not create outgoing call: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+            assertionFailure()
             return
         }
-        do {
-            let busyMessage = BusyMessageJSON()
-            let webrtcMessage = try busyMessage.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC)
-            call.sendWebRTCMessage(to: caller, message: webrtcMessage, forStartingCall: false, completion: {})
-        } catch {
-            os_log("☎️ Could not notify the caller that the phone is busy", log: log, type: .fault)
-            assertionFailure()
-        }
-    }
 
-    private func sendRejectMessageToContact(for call: IncomingCall) {
-        CallHelper.checkQueue() // OK
-        guard let caller = call.callerCallParticipant, let uuidForWebRTC = call.uuidForWebRTC else {
-            os_log("☎️ Cannot notify contact that the phone is busy, since the contact is not determined yet", log: log, type: .error)
-            return
-        }
-        do {
-            let rejectedMessage = RejectCallMessageJSON()
-            let webrtcMessage = try rejectedMessage.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC)
-            call.sendWebRTCMessage(to: caller, message: webrtcMessage, forStartingCall: false, completion: {})
-        } catch {
-            os_log("☎️ Could not notify the caller that the call is rejected", log: log, type: .fault)
-            assertionFailure()
-        }
-    }
-
-    private func sendHangedUpMessageToContact(for call: Call) {
-        CallHelper.checkQueue() // OK
-        guard let uuidForWebRTC = call.uuidForWebRTC else { return }
-        let hangedUpMessage = HangedUpMessageJSON()
-        let webrtcMessage: WebRTCMessageJSON!
-        do {
-            webrtcMessage = try hangedUpMessage.embedInWebRTCMessageJSON(callIdentifier: uuidForWebRTC)
-        } catch {
-            os_log("☎️ Could not notify the caller that the call is HangedUp", log: log, type: .fault)
-            os_log("☎️ Could not build HangedUpMessageJSON message", log: log, type: .fault)
-            assertionFailure(); return
-        }
-        for callParticipant in call.callParticipants {
-            call.sendWebRTCMessage(to: callParticipant, message: webrtcMessage, forStartingCall: false, completion: {})
-        }
-    }
-
-
-    // MARK: Actions
-
-    private func initiateCall(with contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>],
-                              groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
-        CallHelper.checkQueue() // OK
-
-        assert(!contactIDs.isEmpty)
-
-        os_log("☎️ initiateCall with %{public}@", log: log, type: .info, contactIDs.map { $0.debugDescription }.joined(separator: ", "))
-
-        try? ObvAudioSessionUtils.shared.configureAudioSessionForMakingOrAnsweringCall()
-
-        var contacts: [ContactInfo] = []
-        for contactID in contactIDs {
-            guard let contactInfo = CallHelper.getContactInfo(contactID) else {
-                os_log("Could not find contact", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            contacts += [contactInfo]
-        }
-        contacts.sort { $0.sortDisplayName < $1.sortDisplayName }
-
-        let outgoingCall = createOutgoingCall(contactIDs: contacts.map { $0.objectID }, groupId: groupId)
-        let firstContact = contacts.first!
-        let contactsDisplayName = firstContact.customDisplayName ?? firstContact.fullDisplayName
+        guard let firstContactId = contactIds.first else { return }
+        let firstContactDisplayName = firstContactId.displayName
 
         let outgoingCallUuid = outgoingCall.uuid
         let handleValue: String = String(outgoingCallUuid)
 
-        outgoingCall.startCall(contactIdentifier: contactsDisplayName, handleValue: handleValue) { (error) in
-            OperationQueue.main.addOperation { [weak self] in
-                guard let _self = self else { return }
-                guard _self.currentOutgoingCalls.first(where: { $0.uuid == outgoingCallUuid }) != nil else { return }
-                if let error = error {
-                    os_log("☎️ Start call failed: %{public}@", log: _self.log, type: .error, error.localizedDescription)
-                    outgoingCall.setUnanswered()
-                    outgoingCall.endCall()
-                }
-            }
+        do {
+            try await outgoingCall.initializeCall(contactIdentifier: firstContactDisplayName, handleValue: handleValue)
+        } catch {
+            os_log("☎️ Start call failed: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+            await outgoingCall.endCallAsOutgoingCallInitializationFailed()
+            return
         }
     }
 
-    func report(call: Call, report: CallReport) {
-        guard let ownedIdentity = call.ownedIdentity else { return }
-        os_log("☎️📖 Report call to user as %{public}@", log: log, type: .info, report.description)
-        ObvMessengerInternalNotification.reportCallEvent(callUUID: call.uuid, callReport: report, groupId: call.groupId, ownedCryptoId: ownedIdentity).postOnDispatchQueue()
+}
+
+
+// MARK: - Call Delegate
+
+extension CallCoordinator {
+
+    static func report(call: Call, report: CallReport) {
+        let ownedIdentity = call.ownedIdentity
+        os_log("☎️📖 Report call to user as %{public}@", log: Self.log, type: .info, report.description)
+        VoIPNotification.reportCallEvent(callUUID: call.uuid, callReport: report, groupId: call.groupId, ownedCryptoId: ownedIdentity)
+            .postOnDispatchQueue()
     }
 
-    func newParticipantWasAdded(call: Call, callParticipant: CallParticipant) {
-        CallHelper.checkQueue() // OK
-        if call is IncomingCall {
-            report(call: call, report: .newParticipantInIncomingCall(callParticipant.info))
-        } else {
-            report(call: call, report: .newParticipantInOutgoingCall(callParticipant.info))
+
+    func newParticipantWasAdded(call: Call, callParticipant: CallParticipant) async {
+        switch call.direction {
+        case .incoming:
+            Self.report(call: call, report: .newParticipantInIncomingCall(callParticipant.info))
+        case .outgoing:
+            Self.report(call: call, report: .newParticipantInOutgoingCall(callParticipant.info))
         }
-        let callUpdate = ObvCallUpdateImpl.make(with: call, engine: self.obvEngine)
+        let callUpdate = await ObvCallUpdateImpl.make(with: call)
         self.provider(isCallKit: call.usesCallKit).reportCall(with: call.uuid, updated: callUpdate)
+    }
+
+
+    func callReachedFinalState(call: Call) async {
+        do {
+            try await removeCallFromCurrentCalls(call: call)
+        } catch {
+            os_log("Could not remove call from current calls: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+        }
+    }
+
+
+    func outgoingCallReachedReachedInProgressState(call: Call) async {
+        assert(call.direction == .outgoing)
+        provider(isCallKit: call.usesCallKit).reportOutgoingCall(with: call.uuid, connectedAt: nil)
+    }
+
+
+    /// This call delegate method gets called when a call is ended in an out-of-band manner, i.e., not because the local user decided to end the call.
+    /// In that case, we want to report this information to CallKit.
+    func callOutOfBoundEnded(call: Call, reason: ObvCallEndedReason) async {
+        let callState = await call.state
+        assert(callState.isFinalState)
+        provider(isCallKit: call.usesCallKit).reportCall(with: call.uuid, endedAt: nil, reason: reason)
     }
 
 }
@@ -1076,64 +909,69 @@ extension CallCoordinator {
 
 extension CallCoordinator: ObvProviderDelegate {
 
-    func providerDidBegin() {
-        os_log("☎️ Provider did begin", log: log, type: .info)
+    func providerDidBegin() async {
+        os_log("☎️ Provider did begin", log: Self.log, type: .info)
     }
 
 
-    func providerDidReset() {
-        os_log("☎️ Provider did reset", log: log, type: .info)
+    func providerDidReset() async {
+        os_log("☎️ Provider did reset", log: Self.log, type: .info)
     }
 
-    func provider(perform action: ObvStartCallAction) {
-        CallHelper.checkQueue() // OK
 
-        os_log("☎️ Provider perform action: %{public}@", log: log, type: .info, action.debugDescription)
+    func provider(perform action: ObvStartCallAction) async {
 
-        guard let outgoingCall = currentCalls.first(where: { $0.uuid == action.callUUID }) as? OutgoingWebRTCCall else {
-            os_log("☎️ Could not start call, call not found", log: log, type: .fault)
+        os_log("☎️ Provider perform action: %{public}@", log: Self.log, type: .info, action.debugDescription)
+
+        guard let outgoingCall = currentCalls.first(where: { $0.uuid == action.callUUID && $0.direction == .outgoing }) else {
+            os_log("☎️ Could not start call, call not found", log: Self.log, type: .fault)
             action.fail()
             assertionFailure()
             return
         }
 
         do {
-            try outgoingCall.startCall()
+            try await outgoingCall.startCall()
         } catch(let error) {
-            os_log("☎️ startCall failed: %{public}@", log: self.log, type: .fault, error.localizedDescription)
-            outgoingCall.endCall()
+            os_log("☎️ startCall failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            await outgoingCall.endCallAsOutgoingCallInitializationFailed()
             action.fail()
             assertionFailure()
             return
         }
 
-        self.provider(isCallKit: outgoingCall.usesCallKit).reportOutgoingCall(with: outgoingCall.uuid, startedConnectingAt: nil)
         action.fulfill()
 
         // If we stop here, the name displayed within iOS call log is incorrect (it shows the CoreData instance's URI). Updating the call right now does the trick.
-        let callUpdate = ObvCallUpdateImpl.make(with: outgoingCall, engine: self.obvEngine)
-        self.provider(isCallKit: outgoingCall.usesCallKit).reportCall(with: outgoingCall.uuid, updated: callUpdate)
+        let callUpdate = await ObvCallUpdateImpl.make(with: outgoingCall)
+        provider(isCallKit: outgoingCall.usesCallKit).reportCall(with: outgoingCall.uuid, updated: callUpdate)
+
+        // At this point, credentials have been requested to the engine (when calling outgoingCall.startCall() above).
+        // The outgoing call will evolve when receiving these credentials.
     }
 
-    func provider(perform action: ObvAnswerCallAction) {
-        CallHelper.checkQueue() // OK
 
-        os_log("☎️ Provider perform answer call action", log: log, type: .info)
+    func provider(perform action: ObvAnswerCallAction) async {
 
-        guard let call = currentCalls.first(where: { $0.uuid == action.callUUID }) as? IncomingWebrtcCall else {
-            os_log("☎️ Could not answer call: could not find the call within the current calls", log: log, type: .fault)
+        os_log("☎️ Provider perform answer call action", log: Self.log, type: .info)
+
+        guard let call = currentCalls.first(where: { $0.uuid == action.callUUID && $0.direction == .incoming }) else {
+            os_log("☎️ Could not answer call: could not find the call within the current calls", log: Self.log, type: .fault)
             action.fail()
             return
         }
 
         guard AVAudioSession.sharedInstance().recordPermission == .granted else {
-            os_log("☎️ We reject the call since there is no record permission", log: log, type: .fault)
-            call.rejectedBecauseOfMissingRecordPermission = true
-            call.endCall()
+            os_log("☎️ We reject the call since there is no record permission", log: Self.log, type: .fault)
+            await call.endCallBecauseOfMissingRecordPermission()
+            action.fail()
             return
         }
 
-        guard !call.userAnsweredIncomingCall else { return }
+        guard await !call.userDidAnsweredIncomingCall() else {
+            action.fail()
+            return
+        }
 
         /* Although https://www.youtube.com/watch?v=_64EiziqbuE @ 20:35 says that we should not configure
          * the audio here, we do so anyway. Otherwise, CallKit does not call the
@@ -1143,132 +981,104 @@ extension CallCoordinator: ObvProviderDelegate {
         do {
             try ObvAudioSessionUtils.shared.configureAudioSessionForMakingOrAnsweringCall()
         } catch {
-            os_log("☎️🎵 Could not configure the audio session: %{public}@", log: log, type: .fault, error.localizedDescription)
+            os_log("☎️🎵 Could not configure the audio session: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            action.fail()
             assertionFailure()
+            return
         }
 
-        // Trigger the call to be answered via the underlying network service.
-        os_log("☎️ Adding the following ObvAnswerCallAction in the list of currentAnswerCallActions: %{public}@", log: log, type: .info, action.debugDescription)
-        currentAnswerCallActions[call.uuid] = action
-        call.answerWebRTCCall()
+        do {
+            try await call.answerWebRTCCall()
+        } catch {
+            os_log("☎️ Failed to answer WebRTC call: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            action.fail()
+            assertionFailure()
+            return
+        }
 
-        call.invalidateCallTimeout()
+        action.fulfill()
 
-        report(call: call, report: .acceptedIncomingCall(caller: call.callerCallParticipant?.info))
+        await Self.report(call: call, report: .acceptedIncomingCall(caller: call.callerCallParticipant?.info))
     }
 
 
-    func provider(perform action: ObvEndCallAction) {
-        CallHelper.checkQueue() // OK
+    /// This delegate method is called when the local user ends the call from the CallKit UI or from the Olvid UI.
+    func provider(perform action: ObvEndCallAction) async {
 
-        os_log("☎️ Provider perform end call action for call with UUID %{public}@", log: log, type: .info, action.callUUID as CVarArg)
+        os_log("☎️🛑 Provider perform end call action for call with UUID %{public}@", log: Self.log, type: .info, action.callUUID as CVarArg)
 
-        guard let call = currentCalls.first(where: { $0.uuid == action.callUUID }) as? WebRTCCall else { action.fail(); return }
-
-        /// Clean all timeouts
-        call.invalidateCallTimeout()
-        for callParticipant in call.callParticipants {
-            callParticipant.invalidateTimeout()
+        guard let call = currentCalls.first(where: { $0.uuid == action.callUUID }) else {
+            os_log("Cannot find call after performing ObvEndCallAction", log: Self.log, type: .fault)
+            action.fail()
+            assertionFailure()
+            return
         }
 
-        let state = call.state
+        await call.userRequestedToEndCallWasFulfilled()
 
-        switch state {
-        case .callRejected, .hangedUp:
-            action.fulfill()
-        case .kicked:
-            call.endWebRTCCallByHangingUp { action.fulfill() }
-            self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .remoteEnded)
-        case .permissionDeniedByServer, .callInitiationNotSupported:
-            sendHangedUpMessageToContact(for: call)
-            call.endWebRTCCallByHangingUp { action.fulfill() }
-            self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .failed)
-        case .ringing, .gettingTurnCredentials, .initializingCall, .userAnsweredIncomingCall:
-            sendHangedUpMessageToContact(for: call)
-            call.endWebRTCCallByHangingUp { action.fulfill() }
-            self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .remoteEnded)
-            self.report(call: call, report: .uncompletedOutgoingCall(with: call.callParticipants.map { $0.info }))
-        case .callInProgress:
-            sendHangedUpMessageToContact(for: call)
-            call.endWebRTCCallByHangingUp { action.fulfill() }
-            self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .remoteEnded)
-        case .initial:
-            if let incomingCall = call as? IncomingWebrtcCall {
-                sendRejectMessageToContact(for: incomingCall)
-                call.endWebRTCCallByRejectingCall { action.fulfill() }
-                self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .unanswered)
-                if incomingCall.rejectedBecauseOfMissingRecordPermission {
-                    self.report(call: call, report: .rejectedIncomingCallBecauseOfDeniedRecordPermission(caller: incomingCall.callerCallParticipant?.info, participantCount: incomingCall.initialParticipantCount))
-                } else {
-                    self.report(call: call, report: .rejectedIncomingCall(caller: incomingCall.callerCallParticipant?.info, participantCount: incomingCall.initialParticipantCount))
-                }
-            } else if call is OutgoingCall {
-                sendHangedUpMessageToContact(for: call)
-                call.endWebRTCCallByHangingUp { action.fulfill() }
-                self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .remoteEnded)
-                self.report(call: call, report: .uncompletedOutgoingCall(with: call.callParticipants.map { $0.info }))
-            }
-        case .unanswered:
-            sendHangedUpMessageToContact(for: call)
-            call.endWebRTCCallByHangingUp { action.fulfill() }
-            self.provider(isCallKit: call.usesCallKit).reportCall(with: action.callUUID, endedAt: nil, reason: .unanswered)
-        }
+        action.fulfill()
+
     }
 
-    func provider(perform action: ObvSetHeldCallAction) {
-        CallHelper.checkQueue() // OK
 
-        os_log("☎️ Provider perform set held call action", log: log, type: .info)
+    func provider(perform action: ObvSetHeldCallAction) async {
+        os_log("☎️ Provider perform set held call action", log: Self.log, type: .info)
         action.fulfill()
         assertionFailure("Not implemented")
     }
 
-    func provider(perform action: ObvSetMutedCallAction) {
-        CallHelper.checkQueue() // OK
 
-        os_log("☎️ Provider perform set muted call action", log: log, type: .info)
-        guard let call = currentCalls.first(where: { $0.uuid == action.callUUID }) as? WebRTCCall else { action.fail(); return }
-
-        if action.isMuted {
-            call.mute()
-        } else {
-            call.unmute()
-        }
-
-        action.fulfill()
-    }
-
-    func provider(perform action: ObvPlayDTMFCallAction) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️ Provider perform play DTMF action", log: log, type: .info)
+    func provider(perform action: ObvSetMutedCallAction) async {
+        os_log("☎️ Provider perform set muted call action", log: Self.log, type: .info)
+        guard let call = currentCalls.first(where: { $0.uuid == action.callUUID }) else { action.fail(); return }
+        await action.isMuted ? call.muteSelfForOtherParticipants(): call.unmuteSelfForOtherParticipants()
         action.fulfill()
     }
 
 
-    func provider(timedOutPerforming action: ObvAction) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️ Provider timed out performing action %{public}@", log: log, type: .info, action.debugDescription)
+    func provider(perform action: ObvPlayDTMFCallAction) async {
+        os_log("☎️ Provider perform play DTMF action", log: Self.log, type: .info)
+        action.fulfill()
     }
 
 
-    func provider(didActivate audioSession: AVAudioSession) {
-        CallHelper.checkQueue() // OK
-                                // See https://stackoverflow.com/a/55781328
-        os_log("☎️🎵 Provider did activate audioSession %{public}@", log: log, type: .info, audioSession.description)
+    func provider(timedOutPerforming action: ObvAction) async {
+        os_log("☎️ Provider timed out performing action %{public}@", log: Self.log, type: .info, action.debugDescription)
+        action.fulfill()
+    }
+
+
+    func provider(didActivate audioSession: AVAudioSession) async {
+        // See https://stackoverflow.com/a/55781328
+        os_log("☎️🎵 Provider did activate audioSession %{public}@", log: Self.log, type: .info, audioSession.description)
         RTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
         RTCAudioSession.sharedInstance().isAudioEnabled = true
     }
 
 
-    func provider(didDeactivate audioSession: AVAudioSession) {
-        CallHelper.checkQueue() // OK
-        os_log("☎️🎵 Provider did deactivate audioSession %{public}@", log: log, type: .info, audioSession.description)
+    func provider(didDeactivate audioSession: AVAudioSession) async {
+        os_log("☎️🎵 Provider did deactivate audioSession %{public}@", log: Self.log, type: .info, audioSession.description)
         RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
         RTCAudioSession.sharedInstance().isAudioEnabled = false
     }
 
 }
 
+
+// MARK: - CallStateDelegate
+
+extension CallCoordinator: CallStateDelegate {
+
+    func getGenericCallWithUuid(_ callUuid: UUID) async -> GenericCall? {
+        guard let call = currentCalls.first(where: { $0.uuid ==  callUuid}) else { return nil }
+        return call
+    }
+
+}
+
+
+
+// MARK: - Extensions / Helpers
 
 fileprivate extension EncryptedPushNotification {
 
@@ -1301,11 +1111,11 @@ fileprivate extension EncryptedPushNotification {
 
 fileprivate extension ObvCallUpdateImpl {
 
-    static func make(with call: Call, engine: ObvEngine) -> ObvCallUpdate {
-        CallHelper.checkQueue() // OK
+    static func make(with call: Call) async -> ObvCallUpdate {
         var update = ObvCallUpdateImpl()
-        let sortedContacts: [(isCaller: Bool, displayName: String)] = call.callParticipants.compactMap {
-            guard let displayName = $0.displayName else { return nil }
+        let callParticipants = await call.getCallParticipants()
+        let sortedContacts: [(isCaller: Bool, displayName: String)] = callParticipants.map {
+            let displayName = $0.displayName
             return ($0.role == .caller, displayName)
         }.sorted {
             if $0.isCaller { return true }
@@ -1314,11 +1124,10 @@ fileprivate extension ObvCallUpdateImpl {
         }
 
         update.remoteHandle_ = ObvHandleImpl(type_: .generic, value: String(call.uuid))
-        if let incomingCall = call as? IncomingCall, sortedContacts.count == 1 {
-            let participantsCount = incomingCall.initialParticipantCount
+        if call.direction == .incoming && sortedContacts.count == 1 {
             update.localizedCallerName = sortedContacts.first?.displayName
-            if let participantCount = participantsCount, participantCount > 1 {
-                update.localizedCallerName! += " + \(participantCount - 1)"
+            if call.initialParticipantCount > 1 {
+                update.localizedCallerName! += " + \(call.initialParticipantCount - 1)"
             }
         } else if sortedContacts.count > 0 {
             let contactName = sortedContacts.map({ $0.displayName }).joined(separator: ", ")
@@ -1334,7 +1143,39 @@ fileprivate extension ObvCallUpdateImpl {
         return update
     }
 
+
+    static func make(with encryptedNotification: EncryptedPushNotification) -> (uuidForCallKit: UUID, obvCallUpdate: ObvCallUpdate) {
+        var update = ObvCallUpdateImpl()
+        let uuidForCallKit = UUID()
+        update.remoteHandle_ = ObvHandleImpl(type_: .generic, value: String(uuidForCallKit))
+        update.localizedCallerName = "..."
+        update.hasVideo = false
+        update.supportsGrouping = false
+        update.supportsUngrouping = false
+        update.supportsHolding = false
+        update.supportsDTMF = false
+        return (uuidForCallKit, update)
+    }
+
 }
+
+
+// MARK: - ContactInfo
+
+protocol ContactInfo {
+    var objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity> { get }
+    var ownedIdentity: ObvCryptoId? { get }
+    var cryptoId: ObvCryptoId? { get }
+    var fullDisplayName: String { get }
+    var customDisplayName: String? { get }
+    var sortDisplayName: String { get }
+    var photoURL: URL? { get }
+    var identityColors: (background: UIColor, text: UIColor)? { get }
+    var gatheringPolicy: GatheringPolicy { get }
+}
+
+
+// MARK: - ContactInfoImpl
 
 struct ContactInfoImpl: ContactInfo {
     var objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
@@ -1360,19 +1201,143 @@ struct ContactInfoImpl: ContactInfo {
     }
 }
 
-struct CallHelper {
-    private init() {}
-    static func checkQueue() {
-        AssertCurrentQueue.onQueue(.main)
+
+// MARK: - GatheringPolicy
+
+extension GatheringPolicy {
+    var rtcPolicy: RTCContinualGatheringPolicy {
+        switch self {
+        case .gatherOnce: return .gatherOnce
+        case .gatherContinually: return .gatherContinually
+        }
+    }
+}
+
+
+
+// MARK: - ObvPushRegistryHandler
+
+/// We create one instance of this class when instantiating the call coordinator. This instance handles the interaction with the PushKit registry as it register to VoIP push notifications and
+/// Receives incoming pushes. When an incoming VoIP push notification is received, it reports it (as required by Apple specifications) then calls its delegate (the call coordinator).
+fileprivate final class ObvPushRegistryHandler: NSObject, PKPushRegistryDelegate {
+
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CallCoordinator.self))
+
+    private let obvEngine: ObvEngine
+    private let cxObvProvider: CXObvProvider
+    private var didRegisterToVoIPNotifications = false
+    private var voipRegistry: PKPushRegistry!
+    private let internalQueue = DispatchQueue(label: "ObvPushRegistryHandler internal queue")
+
+    weak var delegate: ObvPushRegistryHandlerDelegate?
+
+    init(obvEngine: ObvEngine, cxObvProvider: CXObvProvider) {
+        self.obvEngine = obvEngine
+        self.cxObvProvider = cxObvProvider
+        super.init()
     }
 
-    static func getContactInfo(_ contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> ContactInfo? {
-        var contact: ContactInfo?
-        ObvStack.shared.viewContext.performAndWait {
-            if let persistedContact = try? PersistedObvContactIdentity.get(objectID: contactID, within: ObvStack.shared.viewContext) {
-                contact = ContactInfoImpl(contact: persistedContact)
+
+    func registerForVoIPPushes(delegate: ObvPushRegistryHandlerDelegate) {
+        internalQueue.async { [weak self] in
+            guard let _self = self else { return }
+            guard !_self.didRegisterToVoIPNotifications else { return }
+            defer { _self.didRegisterToVoIPNotifications = true }
+            assert(_self.delegate == nil)
+            _self.delegate = delegate
+            os_log("☎️ Registering for VoIP push notifications", log: Self.log, type: .info)
+            _self.voipRegistry = PKPushRegistry(queue: _self.internalQueue)
+            _self.voipRegistry.delegate = self
+            _self.voipRegistry.desiredPushTypes = [.voIP]
+        }
+    }
+
+
+    func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
+        guard type == .voIP else { return }
+        let voipToken = pushCredentials.token
+        os_log("☎️✅ We received a voip notification token: %{public}@", log: Self.log, type: .info, voipToken.hexString())
+        ObvPushNotificationManager.shared.currentVoipToken = voipToken
+        ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+    }
+
+
+    // Implementing PKPushRegistryDelegate
+
+    func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
+        guard type == .voIP else { return }
+        os_log("☎️✅❌ Push Registry did invalidate push token", log: Self.log, type: .info)
+        ObvPushNotificationManager.shared.currentVoipToken = nil
+        ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+    }
+
+
+    func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
+
+        os_log("☎️✅ We received a voip notification", log: Self.log, type: .info)
+
+        guard let encryptedNotification = EncryptedPushNotification(dict: payload.dictionaryPayload) else {
+            os_log("☎️ Could not extract encrypted notification", log: Self.log, type: .fault)
+            // We are not be able to make a link between this call and the received StartCallMessageJSON, we report a cancelled call to respect PushKit constraints.
+            cxObvProvider.reportNewCancelledIncomingCall()
+            assertionFailure()
+            return
+        }
+
+        // We request the immediate decryption of the encrypted notification. This call returns nothing.
+        // Eventually, we should receive a NewWebRTCMessageWasReceived notification from the discussion coordinator,
+        // Containing the decrypted data. Calling this method here is an optimization (we could also wait for the same
+        // Message arriving through the websocket).
+
+        tryDecryptAndProcessEncryptedNotification(encryptedNotification)
+
+        let (uuidForCallKit, callUpdate) = ObvCallUpdateImpl.make(with: encryptedNotification)
+
+        os_log("☎️✅ We will report new incoming call to CallKit", log: Self.log, type: .info)
+
+        cxObvProvider.reportNewIncomingCall(with: uuidForCallKit, update: callUpdate) { result in
+            switch result {
+            case .failure(let error):
+                os_log("☎️✅❌ We failed to report an incoming call: %{public}@", log: Self.log, type: .info, error.localizedDescription)
+                Task { [weak self] in
+                    await self?.delegate?.failedToReportNewIncomingCallToCallKit(callUUID: uuidForCallKit, error: error)
+                    DispatchQueue.main.async {
+                        completion()
+                    }
+                }
+            case .success:
+                Task { [weak self] in
+                    os_log("☎️✅ We successfully reported an incoming call to CallKit", log: Self.log, type: .info)
+                    await self?.delegate?.successfullyReportedNewIncomingCallToCallKit(uuidForCallKit: uuidForCallKit, messageIdentifierFromEngine: encryptedNotification.messageIdentifierFromEngine)
+                    DispatchQueue.main.async {
+                        completion()
+                    }
+                }
             }
         }
-        return contact
+
     }
+
+
+    private func tryDecryptAndProcessEncryptedNotification(_ encryptedNotification: EncryptedPushNotification) {
+        let obvMessage: ObvMessage
+        do {
+            obvMessage = try obvEngine.decrypt(encryptedPushNotification: encryptedNotification)
+        } catch {
+            os_log("☎️ Could not decrypt received voip notification, the contained message has certainly been decrypted after being received by the webSocket", log: Self.log, type: .info)
+            return
+        }
+        // We send the obvMessage to the PersistedDiscussionsUpdatesCoordinator, who will pass us back an StartCallMessageJSON
+        ObvMessengerInternalNotification.newObvMessageWasReceivedViaPushKitNotification(obvMessage: obvMessage)
+            .postOnDispatchQueue()
+    }
+
+}
+
+
+protocol ObvPushRegistryHandlerDelegate: IncomingCallDelegate {
+
+    func failedToReportNewIncomingCallToCallKit(callUUID: UUID, error: Error) async
+    func successfullyReportedNewIncomingCallToCallKit(uuidForCallKit: UUID, messageIdentifierFromEngine: Data) async
+
 }

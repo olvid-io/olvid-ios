@@ -47,10 +47,7 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
     
     private static let errorDomain = "ObvProtocolManager"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: Initialiser
     public init(prng: PRNGService, downloadedUserData: URL) {
@@ -294,10 +291,8 @@ extension ObvProtocolManager {
         do {
             try obvContext.addContextDidSaveCompletionHandler { (error) in
                 guard error == nil else { return }
-                let NotificationType = ObvProtocolNotification.ProtocolMessageToProcess.self
-                let userInfo = [NotificationType.Key.protocolMessageId: receivedMessage.messageId,
-                                NotificationType.Key.flowId: obvContext.flowId] as [String: Any]
-                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                ObvProtocolNotification.protocolMessageToProcess(protocolMessageId: receivedMessage.messageId, flowId: obvContext.flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
             }
         } catch {
             assertionFailure()
@@ -379,12 +374,12 @@ extension ObvProtocolManager {
     }
  
     
-    public func getInitiateContactDeletionMessageForObliviousChannelManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitiateContactDeletionMessageForObliviousChannelManagementProtocol(ownedIdentity: ownedIdentity, contactIdentityToDelete: contactIdentity)
+    public func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ownedIdentity, contactIdentityToDelete: contactIdentity)
     }
 
-    public func getInitiateAddKeycloakContactMessageForObliviousChannelManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd contactIdentity: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitiateAddKeycloakContactMessageForObliviousChannelManagementProtocol(ownedIdentity: ownedIdentity, contactIdentityToAdd: contactIdentity, signedContactDetails: signedContactDetails)
+    public func getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd contactIdentity: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ownedIdentity, contactIdentityToAdd: contactIdentity, signedContactDetails: signedContactDetails)
     }
     
     public func getInitiateGroupMembersQueryMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
@@ -423,5 +418,21 @@ extension ObvProtocolManager {
             ownedIdentity: ownedIdentity,
             newOwnCapabilities: newOwnCapabilities)
     }
+    
+    public func getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForOneToOneContactInvitationProtocol(
+            ownedIdentity: ownedIdentity,
+            contactIdentity: contactIdentity)
+    }
 
+    public func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForDowngradingOneToOneContact(
+            ownedIdentity: ownedIdentity,
+            contactIdentity: contactIdentity)
+    }
+    
+    public func getInitialMessageForOneStatusSyncRequest(ownedIdentity: ObvCryptoIdentity, contactsToSync: Set<ObvCryptoIdentity>) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForOneStatusSyncRequest(ownedIdentity: ownedIdentity, contactsToSync: contactsToSync)
+    }
+    
 }

@@ -68,13 +68,26 @@ final class PersistedMessageReceived: PersistedMessage {
 
     // MARK: - Computed variables
 
+    override var kind: PersistedMessageKind { .received }
+
+    override var textBody: String? {
+        if readingRequiresUserAction {
+            return NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
+        }
+        return super.textBody
+    }
+
     override var initialExistenceDuration: TimeInterval? {
         guard let existenceExpiration = expirationForReceivedLimitedExistence else { return nil }
         return existenceExpiration.initialExpirationDuration
     }
-    
-    override var earliestExpiration: PersistedMessageExpiration? {
-        PersistedMessageExpiration.getEarliestExpiration(self.expirationForReceivedLimitedExistence, self.expirationForReceivedLimitedVisibility)
+
+    override var fyleMessageJoinWithStatus: [FyleMessageJoinWithStatus]? {
+        fyleMessageJoinWithStatuses
+    }
+
+    override var messageIdentifiersFromEngine: Set<Data> {
+        [messageIdentifierFromEngine]
     }
 
     private(set) var status: MessageStatus {
@@ -155,6 +168,15 @@ final class PersistedMessageReceived: PersistedMessage {
     func updateMissedMessageCount(with missedMessageCount: Int) {
         self.missedMessageCount = missedMessageCount
     }
+
+    override func toMessageReferenceJSON() -> MessageReferenceJSON? {
+        return toReceivedMessageReferenceJSON()
+    }
+
+    override var genericRepliesTo: PersistedMessage.RepliedMessage {
+        repliesTo
+    }
+
 }
 
 
@@ -382,15 +404,7 @@ extension PersistedMessageReceived {
 // MARK: - Reply-to
 
 extension PersistedMessageReceived {
-    
-    enum RepliedMessage {
-        case none
-        case notAvailableYet
-        case available(message: PersistedMessage)
-        case deleted
-    }
-    
-    
+
     var repliesTo: RepliedMessage {
         if let messageRepliedTo = self.rawMessageRepliedTo {
             return .available(message: messageRepliedTo)
@@ -609,7 +623,7 @@ extension PersistedMessageReceived {
     }
     
     static func get(messageIdentifierFromEngine: Data, from contact: ObvContactIdentity, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
-        guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: contact, within: context) else { return nil }
+        guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
                                         messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg,

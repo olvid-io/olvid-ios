@@ -28,7 +28,7 @@ final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReason
     private let persistedDiscussionObjectID: NSManagedObjectID
     private let obvEngine: ObvEngine
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SendGlobalDeleteDiscussionJSONOperation.self))
 
     init(persistedDiscussionObjectID: NSManagedObjectID, obvEngine: ObvEngine) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID

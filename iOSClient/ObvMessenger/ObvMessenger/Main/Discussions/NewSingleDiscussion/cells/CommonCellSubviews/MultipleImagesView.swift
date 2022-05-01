@@ -188,6 +188,19 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
         
     }
     
+
+    /// This method is used to make the cell's double tap gesture recognizer more important than the single tap gestures set on the images.
+    func gestureRecognizersOnImageViewsRequire(toFail gesture: UIGestureRecognizer) {
+        for view in mainStackView.arrangedSubviews {
+            if let horizontalPairOfImagesView = view as? HorizontalPairOfImagesView {
+                horizontalPairOfImagesView.lImageView.gestureRecognizers?.forEach { $0.require(toFail: gesture) }
+                horizontalPairOfImagesView.rImageView.gestureRecognizers?.forEach { $0.require(toFail: gesture) }
+            } else if let imageViewForHardLink = view as? UIImageViewForHardLinkForOlvidStack {
+                imageViewForHardLink.gestureRecognizers?.forEach { $0.require(toFail: gesture) }
+            }
+        }
+    }
+    
     
     @objc private func imageViewWasTapped(sender: UITapGestureRecognizer) {
         assert(delegate != nil)

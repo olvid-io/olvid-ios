@@ -80,19 +80,19 @@ extension ObvEngine {
             self?.processTurnCredentialsReceivedNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, turnCredentialsWithTurnServers: turnCredentialsWithTurnServers, flowId: flowId)
         }))
         
-        notificationCenterTokens.append(ObvNetworkPostNotificationNew.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: nil) { [weak self] (messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId) in
+        notificationCenterTokens.append(ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: nil) { [weak self] (messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId) in
             self?.processOutboxMessageWasUploadedNotification(messageId: messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage, flowId: flowId)
         })
         
         do {
-            let token = ObvNetworkPostNotificationNew.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (messageIdsAndTimestampsFromServer, flowId) in
+            let token = ObvNetworkPostNotification.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (messageIdsAndTimestampsFromServer, flowId) in
                 self?.processOutboxMessagesAndAllTheirAttachmentsWereAcknowledgedNotifications(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer, flowId: flowId)
             }
             notificationCenterTokens.append(token)
         }
 
         do {
-            let token = ObvNetworkPostNotificationNew.observeOutboxAttachmentWasAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (attachmentId, flowId) in
+            let token = ObvNetworkPostNotification.observeOutboxAttachmentWasAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (attachmentId, flowId) in
                 self?.processAttachmentWasAcknowledgedNotification(attachmentId: attachmentId, flowId: flowId)
             }
             notificationCenterTokens.append(token)
@@ -106,18 +106,7 @@ extension ObvEngine {
         }
         
         do {
-            let NotificationType = ObvChannelNotification.NewUserDialogToPresent.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (obvChannelDialogMessageToSend, obvContext) = NotificationType.parse(notification) else { return }
-                self?.processNewUserDialogToPresentNotification(obvChannelDialogMessageToSend: obvChannelDialogMessageToSend, obvContext: obvContext)
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        do {
-            let NotificationType = ObvChannelNotification.NewConfirmedObliviousChannel.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) = NotificationType.parse(notification) else { return }
+            let token = ObvChannelNotification.observeNewConfirmedObliviousChannel(within: notificationDelegate) { [weak self] (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) in
                 self?.processNewConfirmedObliviousChannelNotification(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
             }
             notificationCenterTokens.append(token)
@@ -137,7 +126,7 @@ extension ObvEngine {
         }
         
         do {
-            let token = ObvNetworkPostNotificationNew.observeOutboxAttachmentHasNewProgress(within: notificationDelegate) { [weak self] (attachmentId, newProgress, flowId) in
+            let token = ObvNetworkPostNotification.observeOutboxAttachmentHasNewProgress(within: notificationDelegate) { [weak self] (attachmentId, newProgress, flowId) in
                 self?.processOutboxAttachmentHasNewProgressNotification(attachmentId: attachmentId, newProgress: newProgress, flowId: flowId)
             }
             notificationCenterTokens.append(token)
@@ -281,33 +270,6 @@ extension ObvEngine {
         }
         
         do {
-            let token = ObvBackupNotification.observeBackupForExportWasFinished(within: notificationDelegate, block: { [weak self] (backupKeyUid, backupVersion, encryptedContent, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.backupForExportWasFinished(backupRequestUuid: flowId, backupKeyUid: backupKeyUid, version: backupVersion, encryptedContent: encryptedContent)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            })
-            notificationCenterTokens.append(token)
-        }
-
-        do {
-            let token = ObvBackupNotification.observeBackupForUploadWasFinished(within: notificationDelegate, block: { [weak self] (backupKeyUid, backupVersion, encryptedContent, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.backupForUploadWasFinished(backupRequestUuid: flowId, backupKeyUid: backupKeyUid, version: backupVersion, encryptedContent: encryptedContent)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            })
-            notificationCenterTokens.append(token)
-        }
-
-        do {
-            let token = ObvBackupNotification.observeBackupFailed(within: notificationDelegate, block: { [weak self] (flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.backupFailed(backupRequestUuid: flowId)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            })
-            notificationCenterTokens.append(token)
-        }
-
-        do {
             let token = ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
                 let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
@@ -338,7 +300,7 @@ extension ObvEngine {
         }
 
         do {
-            let token = ObvNetworkPostNotificationNew.observePostNetworkOperationFailedSinceOwnedIdentityIsNotActive(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
+            let token = ObvNetworkPostNotification.observePostNetworkOperationFailedSinceOwnedIdentityIsNotActive(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
                 let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
                 let notification = ObvEngineNotificationNew.networkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ownedCryptoId)
@@ -391,7 +353,7 @@ extension ObvEngine {
             ObvNetworkFetchNotificationNew.observeApiKeyStatusQueryFailed(within: notificationDelegate) { [weak self] (ownedIdentity, apiKey) in
                 self?.processApiKeyStatusQueryFailed(ownedIdentity: ownedIdentity, apiKey: apiKey)
             },
-            ObvProtocolNotificationNew.observeMutualScanContactAdded() { [weak self] ownedIdentity, contactIdentity, signature in
+            ObvProtocolNotification.observeMutualScanContactAdded(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, signature in
                 self?.processMutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, signature: signature)
             },
             ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, extendedMessagePayload, flowId) in
@@ -436,9 +398,9 @@ extension ObvEngine {
         }
 
         do {
-            let token = ObvNetworkFetchNotificationNew.observeWellKnownHasBeenDownloaded(within: notificationDelegate) { [weak self] (serverURL, flowId) in
+            let token = ObvNetworkFetchNotificationNew.observeWellKnownHasBeenDownloaded(within: notificationDelegate) { [weak self] (serverURL, appInfo, flowId) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.wellKnownDownloadedSuccess(serverURL: serverURL)
+                let notification = ObvEngineNotificationNew.wellKnownDownloadedSuccess(serverURL: serverURL, appInfo: appInfo)
                 notification.postOnBackgroundQueue(within: appNotificationCenter)
             }
             notificationCenterTokens.append(token)
@@ -453,11 +415,16 @@ extension ObvEngine {
             notificationCenterTokens.append(token)
         }
 
+        do {
+            let token = ObvChannelNotification.observeDeletedConfirmedObliviousChannel(within: notificationDelegate) { [weak self] (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) in
+                self?.processDeletedConfirmedObliviousChannelNotifications(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
+            }
+            notificationCenterTokens.append(token)
+        }
 
         observeNewPublishedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
         observeOwnedIdentityDetailsPublicationInProgressNotifications(notificationDelegate: notificationDelegate)
         observeNewTrustedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
-        observeDeletedConfirmedObliviousChannelNotifications(notificationDelegate: notificationDelegate)
         observeAttachmentDownloadCancelledByServerNotifications(notificationDelegate: notificationDelegate)
         observeNewReturnReceiptToProcessNotifications(notificationDelegate: notificationDelegate)
         
@@ -600,46 +567,55 @@ extension ObvEngine {
     }
     
     
-    private func observeDeletedConfirmedObliviousChannelNotifications(notificationDelegate: ObvNotificationDelegate) {
+    private func processDeletedConfirmedObliviousChannelNotifications(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) {
+        os_log("We received a DeletedConfirmedObliviousChannel notification", log: log, type: .info)
         
-        let NotificationType = ObvChannelNotification.DeletedConfirmedObliviousChannel.self
-        let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-            guard let (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) = NotificationType.parse(notification) else { return }
+        guard let createContextDelegate = createContextDelegate else {
+            os_log("The create context delegate is not set", log: log, type: .fault)
+            return
+        }
+        guard let identityDelegate = identityDelegate else {
+            os_log("The identity delegate is not set", log: log, type: .fault)
+            return
+        }
+        
+        let randomFlowId = FlowIdentifier()
+        createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
+            
             guard let _self = self else { return }
-            let log = _self.log
-            os_log("We received a DeletedConfirmedObliviousChannel notification", log: log, type: .info)
             
-            guard let createContextDelegate = _self.createContextDelegate else {
-                os_log("The create context delegate is not set", log: log, type: .fault)
-                return
-            }
-            guard let identityDelegate = _self.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
+            // Determine the owned identity related to the current device uid
+            
+            guard let ownedCryptoIdentity = try? identityDelegate.getOwnedIdentityOfCurrentDeviceUid(currentDeviceUid, within: obvContext) else {
+                os_log("The device uid does not correspond to any owned identity", log: _self.log, type: .fault)
                 return
             }
             
-            let randomFlowId = FlowIdentifier()
-            createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
+            // The remote device might either be :
+            // - an owned remote device
+            // - a contact device
+            // For each case, we have an appropriate notification to send
+            
+            if let remoteOwnedDevice = ObvRemoteOwnedDevice(remoteOwnedDeviceUid: remoteDeviceUid, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) {
                 
-                guard let _self = self else { return }
+                os_log("The deleted channel was one with had with a remote owned device %@", log: _self.log, type: .info, remoteOwnedDevice.description)
+                                    
+            } else if let contactDevice = ObvContactDevice(contactDeviceUid: remoteDeviceUid, contactCryptoIdentity: remoteCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) {
                 
-                // Determine the owned identity related to the current device uid
+                os_log("The deleted channel was one we had with a contact device", log: _self.log, type: .info)
                 
-                guard let ownedCryptoIdentity = try? identityDelegate.getOwnedIdentityOfCurrentDeviceUid(currentDeviceUid, within: obvContext) else {
-                    os_log("The device uid does not correspond to any owned identity", log: _self.log, type: .fault)
-                    return
-                }
+                let NotificationType = ObvEngineNotification.DeletedObliviousChannelWithContactDevice.self
+                let userInfo = [NotificationType.Key.obvContactDevice: contactDevice]
+                let notification = Notification(name: NotificationType.name, userInfo: userInfo)
+                _self.appNotificationCenter.post(notification)
                 
-                // The remote device might either be :
-                // - an owned remote device
-                // - a contact device
-                // For each case, we have an appropriate notification to send
+            } else {
                 
-                if let remoteOwnedDevice = ObvRemoteOwnedDevice(remoteOwnedDeviceUid: remoteDeviceUid, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) {
+                os_log("We could not determine any appropriate remote device. It might have been deleted already.", log: _self.log, type: .info)
+                
+                if let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: remoteCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) {
                     
-                    os_log("The deleted channel was one with had with a remote owned device %@", log: _self.log, type: .info, remoteOwnedDevice.description)
-                                        
-                } else if let contactDevice = ObvContactDevice(contactDeviceUid: remoteDeviceUid, contactCryptoIdentity: remoteCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) {
+                    let contactDevice = ObvContactDevice(identifier: remoteDeviceUid.raw, contactIdentity: obvContactIdentity)
                     
                     os_log("The deleted channel was one we had with a contact device", log: _self.log, type: .info)
                     
@@ -647,34 +623,15 @@ extension ObvEngine {
                     let userInfo = [NotificationType.Key.obvContactDevice: contactDevice]
                     let notification = Notification(name: NotificationType.name, userInfo: userInfo)
                     _self.appNotificationCenter.post(notification)
-                    
-                } else {
-                    
-                    os_log("We could not determine any appropriate remote device. It might have been deleted already.", log: _self.log, type: .info)
-                    
-                    if let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: remoteCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) {
-                        
-                        let contactDevice = ObvContactDevice(identifier: remoteDeviceUid.raw, contactIdentity: obvContactIdentity)
-                        
-                        os_log("The deleted channel was one we had with a contact device", log: _self.log, type: .info)
-                        
-                        let NotificationType = ObvEngineNotification.DeletedObliviousChannelWithContactDevice.self
-                        let userInfo = [NotificationType.Key.obvContactDevice: contactDevice]
-                        let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-                        _self.appNotificationCenter.post(notification)
 
-                    }
                 }
             }
-
-            
-            
         }
-        notificationCenterTokens.append(token)
 
+        
     }
-
     
+
     private func observeNewTrustedContactIdentityDetailsNotifications(notificationDelegate: ObvNotificationDelegate) {
         
         let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
@@ -1008,42 +965,16 @@ extension ObvEngine {
     }
     
     private func registerToContactWasDeletedNotifications(notificationDelegate: ObvNotificationDelegate) {
+        let log = self.log
         let token = ObvIdentityNotificationNew.observeContactWasDeleted(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, contactCryptoIdentity, contactTrustedIdentityDetails) in
             
             guard let _self = self else { return }
-
-            os_log("We received an ContactWasDeleted notification for the contact %@ of the ownedIdentity %@", log: _self.log, type: .info, contactCryptoIdentity.debugDescription, ownedCryptoIdentity.debugDescription)
             
-            guard let identityDelegate = _self.identityDelegate else { return }
-            guard let createContextDelegate = _self.createContextDelegate else { return }
-            
-            var obvOwnedIdentity: ObvOwnedIdentity!
-            var error: Error?
-            let randomFlowId = FlowIdentifier()
-            createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                let _obvOwnedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity,
-                                                         identityDelegate: identityDelegate, within: obvContext)
-                guard _obvOwnedIdentity != nil else {
-                    error = NSError()
-                    return
-                }
-                obvOwnedIdentity = _obvOwnedIdentity
-            }
-            guard error == nil else {
-                os_log("Could not get owned identity", log: _self.log, type: .fault)
-                return
-            }
-            
-            // We lose the information about whether the contact was keycloak certified or not, but this is no big deal at this point since the contact has been deleted
-            let obvContactIdentity = ObvContactIdentity(cryptoIdentity: contactCryptoIdentity,
-                                                        trustedIdentityDetails: contactTrustedIdentityDetails,
-                                                        publishedIdentityDetails: nil,
-                                                        ownedIdentity: obvOwnedIdentity,
-                                                        isCertifiedByOwnKeycloak: false,
-                                                        isActive: false,
-                                                        isRevokedAsCompromised: false)
-            
-            ObvEngineNotificationNew.contactWasDeleted(obvContactIdentity: obvContactIdentity)
+            os_log("We received an ContactWasDeleted notification for the contact %@ of the ownedIdentity %@", log: log, type: .info, contactCryptoIdentity.debugDescription, ownedCryptoIdentity.debugDescription)
+                        
+            ObvEngineNotificationNew.contactWasDeleted(
+                ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedCryptoIdentity),
+                contactCryptoId: ObvCryptoId(cryptoIdentity: contactCryptoIdentity))
                 .postOnBackgroundQueue(within: _self.appNotificationCenter)
 
         }        
@@ -1848,144 +1779,6 @@ extension ObvEngine {
             }
             
         }
-    }
-    
-    
-    /// This method gets called when the Channel Manager notifies that a new user dialog is about to be ready to be presented to the user.
-    /// Within this method, we save a similar notification within the `PersistedEngineDialog` database.
-    /// This database is in charge of sending a notification to the App.
-    func processNewUserDialogToPresentNotification(obvChannelDialogMessageToSend: ObvChannelDialogMessageToSend, obvContext: ObvContext) {
-        
-        guard let identityDelegate = identityDelegate else { return }
-        
-        let obvDialog: ObvDialog
-        do {
-            
-            switch obvChannelDialogMessageToSend.channelType {
-            case .UserInterface(uuid: let uuid, ownedIdentity: let ownedCryptoIdentity, dialogType: let obvChannelDialogToSendType):
-                
-                // Construct an ObvOwnedIdentity
-                
-                let ownedIdentity: ObvOwnedIdentity
-                do {
-                    let _ownedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext)
-                    guard _ownedIdentity != nil else {
-                        os_log("Could not get the owned identity", log: log, type: .fault)
-                        return
-                    }
-                    ownedIdentity = _ownedIdentity!
-                }
-                
-                // Construct the dialog category
-                
-                let category: ObvDialog.Category
-                do {
-                    switch obvChannelDialogToSendType {
-                    
-                    case .inviteSent(contact: let contact):
-                        let urlIdentity = ObvURLIdentity(cryptoIdentity: contact.cryptoIdentity, fullDisplayName: contact.fullDisplayName)
-                        category = ObvDialog.Category.inviteSent(contactIdentity: urlIdentity)
-                    
-                    case .acceptInvite(contact: let contact):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        category = ObvDialog.Category.acceptInvite(contactIdentity: obvContactIdentity)
-                    
-                    case .invitationAccepted(contact: let contact):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        category = ObvDialog.Category.invitationAccepted(contactIdentity: obvContactIdentity)
-                    
-                    case .sasExchange(contact: let contact, sasToDisplay: let sasToDisplay, numberOfBadEnteredSas: let numberOfBadEnteredSas):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        category = ObvDialog.Category.sasExchange(contactIdentity: obvContactIdentity, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: numberOfBadEnteredSas)
-                    
-                    case .sasConfirmed(contact: let contact, sasToDisplay: let sasToDisplay, sasEntered: let sasEntered):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        category = ObvDialog.Category.sasConfirmed(contactIdentity: obvContactIdentity, sasToDisplay: sasToDisplay, sasEntered: sasEntered)
-                    
-                    case .mutualTrustConfirmed(contact: let contact):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        category = ObvDialog.Category.mutualTrustConfirmed(contactIdentity: obvContactIdentity)
-                    
-                    case .acceptMediatorInvite(contact: let contact, mediatorIdentity: let mediatorIdentity):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                        category = ObvDialog.Category.acceptMediatorInvite(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
-                        
-                    case .increaseMediatorTrustLevelRequired(contact: let contact, mediatorIdentity: let mediatorIdentity):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                        category = ObvDialog.Category.increaseMediatorTrustLevelRequired(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
-
-                    case .autoconfirmedContactIntroduction(contact: let contact, mediatorIdentity: let mediatorIdentity):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                        category = ObvDialog.Category.autoconfirmedContactIntroduction(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
-
-                    case .mediatorInviteAccepted(contact: let contact, mediatorIdentity: let mediatorIdentity):
-                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
-                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                        category = ObvDialog.Category.mediatorInviteAccepted(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
-                    
-                    case .acceptGroupInvite(groupInformation: let groupInformation, pendingGroupMembers: let pendingMembers, receivedMessageTimestamp: _):
-                        let obvGroupMembers: Set<ObvGenericIdentity> = Set(pendingMembers.map {
-                            let obvIdentity = ObvGenericIdentity(cryptoIdentity: $0.cryptoIdentity, currentCoreIdentityDetails: $0.coreDetails)
-                            return obvIdentity
-                        })
-                        let groupOwner: ObvGenericIdentity
-                        if groupInformation.groupOwnerIdentity == ownedCryptoIdentity {
-                            guard let _groupOwner = ObvOwnedIdentity(ownedCryptoIdentity: groupInformation.groupOwnerIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                            groupOwner = _groupOwner.getGenericIdentity()
-                        } else {
-                            guard let _groupOwner = ObvContactIdentity.init(contactCryptoIdentity: groupInformation.groupOwnerIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                            groupOwner = _groupOwner.getGenericIdentity()
-                        }
-                        category = ObvDialog.Category.acceptGroupInvite(groupMembers: obvGroupMembers, groupOwner: groupOwner)
-
-                    case .groupJoined(groupInformation: let groupInformation):
-                        guard let groupOwner = ObvContactIdentity(contactCryptoIdentity: groupInformation.groupOwnerIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                        category = ObvDialog.Category.groupJoined(groupOwner: groupOwner.getGenericIdentity(), groupUid: groupInformation.groupUid)
-
-                    case .increaseGroupOwnerTrustLevel(groupInformation: let groupInformation, pendingGroupMembers: _, receivedMessageTimestamp: _):
-                        let groupOwner: ObvGenericIdentity
-                        if groupInformation.groupOwnerIdentity == ownedCryptoIdentity {
-                            return // Should never happen
-                        } else {
-                            guard let _groupOwner = ObvContactIdentity(contactCryptoIdentity: groupInformation.groupOwnerIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
-                            groupOwner = _groupOwner.getGenericIdentity()
-                        }
-                        category = ObvDialog.Category.increaseGroupOwnerTrustLevelRequired(groupOwner: groupOwner)
-
-                    case .delete:
-                        // This is a special case: we simply delete any existing realted PersistedEngineDialog and return
-                        PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext)
-                        return
-                    }
-                }
-                
-                // Construct the dialog
-                
-                obvDialog = ObvDialog(uuid: uuid,
-                                      encodedElements: obvChannelDialogMessageToSend.encodedElements,
-                                      ownedCryptoId: ownedIdentity.cryptoId,
-                                      category: category)
-            default:
-                return
-            }
-        }
-        
-        // We have a dialog to present to the user, we persist it in the `PersistedEngineDialog` database. If another `PersistedEngineDialog` exist with the same UUID, it is part of the same protocol and we simply update this instance.
-        if let previousDialog = PersistedEngineDialog.get(uid: obvDialog.uuid, appNotificationCenter: appNotificationCenter, within: obvContext) {
-            do {
-                try previousDialog.update(with: obvDialog)
-            } catch {
-                os_log("Could not update PersistedEngineDialog with the new ObvDialog", log: log, type: .fault)
-                obvContext.delete(previousDialog)
-                _ = PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext)
-            }
-        } else {
-            _ = PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext)
-        }
-
     }
     
 }

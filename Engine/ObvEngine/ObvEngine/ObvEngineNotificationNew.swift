@@ -33,9 +33,6 @@ fileprivate struct OptionalWrapper<T> {
 
 public enum ObvEngineNotificationNew {
 	case newBackupKeyGenerated(backupKeyString: String, obvBackupKeyInformation: ObvBackupKeyInformation)
-	case backupForExportWasFinished(backupRequestUuid: UUID, backupKeyUid: UID, version: Int, encryptedContent: Data)
-	case backupForUploadWasFinished(backupRequestUuid: UUID, backupKeyUid: UID, version: Int, encryptedContent: Data)
-	case backupFailed(backupRequestUuid: UUID)
 	case ownedIdentityWasDeactivated(ownedIdentity: ObvCryptoId)
 	case ownedIdentityWasReactivated(ownedIdentity: ObvCryptoId)
 	case networkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoId)
@@ -56,7 +53,7 @@ public enum ObvEngineNotificationNew {
 	case cannotReturnAnyProgressForMessageAttachments(messageIdentifierFromEngine: Data)
 	case attachmentDownloaded(obvAttachment: ObvAttachment)
 	case newObvReturnReceiptToProcess(obvReturnReceipt: ObvReturnReceipt)
-	case contactWasDeleted(obvContactIdentity: ObvContactIdentity)
+	case contactWasDeleted(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(ownedIdentity: ObvCryptoId, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: EngineOptionalWrapper<Date>)
 	case newAPIKeyElementsForAPIKey(serverURL: URL, apiKey: UUID, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: EngineOptionalWrapper<Date>)
 	case noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity: ObvCryptoId)
@@ -72,7 +69,7 @@ public enum ObvEngineNotificationNew {
 	case publishedPhotoOfOwnedIdentityHasBeenUpdated(ownedIdentity: ObvOwnedIdentity)
 	case publishedPhotoOfContactIdentityHasBeenUpdated(contactIdentity: ObvContactIdentity)
 	case trustedPhotoOfContactIdentityHasBeenUpdated(contactIdentity: ObvContactIdentity)
-	case wellKnownDownloadedSuccess(serverURL: URL)
+	case wellKnownDownloadedSuccess(serverURL: URL, appInfo: [String: AppInfo])
 	case wellKnownDownloadedFailure(serverURL: URL)
 	case wellKnownUpdatedSuccess(serverURL: URL, appInfo: [String: AppInfo])
 	case apiKeyStatusQueryFailed(serverURL: URL, apiKey: UUID)
@@ -86,12 +83,11 @@ public enum ObvEngineNotificationNew {
 	case contactWasRevokedAsCompromisedWithinEngine(obvContactIdentity: ObvContactIdentity)
 	case ContactObvCapabilitiesWereUpdated(contact: ObvContactIdentity)
 	case OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvOwnedIdentity)
+	case newUserDialogToPresent(obvDialog: ObvDialog)
+	case aPersistedDialogWasDeleted(uuid: UUID)
 
 	private enum Name {
 		case newBackupKeyGenerated
-		case backupForExportWasFinished
-		case backupForUploadWasFinished
-		case backupFailed
 		case ownedIdentityWasDeactivated
 		case ownedIdentityWasReactivated
 		case networkOperationFailedSinceOwnedIdentityIsNotActive
@@ -142,6 +138,8 @@ public enum ObvEngineNotificationNew {
 		case contactWasRevokedAsCompromisedWithinEngine
 		case ContactObvCapabilitiesWereUpdated
 		case OwnedIdentityCapabilitiesWereUpdated
+		case newUserDialogToPresent
+		case aPersistedDialogWasDeleted
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -155,9 +153,6 @@ public enum ObvEngineNotificationNew {
 		static func forInternalNotification(_ notification: ObvEngineNotificationNew) -> NSNotification.Name {
 			switch notification {
 			case .newBackupKeyGenerated: return Name.newBackupKeyGenerated.name
-			case .backupForExportWasFinished: return Name.backupForExportWasFinished.name
-			case .backupForUploadWasFinished: return Name.backupForUploadWasFinished.name
-			case .backupFailed: return Name.backupFailed.name
 			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .networkOperationFailedSinceOwnedIdentityIsNotActive: return Name.networkOperationFailedSinceOwnedIdentityIsNotActive.name
@@ -208,6 +203,8 @@ public enum ObvEngineNotificationNew {
 			case .contactWasRevokedAsCompromisedWithinEngine: return Name.contactWasRevokedAsCompromisedWithinEngine.name
 			case .ContactObvCapabilitiesWereUpdated: return Name.ContactObvCapabilitiesWereUpdated.name
 			case .OwnedIdentityCapabilitiesWereUpdated: return Name.OwnedIdentityCapabilitiesWereUpdated.name
+			case .newUserDialogToPresent: return Name.newUserDialogToPresent.name
+			case .aPersistedDialogWasDeleted: return Name.aPersistedDialogWasDeleted.name
 			}
 		}
 	}
@@ -218,24 +215,6 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"backupKeyString": backupKeyString,
 				"obvBackupKeyInformation": obvBackupKeyInformation,
-			]
-		case .backupForExportWasFinished(backupRequestUuid: let backupRequestUuid, backupKeyUid: let backupKeyUid, version: let version, encryptedContent: let encryptedContent):
-			info = [
-				"backupRequestUuid": backupRequestUuid,
-				"backupKeyUid": backupKeyUid,
-				"version": version,
-				"encryptedContent": encryptedContent,
-			]
-		case .backupForUploadWasFinished(backupRequestUuid: let backupRequestUuid, backupKeyUid: let backupKeyUid, version: let version, encryptedContent: let encryptedContent):
-			info = [
-				"backupRequestUuid": backupRequestUuid,
-				"backupKeyUid": backupKeyUid,
-				"version": version,
-				"encryptedContent": encryptedContent,
-			]
-		case .backupFailed(backupRequestUuid: let backupRequestUuid):
-			info = [
-				"backupRequestUuid": backupRequestUuid,
 			]
 		case .ownedIdentityWasDeactivated(ownedIdentity: let ownedIdentity):
 			info = [
@@ -335,9 +314,10 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"obvReturnReceipt": obvReturnReceipt,
 			]
-		case .contactWasDeleted(obvContactIdentity: let obvContactIdentity):
+		case .contactWasDeleted(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId):
 			info = [
-				"obvContactIdentity": obvContactIdentity,
+				"ownedCryptoId": ownedCryptoId,
+				"contactCryptoId": contactCryptoId,
 			]
 		case .newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(ownedIdentity: let ownedIdentity, apiKeyStatus: let apiKeyStatus, apiPermissions: let apiPermissions, apiKeyExpirationDate: let apiKeyExpirationDate):
 			info = [
@@ -409,9 +389,10 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"contactIdentity": contactIdentity,
 			]
-		case .wellKnownDownloadedSuccess(serverURL: let serverURL):
+		case .wellKnownDownloadedSuccess(serverURL: let serverURL, appInfo: let appInfo):
 			info = [
 				"serverURL": serverURL,
+				"appInfo": appInfo,
 			]
 		case .wellKnownDownloadedFailure(serverURL: let serverURL):
 			info = [
@@ -473,6 +454,14 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"ownedIdentity": ownedIdentity,
 			]
+		case .newUserDialogToPresent(obvDialog: let obvDialog):
+			info = [
+				"obvDialog": obvDialog,
+			]
+		case .aPersistedDialogWasDeleted(uuid: let uuid):
+			info = [
+				"uuid": uuid,
+			]
 		}
 		return info
 	}
@@ -492,36 +481,6 @@ public enum ObvEngineNotificationNew {
 			let backupKeyString = notification.userInfo!["backupKeyString"] as! String
 			let obvBackupKeyInformation = notification.userInfo!["obvBackupKeyInformation"] as! ObvBackupKeyInformation
 			block(backupKeyString, obvBackupKeyInformation)
-		}
-	}
-
-	public static func observeBackupForExportWasFinished(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID, UID, Int, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.backupForExportWasFinished.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let backupRequestUuid = notification.userInfo!["backupRequestUuid"] as! UUID
-			let backupKeyUid = notification.userInfo!["backupKeyUid"] as! UID
-			let version = notification.userInfo!["version"] as! Int
-			let encryptedContent = notification.userInfo!["encryptedContent"] as! Data
-			block(backupRequestUuid, backupKeyUid, version, encryptedContent)
-		}
-	}
-
-	public static func observeBackupForUploadWasFinished(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID, UID, Int, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.backupForUploadWasFinished.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let backupRequestUuid = notification.userInfo!["backupRequestUuid"] as! UUID
-			let backupKeyUid = notification.userInfo!["backupKeyUid"] as! UID
-			let version = notification.userInfo!["version"] as! Int
-			let encryptedContent = notification.userInfo!["encryptedContent"] as! Data
-			block(backupRequestUuid, backupKeyUid, version, encryptedContent)
-		}
-	}
-
-	public static func observeBackupFailed(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID) -> Void) -> NSObjectProtocol {
-		let name = Name.backupFailed.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let backupRequestUuid = notification.userInfo!["backupRequestUuid"] as! UUID
-			block(backupRequestUuid)
 		}
 	}
 
@@ -703,11 +662,12 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeContactWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
+	public static func observeContactWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.contactWasDeleted.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
-			block(obvContactIdentity)
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId, contactCryptoId)
 		}
 	}
 
@@ -841,11 +801,12 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeWellKnownDownloadedSuccess(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (URL) -> Void) -> NSObjectProtocol {
+	public static func observeWellKnownDownloadedSuccess(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (URL, [String: AppInfo]) -> Void) -> NSObjectProtocol {
 		let name = Name.wellKnownDownloadedSuccess.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let serverURL = notification.userInfo!["serverURL"] as! URL
-			block(serverURL)
+			let appInfo = notification.userInfo!["appInfo"] as! [String: AppInfo]
+			block(serverURL, appInfo)
 		}
 	}
 
@@ -958,6 +919,22 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvOwnedIdentity
 			block(ownedIdentity)
+		}
+	}
+
+	public static func observeNewUserDialogToPresent(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvDialog) -> Void) -> NSObjectProtocol {
+		let name = Name.newUserDialogToPresent.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvDialog = notification.userInfo!["obvDialog"] as! ObvDialog
+			block(obvDialog)
+		}
+	}
+
+	public static func observeAPersistedDialogWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID) -> Void) -> NSObjectProtocol {
+		let name = Name.aPersistedDialogWasDeleted.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let uuid = notification.userInfo!["uuid"] as! UUID
+			block(uuid)
 		}
 	}
 

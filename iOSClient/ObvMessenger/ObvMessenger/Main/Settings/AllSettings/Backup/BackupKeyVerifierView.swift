@@ -146,74 +146,77 @@ fileprivate final class BackupKeyTester: NSObject, ObservableObject, UITextField
         allInternalTextFieldShouldResignFirstResponder()
         currentlyCheckingKey = true
         let backupKeyString = currentKeyParts.joined()
-        let log = self.log
         if let backupFileURL = self.backupFileURL {
-            DispatchQueue(label: "Queue for reading/decrypting backup data").async { [weak self] in
+            Task {
+                assert(Thread.isMainThread)
                 let backupData: Data
                 do {
-                    backupData = try Data(contentsOf: backupFileURL)
-                } catch let error {
-                    os_log("Could not read backup file: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    DispatchQueue.main.async { [weak self] in
-                        self?.keyStatusReport = .couldNotReadBackupFileData
+                    backupData = try await readBackupedDataFrom(backupFileURL: backupFileURL)
+                } catch {
+                    assert(Thread.isMainThread)
+                    withAnimation {
+                        keyStatusReport = .couldNotReadBackupFileData
+                        currentlyCheckingKey = false
                     }
                     return
                 }
-                self?.useEnteredBackupKey(backupKeyString, forDecryptingBackupData: backupData)
+                let status = await useEnteredBackupKey(backupKeyString, forDecryptingBackupData: backupData)
+                assert(Thread.isMainThread)
+                withAnimation {
+                    keyStatusReport = status
+                    currentlyCheckingKey = false
+                }
+                return
             }
         } else {
-            DispatchQueue(label: "Queue for testing backup string").async { [weak self] in
+            Task {
+                assert(Thread.isMainThread)
                 do {
-                    try self?.obvEngine.verifyBackupKeyString(backupKeyString) { result in
-                        ObvMessengerInternalNotification.displayedSnackBarShouldBeRefreshed.postOnDispatchQueue()
-                        DispatchQueue.main.async {
-                            switch result {
-                            case .failure:
-                                withAnimation {
-                                    self?.keyStatusReport = .backupKeyVerificationFailed
-                                    self?.currentlyCheckingKey = false
-                                }
-                            case .success:
-                                withAnimation {
-                                    self?.keyStatusReport = .backupKeyVerificationSucceded
-                                    self?.currentlyCheckingKey = false
-                                }
-                            }
+                    let backupKeyStringIsCorrect = try await obvEngine.verifyBackupKeyString(backupKeyString)
+                    if backupKeyStringIsCorrect {
+                        withAnimation {
+                            keyStatusReport = .backupKeyVerificationSucceded
+                            currentlyCheckingKey = false
                         }
+                        return
                     }
                 } catch {
-                    DispatchQueue.main.async {
-                        self?.keyStatusReport = .backupKeyVerificationFailed
-                    }
+                    // Continue
+                }
+                assert(Thread.isMainThread)
+                withAnimation {
+                    keyStatusReport = .backupKeyVerificationFailed
+                    currentlyCheckingKey = false
                 }
             }
         }
     }
     
     
-    private func useEnteredBackupKey(_ backupKeyString: String, forDecryptingBackupData backupData: Data) {
-        assert(!Thread.isMainThread)
-        do {
-            try obvEngine.recoverBackupData(backupData, withBackupKey: backupKeyString) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .failure(let error):
-                        withAnimation {
-                            self?.keyStatusReport = .fullBackupCouldNotBeRecovered(error: error)
-                        }
-                        self?.currentlyCheckingKey = false
-                    case .success(let (backupRequestIdentifier, backupDate)):
-                        withAnimation {
-                            self?.keyStatusReport = .fullBackupRecovered(backupRequestIdentifier: backupRequestIdentifier, fullBackupDate: backupDate)
-                        }
-                    }
-                }
+    private func readBackupedDataFrom(backupFileURL: URL) async throws -> Data {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+            let backupData: Data
+            do {
+                backupData = try Data(contentsOf: backupFileURL)
+            } catch {
+                continuation.resume(throwing: error)
+                return
             }
-        } catch {
-            // Very unlikely
-            DispatchQueue.main.async { [weak self] in
-                self?.currentlyCheckingKey = false
+            continuation.resume(returning: backupData)
+        }
+    }
+    
+    
+    private func useEnteredBackupKey(_ backupKeyString: String, forDecryptingBackupData backupData: Data) async -> KeyStatusReportType {
+        do {
+            let (backupRequestIdentifier, backupDate) = try await obvEngine.recoverBackupData(backupData, withBackupKey: backupKeyString)
+            return .fullBackupRecovered(backupRequestIdentifier: backupRequestIdentifier, fullBackupDate: backupDate)
+        } catch let error {
+            if let error = error as? BackupRestoreError {
+                return .fullBackupCouldNotBeRecovered(error: error)
+            } else {
+                assertionFailure("The engine is supposed to throw instances of BackupRestoreError")
+                return .fullBackupCouldNotBeRecovered(error: BackupRestoreError.internalError(code: 10))
             }
         }
     }
@@ -324,6 +327,15 @@ fileprivate struct BackupKeyVerifierInnerView: View {
     let dismissAction: () -> Void
     @State private var showRegenerateKeyAlert = false
     
+    private var okButtonInsteadOfCancel: Bool {
+        switch keyStatusReport {
+        case .backupKeyVerificationSucceded:
+            return true
+        default:
+            return false
+        }
+    }
+    
     var body: some View {
         ZStack {
             Color(AppTheme.shared.colorScheme.systemBackground)
@@ -373,9 +385,9 @@ fileprivate struct BackupKeyVerifierInnerView: View {
                                                 ])
                                 }
                         }
-                        OlvidButton(style: .standard,
-                                    title: Text("Cancel"),
-                                    systemIcon: .xmarkCircleFill,
+                        OlvidButton(style: okButtonInsteadOfCancel ? .blue : .standard,
+                                    title: Text(okButtonInsteadOfCancel ? CommonString.Word.Ok : CommonString.Word.Cancel),
+                                    systemIcon: okButtonInsteadOfCancel ? .checkmarkCircleFill : .xmarkCircleFill,
                                     action: dismissAction)
                     }
                     Spacer()

@@ -52,9 +52,9 @@ extension InterfaceSettingsTableViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
         if #available(iOS 15, *) {
-            return 4
+            return 3
         } else {
-            return 2
+            return 1
         }
     }
     
@@ -62,9 +62,8 @@ extension InterfaceSettingsTableViewController {
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0: return 1
-        case 1: return 1
+        case 1: return 1 // For iOS 15 only, otherwise 2 sections only
         case 2: return 1 // For iOS 15 only, otherwise 2 sections only
-        case 3: return 1 // For iOS 15 only, otherwise 2 sections only
         default: return 0
         }
     }
@@ -80,11 +79,6 @@ extension InterfaceSettingsTableViewController {
             cell.detailTextLabel?.text = ObvMessengerSettings.Interface.identityColorStyle.description
             cell.accessoryType = .disclosureIndicator
         case IndexPath(row: 0, section: 1):
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.textLabel?.text = Strings.contactsSortOrder
-            cell.detailTextLabel?.text = ObvMessengerSettings.Interface.contactsSortOrder.description
-            cell.accessoryType = .disclosureIndicator
-        case IndexPath(row: 0, section: 2):
             let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "UseOldDiscussionInterface")
             _cell.selectionStyle = .none
             _cell.title = Strings.useOldDiscussionInterface
@@ -96,7 +90,7 @@ extension InterfaceSettingsTableViewController {
                 }
             }
             cell = _cell
-        case IndexPath(row: 0, section: 3):
+        case IndexPath(row: 0, section: 2):
             cell = UITableViewCell(style: .default, reuseIdentifier: nil)
             if #available(iOS 14, *) {
                 var configuration = cell.defaultContentConfiguration()
@@ -119,10 +113,7 @@ extension InterfaceSettingsTableViewController {
         case IndexPath(row: 0, section: 0):
             let vc = IdentityColorStyleChooserTableViewController()
             self.navigationController?.pushViewController(vc, animated: true)
-        case IndexPath(row: 0, section: 1):
-            let vc = ContactsSortOrderChooserTableViewController(ownedCryptoId: ownedCryptoId)
-            self.navigationController?.pushViewController(vc, animated: true)
-        case IndexPath(row: 0, section: 3):
+        case IndexPath(row: 0, section: 2):
             if #available(iOS 15, *) {
                 let vc = ComposeMessageViewSettingsViewController(input: .global)
                 self.navigationController?.pushViewController(vc, animated: true)
@@ -150,7 +141,6 @@ private extension InterfaceSettingsTableViewController {
     
     struct Strings {
         static let identityColorStyle = NSLocalizedString("Identity color style", comment: "")
-        static let contactsSortOrder = NSLocalizedString("CONTACTS_SORT_ORDER", comment: "")
         static let newComposeMessageViewActionOrder = NSLocalizedString("NEW_COMPOSE_MESSAGE_VIEW_PREFERENCES", comment: "")
         static let firstNameThenLastName = NSLocalizedString("FIRST_NAME_LAST_NAME", comment: "")
         static let lastNameThenFirstName = NSLocalizedString("LAST_NAME_FIRST_NAME", comment: "")

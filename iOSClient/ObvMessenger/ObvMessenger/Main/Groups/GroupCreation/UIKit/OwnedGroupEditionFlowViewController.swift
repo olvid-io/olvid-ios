@@ -49,7 +49,7 @@ final class OwnedGroupEditionFlowViewController: UIViewController {
         
     // Constants
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: OwnedGroupEditionFlowViewController.self))
 
     // MARK: - Initializer
 
@@ -74,7 +74,7 @@ extension OwnedGroupEditionFlowViewController {
                 
         switch editionType {
         case .create:
-            let mode = MultipleContactsMode.all
+            let mode = MultipleContactsMode.all(oneToOneStatus: .any)
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Next, systemIcon: .personCropCircleFillBadgeCheckmark)
 
             let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
@@ -87,7 +87,7 @@ extension OwnedGroupEditionFlowViewController {
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)
 
         case .addGroupMembers(groupUid: _, currentGroupMembers: let currentGroupMembers):
-            let mode = MultipleContactsMode.excluded(from: currentGroupMembers)
+            let mode = MultipleContactsMode.excluded(from: currentGroupMembers, oneToOneStatus: .any)
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeCheckmark)
 
             let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
@@ -99,7 +99,7 @@ extension OwnedGroupEditionFlowViewController {
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)
 
         case .removeGroupMembers(groupUid: _, currentGroupMembers: let currentGroupMembers):
-            let mode = MultipleContactsMode.restricted(to: currentGroupMembers)
+            let mode = MultipleContactsMode.restricted(to: currentGroupMembers, oneToOneStatus: .any)
 
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeMinus)
 

@@ -33,12 +33,8 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate {
     fileprivate let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     fileprivate let logCategory = "NetworkFetchFlowCoordinator"
     
-    private let queueForPostingNotifications: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 5
-        queue.name = "Operation Queue for posting certain notifications from the NetworkFetchFlowCoordinator"
-        return queue
-    }()
+    private let queueForPostingNotifications = DispatchQueue(label: "NetworkFetchFlowCoordinator queue for notifications")
+    private let internalQueue = OperationQueue.createSerialQueue(name: "NetworkFetchFlowCoordinator internal operation queue")
 
     weak var delegateManager: ObvNetworkFetchDelegateManager? {
         didSet {
@@ -241,7 +237,7 @@ extension NetworkFetchFlowCoordinator {
                                                                   apiKeyStatus: apiKeyStatus,
                                                                   apiPermissions: apiPermissions,
                                                                   apiKeyExpirationDate: apiKeyExpirationDate)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
     
@@ -262,8 +258,8 @@ extension NetworkFetchFlowCoordinator {
         }
 
         ObvNetworkFetchNotificationNew.apiKeyStatusQueryFailed(ownedIdentity: ownedIdentity, apiKey: apiKey)
-            .postOnDispatchQueue(withLabel: "Queue for posting an apiKeyStatusQueryFailed notification", within: notificationDelegate)
-        
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
     
     
@@ -307,8 +303,8 @@ extension NetworkFetchFlowCoordinator {
                                                                                         apiKeyStatus: apiKeyStatus,
                                                                                         apiPermissions: apiPermissions,
                                                                                         apiKeyExpirationDate: apiKeyExpirationDate)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
-        
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
     
     
@@ -328,7 +324,7 @@ extension NetworkFetchFlowCoordinator {
         }
 
         ObvNetworkFetchNotificationNew.newFreeTrialAPIKeyForOwnedIdentity(ownedIdentity: ownedIdentity, apiKey: apiKey, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
     }
     
     
@@ -347,7 +343,7 @@ extension NetworkFetchFlowCoordinator {
         }
 
         ObvNetworkFetchNotificationNew.noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
     }
     
     
@@ -366,7 +362,7 @@ extension NetworkFetchFlowCoordinator {
         }
 
         ObvNetworkFetchNotificationNew.freeTrialIsStillAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
     }
 
     
@@ -396,24 +392,24 @@ extension NetworkFetchFlowCoordinator {
         }
         
         ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
-        
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
     
     
     func downloadingMessagesAndListingAttachmentWasPerformed(for identity: ObvCryptoIdentity, andDeviceUid uid: UID, idsOfNewMessages: [MessageIdentifier], flowId: FlowIdentifier) {
         failedAttemptsCounterManager.reset(counter: .downloadMessagesAndListAttachments(ownedIdentity: identity))
-        processUnprocessedMessages(messageIds: idsOfNewMessages, flowId: flowId)
+        processUnprocessedMessages(flowId: flowId)
         pollingWorker.pollingIfRequired(for: identity, withDeviceUid: uid, flowId: flowId)
     }
     
     
     func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(for identity: ObvCryptoIdentity, idOfNewMessage: MessageIdentifier, flowId: FlowIdentifier) {
-        processUnprocessedMessages(messageIds: [idOfNewMessage], flowId: flowId)
+        processUnprocessedMessages(flowId: flowId)
     }
     
     
-    func processUnprocessedMessages(messageIds: [MessageIdentifier], flowId: FlowIdentifier) {
+    func processUnprocessedMessages(flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -440,68 +436,17 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         
-        if messageIds.isEmpty {
-            
-            os_log("🌊 No inbox message to process within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
-
-            ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: flowId)
-                .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
-
-        } else {
-
-            os_log("🌊 We have %{public}d inbox message(s) to process within flow %{public}@", log: log, type: .debug, messageIds.count, flowId.debugDescription)
-
-            contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-                
-                let messages: Set<ObvNetworkReceivedMessageEncrypted> = Set(messageIds.compactMap { (messageId) in
-
-                    guard let inboxMessage = try? InboxMessage.get(messageId: messageId, within: obvContext) else {
-                        os_log("Could not get inbox message", log: log, type: .error)
-                        return nil
-                    }
-                    
-                    guard !inboxMessage.isProcessed else {
-                        os_log("Message %{public}@ is already processed within flow %{public}@", log: log, type: .debug, messageId.debugDescription, flowId.debugDescription)
-                        return nil
-                    }
-                    
-                    let queueForPostingNotifications = self.queueForPostingNotifications
-                    do {
-                        try obvContext.addContextDidSaveCompletionHandler { (error) in
-                            guard error != nil else { return }
-                            os_log("Sending a newInboxMessageToProcess notification for message %{public}@ within flow %{public}@", log: log, type: .debug, messageId.debugDescription, flowId.debugDescription)
-                            ObvNetworkFetchNotificationNew.newInboxMessageToProcess(messageId: messageId, attachmentIds: inboxMessage.attachmentIds, flowId: flowId)
-                                .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
-                            
-                        }
-                    } catch {
-                        os_log("Could not add completion handler", log: log, type: .fault)
-                        assertionFailure()
-                    }
-                    
-                    return ObvNetworkReceivedMessageEncrypted(
-                        messageId: messageId,
-                        messageUploadTimestampFromServer: inboxMessage.messageUploadTimestampFromServer,
-                        downloadTimestampFromServer: inboxMessage.downloadTimestampFromServer,
-                        localDownloadTimestamp: inboxMessage.localDownloadTimestamp,
-                        encryptedContent: inboxMessage.encryptedContent,
-                        wrappedKey: inboxMessage.wrappedKey,
-                        attachmentCount: inboxMessage.attachments.count,
-                        hasEncryptedExtendedMessagePayload: inboxMessage.hasEncryptedExtendedMessagePayload)
-                    
-                })
-                
-                processDownloadedMessageDelegate.processNetworkReceivedEncryptedMessages(messages, within: obvContext)
-                
-                do {
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                }
-                
-            }
-            
+        let op1 = ProcessAllUnprocessedMessagesOperation(queueForPostingNotifications: queueForPostingNotifications,
+                                                         notificationDelegate: notificationDelegate,
+                                                         processDownloadedMessageDelegate: processDownloadedMessageDelegate,
+                                                         log: log)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+        os_log("🔑 Will start a CompositionOfOneContextualOperation", log: log, type: .info)
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        os_log("🔑 Did end a CompositionOfOneContextualOperation", log: log, type: .info)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure(composedOp.reasonForCancel.debugDescription)
         }
 
     }
@@ -526,7 +471,7 @@ extension NetworkFetchFlowCoordinator {
                                                                    attachmentIds: attachmentIds,
                                                                    hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload,
                                                                    flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
     }
     
     
@@ -548,7 +493,7 @@ extension NetworkFetchFlowCoordinator {
         }
 
         ObvNetworkFetchNotificationNew.downloadingMessageExtendedPayloadFailed(messageId: messageId, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
     
@@ -569,7 +514,7 @@ extension NetworkFetchFlowCoordinator {
         }
 
         ObvNetworkFetchNotificationNew.downloadingMessageExtendedPayloadWasPerformed(messageId: messageId, extendedMessagePayload: extendedMessagePayload, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
 
@@ -604,7 +549,7 @@ extension NetworkFetchFlowCoordinator {
         }
         
         ObvNetworkFetchNotificationNew.inboxAttachmentDownloadCancelledByServer(attachmentId: attachmentId, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
 
@@ -620,7 +565,7 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         ObvNetworkFetchNotificationNew.inboxAttachmentWasDownloaded(attachmentId: attachmentId, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
         
@@ -655,7 +600,7 @@ extension NetworkFetchFlowCoordinator {
                 guard _message != nil else {
                     // We assume that if the app requests a progress for a message that cannot be found, then it must have been cancelled by server (and thus deleted from the inbox)
                     ObvNetworkFetchNotificationNew.cannotReturnAnyProgressForMessageAttachments(messageId: messageId, flowId: flowId)
-                        .postOnDispatchQueue(withLabel: "Queue for posting a cannotReturnAnyProgressForMessageAttachments (1)", within: notificationDelegate)
+                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                     return
                 }
                 message = _message!
@@ -663,7 +608,7 @@ extension NetworkFetchFlowCoordinator {
                 os_log("Could get message", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 ObvNetworkFetchNotificationNew.cannotReturnAnyProgressForMessageAttachments(messageId: messageId, flowId: flowId)
-                    .postOnDispatchQueue(withLabel: "Queue for posting a cannotReturnAnyProgressForMessageAttachments (2)", within: notificationDelegate)
+                    .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                 return
             }
             
@@ -674,13 +619,13 @@ extension NetworkFetchFlowCoordinator {
                      .resumeRequested:
                     guard let progress = delegateManager.downloadAttachmentChunksDelegate.requestProgressOfAttachment(withIdentifier: attachment.attachmentId, flowId: flowId) else { assertionFailure(); return }
                     ObvNetworkFetchNotificationNew.inboxAttachmentHasNewProgress(attachmentId: attachment.attachmentId, progress: progress, flowId: flowId)
-                        .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                 case .downloaded:
                     ObvNetworkFetchNotificationNew.inboxAttachmentWasDownloaded(attachmentId: attachment.attachmentId, flowId: flowId)
-                        .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                 case .cancelledByServer:
                     ObvNetworkFetchNotificationNew.inboxAttachmentDownloadCancelledByServer(attachmentId: attachment.attachmentId, flowId: flowId)
-                        .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                 case .markedForDeletion:
                     continue
                 }
@@ -840,9 +785,9 @@ extension NetworkFetchFlowCoordinator {
         }
 
         // Post a serverReportedThatAnotherDeviceIsAlreadyRegistered notification (this will allow the identity manager to deactiviate the owned identity)
-        let notification = ObvNetworkFetchNotificationNew.serverReportedThatAnotherDeviceIsAlreadyRegistered(ownedIdentity: ownedIdentity, flowId: flowId)
-        notification.postOnDispatchQueue(withLabel: "Queue for posting serverReportedThatAnotherDeviceIsAlreadyRegistered notification", within: notificationDelegate)
-        
+        ObvNetworkFetchNotificationNew.serverReportedThatAnotherDeviceIsAlreadyRegistered(ownedIdentity: ownedIdentity, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
     
     func serverReportedThatThisDeviceWasSuccessfullyRegistered(forOwnedIdentity ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
@@ -860,8 +805,8 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         
-        let notification = ObvNetworkFetchNotificationNew.serverReportedThatThisDeviceWasSuccessfullyRegistered(ownedIdentity: ownedIdentity, flowId: flowId)
-        notification.postOnDispatchQueue(withLabel: "Queue for posting serverReportedThatThisDeviceWasSuccessfullyRegistered notification", within: notificationDelegate)
+        ObvNetworkFetchNotificationNew.serverReportedThatThisDeviceWasSuccessfullyRegistered(ownedIdentity: ownedIdentity, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
         
         // We might have missed push notifications during the registration process, so we list and download messages now
                 
@@ -917,9 +862,9 @@ extension NetworkFetchFlowCoordinator {
             return
         }
 
-        let notification = ObvNetworkFetchNotificationNew.serverRequiresThisDeviceToRegisterToPushNotifications(ownedIdentity: ownedIdentity, flowId: flowId)
-        notification.postOnDispatchQueue(withLabel: "Queue for posting a serverRequiresThisDeviceToRegisterToPushNotifications notification", within: notificationDelegate)
-        
+        ObvNetworkFetchNotificationNew.serverRequiresThisDeviceToRegisterToPushNotifications(ownedIdentity: ownedIdentity, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
     
     
@@ -938,9 +883,9 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         
-        let notification = ObvNetworkFetchNotificationNew.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ownedIdentity, flowId: flowId)
-        notification.postOnDispatchQueue(withLabel: "Queue for posting fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive notification", within: notificationDelegate)
-        
+        ObvNetworkFetchNotificationNew.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ownedIdentity, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
 
     // MARK: - Handling Server Queries
@@ -1151,8 +1096,8 @@ extension NetworkFetchFlowCoordinator {
         }
 
         // On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed with Matthieu that this is better ;-)
-        ObvNetworkFetchNotificationNew.wellKnownHasBeenDownloaded(serverURL: server, flowId: flowId)
-            .postOnOperationQueue(operationQueue: self.queueForPostingNotifications, within: notificationDelegate)
+        ObvNetworkFetchNotificationNew.wellKnownHasBeenDownloaded(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
     
@@ -1178,9 +1123,33 @@ extension NetworkFetchFlowCoordinator {
         delegateManager.webSocketDelegate.updateWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
 
         ObvNetworkFetchNotificationNew.wellKnownHasBeenUpdated(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
-            .postOnOperationQueue(operationQueue: self.queueForPostingNotifications, within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
         
+    }
+    
+    
+    func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier) {
+        
+        failedAttemptsCounterManager.reset(counter: .queryServerWellKnown(serverURL: server))
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            return
+        }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        ObvNetworkFetchNotificationNew.wellKnownHasBeenDownloaded(serverURL: server, appInfo: wellKnownJSON.appInfo, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
     }
     
     

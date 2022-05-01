@@ -28,7 +28,7 @@ import OlvidUtils
 /// of the message as `cancelledByServer`.
 final class MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer: OperationWithSpecificReasonForCancel<MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServerReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer.self))
 
     private let messageIdentifierFromEngine: Data
     

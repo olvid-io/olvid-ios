@@ -159,9 +159,16 @@ final class PersistedMessageReactionReceived: PersistedMessageReaction {
                       assertionFailure()
                       return
                   }
-            ObvMessengerInternalNotification.persistedMessageReactionReceivedWasDeleted(messageURI: messageURI, contactURI: contactURI).postOnDispatchQueue()
-
+            ObvMessengerCoreDataNotification.persistedMessageReactionReceivedWasDeleted(messageURI: messageURI, contactURI: contactURI).postOnDispatchQueue()
+        } else {
+            ObvMessengerCoreDataNotification.persistedMessageReactionReceivedWasInsertedOrUpdated(objectID: typedObjectID).postOnDispatchQueue()
         }
     }
 
+}
+
+extension TypeSafeManagedObjectID where T == PersistedMessageReactionReceived {
+    var downcast: TypeSafeManagedObjectID<PersistedMessageReaction> {
+        TypeSafeManagedObjectID<PersistedMessageReaction>(objectID: objectID)
+    }
 }

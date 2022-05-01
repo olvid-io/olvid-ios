@@ -129,7 +129,15 @@ struct OlvidButtonAction: Identifiable {
     let action: () -> Void
     let title: Text
     let systemIcon: ObvSystemIcon
-    let style: OlvidButton.Style = .blue
+    let style: OlvidButton.Style
+    
+    init(action: @escaping () -> Void, title: Text, systemIcon: ObvSystemIcon, style: OlvidButton.Style = .blue) {
+        self.action = action
+        self.title = title
+        self.systemIcon = systemIcon
+        self.style = style
+    }
+    
 }
 
 struct OlvidButtonSquare: View {

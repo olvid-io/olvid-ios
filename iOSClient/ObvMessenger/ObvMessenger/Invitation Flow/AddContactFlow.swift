@@ -81,7 +81,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
         showHUD(type: .spinner)
         // We want to dismiss this vc and to navigate to the details of the contact. Either this contact is not created yet in DB, or it is already.
         // We need to consider both cases here.
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedContactWasInserted(queue: OperationQueue.main) { [weak self] (objectID, insertedContactCryptoId) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactWasInserted(queue: OperationQueue.main) { [weak self] (objectID, insertedContactCryptoId) in
             guard newContactCryptoId == insertedContactCryptoId else { return }
             let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: objectID.uriRepresentation())
             self?.showHUD(type: .checkmark) {
@@ -91,7 +91,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
                 }
             }
         })
-        if let persistedContact = try? PersistedObvContactIdentity.get(contactCryptoId: newContactCryptoId, ownedIdentityCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) {
+        if let persistedContact = try? PersistedObvContactIdentity.get(contactCryptoId: newContactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
             let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: persistedContact.objectID.uriRepresentation())
             self.showHUD(type: .checkmark) {
                 self.dismiss(animated: true) {
@@ -176,7 +176,7 @@ final class AddContactHostingViewStore: ObservableObject {
         self.userDetailsOfKeycloakContact = userDetailsOfKeycloakContact
         guard let contactIdentity = userDetailsOfKeycloakContact.identity else { assertionFailure(); return }
         guard let contactCryptoId = try? ObvCryptoId(identity: contactIdentity) else { assertionFailure(); return }
-        self.contactIdentity = try? PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext)
+        self.contactIdentity = try? PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext)
         withAnimation { isConfirmAddingKeycloakViewPushed = true }
     }
  
@@ -491,7 +491,7 @@ fileprivate struct AddContactMainInnerView: View {
             // We check whether the contact is already known or not
             guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             do {
-                guard let persistedContact = try PersistedObvContactIdentity.get(cryptoId: urlIdentity.cryptoId, ownedIdentity: persistedOwnedIdentity) else { return }
+                guard let persistedContact = try PersistedObvContactIdentity.get(cryptoId: urlIdentity.cryptoId, ownedIdentity: persistedOwnedIdentity, whereOneToOneStatusIs: .any) else { return }
                 // If we reach this point, the contact is already known
                 self.scannedPersistedContact = persistedContact
             } catch {
@@ -516,7 +516,7 @@ fileprivate struct AddContactMainInnerView: View {
             // We check whether the contact is already known or not
             guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             do {
-                guard let persistedContact = try PersistedObvContactIdentity.get(cryptoId: mutualScanURL.cryptoId, ownedIdentity: persistedOwnedIdentity) else { return }
+                guard let persistedContact = try PersistedObvContactIdentity.get(cryptoId: mutualScanURL.cryptoId, ownedIdentity: persistedOwnedIdentity, whereOneToOneStatusIs: .any) else { return }
                 // If we reach this point, the contact is already known
                 self.scannedPersistedContact = persistedContact
             } catch {

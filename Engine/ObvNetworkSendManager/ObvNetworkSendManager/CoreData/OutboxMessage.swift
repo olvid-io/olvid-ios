@@ -275,8 +275,8 @@ extension OutboxMessage {
         if let timestampFromServer = self.timestampFromServer {
             try? obvContext.addContextDidSaveCompletionHandler { (error) in
                 guard error == nil else { return }
-                ObvNetworkPostNotificationNew.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId, timestampFromServer)], flowId: flowId)
-                    .postOnDispatchQueue(withLabel: "Queue for posting outboxMessagesAndAllTheirAttachmentsWereAcknowledged from OutboxMessage", within: notificationDelegate)
+                ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId, timestampFromServer)], flowId: flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
             }
         }
     }

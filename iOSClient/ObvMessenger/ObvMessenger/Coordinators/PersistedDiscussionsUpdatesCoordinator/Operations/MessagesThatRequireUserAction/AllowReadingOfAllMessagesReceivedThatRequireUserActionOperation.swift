@@ -30,7 +30,7 @@ import OlvidUtils
 ///
 final class AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation: OperationWithSpecificReasonForCancel<AllowReadingOfAllMessagesReceivedThatRequireUserActionOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation.self))
 
     let persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     
@@ -41,7 +41,7 @@ final class AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation: Ope
 
     override func main() {
 
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { assertionFailure(); return }
+        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
         guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == persistedDiscussionObjectID else { assertionFailure(); return }
         
         ObvStack.shared.performBackgroundTaskAndWait { context in

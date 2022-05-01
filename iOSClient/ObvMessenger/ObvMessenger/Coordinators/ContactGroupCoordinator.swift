@@ -523,12 +523,12 @@ extension ContactGroupCoordinator {
             
             switch obvContactGroup.groupType {
             case .owned:
-                guard PersistedContactGroupOwned(contactGroup: obvContactGroup, within: context) != nil else {
+                guard (try? PersistedContactGroupOwned(contactGroup: obvContactGroup, within: context)) != nil else {
                     os_log("Could not create a new contact group owned", log: log, type: .fault)
                     return
                 }
             case .joined:
-                guard PersistedContactGroupJoined(contactGroup: obvContactGroup, within: context) != nil else {
+                guard (try? PersistedContactGroupJoined(contactGroup: obvContactGroup, within: context)) != nil else {
                     os_log("Could not create a new contact group joined", log: log, type: .fault)
                     return
                 }
@@ -555,7 +555,7 @@ extension ContactGroupCoordinator {
             }
             
             let persistedObvContactIdentities: Set<PersistedObvContactIdentity> = Set(obvContactGroup.groupMembers.compactMap {
-                guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: $0, within: context) else {
+                guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: $0, whereOneToOneStatusIs: .any, within: context) else {
                     os_log("One of the group members is not among our persisted contacts. The group members will be updated when this contact will be added to the persisted contact.", log: log, type: .info)
                     return nil
                 }
@@ -577,13 +577,18 @@ extension ContactGroupCoordinator {
             }
             
             contactGroup.set(persistedObvContactIdentities)
-            contactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
+            do {
+                try contactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
+            } catch {
+                assertionFailure()
+                os_log("Core data error: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
+            }
             
             if let groupOwned = contactGroup as? PersistedContactGroupOwned {
                 if obvContactGroup.groupType == .owned {
                     let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
                     for pendingMember in groupOwned.pendingMembers {
-                        debugPrint(declinedMemberIdentites.contains(pendingMember.cryptoId))
                         pendingMember.declined = declinedMemberIdentites.contains(pendingMember.cryptoId)
                     }
                 }

@@ -1,0 +1,113 @@
+import:
+  - Foundation
+  - CoreData
+  - ObvEngine
+notifications:
+- name: newDraftToSend
+  params:
+  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: draftWasSent
+  params:
+  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: persistedMessageHasNewMetadata
+  params:
+  - {name: persistedMessageObjectID, type: NSManagedObjectID}
+- name: newOrUpdatedPersistedInvitation
+  params:
+  - {name: obvDialog, type: ObvDialog}
+  - {name: persistedInvitationUUID, type: UUID}
+- name: persistedContactWasInserted
+  params:
+  - {name: objectID, type: NSManagedObjectID}
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: persistedContactWasDeleted
+  params:
+  - {name: objectID, type: NSManagedObjectID}
+  - {name: identity, type: Data}
+- name: persistedContactHasNewCustomDisplayName
+  params:
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: persistedContactHasNewStatus
+  params:
+  - {name: contactCryptoId, type: ObvCryptoId}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: persistedContactIsActiveChanged
+  params:
+  - {name: contactID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
+- name: aOneToOneDiscussionTitleNeedsToBeReset
+  params:
+  - {name: ownedIdentityObjectID, type: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>}
+- name: newMessageExpiration
+  params:
+  - {name: expirationDate, type: Date}
+- name: persistedMessageReactionReceivedWasDeleted
+  params:
+  - {name: messageURI, type: URL}
+  - {name: contactURI, type: URL}
+- name: persistedMessageReactionReceivedWasInsertedOrUpdated
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedMessageReactionReceived>}
+- name: userWantsToUpdateDiscussionLocalConfiguration
+  params:
+  - {name: value, type: PersistedDiscussionLocalConfigurationValue}
+  - {name: localConfigurationObjectID, type: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>}
+- name: persistedContactGroupHasUpdatedContactIdentities
+  params:
+  - {name: persistedContactGroupObjectID, type: NSManagedObjectID}
+  - {name: insertedContacts, type: Set<PersistedObvContactIdentity>}
+  - {name: removedContacts, type: Set<PersistedObvContactIdentity>}
+- name: aReadOncePersistedMessageSentWasSent
+  params:
+  - {name: persistedMessageSentObjectID, type: NSManagedObjectID}
+  - {name: persistedDiscussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: newPersistedObvContactDevice
+  params:
+  - {name: contactDeviceObjectID, type: NSManagedObjectID}
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: deletedPersistedObvContactDevice
+  params:
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: persistedDiscussionHasNewTitle
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: title, type: String}
+- name: newLockedPersistedDiscussion
+  params:
+  - {name: previousDiscussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+  - {name: newLockedDiscussionId, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: persistedDiscussionWasDeleted
+  params:
+  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+- name: newPersistedObvOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: ownedIdentityWasReactivated
+  params:
+  - {name: ownedIdentityObjectID, type: NSManagedObjectID}
+- name: ownedIdentityWasDeactivated
+  params:
+  - {name: ownedIdentityObjectID, type: NSManagedObjectID}
+- name: anOldDiscussionSharedConfigurationWasReceived
+  params:
+  - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
+- name: persistedMessageSystemWasDeleted
+  params:
+  - {name: objectID, type: NSManagedObjectID}
+  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: persistedMessagesWereDeleted
+  params:
+  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+  - {name: messageUriRepresentations, type: Set<TypeSafeURL<PersistedMessage>>}
+- name: persistedMessagesWereWiped
+  params:
+  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+  - {name: messageUriRepresentations, type: Set<TypeSafeURL<PersistedMessage>>}
+- name: draftToSendWasReset
+  params:
+  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: draftFyleJoinWasDeleted
+  params:
+  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+  - {name: draftUriRepresentation, type: TypeSafeURL<PersistedDraft>}
+  - {name: draftFyleJoinUriRepresentation, type: TypeSafeURL<PersistedDraftFyleJoin>}

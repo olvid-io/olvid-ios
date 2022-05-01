@@ -1,0 +1,27 @@
+import:
+  - Foundation
+  - CoreData
+  - ObvTypes
+  - ObvCrypto
+  - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: notificationDelegate}
+  - {key: notificationCenterType, value: ObvNotificationDelegate}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+notifications:
+- name: newConfirmedObliviousChannel
+  params:
+  - {name: currentDeviceUid, type: UID}
+  - {name: remoteCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: remoteDeviceUid, type: UID}
+- name: deletedConfirmedObliviousChannel
+  params:
+  - {name: currentDeviceUid, type: UID}
+  - {name: remoteCryptoIdentity, type: ObvCryptoIdentity}
+  - {name: remoteDeviceUid, type: UID}
+- name: networkReceivedMessageWasProcessed
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}

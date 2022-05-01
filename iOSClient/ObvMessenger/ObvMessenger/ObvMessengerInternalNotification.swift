@@ -35,43 +35,24 @@ fileprivate struct OptionalWrapper<T> {
 
 enum ObvMessengerInternalNotification {
 	case messagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
-	case persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: NSManagedObjectID, insertedContacts: Set<PersistedObvContactIdentity>, removedContacts: Set<PersistedObvContactIdentity>)
-	case persistedDiscussionHasNewTitle(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, title: String)
-	case newDraftToSend(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case draftWasSent(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case newOrUpdatedPersistedInvitation(obvDialog: ObvDialog, persistedInvitationUUID: UUID)
 	case persistedMessageReceivedWasDeleted(objectID: NSManagedObjectID, messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, sortIndex: Double, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
-	case newPersistedObvContactDevice(contactDeviceObjectID: NSManagedObjectID, contactCryptoId: ObvCryptoId)
-	case deletedPersistedObvContactDevice(contactCryptoId: ObvCryptoId)
-	case persistedContactWasInserted(objectID: NSManagedObjectID, contactCryptoId: ObvCryptoId)
-	case persistedContactWasDeleted(objectID: NSManagedObjectID, identity: Data)
-	case persistedContactHasNewCustomDisplayName(contactCryptoId: ObvCryptoId)
-	case newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case userWantsToRefreshContactGroupJoined(obvContactGroup: ObvContactGroup)
 	case currentOwnedCryptoIdChanged(newOwnedCryptoId: ObvCryptoId, apiKey: UUID)
-	case ownedIdentityWasDeactivated(ownedIdentityObjectID: NSManagedObjectID)
-	case ownedIdentityWasReactivated(ownedIdentityObjectID: NSManagedObjectID)
 	case userWantsToPerfomCloudKitBackupNow
 	case externalTransactionsWereMergedIntoViewContext
 	case userWantsToPerfomBackupForExportNow(sourceView: UIView)
-	case newMessageExpiration(expirationDate: Date)
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case persistedMessageHasNewMetadata(persistedMessageObjectID: NSManagedObjectID)
 	case fyleMessageJoinWithStatusHasNewProgress(objectID: NSManagedObjectID, progress: Progress)
 	case aViewRequiresFyleMessageJoinWithStatusProgresses(objectIDs: [NSManagedObjectID])
-	case userWantsToCallAndIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
+	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
 	case userWantsToSelectAndCallContacts(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
 	case userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
-	case userWantsToKickParticipant(call: Call, callParticipant: CallParticipant)
-	case userWantsToAddParticipants(call: Call, contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>])
-	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data)
-	case callHasBeenUpdated(call: Call, updateKind: CallUpdateKind)
-	case callParticipantHasBeenUpdated(callParticipant: CallParticipant, updateKind: CallParticipantUpdateKind)
+	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, contactId: OlvidUserId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data)
 	case toggleCallView
 	case hideCallView
 	case newObvMessageWasReceivedViaPushKitNotification(obvMessage: ObvMessage)
-	case newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool, completion: () -> Void)
+	case newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool)
 	case isCallKitEnabledSettingDidChange
 	case isIncludesCallsInRecentsEnabledSettingDidChange
 	case networkInterfaceTypeChanged(isConnected: Bool)
@@ -83,11 +64,9 @@ enum ObvMessengerInternalNotification {
 	case userRequestedDeletionOfPersistedMessage(persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType)
 	case trashShouldBeEmptied
 	case userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, completionHandler: (Bool) -> Void)
-	case reportCallEvent(callUUID: UUID, callReport: CallReport, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, ownedCryptoId: ObvCryptoId)
 	case newCallLogItem(objectID: TypeSafeManagedObjectID<PersistedCallLogItem>)
 	case callLogItemWasUpdated(objectID: TypeSafeManagedObjectID<PersistedCallLogItem>)
 	case userWantsToIntroduceContactToAnotherContact(ownedCryptoId: ObvCryptoId, firstContactCryptoId: ObvCryptoId, secondContactCryptoIds: Set<ObvCryptoId>)
-	case showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: IncomingCall)
 	case userWantsToShareOwnPublishedDetails(ownedCryptoId: ObvCryptoId, sourceView: UIView)
 	case userWantsToSendInvite(ownedIdentity: ObvOwnedIdentity, urlIdentity: ObvURLIdentity)
 	case userRequestedAPIKeyStatus(ownedCryptoId: ObvCryptoId, apiKey: UUID)
@@ -97,7 +76,6 @@ enum ObvMessengerInternalNotification {
 	case userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>)
 	case requestThumbnail(fyleElement: FyleElement, size: CGSize, thumbnailType: ThumbnailType, completionHandler: ((Thumbnail) -> Void))
 	case persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: NSManagedObjectID)
-	case aReadOncePersistedMessageSentWasSent(persistedMessageSentObjectID: NSManagedObjectID, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
 	case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoId: ObvCryptoId)
 	case persistedDiscussionSharedConfigurationShouldBeSent(persistedDiscussionObjectID: NSManagedObjectID)
 	case userWantsToDeleteContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, viewController: UIViewController, completionHandler: ((Bool) -> Void))
@@ -105,8 +83,6 @@ enum ObvMessengerInternalNotification {
 	case applyRetentionPoliciesBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case updateBadgeBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case applyAllRetentionPoliciesNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case persistedMessageSystemWasDeleted(objectID: NSManagedObjectID, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
-	case anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: NSManagedObjectID)
 	case userWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: NSManagedObjectID, newTextBody: String)
 	case theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: NSManagedObjectID)
 	case newProfilePictureCandidateToCache(requestUUID: UUID, profilePicture: UIImage)
@@ -123,7 +99,6 @@ enum ObvMessengerInternalNotification {
 	case serverDoesNotSupportCall
 	case userWantsToRestartChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case userWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
-	case persistedContactHasNewStatus(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case contactIdentityDetailsWereUpdated(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case userDidSeeNewDetailsOfContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, nicknameAndPicture: CustomNicknameAndPicture)
@@ -131,19 +106,8 @@ enum ObvMessengerInternalNotification {
 	case userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ObvCryptoId, completionHandler: (Bool) -> Void)
 	case requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: ((HardLinkToFyle) -> Void))
 	case requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: (([HardLinkToFyle?]) -> Void))
-	case persistedDiscussionWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>)
-	case newLockedPersistedDiscussion(previousDiscussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, newLockedDiscussionId: TypeSafeManagedObjectID<PersistedDiscussion>)
-	case persistedMessagesWereDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentations: Set<TypeSafeURL<PersistedMessage>>)
-	case persistedMessagesWereWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentations: Set<TypeSafeURL<PersistedMessage>>)
-	case draftToSendWasReset(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case draftFyleJoinWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>)
-	case shareExtensionExtensionContextWillCompleteRequest
 	case userWantsToRemoveDraftFyleJoin(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>)
-	case AppInitializationEnded
 	case userWantsToChangeContactsSortOrder(ownedCryptoId: ObvCryptoId, sortOrder: ContactsSortOrder)
-	case contactsSortOrderDidChange
-	case identityColorStyleDidChange
-	case userWantsToUpdateDiscussionLocalConfiguration(value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
 	case userWantsToUpdateLocalConfigurationOfDiscussion(value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
 	case discussionLocalConfigurationHasBeenUpdated(newValue: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
 	case audioInputHasBeenActivated(label: String, activate: () -> Void)
@@ -170,52 +134,30 @@ enum ObvMessengerInternalNotification {
 	case incrementalCleanBackupTerminates(totalCount: Int)
 	case userWantsToUnblockContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case userWantsToReblockContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
-	case persistedContactIsActiveChanged(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 	case installedOlvidAppIsOutdated(presentingViewController: UIViewController?)
 	case userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ObvCryptoId)
-	case aOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>)
 	case uiRequiresSignedContactDetails(ownedIdentityCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, completion: (SignedUserDetails?) -> Void)
-	case preferredComposeMessageViewActionsDidChange
 	case requestSyncAppDatabasesWithEngine(completion: (Result<Void,Error>) -> Void)
-	case persistedMessageReactionReceivedWasDeleted(messageURI: URL, contactURI: URL)
 	case uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: (SignedUserDetails?) -> Void)
 	case listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
+	case userWantsToSendOneToOneInvitationToContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
-		case persistedContactGroupHasUpdatedContactIdentities
-		case persistedDiscussionHasNewTitle
-		case newDraftToSend
-		case draftWasSent
-		case newOrUpdatedPersistedInvitation
 		case persistedMessageReceivedWasDeleted
-		case newPersistedObvContactDevice
-		case deletedPersistedObvContactDevice
-		case persistedContactWasInserted
-		case persistedContactWasDeleted
-		case persistedContactHasNewCustomDisplayName
-		case newPersistedObvOwnedIdentity
 		case userWantsToRefreshContactGroupJoined
 		case currentOwnedCryptoIdChanged
-		case ownedIdentityWasDeactivated
-		case ownedIdentityWasReactivated
 		case userWantsToPerfomCloudKitBackupNow
 		case externalTransactionsWereMergedIntoViewContext
 		case userWantsToPerfomBackupForExportNow
-		case newMessageExpiration
 		case newMuteExpiration
 		case wipeAllMessagesThatExpiredEarlierThanNow
-		case persistedMessageHasNewMetadata
 		case fyleMessageJoinWithStatusHasNewProgress
 		case aViewRequiresFyleMessageJoinWithStatusProgresses
 		case userWantsToCallAndIsAllowedTo
 		case userWantsToSelectAndCallContacts
 		case userWantsToCallButWeShouldCheckSheIsAllowedTo
-		case userWantsToKickParticipant
-		case userWantsToAddParticipants
 		case newWebRTCMessageWasReceived
-		case callHasBeenUpdated
-		case callParticipantHasBeenUpdated
 		case toggleCallView
 		case hideCallView
 		case newObvMessageWasReceivedViaPushKitNotification
@@ -231,11 +173,9 @@ enum ObvMessengerInternalNotification {
 		case userRequestedDeletionOfPersistedMessage
 		case trashShouldBeEmptied
 		case userRequestedDeletionOfPersistedDiscussion
-		case reportCallEvent
 		case newCallLogItem
 		case callLogItemWasUpdated
 		case userWantsToIntroduceContactToAnotherContact
-		case showCallViewControllerForAnsweringNonCallKitIncomingCall
 		case userWantsToShareOwnPublishedDetails
 		case userWantsToSendInvite
 		case userRequestedAPIKeyStatus
@@ -245,7 +185,6 @@ enum ObvMessengerInternalNotification {
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
 		case requestThumbnail
 		case persistedMessageReceivedWasRead
-		case aReadOncePersistedMessageSentWasSent
 		case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration
 		case persistedDiscussionSharedConfigurationShouldBeSent
 		case userWantsToDeleteContact
@@ -253,8 +192,6 @@ enum ObvMessengerInternalNotification {
 		case applyRetentionPoliciesBackgroundTaskWasLaunched
 		case updateBadgeBackgroundTaskWasLaunched
 		case applyAllRetentionPoliciesNow
-		case persistedMessageSystemWasDeleted
-		case anOldDiscussionSharedConfigurationWasReceived
 		case userWantsToSendEditedVersionOfSentMessage
 		case theBodyOfPersistedMessageReceivedDidChange
 		case newProfilePictureCandidateToCache
@@ -271,7 +208,6 @@ enum ObvMessengerInternalNotification {
 		case serverDoesNotSupportCall
 		case userWantsToRestartChannelEstablishmentProtocol
 		case userWantsToReCreateChannelEstablishmentProtocol
-		case persistedContactHasNewStatus
 		case contactIdentityDetailsWereUpdated
 		case userDidSeeNewDetailsOfContact
 		case userWantsToEditContactNicknameAndPicture
@@ -279,19 +215,8 @@ enum ObvMessengerInternalNotification {
 		case userWantsToUnbindOwnedIdentityFromKeycloak
 		case requestHardLinkToFyle
 		case requestAllHardLinksToFyles
-		case persistedDiscussionWasDeleted
-		case newLockedPersistedDiscussion
-		case persistedMessagesWereDeleted
-		case persistedMessagesWereWiped
-		case draftToSendWasReset
-		case draftFyleJoinWasDeleted
-		case shareExtensionExtensionContextWillCompleteRequest
 		case userWantsToRemoveDraftFyleJoin
-		case AppInitializationEnded
 		case userWantsToChangeContactsSortOrder
-		case contactsSortOrderDidChange
-		case identityColorStyleDidChange
-		case userWantsToUpdateDiscussionLocalConfiguration
 		case userWantsToUpdateLocalConfigurationOfDiscussion
 		case discussionLocalConfigurationHasBeenUpdated
 		case audioInputHasBeenActivated
@@ -318,16 +243,13 @@ enum ObvMessengerInternalNotification {
 		case incrementalCleanBackupTerminates
 		case userWantsToUnblockContact
 		case userWantsToReblockContact
-		case persistedContactIsActiveChanged
 		case installedOlvidAppIsOutdated
 		case userOwnedIdentityWasRevokedByKeycloak
-		case aOneToOneDiscussionTitleNeedsToBeReset
 		case uiRequiresSignedContactDetails
-		case preferredComposeMessageViewActionsDidChange
 		case requestSyncAppDatabasesWithEngine
-		case persistedMessageReactionReceivedWasDeleted
 		case uiRequiresSignedOwnedDetails
 		case listMessagesOnServerBackgroundTaskWasLaunched
+		case userWantsToSendOneToOneInvitationToContact
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -341,39 +263,20 @@ enum ObvMessengerInternalNotification {
 		static func forInternalNotification(_ notification: ObvMessengerInternalNotification) -> NSNotification.Name {
 			switch notification {
 			case .messagesAreNotNewAnymore: return Name.messagesAreNotNewAnymore.name
-			case .persistedContactGroupHasUpdatedContactIdentities: return Name.persistedContactGroupHasUpdatedContactIdentities.name
-			case .persistedDiscussionHasNewTitle: return Name.persistedDiscussionHasNewTitle.name
-			case .newDraftToSend: return Name.newDraftToSend.name
-			case .draftWasSent: return Name.draftWasSent.name
-			case .newOrUpdatedPersistedInvitation: return Name.newOrUpdatedPersistedInvitation.name
 			case .persistedMessageReceivedWasDeleted: return Name.persistedMessageReceivedWasDeleted.name
-			case .newPersistedObvContactDevice: return Name.newPersistedObvContactDevice.name
-			case .deletedPersistedObvContactDevice: return Name.deletedPersistedObvContactDevice.name
-			case .persistedContactWasInserted: return Name.persistedContactWasInserted.name
-			case .persistedContactWasDeleted: return Name.persistedContactWasDeleted.name
-			case .persistedContactHasNewCustomDisplayName: return Name.persistedContactHasNewCustomDisplayName.name
-			case .newPersistedObvOwnedIdentity: return Name.newPersistedObvOwnedIdentity.name
 			case .userWantsToRefreshContactGroupJoined: return Name.userWantsToRefreshContactGroupJoined.name
 			case .currentOwnedCryptoIdChanged: return Name.currentOwnedCryptoIdChanged.name
-			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
-			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .userWantsToPerfomCloudKitBackupNow: return Name.userWantsToPerfomCloudKitBackupNow.name
 			case .externalTransactionsWereMergedIntoViewContext: return Name.externalTransactionsWereMergedIntoViewContext.name
 			case .userWantsToPerfomBackupForExportNow: return Name.userWantsToPerfomBackupForExportNow.name
-			case .newMessageExpiration: return Name.newMessageExpiration.name
 			case .newMuteExpiration: return Name.newMuteExpiration.name
 			case .wipeAllMessagesThatExpiredEarlierThanNow: return Name.wipeAllMessagesThatExpiredEarlierThanNow.name
-			case .persistedMessageHasNewMetadata: return Name.persistedMessageHasNewMetadata.name
 			case .fyleMessageJoinWithStatusHasNewProgress: return Name.fyleMessageJoinWithStatusHasNewProgress.name
 			case .aViewRequiresFyleMessageJoinWithStatusProgresses: return Name.aViewRequiresFyleMessageJoinWithStatusProgresses.name
 			case .userWantsToCallAndIsAllowedTo: return Name.userWantsToCallAndIsAllowedTo.name
 			case .userWantsToSelectAndCallContacts: return Name.userWantsToSelectAndCallContacts.name
 			case .userWantsToCallButWeShouldCheckSheIsAllowedTo: return Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
-			case .userWantsToKickParticipant: return Name.userWantsToKickParticipant.name
-			case .userWantsToAddParticipants: return Name.userWantsToAddParticipants.name
 			case .newWebRTCMessageWasReceived: return Name.newWebRTCMessageWasReceived.name
-			case .callHasBeenUpdated: return Name.callHasBeenUpdated.name
-			case .callParticipantHasBeenUpdated: return Name.callParticipantHasBeenUpdated.name
 			case .toggleCallView: return Name.toggleCallView.name
 			case .hideCallView: return Name.hideCallView.name
 			case .newObvMessageWasReceivedViaPushKitNotification: return Name.newObvMessageWasReceivedViaPushKitNotification.name
@@ -389,11 +292,9 @@ enum ObvMessengerInternalNotification {
 			case .userRequestedDeletionOfPersistedMessage: return Name.userRequestedDeletionOfPersistedMessage.name
 			case .trashShouldBeEmptied: return Name.trashShouldBeEmptied.name
 			case .userRequestedDeletionOfPersistedDiscussion: return Name.userRequestedDeletionOfPersistedDiscussion.name
-			case .reportCallEvent: return Name.reportCallEvent.name
 			case .newCallLogItem: return Name.newCallLogItem.name
 			case .callLogItemWasUpdated: return Name.callLogItemWasUpdated.name
 			case .userWantsToIntroduceContactToAnotherContact: return Name.userWantsToIntroduceContactToAnotherContact.name
-			case .showCallViewControllerForAnsweringNonCallKitIncomingCall: return Name.showCallViewControllerForAnsweringNonCallKitIncomingCall.name
 			case .userWantsToShareOwnPublishedDetails: return Name.userWantsToShareOwnPublishedDetails.name
 			case .userWantsToSendInvite: return Name.userWantsToSendInvite.name
 			case .userRequestedAPIKeyStatus: return Name.userRequestedAPIKeyStatus.name
@@ -403,7 +304,6 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToReadReceivedMessagesThatRequiresUserAction: return Name.userWantsToReadReceivedMessagesThatRequiresUserAction.name
 			case .requestThumbnail: return Name.requestThumbnail.name
 			case .persistedMessageReceivedWasRead: return Name.persistedMessageReceivedWasRead.name
-			case .aReadOncePersistedMessageSentWasSent: return Name.aReadOncePersistedMessageSentWasSent.name
 			case .userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration: return Name.userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration.name
 			case .persistedDiscussionSharedConfigurationShouldBeSent: return Name.persistedDiscussionSharedConfigurationShouldBeSent.name
 			case .userWantsToDeleteContact: return Name.userWantsToDeleteContact.name
@@ -411,8 +311,6 @@ enum ObvMessengerInternalNotification {
 			case .applyRetentionPoliciesBackgroundTaskWasLaunched: return Name.applyRetentionPoliciesBackgroundTaskWasLaunched.name
 			case .updateBadgeBackgroundTaskWasLaunched: return Name.updateBadgeBackgroundTaskWasLaunched.name
 			case .applyAllRetentionPoliciesNow: return Name.applyAllRetentionPoliciesNow.name
-			case .persistedMessageSystemWasDeleted: return Name.persistedMessageSystemWasDeleted.name
-			case .anOldDiscussionSharedConfigurationWasReceived: return Name.anOldDiscussionSharedConfigurationWasReceived.name
 			case .userWantsToSendEditedVersionOfSentMessage: return Name.userWantsToSendEditedVersionOfSentMessage.name
 			case .theBodyOfPersistedMessageReceivedDidChange: return Name.theBodyOfPersistedMessageReceivedDidChange.name
 			case .newProfilePictureCandidateToCache: return Name.newProfilePictureCandidateToCache.name
@@ -429,7 +327,6 @@ enum ObvMessengerInternalNotification {
 			case .serverDoesNotSupportCall: return Name.serverDoesNotSupportCall.name
 			case .userWantsToRestartChannelEstablishmentProtocol: return Name.userWantsToRestartChannelEstablishmentProtocol.name
 			case .userWantsToReCreateChannelEstablishmentProtocol: return Name.userWantsToReCreateChannelEstablishmentProtocol.name
-			case .persistedContactHasNewStatus: return Name.persistedContactHasNewStatus.name
 			case .contactIdentityDetailsWereUpdated: return Name.contactIdentityDetailsWereUpdated.name
 			case .userDidSeeNewDetailsOfContact: return Name.userDidSeeNewDetailsOfContact.name
 			case .userWantsToEditContactNicknameAndPicture: return Name.userWantsToEditContactNicknameAndPicture.name
@@ -437,19 +334,8 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToUnbindOwnedIdentityFromKeycloak: return Name.userWantsToUnbindOwnedIdentityFromKeycloak.name
 			case .requestHardLinkToFyle: return Name.requestHardLinkToFyle.name
 			case .requestAllHardLinksToFyles: return Name.requestAllHardLinksToFyles.name
-			case .persistedDiscussionWasDeleted: return Name.persistedDiscussionWasDeleted.name
-			case .newLockedPersistedDiscussion: return Name.newLockedPersistedDiscussion.name
-			case .persistedMessagesWereDeleted: return Name.persistedMessagesWereDeleted.name
-			case .persistedMessagesWereWiped: return Name.persistedMessagesWereWiped.name
-			case .draftToSendWasReset: return Name.draftToSendWasReset.name
-			case .draftFyleJoinWasDeleted: return Name.draftFyleJoinWasDeleted.name
-			case .shareExtensionExtensionContextWillCompleteRequest: return Name.shareExtensionExtensionContextWillCompleteRequest.name
 			case .userWantsToRemoveDraftFyleJoin: return Name.userWantsToRemoveDraftFyleJoin.name
-			case .AppInitializationEnded: return Name.AppInitializationEnded.name
 			case .userWantsToChangeContactsSortOrder: return Name.userWantsToChangeContactsSortOrder.name
-			case .contactsSortOrderDidChange: return Name.contactsSortOrderDidChange.name
-			case .identityColorStyleDidChange: return Name.identityColorStyleDidChange.name
-			case .userWantsToUpdateDiscussionLocalConfiguration: return Name.userWantsToUpdateDiscussionLocalConfiguration.name
 			case .userWantsToUpdateLocalConfigurationOfDiscussion: return Name.userWantsToUpdateLocalConfigurationOfDiscussion.name
 			case .discussionLocalConfigurationHasBeenUpdated: return Name.discussionLocalConfigurationHasBeenUpdated.name
 			case .audioInputHasBeenActivated: return Name.audioInputHasBeenActivated.name
@@ -476,16 +362,13 @@ enum ObvMessengerInternalNotification {
 			case .incrementalCleanBackupTerminates: return Name.incrementalCleanBackupTerminates.name
 			case .userWantsToUnblockContact: return Name.userWantsToUnblockContact.name
 			case .userWantsToReblockContact: return Name.userWantsToReblockContact.name
-			case .persistedContactIsActiveChanged: return Name.persistedContactIsActiveChanged.name
 			case .installedOlvidAppIsOutdated: return Name.installedOlvidAppIsOutdated.name
 			case .userOwnedIdentityWasRevokedByKeycloak: return Name.userOwnedIdentityWasRevokedByKeycloak.name
-			case .aOneToOneDiscussionTitleNeedsToBeReset: return Name.aOneToOneDiscussionTitleNeedsToBeReset.name
 			case .uiRequiresSignedContactDetails: return Name.uiRequiresSignedContactDetails.name
-			case .preferredComposeMessageViewActionsDidChange: return Name.preferredComposeMessageViewActionsDidChange.name
 			case .requestSyncAppDatabasesWithEngine: return Name.requestSyncAppDatabasesWithEngine.name
-			case .persistedMessageReactionReceivedWasDeleted: return Name.persistedMessageReactionReceivedWasDeleted.name
 			case .uiRequiresSignedOwnedDetails: return Name.uiRequiresSignedOwnedDetails.name
 			case .listMessagesOnServerBackgroundTaskWasLaunched: return Name.listMessagesOnServerBackgroundTaskWasLaunched.name
+			case .userWantsToSendOneToOneInvitationToContact: return Name.userWantsToSendOneToOneInvitationToContact.name
 			}
 		}
 	}
@@ -496,30 +379,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"persistedMessageObjectIDs": persistedMessageObjectIDs,
 			]
-		case .persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: let persistedContactGroupObjectID, insertedContacts: let insertedContacts, removedContacts: let removedContacts):
-			info = [
-				"persistedContactGroupObjectID": persistedContactGroupObjectID,
-				"insertedContacts": insertedContacts,
-				"removedContacts": removedContacts,
-			]
-		case .persistedDiscussionHasNewTitle(objectID: let objectID, title: let title):
-			info = [
-				"objectID": objectID,
-				"title": title,
-			]
-		case .newDraftToSend(persistedDraftObjectID: let persistedDraftObjectID):
-			info = [
-				"persistedDraftObjectID": persistedDraftObjectID,
-			]
-		case .draftWasSent(persistedDraftObjectID: let persistedDraftObjectID):
-			info = [
-				"persistedDraftObjectID": persistedDraftObjectID,
-			]
-		case .newOrUpdatedPersistedInvitation(obvDialog: let obvDialog, persistedInvitationUUID: let persistedInvitationUUID):
-			info = [
-				"obvDialog": obvDialog,
-				"persistedInvitationUUID": persistedInvitationUUID,
-			]
 		case .persistedMessageReceivedWasDeleted(objectID: let objectID, messageIdentifierFromEngine: let messageIdentifierFromEngine, ownedCryptoId: let ownedCryptoId, sortIndex: let sortIndex, discussionObjectID: let discussionObjectID):
 			info = [
 				"objectID": objectID,
@@ -527,33 +386,6 @@ enum ObvMessengerInternalNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"sortIndex": sortIndex,
 				"discussionObjectID": discussionObjectID,
-			]
-		case .newPersistedObvContactDevice(contactDeviceObjectID: let contactDeviceObjectID, contactCryptoId: let contactCryptoId):
-			info = [
-				"contactDeviceObjectID": contactDeviceObjectID,
-				"contactCryptoId": contactCryptoId,
-			]
-		case .deletedPersistedObvContactDevice(contactCryptoId: let contactCryptoId):
-			info = [
-				"contactCryptoId": contactCryptoId,
-			]
-		case .persistedContactWasInserted(objectID: let objectID, contactCryptoId: let contactCryptoId):
-			info = [
-				"objectID": objectID,
-				"contactCryptoId": contactCryptoId,
-			]
-		case .persistedContactWasDeleted(objectID: let objectID, identity: let identity):
-			info = [
-				"objectID": objectID,
-				"identity": identity,
-			]
-		case .persistedContactHasNewCustomDisplayName(contactCryptoId: let contactCryptoId):
-			info = [
-				"contactCryptoId": contactCryptoId,
-			]
-		case .newPersistedObvOwnedIdentity(ownedCryptoId: let ownedCryptoId):
-			info = [
-				"ownedCryptoId": ownedCryptoId,
 			]
 		case .userWantsToRefreshContactGroupJoined(obvContactGroup: let obvContactGroup):
 			info = [
@@ -564,14 +396,6 @@ enum ObvMessengerInternalNotification {
 				"newOwnedCryptoId": newOwnedCryptoId,
 				"apiKey": apiKey,
 			]
-		case .ownedIdentityWasDeactivated(ownedIdentityObjectID: let ownedIdentityObjectID):
-			info = [
-				"ownedIdentityObjectID": ownedIdentityObjectID,
-			]
-		case .ownedIdentityWasReactivated(ownedIdentityObjectID: let ownedIdentityObjectID):
-			info = [
-				"ownedIdentityObjectID": ownedIdentityObjectID,
-			]
 		case .userWantsToPerfomCloudKitBackupNow:
 			info = nil
 		case .externalTransactionsWereMergedIntoViewContext:
@@ -579,10 +403,6 @@ enum ObvMessengerInternalNotification {
 		case .userWantsToPerfomBackupForExportNow(sourceView: let sourceView):
 			info = [
 				"sourceView": sourceView,
-			]
-		case .newMessageExpiration(expirationDate: let expirationDate):
-			info = [
-				"expirationDate": expirationDate,
 			]
 		case .newMuteExpiration(expirationDate: let expirationDate):
 			info = [
@@ -593,10 +413,6 @@ enum ObvMessengerInternalNotification {
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
 			]
-		case .persistedMessageHasNewMetadata(persistedMessageObjectID: let persistedMessageObjectID):
-			info = [
-				"persistedMessageObjectID": persistedMessageObjectID,
-			]
 		case .fyleMessageJoinWithStatusHasNewProgress(objectID: let objectID, progress: let progress):
 			info = [
 				"objectID": objectID,
@@ -606,9 +422,9 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"objectIDs": objectIDs,
 			]
-		case .userWantsToCallAndIsAllowedTo(contactIDs: let contactIDs, groupId: let groupId):
+		case .userWantsToCallAndIsAllowedTo(contactIds: let contactIds, groupId: let groupId):
 			info = [
-				"contactIDs": contactIDs,
+				"contactIds": contactIds,
 				"groupId": OptionalWrapper(groupId),
 			]
 		case .userWantsToSelectAndCallContacts(contactIDs: let contactIDs, groupId: let groupId):
@@ -621,32 +437,12 @@ enum ObvMessengerInternalNotification {
 				"contactIDs": contactIDs,
 				"groupId": OptionalWrapper(groupId),
 			]
-		case .userWantsToKickParticipant(call: let call, callParticipant: let callParticipant):
-			info = [
-				"call": call,
-				"callParticipant": callParticipant,
-			]
-		case .userWantsToAddParticipants(call: let call, contactIDs: let contactIDs):
-			info = [
-				"call": call,
-				"contactIDs": contactIDs,
-			]
-		case .newWebRTCMessageWasReceived(webrtcMessage: let webrtcMessage, contactID: let contactID, messageUploadTimestampFromServer: let messageUploadTimestampFromServer, messageIdentifierFromEngine: let messageIdentifierFromEngine):
+		case .newWebRTCMessageWasReceived(webrtcMessage: let webrtcMessage, contactId: let contactId, messageUploadTimestampFromServer: let messageUploadTimestampFromServer, messageIdentifierFromEngine: let messageIdentifierFromEngine):
 			info = [
 				"webrtcMessage": webrtcMessage,
-				"contactID": contactID,
+				"contactId": contactId,
 				"messageUploadTimestampFromServer": messageUploadTimestampFromServer,
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
-			]
-		case .callHasBeenUpdated(call: let call, updateKind: let updateKind):
-			info = [
-				"call": call,
-				"updateKind": updateKind,
-			]
-		case .callParticipantHasBeenUpdated(callParticipant: let callParticipant, updateKind: let updateKind):
-			info = [
-				"callParticipant": callParticipant,
-				"updateKind": updateKind,
 			]
 		case .toggleCallView:
 			info = nil
@@ -656,12 +452,11 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"obvMessage": obvMessage,
 			]
-		case .newWebRTCMessageToSend(webrtcMessage: let webrtcMessage, contactID: let contactID, forStartingCall: let forStartingCall, completion: let completion):
+		case .newWebRTCMessageToSend(webrtcMessage: let webrtcMessage, contactID: let contactID, forStartingCall: let forStartingCall):
 			info = [
 				"webrtcMessage": webrtcMessage,
 				"contactID": contactID,
 				"forStartingCall": forStartingCall,
-				"completion": completion,
 			]
 		case .isCallKitEnabledSettingDidChange:
 			info = nil
@@ -697,13 +492,6 @@ enum ObvMessengerInternalNotification {
 				"deletionType": deletionType,
 				"completionHandler": completionHandler,
 			]
-		case .reportCallEvent(callUUID: let callUUID, callReport: let callReport, groupId: let groupId, ownedCryptoId: let ownedCryptoId):
-			info = [
-				"callUUID": callUUID,
-				"callReport": callReport,
-				"groupId": OptionalWrapper(groupId),
-				"ownedCryptoId": ownedCryptoId,
-			]
 		case .newCallLogItem(objectID: let objectID):
 			info = [
 				"objectID": objectID,
@@ -717,10 +505,6 @@ enum ObvMessengerInternalNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"firstContactCryptoId": firstContactCryptoId,
 				"secondContactCryptoIds": secondContactCryptoIds,
-			]
-		case .showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: let incomingCall):
-			info = [
-				"incomingCall": incomingCall,
 			]
 		case .userWantsToShareOwnPublishedDetails(ownedCryptoId: let ownedCryptoId, sourceView: let sourceView):
 			info = [
@@ -763,11 +547,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"persistedMessageReceivedObjectID": persistedMessageReceivedObjectID,
 			]
-		case .aReadOncePersistedMessageSentWasSent(persistedMessageSentObjectID: let persistedMessageSentObjectID, persistedDiscussionObjectID: let persistedDiscussionObjectID):
-			info = [
-				"persistedMessageSentObjectID": persistedMessageSentObjectID,
-				"persistedDiscussionObjectID": persistedDiscussionObjectID,
-			]
 		case .userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: let persistedDiscussionObjectID, expirationJSON: let expirationJSON, ownedCryptoId: let ownedCryptoId):
 			info = [
 				"persistedDiscussionObjectID": persistedDiscussionObjectID,
@@ -801,15 +580,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
-			]
-		case .persistedMessageSystemWasDeleted(objectID: let objectID, discussionObjectID: let discussionObjectID):
-			info = [
-				"objectID": objectID,
-				"discussionObjectID": discussionObjectID,
-			]
-		case .anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: let persistedDiscussionObjectID):
-			info = [
-				"persistedDiscussionObjectID": persistedDiscussionObjectID,
 			]
 		case .userWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: let sentMessageObjectID, newTextBody: let newTextBody):
 			info = [
@@ -882,11 +652,6 @@ enum ObvMessengerInternalNotification {
 				"contactCryptoId": contactCryptoId,
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .persistedContactHasNewStatus(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId):
-			info = [
-				"contactCryptoId": contactCryptoId,
-				"ownedCryptoId": ownedCryptoId,
-			]
 		case .contactIdentityDetailsWereUpdated(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId):
 			info = [
 				"contactCryptoId": contactCryptoId,
@@ -924,57 +689,14 @@ enum ObvMessengerInternalNotification {
 				"fyleElements": fyleElements,
 				"completionHandler": completionHandler,
 			]
-		case .persistedDiscussionWasDeleted(discussionUriRepresentation: let discussionUriRepresentation):
-			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-			]
-		case .newLockedPersistedDiscussion(previousDiscussionUriRepresentation: let previousDiscussionUriRepresentation, newLockedDiscussionId: let newLockedDiscussionId):
-			info = [
-				"previousDiscussionUriRepresentation": previousDiscussionUriRepresentation,
-				"newLockedDiscussionId": newLockedDiscussionId,
-			]
-		case .persistedMessagesWereDeleted(discussionUriRepresentation: let discussionUriRepresentation, messageUriRepresentations: let messageUriRepresentations):
-			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"messageUriRepresentations": messageUriRepresentations,
-			]
-		case .persistedMessagesWereWiped(discussionUriRepresentation: let discussionUriRepresentation, messageUriRepresentations: let messageUriRepresentations):
-			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"messageUriRepresentations": messageUriRepresentations,
-			]
-		case .draftToSendWasReset(discussionObjectID: let discussionObjectID, draftObjectID: let draftObjectID):
-			info = [
-				"discussionObjectID": discussionObjectID,
-				"draftObjectID": draftObjectID,
-			]
-		case .draftFyleJoinWasDeleted(discussionUriRepresentation: let discussionUriRepresentation, draftUriRepresentation: let draftUriRepresentation, draftFyleJoinUriRepresentation: let draftFyleJoinUriRepresentation):
-			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"draftUriRepresentation": draftUriRepresentation,
-				"draftFyleJoinUriRepresentation": draftFyleJoinUriRepresentation,
-			]
-		case .shareExtensionExtensionContextWillCompleteRequest:
-			info = nil
 		case .userWantsToRemoveDraftFyleJoin(draftFyleJoinObjectID: let draftFyleJoinObjectID):
 			info = [
 				"draftFyleJoinObjectID": draftFyleJoinObjectID,
 			]
-		case .AppInitializationEnded:
-			info = nil
 		case .userWantsToChangeContactsSortOrder(ownedCryptoId: let ownedCryptoId, sortOrder: let sortOrder):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 				"sortOrder": sortOrder,
-			]
-		case .contactsSortOrderDidChange:
-			info = nil
-		case .identityColorStyleDidChange:
-			info = nil
-		case .userWantsToUpdateDiscussionLocalConfiguration(value: let value, localConfigurationObjectID: let localConfigurationObjectID):
-			info = [
-				"value": value,
-				"localConfigurationObjectID": localConfigurationObjectID,
 			]
 		case .userWantsToUpdateLocalConfigurationOfDiscussion(value: let value, persistedDiscussionObjectID: let persistedDiscussionObjectID):
 			info = [
@@ -1081,10 +803,6 @@ enum ObvMessengerInternalNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"contactCryptoId": contactCryptoId,
 			]
-		case .persistedContactIsActiveChanged(contactID: let contactID):
-			info = [
-				"contactID": contactID,
-			]
 		case .installedOlvidAppIsOutdated(presentingViewController: let presentingViewController):
 			info = [
 				"presentingViewController": OptionalWrapper(presentingViewController),
@@ -1093,26 +811,15 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .aOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: let ownedIdentityObjectID):
-			info = [
-				"ownedIdentityObjectID": ownedIdentityObjectID,
-			]
 		case .uiRequiresSignedContactDetails(ownedIdentityCryptoId: let ownedIdentityCryptoId, contactCryptoId: let contactCryptoId, completion: let completion):
 			info = [
 				"ownedIdentityCryptoId": ownedIdentityCryptoId,
 				"contactCryptoId": contactCryptoId,
 				"completion": completion,
 			]
-		case .preferredComposeMessageViewActionsDidChange:
-			info = nil
 		case .requestSyncAppDatabasesWithEngine(completion: let completion):
 			info = [
 				"completion": completion,
-			]
-		case .persistedMessageReactionReceivedWasDeleted(messageURI: let messageURI, contactURI: let contactURI):
-			info = [
-				"messageURI": messageURI,
-				"contactURI": contactURI,
 			]
 		case .uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: let ownedIdentityCryptoId, completion: let completion):
 			info = [
@@ -1122,6 +829,11 @@ enum ObvMessengerInternalNotification {
 		case .listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: let completionHandler):
 			info = [
 				"completionHandler": completionHandler,
+			]
+		case .userWantsToSendOneToOneInvitationToContact(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"contactCryptoId": contactCryptoId,
 			]
 		}
 		return info
@@ -1160,50 +872,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observePersistedContactGroupHasUpdatedContactIdentities(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Set<PersistedObvContactIdentity>, Set<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactGroupHasUpdatedContactIdentities.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedContactGroupObjectID = notification.userInfo!["persistedContactGroupObjectID"] as! NSManagedObjectID
-			let insertedContacts = notification.userInfo!["insertedContacts"] as! Set<PersistedObvContactIdentity>
-			let removedContacts = notification.userInfo!["removedContacts"] as! Set<PersistedObvContactIdentity>
-			block(persistedContactGroupObjectID, insertedContacts, removedContacts)
-		}
-	}
-
-	static func observePersistedDiscussionHasNewTitle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, String) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedDiscussionHasNewTitle.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			let title = notification.userInfo!["title"] as! String
-			block(objectID, title)
-		}
-	}
-
-	static func observeNewDraftToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
-		let name = Name.newDraftToSend.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDraftObjectID = notification.userInfo!["persistedDraftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			block(persistedDraftObjectID)
-		}
-	}
-
-	static func observeDraftWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
-		let name = Name.draftWasSent.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDraftObjectID = notification.userInfo!["persistedDraftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			block(persistedDraftObjectID)
-		}
-	}
-
-	static func observeNewOrUpdatedPersistedInvitation(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvDialog, UUID) -> Void) -> NSObjectProtocol {
-		let name = Name.newOrUpdatedPersistedInvitation.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let obvDialog = notification.userInfo!["obvDialog"] as! ObvDialog
-			let persistedInvitationUUID = notification.userInfo!["persistedInvitationUUID"] as! UUID
-			block(obvDialog, persistedInvitationUUID)
-		}
-	}
-
 	static func observePersistedMessageReceivedWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data, ObvCryptoId, Double, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageReceivedWasDeleted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1213,57 +881,6 @@ enum ObvMessengerInternalNotification {
 			let sortIndex = notification.userInfo!["sortIndex"] as! Double
 			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
 			block(objectID, messageIdentifierFromEngine, ownedCryptoId, sortIndex, discussionObjectID)
-		}
-	}
-
-	static func observeNewPersistedObvContactDevice(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.newPersistedObvContactDevice.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactDeviceObjectID = notification.userInfo!["contactDeviceObjectID"] as! NSManagedObjectID
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			block(contactDeviceObjectID, contactCryptoId)
-		}
-	}
-
-	static func observeDeletedPersistedObvContactDevice(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.deletedPersistedObvContactDevice.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			block(contactCryptoId)
-		}
-	}
-
-	static func observePersistedContactWasInserted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactWasInserted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			block(objectID, contactCryptoId)
-		}
-	}
-
-	static func observePersistedContactWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let identity = notification.userInfo!["identity"] as! Data
-			block(objectID, identity)
-		}
-	}
-
-	static func observePersistedContactHasNewCustomDisplayName(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactHasNewCustomDisplayName.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			block(contactCryptoId)
-		}
-	}
-
-	static func observeNewPersistedObvOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.newPersistedObvOwnedIdentity.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(ownedCryptoId)
 		}
 	}
 
@@ -1281,22 +898,6 @@ enum ObvMessengerInternalNotification {
 			let newOwnedCryptoId = notification.userInfo!["newOwnedCryptoId"] as! ObvCryptoId
 			let apiKey = notification.userInfo!["apiKey"] as! UUID
 			block(newOwnedCryptoId, apiKey)
-		}
-	}
-
-	static func observeOwnedIdentityWasDeactivated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.ownedIdentityWasDeactivated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedIdentityObjectID = notification.userInfo!["ownedIdentityObjectID"] as! NSManagedObjectID
-			block(ownedIdentityObjectID)
-		}
-	}
-
-	static func observeOwnedIdentityWasReactivated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.ownedIdentityWasReactivated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedIdentityObjectID = notification.userInfo!["ownedIdentityObjectID"] as! NSManagedObjectID
-			block(ownedIdentityObjectID)
 		}
 	}
 
@@ -1322,14 +923,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeNewMessageExpiration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Date) -> Void) -> NSObjectProtocol {
-		let name = Name.newMessageExpiration.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let expirationDate = notification.userInfo!["expirationDate"] as! Date
-			block(expirationDate)
-		}
-	}
-
 	static func observeNewMuteExpiration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Date) -> Void) -> NSObjectProtocol {
 		let name = Name.newMuteExpiration.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1344,14 +937,6 @@ enum ObvMessengerInternalNotification {
 			let launchedByBackgroundTask = notification.userInfo!["launchedByBackgroundTask"] as! Bool
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
 			block(launchedByBackgroundTask, completionHandler)
-		}
-	}
-
-	static func observePersistedMessageHasNewMetadata(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessageHasNewMetadata.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageObjectID = notification.userInfo!["persistedMessageObjectID"] as! NSManagedObjectID
-			block(persistedMessageObjectID)
 		}
 	}
 
@@ -1372,13 +957,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], (groupUid: UID, groupOwner: ObvCryptoId)?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([OlvidUserId], (groupUid: UID, groupOwner: ObvCryptoId)?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToCallAndIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactIDs = notification.userInfo!["contactIDs"] as! [TypeSafeManagedObjectID<PersistedObvContactIdentity>]
+			let contactIds = notification.userInfo!["contactIds"] as! [OlvidUserId]
 			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<(groupUid: UID, groupOwner: ObvCryptoId)>
 			let groupId = groupIdWrapper.value
-			block(contactIDs, groupId)
+			block(contactIds, groupId)
 		}
 	}
 
@@ -1402,50 +987,14 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToKickParticipant(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Call, CallParticipant) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToKickParticipant.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let call = notification.userInfo!["call"] as! Call
-			let callParticipant = notification.userInfo!["callParticipant"] as! CallParticipant
-			block(call, callParticipant)
-		}
-	}
-
-	static func observeUserWantsToAddParticipants(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Call, [TypeSafeManagedObjectID<PersistedObvContactIdentity>]) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToAddParticipants.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let call = notification.userInfo!["call"] as! Call
-			let contactIDs = notification.userInfo!["contactIDs"] as! [TypeSafeManagedObjectID<PersistedObvContactIdentity>]
-			block(call, contactIDs)
-		}
-	}
-
-	static func observeNewWebRTCMessageWasReceived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, TypeSafeManagedObjectID<PersistedObvContactIdentity>, Date, Data) -> Void) -> NSObjectProtocol {
+	static func observeNewWebRTCMessageWasReceived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, OlvidUserId, Date, Data) -> Void) -> NSObjectProtocol {
 		let name = Name.newWebRTCMessageWasReceived.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
-			let contactID = notification.userInfo!["contactID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
+			let contactId = notification.userInfo!["contactId"] as! OlvidUserId
 			let messageUploadTimestampFromServer = notification.userInfo!["messageUploadTimestampFromServer"] as! Date
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
-			block(webrtcMessage, contactID, messageUploadTimestampFromServer, messageIdentifierFromEngine)
-		}
-	}
-
-	static func observeCallHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Call, CallUpdateKind) -> Void) -> NSObjectProtocol {
-		let name = Name.callHasBeenUpdated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let call = notification.userInfo!["call"] as! Call
-			let updateKind = notification.userInfo!["updateKind"] as! CallUpdateKind
-			block(call, updateKind)
-		}
-	}
-
-	static func observeCallParticipantHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (CallParticipant, CallParticipantUpdateKind) -> Void) -> NSObjectProtocol {
-		let name = Name.callParticipantHasBeenUpdated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let callParticipant = notification.userInfo!["callParticipant"] as! CallParticipant
-			let updateKind = notification.userInfo!["updateKind"] as! CallParticipantUpdateKind
-			block(callParticipant, updateKind)
+			block(webrtcMessage, contactId, messageUploadTimestampFromServer, messageIdentifierFromEngine)
 		}
 	}
 
@@ -1471,14 +1020,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeNewWebRTCMessageToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, TypeSafeManagedObjectID<PersistedObvContactIdentity>, Bool, @escaping () -> Void) -> Void) -> NSObjectProtocol {
+	static func observeNewWebRTCMessageToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, TypeSafeManagedObjectID<PersistedObvContactIdentity>, Bool) -> Void) -> NSObjectProtocol {
 		let name = Name.newWebRTCMessageToSend.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
 			let contactID = notification.userInfo!["contactID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
 			let forStartingCall = notification.userInfo!["forStartingCall"] as! Bool
-			let completion = notification.userInfo!["completion"] as! () -> Void
-			block(webrtcMessage, contactID, forStartingCall, completion)
+			block(webrtcMessage, contactID, forStartingCall)
 		}
 	}
 
@@ -1567,18 +1115,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeReportCallEvent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallReport, (groupUid: UID, groupOwner: ObvCryptoId)?, ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.reportCallEvent.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let callUUID = notification.userInfo!["callUUID"] as! UUID
-			let callReport = notification.userInfo!["callReport"] as! CallReport
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<(groupUid: UID, groupOwner: ObvCryptoId)>
-			let groupId = groupIdWrapper.value
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(callUUID, callReport, groupId, ownedCryptoId)
-		}
-	}
-
 	static func observeNewCallLogItem(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedCallLogItem>) -> Void) -> NSObjectProtocol {
 		let name = Name.newCallLogItem.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1602,14 +1138,6 @@ enum ObvMessengerInternalNotification {
 			let firstContactCryptoId = notification.userInfo!["firstContactCryptoId"] as! ObvCryptoId
 			let secondContactCryptoIds = notification.userInfo!["secondContactCryptoIds"] as! Set<ObvCryptoId>
 			block(ownedCryptoId, firstContactCryptoId, secondContactCryptoIds)
-		}
-	}
-
-	static func observeShowCallViewControllerForAnsweringNonCallKitIncomingCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (IncomingCall) -> Void) -> NSObjectProtocol {
-		let name = Name.showCallViewControllerForAnsweringNonCallKitIncomingCall.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let incomingCall = notification.userInfo!["incomingCall"] as! IncomingCall
-			block(incomingCall)
 		}
 	}
 
@@ -1691,15 +1219,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeAReadOncePersistedMessageSentWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
-		let name = Name.aReadOncePersistedMessageSentWasSent.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageSentObjectID = notification.userInfo!["persistedMessageSentObjectID"] as! NSManagedObjectID
-			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(persistedMessageSentObjectID, persistedDiscussionObjectID)
-		}
-	}
-
 	static func observeUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, ExpirationJSON, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1759,23 +1278,6 @@ enum ObvMessengerInternalNotification {
 			let launchedByBackgroundTask = notification.userInfo!["launchedByBackgroundTask"] as! Bool
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
 			block(launchedByBackgroundTask, completionHandler)
-		}
-	}
-
-	static func observePersistedMessageSystemWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessageSystemWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(objectID, discussionObjectID)
-		}
-	}
-
-	static func observeAnOldDiscussionSharedConfigurationWasReceived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.anOldDiscussionSharedConfigurationWasReceived.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! NSManagedObjectID
-			block(persistedDiscussionObjectID)
 		}
 	}
 
@@ -1917,15 +1419,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observePersistedContactHasNewStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactHasNewStatus.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(contactCryptoId, ownedCryptoId)
-		}
-	}
-
 	static func observeContactIdentityDetailsWereUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.contactIdentityDetailsWereUpdated.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1973,7 +1466,7 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeRequestHardLinkToFyle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (FyleElement, ((HardLinkToFyle) -> Void)) -> Void) -> NSObjectProtocol {
+	static func observeRequestHardLinkToFyle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (FyleElement, @escaping ((HardLinkToFyle) -> Void)) -> Void) -> NSObjectProtocol {
 		let name = Name.requestHardLinkToFyle.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleElement = notification.userInfo!["fyleElement"] as! FyleElement
@@ -1982,73 +1475,12 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeRequestAllHardLinksToFyles(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([FyleElement], (([HardLinkToFyle?]) -> Void)) -> Void) -> NSObjectProtocol {
+	static func observeRequestAllHardLinksToFyles(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([FyleElement], @escaping (([HardLinkToFyle?]) -> Void)) -> Void) -> NSObjectProtocol {
 		let name = Name.requestAllHardLinksToFyles.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleElements = notification.userInfo!["fyleElements"] as! [FyleElement]
 			let completionHandler = notification.userInfo!["completionHandler"] as! (([HardLinkToFyle?]) -> Void)
 			block(fyleElements, completionHandler)
-		}
-	}
-
-	static func observePersistedDiscussionWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedDiscussionWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			block(discussionUriRepresentation)
-		}
-	}
-
-	static func observeNewLockedPersistedDiscussion(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
-		let name = Name.newLockedPersistedDiscussion.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let previousDiscussionUriRepresentation = notification.userInfo!["previousDiscussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let newLockedDiscussionId = notification.userInfo!["newLockedDiscussionId"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(previousDiscussionUriRepresentation, newLockedDiscussionId)
-		}
-	}
-
-	static func observePersistedMessagesWereDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, Set<TypeSafeURL<PersistedMessage>>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessagesWereDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let messageUriRepresentations = notification.userInfo!["messageUriRepresentations"] as! Set<TypeSafeURL<PersistedMessage>>
-			block(discussionUriRepresentation, messageUriRepresentations)
-		}
-	}
-
-	static func observePersistedMessagesWereWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, Set<TypeSafeURL<PersistedMessage>>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessagesWereWiped.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let messageUriRepresentations = notification.userInfo!["messageUriRepresentations"] as! Set<TypeSafeURL<PersistedMessage>>
-			block(discussionUriRepresentation, messageUriRepresentations)
-		}
-	}
-
-	static func observeDraftToSendWasReset(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
-		let name = Name.draftToSendWasReset.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			block(discussionObjectID, draftObjectID)
-		}
-	}
-
-	static func observeDraftFyleJoinWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, TypeSafeURL<PersistedDraft>, TypeSafeURL<PersistedDraftFyleJoin>) -> Void) -> NSObjectProtocol {
-		let name = Name.draftFyleJoinWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let draftUriRepresentation = notification.userInfo!["draftUriRepresentation"] as! TypeSafeURL<PersistedDraft>
-			let draftFyleJoinUriRepresentation = notification.userInfo!["draftFyleJoinUriRepresentation"] as! TypeSafeURL<PersistedDraftFyleJoin>
-			block(discussionUriRepresentation, draftUriRepresentation, draftFyleJoinUriRepresentation)
-		}
-	}
-
-	static func observeShareExtensionExtensionContextWillCompleteRequest(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.shareExtensionExtensionContextWillCompleteRequest.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
 		}
 	}
 
@@ -2060,42 +1492,12 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeAppInitializationEnded(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.AppInitializationEnded.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
 	static func observeUserWantsToChangeContactsSortOrder(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ContactsSortOrder) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToChangeContactsSortOrder.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let sortOrder = notification.userInfo!["sortOrder"] as! ContactsSortOrder
 			block(ownedCryptoId, sortOrder)
-		}
-	}
-
-	static func observeContactsSortOrderDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.contactsSortOrderDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
-	static func observeIdentityColorStyleDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.identityColorStyleDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
-	static func observeUserWantsToUpdateDiscussionLocalConfiguration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (PersistedDiscussionLocalConfigurationValue, TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToUpdateDiscussionLocalConfiguration.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let value = notification.userInfo!["value"] as! PersistedDiscussionLocalConfigurationValue
-			let localConfigurationObjectID = notification.userInfo!["localConfigurationObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>
-			block(value, localConfigurationObjectID)
 		}
 	}
 
@@ -2316,14 +1718,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observePersistedContactIsActiveChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedContactIsActiveChanged.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactID = notification.userInfo!["contactID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
-			block(contactID)
-		}
-	}
-
 	static func observeInstalledOlvidAppIsOutdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UIViewController?) -> Void) -> NSObjectProtocol {
 		let name = Name.installedOlvidAppIsOutdated.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -2341,14 +1735,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeAOneToOneDiscussionTitleNeedsToBeReset(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvOwnedIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.aOneToOneDiscussionTitleNeedsToBeReset.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedIdentityObjectID = notification.userInfo!["ownedIdentityObjectID"] as! TypeSafeManagedObjectID<PersistedObvOwnedIdentity>
-			block(ownedIdentityObjectID)
-		}
-	}
-
 	static func observeUiRequiresSignedContactDetails(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId, @escaping (SignedUserDetails?) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.uiRequiresSignedContactDetails.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -2359,27 +1745,11 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observePreferredComposeMessageViewActionsDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.preferredComposeMessageViewActionsDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
 	static func observeRequestSyncAppDatabasesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (@escaping (Result<Void,Error>) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.requestSyncAppDatabasesWithEngine.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let completion = notification.userInfo!["completion"] as! (Result<Void,Error>) -> Void
 			block(completion)
-		}
-	}
-
-	static func observePersistedMessageReactionReceivedWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (URL, URL) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessageReactionReceivedWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let messageURI = notification.userInfo!["messageURI"] as! URL
-			let contactURI = notification.userInfo!["contactURI"] as! URL
-			block(messageURI, contactURI)
 		}
 	}
 
@@ -2397,6 +1767,15 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
 			block(completionHandler)
+		}
+	}
+
+	static func observeUserWantsToSendOneToOneInvitationToContact(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToSendOneToOneInvitationToContact.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId, contactCryptoId)
 		}
 	}
 

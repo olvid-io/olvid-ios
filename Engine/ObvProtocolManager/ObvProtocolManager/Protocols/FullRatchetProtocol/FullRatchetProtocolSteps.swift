@@ -76,13 +76,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting AliceSendEphemeralKeyStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending AliceSendEphemeralKeyStep", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = receivedMessage.contactIdentity
             let contactDeviceUid = receivedMessage.contactDeviceUid
@@ -145,13 +138,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting AliceResendEphemeralKeyStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending AliceResendEphemeralKeyStep", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             // We discard the ephemeral private key of that start state
             let contactIdentity = startState.contactIdentity
@@ -224,13 +210,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting AliceResendEphemeralKeyFromAliceWaitingForAckStateStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending AliceResendEphemeralKeyFromAliceWaitingForAckStateStep", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             // We discard the ephemeral private key of that start state
             let contactIdentity = startState.contactIdentity
@@ -302,14 +281,7 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting BobSendEphemeralKeyAndK1FromInitialStateStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending BobSendEphemeralKeyAndK1FromInitialStateStep", log: log, type: .info) }
             
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             // Since the BobSendEphemeralKeyAndK1FromInitialStateStep and the BobSendEphemeralKeyAndK1BobWaitingForK2StateStep are almost identical, we factorized most of the code into a helper function
             guard let helperValues = FullRatchetProtocol.bobSendEphemeralKeyAndK1StepHelper(receivedMessage: receivedMessage,
                                                                                             ownedIdentity: ownedIdentity,
@@ -370,8 +342,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting BobSendEphemeralKeyAndK1BobWaitingForK2StateStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending BobSendEphemeralKeyAndK1BobWaitingForK2StateStep", log: log, type: .info) }
 
             os_log("FullRatchetProtocol - BobSendEphemeralKeyAndK1BobWaitingForK2StateStep - Received restart counter: %d / Start state restart counter: %d", log: log, type: .info, receivedMessage.restartCounter, startState.restartCounter)
 
@@ -382,11 +352,6 @@ extension FullRatchetProtocol {
                 return startState
             }
     
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             // We do nothing with the remaining values of the start state since we are re-starting the protocol.
             
             // Since the BobSendEphemeralKeyAndK1FromInitialStateStep and the BobSendEphemeralKeyAndK1BobWaitingForK2StateStep are almost identical, we factorized most of the code into a helper function
@@ -449,8 +414,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting AliceRecoverK1AndSendK2Step", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending AliceRecoverK1AndSendK2Step", log: log, type: .info) }
 
             let contactEphemeralPublicKey = receivedMessage.contactEphemeralPublicKey
             let c1 = receivedMessage.c1
@@ -461,11 +424,6 @@ extension FullRatchetProtocol {
             let localRestartCounter = startState.restartCounter
 
             os_log("FullRatchetProtocol - AliceRecoverK1AndSendK2Step - Received restart counter: %d / Start state restart counter: %d", log: log, type: .info, receivedRestartCounter, localRestartCounter)
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             // Verifiy that the counter matches. Ignore the message if they don't
 
@@ -545,8 +503,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting BobRecoverK2ToUpdateReceiveSeedAndSendAckStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending BobRecoverK2ToUpdateReceiveSeedAndSendAckStep", log: log, type: .info) }
 
             let c2 = receivedMessage.c2
             let receivedRestartCounter = receivedMessage.restartCounter
@@ -557,11 +513,6 @@ extension FullRatchetProtocol {
             let k1 = startState.k1
 
             os_log("FullRatchetProtocol - BobRecoverK2ToUpdateReceiveSeedAndSendAckStep - Received restart counter: %d / Start state restart counter: %d", log: log, type: .info, receivedRestartCounter, localRestartCounter)
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             // Verifiy that the counter matches. Ignore the message if they don't
 
@@ -650,8 +601,6 @@ extension FullRatchetProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: FullRatchetProtocol.logCategory)
-            os_log("FullRatchetProtocol: starting AliceUpdateSendSeedStep", log: log, type: .info)
-            defer { os_log("FullRatchetProtocol: ending AliceUpdateSendSeedStep", log: log, type: .info) }
 
             let receivedRestartCounter = receivedMessage.restartCounter
             /* startState.contactIdentity already used to test the channel */
@@ -660,11 +609,6 @@ extension FullRatchetProtocol {
             let localRestartCounter = startState.restartCounter
 
             os_log("FullRatchetProtocol - AliceUpdateSendSeedStep - Received restart counter: %d / Start state restart counter: %d", log: log, type: .info, receivedRestartCounter, localRestartCounter)
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             // Verifiy that the counter matches. Ignore the message if they don't
 

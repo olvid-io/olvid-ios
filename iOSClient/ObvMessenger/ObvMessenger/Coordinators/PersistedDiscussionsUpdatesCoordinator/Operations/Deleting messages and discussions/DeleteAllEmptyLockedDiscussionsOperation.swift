@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class DeleteAllEmptyLockedDiscussionsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
  
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllEmptyLockedDiscussionsOperation.self))
 
     override func main() {
 

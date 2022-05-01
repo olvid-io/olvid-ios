@@ -19,40 +19,40 @@
 
 import Foundation
 import AudioToolbox
+import OlvidUtils
 
 class NCXCallManager: ObvCallManager {
 
     var isCallKit: Bool { false }
     private var callController = NCXCallController.instance
 
-    func requestEndCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestEndCallAction(call: Call) async throws {
         let endCallAction = NCXEndCallAction(call: call.uuid)
-        callController.request(action: endCallAction, completion: completion)
+        try await callController.request(action: endCallAction)
     }
 
-    func requestAnswerCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
-        guard let incomingCall = call as? IncomingCall else { assertionFailure(); return }
-        guard !incomingCall.userAnsweredIncomingCall else { return }
-        let answerCallAction = NCXAnswerCallAction(call: call.uuid)
-        callController.request(action: answerCallAction, completion: completion)
+    func requestAnswerCallAction(incomingCall: Call) async throws {
+        guard incomingCall.direction == .incoming else { assertionFailure(); return }
+        guard await !incomingCall.userDidAnsweredIncomingCall() else { return }
+        let answerCallAction = NCXAnswerCallAction(call: incomingCall.uuid)
+        try await callController.request(action: answerCallAction)
     }
 
-    func requestMuteCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestMuteCallAction(call: Call) async throws {
         let muteCallAction = NCXSetMutedCallAction(call: call.uuid, muted: true)
-        callController.request(action: muteCallAction, completion: completion)
+        try await callController.request(action: muteCallAction)
     }
 
-    func requestUnmuteCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestUnmuteCallAction(call: Call) async throws {
         let umuteCallAction = NCXSetMutedCallAction(call: call.uuid, muted: false)
-        callController.request(action: umuteCallAction, completion: completion)
+        try await callController.request(action: umuteCallAction)
     }
 
-    func requestStartCallAction(call: Call, contactIdentifier: String, handleValue: String, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    func requestStartCallAction(call: Call, contactIdentifier: String, handleValue: String) async throws {
         let handle = ObvHandleImpl(type_: .generic, value: handleValue)
-
         let startCallAction = NCXStartCallAction(call: call.uuid, handle: handle)
         startCallAction.contactIdentifier = contactIdentifier
-        callController.request(action: startCallAction, completion: completion)
+        try await callController.request(action: startCallAction)
     }
 }
 
@@ -139,8 +139,10 @@ class NCXCall: ObvCall {
     }
 }
 
-class NCXCallController {
-
+class NCXCallController: ObvErrorMaker {
+    
+    static let errorDomain = "NCXCallController"
+    
     private static var _instance: NCXCallController? = nil
     private init() { /* You shall not pass */ }
     static var instance: NCXCallController {
@@ -164,33 +166,34 @@ class NCXCallController {
         self.configuration = configuration
     }
 
-    fileprivate func request(action: NCXCallAction, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)? = nil) {
+    
+    fileprivate func request(action: NCXCallAction) async throws {
         guard let delegate = self.delegate else {
-            completion?(.unknownCallProvider)
-            return
+            throw Self.makeError(message: "Unknown call provider")
         }
+        
         switch action.kind {
+            
         case .start:
             if let action = action as? ObvStartCallAction {
                 guard callObserver.calls_.first(where: { $0.uuid == action.callUUID }) == nil else {
-                    completion?(.callUUIDAlreadyExists); return
+                    throw Self.makeError(message: "Call UUID alreadt exists")
                 }
                 guard callObserver.calls_.count < configuration.maximumCallGroups else {
-                    completion?(.maximumCallGroupsReached); return
+                    throw Self.makeError(message: "Maximum call groups reached")
                 }
-                let block = { delegate.provider(perform: action) }
-                delegateQueue?.async { block() } ?? block()
-                completion?(nil)
+                let call = NCXCall(uuid: action.callUUID, isOutgoing: true)
+                callObserver.calls_.append(call)
+                callObserver.callObserver(callChanged: call)
+                await delegate.provider(perform: action)
             }
+            
         case .answer:
             if let action = action as? ObvAnswerCallAction {
                 guard callObserver.calls_.count <= configuration.maximumCallGroups else {
-                    completion?(.maximumCallGroupsReached); return
+                    throw Self.makeError(message: "Maximum call groups reached")
                 }
-                let block = { delegate.provider(perform: action) }
-                delegateQueue?.async { block() } ?? block()
-                completion?(nil)
-
+                await delegate.provider(perform: action)
                 if let call = self.callObserver.calls_.first(where: { $0.uuid == action.callUUID }) as? NCXCall {
                     if !call.hasConnected {
                         call.hasConnected = true
@@ -198,55 +201,55 @@ class NCXCallController {
                     }
                 }
             }
+            
         case .end:
             if let action = action as? ObvEndCallAction {
                 guard callObserver.calls_.first(where: { $0.uuid == action.callUUID }) != nil else {
-                    completion?(.unknownCallUUID); return
+                    throw Self.makeError(message: "Unknown call UUID")
                 }
-                let block = { delegate.provider(perform: action) }
-                delegateQueue?.async { block() } ?? block()
-                completion?(nil)
-
+                await delegate.provider(perform: action)
                 if let call = self.callObserver.calls_.first(where: { $0.uuid == action.callUUID }) as? NCXCall {
+                    callObserver.calls_.removeAll(where: { $0.uuid == action.callUUID })
                     if !call.hasEnded {
                         call.hasEnded = true
                         self.callObserver.callObserver(callChanged: call)
                     }
                 }
             }
+            
         case .held:
             if let action = action as? ObvSetHeldCallAction {
                 guard callObserver.calls_.first(where: { $0.uuid == action.callUUID }) != nil else {
-                    completion?(.unknownCallUUID); return
+                    throw Self.makeError(message: "Unknown call UUID")
                 }
-                let block = { delegate.provider(perform: action) }
-                delegateQueue?.async { block() } ?? block()
+                await delegate.provider(perform: action)
             }
+            
         case .mute:
             if let action = action as? ObvSetMutedCallAction {
                 guard callObserver.calls_.first(where: { $0.uuid == action.callUUID }) != nil else {
-                    completion?(.unknownCallUUID); return
+                    throw Self.makeError(message: "Unknown call UUID")
                 }
-                let block = { delegate.provider(perform: action) }
-                delegateQueue?.async { block() } ?? block()
-                completion?(nil)
+                await delegate.provider(perform: action)
             }
+            
         case .playDTMF:
             if let action = action as? ObvPlayDTMFCallAction {
                 guard callObserver.calls_.first(where: { $0.uuid == action.callUUID }) != nil else {
-                    completion?(.unknownCallUUID); return
+                    throw Self.makeError(message: "Unknown call UUID")
                 }
-                let block = { delegate.provider(perform: action) }
-                delegateQueue?.async { block() } ?? block()
-                completion?(nil)
+                await delegate.provider(perform: action)
             }
+
         }
     }
 
 }
 
-class NCXObvProvider: ObvProvider {
+class NCXObvProvider: ObvProvider, ObvErrorMaker {
 
+    static let errorDomain = "NCXObvProvider"
+    
     private static var _instance: NCXObvProvider? = nil
     private init() { /* You shall not pass */ }
     static var instance: NCXObvProvider {
@@ -284,31 +287,33 @@ class NCXObvProvider: ObvProvider {
     private var connectedDates: [UUID: Date] = [:]
     private var callUpdates: [UUID: ObvCallUpdate] = [:]
 
-    func reportNewIncomingCall(with UUID: UUID, update: ObvCallUpdate, completion: @escaping (ObvErrorCodeIncomingCallError?) -> Void) {
-        print("☎️ NCX reportNewIncomingCall with ", UUID)
+    
+    func reportNewIncomingCall(with UUID: UUID, update: ObvCallUpdate, completion: @escaping (Result<Void, Error>) -> Void) {
 
         guard callObserver.calls_.first(where: { $0.uuid == UUID }) == nil else {
-            print("☎️ NCX reportNewIncomingCall -> callUUIDAlreadyExists")
-            completion(.callUUIDAlreadyExists)
+            let error = Self.makeError(message: "Call UUID already exists", code: ObvErrorCodeIncomingCallError.callUUIDAlreadyExists.rawValue)
+            completion(.failure(error))
             return
         }
 
         /// REMARK It is not like in CX but it simplify a lot of code to have this test here
         guard callObserver.calls_.count < configuration.maximumCallGroups else {
-            print("☎️ NCX reportNewIncomingCall -> maximumCallGroupsReached")
-            completion(.maximumCallGroupsReached)
+            let error = Self.makeError(message: "Maximum call groups reached", code: ObvErrorCodeIncomingCallError.maximumCallGroupsReached.rawValue)
+            completion(.failure(error))
             return
         }
 
         let call = NCXCall(uuid: UUID, isOutgoing: false)
         callObserver.calls_.append(call)
-        print("☎️ NCX reportNewIncomingCall -> OK!")
-        completion(nil)
 
         callObserver.callObserver(callChanged: call)
 
+        completion(.success(()))
+        
         // REMARK ? We should deal with do not disturb
+
     }
+
 
     func reportCall(with UUID: UUID, updated update: ObvCallUpdate) {
         print("☎️ NCX reportCall with ", update, UUID)
@@ -333,13 +338,15 @@ class NCXObvProvider: ObvProvider {
             print("☎️ NCX reportCall (1): the given call does not exists ", UUID); return
         }
         if call.isOutgoing {
-            guard let dateStartedConnecting = startedConnectingDates.removeValue(forKey: UUID) else {
-                print("☎️ NCX reportCall (2): the given call does not exists ", UUID); assertionFailure(); return
-            }
-            if let dateConnected = connectedDates.removeValue(forKey: UUID) {
-                guard dateStartedConnecting < dateConnected else {
-                    print("☎️ NCX reportCall (4): dates are incoherents ", UUID); assertionFailure(); return
+            if let dateStartedConnecting = startedConnectingDates.removeValue(forKey: UUID) {
+                if let dateConnected = connectedDates.removeValue(forKey: UUID) {
+                    if dateStartedConnecting >= dateConnected {
+                        print("☎️ NCX reportCall (4): dates are incoherents ", UUID); assertionFailure(); return
+                        assertionFailure()
+                    }
                 }
+            } else {
+                print("☎️ NCX reportCall (2): the given call does not exists", UUID)
             }
         }
         callObserver.calls_.removeAll(where: { $0.uuid == UUID })
@@ -352,13 +359,10 @@ class NCXObvProvider: ObvProvider {
 
     func reportOutgoingCall(with UUID: UUID, startedConnectingAt dateStartedConnecting: Date?) {
         print("☎️ NCX reportOutgoingCall startedConnectingAt")
-        guard callObserver.calls_.first(where: { $0.uuid == UUID }) == nil else {
-            print("☎️ NCX reportOutgoingCall startedConnectingAt -> callUUIDAlreadyExists"); return
+        guard let call = callObserver.calls_.first(where: { $0.uuid == UUID }) else {
+            print("☎️ NCX reportOutgoingCall startedConnectingAt -> could not find call"); return
         }
-        let call = NCXCall(uuid: UUID, isOutgoing: true)
-        callObserver.calls_.append(call)
         startedConnectingDates[UUID] = dateStartedConnecting ?? Date()
-
         callObserver.callObserver(callChanged: call)
     }
 
@@ -391,7 +395,7 @@ class NCXObvProvider: ObvProvider {
         callUpdates.removeAll()
     }
 
-    func reportNewCancelledIncomingCall(completionHandler: @escaping () -> Void) {
+    func reportNewCancelledIncomingCall() {
         /// Nothing to call we do not have to present something to the user in case of error
     }
 

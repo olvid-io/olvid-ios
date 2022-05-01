@@ -1,9 +1,9 @@
 #!/bin/bash
 
-GMP_VERSION="6.1.2"
+GMP_VERSION="6.2.1"
 PLATFORMPATH="/Applications/Xcode.app/Contents/Developer/Platforms"
 TOOLSPATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
-export IPHONEOS_DEPLOYMENT_TARGET="13" # can be set to 10.3 with Xcode 8.3.3
+export IPHONEOS_DEPLOYMENT_TARGET="13.0" # can be set to 10.3 with Xcode 8.3.3
 pwd=`pwd`
 
 findLatestSDKVersion()
@@ -40,10 +40,10 @@ buildit()
 
     export CC="$(xcrun -sdk iphoneos -find clang)"
     export CPP="$CC -E"
-    export CFLAGS="-arch ${target} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$SDKVERSION -flto"
+    export CFLAGS="-arch ${target} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$IPHONEOS_DEPLOYMENT_TARGET -flto"
     export AR=$(xcrun -sdk iphoneos -find ar)
     export RANLIB=$(xcrun -sdk iphoneos -find ranlib)
-    export CPPFLAGS="-arch ${target}  -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$SDKVERSION"
+    export CPPFLAGS="-arch ${target}  -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$IPHONEOS_DEPLOYMENT_TARGET"
     export LDFLAGS="-arch ${target} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk"
     export CC_FOR_BUILD="IPHONEOS_DEPLOYMENT_TARGET='' clang"
 
@@ -83,19 +83,15 @@ distclean()
 
 findLatestSDKVersion iPhoneOS
 echo "Latest SDK version:" $SDKVERSION
-
+echo "iOS deployment target:" $IPHONEOS_DEPLOYMENT_TARGET
 
 # Step 1: Uncompress the GMP source in ./tmp
 
 echo "Uncompressing GMP v$GMP_VERSION..."
 mkdir -p $pwd/tmp
-cp $pwd/gmp_releases/gmp-$GMP_VERSION.tar.bz2 $pwd/tmp/
+cp $pwd/gmp_releases/gmp-$GMP_VERSION.tar.lz $pwd/tmp/
 cd $pwd/tmp/
-if [ -f gmp-$GMP_VERSION.tar ]; then
-    rm gmp-$GMP_VERSION.tar
-fi
-bunzip2 gmp-$GMP_VERSION.tar.bz2
-tar xf gmp-$GMP_VERSION.tar
+tar xf gmp-$GMP_VERSION.tar.lz
 
 
 # Step 2: Distclean if possible

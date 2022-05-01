@@ -26,7 +26,8 @@ final class PersistedDraft: NSManagedObject, Draft {
     private static let entityName = "PersistedDraft"
     private static let sendRequestedKey = "sendRequested"
     private static let discussionKey = "discussion"
-    
+    private static func makeError(message: String) -> Error { NSError(domain: "PersistedDraft", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     // MARK: - Attributes
     
     @NSManaged private(set) var body: String?
@@ -43,7 +44,7 @@ final class PersistedDraft: NSManagedObject, Draft {
     
     // MARK: - Computed Properties
     
-    var draftFyleJoins: [DraftFyleJoin] {
+    var fyleJoins: [FyleJoin] {
         unsortedDraftFyleJoins.sorted(by: { $0.index < $1.index })
     }
 
@@ -85,8 +86,10 @@ final class PersistedDraft: NSManagedObject, Draft {
 
 extension PersistedDraft {
     
-    convenience init?(within discussion: PersistedDiscussion) {
-        guard let context = discussion.managedObjectContext else { return nil }
+    convenience init(within discussion: PersistedDiscussion) throws {
+        guard let context = discussion.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedDraft.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.body = nil
@@ -237,14 +240,14 @@ extension PersistedDraft {
             if sendRequested {
                 sendNewDraftToSendNotification()
             } else {
-                let notification = ObvMessengerInternalNotification.draftWasSent(persistedDraftObjectID: typedObjectID)
+                let notification = ObvMessengerCoreDataNotification.draftWasSent(persistedDraftObjectID: typedObjectID)
                 notification.postOnDispatchQueue()
             }
         }
     }
     
     private func sendNewDraftToSendNotification() {
-        ObvMessengerInternalNotification.newDraftToSend(persistedDraftObjectID: typedObjectID)
+        ObvMessengerCoreDataNotification.newDraftToSend(persistedDraftObjectID: typedObjectID)
             .postOnDispatchQueue()
     }
     

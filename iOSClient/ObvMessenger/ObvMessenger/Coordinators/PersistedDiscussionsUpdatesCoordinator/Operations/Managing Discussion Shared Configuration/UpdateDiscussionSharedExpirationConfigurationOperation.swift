@@ -29,7 +29,7 @@ final class ReplaceDiscussionSharedExpirationConfigurationOperation: OperationWi
     let expirationJSON: ExpirationJSON
     let initiator: ObvCryptoId
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ReplaceDiscussionSharedExpirationConfigurationOperation.self))
 
     init(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, initiator: ObvCryptoId) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID

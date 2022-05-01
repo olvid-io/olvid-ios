@@ -175,7 +175,7 @@ extension CompositionViewFreezeManager {
     
     private func observeNotifications() {
         notificationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeDraftToSendWasReset { [weak self] _, draftObjectID in
+            ObvMessengerCoreDataNotification.observeDraftToSendWasReset { [weak self] _, draftObjectID in
                 self?.processDraftToSendWasReset(draftObjectID: draftObjectID)
             },
             NewSingleDiscussionNotification.observeDraftCouldNotBeSent { [weak self] in

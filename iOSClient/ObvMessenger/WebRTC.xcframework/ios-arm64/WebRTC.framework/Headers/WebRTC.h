@@ -54,6 +54,7 @@
 #import <WebRTC/RTCDataChannelConfiguration.h>
 #import <WebRTC/RTCFieldTrials.h>
 #import <WebRTC/RTCIceCandidate.h>
+#import <WebRTC/RTCIceCandidateErrorEvent.h>
 #import <WebRTC/RTCIceServer.h>
 #import <WebRTC/RTCLegacyStatsReport.h>
 #import <WebRTC/RTCMediaConstraints.h>

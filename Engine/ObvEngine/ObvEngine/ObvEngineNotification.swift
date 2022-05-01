@@ -23,36 +23,6 @@ import OlvidUtils
 
 public struct ObvEngineNotification {
     
-    // MARK: - NewUserDialogToPresent
-    
-    public struct NewUserDialogToPresent {
-        public static let name = NSNotification.Name("ObvEngineNotification.NewUserDialogToPresent")
-        public struct Key {
-            public static let obvDialog = "obvDialog" // ObvDialog
-        }
-        public static func parse(_ notification: Notification) -> ObvDialog? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let obvDialog = userInfo[Key.obvDialog] as? ObvDialog else { return nil }
-            return obvDialog
-        }
-    }
-    
-    // MARK: - APersistedDialogWasDeleted
-    
-    public struct APersistedDialogWasDeleted {
-        public static let name = NSNotification.Name("ObvEngineNotification.APersistedDialogWasDeleted")
-        public struct Key {
-            public static let uuid = "uuid" // UUID
-        }
-        public static func parse(_ notification: Notification) -> UUID? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let uuid = userInfo[Key.uuid] as? UUID else { return nil }
-            return uuid
-        }
-    }
-    
     // MARK: - DeletedObliviousChannelWithContactDevice
     
     public struct DeletedObliviousChannelWithContactDevice {

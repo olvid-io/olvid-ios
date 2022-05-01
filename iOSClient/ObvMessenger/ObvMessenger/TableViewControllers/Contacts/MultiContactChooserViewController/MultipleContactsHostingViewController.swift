@@ -85,12 +85,19 @@ final class MultipleContactsHostingViewController: UIHostingController<ContactsV
     
 }
 
-enum MultipleContactsMode {
-    case restricted(to: Set<ObvCryptoId>)
-    case excluded(from: Set<ObvCryptoId>)
 
-    static var all: MultipleContactsMode {
-        .excluded(from: Set())
+enum MultipleContactsMode {
+    case restricted(to: Set<ObvCryptoId>, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus)
+    case excluded(from: Set<ObvCryptoId>, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus)
+    case all(oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus)
+    
+    var oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus {
+        switch self {
+        case .restricted(to: _, oneToOneStatus: let oneToOneStatus),
+                .excluded(from: _, oneToOneStatus: let oneToOneStatus),
+                .all(oneToOneStatus: let oneToOneStatus):
+            return oneToOneStatus
+        }
     }
 }
 
@@ -98,14 +105,16 @@ extension MultipleContactsMode {
 
     func predicate(with ownedCryptoId: ObvCryptoId) -> NSPredicate {
         switch self {
-        case .restricted(to: let restrictedToContactCryptoIds):
-            return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, restrictedToContactCryptoIds: restrictedToContactCryptoIds)
-        case .excluded(from: let excludedContactCryptoIds):
+        case .restricted(to: let restrictedToContactCryptoIds, oneToOneStatus: let oneToOneStatus):
+            return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, restrictedToContactCryptoIds: restrictedToContactCryptoIds, whereOneToOneStatusIs: oneToOneStatus)
+        case .excluded(from: let excludedContactCryptoIds, oneToOneStatus: let oneToOneStatus):
             if excludedContactCryptoIds.isEmpty { /// Should be .all
-                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId)
+                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: oneToOneStatus)
             } else {
-                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, excludedContactCryptoIds: excludedContactCryptoIds)
+                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, excludedContactCryptoIds: excludedContactCryptoIds, whereOneToOneStatusIs: oneToOneStatus)
             }
+        case .all(oneToOneStatus: let oneToOneStatus):
+            return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: oneToOneStatus)
         }
     }
 }
@@ -364,7 +373,6 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     @Published var tappedContact: PersistedObvContactIdentity? = nil
     @Published var contactToScrollTo: PersistedObvContactIdentity? = nil
     @Published var scrollToTop: Bool = false
-    @Published var ownedIdentityHasNoContactsYet: Bool
     @Published var showSortingSpinner: Bool
     @Published var floatingButtonModel: FloatingButtonModel?
     let selectionStyle: SelectionStyle
@@ -376,7 +384,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     private let initialPredicate: NSPredicate
     private(set) var selectedContacts: Binding<Set<PersistedObvContactIdentity>>!
 
-    private let mode: MultipleContactsMode
+    let mode: MultipleContactsMode
 
     weak var delegate: ContactsViewStoreDelegate?
     weak var multiContactChooserDelegate: MultiContactChooserViewControllerDelegate?
@@ -391,16 +399,14 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
         self.showExplanation = showExplanation
         self.ownedCryptoId = ownedCryptoId
         self.initialPredicate = mode.predicate(with: ownedCryptoId)
-        self.fetchRequest = PersistedObvContactIdentity.getFetchRequestForAllContactsOfOwnedIdentity(with: ownedCryptoId, predicate: self.initialPredicate)
+        self.fetchRequest = PersistedObvContactIdentity.getFetchRequestForAllContactsOfOwnedIdentity(with: ownedCryptoId, predicate: self.initialPredicate, whereOneToOneStatusIs: mode.oneToOneStatus)
         self.changed = false
         self.selectedContacts = nil
         self.selectionStyle = selectionStyle ?? .checkmark
-        self.ownedIdentityHasNoContactsYet = (try PersistedObvContactIdentity.countContactsOfOwnedIdentity(ownedCryptoId, within: ObvStack.shared.viewContext) == 0)
         self.showSortingSpinner = false
         self.floatingButtonModel = floatingButtonModel
         super.init()
         self.selectedContacts = Binding(get: getSelectedContacts, set: setSelectedContacts)
-        observeNSManagedObjectContextDidSaveNotifications()
         refreshFetchRequestWhenSortOrderChanges()
     }
 
@@ -417,7 +423,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     /// and perform a search that is likely to return no result. Soon after we cancel the search and display the list again. This seems to work, but
     /// this is clearely an ugly hack.
     private func refreshFetchRequestWhenSortOrderChanges() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
+        notificationTokens.append(ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
             withAnimation {
                 self?.showSortingSpinner = true
             }
@@ -429,21 +435,6 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
                         self?.showSortingSpinner = false
                     }
                 }
-            }
-        })
-    }
-    
-    
-    private func observeNSManagedObjectContextDidSaveNotifications() {
-        let ownedCryptoId = self.ownedCryptoId
-        let NotificationName = Notification.Name.NSManagedObjectContextDidSave
-        notificationTokens.append(NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: OperationQueue.main) { [weak self] (notification) in
-            do {
-                try withAnimation {
-                    self?.ownedIdentityHasNoContactsYet = (try PersistedObvContactIdentity.countContactsOfOwnedIdentity(ownedCryptoId, within: ObvStack.shared.viewContext) == 0)
-                }
-            } catch {
-                assertionFailure(error.localizedDescription)
             }
         })
     }
@@ -463,7 +454,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
             searchPredicate = nil
         }
         let predicate = mode.predicate(with: ownedCryptoId)
-        self.fetchRequest = PersistedObvContactIdentity.getFetchRequestForAllContactsOfOwnedIdentity(with: ownedCryptoId, predicate: predicate, and: searchPredicate)
+        self.fetchRequest = PersistedObvContactIdentity.getFetchRequestForAllContactsOfOwnedIdentity(with: ownedCryptoId, predicate: predicate, and: searchPredicate, whereOneToOneStatusIs: mode.oneToOneStatus)
     }
     
     private func getSelectedContacts() -> Set<PersistedObvContactIdentity> {
@@ -529,15 +520,29 @@ struct ContactsView: View {
 struct ContactsScrollingViewOrExplanationView: View {
     
     @ObservedObject fileprivate var store: ContactsViewStore
+    private var fetchRequest: FetchRequest<PersistedObvContactIdentity>
+    
+    fileprivate init(store: ContactsViewStore) {
+        self.store = store
+        self.fetchRequest = FetchRequest(fetchRequest: store.fetchRequest)
+    }
+
+    private var viewAboveContactsList: AnyView? {
+        switch store.mode.oneToOneStatus {
+        case .nonOneToOne:
+            return AnyView(erasing: Text("EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS"))
+        case .any, .oneToOne:
+            return nil
+        }
+    }
     
     var body: some View {
         if store.showSortingSpinner {
             ObvProgressView()
-        } else if store.showExplanation && store.ownedIdentityHasNoContactsYet {
+        } else if store.showExplanation && fetchRequest.wrappedValue.isEmpty {
             ExplanationView()
         } else {
             ContactsScrollingView(nsFetchRequest: store.fetchRequest,
-                                  ownedIdentityHasNoContactsYet: store.ownedIdentityHasNoContactsYet,
                                   multipleSelection: store.selectedContacts,
                                   changed: $store.changed,
                                   allowMultipleSelection: store.allowMultipleSelection,
@@ -547,7 +552,8 @@ struct ContactsScrollingViewOrExplanationView: View {
                                   contactToScrollTo: $store.contactToScrollTo,
                                   scrollToTop: $store.scrollToTop,
                                   selectionStyle: store.selectionStyle,
-                                  floatingButtonModel: store.floatingButtonModel)
+                                  floatingButtonModel: store.floatingButtonModel,
+                                  viewAboveContactsList: viewAboveContactsList)
         }
     }
 
@@ -589,7 +595,6 @@ fileprivate struct ExplanationView: View {
 fileprivate struct ContactsScrollingView: View {
     
     let nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>
-    var ownedIdentityHasNoContactsYet: Bool
     @Binding var multipleSelection: Set<PersistedObvContactIdentity>
     @Binding var changed: Bool
     let allowMultipleSelection: Bool
@@ -600,7 +605,27 @@ fileprivate struct ContactsScrollingView: View {
     @Binding var scrollToTop: Bool
     fileprivate let selectionStyle: SelectionStyle
     let floatingButtonModel: FloatingButtonModel?
+    let viewAboveContactsList: AnyView?
+    private var fetchRequest: FetchRequest<PersistedObvContactIdentity>
 
+    
+    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, contactToScrollTo: Binding<PersistedObvContactIdentity?>, scrollToTop: Binding<Bool>, selectionStyle: SelectionStyle, floatingButtonModel: FloatingButtonModel?, viewAboveContactsList: AnyView?) {
+        self.nsFetchRequest = nsFetchRequest
+        self._multipleSelection = multipleSelection
+        self._changed = changed
+        self.allowMultipleSelection = allowMultipleSelection
+        self.disableContactsWithoutDevice = disableContactsWithoutDevice
+        self.userWantsToNavigateToSingleContactIdentityView = userWantsToNavigateToSingleContactIdentityView
+        self._tappedContact = tappedContact
+        self._contactToScrollTo = contactToScrollTo
+        self._scrollToTop = scrollToTop
+        self.selectionStyle = selectionStyle
+        self.floatingButtonModel = floatingButtonModel
+        self.viewAboveContactsList = viewAboveContactsList
+        self.fetchRequest = FetchRequest(fetchRequest: nsFetchRequest)
+    }
+
+    
     var innerView: some View {
         ContactsInnerView(nsFetchRequest: nsFetchRequest,
                           multipleSelection: $multipleSelection,
@@ -610,11 +635,13 @@ fileprivate struct ContactsScrollingView: View {
                           userWantsToNavigateToSingleContactIdentityView: userWantsToNavigateToSingleContactIdentityView,
                           tappedContact: $tappedContact,
                           selectionStyle: selectionStyle,
-                          addBottomPadding: floatingButtonModel != nil)
+                          addBottomPadding: floatingButtonModel != nil,
+                          viewAboveContactsList: viewAboveContactsList)
     }
 
+    
     var body: some View {
-        if ownedIdentityHasNoContactsYet {
+        if fetchRequest.wrappedValue.isEmpty {
             Spacer()
         } else {
             ZStack {
@@ -661,8 +688,9 @@ fileprivate struct ContactsInnerView: View {
     @Binding var tappedContact: PersistedObvContactIdentity?
     fileprivate let selectionStyle: SelectionStyle
     let addBottomPadding: Bool
+    let viewAboveContactsList: AnyView?
 
-    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, selectionStyle: SelectionStyle, addBottomPadding: Bool) {
+    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, selectionStyle: SelectionStyle, addBottomPadding: Bool, viewAboveContactsList: AnyView?) {
         self.fetchRequest = FetchRequest(fetchRequest: nsFetchRequest)
         self._multipleSelection = multipleSelection
         self._changed = changed
@@ -672,6 +700,7 @@ fileprivate struct ContactsInnerView: View {
         self._tappedContact = tappedContact
         self.selectionStyle = selectionStyle
         self.addBottomPadding = addBottomPadding
+        self.viewAboveContactsList = viewAboveContactsList
     }
     
     private func contactCellCanBeSelected(for contact: PersistedObvContactIdentity) -> Bool {
@@ -684,7 +713,15 @@ fileprivate struct ContactsInnerView: View {
     
     var body: some View {
         List {
-            Section.init {
+            if let view = viewAboveContactsList {
+                Section {
+                    view
+                        .padding(4)
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                        .font(.callout)
+                }
+            }
+            Section {
                 ForEach(fetchRequest.wrappedValue, id: \.self) { contact in
                     if allowMultipleSelection {
                         if contactCellCanBeSelected(for: contact) {

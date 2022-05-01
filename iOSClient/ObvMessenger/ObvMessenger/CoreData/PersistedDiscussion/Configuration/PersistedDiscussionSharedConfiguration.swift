@@ -102,8 +102,10 @@ extension PersistedDiscussionSharedConfigurationValue {
 
 extension PersistedDiscussionSharedConfiguration {
     
-    convenience init?(discussion: PersistedDiscussion) {
-        guard let context = discussion.managedObjectContext else { return nil }
+    convenience init(discussion: PersistedDiscussion) throws {
+        guard let context = discussion.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedDiscussionSharedConfiguration.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         // The following 3 values might be reset during the init procedure using the `setValuesUsingSettings`
@@ -158,7 +160,7 @@ extension PersistedDiscussionSharedConfiguration {
         
         if remoteConfig.version < self.version {
             // We ignore the received remote config
-            ObvMessengerInternalNotification.anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: discussion.objectID)
+            ObvMessengerCoreDataNotification.anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: discussion.objectID)
                 .postOnDispatchQueue()
             return false
         } else if remoteConfig.version == self.version {
@@ -271,21 +273,28 @@ extension PersistedDiscussionSharedConfiguration {
 }
 
 
-// MARK: - For Backup purposes
+// MARK: - For Backup purposes calls by PersistedDiscussionConfigurationBackupItem
 
-extension PersistedDiscussionConfigurationBackupItem {
-    
-    func updateExistingInstance(_ configuration: PersistedDiscussionSharedConfiguration) {
-        
-        if let sharedSettingsVersion = self.sharedSettingsVersion {
-            configuration.version = sharedSettingsVersion
-        }
-        configuration.existenceDuration = self.existenceDuration
-        configuration.visibilityDuration = self.visibilityDuration
-        if let readOnce = self.readOnce {
-            configuration.readOnce = readOnce
-        }
+extension PersistedDiscussionSharedConfiguration {
 
+    /// This method shall **only** be used when restoring a backup.
+    func setVersion(with version: Int) {
+        self.version = version
     }
-    
+
+    /// This method shall **only** be used when restoring a backup.
+    func setExistenceDuration(with existenceDuration: TimeInterval?) {
+        self.existenceDuration = existenceDuration
+    }
+
+    /// This method shall **only** be used when restoring a backup.
+    func setVisibilityDuration(with visibilityDuration: TimeInterval?) {
+        self.visibilityDuration = visibilityDuration
+    }
+
+    /// This method shall **only** be used when restoring a backup.
+    func setReadOnce(with readOnce: Bool) {
+        self.readOnce = readOnce
+    }
+
 }

@@ -1,0 +1,49 @@
+import:
+  - Foundation
+  - ObvCrypto
+  - ObvTypes
+  - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: notificationDelegate}
+  - {key: notificationCenterType, value: ObvNotificationDelegate}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+notifications:
+- name: newOutboxMessageAndAttachmentsToUpload
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: attachmentIds, type: [AttachmentIdentifier]}
+  - {name: flowId, type: FlowIdentifier}
+- name: outboxMessageAndAttachmentsDeleted
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: attachmentUploadRequestIsTakenCareOf
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: postNetworkOperationFailedSinceOwnedIdentityIsNotActive
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: outboxMessageWasUploaded
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: timestampFromServer, type: Date}
+  - {name: isAppMessageWithUserContent, type: Bool}
+  - {name: isVoipMessage, type: Bool}
+  - {name: flowId, type: FlowIdentifier}
+- name: outboxAttachmentHasNewProgress
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: newProgress, type: Progress}
+  - {name: flowId, type: FlowIdentifier}
+- name: outboxAttachmentWasAcknowledged
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: outboxMessagesAndAllTheirAttachmentsWereAcknowledged
+  params:
+  - {name: messageIdsAndTimestampsFromServer, type: "[(messageId: MessageIdentifier, timestampFromServer: Date)]"}
+  - {name: flowId, type: FlowIdentifier}

@@ -61,7 +61,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
             
             let persistedContactIdentity: PersistedObvContactIdentity
             do {
-                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, within: obvContext.context) else {
+                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
                 persistedContactIdentity = _persistedContactIdentity
@@ -74,17 +74,22 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
             }
 
             let discussion: PersistedDiscussion
-            if let groupId = messageJSON.groupId {
-                do {
+            do {
+                if let groupId = messageJSON.groupId {
                     guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                    guard persistedContactIdentity.isOneToOne else {
+                        return cancel(withReason: .cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact)
+                    }
+                    discussion = oneToOneDiscussion
+                } else {
+                    return cancel(withReason: .couldNotFindDiscussion)
                 }
-            } else {
-                discussion = persistedContactIdentity.oneToOneDiscussion
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             // Try to insert a EndToEndEncryptedSystemMessage if the discussion is empty
@@ -291,16 +296,20 @@ enum CreatePersistedMessageReceivedFromReceivedObvMessageOperationReasonForCance
     case couldNotFindPersistedContactGroupInDatabase
     case couldNotCreatePersistedMessageReceived
     case coreDataError(error: Error)
+    case couldNotFindDiscussion
+    case cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact
     
     var logType: OSLogType {
         switch self {
         case .couldNotFindPersistedObvContactIdentityInDatabase,
-             .couldNotFindPersistedContactGroupInDatabase:
+                .couldNotFindPersistedContactGroupInDatabase,
+                .couldNotFindDiscussion,
+                .cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact:
             return .error
         case .contextIsNil,
-             .coreDataError,
-             .couldNotDetermineOwnedIdentity,
-             .couldNotCreatePersistedMessageReceived:
+                .coreDataError,
+                .couldNotDetermineOwnedIdentity,
+                .couldNotCreatePersistedMessageReceived:
             return .fault
         }
     }
@@ -319,6 +328,10 @@ enum CreatePersistedMessageReceivedFromReceivedObvMessageOperationReasonForCance
             return "Could not create a PersistedMessageReceived instance"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
+        case .couldNotFindDiscussion:
+            return "Could not find discussion"
+        case .cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact:
+            return "The message comes from a non-oneToOne contact. We could not find the appropriate group discussion, and we cannot add the message to a one2one discussion."
         }
     }
     
@@ -333,7 +346,7 @@ final class ProcessFyleWithinDownloadingAttachmentOperation: ContextualOperation
     private let obvAttachment: ObvAttachment
     private let newProgress: Progress?
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ProcessFyleWithinDownloadingAttachmentOperation.self))
 
     init(obvAttachment: ObvAttachment, newProgress: Progress?, obvEngine: ObvEngine) {
         self.obvAttachment = obvAttachment

@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class UpdateDraftBodyOperation: ContextualOperationWithSpecificReasonForCancel<UpdateDraftBodyOperationReasonForCancel> {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UpdateDraftBodyOperation.self))
 
     let value: String
     let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>

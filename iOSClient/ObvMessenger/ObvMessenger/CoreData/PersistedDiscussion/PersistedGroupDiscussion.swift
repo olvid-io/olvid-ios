@@ -48,21 +48,20 @@ final class PersistedGroupDiscussion: PersistedDiscussion {
 
 extension PersistedGroupDiscussion {
     
-    convenience init?(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) {
-        self.init(title: groupName,
-                  ownedIdentity: ownedIdentity,
-                  forEntityName: PersistedGroupDiscussion.entityName,
-                  sharedConfigurationToKeep: sharedConfigurationToKeep,
-                  localConfigurationToKeep: localConfigurationToKeep)
+    convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+        try self.init(title: groupName,
+                      ownedIdentity: ownedIdentity,
+                      forEntityName: PersistedGroupDiscussion.entityName,
+                      sharedConfigurationToKeep: sharedConfigurationToKeep,
+                      localConfigurationToKeep: localConfigurationToKeep)
         self.contactGroup = contactGroup
         if sharedConfigurationToKeep == nil && contactGroup.category == .owned {
             self.sharedConfiguration.setValuesUsingSettings()
         }
-        
+
         if insertDiscussionIsEndToEndEncryptedSystemMessage {
             try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false)
         }
-
     }
 
 }

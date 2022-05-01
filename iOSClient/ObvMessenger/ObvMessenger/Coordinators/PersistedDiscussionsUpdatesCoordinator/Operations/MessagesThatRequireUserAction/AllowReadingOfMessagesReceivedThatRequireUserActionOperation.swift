@@ -31,7 +31,7 @@ import OlvidUtils
 ///
 final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: OperationWithSpecificReasonForCancel<AllowReadingOfReadOnceMessageOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AllowReadingOfMessagesReceivedThatRequireUserActionOperation.self))
 
     let persistedMessageReceivedObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>
     

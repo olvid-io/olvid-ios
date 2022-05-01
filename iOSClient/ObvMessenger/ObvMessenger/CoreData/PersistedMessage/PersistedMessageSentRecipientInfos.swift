@@ -66,8 +66,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
             os_log("Could not find owned identity. This is ok if it has just been deleted.", log: log, type: .error)
             return nil
         }
-        return try PersistedObvContactIdentity.get(cryptoId: recipientCryptoId,
-                                                   ownedIdentity: ownedIdentity)
+        return try PersistedObvContactIdentity.get(cryptoId: recipientCryptoId, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any)
     }
         
     var recipientName: String {
@@ -156,6 +155,7 @@ extension PersistedMessageSentRecipientInfos {
             self.timestampDelivered = timestamp
         }
         self.messageSent.refreshStatus()
+        self.messageSent.fyleMessageJoinWithStatuses.forEach { $0.markAsComplete() }
     }
 
 
@@ -168,6 +168,7 @@ extension PersistedMessageSentRecipientInfos {
         }
         self.messageSent.refreshStatus()
     }
+
     
     func setTimestampAllAttachmentsSentIfPossible() {
         guard self.timestampAllAttachmentsSent == nil else { return }
@@ -214,12 +215,12 @@ extension PersistedMessageSentRecipientInfos {
     }
 
     
-    static func getAllUnprocessedForSpecificContact(_ obvContactIdentity: ObvContactIdentity, within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
+    static func getAllUnprocessedForSpecificContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             NSPredicate(format: "%K == nil", messageIdentifierFromEngineKey),
-            NSPredicate(format: "%K == %@", recipientIdentityKey, obvContactIdentity.cryptoId.getIdentity() as NSData),
-            NSPredicate(format: "%K == %@", ownedIdentityKey, obvContactIdentity.ownedIdentity.cryptoId.getIdentity() as NSData),
+            NSPredicate(format: "%K == %@", recipientIdentityKey, contactCryptoId.getIdentity() as NSData),
+            NSPredicate(format: "%K == %@", ownedIdentityKey, ownedCryptoId.getIdentity() as NSData),
         ])
         return try context.fetch(request)
     }

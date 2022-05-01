@@ -94,19 +94,7 @@ public final class ObvNotificationCenterDummy: ObvNotificationDelegate {
 
     // MARK: - Notification names for which we should not generate a log within this dummy implementation
     private let acceptableDiscardedNotifications = Set<Notification.Name>([
-        ObvNetworkPostNotification.NewOutboxMessageAndAttachmentsToUpload.name,
-        ObvNetworkFetchNotificationNew.noInboxMessageToProcessName,
-        ObvNetworkFetchNotificationNew.newInboxMessageToProcessName,
-        ObvChannelNotification.NetworkReceivedMessageWasProcessed.name,
         ObvNetworkFetchNotification.InboxMessageDeletedFromServerAndInboxes.name,
-        ObvProtocolNotification.ProtocolMessageToProcess.name,
-        ObvProtocolNotification.ProtocolMessageProcessed.name,
-        ObvNetworkPostNotification.OutboxMessageAndAttachmentsDeleted.name,
-        ObvNetworkPostNotification.AttachmentUploadRequestIsTakenCareOf.name,
-        ObvNetworkPostNotificationNew.outboxMessageWasUploadedName,
-        ObvNetworkPostNotificationNew.outboxAttachmentHasNewProgressName,
-        ObvNetworkPostNotificationNew.outboxAttachmentWasAcknowledgedName,
-        ObvChannelNotification.NewConfirmedObliviousChannel.name,
         ObvIdentityNotification.NewContactGroupJoined.name,
         ObvIdentityNotification.NewContactGroupOwned.name,
         ObvIdentityNotification.ContactGroupOwnedHasUpdatedPublishedDetails.name,

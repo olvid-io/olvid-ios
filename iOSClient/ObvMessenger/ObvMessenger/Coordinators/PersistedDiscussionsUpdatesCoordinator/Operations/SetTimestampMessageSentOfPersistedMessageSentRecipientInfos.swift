@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation: OperationWithSpecificReasonForCancel<SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperationReasonForCancel> {
  
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation.self))
 
     private let messageIdentifierFromEngine: Data
     private let timestampFromServer: Date

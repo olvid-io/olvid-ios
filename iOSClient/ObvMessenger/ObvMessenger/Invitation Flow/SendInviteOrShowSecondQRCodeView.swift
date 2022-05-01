@@ -158,7 +158,7 @@ fileprivate struct IdentitySection: View {
                             IdentityCardContentView(model: SingleContactIdentity(persistedContact: contact, observeChangesMadeToContact: false))
                             Spacer()
                         }
-                        if !showQRCodeFullScreen {
+                        if !showQRCodeFullScreen && contact.isOneToOne {
                             HStack {
                                 Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
                                     .font(smallScreenMode ? .system(size: 19) : .body)

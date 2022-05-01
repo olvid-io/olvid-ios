@@ -219,9 +219,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4B20C411F5F066A00DFAADD /* Build configuration list for PBXNativeTarget "ObvEncoder" */;
 			buildPhases = (
+				C4B20C2A1F5F066900DFAADD /* Headers */,
 				C4B20C281F5F066900DFAADD /* Sources */,
 				C4B20C291F5F066900DFAADD /* Frameworks */,
-				C4B20C2A1F5F066900DFAADD /* Headers */,
 				C0A76958276FEE3700D22EE4 /* ShellScript */,
 			);
 			buildRules = (

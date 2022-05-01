@@ -39,15 +39,17 @@ struct ConfirmAddContactView: View {
                                 IdentityCardContentView(model: SingleContactIdentity(persistedContact: contact, observeChangesMadeToContact: false))
                                 Spacer()
                             }
-                            HStack {
-                                Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
-                                    .allowsTightening(true)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .lineLimit(nil)
-                                    .multilineTextAlignment(.leading)
-                                    .font(.body)
-                                    .padding(.bottom, 8)
-                                Spacer()
+                            if contact.isOneToOne {
+                                HStack {
+                                    Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
+                                        .allowsTightening(true)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .lineLimit(nil)
+                                        .multilineTextAlignment(.leading)
+                                        .font(.body)
+                                        .padding(.bottom, 8)
+                                    Spacer()
+                                }
                             }
                         } else {
                             HStack {

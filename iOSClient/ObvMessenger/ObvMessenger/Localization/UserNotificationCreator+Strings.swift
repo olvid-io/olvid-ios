@@ -56,10 +56,16 @@ extension UserNotificationCreator {
             static let title = NSLocalizedString("New Invitation!", comment: "Notification title")
             static let body = { (contactIdentityDisplayName: String) in
                 String.localizedStringWithFormat(NSLocalizedString("You receive a new invitation from %@. You can accept or silently discard it.", comment: "Notification body"), contactIdentityDisplayName)
-                
             }
         }
         
+        struct AcceptOneToOneInvite {
+            static let title = NSLocalizedString("New Invitation!", comment: "Notification title")
+            static let body = { (contactIdentityDisplayName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("%@_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION", comment: "Notification body"), contactIdentityDisplayName)
+            }
+        }
+
         struct SasExchange {
             static let title = NSLocalizedString("An invitation requires your attention!", comment: "Notification title")
             static let body = { (contactIdentityDisplayName: String) in

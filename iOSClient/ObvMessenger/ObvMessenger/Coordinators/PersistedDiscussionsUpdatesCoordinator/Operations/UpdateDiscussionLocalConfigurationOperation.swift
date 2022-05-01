@@ -28,7 +28,7 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
     private let value: PersistedDiscussionLocalConfigurationValue
     private let input: Input
 
-    fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UpdateDiscussionLocalConfigurationOperation.self))
 
     enum Input {
         case configurationObjectID(TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
@@ -48,30 +48,38 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
     }
 
     override func main() {
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
+        guard let obvContext = self.obvContext else {
+            return cancel(withReason: .contextIsNil)
+        }
+
+        obvContext.performAndWait {
             do {
                 let localConfiguration: PersistedDiscussionLocalConfiguration
                 switch input {
                 case .configurationObjectID(let objectID):
-                    guard let _localConfiguration = try PersistedDiscussionLocalConfiguration.get(with: objectID, within: context) else {
+                    guard let _localConfiguration = try PersistedDiscussionLocalConfiguration.get(with: objectID, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindDiscussionLocalConfiguration)
                     }
                     localConfiguration = _localConfiguration
                 case .discussionObjectID(let objectID):
-                    guard let discussion = try? PersistedDiscussion.get(objectID: objectID, within: context) else {
+                    guard let discussion = try? PersistedDiscussion.get(objectID: objectID, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindDiscussionLocalConfiguration)
                     }
                     localConfiguration = discussion.localConfiguration
                 }
-                
-                localConfiguration.update(with: value)
-                try context.save(logOnFailure: Self.log)
-            
-                ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: value, localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
 
-                if case .muteNotificationsDuration = value,
-                   let expiration = localConfiguration.currentMuteNotificationsEndDate {
-                    ObvMessengerInternalNotification.newMuteExpiration(expirationDate: expiration).postOnDispatchQueue()
+                localConfiguration.update(with: value)
+
+                let value = self.value
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+
+                    ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: value, localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
+
+                    if case .muteNotificationsDuration = value,
+                       let expiration = localConfiguration.currentMuteNotificationsEndDate {
+                        ObvMessengerInternalNotification.newMuteExpiration(expirationDate: expiration).postOnDispatchQueue()
+                    }
                 }
 
             } catch(let error) {
@@ -85,12 +93,13 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
 
 enum UpdateDiscussionLocalConfigurationOperationReasonForCancel: LocalizedErrorWithLogType {
 
+    case contextIsNil
     case coreDataError(error: Error)
     case couldNotFindDiscussionLocalConfiguration
 
     var logType: OSLogType {
         switch self {
-        case .coreDataError:
+        case .coreDataError, .contextIsNil:
             return .fault
         case .couldNotFindDiscussionLocalConfiguration:
             return .error
@@ -99,6 +108,7 @@ enum UpdateDiscussionLocalConfigurationOperationReasonForCancel: LocalizedErrorW
 
     var errorDescription: String? {
         switch self {
+        case .contextIsNil: return "Context is nil"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
         case .couldNotFindDiscussionLocalConfiguration:

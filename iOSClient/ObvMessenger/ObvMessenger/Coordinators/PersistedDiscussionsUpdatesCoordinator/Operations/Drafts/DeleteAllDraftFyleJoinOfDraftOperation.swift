@@ -27,7 +27,7 @@ final class DeleteAllDraftFyleJoinOfDraftOperation: ContextualOperationWithSpeci
     
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllDraftFyleJoinOfDraftOperation.self))
 
     init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
         self.draftObjectID = draftObjectID

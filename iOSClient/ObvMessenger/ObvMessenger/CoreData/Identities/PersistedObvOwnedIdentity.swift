@@ -41,8 +41,10 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
 
     @NSManaged private(set) var apiKeyExpirationDate: Date?
     @NSManaged private var capabilityWebrtcContinuousICE: Bool
+    @NSManaged private var capabilityOneToOneContacts: Bool
+    @NSManaged private var capabilityGroupsV2: Bool
     @NSManaged private var fullDisplayName: String
-    @NSManaged private var identity: Data
+    @NSManaged private(set) var identity: Data
     @NSManaged private(set) var isActive: Bool
     @NSManaged private(set) var isKeycloakManaged: Bool
     @NSManaged private var rawAPIKeyStatus: Int
@@ -131,6 +133,10 @@ extension PersistedObvOwnedIdentity {
             switch capability {
             case .webrtcContinuousICE:
                 self.capabilityWebrtcContinuousICE = newCapabilities.contains(capability)
+            case .oneToOneContacts:
+                self.capabilityOneToOneContacts = newCapabilities.contains(capability)
+            case .groupsV2:
+                self.capabilityGroupsV2 = newCapabilities.contains(capability)
             }
         }
     }
@@ -142,6 +148,14 @@ extension PersistedObvOwnedIdentity {
             switch capability {
             case .webrtcContinuousICE:
                 if self.capabilityWebrtcContinuousICE {
+                    capabilitites.insert(capability)
+                }
+            case .oneToOneContacts:
+                if self.capabilityOneToOneContacts {
+                    capabilitites.insert(capability)
+                }
+            case .groupsV2:
+                if self.capabilityGroupsV2 {
                     capabilitites.insert(capability)
                 }
             }
@@ -294,68 +308,19 @@ extension PersistedObvOwnedIdentity {
         }
 
         if isInserted {
-            let notification = ObvMessengerInternalNotification.newPersistedObvOwnedIdentity(ownedCryptoId: self.cryptoId)
+            let notification = ObvMessengerCoreDataNotification.newPersistedObvOwnedIdentity(ownedCryptoId: self.cryptoId)
             notification.postOnDispatchQueue()
         }
         
         if changedKeys.contains(PersistedObvOwnedIdentity.isActiveKey) {
             if self.isActive {
-                let notification = ObvMessengerInternalNotification.ownedIdentityWasReactivated(ownedIdentityObjectID: self.objectID)
+                let notification = ObvMessengerCoreDataNotification.ownedIdentityWasReactivated(ownedIdentityObjectID: self.objectID)
                 notification.postOnDispatchQueue()
             } else {
-                let notification = ObvMessengerInternalNotification.ownedIdentityWasDeactivated(ownedIdentityObjectID: self.objectID)
+                let notification = ObvMessengerCoreDataNotification.ownedIdentityWasDeactivated(ownedIdentityObjectID: self.objectID)
                 notification.postOnDispatchQueue()
             }
         }
-    }
-    
-}
-
-
-// MARK: - For Backup purposes
-
-extension PersistedObvOwnedIdentity {
-    
-    var backupItem: PersistedObvOwnedIdentityBackupItem {
-        let contacts = self.contacts.map { $0.backupItem }.filter { !$0.isEmpty }
-        let groups = self.contactGroups.map { $0.backupItem }.filter { !$0.isEmpty }
-        return PersistedObvOwnedIdentityBackupItem(
-            identity: self.identity,
-            contacts: contacts.isEmpty ? nil : contacts,
-            groups: groups.isEmpty ? nil : groups)
-    }
-    
-}
-
-
-extension PersistedObvOwnedIdentityBackupItem {
-    
-    func updateExistingInstance(within context: NSManagedObjectContext) throws {
-        
-        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(identity: self.identity, within: context) else {
-            assertionFailure()
-            throw PersistedObvOwnedIdentityBackupItem.makeError(message: "Could not find owned identity corresponding to backup item")
-        }
-        for contact in self.contacts ?? [] {
-            guard let persistedContact = ownedIdentity.contacts.first(where: {
-                $0.cryptoId.getIdentity() == contact.identity })
-            else {
-                assertionFailure()
-                continue
-            }
-            contact.updateExistingInstance(persistedContact)
-        }
-        for group in groups ?? [] {
-            guard let persistedGroup = ownedIdentity.contactGroups.first(where: {
-                $0.groupUid == group.groupUid &&
-                $0.ownerIdentity == group.groupOwnerIdentity })
-            else {
-                assertionFailure()
-                continue
-            }
-            group.updateExistingInstance(persistedGroup)
-        }
-        
     }
     
 }

@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class DeletePersistedMessageOperation: ContextualOperationWithSpecificReasonForCancel<DeletePersistedMessageOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeletePersistedMessageOperation.self))
 
     private let persistedMessageObjectID: NSManagedObjectID
     
@@ -56,7 +56,7 @@ final class DeletePersistedMessageOperation: ContextualOperationWithSpecificReas
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
-                    ObvMessengerInternalNotification.persistedMessagesWereDeleted(discussionUriRepresentation: infos.discussionUriRepresentation, messageUriRepresentations: Set([infos.messageUriRepresentation]))
+                    ObvMessengerCoreDataNotification.persistedMessagesWereDeleted(discussionUriRepresentation: infos.discussionUriRepresentation, messageUriRepresentations: Set([infos.messageUriRepresentation]))
                         .postOnDispatchQueue()
                 }
             } catch {

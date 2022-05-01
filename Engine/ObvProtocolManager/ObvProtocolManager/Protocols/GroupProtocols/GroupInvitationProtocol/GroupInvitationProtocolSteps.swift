@@ -33,7 +33,7 @@ extension GroupInvitationProtocol {
         case SendInvitation = 0
         case ProcessInvitation = 1
         case ProcessInvitationDialogResponse = 2
-        case ReCheckTrustLevel = 3
+        // Case ReCheckTrustLevel = 3 // Removed on the 2022-01-27 when implementing two-level address book
         case ProcessPropagatedInvitationResponse = 4
         case ProcessResponse = 5
         
@@ -49,9 +49,6 @@ extension GroupInvitationProtocol {
                 return step
             case .ProcessInvitationDialogResponse:
                 let step = ProcessInvitationDialogResponseStep(from: concreteProtocol, and: receivedMessage)
-                return step
-            case .ReCheckTrustLevel:
-                let step = ReCheckTrustLevelStep(from: concreteProtocol, and: receivedMessage)
                 return step
             case .ProcessPropagatedInvitationResponse:
                 let step = ProcessPropagatedInvitationResponseStep(from: concreteProtocol, and: receivedMessage)
@@ -85,13 +82,6 @@ extension GroupInvitationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupInvitationProtocol.logCategory)
-            os_log("GroupInvitationProtocol: starting SendInvitationStep", log: log, type: .debug)
-            defer { os_log("GroupInvitationProtocol: ending SendInvitationStep", log: log, type: .debug) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = receivedMessage.contactIdentity
             let groupInformation = receivedMessage.groupInformation
@@ -127,7 +117,7 @@ extension GroupInvitationProtocol {
                                                                  groupInformation: groupInformation,
                                                                  pendingGroupMembers: membersAndPendingGroupMembers)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                throw NSError()
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
             }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
 
@@ -161,18 +151,6 @@ extension GroupInvitationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupInvitationProtocol.logCategory)
-            os_log("GroupInvitationProtocol: starting ProcessInvitationStep", log: log, type: .debug)
-            defer { os_log("GroupInvitationProtocol: ending ProcessInvitationStep", log: log, type: .debug) }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupInformation = receivedMessage.groupInformation
             let pendingGroupMembers = receivedMessage.pendingGroupMembers
@@ -238,19 +216,11 @@ extension GroupInvitationProtocol {
                 
             }
             
-            // Get the trust level we have in the group owner
-
-            let groupOwnerTrustLevel: TrustLevel
-            do {
-                groupOwnerTrustLevel = try identityDelegate.getTrustLevel(forContactIdentity: groupInformation.groupOwnerIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-            } catch {
-                os_log("Could not get the group owner's trust level", log: log, type: .error)
-                return CancelledState()
-            }
+            // 2022-01-26: we used to consider the trust level we have with the group owned to decide whether to auto-accept the invitation.
+            // We don't do that anymore and systematically request a confirmation to the app. At the app level, this invitation might be auto-accepted.
+            // The only situation where we still auto-accept the invitation is when we are already part of the group.
             
-            // Continue the step, depending on the trust level
-            
-            if groupOwnerTrustLevel >= ObvConstants.autoAcceptTrustLevelTreshold || alreadyPartOfThisGroup {
+            if alreadyPartOfThisGroup {
                 
                 // Auto accept
                 
@@ -260,7 +230,7 @@ extension GroupInvitationProtocol {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = InvitationResponseMessage(coreProtocolMessage: coreMessage, groupUid: groupInformation.groupUid, invitationAccepted: true)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        throw NSError()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
@@ -276,32 +246,16 @@ extension GroupInvitationProtocol {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateInvitationResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: true)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        throw NSError()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
-                // Create the group (only if we are not already part of it)
-                
-                if !alreadyPartOfThisGroup {
-                    do {
-                        let pendingGroupMemberIdentities = pendingGroupMembers.filter { $0.cryptoIdentity != ownedIdentity }
-                        try identityDelegate.createContactGroupJoined(ownedIdentity: ownedIdentity,
-                                                                      groupInformation: groupInformation,
-                                                                      groupOwner: groupInformation.groupOwnerIdentity,
-                                                                      pendingGroupMembers: pendingGroupMemberIdentities,
-                                                                      within: obvContext)
-                    } catch {
-                        os_log("Could not create contact group (1)", log: log, type: .error)
-                        return CancelledState()
-                    }
-                }
-                                
                 // Return the new state
 
                 return ResponseSentState()
                 
-            } else if groupOwnerTrustLevel >= ObvConstants.userConfirmationTrustLevelTreshold {
+            } else {
                 
                 // Prompt the user to accept
                 
@@ -309,64 +263,18 @@ extension GroupInvitationProtocol {
                 do {
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.acceptGroupInvite(groupInformation: groupInformation, pendingGroupMembers: pendingGroupMembers, receivedMessageTimestamp: receivedMessage.timestamp)))
                     let concreteProtocolMessage = DialogAcceptGroupInvitationMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the group owner increases
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: groupInformation.groupOwnerIdentity,
-                                                                           targetTrustLevel: ObvConstants.autoAcceptTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
                 }
 
                 // Return the new state
                 
                 return InvitationReceivedState(groupInformation: groupInformation, dialogUuid: dialogUuid, pendingGroupMembers: pendingGroupMembers)
-
-            } else {
-                
-                // Prompt the user to increase trust levels
-
-                let dialogUuid = UUID()
-                do {
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.increaseGroupOwnerTrustLevel(groupInformation: groupInformation, pendingGroupMembers: pendingGroupMembers, receivedMessageTimestamp: receivedMessage.timestamp)))
-                    let concreteProtocolMessage = DialogAcceptGroupInvitationMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the group owner increases
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: groupInformation.groupOwnerIdentity,
-                                                                           targetTrustLevel: ObvConstants.userConfirmationTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-
-                return InvitationReceivedState(groupInformation: groupInformation, dialogUuid: dialogUuid, pendingGroupMembers: pendingGroupMembers)
                 
             }
-            
+
         }
         
     }
@@ -393,18 +301,6 @@ extension GroupInvitationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupInvitationProtocol.logCategory)
-            os_log("GroupInvitationProtocol: starting ProcessInvitationDialogResponse", log: log, type: .debug)
-            defer { os_log("GroupInvitationProtocol: ending ProcessInvitationDialogResponse", log: log, type: .debug) }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupInformation = startState.groupInformation
             let dialogUuid = startState.dialogUuid
@@ -422,7 +318,9 @@ extension GroupInvitationProtocol {
                 let dialogType = ObvChannelDialogToSendType.delete
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -439,8 +337,7 @@ extension GroupInvitationProtocol {
                 let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = InvitationResponseMessage(coreProtocolMessage: coreMessage, groupUid: groupInformation.groupUid, invitationAccepted: invitationAccepted)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                    os_log("Could not generate protocol message to send, we abort the protocol", log: log, type: .error)
-                    return CancelledState()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
@@ -467,223 +364,9 @@ extension GroupInvitationProtocol {
                 return CancelledState()
             }
 
-            // Show the group joined dialog
-            
-            do {
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.groupJoined(groupInformation: groupInformation)))
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
             // Return the new state
             
             return ResponseSentState()
-
-        }
-        
-    }
-
-    
-    // MARK: - ReCheckTrustLevelStep
-    
-    final class ReCheckTrustLevelStep: ProtocolStep, TypedConcreteProtocolStep {
-        
-        let startState: InvitationReceivedState
-        let receivedMessage: TrustLevelIncreasedMessage
-        
-        init?(startState: InvitationReceivedState, receivedMessage: GroupInvitationProtocol.TrustLevelIncreasedMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-        }
-        
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupInvitationProtocol.logCategory)
-            os_log("GroupInvitationProtocol: starting ReCheckTrustLevelStep", log: log, type: .debug)
-            defer { os_log("GroupInvitationProtocol: ending ReCheckTrustLevelStep", log: log, type: .debug) }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            let groupInformation = startState.groupInformation
-            let dialogUuid = startState.dialogUuid
-            let pendingGroupMembers = startState.pendingGroupMembers
-            let identityWithTrustLevelIncreased = receivedMessage.identityWithTrustLevelIncreased
-            
-            // Check that the the identity with increases trust level is the group owner
-            
-            guard identityWithTrustLevelIncreased == groupInformation.groupOwnerIdentity else {
-                os_log("The identity with increased trust level is not the group owner", log: log, type: .error)
-                return startState
-            }
-            
-            // Get the trust level we have in the group owner
-            
-            let groupOwnerTrustLevel: TrustLevel
-            do {
-                groupOwnerTrustLevel = try identityDelegate.getTrustLevel(forContactIdentity: groupInformation.groupOwnerIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-            } catch {
-                os_log("Could not get the group owner's trust level", log: log, type: .error)
-                return CancelledState()
-            }
-            
-            // Continue the step, depending on the trust level
-            
-            if groupOwnerTrustLevel >= ObvConstants.autoAcceptTrustLevelTreshold {
-                
-                // Auto accept
-                
-                // Notifiy the group owner that we accepted the invitation
-                
-                do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
-                    let concreteProtocolMessage = InvitationResponseMessage(coreProtocolMessage: coreMessage, groupUid: groupInformation.groupUid, invitationAccepted: true)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        throw NSError()
-                    }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-                
-                // Propagate the accept to other owned devices
-                
-                guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
-                    os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
-                    return CancelledState()
-                }
-                
-                if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
-                    let concreteProtocolMessage = PropagateInvitationResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: true)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        throw NSError()
-                    }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-                
-                // Create the group
-                
-                do {
-                    let pendingGroupMemberIdentities = pendingGroupMembers.filter { $0.cryptoIdentity != ownedIdentity }
-                    try identityDelegate.createContactGroupJoined(ownedIdentity: ownedIdentity,
-                                                                  groupInformation: groupInformation,
-                                                                  groupOwner: groupInformation.groupOwnerIdentity,
-                                                                  pendingGroupMembers: pendingGroupMemberIdentities,
-                                                                  within: obvContext)
-                } catch {
-                    os_log("Could not create contact group (3)", log: log, type: .error)
-                    return CancelledState()
-                }
-                
-                // Show the group joined dialog
-                
-                do {
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.groupJoined(groupInformation: groupInformation)))
-                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-                
-                // Return the new state
-                
-                return ResponseSentState()
-                
-            } else if groupOwnerTrustLevel >= ObvConstants.userConfirmationTrustLevelTreshold {
-                
-                // Prompt the user to accept
-                
-                do {
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.acceptGroupInvite(groupInformation: groupInformation, pendingGroupMembers: pendingGroupMembers, receivedMessageTimestamp: receivedMessage.timestamp)))
-                    let concreteProtocolMessage = DialogAcceptGroupInvitationMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-                
-                // Delete any previous entry in the ProtocolInstanceWaitingForTrustLevelIncrease database
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-
-                do {
-                    try ProtocolInstanceWaitingForTrustLevelIncrease.deleteRelatedToProtocolInstance(thisProtocolInstance, contactCryptoIdentity: groupInformation.groupOwnerIdentity, delegateManager: delegateManager)
-                } catch {
-                    os_log("Could not delete previous ProtocolInstanceWaitingForTrustLevelIncrease entries", log: log, type: .fault)
-                    return CancelledState()
-                }
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the group owner increases
-                
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: groupInformation.groupOwnerIdentity,
-                                                                           targetTrustLevel: ObvConstants.autoAcceptTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                // Return the new state
-                
-                return InvitationReceivedState(groupInformation: groupInformation, dialogUuid: dialogUuid, pendingGroupMembers: pendingGroupMembers)
-                
-            } else {
-                
-                // Prompt the user to increase trust levels
-                
-                do {
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.increaseGroupOwnerTrustLevel(groupInformation: groupInformation, pendingGroupMembers: pendingGroupMembers, receivedMessageTimestamp: receivedMessage.timestamp)))
-                    let concreteProtocolMessage = DialogAcceptGroupInvitationMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-                
-                // Delete any previous entry in the ProtocolInstanceWaitingForTrustLevelIncrease database
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-                
-                do {
-                    try ProtocolInstanceWaitingForTrustLevelIncrease.deleteRelatedToProtocolInstance(thisProtocolInstance, contactCryptoIdentity: groupInformation.groupOwnerIdentity, delegateManager: delegateManager)
-                } catch {
-                    os_log("Could not delete previous ProtocolInstanceWaitingForTrustLevelIncrease entries", log: log, type: .fault)
-                    return CancelledState()
-                }
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the group owner increases
-                
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: groupInformation.groupOwnerIdentity,
-                                                                           targetTrustLevel: ObvConstants.userConfirmationTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                return InvitationReceivedState(groupInformation: groupInformation, dialogUuid: dialogUuid, pendingGroupMembers: pendingGroupMembers)
-                
-            }
 
         }
         
@@ -711,18 +394,6 @@ extension GroupInvitationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupInvitationProtocol.logCategory)
-            os_log("GroupInvitationProtocol: starting ProcessPropagatedInvitationResponseStep", log: log, type: .debug)
-            defer { os_log("GroupInvitationProtocol: ending ProcessPropagatedInvitationResponseStep", log: log, type: .debug) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupInformation = startState.groupInformation
             let dialogUuid = startState.dialogUuid
@@ -735,7 +406,9 @@ extension GroupInvitationProtocol {
                 let dialogType = ObvChannelDialogToSendType.delete
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -798,18 +471,6 @@ extension GroupInvitationProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupInvitationProtocol.logCategory)
-            os_log("GroupInvitationProtocol: starting ProcessResponseStep", log: log, type: .debug)
-            defer { os_log("GroupInvitationProtocol: ending ProcessResponseStep", log: log, type: .debug) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupUid = receivedMessage.groupUid
             let invitationAccepted = receivedMessage.invitationAccepted
@@ -838,8 +499,7 @@ extension GroupInvitationProtocol {
                                                           protocolInstanceUid: protocolInstanceUidForGroupManagement)
                     let concreteProtocolMessage = GroupManagementProtocol.KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: dummyGroupInformation)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        os_log("Could not generate ObvChannelProtocolMessageToSend for a KickFromGroupMessage from within the GroupInvitationProtocol", log: log, type: .error)
-                        return CancelledState()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     
                     do {
@@ -875,8 +535,7 @@ extension GroupInvitationProtocol {
                                                       protocolInstanceUid: protocolInstanceUidForGroupManagement)
                 let concreteProtocolMessage = GroupManagementProtocol.KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                    os_log("Could not generate ObvChannelProtocolMessageToSend for a KickFromGroupMessage from within the GroupInvitationProtocol", log: log, type: .error)
-                    return CancelledState()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
                 
                 do {
@@ -910,8 +569,7 @@ extension GroupInvitationProtocol {
                                                           protocolInstanceUid: protocolInstanceUidForGroupManagement)
                     let concreteProtocolMessage = GroupManagementProtocol.TriggerUpdateMembersMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation, memberIdentity: remoteIdentity)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        os_log("Could not generate ObvChannelProtocolMessageToSend for a TriggerUpdateMembersMessage from within the GroupInvitationProtocol", log: log, type: .error)
-                        return CancelledState()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     
                     do {
@@ -956,8 +614,7 @@ extension GroupInvitationProtocol {
                                                           protocolInstanceUid: protocolInstanceUidForGroupManagement)
                     let concreteProtocolMessage = GroupManagementProtocol.KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        os_log("Could not generate ObvChannelProtocolMessageToSend for a KickFromGroupMessage from within the GroupInvitationProtocol", log: log, type: .error)
-                        return CancelledState()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     
                     do {
@@ -1049,7 +706,9 @@ extension GroupInvitationProtocol {
                                                   protocolInstanceUid: childProtocolInstanceUid)
             let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage,
                                                                                                         groupInformation: groupInformationWithPhoto.groupInformation)
-            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                throw makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
 
         }

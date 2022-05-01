@@ -33,21 +33,29 @@ final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
     private static let entityName = "PersistedEngineDialog"
     private static let uuidKey = "uuid"
     private static let encodedObvDialogKey = "encodedObvDialog"
-    private static let resendCounterKey = "resendCounter"
     
+    private static func makeError(message: String) -> Error {
+        NSError(domain: "PersistedEngineDialog", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     // MARK: Attributes
     
     @NSManaged private(set) var uuid: UUID
-    private var obvDialog: ObvDialog {
+    private(set) var obvDialog: ObvDialog? {
         get {
-            let encodedValue = kvoSafePrimitiveValue(forKey: PersistedEngineDialog.encodedObvDialogKey) as! ObvEncoded
-            return ObvDialog(encodedValue)!
+            guard let encodedValue = kvoSafePrimitiveValue(forKey: PersistedEngineDialog.encodedObvDialogKey) as? ObvEncoded else { return nil }
+            return ObvDialog(encodedValue)
         }
         set {
+            guard let newValue = newValue else { assertionFailure(); return }
             kvoSafeSetPrimitiveValue(newValue.encode(), forKey: PersistedEngineDialog.encodedObvDialogKey)
         }
     }
-    @NSManaged private(set) var resendCounter: Int
+    /// Returns `true` iff the serialized dialog cannot be deserialized, meaning that the type does not exist anymore in the current app version.
+    /// This happened, e.g., when removing the dialog message telling the user that she accepted a group invite.
+    var dialogIsObsolete: Bool {
+        self.obvDialog == nil
+    }
     
     // MARK: Other variables
     
@@ -62,10 +70,14 @@ final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
         self.init(entity: entityDescription, insertInto: obvContext)
         self.uuid = obvDialog.uuid
         self.obvDialog = obvDialog
-        self.resendCounter = 0
         self.appNotificationCenter = appNotificationCenter
     }
 
+    func delete() throws {
+        guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context")}
+        context.delete(self)
+    }
+    
 }
 
 
@@ -79,13 +91,6 @@ extension PersistedEngineDialog {
         notificationRelatedChanges.insert(.obvDialog)
     }
     
-    // MARK: - Resending notification
-    
-    func resend() {
-        resendCounter += 1
-        notificationRelatedChanges.insert(.resendCounter)
-    }
-    
 }
 
 // MARK: Convenience DB getters
@@ -95,9 +100,9 @@ extension PersistedEngineDialog {
         return NSFetchRequest<PersistedEngineDialog>(entityName: PersistedEngineDialog.entityName)
     }
     
-    class func getAll(appNotificationCenter: NotificationCenter, within obvContext: ObvContext) -> Set<PersistedEngineDialog>? {
+    class func getAll(appNotificationCenter: NotificationCenter, within obvContext: ObvContext) throws -> Set<PersistedEngineDialog> {
         let request: NSFetchRequest<PersistedEngineDialog> = PersistedEngineDialog.fetchRequest()
-        guard let values = try? obvContext.fetch(request) else { return nil }
+        let values = try obvContext.fetch(request)
         return Set(values.map { $0.appNotificationCenter = appNotificationCenter; return $0 })
     }
 
@@ -121,7 +126,6 @@ extension PersistedEngineDialog {
     
     private struct NotificationRelatedChanges: OptionSet {
         let rawValue: UInt8
-        static let resendCounter = NotificationRelatedChanges(rawValue: 1 << 0)
         static let obvDialog = NotificationRelatedChanges(rawValue: 1 << 1)
     }
 
@@ -134,16 +138,15 @@ extension PersistedEngineDialog {
         }
         
         if isDeleted {
-            let userInfo = [ObvEngineNotification.APersistedDialogWasDeleted.Key.uuid: uuid]
-            let notification = Notification(name: ObvEngineNotification.APersistedDialogWasDeleted.name, userInfo: userInfo)
-            appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.aPersistedDialogWasDeleted(uuid: uuid)
+                .postOnBackgroundQueue(within: appNotificationCenter)
         }
 
-        if isInserted || notificationRelatedChanges.contains(.resendCounter) || notificationRelatedChanges.contains(.obvDialog) {
+        if isInserted || notificationRelatedChanges.contains(.obvDialog) {
             // We do not export the uuid since it is already included in the obvDialog struct
-            let userInfo = [ObvEngineNotification.NewUserDialogToPresent.Key.obvDialog: obvDialog]
-            let notification = Notification(name: ObvEngineNotification.NewUserDialogToPresent.name, userInfo: userInfo)
-            appNotificationCenter.post(notification)
+            guard let obvDialog = self.obvDialog else { assertionFailure(); return }
+            ObvEngineNotificationNew.newUserDialogToPresent(obvDialog: obvDialog)
+                .postOnBackgroundQueue(within: appNotificationCenter)
         }
         
     }

@@ -1,0 +1,25 @@
+import:
+  - Foundation
+  - ObvCrypto
+  - ObvTypes
+  - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: notificationDelegate}
+  - {key: notificationCenterType, value: ObvNotificationDelegate}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+notifications:
+- name: mutualScanContactAdded
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: signature, type: Data}
+- name: protocolMessageToProcess
+  params:
+  - {name: protocolMessageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: protocolMessageProcessed
+  params:
+  - {name: protocolMessageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}

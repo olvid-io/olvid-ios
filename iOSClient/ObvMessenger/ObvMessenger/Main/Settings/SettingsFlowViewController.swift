@@ -90,6 +90,8 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
     func pushSetting(_ setting: AllSettingsTableViewController.Setting) {
         let settingViewController: UIViewController
         switch setting {
+        case .contactsAndGroups:
+            settingViewController = ContactsAndGroupsSettingsTableViewController(ownedCryptoId: ownedCryptoId)
         case .downloads:
             settingViewController = DownloadsSettingsTableViewController()
         case .interface:

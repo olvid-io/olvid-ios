@@ -1,0 +1,32 @@
+import:
+  - Foundation
+  - CoreData
+  - ObvTypes
+  - ObvEngine
+  - OlvidUtils
+notifications:
+- name: userWantsToKickParticipant
+  params:
+  - {name: call, type: GenericCall}
+  - {name: callParticipant, type: CallParticipant}
+- name: userWantsToAddParticipants
+  params:
+  - {name: call, type: GenericCall}
+  - {name: contactIds, type: [OlvidUserId]}
+- name: callHasBeenUpdated
+  params:
+  - {name: callEssentials, type: CallEssentials}
+  - {name: updateKind, type: CallUpdateKind}
+- name: callParticipantHasBeenUpdated
+  params:
+  - {name: callParticipant, type: CallParticipant}
+  - {name: updateKind, type: CallParticipantUpdateKind}
+- name: reportCallEvent
+  params:
+  - {name: callUUID, type: UUID}
+  - {name: callReport, type: CallReport}
+  - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: showCallViewControllerForAnsweringNonCallKitIncomingCall
+  params:
+  - {name: incomingCall, type: GenericCall}

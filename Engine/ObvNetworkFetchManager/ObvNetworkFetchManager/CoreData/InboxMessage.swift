@@ -27,7 +27,7 @@ import OlvidUtils
 import ObvEncoder
 
 @objc(InboxMessage)
-final class InboxMessage: NSManagedObject, ObvManagedObject {
+final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     enum InternalError: Error {
         case aMessageWithTheSameMessageIdAlreadyExists
@@ -46,11 +46,9 @@ final class InboxMessage: NSManagedObject, ObvManagedObject {
     // MARK: Internal constants
     
     private static let entityName = "InboxMessage"
-    private static let encryptedContentKey = "encryptedContent"
-    static let fromCryptoIdentityKey = "fromCryptoIdentity"
-    private static let messagePayloadKey = "messagePayload"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
+    private static let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: "InboxMessage")
+    static var errorDomain = "InboxMessage"
+
 
     // MARK: Attributes
     
@@ -130,6 +128,8 @@ final class InboxMessage: NSManagedObject, ObvManagedObject {
     
     convenience init(messageId: MessageIdentifier, toIdentity: ObvCryptoIdentity, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
         
+        os_log("🔑 Creating InboxMessage with id %{public}@", log: Self.log, type: .info, messageId.debugDescription)
+        
         guard try InboxMessage.get(messageId: messageId, within: obvContext) == nil else {
             throw InternalError.aMessageWithTheSameMessageIdAlreadyExists
         }
@@ -169,15 +169,22 @@ extension InboxMessage {
     }
     
     func set(fromCryptoIdentity: ObvCryptoIdentity, andMessagePayload messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, flowId: FlowIdentifier, delegateManager: ObvNetworkFetchDelegateManager) throws {
+        os_log("🔑 Setting fromCryptoIdentity and messagePayload of message %{public}@", log: Self.log, type: .info, messageId.debugDescription)
         if self.fromCryptoIdentity == nil {
            self.fromCryptoIdentity = fromCryptoIdentity
         } else {
-            guard self.fromCryptoIdentity == fromCryptoIdentity else { throw NSError() }
+            guard self.fromCryptoIdentity == fromCryptoIdentity else {
+                assertionFailure()
+                throw Self.makeError(message: "Incoherent from identity")
+            }
         }
         if self.messagePayload == nil {
             self.messagePayload = messagePayload
         } else {
-            guard self.messagePayload == messagePayload else { throw NSError() }
+            guard self.messagePayload == messagePayload else {
+                assertionFailure()
+                throw Self.makeError(message: "Incoherent message payload")
+            }
         }
         self.extendedMessagePayloadKey = extendedMessagePayloadKey
         let messageId = self.messageId
@@ -224,20 +231,55 @@ extension InboxMessage {
         return NSFetchRequest<InboxMessage>(entityName: InboxMessage.entityName)
     }
     
-    class func getAll(forIdentity cryptoIdentity: ObvCryptoIdentity? = nil, within obvContext: ObvContext) throws -> [InboxMessage] {
+    
+    struct Predicate {
+        enum Key: String {
+            case encryptedContentKey = "encryptedContent"
+            case fromCryptoIdentityKey = "fromCryptoIdentity"
+            case messagePayloadKey = "messagePayload"
+            case rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUidKey = "rawMessageIdUid"
+        }
+        static func withMessageIdOwnedCryptoId(_ ownedCryptoId: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdOwnedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static func withMessageIdUid(_ uid: UID) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdUidKey, EqualToData: uid.raw)
+        }
+        static func withMessageIdentifier(_ messageId: MessageIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withMessageIdOwnedCryptoId(messageId.ownedCryptoIdentity),
+                withMessageIdUid(messageId.uid),
+            ])
+        }
+        static var isUnprocessed: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNilValueForKey: Key.fromCryptoIdentityKey),
+                NSPredicate(withNilValueForKey: Key.messagePayloadKey),
+            ])
+        }
+    }
+    
+    
+    static func getAll(forIdentity cryptoIdentity: ObvCryptoIdentity? = nil, within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         if let cryptoIdentity = cryptoIdentity {
-            request.predicate = NSPredicate(format: "%K == %@",
-                                            rawMessageIdOwnedIdentityKey, cryptoIdentity.getIdentity() as NSData)
+            request.predicate = Predicate.withMessageIdOwnedCryptoId(cryptoIdentity)
         }
         return try obvContext.fetch(request)
     }
     
-    class func get(messageId: MessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
+    
+    static func getAllUnprocessedMessages(within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        rawMessageIdOwnedIdentityKey, messageId.ownedCryptoIdentity.getIdentity() as NSData,
-                                        rawMessageIdUidKey, messageId.uid.raw as NSData)
+        request.predicate = Predicate.isUnprocessed
+        return try obvContext.fetch(request)
+    }
+    
+    
+    static func get(messageId: MessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
         return (try obvContext.fetch(request)).first
     }

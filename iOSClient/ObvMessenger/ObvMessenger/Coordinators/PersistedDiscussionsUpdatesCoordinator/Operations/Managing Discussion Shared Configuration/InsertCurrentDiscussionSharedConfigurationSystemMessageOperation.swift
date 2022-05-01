@@ -29,7 +29,7 @@ final class InsertCurrentDiscussionSharedConfigurationSystemMessageOperation: Op
     let messageUploadTimestampFromServer: Date?
     let fromContactIdentity: ObvContactIdentity?
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: InsertCurrentDiscussionSharedConfigurationSystemMessageOperation.self))
 
     init(persistedDiscussionObjectID: NSManagedObjectID, messageUploadTimestampFromServer: Date?, fromContactIdentity: ObvContactIdentity?) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID
@@ -58,7 +58,7 @@ final class InsertCurrentDiscussionSharedConfigurationSystemMessageOperation: Op
 
             let contact: PersistedObvContactIdentity?
             if let fromContactIdentity = self.fromContactIdentity {
-                guard let _contact = try? PersistedObvContactIdentity.get(persisted: fromContactIdentity, within: context) else {
+                guard let _contact = try? PersistedObvContactIdentity.get(persisted: fromContactIdentity, whereOneToOneStatusIs: .any, within: context) else {
                     return cancel(withReason: .inapropriateContact)
                 }
                 contact = _contact

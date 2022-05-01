@@ -28,6 +28,7 @@ final class PersistedDiscussionLocalConfiguration: NSManagedObject {
     
     private static let entityName = "PersistedDiscussionLocalConfiguration"
     static let muteNotificationsEndDateKey = "muteNotificationsEndDate"
+    private static func makeError(message: String) -> Error { NSError(domain: "PersistedDiscussionLocalConfiguration", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: - Attributes
 
@@ -139,7 +140,7 @@ enum PersistedDiscussionLocalConfigurationValue {
 extension PersistedDiscussionLocalConfigurationValue {
 
     func sendUpdateRequestNotifications(with objectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) {
-        ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: self, localConfigurationObjectID: objectID).postOnDispatchQueue()
+        ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: self, localConfigurationObjectID: objectID).postOnDispatchQueue()
     }
 }
 
@@ -222,8 +223,10 @@ extension PersistedDiscussionLocalConfiguration {
 
 extension PersistedDiscussionLocalConfiguration {
     
-    convenience init?(discussion: PersistedDiscussion) {
-        guard let context = discussion.managedObjectContext else { return nil }
+    convenience init(discussion: PersistedDiscussion) throws {
+        guard let context = discussion.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedDiscussionLocalConfiguration.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.discussion = discussion
@@ -272,28 +275,9 @@ extension PersistedDiscussionLocalConfiguration {
 
 // MARK: - For Backup purposes
 
-extension PersistedDiscussionConfigurationBackupItem {
-    
-    func updateExistingInstance(_ configuration: PersistedDiscussionLocalConfiguration) {
-        
-        configuration.doSendReadReceipt = self.sendReadReceipt
-        if let muteNotificationsEndDate = self.muteNotificationsEndDate {
-            configuration.muteNotificationsEndDate = muteNotificationsEndDate
-        }
-        configuration.autoRead = self.autoRead
-        configuration.retainWipedOutboundMessages = self.retainWipedOutboundMessages
-        configuration.countBasedRetentionIsActive = self.countBasedRetentionIsActive
-        configuration.countBasedRetention = self.countBasedRetention
-        if let timeBasedRetention = self.timeBasedRetention {
-            let rawValue = Int(timeBasedRetention)
-            if rawValue == 0 {
-                configuration.timeBasedRetention = .none
-            } else {
-                configuration.timeBasedRetention = DurationOptionAltOverride(rawValue: rawValue) ?? .useAppDefault
-            }
-        }
-        configuration.doFetchContentRichURLsMetadata = self.doFetchContentRichURLsMetadata
-        
+extension PersistedDiscussionLocalConfiguration {
+
+    func setMuteNotificationsEndDate(with muteNotificationsEndDate: Date) {
+        self.muteNotificationsEndDate = muteNotificationsEndDate
     }
-    
 }

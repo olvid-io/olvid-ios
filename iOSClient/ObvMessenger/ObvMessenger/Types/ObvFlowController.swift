@@ -355,6 +355,67 @@ extension ObvFlowController {
         }
     }
 
+    
+    func userWantsToInviteContactToOneToOne(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) {
+        let log = self.log
+        ObvStack.shared.performBackgroundTask { [weak self] (context) in
+            do {
+                guard let contact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: context) else { assertionFailure(); return }
+                assert(!contact.isOneToOne)
+                guard let ownedIdentity = contact.ownedIdentity else { assertionFailure(); return }
+                try self?.obvEngine.sendOneToOneInvitation(ownedIdentity: ownedIdentity.cryptoId, contactIdentity: contact.cryptoId)
+            } catch {
+                os_log("Could not invite contact to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
+    }
+    
+    
+    func userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
+        let log = self.log
+        ObvStack.shared.performBackgroundTask { [weak self] (context) in
+            do {
+                guard let oneToOneInvitationSent = try PersistedInvitationOneToOneInvitationSent.get(fromOwnedIdentity: ownedCryptoId,
+                                                                                                     toContact: contactCryptoId,
+                                                                                                     within: context) else {
+                    assertionFailure(); return
+                }
+                guard var dialog = oneToOneInvitationSent.obvDialog else { assertionFailure(); return }
+                try dialog.cancelOneToOneInvitationSent()
+                self?.obvEngine.respondTo(dialog)
+            } catch {
+                os_log("Could not invite contact to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
+    }
+    
+    
+    func userWantsToSyncOneToOneStatusOfContact(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) {
+        let log = self.log
+        ObvStack.shared.performBackgroundTask { [weak self] (context) in
+            do {
+                guard let _self = self else { return }
+                guard let contact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: context) else { assertionFailure(); return }
+                guard let ownedIdentity = contact.ownedIdentity else { assertionFailure(); return }
+                let ownedCryptoId = ownedIdentity.cryptoId
+                let contactToSync = contact.cryptoId
+                Task {
+                    do {
+                        try await _self.obvEngine.requestOneStatusSyncRequest(ownedIdentity: ownedCryptoId, contactsToSync: Set([contactToSync]))
+                    } catch {
+                        os_log("Could not sync contact OneToOne status: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure()
+                    }
+                }
+            } catch {
+                os_log("Could not sync contact OneToOne status: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
+    }
+    
 }
 
 

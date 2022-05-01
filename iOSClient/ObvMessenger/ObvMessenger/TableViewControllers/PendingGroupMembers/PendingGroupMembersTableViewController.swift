@@ -34,7 +34,7 @@ class PendingGroupMembersTableViewController: UITableViewController {
     // Constants
     
     private let defaultRowAnimation = UITableView.RowAnimation.automatic
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PendingGroupMembersTableViewController.self))
     
     // Other variables
     
@@ -89,7 +89,7 @@ extension PendingGroupMembersTableViewController {
     
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerInternalNotification.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
             self?.tableView.reloadData()
         }
         self.notificationTokens.append(token)

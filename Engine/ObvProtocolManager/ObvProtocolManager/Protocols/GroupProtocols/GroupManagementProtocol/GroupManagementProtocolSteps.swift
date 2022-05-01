@@ -115,21 +115,9 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting InitiateGroupCreationStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending InitiateGroupCreationStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = false
             
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let initialGroupInformationWithPhoto = receivedMessage.groupInformationWithPhoto
             let pendingGroupMembers = receivedMessage.pendingGroupMembers
             
@@ -250,9 +238,6 @@ extension GroupManagementProtocol {
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting NotifyMembersChangedStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending NotifyMembersChangedStep", log: log, type: .debug) }
             return try notifyMembersChangedStepImpl(concreteProtocolStep: self, groupInformation: receivedMessage.groupInformation, within: obvContext)
         }
     }
@@ -277,9 +262,6 @@ extension GroupManagementProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting NotifyMembersChangedAfterPhotoUploadingStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending NotifyMembersChangedAfterPhotoUploadingStep", log: log, type: .debug) }
             return try notifyMembersChangedStepImpl(concreteProtocolStep: self, groupInformation: receivedMessage.groupInformation, within: obvContext)
         }
     }
@@ -306,20 +288,8 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting ProcessNewMembersStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending ProcessNewMembersStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = false
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
 
             let newGroupInformation = receivedMessage.groupInformation
             let groupMembers = receivedMessage.groupMembers
@@ -473,20 +443,8 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting AddGroupMembersStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending AddGroupMembersStep", log: log, type: .debug) }
 
             eraseReceivedMessagesAfterReachingAFinalState = false
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupInformation = receivedMessage.groupInformation
             let newGroupMembers = receivedMessage.newGroupMembers
@@ -510,6 +468,11 @@ extension GroupManagementProtocol {
             let ownedIdentity = self.ownedIdentity
             let groupUid = groupInformation.groupUid
             let localPrng = prng
+            
+            // We need the following delegates in the callback
+            
+            let identityDelegate = self.identityDelegate
+            let channelDelegate = self.channelDelegate
             
             let groupMembersChangedCallback = {
                 
@@ -609,20 +572,8 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting RemoveGroupMembersStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending RemoveGroupMembersStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = false
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupInformation = receivedMessage.groupInformation
             let removedGroupMembers = receivedMessage.removedGroupMembers
@@ -647,6 +598,11 @@ extension GroupManagementProtocol {
             let groupUid = groupInformation.groupUid
             let localPrng = prng
             
+            // We need the following delegates in the callback
+            
+            let identityDelegate = self.identityDelegate
+            let channelDelegate = self.channelDelegate
+
             let groupMembersChangedCallback = {
                 
                 let groupInformationWithPhoto: GroupInformationWithPhoto
@@ -727,16 +683,9 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting GetKickedStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending GetKickedStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = true
 
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let groupInformation = receivedMessage.groupInformation
             
             // Check that the protocol uid of this protocol corresponds to the group information
@@ -796,21 +745,9 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting LeaveGroupJoinedStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending LeaveGroupJoinedStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = true
             
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let groupInformation = receivedMessage.groupInformation
             
             // Check that the protocol uid of this protocol corresponds to the group information
@@ -896,20 +833,8 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting ProcessGroupLeftStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending ProcessGroupLeftStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = false
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let groupInformation = receivedMessage.groupInformation
 
@@ -940,6 +865,11 @@ extension GroupManagementProtocol {
             let groupUid = groupInformation.groupUid
             let localPrng = prng
             
+            // We need the following delegates in the callback
+            
+            let identityDelegate = self.identityDelegate
+            let channelDelegate = self.channelDelegate
+
             let groupMembersChangedCallback = {
                 
                 let groupInformationWithPhoto: GroupInformationWithPhoto
@@ -1001,15 +931,8 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting QueryGroupMembersStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending QueryGroupMembersStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = false
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let groupInformation = receivedMessage.groupInformation
 
@@ -1067,21 +990,9 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting SendGroupMemberStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending SendGroupMemberStep", log: log, type: .debug) }
             
             eraseReceivedMessagesAfterReachingAFinalState = false
             
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let receivedGroupInformation = receivedMessage.groupInformation
 
             // Check that the group owner corresponds the owned identity of this protocol instance
@@ -1244,19 +1155,7 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting ReinviteAndUpdateMembersStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending ReinviteAndUpdateMembersStep", log: log, type: .debug) }
             
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             eraseReceivedMessagesAfterReachingAFinalState = false
 
             let groupInformation = receivedMessage.groupInformation
@@ -1367,19 +1266,7 @@ extension GroupManagementProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
-            os_log("GroupManagementProtocol: starting ReinviteAndUpdateMembersStep", log: log, type: .debug)
-            defer { os_log("GroupManagementProtocol: ending ReinviteAndUpdateMembersStep", log: log, type: .debug) }
             
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             eraseReceivedMessagesAfterReachingAFinalState = false
 
             let groupInformation = receivedMessage.groupInformation

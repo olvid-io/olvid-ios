@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class MarkSentFyleMessageJoinWithStatusAsCompleteOperation: OperationWithSpecificReasonForCancel<MarkSentFyleMessageJoinWithStatusAsCompleteOperationReasonForCancel> {
  
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkSentFyleMessageJoinWithStatusAsCompleteOperation.self))
 
     private let messageIdentifierFromEngine: Data
     private let attachmentNumber: Int

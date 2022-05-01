@@ -144,6 +144,21 @@ extension ObvDatabaseManager {
 }
 
 
+// MARK: - Implementing ObvContextCreator
+
+extension ObvDatabaseManager {
+
+    public func newBackgroundContext(flowId: FlowIdentifier, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) -> ObvContext {
+        return coreDataStack.newBackgroundContext(flowId: flowId, file: file, line: line, function: function)
+    }
+    
+    public var viewContext: NSManagedObjectContext {
+        return coreDataStack.viewContext
+    }
+    
+}
+
+
 // MARK: - Implementing ObvManager
 
 extension ObvDatabaseManager {
@@ -162,5 +177,16 @@ extension ObvDatabaseManager {
     public static var bundleIdentifier: String { return "io.olvid.ObvDatabaseManager" }
     
     public static var dataModelNames: [String] { return [] }
+    
+}
+
+
+extension CoreDataStack: ObvContextCreator {
+    
+    public func newBackgroundContext(flowId: FlowIdentifier, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) -> ObvContext {
+        let context = newBackgroundContext()
+        let obvContext = ObvContext(context: context, flowId: flowId, file: file, line: line, function: function)
+        return obvContext
+    }
     
 }

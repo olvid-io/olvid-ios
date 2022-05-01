@@ -51,9 +51,10 @@ public enum ObvChannelDialogToSendType {
     case acceptMediatorInvite(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
     case increaseMediatorTrustLevelRequired(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
     case mediatorInviteAccepted(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
+    case oneToOneInvitationSent(contact: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity)
+    case oneToOneInvitationReceived(contact: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity)
 
     // Dialogs related to contact groups
-    case groupJoined(groupInformation: GroupInformation)
     case acceptGroupInvite(groupInformation: GroupInformation, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, receivedMessageTimestamp: Date)
     case increaseGroupOwnerTrustLevel(groupInformation: GroupInformation, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, receivedMessageTimestamp: Date)
     

@@ -129,10 +129,10 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
         self.frc = PersistedDraftFyleJoin.getFetchedResultsControllerForAllDraftFyleJoinsOfDraft(withObjectID: draftObjectID, within: ObvStack.shared.viewContext)
         self.frc.delegate = self
 
-        let cellRegistration = UICollectionView.CellRegistration<AttachmentCell, DraftFyleJoin> { [weak self] (cell, indexPath, draftFyleJoin) in
+        let cellRegistration = UICollectionView.CellRegistration<AttachmentCell, FyleJoin> { [weak self] (cell, indexPath, fyleJoin) in
             assert(self != nil)
             assert(self?.delegate != nil) // This typically happens if there is a memory cycle.
-            cell.updateWith(draftFyleJoin: draftFyleJoin, indexPath: indexPath, delegate: self?.delegate, cacheDelegate: self?.cacheDelegate)
+            cell.updateWith(fyleJoin: fyleJoin, indexPath: indexPath, delegate: self?.delegate, cacheDelegate: self?.cacheDelegate)
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, NSManagedObjectID>(collectionView: collectionView) { (collectionView: UICollectionView, indexPath: IndexPath, objectID: NSManagedObjectID) -> UICollectionViewCell? in

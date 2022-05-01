@@ -324,7 +324,7 @@ extension MessagesCoordinator: MessagesDelegate {
                 do {
                     try obvContext.save(logOnFailure: log)
                 } catch {
-                    os_log("Could not delete local message/attachments and thus, could not create PendingDeleteFromServer", log: log, type: .fault)
+                    os_log("Could not delete local message/attachments and thus, could not create PendingDeleteFromServer: %{public}@", log: log, type: .fault, error.localizedDescription)
                     assertionFailure()
                 }
                 

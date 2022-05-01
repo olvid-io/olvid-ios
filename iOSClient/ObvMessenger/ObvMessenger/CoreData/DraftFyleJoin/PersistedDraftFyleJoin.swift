@@ -21,7 +21,7 @@ import Foundation
 import CoreData
 
 @objc(PersistedDraftFyleJoin)
-final class PersistedDraftFyleJoin: NSManagedObject, DraftFyleJoin {
+final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin {
     
     private static let entityName = "PersistedDraftFyleJoin"
     static let draftKey = "draft"

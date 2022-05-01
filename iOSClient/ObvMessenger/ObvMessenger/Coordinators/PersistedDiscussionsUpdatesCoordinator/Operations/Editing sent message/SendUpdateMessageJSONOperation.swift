@@ -28,7 +28,7 @@ final class SendUpdateMessageJSONOperation: ContextualOperationWithSpecificReaso
 
     private let obvEngine: ObvEngine
     private let persistedSentMessageObjectID: NSManagedObjectID
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SendUpdateMessageJSONOperation.self))
 
     init(persistedSentMessageObjectID: NSManagedObjectID, obvEngine: ObvEngine) {
         self.persistedSentMessageObjectID = persistedSentMessageObjectID

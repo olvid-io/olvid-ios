@@ -1,0 +1,33 @@
+import:
+    - Foundation
+    - ObvTypes
+    - ObvCrypto
+    - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: notificationDelegate}
+  - {key: notificationCenterType, value: ObvNotificationDelegate}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+notifications:
+- name: newBackupSeedGenerated
+  params:
+      - {name: backupSeedString, type: String}
+      - {name: backupKeyInformation, type: BackupKeyInformation}
+      - {name: flowId, type: FlowIdentifier}
+- name: backupSeedGenerationFailed
+  params:
+      - {name: flowId, type: FlowIdentifier}
+- name: backupableManagerDatabaseContentChanged
+  params:
+      - {name: flowId, type: FlowIdentifier}
+- name: backupForUploadWasUploaded
+  params:
+      - {name: backupKeyUid, type: UID}
+      - {name: version, type: Int}
+      - {name: flowId, type: FlowIdentifier}
+- name: backupForExportWasExported
+  params:
+      - {name: backupKeyUid, type: UID}
+      - {name: version, type: Int}
+      - {name: flowId, type: FlowIdentifier}

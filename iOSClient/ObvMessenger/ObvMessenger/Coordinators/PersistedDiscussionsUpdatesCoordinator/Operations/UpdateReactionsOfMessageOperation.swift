@@ -102,7 +102,7 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
                 let persistedContactIdentity: PersistedObvContactIdentity
                 do {
                     do {
-                        guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: contactIdentity, within: obvContext.context) else {
+                        guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: contactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                             return cancel(withReason: .couldNotFindContact)
                         }
                         persistedContactIdentity = _persistedContactIdentity
@@ -118,17 +118,19 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
                 // Recover the appropriate discussion
 
                 let discussion: PersistedDiscussion
-                if let groupId = groupId {
-                    do {
+                do {
+                    if let groupId = groupId {
                         guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                             return cancel(withReason: .couldNotFindGroupDiscussion)
                         }
                         discussion = group.discussion
-                    } catch {
-                        return cancel(withReason: .coreDataError(error: error))
+                    } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                        discussion = oneToOneDiscussion
+                    } else {
+                        return cancel(withReason: .couldNotFindDiscussion)
                     }
-                } else {
-                    discussion = persistedContactIdentity.oneToOneDiscussion
+                } catch {
+                    return cancel(withReason: .coreDataError(error: error))
                 }
 
                 // Get the message on which we will add a reaction
@@ -198,9 +200,12 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
             // If the message was registered in the view context, we refresh it
 
             if let messageObjectID = message?.typedObjectID {
-                ObvStack.shared.viewContext.perform {
-                    guard let message = ObvStack.shared.viewContext.registeredObject(for: messageObjectID.objectID) else { return }
-                    ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
+                try? obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    ObvStack.shared.viewContext.perform {
+                        guard let message = ObvStack.shared.viewContext.registeredObject(for: messageObjectID.objectID) else { return }
+                        ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
+                    }
                 }
             }
         }
@@ -216,6 +221,7 @@ enum UpdateReactionsOperationReasonForCancel: LocalizedErrorWithLogType {
     case couldNotFindGroupDiscussion
     case couldNotFindMessage
     case invalidEmoji
+    case couldNotFindDiscussion
 
     var logType: OSLogType { .fault }
 
@@ -235,6 +241,8 @@ enum UpdateReactionsOperationReasonForCancel: LocalizedErrorWithLogType {
             return "Could not find message to react"
         case .invalidEmoji:
             return "Invalid emoji"
+        case .couldNotFindDiscussion:
+            return "Could not find discussion"
         }
     }
 

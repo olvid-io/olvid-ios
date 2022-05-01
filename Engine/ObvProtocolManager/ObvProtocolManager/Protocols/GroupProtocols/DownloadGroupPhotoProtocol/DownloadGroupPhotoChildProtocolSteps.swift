@@ -68,13 +68,7 @@ extension DownloadGroupPhotoChildProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DownloadIdentityPhotoChildProtocol.logCategory)
-            os_log("DownloadIdentityPhotoChildProtocol: starting QueryServerStep", log: log, type: .debug)
-            defer { os_log("DownloadIdentityPhotoChildProtocol: ending QueryServerStep", log: log, type: .debug) }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
             guard let label = receivedMessage.groupInformation.groupDetailsElements.photoServerKeyAndLabel?.label else {
                 os_log("The server label is not set", log: log, type: .fault)
                 return nil
@@ -115,13 +109,6 @@ extension DownloadGroupPhotoChildProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DownloadIdentityPhotoChildProtocol.logCategory)
-            os_log("DownloadIdentityPhotoChildProtocol: starting ProcessPhotoStep", log: log, type: .debug)
-            defer { os_log("DownloadIdentityPhotoChildProtocol: ending ProcessPhotoStep", log: log, type: .debug) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("Could get identity delegate", log: log, type: .fault)
-                return CancelledState()
-            }
 
             guard let encryptedPhotoData = receivedMessage.encryptedPhoto else {
                 // Photo was deleted from the server

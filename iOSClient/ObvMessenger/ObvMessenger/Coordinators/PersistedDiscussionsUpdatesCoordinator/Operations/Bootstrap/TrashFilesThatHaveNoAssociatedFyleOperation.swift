@@ -29,7 +29,7 @@ import OlvidUtils
 /// we *do* check here that no `Fyle` entry was created between the time the list of candidates was computed and the time this operation is executed.
 final class TrashFilesThatHaveNoAssociatedFyleOperation: OperationWithSpecificReasonForCancel<TrashFilesThatHaveNoAssociatedFyleOperationReasonForCancel> {
         
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: TrashFilesThatHaveNoAssociatedFyleOperation.self))
 
     private let urlsCandidatesForTrash: Set<URL>
     

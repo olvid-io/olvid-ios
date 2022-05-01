@@ -20,8 +20,10 @@
 		C4619F3E264A9CB200523B3A /* ContextualOperationWithSpecificReasonForCancel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4619F3D264A9CB200523B3A /* ContextualOperationWithSpecificReasonForCancel.swift */; };
 		C4619F40264AB0CA00523B3A /* ObvContextCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4619F3F264AB0CA00523B3A /* ObvContextCreator.swift */; };
 		C4619F42264AB36F00523B3A /* CompositionOfOneContextualOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4619F41264AB36F00523B3A /* CompositionOfOneContextualOperation.swift */; };
+		C4656F6827B7CF0A009D4615 /* ObvErrorMaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4656F6727B7CF0A009D4615 /* ObvErrorMaker.swift */; };
 		C46F4C4227086A0E0018C7C1 /* UIImage+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46F4C4127086A0E0018C7C1 /* UIImage+Utils.swift */; };
 		C46F4C4427086E850018C7C1 /* UIFont+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46F4C4327086E850018C7C1 /* UIFont+Utils.swift */; };
+		C475A9D027C445AA00335FE7 /* AVAudioSession+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C475A9CF27C445AA00335FE7 /* AVAudioSession+Utils.swift */; };
 		C47651E9275784D700D3AB20 /* TimeInterval+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47651E8275784D700D3AB20 /* TimeInterval+Utils.swift */; };
 		C4818F8B27033FDA00CEFA1D /* CompositionOfFiveContextualOperations.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4818F8A27033FDA00CEFA1D /* CompositionOfFiveContextualOperations.swift */; };
 		C48E1025274FC9FA0031A03B /* Date+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48E1024274FC9FA0031A03B /* Date+Utils.swift */; };
@@ -48,8 +50,10 @@
 		C4619F3D264A9CB200523B3A /* ContextualOperationWithSpecificReasonForCancel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualOperationWithSpecificReasonForCancel.swift; sourceTree = "<group>"; };
 		C4619F3F264AB0CA00523B3A /* ObvContextCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvContextCreator.swift; sourceTree = "<group>"; };
 		C4619F41264AB36F00523B3A /* CompositionOfOneContextualOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompositionOfOneContextualOperation.swift; sourceTree = "<group>"; };
+		C4656F6727B7CF0A009D4615 /* ObvErrorMaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvErrorMaker.swift; sourceTree = "<group>"; };
 		C46F4C4127086A0E0018C7C1 /* UIImage+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Utils.swift"; sourceTree = "<group>"; };
 		C46F4C4327086E850018C7C1 /* UIFont+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIFont+Utils.swift"; sourceTree = "<group>"; };
+		C475A9CF27C445AA00335FE7 /* AVAudioSession+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AVAudioSession+Utils.swift"; sourceTree = "<group>"; };
 		C47651E8275784D700D3AB20 /* TimeInterval+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Utils.swift"; sourceTree = "<group>"; };
 		C4818F8A27033FDA00CEFA1D /* CompositionOfFiveContextualOperations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompositionOfFiveContextualOperations.swift; sourceTree = "<group>"; };
 		C48E1024274FC9FA0031A03B /* Date+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Utils.swift"; sourceTree = "<group>"; };
@@ -84,6 +88,7 @@
 				C48E1024274FC9FA0031A03B /* Date+Utils.swift */,
 				C47651E8275784D700D3AB20 /* TimeInterval+Utils.swift */,
 				C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */,
+				C475A9CF27C445AA00335FE7 /* AVAudioSession+Utils.swift */,
 			);
 			path = TypeExtensions;
 			sourceTree = "<group>";
@@ -121,6 +126,14 @@
 			path = Composition;
 			sourceTree = "<group>";
 		};
+		C4656F6627B7CEE3009D4615 /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				C4656F6727B7CF0A009D4615 /* ObvErrorMaker.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
 		C49AA9E4261F4A9100E055F9 = {
 			isa = PBXGroup;
 			children = (
@@ -141,6 +154,7 @@
 		C49AA9F0261F4A9100E055F9 /* OlvidUtils */ = {
 			isa = PBXGroup;
 			children = (
+				C4656F6627B7CEE3009D4615 /* Protocols */,
 				C451DB3126774BC300461DF4 /* TypeExtensions */,
 				C4619F31264A82BB00523B3A /* CoreDataUtils */,
 				C4619F2C264A825600523B3A /* Types */,
@@ -265,6 +279,7 @@
 				C4818F8B27033FDA00CEFA1D /* CompositionOfFiveContextualOperations.swift in Sources */,
 				C47651E9275784D700D3AB20 /* TimeInterval+Utils.swift in Sources */,
 				C48EA12A2703D88C006541D2 /* CGImage+Utils.swift in Sources */,
+				C475A9D027C445AA00335FE7 /* AVAudioSession+Utils.swift in Sources */,
 				C49AAA2F261F4AD900E055F9 /* OperationWithSpecificReasonForCancel.swift in Sources */,
 				C4619F33264A835500523B3A /* NSManagedObjectContext+logOnFailure.swift in Sources */,
 				C46F4C4427086E850018C7C1 /* UIFont+Utils.swift in Sources */,
@@ -275,6 +290,7 @@
 				C4619F38264A964F00523B3A /* CompositionOfThreeContextualOperations.swift in Sources */,
 				C4405CFB263BEA430093CE01 /* RunningLogError.swift in Sources */,
 				C4619F30264A82B400523B3A /* ObvContext.swift in Sources */,
+				C4656F6827B7CF0A009D4615 /* ObvErrorMaker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

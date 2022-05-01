@@ -22,4 +22,6 @@ import Foundation
 
 public enum ObvCapability: String, CaseIterable {
     case webrtcContinuousICE = "webrtc_continuous_ice"
+    case groupsV2 = "groups_v2"
+    case oneToOneContacts = "one_to_one_contacts"
 }

@@ -128,6 +128,40 @@ extension BackgroundTaskCoordinator {
     }
     
     
+    /// In certain cases, we don't care about the exact flow where a certain event appened. For example, if an attachment has been taken care of by the send manager, we can considered it as "taken care of" in all flows.
+    /// For all similar situations, this is the method to call instead of
+    /// ``func updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId flowId: FlowIdentifier, expectationsToRemove: [Expectation], expectationsToAdd: [Expectation])``
+    /// This makes this coordinator more resilient to "flow changes".
+    private func updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [Expectation]) {
+        
+        guard let delegateManager = delegateManager else { assertionFailure(); return }
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+
+        var flowsToUpdate = Set<FlowIdentifier>()
+        
+        backgroundActivitiesQueue.sync {
+            
+            flowsToUpdate = Set(_currentExpectationsWithinFlow.compactMap { (flowId, value) in
+                value.expectations.intersection(expectationsToRemove).isEmpty ? nil : flowId
+            })
+            
+            for flowId in flowsToUpdate {
+                guard let value = _currentExpectationsWithinFlow[flowId] else { assertionFailure(); continue }
+                os_log("Expectations of background activity associated with flow %{public}@ before update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: value.expectations))
+                let newExpectations = value.expectations.subtracting(expectationsToRemove)
+                os_log("Expectations of background activity associated with flowId %{public}@ after update: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: newExpectations))
+                _currentExpectationsWithinFlow[flowId] = (newExpectations, value.backgroundTaskId, value.completionHander)
+            }
+            
+        }
+
+        for flowId in flowsToUpdate {
+            self.endBackgroundActivityIfItHasNoMoreExpectationsWithinFlow(withId: flowId)
+        }
+        
+    }
+    
+    
     private func endBackgroundActivityAssociatedWithFlow(withId flowId: FlowIdentifier) {
         guard let delegateManager = delegateManager else { return }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
@@ -172,29 +206,11 @@ extension BackgroundTaskCoordinator {
             return
         }
         
-        // PoWChallengeMethodWasRequested
-        do {
-            let NotificationType = ObvNetworkPostNotification.PoWChallengeMethodWasRequested.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (messageId, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
-                self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
-                                                                               expectationsToRemove: [.powWasRequestedToTheServer(messageId: messageId)],
-                                                                               expectationsToAdd: [])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
+        notificationCenterTokens.append(contentsOf: [
 
-        
-        // NewOutboxMessageAndAttachmentsToUpload
-        do {
-            let NotificationType = ObvNetworkPostNotification.NewOutboxMessageAndAttachmentsToUpload.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (messageId, attachmentIds, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
+            // NewOutboxMessageAndAttachmentsToUpload
+            ObvNetworkPostNotification.observeNewOutboxMessageAndAttachmentsToUpload(within: notificationDelegate) { [weak self] (messageId, attachmentIds, flowId) in
+                os_log("NewOutboxMessageAndAttachmentsToUpload notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
                 if attachmentIds.isEmpty {
                     self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
                                                                                    expectationsToRemove: [],
@@ -205,84 +221,41 @@ extension BackgroundTaskCoordinator {
                                                                                    expectationsToRemove: [],
                                                                                    expectationsToAdd: expectationsToAdd)
                 }
-                
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // OutboxMessageWasUploaded
-        notificationCenterTokens.append(ObvNetworkPostNotificationNew.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: internalQueue) { [weak self] (messageId, _, _, _, flowId) in
-            os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, ObvNetworkPostNotificationNew.outboxMessageWasUploadedName.rawValue, flowId.debugDescription)
-            self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
-                                                                           expectationsToRemove: [.outboxMessageWasUploaded(messageId: messageId)],
-                                                                           expectationsToAdd: [])
-        })
-        
-        
-        // AttachmentsUploadsRequestIsTakenCareOf
-        do {
-            let NotificationType = ObvNetworkPostNotification.AttachmentUploadRequestIsTakenCareOf.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (attachmentId, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
-                self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
-                                                                               expectationsToRemove: [.attachmentUploadRequestIsTakenCareOfForAttachment(withId: attachmentId)],
-                                                                               expectationsToAdd: [])
-            }
-            notificationCenterTokens.append(token)
-        }
+            },
 
-        
-        // OutboxMessageAndAttachmentsDeleted
-        do {
-            let NotificationType = ObvNetworkPostNotification.OutboxMessageAndAttachmentsDeleted.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (messageId, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
-                self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
-                                                                               expectationsToRemove: [.deletionOfOutboxMessage(withId: messageId)],
-                                                                               expectationsToAdd: [])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // ProtocolMessageToProcess
-        do {
-            let NotificationType = ObvProtocolNotification.ProtocolMessageToProcess.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (protocolMessageId, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
+            // OutboxMessageWasUploaded
+            ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: internalQueue) { [weak self] (messageId, _, _, _, flowId) in
+                os_log("OutboxMessageWasUploaded notification received within flow %{public}@ for messageId %{public}@", log: log, type: .debug, flowId.debugDescription, messageId.debugDescription)
+                self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.outboxMessageWasUploaded(messageId: messageId)])
+            },
+            
+            // AttachmentUploadRequestIsTakenCareOf
+            ObvNetworkPostNotification.observeAttachmentUploadRequestIsTakenCareOf(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                os_log("AttachmentUploadRequestIsTakenCareOf notification received within flow %{public}@ for attachmentId %{public}@", log: log, type: .debug, flowId.debugDescription, attachmentId.debugDescription)
+                self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.attachmentUploadRequestIsTakenCareOfForAttachment(withId: attachmentId)])
+            },
+            
+            // OutboxMessageAndAttachmentsDeleted
+            ObvNetworkPostNotification.observeOutboxMessageAndAttachmentsDeleted(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                os_log("OutboxMessageAndAttachmentsDeleted notification received within flow %{public}@ for messageId %{public}@", log: log, type: .debug, flowId.debugDescription, messageId.debugDescription)
+                self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.deletionOfOutboxMessage(withId: messageId)])
+            },
+            
+            // ProtocolMessageToProcess
+            ObvProtocolNotification.observeProtocolMessageToProcess(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
+                os_log("ProtocolMessageToProcess notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
                 self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
                                                                                expectationsToRemove: [.protocolMessageToProcess, .uidsOfMessagesThatWillBeDownloaded],
-                                                                               expectationsToAdd: [.processingOfProtocolMessage(withId: protocolMessageId)])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // ProtocolMessageProcessed
-        do {
-            let NotificationType = ObvProtocolNotification.ProtocolMessageProcessed.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (protocolMessageId, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
-                self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
-                                                                               expectationsToRemove: [.processingOfProtocolMessage(withId: protocolMessageId)],
-                                                                               expectationsToAdd: [])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
+                                                                               expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
+            },
+            
+            // ProtocolMessageProcessed
+            ObvProtocolNotification.observeProtocolMessageProcessed(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
+                os_log("ProtocolMessageProcessed notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                self?.updateExpectationsOfAllBackgroundActivities(expectationsToRemove: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
+            },
+            
+        ])
         
     }
     

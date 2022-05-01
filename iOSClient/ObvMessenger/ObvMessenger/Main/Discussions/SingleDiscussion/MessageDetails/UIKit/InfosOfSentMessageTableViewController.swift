@@ -63,7 +63,7 @@ class InfosOfSentMessageTableViewController: UITableViewController {
     }
 
     private func _observeNewMetadataInsertion() {
-        _notificationTokens.append(ObvMessengerInternalNotification.observePersistedMessageHasNewMetadata(queue: OperationQueue.main) { [weak self] (messageObjectID) in
+        _notificationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageHasNewMetadata(queue: OperationQueue.main) { [weak self] (messageObjectID) in
             guard self?.persistedMessageSent.objectID == messageObjectID else { return }
             DispatchQueue.main.async { self?.tableView.reloadData() }
         })

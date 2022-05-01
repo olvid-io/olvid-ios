@@ -40,6 +40,7 @@
 		C49C100125478BAA00DB2557 /* FreeTrialQueryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49C100025478BAA00DB2557 /* FreeTrialQueryCoordinator.swift */; };
 		C49C100925478D2800DB2557 /* FreeTrialQueryDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49C100825478D2800DB2557 /* FreeTrialQueryDelegate.swift */; };
 		C4AB96A52758327D00280E6E /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AB969E2758325B00280E6E /* JWS.framework */; };
+		C4AF590C27D2CCA700221961 /* ProcessAllUnprocessedMessagesOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF590B27D2CCA700221961 /* ProcessAllUnprocessedMessagesOperation.swift */; };
 		C4BF0D16219F6BFC0042F9B8 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4BF0D13219F6BF90042F9B8 /* ObvTypes.framework */; };
 		C4BF0D25219F6C100042F9B8 /* ObvMetaManager.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4BF0D24219F6C0C0042F9B8 /* ObvMetaManager.framework */; };
 		C4BF0D2F219F6C2D0042F9B8 /* ObvServerInterface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4BF0D2E219F6C290042F9B8 /* ObvServerInterface.framework */; };
@@ -168,6 +169,7 @@
 		C49C100025478BAA00DB2557 /* FreeTrialQueryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeTrialQueryCoordinator.swift; sourceTree = "<group>"; };
 		C49C100825478D2800DB2557 /* FreeTrialQueryDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeTrialQueryDelegate.swift; sourceTree = "<group>"; };
 		C4AB96992758325B00280E6E /* JWS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = JWS.xcodeproj; path = ../JWS/JWS.xcodeproj; sourceTree = "<group>"; };
+		C4AF590B27D2CCA700221961 /* ProcessAllUnprocessedMessagesOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessAllUnprocessedMessagesOperation.swift; sourceTree = "<group>"; };
 		C4BF0D0D219F6BF90042F9B8 /* ObvTypes.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvTypes.xcodeproj; path = ../ObvTypes/ObvTypes.xcodeproj; sourceTree = "<group>"; };
 		C4BF0D17219F6C0C0042F9B8 /* ObvMetaManager.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvMetaManager.xcodeproj; path = ../ObvMetaManager/ObvMetaManager.xcodeproj; sourceTree = "<group>"; };
 		C4BF0D26219F6C290042F9B8 /* ObvServerInterface.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvServerInterface.xcodeproj; path = ../ObvServerInterface/ObvServerInterface.xcodeproj; sourceTree = "<group>"; };
@@ -352,6 +354,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		C4AF590327D2CC8000221961 /* Operations */ = {
+			isa = PBXGroup;
+			children = (
+				C4AF590B27D2CCA700221961 /* ProcessAllUnprocessedMessagesOperation.swift */,
+			);
+			path = Operations;
+			sourceTree = "<group>";
+		};
 		C4BF0D0E219F6BF90042F9B8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -471,6 +481,7 @@
 				C4EC1E6E261F43C300E8C33A /* WellKnownCoordinator */,
 				C09C41B7257A638300AE8E11 /* ServerQueryCoordinator.swift */,
 				C0BC169525B1F63C001A99E3 /* ServerUserDataCoordinator.swift */,
+				C4AF590327D2CC8000221961 /* Operations */,
 			);
 			path = Coordinators;
 			sourceTree = "<group>";
@@ -513,9 +524,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C45C0CCA1FC07B74009475B9 /* Build configuration list for PBXNativeTarget "ObvNetworkFetchManager" */;
 			buildPhases = (
+				C45C0CB31FC07B74009475B9 /* Headers */,
 				C45C0CB11FC07B74009475B9 /* Sources */,
 				C45C0CB21FC07B74009475B9 /* Frameworks */,
-				C45C0CB31FC07B74009475B9 /* Headers */,
 				C0B4A4F3276F5B0B00816D8D /* ShellScript */,
 			);
 			buildRules = (
@@ -665,6 +676,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4AF590C27D2CCA700221961 /* ProcessAllUnprocessedMessagesOperation.swift in Sources */,
 				C4781D8B254C87B500F49FBC /* VerifyReceiptCoordinator.swift in Sources */,
 				C4FE3E7E20C5867500912218 /* DeleteMessageAndAttachmentsFromServerCoordinator.swift in Sources */,
 				C468898E250D7CD000EE0754 /* ResumeOrSuspendAllTasksOfURLSessionOperation.swift in Sources */,

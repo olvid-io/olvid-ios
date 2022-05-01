@@ -36,12 +36,7 @@ final class BootstrapWorker {
         queue.name = "BootstrapWorker internal Queue"
         return queue
     }()
-    private let queueForPostingNotifications: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 5
-        queue.name = "Operation Queue for posting certain notifications from the BootstrapWorker"
-        return queue
-    }()
+    private let queueForPostingNotifications = DispatchQueue(label: "Queue for posting certain notifications from the BootstrapWorker")
 
     private var observationTokens = [NSObjectProtocol]()
     private let appType: AppType
@@ -261,8 +256,8 @@ extension BootstrapWorker {
             notificationPosted.insert(outboxMessage.messageId)
             os_log("Sending a outboxMessageWasUploaded notification (bootstraped update transaction) for messageId: %{public}@", log: log, type: .info, outboxMessage.messageId.debugDescription)
             
-            ObvNetworkPostNotificationNew.outboxMessageWasUploaded(messageId: outboxMessage.messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: outboxMessage.isAppMessageWithUserContent, isVoipMessage: outboxMessage.isVoipMessage, flowId: obvContext.flowId)
-                .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+            ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: outboxMessage.messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: outboxMessage.isAppMessageWithUserContent, isVoipMessage: outboxMessage.isVoipMessage, flowId: obvContext.flowId)
+                .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
         }
         
@@ -297,8 +292,9 @@ extension BootstrapWorker {
         }
 
         let messageIdsAndTimestampsFromServer = deletedMessages.map() { ($0.messageId, $0.timestampFromServer) }
-        ObvNetworkPostNotificationNew.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer, flowId: obvContext.flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+        guard !messageIdsAndTimestampsFromServer.isEmpty else { return }
+        ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer, flowId: obvContext.flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
     
@@ -354,15 +350,14 @@ extension BootstrapWorker {
                 assertionFailure()
                 return
             }
-            let queue = DispatchQueue(label: "Queue for posting an outboxMessageWasUploaded notification (1)")
             for msg in uploadedMessages {
                 guard let timestampFromServer = msg.timestampFromServer else { assertionFailure(); continue }
-                let notification = ObvNetworkPostNotificationNew.outboxMessageWasUploaded(messageId: msg.messageId,
-                                                                                          timestampFromServer: timestampFromServer,
-                                                                                          isAppMessageWithUserContent: msg.isAppMessageWithUserContent,
-                                                                                          isVoipMessage: msg.isVoipMessage,
-                                                                                          flowId: flowId)
-                notification.postOnDispatchQueue(dispatchQueue: queue, within: notificationDelegate)
+                ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: msg.messageId,
+                                                                    timestampFromServer: timestampFromServer,
+                                                                    isAppMessageWithUserContent: msg.isAppMessageWithUserContent,
+                                                                    isVoipMessage: msg.isVoipMessage,
+                                                                    flowId: flowId)
+                .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
             }
         })
         

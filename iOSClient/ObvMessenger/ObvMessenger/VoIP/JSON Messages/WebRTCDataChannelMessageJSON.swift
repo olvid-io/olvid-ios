@@ -107,7 +107,7 @@ struct ContactBytesAndNameJSON: Codable {
 
     let byteContactIdentity: Data
     let displayName: String
-    private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
+    private let rawGatheringPolicy: Int? // Optional to be compatible with previous versions where the gathering policy was hardcoded
 
     enum CodingKeys: String, CodingKey {
         case byteContactIdentity = "id"
@@ -152,14 +152,15 @@ struct UpdateParticipantsMessageJSON: WebRTCDataChannelInnerMessageJSON {
         case callParticipants = "cp"
     }
 
-    init(callParticipants: [CallParticipant]) {
+    init(callParticipants: [CallParticipant]) async {
         var callParticipants_: [ContactBytesAndNameJSON] = []
         for callParticipant in callParticipants {
-            guard callParticipant.state == .connected || callParticipant.state == .reconnecting else { continue }
-            guard let bytesContactIdentity = callParticipant.contactIdentity?.getIdentity() else { continue }
-            guard let displayName = callParticipant.fullDisplayName else { continue }
-            guard let gatheringPolicy = callParticipant.gatheringPolicy else { continue }
-            callParticipants_.append(ContactBytesAndNameJSON(byteContactIdentity: bytesContactIdentity, displayName: displayName, gatheringPolicy: gatheringPolicy))
+            let callParticipantState = await callParticipant.getPeerState()
+            guard callParticipantState == .connected || callParticipantState == .reconnecting else { continue }
+            let remoteCryptoId = callParticipant.remoteCryptoId
+            let displayName = callParticipant.fullDisplayName
+            guard let gatheringPolicy = await callParticipant.gatheringPolicy else { continue }
+            callParticipants_.append(ContactBytesAndNameJSON(byteContactIdentity: remoteCryptoId.getIdentity(), displayName: displayName, gatheringPolicy: gatheringPolicy))
         }
         self.callParticipants = callParticipants_
     }

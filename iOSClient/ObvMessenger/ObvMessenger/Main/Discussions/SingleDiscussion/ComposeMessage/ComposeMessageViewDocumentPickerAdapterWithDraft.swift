@@ -41,7 +41,7 @@ final class ComposeMessageViewDocumentPickerAdapterWithDraft: NSObject {
     
     // Variables
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ComposeMessageViewDocumentPickerAdapterWithDraft.self))
     private let internalOperationQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1

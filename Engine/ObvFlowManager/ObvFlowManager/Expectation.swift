@@ -24,7 +24,6 @@ import ObvMetaManager
 enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     
     // For outbox messages
-    case powWasRequestedToTheServer(messageId: MessageIdentifier)
     case outboxMessageWasUploaded(messageId: MessageIdentifier)
     case deletionOfOutboxMessage(withId: MessageIdentifier)
     
@@ -34,7 +33,7 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     case applicationMessageDecrypted(messageId: MessageIdentifier)
     case extendedMessagePayloadWasDownloaded(messageId: MessageIdentifier)
     case protocolMessageToProcess
-    case processingOfProtocolMessage(withId: MessageIdentifier)
+    case endOfProcessingOfProtocolMessage(withId: MessageIdentifier)
     case deletionOfInboxMessage(withId: MessageIdentifier)
     
     // For outbox attachments
@@ -49,13 +48,6 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
         case .extendedMessagePayloadWasDownloaded(messageId: let id1):
             switch rhs {
             case .extendedMessagePayloadWasDownloaded(messageId: let id2):
-                return id1 == id2
-            default:
-                return false
-            }
-        case .powWasRequestedToTheServer(messageId: let id1):
-            switch rhs {
-            case .powWasRequestedToTheServer(messageId: let id2):
                 return id1 == id2
             default:
                 return false
@@ -88,9 +80,9 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             default:
                 return false
             }
-        case .processingOfProtocolMessage(withId: let id1):
+        case .endOfProcessingOfProtocolMessage(withId: let id1):
             switch rhs {
-            case .processingOfProtocolMessage(withId: let id2):
+            case .endOfProcessingOfProtocolMessage(withId: let id2):
                 return id1 == id2
             default:
                 return false
@@ -135,8 +127,6 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     
     var debugDescription: String {
         switch self {
-        case .powWasRequestedToTheServer(messageId: let uid):
-            return "powWasRequestedToTheServer<\(uid.debugDescription)>"
         case .networkReceivedMessageWasProcessed(messageId: let uid):
             return "networkReceivedMessageWasProcessed<\(uid.debugDescription)>"
         case .outboxMessageWasUploaded(messageId: let uid):
@@ -147,8 +137,8 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             return "deletionOfOutboxMessage<\(uid.debugDescription)>"
         case .protocolMessageToProcess:
             return "protocolMessageToProcess"
-        case .processingOfProtocolMessage(withId: let uid):
-            return "processingOfProtocolMessage<\(uid.debugDescription)>"
+        case .endOfProcessingOfProtocolMessage(withId: let uid):
+            return "endOfProcessingOfProtocolMessage<\(uid.debugDescription)>"
         case .uidsOfMessagesThatWillBeDownloaded:
             return "uidsOfMessagesThatWillBeDownloaded"
         case .applicationMessageDecrypted(messageId: let uid):

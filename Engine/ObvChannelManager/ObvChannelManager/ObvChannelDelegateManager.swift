@@ -36,6 +36,7 @@ final class ObvChannelDelegateManager {
     
     // MARK: Instance variables (external delegates). Thanks to a mecanism within the DelegateManager, we know for sure that these delegates will be instantiated by the time the Manager is fully initialized. So we can safely force unwrapping.
     
+    weak var obvUserInterfaceChannelDelegate: ObvUserInterfaceChannelDelegate?
     weak var identityDelegate: ObvIdentityDelegate?
     weak var keyWrapperForIdentityDelegate: ObvKeyWrapperForIdentityDelegate?
     weak var networkPostDelegate: ObvNetworkPostDelegate?

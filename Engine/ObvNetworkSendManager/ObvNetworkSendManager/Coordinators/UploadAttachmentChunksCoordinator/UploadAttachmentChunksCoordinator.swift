@@ -44,25 +44,22 @@ final class UploadAttachmentChunksCoordinator: NSObject {
     
     private let localQueue = DispatchQueue(label: "UploadAttachmentChunksCoordinatorQueue")
     
-    /* We do not limit the number of concurrent operations in the queue.
-     * If we did, we would have to wait for one upload to be over before starting sending the next one.
-     * This would be acceptable within the app, but not within the share extensions that waits until
-     * all attachments have been taken care of before dismissing.
-     * Well, we limit the maxConcurrentOperationCount to 4. In practice, this seems
-     * acceptable in terms of memory footprint wrt the share extension. Not limiting leads
-     * to crashes of the share extension due to the memory footprint.
-     */
-    private var internalOperationQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.name = "Queue for UploadAttachmentChunksCoordinator operations"
-        queue.maxConcurrentOperationCount = 4
-        return queue
-    }()
+    private let internalOperationQueue: OperationQueue
     
     init(appType: AppType, sharedContainerIdentifier: String, outbox: URL) {
         self.currentAppType = appType
         self.sharedContainerIdentifier = sharedContainerIdentifier
         self.outbox = outbox
+        self.internalOperationQueue = OperationQueue()
+        self.internalOperationQueue.name = "Queue for UploadAttachmentChunksCoordinator operations"
+        // We limit the number of concurrent operations in the queue to reduce the memory footprint.
+        // This is particularly important in the case of the share extension, which is limited to 120MB of memory.
+        switch appType {
+        case .mainApp:
+            internalOperationQueue.maxConcurrentOperationCount = 4
+        case .shareExtension, .notificationExtension:
+            internalOperationQueue.maxConcurrentOperationCount = 1
+        }
         super.init()
     }
     
@@ -377,9 +374,11 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
              * urlSessionDidFinishEventsForSessionWithIdentifier(_: String) of this coordinator, which will call the stored completion handler.
              */
             guard !currentURLSessionExists(withIdentifier: identifier) else {
+                os_log("🌊 An URL session already exists for the given identifier. We return now.", log: log, type: .info)
                 return
             }
 
+            os_log("🌊 No URL session exist for the given identifier. We recreate it now.", log: log, type: .info)
             
             let operation = RecreatingURLSessionForCallingUIKitCompletionHandlerOperation(urlSessionIdentifier: identifier,
                                                                                           appType: currentAppType,
@@ -887,10 +886,13 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     
     
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String) {
+        let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+        os_log("🌊 urlSessionDidFinishEventsForSessionWithIdentifier", log: log, type: .info)
         guard let handler = removeHandlerForIdentifier(identifier) else { return }
         internalOperationQueue.addBarrierBlock({})
         internalOperationQueue.addOperation {
             DispatchQueue.main.async {
+                os_log("🌊 Calling the handler for identifier: %{public}@", log: log, type: .info, identifier.debugDescription)
                 handler()
             }
         }
@@ -977,13 +979,9 @@ extension UploadAttachmentChunksCoordinator: FinalizePostAttachmentUploadRequest
                 addCurrentURLSession(session)
             }
 
-            let NotificationType = ObvNetworkPostNotification.AttachmentUploadRequestIsTakenCareOf.self
-            let userInfo: [String: Any] = [
-                NotificationType.Key.flowId: flowId,
-                NotificationType.Key.attachmentId: attachmentId
-            ]
-            notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            
+            ObvNetworkPostNotification.attachmentUploadRequestIsTakenCareOf(attachmentId: attachmentId, flowId: flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
+                        
             return
         }
         
@@ -991,12 +989,8 @@ extension UploadAttachmentChunksCoordinator: FinalizePostAttachmentUploadRequest
         
         switch error {
         case .attachmentWasAlreadyAcknowledged:
-            let NotificationType = ObvNetworkPostNotification.AttachmentUploadRequestIsTakenCareOf.self
-            let userInfo: [String: Any] = [
-                NotificationType.Key.flowId: flowId,
-                NotificationType.Key.attachmentId: attachmentId
-            ]
-            notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+            ObvNetworkPostNotification.attachmentUploadRequestIsTakenCareOf(attachmentId: attachmentId, flowId: flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
             delegateManager.networkSendFlowDelegate.acknowledgedAttachment(attachmentId: attachmentId, flowId: flowId)
         case .messageNotUploadedYet:
             delegateManager.networkSendFlowDelegate.failedUploadAndGetUidOfMessage(messageId: attachmentId.messageId, flowId: flowId)

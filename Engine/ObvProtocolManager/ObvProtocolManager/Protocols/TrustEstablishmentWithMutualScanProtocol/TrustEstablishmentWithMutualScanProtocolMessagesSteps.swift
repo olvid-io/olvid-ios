@@ -82,21 +82,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
                 return CancelledState()
@@ -169,10 +155,6 @@ extension TrustEstablishmentWithMutualScanProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
@@ -221,23 +203,9 @@ extension TrustEstablishmentWithMutualScanProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
                 return CancelledState()
             }
 
@@ -276,9 +244,9 @@ extension TrustEstablishmentWithMutualScanProtocol {
                     os_log("Contact is not active", log: log, type: .error)
                     return CancelledState()
                 }
-                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             } else {
-                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, within: obvContext)
@@ -316,10 +284,14 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Send a notification so the app can automatically open the contact discussion
 
             let ownedIdentity = self.ownedIdentity
-            try obvContext.addContextDidSaveCompletionHandler { error in
-                guard error == nil else { return }
-                ObvProtocolNotificationNew.mutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, signature: signature)
-                    .postOnBackgroundQueue()
+            if let notificationDelegate = delegateManager.notificationDelegate {
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    ObvProtocolNotification.mutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, signature: signature)
+                        .postOnBackgroundQueue(within: notificationDelegate)
+                }
+            } else {
+                assertionFailure("The notification delegate is not set")
             }
 
             // Return the new state
@@ -350,18 +322,9 @@ extension TrustEstablishmentWithMutualScanProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
                 return CancelledState()
             }
 
@@ -396,9 +359,9 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Signature is valid and is fresh --> create the contact (if it does not already exists)
 
             if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             } else {
-                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, within: obvContext)
@@ -407,10 +370,14 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Send a notification so the app can automatically open the contact discussion
 
             let ownedIdentity = self.ownedIdentity
-            try obvContext.addContextDidSaveCompletionHandler { error in
-                guard error == nil else { return }
-                ObvProtocolNotificationNew.mutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, signature: signature)
-                    .postOnBackgroundQueue()
+            if let notificationDelegate = delegateManager.notificationDelegate {
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    ObvProtocolNotification.mutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: aliceIdentity, signature: signature)
+                        .postOnBackgroundQueue(within: notificationDelegate)
+                }
+            } else {
+                assertionFailure("The notification delegate is not set")
             }
 
             // Return the new state
@@ -441,15 +408,6 @@ extension TrustEstablishmentWithMutualScanProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let bobIdentity = startState.bobIdentity
             let bobCoreDetails = receivedMessage.bobCoreDetails
@@ -462,9 +420,9 @@ extension TrustEstablishmentWithMutualScanProtocol {
                     os_log("The identity is not active", log: log, type: .fault)
                     return CancelledState()
                 }
-                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             } else {
-                try identityDelegate.addContactIdentity(bobIdentity, with: bobCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addContactIdentity(bobIdentity, with: bobCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
             for uid in bobDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(bobIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, within: obvContext)

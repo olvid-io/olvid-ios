@@ -42,7 +42,7 @@ final class UpdatePersistedContactIdentityWithObvContactIdentityOperation: Conte
             
             do {
 
-                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, within: obvContext.context) else {
+                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindContactIdentityInDatabase)
                 }
                 

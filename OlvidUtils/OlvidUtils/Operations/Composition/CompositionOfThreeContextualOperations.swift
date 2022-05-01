@@ -34,8 +34,8 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
                 op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>,
                 op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>,
                 contextCreator: ObvContextCreator,
-                flowId: FlowIdentifier,
-                log: OSLog) {
+                log: OSLog,
+                flowId: FlowIdentifier) {
         self.contextCreator = contextCreator
         self.flowId = flowId
         self.log = log
@@ -48,6 +48,7 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
     public override func main() {
         
         let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
+        defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext

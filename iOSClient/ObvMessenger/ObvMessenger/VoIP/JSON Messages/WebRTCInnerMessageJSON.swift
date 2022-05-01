@@ -59,7 +59,7 @@ extension WebRTCInnerMessageJSON {
     }
 }
 
-struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
+struct StartCallMessageJSON: WebRTCInnerMessageJSON {
 
     var messageType: WebRTCMessageJSON.MessageType { .startCall }
 
@@ -67,7 +67,7 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
     let sessionDescription: String
     let turnUserName: String
     let turnPassword: String
-    let turnServers: [String]? /// REMARK Can be optional to be compatible with previous version where the server urls was hardcoded
+    let turnServers: [String]? /// REMARK Can be optional to be compatible with previous version where the server urls was hardcoded. 2022-03-11: we do not use this info anymore if we are a call participant, we discard it and use hardcoded servers (prevents an attack from caller).
     let participantCount: Int
     let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
     private let compressedSessionDescription: Data
@@ -152,7 +152,8 @@ struct IncomingCallMessageJSON: WebRTCInnerMessageJSON {
 
 }
 
-struct AnswerIncomingCallJSON: WebRTCInnerMessageJSON {
+
+struct AnswerCallJSON: WebRTCInnerMessageJSON {
 
     var messageType: WebRTCMessageJSON.MessageType { .answerCall }
 

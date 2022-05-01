@@ -31,7 +31,7 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
     private let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
     private let messagesToDelete: [MessageReferenceJSON]
     private let requester: ObvContactIdentity
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: WipeMessagesOperation.self))
     private let saveRequestIfMessageCannotBeFound: Bool
     private let messageUploadTimestampFromServer: Date
     
@@ -59,7 +59,7 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             let contact: PersistedObvContactIdentity
             do {
                 do {
-                    guard let _contact = try PersistedObvContactIdentity.get(persisted: requester, within: obvContext.context) else {
+                    guard let _contact = try PersistedObvContactIdentity.get(persisted: requester, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindContact)
                     }
                     contact = _contact
@@ -75,8 +75,8 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             // Recover the appropriate discussion. In case of a group discussion, make sure the contact is part of the group
             
             let discussion: PersistedDiscussion
-            if let groupId = self.groupId {
-                do {
+            do {
+                if let groupId = self.groupId {
                     guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindGroupDiscussion)
                     }
@@ -84,11 +84,14 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
                         return cancel(withReason: .wipeRequestedByNonGroupMember)
                     }
                     discussion = group.discussion
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                } else if let oneToOneDiscussion = try contact.oneToOneDiscussion {
+                    discussion = oneToOneDiscussion
+                } else {
+                    return cancel(withReason: .couldNotFindDiscussion)
                 }
-            } else {
-                discussion = contact.oneToOneDiscussion
+            } catch {
+                assertionFailure()
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             // Get the sent messages to wipe
@@ -143,7 +146,7 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
-                    ObvMessengerInternalNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+                    ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
                         .postOnDispatchQueue()
                 }
             } catch {
@@ -164,10 +167,11 @@ enum WipeMessagesOperationReasonForCancel: LocalizedErrorWithLogType {
     case couldNotFindGroupDiscussion
     case couldNotFindContact
     case wipeRequestedByNonGroupMember
+    case couldNotFindDiscussion
 
     var logType: OSLogType {
         switch self {
-        case .coreDataError, .couldNotFindOwnedIdentity, .couldNotFindGroupDiscussion, .couldNotFindContact, .wipeRequestedByNonGroupMember, .contextIsNil:
+        case .coreDataError, .couldNotFindOwnedIdentity, .couldNotFindGroupDiscussion, .couldNotFindContact, .wipeRequestedByNonGroupMember, .contextIsNil, .couldNotFindDiscussion:
             return .fault
         }
     }
@@ -186,6 +190,8 @@ enum WipeMessagesOperationReasonForCancel: LocalizedErrorWithLogType {
             return "Could not find the contact identity"
         case .wipeRequestedByNonGroupMember:
             return "The message wipe was requested by a contact that is not part of the group"
+        case .couldNotFindDiscussion:
+            return "Could not find discussion"
         }
     }
 

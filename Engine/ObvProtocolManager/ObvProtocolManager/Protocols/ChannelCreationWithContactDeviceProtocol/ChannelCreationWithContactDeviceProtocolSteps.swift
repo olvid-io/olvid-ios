@@ -94,19 +94,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting SendPingStep", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending SendPingStep", log: log, type: .info) }
 
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
                 return CancelledState()
@@ -226,18 +214,6 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting SendPingOrEphemeralKeyStep", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending SendPingOrEphemeralKeyStep", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
@@ -435,18 +411,6 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting SendEphemeralKeyAndK1Step", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending SendEphemeralKeyAndK1Step", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
@@ -567,18 +531,6 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting RecoverK1AndSendK2AndCreateChannelStep", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending RecoverK1AndSendK2AndCreateChannelStep", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let contactDeviceUid = startState.contactDeviceUid
@@ -693,18 +645,6 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting RecoverK2CreateChannelAndSendAckStep", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending RecoverK2CreateChannelAndSendAckStep", log: log, type: .info) }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let contactDeviceUid = startState.contactDeviceUid
@@ -805,19 +745,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting ConfirmChannelAndSendAckStep", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending ConfirmChannelAndSendAckStep", log: log, type: .info) }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactDeviceUid = startState.contactDeviceUid
             let contactIdentityDetailsElements = receivedMessage.contactIdentityDetailsElements
@@ -893,8 +821,9 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 
+                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
-                let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .ContactCapabilitiesDiscovery,
                                                       protocolInstanceUid: newProtocolInstanceUid)
                 let message = DeviceCapabilitiesDiscoveryProtocol.InitialSingleContactDeviceMessage(coreProtocolMessage: coreMessage,
@@ -903,7 +832,7 @@ extension ChannelCreationWithContactDeviceProtocol {
                                                                                                      isResponse: false)
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
                     assertionFailure()
-                    throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
+                    throw Self.makeError(message: "Implementation error")
                 }
                 do {
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
@@ -913,6 +842,31 @@ extension ChannelCreationWithContactDeviceProtocol {
                     // Continue anyway
                 }
 
+            }
+            
+            // Also make sure we agree on the OneToOne status. Note that we do not perform this check in the SendAckStep since performing it here is sufficient as
+            // Our contact will reply if this is pertinent.
+
+            do {
+                
+                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let newProtocolInstanceUid = UID.gen(with: prng)
+                let coreMessage = CoreProtocolMessage(channelType: channel,
+                                                      cryptoProtocolId: .OneToOneContactInvitation,
+                                                      protocolInstanceUid: newProtocolInstanceUid)
+                let message = OneToOneContactInvitationProtocol.InitialOneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, contactsToSync: Set([contactIdentity]))
+                guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Implementation error")
+                }
+                do {
+                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    os_log("Failed to request our own OneToOne status to our contact", log: log, type: .fault)
+                    assertionFailure()
+                    // Continue anyway
+                }
+                
             }
 
             // Return the new state
@@ -945,19 +899,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
-            os_log("ChannelCreationWithContactDeviceProtocol: starting ConfirmChannelStep", log: log, type: .info)
-            defer { os_log("ChannelCreationWithContactDeviceProtocol: ending ConfirmChannelStep", log: log, type: .info) }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactDeviceUid = startState.contactDeviceUid
             let contactIdentityDetailsElements = receivedMessage.contactIdentityDetailsElements
@@ -1016,8 +958,9 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 
+                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
-                let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .ContactCapabilitiesDiscovery,
                                                       protocolInstanceUid: newProtocolInstanceUid)
                 let message = DeviceCapabilitiesDiscoveryProtocol.InitialSingleContactDeviceMessage(coreProtocolMessage: coreMessage,

@@ -67,7 +67,7 @@ class LocalAuthenticationViewController: UIViewController {
             ObvMessengerInternalNotification.observeAppStateChanged(queue: .main) { [weak self] previousState, currentState in
                 guard let _self = self else { return }
                 if previousState.isAuthenticated && previousState.isInitialized && previousState.iOSAppState == .mayResignActive && currentState.iOSAppState == .inBackground {
-                    _self.uptimeAtTheTimeOfChangeoverToNotActiveState = _self.getUptime()
+                    _self.uptimeAtTheTimeOfChangeoverToNotActiveState = TimeInterval.getUptime()
                 }
             },
         ])
@@ -109,19 +109,11 @@ class LocalAuthenticationViewController: UIViewController {
         setAuthenticationStatus(to: .shouldPerformLocalAuthentication)
     }
 
-    private func getUptime() -> TimeInterval {
-        var uptime = timespec()
-        if clock_gettime(CLOCK_MONOTONIC_RAW, &uptime) != 0 {
-            return 0
-        }
-        return TimeInterval(uptime.tv_sec)
-    }
-    
     func performLocalAuthentication(completion: ((Bool) -> Void)? = nil) {
         assert(Thread.isMainThread)
         let userIsAlreadyAuthenticated: Bool
         if let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveState {
-            let timeIntervalSinceLastChangeoverToNotActiveState = getUptime() - uptimeAtTheTimeOfChangeoverToNotActiveState
+            let timeIntervalSinceLastChangeoverToNotActiveState = TimeInterval.getUptime() - uptimeAtTheTimeOfChangeoverToNotActiveState
             assert(0 <= timeIntervalSinceLastChangeoverToNotActiveState)
             userIsAlreadyAuthenticated = (timeIntervalSinceLastChangeoverToNotActiveState < ObvMessengerSettings.Privacy.lockScreenGracePeriod)
         } else {

@@ -280,9 +280,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C41F590C200365DF00053581 /* Build configuration list for PBXNativeTarget "ObvIdentityManager" */;
 			buildPhases = (
+				C41F58F5200365DF00053581 /* Headers */,
 				C41F58F3200365DF00053581 /* Sources */,
 				C41F58F4200365DF00053581 /* Frameworks */,
-				C41F58F5200365DF00053581 /* Headers */,
 				C0B4A4E2276F5ACE00816D8D /* ShellScript */,
 			);
 			buildRules = (

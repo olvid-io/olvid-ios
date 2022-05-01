@@ -24,6 +24,7 @@ import ObvTypes
 struct ContactDetailedInfosView: View {
 
     @ObservedObject var contact: PersistedObvContactIdentity
+    let userWantsToSyncOneToOneStatusOfContact: () -> Void
     @State private var signedContactDetails: SignedUserDetails? = nil
     
     @Environment(\.presentationMode) var presentationMode
@@ -74,7 +75,7 @@ struct ContactDetailedInfosView: View {
                             circleBackgroundColor: contact.cryptoId.colors.background,
                             circleTextColor: contact.cryptoId.colors.text,
                             circledTextView: circledTextView,
-                            imageSystemName: "person",
+                            systemImage: .person,
                             profilePicture: .constant(profilePicture),
                             changed: .constant(false),
                             showGreenShield: contact.isCertifiedByOwnKeycloak,
@@ -133,6 +134,15 @@ struct ContactDetailedInfosView: View {
                                 ObvSimpleListItemView(
                                     title: Text("CAPABILITY_WEBRTC_CONTINUOUS_ICE"),
                                     value: contact.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No)
+                            case .oneToOneContacts:
+                                ObvSimpleListItemView(
+                                    title: Text("CAPABILITY_ONE_TO_ONE_CONTACTS"),
+                                    value: contact.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No,
+                                    buttonConfig: ("SYNC", "SYNC_REQUEST_SENT", userWantsToSyncOneToOneStatusOfContact))
+                            case .groupsV2:
+                                ObvSimpleListItemView(
+                                    title: Text("CAPABILITY_GROUPS_V2"),
+                                    value: contact.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No)
                             }
                         }
                     } header: {
@@ -143,7 +153,7 @@ struct ContactDetailedInfosView: View {
                         if contact.devices.isEmpty {
                             Text("None")
                         } else {
-                            ForEach(contact.sortedDevices.indices) { index in
+                            ForEach(contact.sortedDevices.indices, id: \.self) { index in
                                 ObvSimpleListItemView(
                                     title: Text("DEVICE \(index+1)"),
                                     value: contact.sortedDevices[index].identifier.hexString())

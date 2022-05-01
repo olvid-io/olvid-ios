@@ -77,25 +77,12 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceCapabilitiesDiscoveryProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let newOwnCapabilities = receivedMessage.newOwnCapabilities
 
             // We add the new capabilities to the current device of the owned identity. If these capabilities already exist, do nothing and return.
             
+            let previousOwnCapabilities: Set<ObvCapability>
             do {
                 let currentOwnCapabilities = try identityDelegate.getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ownedIdentity, within: obvContext)
                 guard currentOwnCapabilities != newOwnCapabilities else {
@@ -103,6 +90,38 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                     return FinishedState()
                 }
                 try identityDelegate.setCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ownedIdentity, newCapabilities: newOwnCapabilities, within: obvContext)
+                previousOwnCapabilities = currentOwnCapabilities ?? Set<ObvCapability>()
+            }
+            
+            // If the previous own capabilities did not have the oneToOneContacts capability, but the new capabilities do, we request our own OneToOne status
+            // To the contact. The reason is the following: since we just added the oneToOneContacts capability, we are in the situation where we consider
+            // *all* our contacts as OneToOne. But some of these contacts (who have had the oneToOneContacts capability before we did) might consider us as
+            // A non-OneToOne contact. Our objective is to reconciale with these contacts. So we send a RequestOwnOneToOneStatusFromContactMessage from the
+            // OneToOneContactInvitationProtocol to all our contacts. For each of our contacts, one of the following is true:
+            // - The contact does not have the oneToOneContacts capability, and she will discard our message.
+            // - The contact has the oneToOneContacts capability and
+            //   - Considers us to be OneToOne too, or invited us to be OneToOne. In that case, she will answer with a OneToOneResponseMessage (with invitationAccepted=true).
+            //   - Considers us to be non-OneToOne. In that case, she will anser with a OneToOneResponseMessage (with invitationAccepted=false), that
+            //     We will process in the AliceProcessesUnexpectedBobResponseStep, where we will downgrade the contact.
+            
+            if !previousOwnCapabilities.contains(.oneToOneContacts) && newOwnCapabilities.contains(.oneToOneContacts) {
+                let allContactIdentities = try identityDelegate.getContactsOfOwnedIdentity(ownedIdentity, within: obvContext)
+                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let newProtocolInstanceUid = UID.gen(with: prng)
+                let coreMessage = CoreProtocolMessage(channelType: channel,
+                                                      cryptoProtocolId: .OneToOneContactInvitation,
+                                                      protocolInstanceUid: newProtocolInstanceUid)
+                let message = OneToOneContactInvitationProtocol.InitialOneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, contactsToSync: allContactIdentities)
+                guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
+                }
+                do {
+                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    os_log("Failed to request our own OneToOne status to our contact", log: log, type: .fault)
+                    throw error
+                }
             }
             
             // We send all the capabilities of the current device of the owned identity to all its contact.
@@ -172,20 +191,6 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceCapabilitiesDiscoveryProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let contactIdentity = receivedMessage.contactIdentity
             let contactDeviceUid = receivedMessage.contactDeviceUid
@@ -193,7 +198,10 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
             // Get a fresh set of all the capabilities of the current device of the owned identity.
             
-            let currentCapabilities = try identityDelegate.getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ownedIdentity, within: obvContext)
+            guard let currentCapabilities = try identityDelegate.getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ownedIdentity, within: obvContext) else {
+                assertionFailure()
+                throw Self.makeError(message: "The owned capabilities are not known yet, which un expected at this point")
+            }
 
             // We send all the capabilities of the current device of the owned identity to the device of the contact
 
@@ -239,27 +247,16 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceCapabilitiesDiscoveryProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let otherOwnedDeviceUid = receivedMessage.otherOwnedDeviceUid
             let isResponse = receivedMessage.isResponse
 
             // Get a fresh set of all the capabilities of the current device of the owned identity.
             
-            let currentCapabilities = try identityDelegate.getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ownedIdentity, within: obvContext)
+            guard let currentCapabilities = try identityDelegate.getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ownedIdentity, within: obvContext) else {
+                assertionFailure()
+                throw Self.makeError(message: "The owned capabilities are not known yet, which un expected at this point")
+            }
 
             // We send all the capabilities of the current device of the owned identity to the other owned device
 
@@ -306,23 +303,9 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceCapabilitiesDiscoveryProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let rawContactObvCapabilities = receivedMessage.rawContactObvCapabilities
-            let isResonse = receivedMessage.isReponse
+            let isResponse = receivedMessage.isResponse
             
             // Determine the origin of the message (contact identity and contact device uid)
             
@@ -350,7 +333,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                                                                                                          contactIdentity: remoteIdentity,
                                                                                                          contactDeviceUid: remoteDeviceUid,
                                                                                                          within: obvContext)
-            if !isResonse && currentContactObvCapabilities.isEmpty {
+            if !isResponse && (currentContactObvCapabilities == nil || currentContactObvCapabilities?.isEmpty == true) {
                 
                 let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channel)
@@ -403,20 +386,6 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceCapabilitiesDiscoveryProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: DeviceCapabilitiesDiscoveryProtocol.self), String(describing: Self.self))
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let rawOtherOwnDeviceObvCapabilities = receivedMessage.rawOtherOwnDeviceObvCapabilities
             let isResponse = receivedMessage.isReponse
@@ -440,8 +409,8 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             
             let currentCapabilitiesOfOtherOwnDevice = try identityDelegate.getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ownedIdentity, deviceUID: otherOwnedDeviceUid, within: obvContext)
             
-            if !isResponse && currentCapabilitiesOfOtherOwnDevice.isEmpty {
-                
+            if !isResponse && (currentCapabilitiesOfOtherOwnDevice == nil || currentCapabilitiesOfOtherOwnDevice?.isEmpty == true) {
+
                 let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channel)
                 let message = InitialSingleOwnedDeviceMessage(coreProtocolMessage: coreMessage, otherOwnedDeviceUid: otherOwnedDeviceUid, isResponse: true)

@@ -28,7 +28,7 @@ final class EditTextBodyOfSentMessageOperation: ContextualOperationWithSpecificR
     private let persistedSentMessageObjectID: NSManagedObjectID
     private let newTextBody: String?
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: EditTextBodyOfSentMessageOperation.self))
 
     init(persistedSentMessageObjectID: NSManagedObjectID, newTextBody: String?) {
         self.persistedSentMessageObjectID = persistedSentMessageObjectID

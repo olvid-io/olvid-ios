@@ -46,6 +46,7 @@ class AllSettingsTableViewController: UITableViewController {
     enum Setting: CaseIterable {
 
         // Section 0
+        case contactsAndGroups
         case downloads
         case interface
         case discussions
@@ -60,7 +61,7 @@ class AllSettingsTableViewController: UITableViewController {
         private var section: Int {
             // Please follow Setting declaration order
             switch self {
-            case .downloads, .interface, .discussions, .privacy, .backup, .voip: return 0
+            case .contactsAndGroups, .downloads, .interface, .discussions, .privacy, .backup, .voip: return 0
             case .about, .advanced: return 1
             }
         }
@@ -79,6 +80,7 @@ class AllSettingsTableViewController: UITableViewController {
         
         var title: String {
             switch self {
+            case .contactsAndGroups: return CommonString.Title.contactsAndGroups
             case .downloads: return CommonString.Word.Downloads
             case .interface: return CommonString.Word.Interface
             case .discussions: return CommonString.Word.Discussions
@@ -92,6 +94,7 @@ class AllSettingsTableViewController: UITableViewController {
         
         var image: UIImage? {
             switch self {
+            case .contactsAndGroups: return UIImage(named: "settings_icon_contacts_and_groups")
             case .downloads: return UIImage(named: "settings_icon_downloads")
             case .interface: return UIImage(named: "settings_icon_interface")
             case .discussions: return UIImage(named: "settings_icon_discussions")

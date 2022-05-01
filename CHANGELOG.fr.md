@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.0 (495)] - 2022-03-24
+
+- Nouveau comportement de votre carnet d'adresse Olvid ! Maintenant, un autre utilisateur d'Olvid devient un contact uniquement si vous l'acceptez explicitement. Vous avez enfin un contrôle total sur votre carnet d'adresse ;-)
+- Une nouvelle liste « d'autres » utilisateurs d'Olvid est maintenant accessible depuis l'écran de Contacts. Ces utilisateurs sont typiquement ceux qui font partie des mêmes groupes que vous mais qui ne sont néanmoins pas des contacts. Pour vous les inviter en une touche !
+- Maintenant, une invitation à un groupe provenant d'un contact est automatiquement acceptée.
+- Vous devez toujours accepter explicitement une invitation à un groupe si elle provient d'un utilisateur qui ne fait partie de vos contacts.
+- Le partage via Olvid a été entièrement refait ! Il est maintenant possible de partager du contenu vers plusieurs discussions en une seule fois !
+- Support pour de nouveaux émojis.
+- Les réactions affichées dans la vue de discussion sont plus faciles à atteindre.
+- Les réactions n'étaient pas systématiquement rafraîchies en cas de changement. C'est corrigé.
+- Corrige un problème concernant les notifications utilisateur, qui pouvaient ne pas être affichée après une mise à jour de l'app (jusqu'au premier lancement).
+- Faire un « double tap » sur une image dans une discussion pouvait afficher l'image au lieu du panel de réactions. C'est corrigé.
+- D'importantes améliorations ont été apportées aux appels sécurisés, surtout dans le cas d'un appel de group à plus de 6 utilisateurs.
+- L'indicateur de message envoyé est plus robuste.
+- Si la version de l'app est obsolète, une alerte recommande de mettre à jour.
+- Mise à jour d'une librairie tierce.
+
 ## [0.9.18 (490)] - 2022-01-28
 
 - Nouvelles améliorations pour les appels sécurisés ! Cela inclut une meilleure qualité lorsque les conditions réseau sont mauvaises. Les connexions sont aussi beaucoup plus rapides. Notez que votre contact doit utiliser la dernière version d'Olvid.

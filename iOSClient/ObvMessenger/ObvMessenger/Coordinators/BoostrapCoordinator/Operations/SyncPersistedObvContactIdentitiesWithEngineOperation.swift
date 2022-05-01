@@ -28,7 +28,7 @@ import ObvTypes
 final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SyncPersistedObvContactIdentitiesWithEngineOperation.self))
 
     init(obvEngine: ObvEngine) {
         self.obvEngine = obvEngine
@@ -69,7 +69,7 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                 var existingContacts: Set<ObvContactIdentity> // Contacts that exist both within the engine and within the app
                 do {
                     missingContacts = try obvContactIdentities.filter({
-                        return (try PersistedObvContactIdentity.get(persisted: $0, within: obvContext.context)) == nil
+                        return (try PersistedObvContactIdentity.get(persisted: $0, whereOneToOneStatusIs: .any, within: obvContext.context)) == nil
                     })
                     existingContacts = obvContactIdentities.subtracting(missingContacts)
                 } catch let error {
@@ -84,7 +84,7 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                 // Each time a contact is created within the app, add this contact to the list of existing contacts within the app
                 
                 while let obvContact = missingContacts.popFirst() {
-                    guard PersistedObvContactIdentity(contactIdentity: obvContact, within: obvContext.context) != nil else {
+                    guard (try? PersistedObvContactIdentity(contactIdentity: obvContact, within: obvContext.context)) != nil else {
                         os_log("Could not create a missing persisted contact", log: log, type: .error)
                         continue
                     }
@@ -95,13 +95,13 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                 // Remove any persisted contact that does not exist within the engine
                 
                 do {
-                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, within: obvContext.context)
+                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
                     let cryptoIdsToKeep = existingContacts.map { $0.cryptoId }
                     let persistedContactsToDelete = persistedContacts.filter { !cryptoIdsToKeep.contains($0.cryptoId) }
                     os_log("Number of contacts existing within the app that must be deleted: %{public}d", log: log, type: .info, persistedContactsToDelete.count)
                     for contact in persistedContactsToDelete {
                         do {
-                            try contact.delete()
+                            try contact.deleteAndLockOneToOneDiscussion()
                         } catch {
                             os_log("Could not delete a contact during bootstrap: %{public}@", log: log, type: .fault, error.localizedDescription)
                         }
@@ -117,7 +117,7 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                 var objectIDsOfContactsToRefreshInViewContext = Set<NSManagedObjectID>()
 
                 do {
-                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, within: obvContext.context)
+                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
                     for contact in persistedContacts {
                         guard let obvContact = existingContacts.first(where: { contact.cryptoId == $0.cryptoId }) else {
                             assertionFailure()
@@ -137,7 +137,7 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                 // For each existing contact within the app, make sure the capabilities are in sync with the information within the engine
                 
                 do {
-                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, within: obvContext.context)
+                    let persistedContacts = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedIdentity.cryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
                     let contactCapabilities = try obvEngine.getCapabilitiesOfAllContactsOfOwnedIdentity(ownedIdentity.cryptoId)
                     for contact in persistedContacts {
                         let capabilities = contactCapabilities[contact.cryptoId] ?? Set<ObvCapability>()
@@ -153,7 +153,7 @@ final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOper
                 }
 
 
-                // The view context my have to refresh certain contacts at this point
+                // The view context may have to refresh certain contacts at this point
                 
                 if !objectIDsOfContactsToRefreshInViewContext.isEmpty {
                     DispatchQueue.main.async {

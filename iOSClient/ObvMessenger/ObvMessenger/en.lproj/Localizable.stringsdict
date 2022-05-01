@@ -232,5 +232,55 @@
             <string>%u additional search results are available. Please refine your search.</string>
         </dict>
     </dict>
+    <key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_MESSAGE</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>one</key>
+            <string>Modifying this setting requires you to accept one pending group invitation.</string>
+            <key>other</key>
+            <string>Modifying this setting requires you to accept %u pending group invitations.</string>
+        </dict>
+    </dict>
+    <key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_ACCEPT_ACTION_TITLE</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>one</key>
+            <string>Accept the pending group invitation now</string>
+            <key>other</key>
+            <string>Accept the %u pending group invitations now</string>
+        </dict>
+    </dict>
+    <key>CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>zero</key>
+            <string>choose</string>
+            <key>one</key>
+            <string>one selected</string>
+            <key>other</key>
+            <string>%u selected</string>
+        </dict>
+    </dict>
 </dict>
 </plist>

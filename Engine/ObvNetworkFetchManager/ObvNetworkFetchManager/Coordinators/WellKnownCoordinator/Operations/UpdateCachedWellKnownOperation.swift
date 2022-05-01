@@ -26,6 +26,7 @@ import os.log
 protocol UpdateCachedWellKnownOperationDelegate: AnyObject {
     func newWellKnownWasCached(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func cachedWellKnownWasUpdated(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
+    func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
 }
 
 final class UpdateCachedWellKnownOperation: OperationWithSpecificReasonForCancel<UpdateCachedWellKnownOperationReasonForCancel> {
@@ -66,6 +67,11 @@ final class UpdateCachedWellKnownOperation: OperationWithSpecificReasonForCancel
             if let currentWellKnown = try? CachedWellKnown.getCachedWellKnown(for: server, within: obvContext) {
                 if newWellKnownData == currentWellKnown.wellKnownData {
                     // Nothing to do
+                    if let wellKnownJSON = currentWellKnown.wellKnownJSON {
+                        delegate.currentCachedWellKnownCorrespondToThatOnServer(server: server, wellKnownJSON: wellKnownJSON, flowId: flowId)
+                    } else {
+                        assertionFailure()
+                    }
                     return
                 } else {
                     currentWellKnown.update(with: newWellKnownData)

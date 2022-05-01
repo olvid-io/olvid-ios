@@ -24,11 +24,11 @@ protocol ObvCallManager {
 
     var isCallKit: Bool { get }
 
-    func requestEndCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)?)
-    func requestAnswerCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)?)
-    func requestMuteCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)?)
-    func requestUnmuteCallAction(call: Call, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)?)
-    func requestStartCallAction(call: Call, contactIdentifier: String, handleValue: String, completion: ((ObvErrorCodeRequestTransactionError?) -> Void)?)
+    func requestEndCallAction(call: Call) async throws
+    func requestAnswerCallAction(incomingCall: Call) async throws
+    func requestMuteCallAction(call: Call) async throws
+    func requestUnmuteCallAction(call: Call) async throws
+    func requestStartCallAction(call: Call, contactIdentifier: String, handleValue: String) async throws
 }
 
 protocol ObvCallUpdate {
@@ -98,12 +98,12 @@ protocol ObvProvider: AnyObject {
     func setDelegate(_ delegate: ObvProviderDelegate?, queue: DispatchQueue?)
 
     /// Report a cancelled incoming call.
-    func reportNewCancelledIncomingCall(completionHandler: @escaping () -> Void)
+    func reportNewCancelledIncomingCall()
 
     /// Report a new incoming call to the system.
     /// If completion is invoked with a non-nil `error`, the incoming call has been disallowed by the system and will not be displayed, so the provider should not proceed with the call.
     /// Completion block will be called on delegate queue, if specified, otherwise on a private serial queue.
-    func reportNewIncomingCall(with UUID: UUID, update: ObvCallUpdate, completion: @escaping (ObvErrorCodeIncomingCallError?) -> Void)
+    func reportNewIncomingCall(with UUID: UUID, update: ObvCallUpdate, completion: @escaping (Result<Void,Error>) -> Void)
 
     /// Report an update to call information.
     func reportCall(with UUID: UUID, updated update: ObvCallUpdate)
@@ -199,18 +199,18 @@ protocol ObvPlayDTMFCallAction: ObvCallAction {
     var type_: ObvPlayDTMFCallActionType { get }
 }
 
-protocol ObvProviderDelegate {
-    func providerDidBegin()
-    func providerDidReset()
-    func provider(perform action: ObvStartCallAction)
-    func provider(perform action: ObvAnswerCallAction)
-    func provider(perform action: ObvEndCallAction)
-    func provider(perform action: ObvSetHeldCallAction)
-    func provider(perform action: ObvSetMutedCallAction)
-    func provider(perform action: ObvPlayDTMFCallAction)
-    func provider(timedOutPerforming action: ObvAction)
-    func provider(didActivate audioSession: AVAudioSession)
-    func provider(didDeactivate audioSession: AVAudioSession)
+protocol ObvProviderDelegate: AnyObject {
+    func providerDidBegin() async
+    func providerDidReset() async
+    func provider(perform action: ObvStartCallAction) async
+    func provider(perform action: ObvAnswerCallAction) async
+    func provider(perform action: ObvEndCallAction) async
+    func provider(perform action: ObvSetHeldCallAction) async
+    func provider(perform action: ObvSetMutedCallAction) async
+    func provider(perform action: ObvPlayDTMFCallAction) async
+    func provider(timedOutPerforming action: ObvAction) async
+    func provider(didActivate audioSession: AVAudioSession) async
+    func provider(didDeactivate audioSession: AVAudioSession) async
 }
 
 protocol ObvCall: AnyObject {

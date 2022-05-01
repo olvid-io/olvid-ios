@@ -28,6 +28,7 @@ enum OlvidSnackBarCategory: CaseIterable {
     case grantPermissionToRecord
     case grantPermissionToRecordInSettings
     case upgradeIOS
+    case newerAppVersionAvailable
 
     static func removeAllLastDisplayDate() {
         for category in OlvidSnackBarCategory.allCases {
@@ -68,6 +69,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             } else {
                 return NSLocalizedString("SNACK_BAR_BODY_IOS_VERSION_ACCEPTABLE", comment: "")
             }
+        case .newerAppVersionAvailable:
+            return NSLocalizedString("SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE", comment: "")
         }
     }
     
@@ -91,6 +94,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             } else {
                 return NSLocalizedString("SNACK_BAR_TITLE_IOS_VERSION_ACCEPTABLE", comment: "")
             }
+        case .newerAppVersionAvailable:
+            return NSLocalizedString("SNACK_BAR_BUTTON_TITLE_NEW_APP_VERSION_AVAILABLE", comment: "")
         }
     }
 
@@ -108,6 +113,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             return "io.olvid.snackBarCoordinator.lastDisplayDate.grantPermissionToRecordInSettings"
         case .upgradeIOS:
             return "io.olvid.snackBarCoordinator.lastDisplayDate.upgradeIOS"
+        case .newerAppVersionAvailable:
+            return "io.olvid.snackBarCoordinator.lastDisplayDate.newerAppVersionAvailable"
         }
     }
     
@@ -120,6 +127,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             return UIImage(systemIcon: .phoneCircleFill, withConfiguration: config)
         case .upgradeIOS:
             return UIImage(systemIcon: .gear, withConfiguration: config)
+        case .newerAppVersionAvailable:
+            return UIImage(systemIcon: .forwardFill, withConfiguration: config)
         }
     }
     
@@ -143,6 +152,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             } else {
                 return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_IOS_VERSION_ACCEPTABLE", comment: "")
             }
+        case .newerAppVersionAvailable:
+            return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE", comment: "")
         }
     }
     
@@ -166,6 +177,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             } else {
                 return NSLocalizedString("SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE", comment: "")
             }
+        case .newerAppVersionAvailable:
+            return NSLocalizedString("SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE", comment: "")
         }
     }
     
@@ -183,6 +196,8 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("GRANT_PERMISSION_TO_RECORD_IN_SETTINGS_BUTTON_TITLE", comment: "")
         case .upgradeIOS:
             return CommonString.Word.Ok
+        case .newerAppVersionAvailable:
+            return NSLocalizedString("GO_TO_APP_STORE_BUTTON_TITLE", comment: "")
         }
     }
     
@@ -199,6 +214,8 @@ enum OlvidSnackBarCategory: CaseIterable {
         case .grantPermissionToRecordInSettings:
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
         case .upgradeIOS:
+            return NSLocalizedString("REMIND_ME_LATER", comment: "")
+        case .newerAppVersionAvailable:
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
         }
     }

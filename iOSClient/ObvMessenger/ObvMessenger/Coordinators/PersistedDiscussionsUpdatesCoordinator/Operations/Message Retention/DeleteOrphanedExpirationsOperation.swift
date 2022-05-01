@@ -36,7 +36,7 @@ import OlvidUtils
 /// In practice, cleaning these instances proved to be useful.
 final class DeleteOrphanedExpirationsOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteOrphanedExpirationsOperation.self))
 
     override func main() {
         
@@ -53,4 +53,16 @@ final class DeleteOrphanedExpirationsOperation: OperationWithSpecificReasonForCa
         
     }
     
+}
+
+
+extension PersistedMessageExpiration {
+
+    static func deleteAllOrphanedExpirations(within context: NSManagedObjectContext) throws {
+        try PersistedExpirationForReceivedMessageWithLimitedVisibility.deleteAllOrphaned(within: context)
+        try PersistedExpirationForReceivedMessageWithLimitedExistence.deleteAllOrphaned(within: context)
+        try PersistedExpirationForSentMessageWithLimitedVisibility.deleteAllOrphaned(within: context)
+        try PersistedExpirationForSentMessageWithLimitedExistence.deleteAllOrphaned(within: context)
+    }
+
 }

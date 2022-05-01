@@ -61,15 +61,15 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     }
     
     
-    func getIdentityDetails(identityPhotosDirectory: URL) -> ObvIdentityDetails {
-        let data = kvoSafePrimitiveValue(forKey: Predicate.Key.serializedIdentityCoreDetails.rawValue) as! Data
-        let coreDetails = try! ObvIdentityCoreDetails(data)
+    func getIdentityDetails(identityPhotosDirectory: URL) -> ObvIdentityDetails? {
+        guard let data = kvoSafePrimitiveValue(forKey: Predicate.Key.serializedIdentityCoreDetails.rawValue) as? Data else { return nil }
+        guard let coreDetails = try? ObvIdentityCoreDetails(data) else { return nil }
         let photoURL = getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         return ObvIdentityDetails(coreDetails: coreDetails, photoURL: photoURL)
     }
     
-    func getIdentityDetailsElements(identityPhotosDirectory: URL) -> IdentityDetailsElements {
-        let coreDetails = getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails
+    func getIdentityDetailsElements(identityPhotosDirectory: URL) -> IdentityDetailsElements? {
+        guard let coreDetails = getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory)?.coreDetails else { return nil }
         return IdentityDetailsElements(version: version, coreDetails: coreDetails, photoServerKeyAndLabel: photoServerKeyAndLabel)
     }
 
@@ -295,8 +295,8 @@ extension ContactIdentityDetails {
                 assertionFailure()
                 return
             }
-            let notification = ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-            notification.postOnDispatchQueue(withLabel: "Queue for sending a backupableManagerDatabaseContentChanged notification", within: delegateManager.notificationDelegate)
+            ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
         }
 
         

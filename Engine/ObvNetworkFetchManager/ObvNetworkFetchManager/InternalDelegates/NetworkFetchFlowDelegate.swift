@@ -55,7 +55,7 @@ protocol NetworkFetchFlowDelegate {
     func downloadingMessagesAndListingAttachmentWasNotNeeded(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
     func downloadingMessagesAndListingAttachmentWasPerformed(for: ObvCryptoIdentity, andDeviceUid: UID, idsOfNewMessages: [MessageIdentifier], flowId: FlowIdentifier)
     func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(for identity: ObvCryptoIdentity, idOfNewMessage: MessageIdentifier, flowId: FlowIdentifier)
-    func processUnprocessedMessages(messageIds: [MessageIdentifier], flowId: FlowIdentifier)
+    func processUnprocessedMessages(flowId: FlowIdentifier)
     func messagePayloadAndFromIdentityWereSet(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
     
     // MARK: - Downloading encrypted extended message payload
@@ -110,6 +110,7 @@ protocol NetworkFetchFlowDelegate {
     
     func newWellKnownWasCached(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func cachedWellKnownWasUpdated(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
+    func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier)
     
     // MARK: - Reacting to web socket changes

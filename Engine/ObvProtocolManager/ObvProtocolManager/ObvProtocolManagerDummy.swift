@@ -133,13 +133,13 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         throw NSError()
     }
     
-    public func getInitiateContactDeletionMessageForObliviousChannelManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
-        os_log("getInitiateContactDeletionMessageForObliviousChannelManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
+    public func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateContactDeletionMessageForContactManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
         throw NSError()
     }
 
-    public func getInitiateAddKeycloakContactMessageForObliviousChannelManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd contactIdentity: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
-        os_log("getInitiateAddKeycloakContactMessageForObliviousChannelManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
+    public func getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd contactIdentity: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol does nothing in this dummy implementation", log: log, type: .error)
         throw NSError()
     }
 
@@ -183,6 +183,20 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
     }
 
+    public func getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitialMessageForOneToOneContactInvitationProtocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
+    }
+    
+    public func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitialMessageForDowngradingOneToOneContact does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForDowngradingOneToOneContact does nothing in this dummy implementation")
+    }
+
+    public func getInitialMessageForOneStatusSyncRequest(ownedIdentity: ObvCryptoIdentity, contactsToSync: Set<ObvCryptoIdentity>) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation")
+    }
 
     // MARK: - Implementing ObvManager
     

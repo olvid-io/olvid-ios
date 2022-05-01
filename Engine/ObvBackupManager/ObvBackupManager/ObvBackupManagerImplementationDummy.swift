@@ -75,8 +75,10 @@ final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {
         os_log("generateNewBackupKey does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func initiateBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier) throws {
+    public func initiateBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
         os_log("initiateBackup does nothing in this dummy implementation", log: log, type: .error)
+        assertionFailure()
+        throw Self.makeError(message: "initiateBackup does nothing in this dummy implementation")
     }
     
     public func fulfill(requiredDelegate: AnyObject, forDelegateType: ObvEngineDelegateType) throws {}
@@ -102,15 +104,18 @@ final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {
         os_log("markBackupAsFailed does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func verifyBackupKey(backupSeedString: String, flowId: FlowIdentifier, completion: @escaping (Result<Void,Error>) -> Void) {
+    public func verifyBackupKey(backupSeedString: String, flowId: FlowIdentifier) async throws -> Bool {
         os_log("verifyBackupKey does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "verifyBackupKey does nothing in this dummy implementation")
     }
 
-    public func recoverBackupData(_: Data, withBackupKey: String, backupRequestIdentifier: FlowIdentifier, completion: @escaping (Result<(backupRequestIdentifier: UUID, backupDate: Date), BackupRestoreError>) -> Void) {
+    public func recoverBackupData(_: Data, withBackupKey: String, backupRequestIdentifier: FlowIdentifier) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
         os_log("recoverBackupData does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "recoverBackupData does nothing in this dummy implementation")
     }
     
-    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier, completionHandler: @escaping ((Result<Void, Error>) -> Void)) {
+    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier) async throws {
         os_log("restoreFullBackup does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "restoreFullBackup does nothing in this dummy implementation")
     }
 }

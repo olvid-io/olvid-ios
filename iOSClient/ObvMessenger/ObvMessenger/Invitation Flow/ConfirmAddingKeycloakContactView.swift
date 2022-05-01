@@ -41,12 +41,17 @@ struct ConfirmAddingKeycloakContactView: View {
                                 Spacer()
                             }
                         }
-                        Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
-                            .allowsTightening(true)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .lineLimit(nil)
-                            .multilineTextAlignment(.leading)
-                            .font(.body)
+                        if contact.isOneToOne {
+                            HStack {
+                                Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
+                                    .allowsTightening(true)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .lineLimit(nil)
+                                    .multilineTextAlignment(.leading)
+                                    .font(.body)
+                                Spacer()
+                            }
+                        }
                     } else {
                         ObvCardView {
                             HStack {

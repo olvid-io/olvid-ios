@@ -580,6 +580,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
 
     fileprivate weak var reactionsDelegate: ReactionsDelegate?
     
+    private var doubleTapGesture: UITapGestureRecognizer!
+
     // The following variables allow to handle the pan gesture allowing to answer a specific message
     private var frameBeforeDrag: CGRect?
     private var pan: UIPanGestureRecognizer!
@@ -706,6 +708,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
 
     private func setupInternalViews() {
         
+        self.addDoubleTapGestureRecognizer()
+
         addSubview(backgroundView)
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.reset()
@@ -745,8 +749,6 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         mainStack.addArrangedSubview(bottomHorizontalStack)
         
         bottomHorizontalStack.addArrangedSubview(dateView)
-
-        bottomHorizontalStack.addArrangedSubview(multipleReactionsView)
         
         bottomHorizontalStack.addArrangedSubview(ephemeralityInformationsView)
 
@@ -790,13 +792,23 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         contactPictureAndNameViewZeroHeightConstraint.priority = .required
 
         // This constraint prevents the app from crashing in case there is nothing to display within the cell
+        
         do {
             let safeHeightConstraint = self.heightAnchor.constraint(equalToConstant: 0)
             safeHeightConstraint.priority = .defaultLow
             safeHeightConstraint.isActive = true
         }
 
-        self.addDoubleTapGestureRecognizer()
+        // Last, we add the reaction view on top of everything and pin it to the bottom horizontal stack
+        
+        addSubview(multipleReactionsView)
+        multipleReactionsView.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            bottomHorizontalStack.trailingAnchor.constraint(equalTo: multipleReactionsView.leadingAnchor, constant: -8),
+            bottomHorizontalStack.bottomAnchor.constraint(equalTo: multipleReactionsView.bottomAnchor, constant: -2),
+        ])
+        
     }
 
     
@@ -806,9 +818,9 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
     
     
     private func addDoubleTapGestureRecognizer() {
-        let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(userDoubleTappedOnThisCell))
-        doubleTapGesture.numberOfTapsRequired = 2
-        self.addGestureRecognizer(doubleTapGesture)
+        self.doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(userDoubleTappedOnThisCell))
+        self.doubleTapGesture!.numberOfTapsRequired = 2
+        self.addGestureRecognizer(self.doubleTapGesture!)
     }
 
 
@@ -949,6 +961,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             multipleImagesView.showInStack = false
         } else {
             multipleImagesView.setConfiguration(newConfig.multipleImagesViewConfiguration)
+            multipleImagesView.gestureRecognizersOnImageViewsRequire(toFail: doubleTapGesture)
             multipleImagesView.showInStack = true
         }
         

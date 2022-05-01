@@ -36,7 +36,8 @@ final class BootstrapCoordinator {
     private func makeError(message: String) -> Error { NSError(domain: BootstrapCoordinator.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     private var bootstrapOnIsInitializedAndActiveWasPerformed = false
-    
+    private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
+
     init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
         self.obvEngine = obvEngine
         self.internalQueue = operationQueue
@@ -50,6 +51,10 @@ final class BootstrapCoordinator {
                 self?.processRequestSyncAppDatabasesWithEngine(completion: { _ in })
             }
         }
+        if let userDefaults = self.userDefaults {
+            userDefaults.resetObjectsModifiedByShareExtension()
+        }
+
     }
 
     
@@ -61,7 +66,7 @@ final class BootstrapCoordinator {
             ObvMessengerInternalNotification.observeAppStateChanged() { [weak self] (previousState, currentState) in
                 self?.processAppStateChanged(previousState: previousState, currentState: currentState)
             },
-            ObvMessengerInternalNotification.observePersistedContactWasInserted() { [weak self] (objectID, contactCryptoId) in
+            ObvMessengerCoreDataNotification.observePersistedContactWasInserted() { [weak self] (objectID, contactCryptoId) in
                 self?.processPersistedContactWasInsertedNotification(objectID: objectID, contactCryptoId: contactCryptoId)
             },
             ObvMessengerInternalNotification.observeRequestSyncAppDatabasesWithEngine() { [weak self] completion in
@@ -81,15 +86,36 @@ extension BootstrapCoordinator {
         if !previousState.isInitializedAndActive && currentState.isInitializedAndActive {
             guard !bootstrapOnIsInitializedAndActiveWasPerformed else { return }
             defer { bootstrapOnIsInitializedAndActiveWasPerformed = true }
+            pruneObsoletePersistedInvitations()
             removeOldCachedURLMetadata()
-            resendPreviousObvEngineNewUserDialogToPresentNotifications()
+            resyncPersistedInvitationsWithEngine()
             sendUnsentDrafts()
             if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
                 AppBackupCoordinator.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
             }
             deleteOldPendingRepliedTo()
             resetOwnObvCapabilities()
+            autoAcceptPendingGroupInvitesIfPossible()
         }
+    }
+    
+    
+    private func pruneObsoletePersistedInvitations() {
+        assert(!Thread.isMainThread)
+        let op1 = DeletePersistedInvitationTheCannotBeParsedAnymoreOperation()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
+    
+    
+    /// If there exist some group invitations that are pending, but that should be automatically accepted based on the current app settings, we accept them during bootstraping.
+    private func autoAcceptPendingGroupInvitesIfPossible() {
+        assert(!Thread.isMainThread)
+        let op1 = AutoAcceptPendingGroupInvitesIfPossibleOperation(obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
     }
     
     
@@ -113,11 +139,18 @@ extension BootstrapCoordinator {
     }
     
 
-    private func resendPreviousObvEngineNewUserDialogToPresentNotifications() {
-        do {
-            try obvEngine.resendDialogs()
-        } catch {
-            os_log("Could not resend dialog notifications", log: log, type: .fault)
+    private func resyncPersistedInvitationsWithEngine() {
+        assert(OperationQueue.current != internalQueue)
+        Task(priority: .utility) {
+            do {
+                let obvDialogsFromEngine = try await obvEngine.getAllDialogsWithinEngine()
+                let op1 = SyncPersistedInvitationsWithEngineOperation(obvDialogsFromEngine: obvDialogsFromEngine, obvEngine: obvEngine)
+                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+                internalQueue.addOperations([composedOp], waitUntilFinished: true)
+                composedOp.logReasonIfCancelled(log: log)
+            } catch {
+                os_log("Could not get all the dialog from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
         }
     }
 
@@ -152,7 +185,7 @@ extension BootstrapCoordinator {
             ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
                 context.name = "Context created in MetaFlowController within syncContactDevices"
                 guard let _self = self else { return }
-                guard let contactIdentities = try? PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: newOwnedCryptoId, within: context) else { return }
+                guard let contactIdentities = try? PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: newOwnedCryptoId, whereOneToOneStatusIs: .any, within: context) else { return }
                 for contact in contactIdentities {
                     guard let ownedIdentity = contact.ownedIdentity else {
                         os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
@@ -180,7 +213,7 @@ extension BootstrapCoordinator {
         let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
         let op2 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
         let op3 = SyncPersistedContactGroupsWithEngineOperation(obvEngine: obvEngine)
-        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, flowId: FlowIdentifier(), log: log)
+        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
         if composedOp.isCancelled {

@@ -87,7 +87,7 @@ final class SnackBarCoordinator {
                 self?.alreadyCheckedIdentities.removeAll()
                 self?.determineSnackBarToDisplay()
             },
-            ObvMessengerInternalNotification.observePersistedContactWasDeleted(queue: internalQueue) { [weak self] _, _ in
+            ObvMessengerCoreDataNotification.observePersistedContactWasDeleted(queue: internalQueue) { [weak self] _, _ in
                 self?.alreadyCheckedIdentities.removeAll()
                 self?.determineSnackBarToDisplay()
             },
@@ -136,7 +136,25 @@ final class SnackBarCoordinator {
                 // We never display a snackbar if the owned identity has no contact
 
                 let ownedIdentityHasAtLeastOneContact = !ownedIdentity.contacts.isEmpty
-                guard ownedIdentityHasAtLeastOneContact else { return }
+                guard ownedIdentityHasAtLeastOneContact else {
+                    ObvMessengerInternalNotification.olvidSnackBarShouldBeHidden(ownedCryptoId: currentCryptoId)
+                        .postOnDispatchQueue()
+                    return
+                }
+                
+                // If the user's could upgrade to a newer version of Olvid, recommend the update
+                
+                do {
+                    let lastDisplayDate = OlvidSnackBarCategory.newerAppVersionAvailable.lastDisplayDate ?? Date.distantPast
+                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < oneDay
+                    if !didDismissSnackBarRecently {
+                        if let latestBuildNumberAvailable = ObvMessengerSettings.AppVersionAvailable.latest, latestBuildNumberAvailable > ObvMessengerConstants.bundleVersionAsInt {
+                            ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.newerAppVersionAvailable)
+                                .postOnDispatchQueue()
+                            return
+                        }
+                    }
+                }
                 
                 // If the user's device has an old iOS version, recommend upgrade
                 
@@ -166,8 +184,8 @@ final class SnackBarCoordinator {
                     break
                 case .denied, .undetermined:
                     do {
-                        let hasRejectedIncomingCallMessage = try PersistedMessageSystem.hasRejectedIncomingCallBecauseOfDeniedRecordPermission(within: context)
-                        if hasRejectedIncomingCallMessage {
+                        let hasRejectedStartCallMessage = try PersistedMessageSystem.hasRejectedIncomingCallBecauseOfDeniedRecordPermission(within: context)
+                        if hasRejectedStartCallMessage {
                             if recordPermission == .denied {
                                 let lastDisplayDate = OlvidSnackBarCategory.grantPermissionToRecordInSettings.lastDisplayDate ?? Date.distantPast
                                 let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < oneWeek

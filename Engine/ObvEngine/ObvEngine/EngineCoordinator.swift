@@ -62,9 +62,7 @@ final class EngineCoordinator {
         guard let notificationDelegate = self.delegateManager?.notificationDelegate else { assertionFailure(); return }
         
         do {
-            let NotificationType = ObvChannelNotification.NewConfirmedObliviousChannel.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) = NotificationType.parse(notification) else { return }
+            let token = ObvChannelNotification.observeNewConfirmedObliviousChannel(within: notificationDelegate) { [weak self] (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) in
                 self?.processNewConfirmedObliviousChannelNotification(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
             }
             notificationCenterTokens.append(token)
@@ -128,6 +126,34 @@ extension EngineCoordinator {
         deleteObsoleteObliviousChannels(flowId: flowId)
         startDeviceDiscoveryProtocolForContactsHavingNoDeviceOrTooManyDevices(flowId: flowId)
         startChannelCreationProtocolWithContactDevicesHavingNoChannelAndNoOngoingChannelCreationProtocol(flowId: flowId)
+        pruneObsoletePersistedEngineDialogs(flowId: flowId)
+    }
+    
+    
+    private func pruneObsoletePersistedEngineDialogs(flowId: FlowIdentifier) {
+        
+        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
+        guard let appNotificationCenter = self.appNotificationCenter else { return }
+        let log = self.log
+        
+        createContextDelegate.performBackgroundTask(flowId: flowId) { (obvContext) in
+
+            do {
+                let dialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
+                let dialogsToDelete = dialogs.filter({ $0.dialogIsObsolete })
+                guard !dialogsToDelete.isEmpty else { return }
+                try dialogsToDelete.forEach {
+                    try $0.delete()
+                }
+                try obvContext.save(logOnFailure: log)
+            } catch {
+                os_log("Could not prune obsolete PersistedEngineDialogs: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+            
+        }
+        
     }
 
     

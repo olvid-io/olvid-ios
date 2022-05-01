@@ -24,7 +24,7 @@ import os.log
 
 final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationCenterDelegate.self))
     
     private let appDelegate = UIApplication.shared.delegate as! AppDelegate
         
@@ -114,7 +114,7 @@ extension UserNotificationCenterDelegate {
             case .newReactionNotificationWithHiddenContent, .newReaction:
                 // Always show reaction notification even if it is a reaction for the current discussion.
                 completionHandler(.alert)
-            case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall:
+            case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls:
                 // The current activity type is `continueDiscussion`. We check whether the notification concerns the "single discussion". If this is the case, we do not display the notification, otherwise, we do.
                 guard let notificationPersistedDiscussionObjectURI = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
                       let notificationPersistedDiscussionObjectURI = URL(string: notificationPersistedDiscussionObjectURI),
@@ -131,7 +131,7 @@ extension UserNotificationCenterDelegate {
                     completionHandler(.alert)
                     return
                 }
-            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired:
+            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .oneToOneInvitationReceived:
                 completionHandler(.alert)
                 return
             case .staticIdentifier:
@@ -150,7 +150,7 @@ extension UserNotificationCenterDelegate {
                     completionHandler(.sound)
                     return
                 }
-            case .newReactionNotificationWithHiddenContent, .newReaction, .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .missedCall, .staticIdentifier:
+            case .newReactionNotificationWithHiddenContent, .newReaction, .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .missedCall, .oneToOneInvitationReceived, .staticIdentifier, .shouldGrantRecordPermissionToReceiveIncomingCalls:
                 completionHandler(.alert)
             }
         case .displayInvitations:
@@ -294,7 +294,7 @@ extension UserNotificationCenterDelegate {
                 return
             }
 
-            let obvDialog = persistedInvitation.obvDialog
+            guard let obvDialog = persistedInvitation.obvDialog else { assertionFailure(); return }
             switch obvDialog.category {
             case .acceptInvite:
                 var localDialog = obvDialog
@@ -345,6 +345,25 @@ extension UserNotificationCenterDelegate {
                 case .decline:
                     _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
                     try? localDialog.setResponseToAcceptGroupInvite(acceptInvite: false)
+                    _self.appDelegate.obvEngine.respondTo(localDialog)
+                    DispatchQueue.main.async { completionHandler(true) }
+                    return
+                case .mute, .callBack:
+                    assertionFailure()
+                    DispatchQueue.main.async { completionHandler(false) }
+                    return
+                }
+            case .oneToOneInvitationReceived:
+                var localDialog = obvDialog
+                switch action {
+                case .accept:
+                    try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: true)
+                    _self.appDelegate.obvEngine.respondTo(localDialog)
+                    DispatchQueue.main.async { completionHandler(true) }
+                    return
+                case .decline:
+                    _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
+                    try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: false)
                     _self.appDelegate.obvEngine.respondTo(localDialog)
                     DispatchQueue.main.async { completionHandler(true) }
                     return

@@ -416,11 +416,11 @@ final class ObvSemanticColorScheme {
 
 
 final class ObvImages {
-    
+
     let groupImage: UIImage
-    
+
     init() {
         self.groupImage = UIImage(systemName: "person.3.fill")!
     }
-    
+
 }

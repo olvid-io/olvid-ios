@@ -35,7 +35,7 @@ final class UpdateListOfContactsCertifiedByOwnKeycloakOperation: OperationWithSp
         super.init()
     }
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UpdateListOfContactsCertifiedByOwnKeycloakOperation.self))
 
     override func main() {
         
@@ -55,7 +55,7 @@ final class UpdateListOfContactsCertifiedByOwnKeycloakOperation: OperationWithSp
             var oneOfTheContactsCouldNotBeUpdated = false
             for contactCryptoId in contactsCertifiedByOwnKeycloak {
                 do {
-                    let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedIdentity, within: context)
+                    let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedIdentity, whereOneToOneStatusIs: .any, within: context)
                     contact?.markAsCertifiedByOwnKeycloak()
                 } catch {
                     oneOfTheContactsCouldNotBeUpdated = true

@@ -27,7 +27,7 @@ import OlvidUtils
 /// If this operation finishes without cancelling, `newDiscussionObjectID` is set to the objectID of the new discussion if a new discussion was created during this operation.
 final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<DeleteAllPersistedMessagesWithinDiscussionOperationReasonForCancel> {
         
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllPersistedMessagesWithinDiscussionOperation.self))
 
     private let persistedDiscussionObjectID: NSManagedObjectID
     
@@ -53,36 +53,24 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                 let localConfigurationToKeep = discussion.localConfiguration
                 if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
                     if let contactIdentity = oneToOneDiscussion.contactIdentity {
-                        guard let newDiscussion = PersistedOneToOneDiscussion(contactIdentity: contactIdentity,
-                                                                              insertDiscussionIsEndToEndEncryptedSystemMessage: false,
-                                                                              sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                                                              localConfigurationToKeep: localConfigurationToKeep) else {
-                            return cancel(withReason: .couldNotCreateNewDiscussion)
-                        }
-                        do {
-                            try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
-                        } catch {
-                            return cancel(withReason: .coreDataError(error: error))
-                        }
+                        let newDiscussion = try PersistedOneToOneDiscussion(contactIdentity: contactIdentity,
+                                                                            insertDiscussionIsEndToEndEncryptedSystemMessage: false,
+                                                                            sharedConfigurationToKeep: sharedConfigurationToKeep,
+                                                                            localConfigurationToKeep: localConfigurationToKeep)
+                        try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                         assert(newDiscussionObjectID == nil)
                         newDiscussionObjectID = newDiscussion.objectID
                     }
                 } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
                     if let contactGroup = groupDiscussion.contactGroup, let ownedIdentity = groupDiscussion.ownedIdentity {
                         let groupName = groupDiscussion.title
-                        guard let newDiscussion = PersistedGroupDiscussion(contactGroup: contactGroup,
-                                                                           groupName: groupName,
-                                                                           ownedIdentity: ownedIdentity,
-                                                                           insertDiscussionIsEndToEndEncryptedSystemMessage: false,
-                                                                           sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                                                           localConfigurationToKeep: localConfigurationToKeep) else {
-                            return cancel(withReason: .couldNotCreateNewDiscussion)
-                        }
-                        do {
-                            try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
-                        } catch {
-                            return cancel(withReason: .coreDataError(error: error))
-                        }
+                        let newDiscussion = try PersistedGroupDiscussion(contactGroup: contactGroup,
+                                                                         groupName: groupName,
+                                                                         ownedIdentity: ownedIdentity,
+                                                                         insertDiscussionIsEndToEndEncryptedSystemMessage: false,
+                                                                         sharedConfigurationToKeep: sharedConfigurationToKeep,
+                                                                         localConfigurationToKeep: localConfigurationToKeep)
+                        try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                         assert(newDiscussionObjectID == nil)
                         newDiscussionObjectID = newDiscussion.objectID
                     }
@@ -105,15 +93,13 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
 
 enum DeleteAllPersistedMessagesWithinDiscussionOperationReasonForCancel: LocalizedErrorWithLogType {
     
-    case couldNotCreateNewDiscussion
     case unknownDiscussionType
     case coreDataError(error: Error)
     case contextIsNil
     
     var logType: OSLogType {
         switch self {
-        case .couldNotCreateNewDiscussion,
-             .unknownDiscussionType,
+        case .unknownDiscussionType,
              .coreDataError,
              .contextIsNil:
             return .fault
@@ -124,8 +110,6 @@ enum DeleteAllPersistedMessagesWithinDiscussionOperationReasonForCancel: Localiz
         switch self {
         case .contextIsNil:
             return "Context is nil"
-        case .couldNotCreateNewDiscussion:
-            return "Could create new discussion to replace the one to delete"
         case .unknownDiscussionType:
             return "Unknown discussion type"
         case .coreDataError(error: let error):

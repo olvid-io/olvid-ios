@@ -352,9 +352,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4B0DBA61FB343BA00136E8F /* Build configuration list for PBXNativeTarget "ObvServerInterface" */;
 			buildPhases = (
+				C4B0DB8F1FB343BA00136E8F /* Headers */,
 				C4B0DB8D1FB343BA00136E8F /* Sources */,
 				C4B0DB8E1FB343BA00136E8F /* Frameworks */,
-				C4B0DB8F1FB343BA00136E8F /* Headers */,
 				C4B0DB901FB343BA00136E8F /* Resources */,
 				C0A76951276FED8F00D22EE4 /* ShellScript */,
 			);

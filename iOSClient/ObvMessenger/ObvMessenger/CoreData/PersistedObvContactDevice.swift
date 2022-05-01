@@ -69,16 +69,16 @@ final class PersistedObvContactDevice: NSManagedObject, Identifiable {
     
     // MARK: - Initializer
     
-    convenience init?(obvContactDevice device: ObvContactDevice, within context: NSManagedObjectContext) {
+    convenience init(obvContactDevice device: ObvContactDevice, within context: NSManagedObjectContext) throws {
         
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactDevice.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         
         let identity: PersistedObvContactIdentity
-        if let _identity = try? PersistedObvContactIdentity.get(persisted: device.contactIdentity, within: context) {
+        if let _identity = try PersistedObvContactIdentity.get(persisted: device.contactIdentity, whereOneToOneStatusIs: .any, within: context) {
             identity = _identity
         } else {
-            guard let _identity = PersistedObvContactIdentity(contactIdentity: device.contactIdentity, within: context) else { return nil }
+            let _identity = try PersistedObvContactIdentity(contactIdentity: device.contactIdentity, within: context)
             identity = _identity
         }
         
@@ -130,12 +130,12 @@ extension PersistedObvContactDevice {
 
         if isInserted, let contactCryptoId = self.identity?.cryptoId {
             
-            ObvMessengerInternalNotification.newPersistedObvContactDevice(contactDeviceObjectID: self.objectID, contactCryptoId: contactCryptoId)
+            ObvMessengerCoreDataNotification.newPersistedObvContactDevice(contactDeviceObjectID: self.objectID, contactCryptoId: contactCryptoId)
                 .postOnDispatchQueue()
             
         } else if isDeleted, let contactCryptoId = self.contactIdentityCryptoIdForDeletion {
             
-            ObvMessengerInternalNotification.deletedPersistedObvContactDevice(contactCryptoId: contactCryptoId)
+            ObvMessengerCoreDataNotification.deletedPersistedObvContactDevice(contactCryptoId: contactCryptoId)
                 .postOnDispatchQueue()
             
         }

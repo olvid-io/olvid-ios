@@ -61,7 +61,7 @@ final class DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFrom
 
     private(set) var reasonForCancel: ReasonForCancel?
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFromEngineAndAssociatedToContactIdentityOperation.self))
 
     private func cancel(withReason reason: ReasonForCancel) {
         assert(self.reasonForCancel == nil)
@@ -69,10 +69,12 @@ final class DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFrom
         self.cancel()
     }
 
-    private let obvContactIdentity: ObvContactIdentity
-    
-    init(obvContactIdentity: ObvContactIdentity) {
-        self.obvContactIdentity = obvContactIdentity
+    private let contactCryptoId: ObvCryptoId
+    private let ownedCryptoId: ObvCryptoId
+
+    init(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
+        self.contactCryptoId = contactCryptoId
+        self.ownedCryptoId = ownedCryptoId
         super.init()
     }
     
@@ -82,7 +84,7 @@ final class DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFrom
 
             let infos: [PersistedMessageSentRecipientInfos]
             do {
-                infos = try PersistedMessageSentRecipientInfos.getAllUnprocessedForSpecificContact(obvContactIdentity, within: context)
+                infos = try PersistedMessageSentRecipientInfos.getAllUnprocessedForSpecificContact(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId, within: context)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

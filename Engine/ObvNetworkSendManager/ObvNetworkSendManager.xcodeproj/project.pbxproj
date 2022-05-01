@@ -382,9 +382,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C428A21B1FA36BDA002F1538 /* Build configuration list for PBXNativeTarget "ObvNetworkSendManager" */;
 			buildPhases = (
+				C428A2041FA36BDA002F1538 /* Headers */,
 				C428A2021FA36BDA002F1538 /* Sources */,
 				C428A2031FA36BDA002F1538 /* Frameworks */,
-				C428A2041FA36BDA002F1538 /* Headers */,
 				C428A2051FA36BDA002F1538 /* Resources */,
 				C0B4A4FC276F5B4200816D8D /* ShellScript */,
 			);

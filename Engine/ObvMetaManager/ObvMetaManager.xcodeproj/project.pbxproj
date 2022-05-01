@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		C03C7F4725A4756D00C7F1BF /* GroupDetailsElements.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03C7F4625A4756D00C7F1BF /* GroupDetailsElements.swift */; };
 		C056627425B5DD5100DBAB35 /* UserData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C056627325B5DD5100DBAB35 /* UserData.swift */; };
+		C4036BDD27E32F590095629C /* ObvChannelNotification.yml in Resources */ = {isa = PBXBuildFile; fileRef = C4036BDC27E32F590095629C /* ObvChannelNotification.yml */; };
 		C405812620F8A23000496995 /* ServerResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = C405812520F8A23000496995 /* ServerResponse.swift */; };
 		C40D153B20E53C9700007BDA /* ObvProtocolNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40D153A20E53C9700007BDA /* ObvProtocolNotification.swift */; };
 		C40F7AA5201CF7230049AE43 /* ObvProtocolReceivedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40F7AA4201CF7230049AE43 /* ObvProtocolReceivedMessage.swift */; };
@@ -29,6 +30,7 @@
 		C4206AE4201891F6003CE133 /* ObvFullRatchetProtocolStarterDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4206AE3201891F6003CE133 /* ObvFullRatchetProtocolStarterDelegate.swift */; };
 		C424BBF1242A2002007CC94F /* ObliviousChannelIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C424BBF0242A2002007CC94F /* ObliviousChannelIdentifier.swift */; };
 		C4263CD72414E52E003D8E5A /* BackupKeyInformation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4263CD62414E52E003D8E5A /* BackupKeyInformation.swift */; };
+		C42B42C727B1641500EEC4BE /* ObvBackupNotification.yml in Resources */ = {isa = PBXBuildFile; fileRef = C42B42C227B1641400EEC4BE /* ObvBackupNotification.yml */; };
 		C434EDF2248C23B2002BBB4C /* Chunk.swift in Sources */ = {isa = PBXBuildFile; fileRef = C434EDF1248C23B2002BBB4C /* Chunk.swift */; };
 		C43A40FB2014CC7C00EB3517 /* ObvChannelDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43A40FA2014CC7C00EB3517 /* ObvChannelDelegate.swift */; };
 		C43A40FD2014CDBE00EB3517 /* ObvChannelMessageToSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43A40FC2014CDBE00EB3517 /* ObvChannelMessageToSend.swift */; };
@@ -44,6 +46,8 @@
 		C4781C7121AE10DE00295AAC /* ObvSimpleFlowDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4781C7021AE10DE00295AAC /* ObvSimpleFlowDelegate.swift */; };
 		C47878BB2040771F004029CF /* ObvChannelDialogResponseMessageToSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47878BA2040771F004029CF /* ObvChannelDialogResponseMessageToSend.swift */; };
 		C47BA16D25F0056300B731B7 /* PhotoServerKeyAndLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47BA16C25F0056300B731B7 /* PhotoServerKeyAndLabel.swift */; };
+		C47E783927B319BB001200AA /* ObvNetworkFetchNotificationNew.yml in Resources */ = {isa = PBXBuildFile; fileRef = C47E783827B319BB001200AA /* ObvNetworkFetchNotificationNew.yml */; };
+		C47E783F27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47E783E27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift */; };
 		C48A32E3247D777700684F8B /* AppType.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A32E2247D777700684F8B /* AppType.swift */; };
 		C497F2D22284242D00CC67EC /* GroupInformation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C497F2D12284242D00CC67EC /* GroupInformation.swift */; };
 		C4998D2921F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4998D2821F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift */; };
@@ -58,8 +62,10 @@
 		C4B8EAA82216D38C00FA0BC7 /* TrustLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8EAA72216D38C00FA0BC7 /* TrustLevel.swift */; };
 		C4B979C32015D8E500BDFD0F /* ObvNetworkPostNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B979C22015D8E500BDFD0F /* ObvNetworkPostNotification.swift */; };
 		C4B979EF2015D9B200BDFD0F /* ObvNetworkFetchNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B979EE2015D9B200BDFD0F /* ObvNetworkFetchNotification.swift */; };
+		C4BD65ED27E2322A0005505B /* ObvNetworkPostNotification.yml in Resources */ = {isa = PBXBuildFile; fileRef = C4BD65EC27E2322A0005505B /* ObvNetworkPostNotification.yml */; };
 		C4C3008924C8F666003C7396 /* TurnCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C3008824C8F666003C7396 /* TurnCredentials.swift */; };
 		C4CBDABF21AC160C007D89B5 /* ObvNetworkReceivedMessageDecrypted.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CBDABE21AC160C007D89B5 /* ObvNetworkReceivedMessageDecrypted.swift */; };
+		C4CC71F327E4ED5D00080AF6 /* ObvProtocolNotification.yml in Resources */ = {isa = PBXBuildFile; fileRef = C4CC71F227E4ED5D00080AF6 /* ObvProtocolNotification.yml */; };
 		C4D25D872747BDE0005BAB17 /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4D25D862747BDE0005BAB17 /* JWS.framework */; };
 		C4D47D5C2019F0680049B538 /* ObvIdentityDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D47D5B2019F0680049B538 /* ObvIdentityDelegate.swift */; };
 		C4D7FC8D200E73B8000CD649 /* ObvManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D7FC8C200E73B8000CD649 /* ObvManager.swift */; };
@@ -115,6 +121,7 @@
 		C03C7F4625A4756D00C7F1BF /* GroupDetailsElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailsElements.swift; sourceTree = "<group>"; };
 		C056627325B5DD5100DBAB35 /* UserData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserData.swift; sourceTree = "<group>"; };
 		C0B4A4E3276F5AE400816D8D /* .swiftlint.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
+		C4036BDC27E32F590095629C /* ObvChannelNotification.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = ObvChannelNotification.yml; sourceTree = "<group>"; };
 		C405812520F8A23000496995 /* ServerResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerResponse.swift; sourceTree = "<group>"; };
 		C40D153A20E53C9700007BDA /* ObvProtocolNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvProtocolNotification.swift; sourceTree = "<group>"; };
 		C40F7AA4201CF7230049AE43 /* ObvProtocolReceivedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvProtocolReceivedMessage.swift; sourceTree = "<group>"; };
@@ -135,6 +142,7 @@
 		C4206AE3201891F6003CE133 /* ObvFullRatchetProtocolStarterDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvFullRatchetProtocolStarterDelegate.swift; sourceTree = "<group>"; };
 		C424BBF0242A2002007CC94F /* ObliviousChannelIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObliviousChannelIdentifier.swift; sourceTree = "<group>"; };
 		C4263CD62414E52E003D8E5A /* BackupKeyInformation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupKeyInformation.swift; sourceTree = "<group>"; };
+		C42B42C227B1641400EEC4BE /* ObvBackupNotification.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = ObvBackupNotification.yml; sourceTree = "<group>"; };
 		C434EDF1248C23B2002BBB4C /* Chunk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chunk.swift; sourceTree = "<group>"; };
 		C43A40FA2014CC7C00EB3517 /* ObvChannelDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelDelegate.swift; sourceTree = "<group>"; };
 		C43A40FC2014CDBE00EB3517 /* ObvChannelMessageToSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelMessageToSend.swift; sourceTree = "<group>"; };
@@ -150,6 +158,8 @@
 		C4781C7021AE10DE00295AAC /* ObvSimpleFlowDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvSimpleFlowDelegate.swift; sourceTree = "<group>"; };
 		C47878BA2040771F004029CF /* ObvChannelDialogResponseMessageToSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelDialogResponseMessageToSend.swift; sourceTree = "<group>"; };
 		C47BA16C25F0056300B731B7 /* PhotoServerKeyAndLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoServerKeyAndLabel.swift; sourceTree = "<group>"; };
+		C47E783827B319BB001200AA /* ObvNetworkFetchNotificationNew.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = ObvNetworkFetchNotificationNew.yml; sourceTree = "<group>"; };
+		C47E783E27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ObvNetworkFetchNotificationNew.swift; sourceTree = "<group>"; };
 		C48A32E2247D777700684F8B /* AppType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppType.swift; sourceTree = "<group>"; };
 		C497F2D12284242D00CC67EC /* GroupInformation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInformation.swift; sourceTree = "<group>"; };
 		C4998D2821F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoIdentityWithFullDisplayName.swift; sourceTree = "<group>"; };
@@ -164,8 +174,10 @@
 		C4B8EAA72216D38C00FA0BC7 /* TrustLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustLevel.swift; sourceTree = "<group>"; };
 		C4B979C22015D8E500BDFD0F /* ObvNetworkPostNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvNetworkPostNotification.swift; sourceTree = "<group>"; };
 		C4B979EE2015D9B200BDFD0F /* ObvNetworkFetchNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvNetworkFetchNotification.swift; sourceTree = "<group>"; };
+		C4BD65EC27E2322A0005505B /* ObvNetworkPostNotification.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = ObvNetworkPostNotification.yml; sourceTree = "<group>"; };
 		C4C3008824C8F666003C7396 /* TurnCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnCredentials.swift; sourceTree = "<group>"; };
 		C4CBDABE21AC160C007D89B5 /* ObvNetworkReceivedMessageDecrypted.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvNetworkReceivedMessageDecrypted.swift; sourceTree = "<group>"; };
+		C4CC71F227E4ED5D00080AF6 /* ObvProtocolNotification.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = ObvProtocolNotification.yml; sourceTree = "<group>"; };
 		C4D25D862747BDE0005BAB17 /* JWS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = JWS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4D47D5B2019F0680049B538 /* ObvIdentityDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvIdentityDelegate.swift; sourceTree = "<group>"; };
 		C4D7FC8C200E73B8000CD649 /* ObvManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvManager.swift; sourceTree = "<group>"; };
@@ -214,6 +226,7 @@
 				C49D60002074C8DA006259C9 /* ObvChannelNotification.swift */,
 				C43A40FC2014CDBE00EB3517 /* ObvChannelMessageToSend.swift */,
 				C43A40FE2014CDED00EB3517 /* ObvChannelSendChannelType.swift */,
+				C4036BDC27E32F590095629C /* ObvChannelNotification.yml */,
 			);
 			path = ObvChannel;
 			sourceTree = "<group>";
@@ -225,6 +238,7 @@
 				C40F7AA4201CF7230049AE43 /* ObvProtocolReceivedMessage.swift */,
 				C43A410C2014D2A100EB3517 /* ObvProtocolReceptionChannelInfo.swift */,
 				C40D153A20E53C9700007BDA /* ObvProtocolNotification.swift */,
+				C4CC71F227E4ED5D00080AF6 /* ObvProtocolNotification.yml */,
 			);
 			path = ObvProtocol;
 			sourceTree = "<group>";
@@ -296,6 +310,8 @@
 			isa = PBXGroup;
 			children = (
 				C41CE467200E7009008D40D5 /* ObvNetworkFetchDelegate.swift */,
+				C47E783827B319BB001200AA /* ObvNetworkFetchNotificationNew.yml */,
+				C47E783E27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift */,
 				C4B979EE2015D9B200BDFD0F /* ObvNetworkFetchNotification.swift */,
 				C4CBDAC021AC1610007D89B5 /* Types */,
 			);
@@ -320,6 +336,7 @@
 			children = (
 				C4AA45A324080794007F45DA /* ObvBackupDelegate.swift */,
 				C4AA45D124080BDB007F45DA /* ObvBackupableManager.swift */,
+				C42B42C227B1641400EEC4BE /* ObvBackupNotification.yml */,
 				C4AA45D724080D59007F45DA /* ObvBackupNotification.swift */,
 				C4263CD62414E52E003D8E5A /* BackupKeyInformation.swift */,
 			);
@@ -468,6 +485,7 @@
 				C4E77083200CF6D20026D9A3 /* ObvNetworkMessageToSend.swift */,
 				C41E55AF20F766B700D19D44 /* ServerQuery.swift */,
 				C405812520F8A23000496995 /* ServerResponse.swift */,
+				C4BD65EC27E2322A0005505B /* ObvNetworkPostNotification.yml */,
 			);
 			path = ObvNetworkPostDelegate;
 			sourceTree = "<group>";
@@ -503,9 +521,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4E76FF8200CEC600026D9A3 /* Build configuration list for PBXNativeTarget "ObvMetaManager" */;
 			buildPhases = (
+				C4E76FE1200CEC600026D9A3 /* Headers */,
 				C4E76FDF200CEC600026D9A3 /* Sources */,
 				C4E76FE0200CEC600026D9A3 /* Frameworks */,
-				C4E76FE1200CEC600026D9A3 /* Headers */,
 				C4E76FE2200CEC600026D9A3 /* Resources */,
 				C0B4A4E9276F5AF100816D8D /* ShellScript */,
 			);
@@ -603,7 +621,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4036BDD27E32F590095629C /* ObvChannelNotification.yml in Resources */,
+				C4CC71F327E4ED5D00080AF6 /* ObvProtocolNotification.yml in Resources */,
+				C4BD65ED27E2322A0005505B /* ObvNetworkPostNotification.yml in Resources */,
+				C47E783927B319BB001200AA /* ObvNetworkFetchNotificationNew.yml in Resources */,
 				C4B432DC275152C3003D1410 /* ObvIdentityNotificationNew.yml in Resources */,
+				C42B42C727B1641500EEC4BE /* ObvBackupNotification.yml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -657,6 +680,7 @@
 				C424BBF1242A2002007CC94F /* ObliviousChannelIdentifier.swift in Sources */,
 				C43A40FB2014CC7C00EB3517 /* ObvChannelDelegate.swift in Sources */,
 				C4CBDABF21AC160C007D89B5 /* ObvNetworkReceivedMessageDecrypted.swift in Sources */,
+				C47E783F27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift in Sources */,
 				C43A40FD2014CDBE00EB3517 /* ObvChannelMessageToSend.swift in Sources */,
 				C4EE3C582424159100182F1F /* MessageIdentifier.swift in Sources */,
 				C41CE486200E7243008D40D5 /* ObvProcessDownloadedMessageDelegate.swift in Sources */,

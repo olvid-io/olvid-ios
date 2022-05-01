@@ -281,23 +281,4 @@ public struct ObvIdentityNotification {
         }
     }
 
-
-    public struct ContactTrustLevelWasIncreased {
-        public static let name = NSNotification.Name("ObvIdentityNotification.ContactTrustLevelWasIncreased")
-        public struct Key {
-            public static let ownedIdentity = "ownedIdentity"
-            public static let contactIdentity = "contactIdentity"
-            public static let trustLevelOfContactIdentity = "trustLevelOfContactIdentity"
-            public static let flowId = "flowId"
-        }
-        public static func parse(_ notification: Notification) -> (ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, trustLevelOfContactIdentity: TrustLevel, flowId: FlowIdentifier)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let ownedIdentity = userInfo[Key.ownedIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let contactIdentity = userInfo[Key.contactIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let trustLevelOfContactIdentity = userInfo[Key.trustLevelOfContactIdentity] as? TrustLevel else { return nil }
-            guard let flowId = userInfo[Key.flowId] as? FlowIdentifier else { return nil }
-            return (ownedIdentity, contactIdentity, trustLevelOfContactIdentity, flowId)
-        }
-    }
 }

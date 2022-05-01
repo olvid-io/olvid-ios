@@ -168,6 +168,7 @@ extension ContactGroupJoined {
                                                     identityCoreDetails: groupMemberWithCoreDetails.coreDetails,
                                                     trustOrigin: trustOrigin,
                                                     ownedIdentity: ownedIdentity,
+                                                    isOneToOne: false,
                                                     delegateManager: delegateManager)
                     else {
                         throw ObvIdentityManagerError.contactCreationFailed.error(withDomain: errorDomain)

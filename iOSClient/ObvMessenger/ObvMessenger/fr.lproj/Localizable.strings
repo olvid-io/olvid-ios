@@ -15,7 +15,7 @@
 "%@ wants to introduce you to %@" = "%1$@ aimerait vous présenter à %2$@";
 
 /* Invitation details */
-"%@ wants to introduce you to %@. If you do trust %@ for this, you may accept this invitation and %@ will soon appear in your contacts, with no further actions from your part (provided that %@ also accepts the invitation). If you don't trust %@ or if you simply do not want to be introduced to %@ you can ignore this invitation (neither %@ nor %@ will be notified of this)." = "%1$@ veut vous présenter à %2$@. Si vous faites confiance à %3$@, vous pouvez accepter cette invitation et %4$@ apparaitra bientôt dans vos contacts, sans qu'aucune autre action de votre part soit nécessaire (en supposant que %5$@ accepte aussi cette invitation). Si vous ne faites pas confiance à %6$@ ou vous ne voulez tout simplement pas être présenté à %7$@, vous pouvez ignorer cette invitation (le cas échéant, ni %8$@ ni %9$@ ne seront prévenus).";
+"%@ wants to introduce you to %@. If you do trust %@ for this, you may accept this invitation and %@ will soon appear in your contacts, with no further actions from your part (provided that %@ also accepts the invitation). If you don't trust %@ or if you simply do not want to be introduced to %@ you can ignore this invitation (neither %@ nor %@ will be notified of this)." = "%1$@ aimerait vous présenter à %2$@. Si vous acceptez, %2$@ fera partie de vos contacts et vous pourrez avoir une discussion privée.";
 
 /* Invitation details */
 "%@ was added to your contacts following an introduction by %@." = "%1$@ apparait maintenant dans vos contacts suite à une présentation par %2$@.";
@@ -120,7 +120,7 @@
 "Congratulations!" = "Bravo !";
 
 /* Alert title */
-"Contact cannot be deleted for now" = "Ce contact ne peut pas être supprimé pour le moment";
+"Contact cannot be deleted for now" = "Cet utilisateur ne peut pas être supprimé pour le moment";
 
 /* Title of the contact details view controller */
 "Contact Details" = "Détails du contact";
@@ -183,7 +183,7 @@
 "Delete Message and Attachments" = "Supprimer le message et les pièces jointes";
 
 /* Alert title */
-"Delete this contact?" = "Supprimer ce contact ?";
+"Delete this contact?" = "Supprimer cet utilisateur ?";
 
 /* Body displayed when a reply-to message cannot be found. */
 "Deleted message" = "Message supprimé";
@@ -425,7 +425,7 @@
 "Mutual Introduction" = "Faire les présentations";
 
 /* Invitation subtitle */
-"Mutual Trust Confirmed" = "Canal sécurisé en cours";
+"MUTUAL_TRUST_CONFIRMED" = "Utilisateur ajouté à vos contacts";
 
 /* Notification title */
 "Mutual trust confirmed!" = "Canal sécurisé en cours";
@@ -468,7 +468,7 @@
 "New message from %@" = "Nouveau message de %@";
 
 /* Invitation subtitle, Notification title */
-"New Suggested Introduction" = "Nouvelle suggestion de connexion";
+"New Suggested Introduction" = "Mise en relation";
 
 /* Next word, capitalized */
 "Next" = "Suivant";
@@ -742,7 +742,7 @@
 "Welcome" = "Bienvenue";
 
 /* Invitation details */
-"Well done! You trust %@'s identity and %@ now trusts yours back. A secure channel between you and %@ is being established. As soon as it will be, %@ will appear in your contacts. Please note that this requires %@'s device to be online." = "Formidable ! Un canal sécurisé entre vous et %1$@ est en cours de création. Dès qu'il sera prêt, vous pourrez échanger avec %4$@.";
+"MUTUAL_TRUST_CONFIRMED_DETAILS_%@" = "Bravo ! %1$@ fait maintenant partie de vos contacts et vous pouvez donc avoir une discussion privée.";
 
 /* Message of alert */
 "What do you want to do with this file?" = "Que voulez-vous faire de ce fichier ?";
@@ -769,16 +769,16 @@
 "You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nNote that %1$@ is a pending member in at least one group you belong to. %1$@ might get added back to your contacts in a near future. You may want to leave these groups to avoid this.\n\nReally delete this contact?" = "Vous êtes sur le point de retirer %1$@ de vos contacts. Vous ne pourrez plus échanger de message avec cette personne.\n\nNotez que %1$@ est un membre en attente dans certains groupes auxquel vous appartenez. Il risque d'être ajouté à vos contacts à nouveau dans un future proche. Vous pouvez vous prémunir de cela en quittant ces groupes.\n\nSouhaitez-vous supprimer ce contact ?";
 
 /* Alert message */
-"You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nReally delete this contact?" = "Vous êtes sur le point de retirer %1$@ de vos contacts. Vous ne pourrez plus échanger de message avec cette personne.";
+"You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nReally delete this contact?" = "Vous êtes sur le point de supprimer l'utilisateur %1$@.";
 
 /* Notification body */
 "You are invited to join a group created by %@." = "Vous êtes invité à rejoindre un groupe créé par %@.";
 
 /* Invitation details */
-"You are invited to join a group created by %@. You may silently discard this invitation or accept it. In the latter case, each of the group member will appear in your contacts." = "Vous êtes invité à rejoindre un groupe créé par %@. Si vous l'acceptez, chaque membre du groupe apparaitra dans vos contacts.";
+"YOU_ARE_INVITED_TO_JOIN_A_GROUP_CREATED_BY_%@_EXPLANATION" = "Vous êtes invité à rejoindre un groupe créé par %@.";
 
 /* Alert message */
-"You cannot remove %@ from your contacts as both of you belong to some common groups. You will need to leave these groups to proceed." = "Vous ne pouvez pas retirer %@ de vos contacts car vous appartenez à certains groupes en commun. Vous devrez quitter ces groupes pour pouvoir continuer.";
+"You cannot remove %@ from your contacts as both of you belong to some common groups. You will need to leave these groups to proceed." = "Vous ne pouvez pas supprimer l'utilisateur %@ car vous appartenez à certains groupes en commun. Vous devrez quitter ces groupes pour pouvoir continuer.";
 
 /* Invitation details */
 "You have accepted to join a group created by %@." = "Vous avez rejoint un groupe créé par %@.";
@@ -1149,7 +1149,7 @@
 
 "Generate new backup key?" = "Générer une nouvelle clé de sauvegarde ?";
 
-"Please note that generating a new backup key will invalidate all your previous backups. If you generate a new backup key, please create a fresh backup right afterwards." = "Générer une nouvelle clé de sauvegarde invalide vos sauvegardes précédantes. Si vous décidez de générer une nouvelle clé, nous vous recommandons d'effectuer une sauvegarde juste après.";
+"Please note that generating a new backup key will invalidate all your previous backups. If you generate a new backup key, please create a fresh backup right afterwards." = "Générer une nouvelle clé de sauvegarde invalide vos sauvegardes précédentes. Si vous décidez de générer une nouvelle clé, nous vous recommandons d'effectuer une sauvegarde juste après.";
 
 "Generate new backup key now" = "Regénérer une clé de sauvegarde maintenant";
 
@@ -1200,8 +1200,6 @@
 "CALL_STATE_CALL_IN_PROGRESS" = "Appel en cours";
 
 "CALL_STATE_HANGED_UP" = "Appel raccroché";
-
-"CALL_STATE_TIMEOUT" = "Délai d'attente expiré";
 
 "Restore" = "Restaurer";
 
@@ -1994,6 +1992,8 @@
 
 "PLEASE_UPDATE_OLVID_FROM_MAIN_APP" = "Veuillez lancer l'app Olvid afin de terminer la mise à jour 🚀. Vous pourrez à nouveau partager du contenu une fois que ce sera fait 😉.";
 
+"PLEASE_LAUNCH_OLVID_FROM_MAIN_APP" = "Il vous faut lancer l'app Olvid avant de pouvoir partager du contenu 😉.";
+
 "SCAN_DOCUMENT" = "Scanner un document";
 
 "EPHEMERAL_MESSAGE" = "Message éphémère";
@@ -2218,3 +2218,87 @@
 "DELETE_OWN_REACTION" = "Supprimer ma réaction";
 
 "VALIDATING_ENTERPRISE_CONFIGURATION" = "Configuration automatique en cours...";
+
+"CONTACTS_AND_GROUPS" = "Contacts & Groupes";
+
+"Everyone" = "Tout le monde";
+
+"No one" = "Personne";
+
+"AUTO_ACCEPT_GROUP_INVITES_FROM" = "Accepter automatiquement les invitations de groupe de…";
+
+"AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_TITLE" = "Avant d'aller plus loin…";
+
+"CAPABILITY_ONE_TO_ONE_CONTACTS" = "Contacts One2One";
+
+"CAPABILITY_GROUPS_V2" = "Groupes v2";
+
+"INVITE_%@_IF_YOU_WANT_ONE_TO_ONE_DISCUSSION" = "Pour discuter en privé avec %@ et l'ajouter à vos contacts, touchez « Inviter ».";
+
+"ONE_TO_ONE_DISCUSSION_INVITATION_SENT_TO_%@" = "Vous avez envoyé une invitation à discuter en privé à %@, qui doit encore l'accepter 🤞.";
+
+"ONE_TO_ONE_INVITATION_SENT" = "Invitation envoyée";
+
+"ONE_TO_ONE_INVITATION_RECEIVED" = "Invitation à discuter en privé";
+
+"ONE_TO_ONE_DISCUSSION_INVITATION_RECEIVED_FROM_%@" = "Pour accepter de discuter en privé avec %@ et l'ajouter à vos contacts, touchez « Accepter ».";
+
+"STOP_ONE_TO_ONE_DISCUSSION_WITH_CONTACT_ALERT_TITLE" = "Retirer des contacts ?";
+
+"DO_YOU_WISH_TO_STOP_ONE_TO_ONE_DISCUSSION_WITH_@_ALERT_MESSAGE" = "En retirant %1$@ de vos contacts, vous mettez fin à la discussion privée avec cet utilisateur (autrement dit, vous ne pourrez plus échanger de messages dans votre discussion privée avec %1$@). Cela ne vous empêchera pas d'échanger des messages dans vos groupes communs.";
+
+"DO_STOP_ONE_TO_ONE_DISCUSSION" = "Retirer des contacts";
+
+"DOWNGRADE_CONTACT_TO_NON_ONE_TO_ONE_BUTTON_TITLE" = "Retirer des contacts";
+
+"DELETE_OLVID_USER" = "Supprimer cet utilisateur";
+
+"OTHER_KNOWN_USERS" = "Autres utilisateurs";
+
+"EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS" = "Les utilisateurs ci-dessous ne font pas (encore) partie de vos contacts, et vous ne pouvez donc pas encore avoir de discussion privée avec eux. Mais vous pouvez les y inviter facilement 🚀 !";
+
+"%@_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION" = "%@ vous invite à discuter en privé. Si vous acceptez, cet utilisateur sera ajouté à vos contacts.";
+
+"DELETE_USER_ACTION_TITLE" = "Supprimer cet utilisateur maintenant";
+
+"INVITE_REQUIRED_ALERT_TITLE" = "Invitation requise";
+
+"YOU_NEED_TO_INVITE_%@_BEFORE_HAVING_DISCUSSION_ALERT_MESSAGE" = "Vous ne pouvez pas discuter en privé avec %@ tant que cet utilisateur ne fait pas partie de vos contacts. Vous pouvez l'y inviter maintenant.";
+
+"SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE" = "Une nouvelle version d'Olvid est disponible 🥳 !";
+
+"SNACK_BAR_BUTTON_TITLE_NEW_APP_VERSION_AVAILABLE" = "Info";
+
+"SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE" = "Une nouvelle version d'Olvid est disponible 🥳 !";
+
+"SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE" = "Une nouvelle version d'Olvid est disponible dès maintenant sur l'App Store. Pour ne pas rater les dernières nouveautés d'Olvid 🤓, nous vous recommandons de mettre à jour maintenant 🚀.";
+
+"GO_TO_APP_STORE_BUTTON_TITLE" = "Ouvrir l'App Store";
+
+"INSTALLED_APP_IS_OUTDATED_ALERT_TITLE" = "Votre version d'Olvid est obsolète 😱 !";
+
+"INSTALLED_APP_IS_OUTDATED_ALERT_BODY" = "Mais ne vous inquiétez pas 😊. Vous pouvez mettre à jour Olvid dès maintenant et ainsi découvrir les dernières nouveautés 🤓. Nous vous recommandons de mettre à jour maintenant 🚀.";
+
+"UPGRADE_NOW" = "Mettre à jour maintenant";
+
+"MINIMUM_SUPPORTED_VERSION" = "Version minimum prise en charge";
+
+"MINIMUM_RECOMMENDED_VERSION" = "Version minimum recommandée";
+
+"UPGRADE_OLVID_NOW" = "Mettre à jour Olvid maintenant";
+
+"SYNC" = "Sync";
+
+"SYNC_REQUEST_SENT" = "Synchronisation envoyée";
+
+"Choose" = "Choisir";
+
+"FAILED" = "Échec 😢";
+
+"CALL_INITIALISATION_NOT_SUPPORTED" = "Appels non supportés";
+
+"CALL_FAILED" = "L'appel a échoué 😟";
+
+"Choose" = "Choisir";
+
+"YOUR_MESSAGE" = "Votre message...";

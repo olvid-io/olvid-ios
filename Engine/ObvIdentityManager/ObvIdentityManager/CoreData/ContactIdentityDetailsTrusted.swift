@@ -67,17 +67,25 @@ extension ContactIdentityDetailsTrusted {
     /// This method should *only* be called from the `updateTrustedDetailsWithPublishedDetails` and the `refreshCertifiedByOwnKeycloakAndTrustedDetails` methods of the `ContactIdentity` entity.
     func updateWithContactIdentityDetailsPublished(_ contactIdentityDetailsPublished: ContactIdentityDetailsPublished, delegateManager: ObvIdentityDelegateManager) throws {
 
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ContactIdentityDetailsTrusted")
+
         guard let managedObjectContext = self.managedObjectContext, contactIdentityDetailsPublished.managedObjectContext == managedObjectContext else {
             throw makeError(message: "Inappropriate context")
         }
         
         self.version = contactIdentityDetailsPublished.version
         let identityPhotosDirectory = delegateManager.identityPhotosDirectory
-
-        if contactIdentityDetailsPublished.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails != self.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory).coreDetails {
-            self.serializedIdentityCoreDetails = contactIdentityDetailsPublished.serializedIdentityCoreDetails
-        }
         
+        if let publishedCoreDetails = contactIdentityDetailsPublished.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory)?.coreDetails,
+           let trustedCoreDetails = self.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory)?.coreDetails {
+            if publishedCoreDetails != trustedCoreDetails {
+                self.serializedIdentityCoreDetails = contactIdentityDetailsPublished.serializedIdentityCoreDetails
+            }
+        } else {
+            os_log("Could not update trusted details using published details", log: log, type: .fault)
+            assertionFailure()
+        }
+
         self.photoServerKeyAndLabel = contactIdentityDetailsPublished.photoServerKeyAndLabel
 
         let photoURLOfPublishedDetails = contactIdentityDetailsPublished.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
@@ -101,28 +109,32 @@ extension ContactIdentityDetailsTrusted {
     
     override func didSave() {
         super.didSave()
-        
+
+        let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsTrusted.entityName)
+
         guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsTrusted.entityName)
             os_log("The delegate manager is not set", log: log, type: .fault)
             return
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsTrusted.entityName)
             os_log("The notification delegate is not set", log: log, type: .fault)
             return
         }
 
         if !isDeleted {
             
-            let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
-            let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
-            let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
-                            NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
-                            NotificationType.Key.trustedIdentityDetails: trustedIdentityDetails] as [String: Any]
-            notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-
+            if let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
+                let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
+                let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
+                                NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
+                                NotificationType.Key.trustedIdentityDetails: trustedIdentityDetails] as [String: Any]
+                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+            } else {
+                os_log("Could not notify about the new trusted contact identity details", log: log, type: .fault)
+                assertionFailure()
+            }
+            
         }
         
     }

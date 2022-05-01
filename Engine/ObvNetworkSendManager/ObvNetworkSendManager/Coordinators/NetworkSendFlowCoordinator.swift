@@ -26,24 +26,21 @@ import ObvCrypto
 import Network
 import OlvidUtils
 
-final class NetworkSendFlowCoordinator {
+final class NetworkSendFlowCoordinator: ObvErrorMaker {
     
     // MARK: - Instance variables
     
     fileprivate let defaultLogSubsystem = ObvNetworkSendDelegateManager.defaultLogSubsystem
     fileprivate let logCategory = "NetworkSendFlowCoordinator"
 
+    static let errorDomain = "NetworkSendFlowCoordinator"
+
     private var failedFetchAttemptsCounterManager = FailedFetchAttemptsCounterManager()
     private var retryManager = SendRetryManager()
     private var notificationTokens = [NSObjectProtocol]()
     private let outbox: URL
     
-    private let queueForPostingNotifications: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 5
-        queue.name = "Operation Queue for posting certain notifications from the NetworkSendFlowCoordinator"
-        return queue
-    }()
+    private let queueForPostingNotifications = DispatchQueue(label: "Queue for posting certain notifications from the NetworkSendFlowCoordinator")
     
     weak var delegateManager: ObvNetworkSendDelegateManager?
 
@@ -65,7 +62,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The Delegate Manager is not set")
         }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
@@ -85,9 +82,9 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                                                 isVoipMessage: message.isVoipMessageForStartingCall,
                                                 delegateManager: delegateManager,
                                                 within: obvContext)
-            else {
-                os_log("Could not create outboxMessage in database", log: log, type: .error)
-                throw NSError()
+        else {
+            os_log("Could not create outboxMessage in database", log: log, type: .error)
+            throw Self.makeError(message: "Could not create outboxMessage in database")
         }
         
         for header in message.headers {
@@ -107,14 +104,14 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                                        deleteAfterSend: attachment.deleteAfterSend,
                                        byteSize: attachment.byteSize,
                                        key: attachment.key) != nil
-                    else {
-                        os_log("Could not create outboxAttachment in database", log: log, type: .error)
-                        throw NSError()
+                else {
+                    os_log("Could not create outboxAttachment in database", log: log, type: .error)
+                    throw Self.makeError(message: "Could not create outboxAttachment in database")
                 }
-
+                
                 let attachmentId = AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
                 attachmentIds.append(attachmentId)
-
+                
                 attachmentNumber += 1
             }
         }
@@ -122,13 +119,11 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         do {
             try obvContext.addContextDidSaveCompletionHandler { (error) in
                 guard error == nil else { return }
-                let NotificationType = ObvNetworkPostNotification.NewOutboxMessageAndAttachmentsToUpload.self
-                let userInfo = [NotificationType.Key.messageId: message.messageId,
-                                NotificationType.Key.attachmentIds: attachmentIds,
-                                NotificationType.Key.flowId: obvContext.flowId] as [String: Any]
-                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                ObvNetworkPostNotification.newOutboxMessageAndAttachmentsToUpload(messageId: message.messageId, attachmentIds: attachmentIds, flowId: obvContext.flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
             }
         } catch {
+            assertionFailure()
             os_log("Failed to notify that there is a new message and attachments to upload", log: log, type: .fault)
         }
 
@@ -204,12 +199,12 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                 return
             }
             
-            let notification = ObvNetworkPostNotificationNew.outboxMessageWasUploaded(messageId: messageId,
-                                                                                      timestampFromServer: timestampFromServer,
-                                                                                      isAppMessageWithUserContent: message.isAppMessageWithUserContent,
-                                                                                      isVoipMessage: message.isVoipMessage,
-                                                                                      flowId: flowId)
-            notification.postOnDispatchQueue(withLabel: "Queue for posting an outboxMessageWasUploaded notification (2)", within: notificationDelegate)
+            ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: messageId,
+                                                                timestampFromServer: timestampFromServer,
+                                                                isAppMessageWithUserContent: message.isAppMessageWithUserContent,
+                                                                isVoipMessage: message.isVoipMessage,
+                                                                flowId: flowId)
+            .postOnBackgroundQueue(within: notificationDelegate)
             
         }
         
@@ -248,8 +243,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         
         failedFetchAttemptsCounterManager.reset(counter: .uploadAttachment(attachmentId: attachmentId))
         
-        ObvNetworkPostNotificationNew.outboxAttachmentHasNewProgress(attachmentId: attachmentId, newProgress: newProgress, flowId: flowId)
-            .postOnOperationQueue(operationQueue: queueForPostingNotifications, within: notificationDelegate)
+        ObvNetworkPostNotification.outboxAttachmentHasNewProgress(attachmentId: attachmentId, newProgress: newProgress, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
 
@@ -285,7 +280,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         if delegateManager.uploadAttachmentChunksDelegate.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: identifer) {
             delegateManager.uploadAttachmentChunksDelegate.processCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: identifer, withinFlowId: flowId)
         } else {
-            os_log("Unexpected background session identifier: %{public}@", log: log, type: .fault, identifer)
+            os_log("🌊 Unexpected background session identifier: %{public}@", log: log, type: .fault, identifer)
             assertionFailure()
         }
     }
@@ -307,9 +302,9 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             return
         }
         
-        ObvNetworkPostNotificationNew.outboxAttachmentWasAcknowledged(attachmentId: attachmentId, flowId: flowId)
-            .postOnDispatchQueue(withLabel: "Queue for posting an outboxAttachmentWasAcknowledged notification", within: notificationDelegate)
-        
+        ObvNetworkPostNotification.outboxAttachmentWasAcknowledged(attachmentId: attachmentId, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+
         delegateManager.tryToDeleteMessageAndAttachmentsDelegate.tryToDeleteMessageAndAttachments(messageId: attachmentId.messageId, flowId: flowId)
                 
     }
@@ -347,10 +342,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             return
         }
 
-        let NotificationType = ObvNetworkPostNotification.OutboxMessageAndAttachmentsDeleted.self
-        let userInfo = [NotificationType.Key.messageId: messageId,
-                        NotificationType.Key.flowId: flowId] as [String: Any]
-        notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+        ObvNetworkPostNotification.outboxMessageAndAttachmentsDeleted(messageId: messageId, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
 
@@ -370,8 +363,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             return
         }
 
-        let notification = ObvNetworkPostNotificationNew.postNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ownedIdentity, flowId: flowId)
-        notification.postOnDispatchQueue(withLabel: "Queue for posting postNetworkOperationFailedSinceOwnedIdentityIsNotActive notification", within: notificationDelegate)
+        ObvNetworkPostNotification.postNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ownedIdentity, flowId: flowId)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
         
     }
     
@@ -396,13 +389,15 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             return
         }
 
-        contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
+        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+            
+            guard let _self = self else { return }
 
             do {
                 if let sentMessage = (try DeletedOutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)).first(where: { $0.messageId == messageIdentifier }) {
                     let messageIdsAndTimestampsFromServer = (sentMessage.messageId, sentMessage.timestampFromServer)
-                    ObvNetworkPostNotificationNew.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [messageIdsAndTimestampsFromServer], flowId: flowId)
-                        .postOnDispatchQueue(withLabel: "Queue for posting an outboxMessagesAndAllTheirAttachmentsWereAcknowledged notification", within: notificationDelegate)
+                    ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [messageIdsAndTimestampsFromServer], flowId: flowId)
+                        .postOnBackgroundQueue(_self.queueForPostingNotifications, within: notificationDelegate)
                     return
                 }
             } catch {
@@ -417,8 +412,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                     let attachmentsIds = message.attachments.map({ $0.attachmentId })
                     for attachmentId in attachmentsIds {
                         guard let progress = delegateManager.uploadAttachmentChunksDelegate.requestProgressOfAttachment(withIdentifier: attachmentId) else { continue }
-                        ObvNetworkPostNotificationNew.outboxAttachmentHasNewProgress(attachmentId: attachmentId, newProgress: progress, flowId: flowId)
-                            .postOnDispatchQueue(withLabel: "Queue for posting an outboxAttachmentHasNewProgress notification", within: notificationDelegate)
+                        ObvNetworkPostNotification.outboxAttachmentHasNewProgress(attachmentId: attachmentId, newProgress: progress, flowId: flowId)
+                            .postOnBackgroundQueue(_self.queueForPostingNotifications, within: notificationDelegate)
                     }
                     return
                 }

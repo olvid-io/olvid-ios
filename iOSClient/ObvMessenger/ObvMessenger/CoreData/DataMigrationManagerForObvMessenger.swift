@@ -23,11 +23,11 @@ import CoreDataStack
 import os.log
 
 final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMessengerPersistentContainer> {
-    
+
     private let log = OSLog(subsystem: "io.olvid.messenger", category: "CoreDataStack")
 
     enum ObvMessengerModelVersion: String {
-        
+
         case version1 = "ObvMessengerModel-v1"
         case version2 = "ObvMessengerModel-v2"
         case version3 = "ObvMessengerModel-v3"
@@ -70,22 +70,23 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case version40 = "ObvMessengerModel-v40"
         case version41 = "ObvMessengerModel-v41"
         case version42 = "ObvMessengerModel-v42"
+        case version43 = "ObvMessengerModel-v43"
 
         static var latest: ObvMessengerModelVersion {
-            return .version42
+            return .version43
         }
 
         var identifier: String {
             return self.rawValue
         }
-        
+
         init(model: NSManagedObjectModel) throws {
             guard model.versionIdentifiers.count == 1 else { throw NSError() }
             guard let versionIdentifier = model.versionIdentifiers.first! as? String else { throw NSError() }
             guard let version = ObvMessengerModelVersion.init(rawValue: versionIdentifier) else { throw NSError() }
             self = version
         }
-        
+
     }
 
 
@@ -100,11 +101,11 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         return model.first!
     }
 
-    
+
     override func getNextManagedObjectModelVersion(from sourceModel: NSManagedObjectModel) throws -> (destinationModel: NSManagedObjectModel, migrationType: DataMigrationManager<ObvMessengerPersistentContainer>.MigrationType) {
 
         let sourceVersion = try ObvMessengerModelVersion(model: sourceModel)
-        
+
         os_log("Current version of the App's Core Data Stack: %{public}@", log: log, type: .info, sourceVersion.identifier)
 
         let destinationVersion: ObvMessengerModelVersion
@@ -151,36 +152,37 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case .version39: migrationType = .lightweight; destinationVersion = .version40
         case .version40: migrationType = .lightweight; destinationVersion = .version41
         case .version41: migrationType = .lightweight; destinationVersion = .version42
-        case .version42: migrationType = .heavyweight; destinationVersion = .version42
+        case .version42: migrationType = .heavyweight; destinationVersion = .version43
+        case .version43: migrationType = .heavyweight; destinationVersion = .version43
         }
-        
+
         let destinationModel = try getManagedObjectModel(version: destinationVersion)
-        
+
         os_log("Performing a %{public}@ migration of the ObvMessengerModel from version %{public}@ to %{public}@", log: log, type: .info, migrationType.debugDescription, sourceVersion.identifier, destinationVersion.identifier)
 
         return (destinationModel, migrationType)
-        
+
     }
 
-    
+
     override func managedObjectModelIsLatestVersion(_ model: NSManagedObjectModel) throws -> Bool {
         let modelVersion = try ObvMessengerModelVersion(model: model)
         return modelVersion == .latest
     }
-    
-    
+
+
     override func performPreMigrationWork(forSourceModel sourceModel: NSManagedObjectModel, destinationModel: NSManagedObjectModel) throws {
         try performPreMigrationWorkOnV28(forSourceModel: sourceModel)
         try performPreMigrationWorkOnV29(forSourceModel: sourceModel)
     }
-    
+
 }
 
 
 // MARK: - Specific pre migration work
 
 extension DataMigrationManagerForObvMessenger {
-    
+
     private func performPreMigrationWorkOnV29(forSourceModel sourceModel: NSManagedObjectModel) throws {
 
         let currentModelVersion = try ObvMessengerModelVersion(model: sourceModel)
@@ -199,17 +201,17 @@ extension DataMigrationManagerForObvMessenger {
                 return
             }
         }
-        
+
         deleteOrphanedPersistedExpirationForReceivedMessageWithLimitedVisibility(currentContainer: currentContainer)
 
     }
 
-    
+
     private func performPreMigrationWorkOnV28(forSourceModel sourceModel: NSManagedObjectModel) throws {
-                
+
         let currentModelVersion = try ObvMessengerModelVersion(model: sourceModel)
         guard currentModelVersion == .version28 else { return }
-        
+
         migrationRunningLog.addEvent(message: "Performing pre-migration work on v28")
         defer {
             migrationRunningLog.addEvent(message: "The pre-migration work on v28")
@@ -223,14 +225,14 @@ extension DataMigrationManagerForObvMessenger {
                 return
             }
         }
-        
+
         deleteOrphanedPersistedExpirationForReceivedMessageWithLimitedVisibility(currentContainer: currentContainer)
 
     }
 
-    
+
     private func deleteOrphanedPersistedExpirationForReceivedMessageWithLimitedVisibility(currentContainer: ObvMessengerPersistentContainer) {
-        
+
         let context = currentContainer.newBackgroundContext()
         context.performAndWait {
             let request: NSFetchRequest<NSManagedObject> = NSFetchRequest(entityName: "PersistedExpirationForReceivedMessageWithLimitedVisibility")
@@ -252,6 +254,6 @@ extension DataMigrationManagerForObvMessenger {
         }
 
     }
-    
-    
+
+
 }

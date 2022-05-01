@@ -44,7 +44,7 @@ final class UpdatePersistedContactIdentityStatusWithInfoFromEngineOperation: Con
         obvContext.performAndWait {
             do {
 
-                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, within: obvContext.context) else {
+                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindContactIdentityInDatabase)
                 }
 

@@ -32,7 +32,7 @@ final class VerifyReceiptCoordinator: NSObject {
     var delegateManager: ObvNetworkFetchDelegateManager?
 
     private let localQueue = DispatchQueue(label: "VerifyReceiptCoordinatorQueue")
-    private let queueForNotifications = OperationQueue()
+    private let queueForNotifications = DispatchQueue(label: "VerifyReceiptCoordinator queue for notifications")
 
     private var internalOperationQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -151,7 +151,7 @@ extension VerifyReceiptCoordinator: VerifyReceiptOperationDelegate {
             _ = _self.currentTransactions.remove(transactionIdentifier)
             os_log("💰 Receipt verification failed for transaction %{public}@: %{public}@", log: log, type: .error, transactionIdentifier, error.localizedDescription)
             ObvNetworkFetchNotificationNew.appStoreReceiptVerificationFailed(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier, flowId: flowId)
-                .postOnOperationQueue(operationQueue: _self.queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
         }
     }
     
@@ -178,7 +178,7 @@ extension VerifyReceiptCoordinator: VerifyReceiptOperationDelegate {
             _ = _self.currentTransactions.remove(transactionIdentifier)
             os_log("💰 Receipt verification succeed for transaction %{public}@", log: log, type: .info, transactionIdentifier)
             ObvNetworkFetchNotificationNew.appStoreReceiptVerificationSucceededAndSubscriptionIsValid(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier, apiKey: apiKey, flowId: flowId)
-                .postOnOperationQueue(operationQueue: _self.queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
         }
     }
     
@@ -206,7 +206,7 @@ extension VerifyReceiptCoordinator: VerifyReceiptOperationDelegate {
             _ = _self.currentTransactions.remove(transactionIdentifier)
             os_log("💰 Receipt verification succeed for transaction %{public}@ but the subscription is expired", log: log, type: .error, transactionIdentifier)
             ObvNetworkFetchNotificationNew.appStoreReceiptVerificationSucceededButSubscriptionIsExpired(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier, flowId: flowId)
-                .postOnOperationQueue(operationQueue: _self.queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
         }
     }
     
@@ -224,7 +224,7 @@ extension VerifyReceiptCoordinator: VerifyReceiptOperationDelegate {
             guard let _self = self else { return }
             _ = _self.currentTransactions.remove(transactionIdentifier)
             _self.receiptToVerifyWhenNewSessionIsAvailable.append((ownedIdentity, receiptData, transactionIdentifier, flowId))
-            _self.queueForNotifications.addOperation { [weak self] in
+            _self.queueForNotifications.async { [weak self] in
                 self?.createNewServerSession(ownedIdentity: ownedIdentity, delegateManager: delegateManager, flowId: flowId, log: log)
             }
         }

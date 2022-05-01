@@ -26,7 +26,15 @@ extension ContactIdentityCoordinator {
         
         static let alertDeleteContactTitle = NSLocalizedString("Delete this contact?", comment: "Alert title")
 
-        static let alertActionTitleDeleteContact = NSLocalizedString("Delete contact", comment: "Action title")
+        static let alertActionTitleDeleteContact = NSLocalizedString("DELETE_USER_ACTION_TITLE", comment: "Action title")
+        
+        struct AlertDowngradeContact {
+            static let title = NSLocalizedString("STOP_ONE_TO_ONE_DISCUSSION_WITH_CONTACT_ALERT_TITLE", comment: "")
+            static let message = { (contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("DO_YOU_WISH_TO_STOP_ONE_TO_ONE_DISCUSSION_WITH_@_ALERT_MESSAGE", comment: "Alert message"), contactName)
+            }
+            static let confirm = NSLocalizedString("DO_STOP_ONE_TO_ONE_DISCUSSION", comment: "")
+        }
 
         struct AlertCommonGroupOnContactDeletion {
             static let title = NSLocalizedString("Contact cannot be deleted for now", comment: "Alert title")

@@ -28,7 +28,7 @@ extension UIView {
         let bottom = self.bottomAnchor.constraint(equalTo: otherView.bottomAnchor)
         let leading = self.leadingAnchor.constraint(equalTo: otherView.leadingAnchor)
         
-        _ = [top, trailing, bottom, leading].map { $0.isActive = true }
+        [top, trailing, bottom, leading].forEach { $0.isActive = true }
         
     }
     
@@ -40,7 +40,7 @@ extension UIView {
         let bottom = self.bottomAnchor.constraint(equalTo: otherView.bottomAnchor)
         let leading = self.leadingAnchor.constraint(equalTo: otherView.leadingAnchor, constant: -sideConstants)
         
-        _ = [top, trailing, bottom, leading].map { $0.isActive = true }
+        [top, trailing, bottom, leading].forEach { $0.isActive = true }
         
     }
 }

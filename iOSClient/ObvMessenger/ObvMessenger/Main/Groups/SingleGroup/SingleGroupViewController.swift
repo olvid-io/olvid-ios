@@ -101,7 +101,7 @@ class SingleGroupViewController: UIViewController {
     
     private var notificationTokens = [NSObjectProtocol]()
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SingleGroupViewController.self))
     private let customSpacingBetweenSections: CGFloat = 24.0
     private let customSpacingAfterTopStackView: CGFloat = 32.0
     private let sectionLabelsLeadingPaddingConstraint: CGFloat = 20.0
@@ -337,7 +337,7 @@ extension SingleGroupViewController {
     private func configureAndAddMembersTVC() throws {
         
         let predicate = PersistedObvContactIdentity.getPredicateForContactGroup(self.persistedContactGroup)
-        let contactsTVC = ContactsTableViewController(disableContactsWithoutDevice: false, allowDeletion: false)
+        let contactsTVC = ContactsTableViewController(disableContactsWithoutDevice: false, oneToOneStatus: .any, allowDeletion: false)
         contactsTVC.cellBackgroundColor = AppTheme.shared.colorScheme.tertiarySystemBackground
         contactsTVC.predicate = predicate
         contactsTVC.delegate = self
@@ -391,7 +391,7 @@ extension SingleGroupViewController {
 extension SingleGroupViewController {
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerInternalNotification.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
             self?.configureViewsBasedOnPersistedContactGroup()
             self?.configureTheOlvidCards(animated: false)
         }

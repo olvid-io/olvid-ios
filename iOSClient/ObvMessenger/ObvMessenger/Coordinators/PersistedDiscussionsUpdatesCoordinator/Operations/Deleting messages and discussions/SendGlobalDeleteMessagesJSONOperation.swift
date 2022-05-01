@@ -28,7 +28,7 @@ final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonFo
     private let persistedMessageObjectIDs: [NSManagedObjectID]
     private let obvEngine: ObvEngine
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SendGlobalDeleteMessagesJSONOperation.self))
 
     init(persistedMessageObjectIDs: [NSManagedObjectID], obvEngine: ObvEngine) {
         self.persistedMessageObjectIDs = persistedMessageObjectIDs

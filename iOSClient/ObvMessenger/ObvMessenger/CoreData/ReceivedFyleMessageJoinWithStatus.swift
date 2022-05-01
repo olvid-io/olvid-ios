@@ -58,6 +58,11 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         return receivedMessage.messageIdentifierFromEngine
     }
     
+    override var message: PersistedMessage? { receivedMessage }
+
+    override var fullFileIsAvailable: Bool { status == .complete }
+
+
     // MARK: - Relationships
     
     @NSManaged private(set) var receivedMessage: PersistedMessageReceived

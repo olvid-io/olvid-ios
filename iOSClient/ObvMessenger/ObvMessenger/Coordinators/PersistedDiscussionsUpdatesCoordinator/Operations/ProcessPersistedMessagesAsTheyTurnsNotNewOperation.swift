@@ -25,7 +25,7 @@ import OlvidUtils
 /// When a discussion displays a new message, we consider it to be "not new" anymore. In the case of a `PersistedMessageReceived` instance, we mark the message as `unread` if it it marked as `readOnce`, and we mark it as `read` otherwise.
 final class ProcessPersistedMessagesAsTheyTurnsNotNewOperation: ContextualOperationWithSpecificReasonForCancel<ProcessPersistedMessagesAsTheyTurnsNotNewOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ProcessPersistedMessagesAsTheyTurnsNotNewOperation.self))
     private let persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>
     
     init(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>) {

@@ -33,7 +33,7 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
 
     // Constants
     
-    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: GroupsFlowViewController.self))
 
     // Delegate
     
@@ -95,7 +95,7 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
     func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
             guard let _self = self else { return }
             _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
         })
@@ -145,8 +145,9 @@ extension GroupsFlowViewController: AllGroupsViewControllerDelegate {
     }
     
     func userWantsToAddContactGroup() {
-        let groupCreationFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .create)
+        guard let ownedCryptoId = self.ownedCryptoId else { assertionFailure(); return }
         DispatchQueue.main.async { [weak self] in
+            let groupCreationFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .create)
             self?.present(groupCreationFlowVC, animated: true)
         }
 

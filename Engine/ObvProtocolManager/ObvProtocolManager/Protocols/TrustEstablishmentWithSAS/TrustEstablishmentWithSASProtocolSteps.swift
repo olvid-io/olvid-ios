@@ -118,21 +118,7 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityFullDisplayName = receivedMessage.contactIdentityFullDisplayName
             let ownIdentityCoreDetails = receivedMessage.ownIdentityCoreDetails
@@ -225,17 +211,6 @@ extension TrustEstablishmentWithSASProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityFullDisplayName = receivedMessage.contactIdentityFullDisplayName
             let decommitment = receivedMessage.decommitment
@@ -280,16 +255,7 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let decommitment = startState.decommitment
             let seedAliceForSas = startState.seedAliceForSas
@@ -360,20 +326,6 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
@@ -460,17 +412,6 @@ extension TrustEstablishmentWithSASProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
             let contactDeviceUids = receivedMessage.contactDeviceUids
@@ -516,21 +457,7 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let contactDeviceUids = startState.contactDeviceUids
@@ -654,20 +581,6 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -747,16 +660,7 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let contactDeviceUids = startState.contactDeviceUids
@@ -834,21 +738,7 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let contactDeviceUids = startState.contactDeviceUids
@@ -972,16 +862,7 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let contactDeviceUids = startState.contactDeviceUids
@@ -1068,17 +949,6 @@ extension TrustEstablishmentWithSASProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let dialogUuid = startState.dialogUuid
@@ -1121,20 +991,6 @@ extension TrustEstablishmentWithSASProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
-            os_log("%{public}@: starting %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            defer {
-                os_log("%{public}@: ending %{public}@", log: log, type: .info, String(describing: TrustEstablishmentWithSASProtocol.self), String(describing: Self.self))
-            }
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -1146,9 +1002,9 @@ extension TrustEstablishmentWithSASProtocol {
                 let trustOrigin = TrustOrigin.direct(timestamp: Date())
                 
                 if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in

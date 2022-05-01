@@ -30,7 +30,7 @@ final class UserNotificationsCoordinator: NSObject {
     private var observationTokens = [NSObjectProtocol]()
     private var kvoTokens = [NSKeyValueObservation]()
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationsCoordinator.self))
 
     private let appDelegate = UIApplication.shared.delegate as! AppDelegate
 
@@ -63,8 +63,8 @@ final class UserNotificationsCoordinator: NSObject {
         observePersistedMessageReceivedWasDeletedNotifications()
         observeUserRequestedDeletionOfPersistedDiscussionNotifications()
         observeReportCallEventNotifications()
-        observePersistedMessageReactionReceived()
         observePersistedMessageReactionReceivedWasDeletedNotifications()
+        observePersistedMessageReactionReceivedWasInsertedOrUpdatedNotifications()
     }
     
     deinit {
@@ -78,18 +78,18 @@ final class UserNotificationsCoordinator: NSObject {
 extension UserNotificationsCoordinator {
 
     private func observeReportCallEventNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeReportCallEvent { (callUUID, callReport, groupId, ownedCryptoId) in
+        observationTokens.append(VoIPNotification.observeReportCallEvent { (callUUID, callReport, groupId, ownedCryptoId) in
             ObvStack.shared.performBackgroundTask { (context) in
 
                 switch callReport {
                 case .missedIncomingCall(caller: let caller, participantCount: let participantCount),
                      .filteredIncomingCall(caller: let caller, participantCount: let participantCount):
-                    guard let callerID = caller?.contactID else { return }
+                    guard let contactObjectID = caller?.contactObjectID else { return }
                     let notificationCenter = UNUserNotificationCenter.current()
 
                     guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else { return }
 
-                    guard let contactIdentity = try? PersistedObvContactIdentity.get(objectID: callerID, within: context) else { assertionFailure(); return }
+                    guard let contactIdentity = try? PersistedObvContactIdentity.get(objectID: contactObjectID, within: context) else { assertionFailure(); return }
 
                     let discussion: PersistedDiscussion?
                     if let groupId = groupId {
@@ -140,16 +140,6 @@ extension UserNotificationsCoordinator {
         })
     }
 
-    
-    /// When a received reaction message is deleted (for whatever reason), we want to removing any existing notification related
-    /// to this reaction
-    private func observePersistedMessageReactionReceivedWasDeletedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageReactionReceivedWasDeleted { (messageURI, contactURI) in
-            let notificationCenter = UNUserNotificationCenter.current()
-            let notificationId = ObvUserNotificationIdentifier.newReaction(messageURI: messageURI, contactURI: contactURI)
-            UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
-        })
-    }
 
     /// When a received message is deleted (for whatever reason), we want to removing any existing notification related
     /// to this message
@@ -254,57 +244,55 @@ extension UserNotificationsCoordinator {
         }
     }
 
-    private func observePersistedMessageReactionReceived() {
-        let NotificationName = NSNotification.Name.NSManagedObjectContextDidSave
-        let notificationCenter = UNUserNotificationCenter.current()
-        let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { (notification) in
-            guard let userInfo = notification.userInfo else { return }
-            var currentReactionNotificationTimestamps: [String: Date] = [:]
-            func update(_ requests: [UNNotificationRequest]) {
-                for request in requests {
-                    guard request.content.userInfo[UserNotificationKeys.id] as? Int == ObvUserNotificationID.newReaction.rawValue else { continue }
-                    guard let timestamp = request.content.userInfo[UserNotificationKeys.reactionTimestamp] as? Date else { assertionFailure(); continue }
-                    currentReactionNotificationTimestamps[request.identifier] = timestamp
-                }
-            }
-            let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? Set()
-            let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? Set()
-            let insertedAndUpdatedObjects = insertedObjects.union(updatedObjects)
-            guard !insertedAndUpdatedObjects.isEmpty else { return }
-            let insertedAndUpdatedReactions = insertedAndUpdatedObjects.compactMap { $0 as? PersistedMessageReactionReceived }
-            guard !insertedAndUpdatedReactions.isEmpty else { return }
-            let group = DispatchGroup()
-            do {
-                group.enter()
-                notificationCenter.getDeliveredNotifications { deliveredNotifications in
-                    let deliveredNotificationsRequests = deliveredNotifications.map { $0.request }
-                    update(deliveredNotificationsRequests)
-                    group.leave()
-                }
-            }
-            do {
-                group.enter()
-                notificationCenter.getPendingNotificationRequests { pendingNotificationsRequests in
-                    update(pendingNotificationsRequests)
-                    group.leave()
-                }
-            }
-            group.wait()
-            for reaction in insertedAndUpdatedReactions {
-                guard let discussion = reaction.message?.discussion else { continue }
-                guard let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(reaction: reaction) else { continue }
+    /// When a received reaction message is deleted (for whatever reason), we remove any existing notification related to this reaction.
+    private func observePersistedMessageReactionReceivedWasDeletedNotifications() {
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasDeleted { (messageURI, contactURI) in
+            let notificationCenter = UNUserNotificationCenter.current()
+            let notificationId = ObvUserNotificationIdentifier.newReaction(messageURI: messageURI, contactURI: contactURI)
 
-                if let currentTimestamp = currentReactionNotificationTimestamps[notificationId.getIdentifier()] {
-                    if currentTimestamp >= reaction.timestamp {
-                        // If it there is aleady a notification with a more recent date we must not update it
-                        continue
+            // Remove the notification if it was added by the app
+            UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
+
+            // Remove the notification if it was added by the extension
+            Task {
+                await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
+            }
+        })
+    }
+
+    
+    /// If there is only a single notification that comes from the extension and if it corresponds to the given reaction, we let it (even if the request identifier is an UUID) if it is more recent than the given one.
+    /// If there are several notifications that comes from the extension, we only know that the given reaction corresponds to one of them, we start by removing all notifications that come from the extension
+    /// and schedule a notification with a nice notification id. The next reaction will replace this new notification if it is more recent. The only deficit of this, is when the extension will decryp n reactions
+    /// and shows n notification : launching the app will remove these n notifications and replace them by a single one, that can be updated (n - 1) times in the worst case if the reaction are processed in the
+    /// wrong order. But it is a corner case to have a user that will react n times to the same message...
+    private func observePersistedMessageReactionReceivedWasInsertedOrUpdatedNotifications() {
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasInsertedOrUpdated { objectID in
+            ObvStack.shared.viewContext.performAndWait {
+                guard let reaction = try? PersistedMessageReaction.get(with: objectID.downcast, within: ObvStack.shared.viewContext) as? PersistedMessageReactionReceived else { return }
+                guard let message = reaction.message as? PersistedMessageSent else { return }
+                guard let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(reaction: reaction) else { return }
+
+                let notificationCenter = UNUserNotificationCenter.current()
+                let reactionsTimestamps = UserNotificationsScheduler.getAllReactionsTimestampAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
+                let discussion = message.discussion
+
+                if reactionsTimestamps.count == 1,
+                   let timestamp = reactionsTimestamps.first,
+                   timestamp >= reaction.timestamp {
+
+                    // If there is only one notifications in the center that is more recent that the given one, we let it.
+                    return
+                } else {
+                    // We remove all the notification that comes from the extension.
+                    Task {
+                        await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
                     }
+                    // And replace them with a notification that is not nececarry the more recent (in the case that multiple reaction update messages have been received) and replace by a single notification with notificationID as request identifier.
+                    UserNotificationsScheduler.filteredScheduleNotification(discussion: discussion, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
                 }
-
-                UserNotificationsScheduler.filteredScheduleNotification(discussion: discussion, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
             }
-        }
-        observationTokens.append(token)
+        })
     }
 }
 
@@ -333,30 +321,18 @@ extension UserNotificationsCoordinator {
 extension UserNotificationsCoordinator {
     
     private func observeNewPersistedInvitationNotifications() {
-        let token = ObvMessengerInternalNotification.observeNewOrUpdatedPersistedInvitation { (obvDialog, persistedInvitationUUID) in
+        let token = ObvMessengerCoreDataNotification.observeNewOrUpdatedPersistedInvitation { (obvDialog, persistedInvitationUUID) in
             let notificationCenter = UNUserNotificationCenter.current()
             notificationCenter.getNotificationSettings { (settings) in
                 // Do not schedule notifications if not authorized.
                 guard settings.authorizationStatus == .authorized && settings.alertSetting == .enabled else { return }
                 guard let (notificationId, notificationContent) = UserNotificationCreator.createInvitationNotification(obvDialog: obvDialog, persistedInvitationUUID: persistedInvitationUUID) else { return }
-                /* 2021-01-11: The following line was commented out. The reason is that we noticed in the header of the addNotificationRequest method of the API (called within scheduleNotification)
-                 * that this call will "will replace an existing notification request with the same identifier". So there is no need to remove it beforehand ourselves.
-                 */
                 UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
             }
         }
         observationTokens.append(token)
     }
 }
-
-
-// MARK: - Helpers
-
-extension UserNotificationsCoordinator {
-    
-
-}
-
 
 // This extension makes it possible to use kvo on the user defaults dictionary used by the notification extension
 

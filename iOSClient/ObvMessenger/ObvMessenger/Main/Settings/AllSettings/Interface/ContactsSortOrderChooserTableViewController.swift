@@ -79,7 +79,7 @@ class ContactsSortOrderChooserTableViewController: UITableViewController {
 
 
     private func observeContactsSortOrderDidChangeNotifications() {
-        let token = ObvMessengerInternalNotification.observeContactsSortOrderDidChange(queue: OperationQueue.main) {
+        let token = ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) {
             self.tableView.reloadData()
         }
         notificationTokens.append(token)

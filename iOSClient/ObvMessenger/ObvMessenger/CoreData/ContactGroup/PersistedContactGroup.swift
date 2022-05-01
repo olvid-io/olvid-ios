@@ -148,9 +148,11 @@ extension PersistedContactGroup {
 
 extension PersistedContactGroup {
     
-    convenience init?(contactGroup: ObvContactGroup, groupName: String, category: Category, forEntityName entityName: String, within context: NSManagedObjectContext) {
+    convenience init(contactGroup: ObvContactGroup, groupName: String, category: Category, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
 
-        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else { return nil }
+        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else {
+            throw Self.makeError(message: "Could not find owned identity")
+        }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
@@ -161,15 +163,13 @@ extension PersistedContactGroup {
         self.ownerIdentity = contactGroup.groupOwner.cryptoId.getIdentity()
         self.photoURL = contactGroup.trustedOrLatestPhotoURL
 
-        let _contactIdentities = contactGroup.groupMembers.compactMap { try? PersistedObvContactIdentity.get(persisted: $0, within: context) }
-        guard _contactIdentities.count == contactGroup.groupMembers.count else { return nil }
+        let _contactIdentities = try contactGroup.groupMembers.compactMap { try PersistedObvContactIdentity.get(persisted: $0, whereOneToOneStatusIs: .any, within: context) }
         self.contactIdentities = Set(_contactIdentities)
-        guard let discussion = PersistedGroupDiscussion(contactGroup: self, groupName: groupName, ownedIdentity: ownedIdentity) else { return nil }
+        let discussion = try PersistedGroupDiscussion(contactGroup: self, groupName: groupName, ownedIdentity: ownedIdentity)
         self.discussion = discussion
         self.rawOwnedIdentityIdentity = ownedIdentity.cryptoId.getIdentity()
         self.ownedIdentity = ownedIdentity
-        let _pendingMembers = contactGroup.pendingGroupMembers.compactMap { PersistedPendingGroupMember(genericIdentity: $0, contactGroup: self) }
-        guard _pendingMembers.count == pendingMembers.count else { return nil }
+        let _pendingMembers = try contactGroup.pendingGroupMembers.compactMap { try PersistedPendingGroupMember(genericIdentity: $0, contactGroup: self) }
         self.pendingMembers = Set(_pendingMembers)
     }
     
@@ -240,7 +240,7 @@ extension PersistedContactGroup {
         let ownedIdentity = ownedIdentities.first!.cryptoId
         // Get the persisted contacts corresponding to the contact identities
         let cryptoIds = Set(contactIdentities.map { $0.cryptoId })
-        let persistedContact = try PersistedObvContactIdentity.getAllContactsWithCryptoId(in: cryptoIds, ofOwnedIdentity: ownedIdentity, within: context)
+        let persistedContact = try PersistedObvContactIdentity.getAllContactsWithCryptoId(in: cryptoIds, ofOwnedIdentity: ownedIdentity, whereOneToOneStatusIs: .any, within: context)
         self.set(persistedContact)
     }
 
@@ -286,13 +286,15 @@ extension PersistedContactGroup {
 
 extension PersistedContactGroup {
     
-    func setPendingMembers(to pendingIdentities: Set<ObvGenericIdentity>) {
-        guard let context = managedObjectContext else { return }
-        let pendingMembers: Set<PersistedPendingGroupMember> = Set(pendingIdentities.compactMap { (obvGenericIdentity) in
+    func setPendingMembers(to pendingIdentities: Set<ObvGenericIdentity>) throws {
+        guard let context = managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
+        let pendingMembers: Set<PersistedPendingGroupMember> = try Set(pendingIdentities.map { (obvGenericIdentity) in
             if let pendingMember = (self.pendingMembers.filter { $0.cryptoId == obvGenericIdentity.cryptoId }).first {
                 return pendingMember
             } else {
-                guard let newPendingMember = PersistedPendingGroupMember(genericIdentity: obvGenericIdentity, contactGroup: self) else { return nil }
+                let newPendingMember = try PersistedPendingGroupMember(genericIdentity: obvGenericIdentity, contactGroup: self)
                 self.insertedPendingMembers.insert(newPendingMember)
                 return newPendingMember
             }
@@ -448,7 +450,7 @@ extension PersistedContactGroup {
         
         if changedKeys.contains(PersistedContactGroup.contactIdentitiesKey) {
             
-            let notification = ObvMessengerInternalNotification.persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: objectID,
+            let notification = ObvMessengerCoreDataNotification.persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: objectID,
                                                                                                                  insertedContacts: insertedContacts,
                                                                                                                  removedContacts: removedContacts)
             notification.postOnDispatchQueue()
@@ -459,35 +461,6 @@ extension PersistedContactGroup {
         insertedContacts.removeAll()
         removedContacts.removeAll()
         insertedPendingMembers.removeAll()
-    }
-    
-}
-
-
-// MARK: - For Backup purposes
-
-extension PersistedContactGroup {
-    
-    var backupItem: PersistedContactGroupBackupItem {
-        let conf = PersistedDiscussionConfigurationBackupItem(
-            local: discussion.localConfiguration,
-            shared: discussion.sharedConfiguration)
-        return PersistedContactGroupBackupItem(
-            groupUid: self.groupUid,
-            groupOwnerIdentity: self.ownerIdentity,
-            discussionConfigurationBackupItem: conf.isEmpty ? nil : conf)
-    }
-    
-}
-
-
-extension PersistedContactGroupBackupItem {
-    
-    func updateExistingInstance(_ group: PersistedContactGroup) {
-        
-        self.discussionConfigurationBackupItem?.updateExistingInstance(group.discussion.localConfiguration)
-        self.discussionConfigurationBackupItem?.updateExistingInstance(group.discussion.sharedConfiguration)
-
     }
     
 }

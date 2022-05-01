@@ -23,12 +23,12 @@ import os.log
 import ObvEngine
 import OlvidUtils
 
-final class ProcessObvReturnReceiptOperation: OperationWithSpecificReasonForCancel<ProcessObvReturnReceiptOperationReasonForCancel> {
+final class ProcessObvReturnReceiptOperation: ContextualOperationWithSpecificReasonForCancel<ProcessObvReturnReceiptOperationReasonForCancel> {
  
     private let obvReturnReceipt: ObvReturnReceipt
     private let obvEngine: ObvEngine
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ProcessObvReturnReceiptOperation.self))
 
     init(obvReturnReceipt: ObvReturnReceipt, obvEngine: ObvEngine) {
         self.obvReturnReceipt = obvReturnReceipt
@@ -37,23 +37,28 @@ final class ProcessObvReturnReceiptOperation: OperationWithSpecificReasonForCanc
     }
     
     override func main() {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            
+
+        guard let obvContext = self.obvContext else {
+            cancel(withReason: .contextIsNil)
+            return
+        }
+
+        obvContext.performAndWait {
+
             // Given the nonce and identity in the receipt, we fetch all the corresponding PersistedMessageSentRecipientInfos
-            
+
             let allMsgSentRcptInfos: Set<PersistedMessageSentRecipientInfos>
             do {
-                allMsgSentRcptInfos = try PersistedMessageSentRecipientInfos.get(withNonce: obvReturnReceipt.nonce, ownedIdentity: obvReturnReceipt.identity, within: context)
+                allMsgSentRcptInfos = try PersistedMessageSentRecipientInfos.get(withNonce: obvReturnReceipt.nonce, ownedIdentity: obvReturnReceipt.identity, within: obvContext.context)
             } catch let error {
                 assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))
             }
-            
+
             guard !allMsgSentRcptInfos.isEmpty else {
                 return cancel(withReason: .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase)
             }
-            
+
             for infos in allMsgSentRcptInfos {
                 guard let elements = infos.returnReceiptElements else { assertionFailure(); continue }
                 let contactCryptoId: ObvCryptoId
@@ -81,15 +86,8 @@ final class ProcessObvReturnReceiptOperation: OperationWithSpecificReasonForCanc
                 // If we reach this point, we can break out of the loop since we updated an appropriate PersistedMessageSentRecipientInfos
                 break
             }
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
         }
-        
+
     }
 
 }
@@ -97,6 +95,7 @@ final class ProcessObvReturnReceiptOperation: OperationWithSpecificReasonForCanc
 
 enum ProcessObvReturnReceiptOperationReasonForCancel: LocalizedErrorWithLogType {
     
+    case contextIsNil
     case coreDataError(error: Error)
     case couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase
     
@@ -104,13 +103,14 @@ enum ProcessObvReturnReceiptOperationReasonForCancel: LocalizedErrorWithLogType 
         switch self {
         case .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase:
             return .error
-        case .coreDataError:
+        case .coreDataError, .contextIsNil:
             return .fault
         }
     }
     
     var errorDescription: String? {
         switch self {
+        case .contextIsNil: return "Context is nil"
         case .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase:
             return "Could not find any PersistedMessageSentRecipientInfos for the given return receipt"
         case .coreDataError(error: let error):

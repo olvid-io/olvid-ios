@@ -26,7 +26,7 @@ import OlvidUtils
 
 final class CancelUploadOrDownloadOfPersistedMessageOperation: OperationWithSpecificReasonForCancel<CancelUploadOrDownloadOfPersistedMessageOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CancelUploadOrDownloadOfPersistedMessageOperation.self))
 
     private let persistedMessageObjectID: NSManagedObjectID
     private let obvEngine: ObvEngine

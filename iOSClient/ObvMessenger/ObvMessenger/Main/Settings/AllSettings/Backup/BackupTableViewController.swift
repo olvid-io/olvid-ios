@@ -28,7 +28,6 @@ final class BackupTableViewController: UITableViewController {
     private var notificationTokens = [NSObjectProtocol]()
     private var backupKeyInformation: ObvBackupKeyInformation?
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BackupTableViewController.self))
-    private var indexPathOfCellThatInitiatedBackupForExport: IndexPath?
     private var lastCloudBackupState: LastCloudBackupState?
 
     private enum LastCloudBackupState {
@@ -141,26 +140,6 @@ final class BackupTableViewController: UITableViewController {
                 self?.present(nav, animated: true) {
                     self?.tableView.reloadData()
                 }
-            }
-            notificationTokens.append(token)
-        }
-        
-        do {
-            let token = ObvEngineNotificationNew.observeBackupFailed(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (backupRequestUuid) in
-                self?.refreshBackupKeyInformation(reloadData: true)
-            }
-            notificationTokens.append(token)
-        }
-        
-        do {
-            // When receiving a BackupForExportWasFinished notification, we do not handle the backup itself.
-            // It is up to the AppBackupCoordinator to deal with it
-            let token = ObvEngineNotificationNew.observeBackupForExportWasFinished(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (backupRequestUuid, backupKeyUid, backupVersion, encryptedContent) in
-                guard let _self = self else { return }
-                guard let indexPath = _self.indexPathOfCellThatInitiatedBackupForExport else { assertionFailure(); return }
-                _self.indexPathOfCellThatInitiatedBackupForExport = nil
-                let cell = self?.tableView.cellForRow(at: indexPath)
-                self?.enable(cell: cell)
             }
             notificationTokens.append(token)
         }
@@ -373,7 +352,6 @@ extension BackupTableViewController {
                 guard self.backupKeyInformation != nil else { assertionFailure(); return }
                 guard let cell = tableView.cellForRow(at: indexPath) else { assertionFailure(); return }
                 disable(cell: cell)
-                indexPathOfCellThatInitiatedBackupForExport = indexPath
                 tableView.deselectRow(at: indexPath, animated: true)
                 let notification = ObvMessengerInternalNotification.userWantsToPerfomBackupForExportNow(sourceView: cell)
                 notification.postOnDispatchQueue()

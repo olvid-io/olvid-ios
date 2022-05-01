@@ -45,7 +45,7 @@ final class ContactsPresentationViewController: UIViewController {
 
     override func viewDidLoad() {
         let excludedContactCryptoIds = Set([presentedContactCryptoId])
-        let mode: MultipleContactsMode = .excluded(from: excludedContactCryptoIds)
+        let mode: MultipleContactsMode = .excluded(from: excludedContactCryptoIds, oneToOneStatus: .oneToOne)
 
         let multipleContactsVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: .done(),  disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { [weak self] selectedContacts in
             guard let presentedContactCryptoId = self?.presentedContactCryptoId,

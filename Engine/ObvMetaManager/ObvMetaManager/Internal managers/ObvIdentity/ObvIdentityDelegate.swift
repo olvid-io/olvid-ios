@@ -140,9 +140,9 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     // MARK: - API related to contact identities
     
-    func addContactIdentity(_: ObvCryptoIdentity, with: ObvIdentityCoreDetails, andTrustOrigin: TrustOrigin, forOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
+    func addContactIdentity(_: ObvCryptoIdentity, with: ObvIdentityCoreDetails, andTrustOrigin: TrustOrigin, forOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
 
-    func addTrustOrigin(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
+    func addTrustOrigin(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
     
     func getTrustOrigins(forContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> [TrustOrigin]
     
@@ -249,12 +249,16 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     func isContactIdentityActive(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
 
     func setContactForcefullyTrustedByUser(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, forcefullyTrustedByUser: Bool, within obvContext: ObvContext) throws
+
+    func isOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
     
+    func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, within obvContext: ObvContext) throws
+
     // MARK: - API related to contact capabilities
 
-    func getCapabilitiesOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    func getCapabilitiesOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>?
     
-    func getCapabilitiesOfContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    func getCapabilitiesOfContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>?
 
     func getCapabilitiesOfAllContactsOfOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCapability>]
     
@@ -262,13 +266,13 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     // MARK: - API related to own capabilities
 
-    func getCapabilitiesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    func getCapabilitiesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>?
     
     func getCapabilitiesOfOwnedIdentities(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCapability>]
 
-    func getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    func getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>?
     
-    func getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>
+    func getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>?
     
     func setCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, newCapabilities: Set<ObvCapability>, within obvContext: ObvContext) throws
     

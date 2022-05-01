@@ -471,8 +471,8 @@ extension ContactGroup {
                 assertionFailure()
                 return
             }
-            let notification = ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-            notification.postOnDispatchQueue(withLabel: "Queue for sending a backupableManagerDatabaseContentChanged notification", within: delegateManager.notificationDelegate)
+            ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
         }
         
     }

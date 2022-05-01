@@ -114,18 +114,7 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting SendCommitmentStep", log: log, type: .debug)
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityFullDisplayName = receivedMessage.contactIdentityFullDisplayName
             let ownIdentityCoreDetails = receivedMessage.ownIdentityCoreDetails
@@ -194,7 +183,6 @@ extension TrustEstablishmentProtocol {
 
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending SendCommitmentStep", log: log, type: .debug)
             return WaitingForSeedState(contactIdentity: contactIdentity,
                                        decommitment: decommitment,
                                        seedForSas: seedForSas,
@@ -220,14 +208,6 @@ extension TrustEstablishmentProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting StoreDecommitmentStep", log: log, type: .debug)
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityFullDisplayName = receivedMessage.contactIdentityFullDisplayName
             let decommitment = receivedMessage.decommitment
@@ -246,7 +226,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending StoreDecommitmentStep", log: log, type: .debug)
             return WaitingForSeedState(contactIdentity: contactIdentity,
                                        decommitment: decommitment,
                                        seedForSas: seedForSas,
@@ -273,12 +252,6 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting ShowSasDialogAndSendDecommitmentStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let contactIdentity = startState.contactIdentity
             let decommitment = startState.decommitment
@@ -316,7 +289,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending ShowSasDialogAndSendDecommitmentStep", log: log, type: .debug)
             return WaitingForUserSASState(contactIdentity: contactIdentity,
                                           contactIdentityCoreDetails: contactIdentityCoreDetails,
                                           contactDeviceUids: contactDeviceUids,
@@ -346,18 +318,7 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting StoreAndPropagateCommitmentAndAskForConfirmationStep", log: log, type: .debug)
             
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
             let contactDeviceUids = receivedMessage.contactDeviceUids
@@ -396,7 +357,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending StoreAndPropagateCommitmentAndAskForConfirmationStep", log: log, type: .debug)
             return WaitingForConfirmationState(contactIdentity: contactIdentity,
                                                contactIdentityCoreDetails: contactIdentityCoreDetails,
                                                contactDeviceUids: contactDeviceUids,
@@ -423,14 +383,6 @@ extension TrustEstablishmentProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting StoreCommitmentAndAskForConfirmationStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
             let contactDeviceUids = receivedMessage.contactDeviceUids
@@ -449,7 +401,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending StoreCommitmentAndAskForConfirmationStep", log: log, type: .debug)
             return WaitingForConfirmationState(contactIdentity: contactIdentity,
                                                contactIdentityCoreDetails: contactIdentityCoreDetails,
                                                contactDeviceUids: contactDeviceUids,
@@ -477,17 +428,6 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting SendSeedAndPropagateConfirmationStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -584,7 +524,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending SendSeedAndPropagateConfirmationStep", log: log, type: .debug)
             return WaitingForDecommitmentState(contactIdentity: contactIdentity,
                                                contactIdentityCoreDetails: contactIdentityCoreDetails,
                                                contactDeviceUids: contactDeviceUids,
@@ -613,18 +552,7 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting ReceiveConfirmationFromOtherDeviceStep", log: log, type: .debug)
             
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let contactDeviceUids = startState.contactDeviceUids
@@ -675,7 +603,6 @@ extension TrustEstablishmentProtocol {
 
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending ReceiveConfirmationFromOtherDeviceStep", log: log, type: .debug)
             return WaitingForDecommitmentState(contactIdentity: contactIdentity,
                                                contactIdentityCoreDetails: contactIdentityCoreDetails,
                                                contactDeviceUids: contactDeviceUids,
@@ -704,12 +631,6 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting ShowSasDialogStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -754,7 +675,6 @@ extension TrustEstablishmentProtocol {
 
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending ShowSasDialogStep", log: log, type: .debug)
             return WaitingForUserSASState(contactIdentity: contactIdentity,
                                           contactIdentityCoreDetails: contactIdentityCoreDetails,
                                           contactDeviceUids: contactDeviceUids,
@@ -784,17 +704,6 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting CheckSasAndAddTrustStep", log: log, type: .debug)
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -881,13 +790,14 @@ extension TrustEstablishmentProtocol {
             }
             
             // Add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
+            
             do {
                 let trustOrigin = TrustOrigin.direct(timestamp: Date())
                 
                 if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
@@ -909,7 +819,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending CheckSasAndAddTrustStep", log: log, type: .debug)
             return ContactIdentityTrustedState(contactIdentity: contactIdentity, contactIdentityCoreDetails: contactIdentityCoreDetails, dialogUuid: dialogUuid)
         }
     }
@@ -933,17 +842,6 @@ extension TrustEstablishmentProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting CheckPropagatedSasAndAddTrustStep", log: log, type: .debug)
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
             
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -1000,9 +898,9 @@ extension TrustEstablishmentProtocol {
                 let trustOrigin = TrustOrigin.direct(timestamp: Date())
                 
                 if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
@@ -1024,7 +922,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending CheckPropagatedSasAndAddTrustStep", log: log, type: .debug)
             return ContactIdentityTrustedState(contactIdentity: contactIdentity, contactIdentityCoreDetails: contactIdentityCoreDetails, dialogUuid: dialogUuid)
         }
     }
@@ -1047,14 +944,6 @@ extension TrustEstablishmentProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentProtocol.logCategory)
-            os_log("TrustEstablishmentProtocol: starting NotifiedMutualTrustEstablishedStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let dialogUuid = startState.dialogUuid
@@ -1073,7 +962,6 @@ extension TrustEstablishmentProtocol {
             
             // Return the new state
             
-            os_log("TrustEstablishmentProtocol: ending NotifiedMutualTrustEstablishedStep", log: log, type: .debug)
             return MutualTrustConfirmedState()
             
         }

@@ -314,6 +314,10 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
     
     let maxAttachmentSizeForAutomaticDownload: Int?
 
+    // ContactsAndGroups
+
+    let autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom?
+    
     // Interface
     
     let identityColorStyle: AppTheme.IdentityColorStyle?
@@ -332,6 +336,8 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
     let autoRead: Bool?
     let retainWipedOutboundMessages: Bool?
     
+    
+
     // Privacy
     
     let hideNotificationContent: ObvMessengerSettings.Privacy.HideNotificationContentType?
@@ -371,6 +377,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         case allowCustomKeyboards = "allow_custom_keyboards"
         case showBetaSettings = "beta"
         case isCallKitEnabled = "is_call_kit_enabled"
+        case autoAcceptGroupInviteFrom = "auto_join_groups"
     }
 
     private var hideNotificationContentAndroid: Bool? {
@@ -406,6 +413,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         self.allowCustomKeyboards = ObvMessengerSettings.Advanced.allowCustomKeyboards
         self.showBetaSettings = ObvMessengerSettings.BetaConfiguration.showBetaSettings
         self.isCallKitEnabled = ObvMessengerSettings.VoIP.isCallKitEnabled
+        self.autoAcceptGroupInviteFrom = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom
     }
     
     func encode(to encoder: Encoder) throws {
@@ -430,6 +438,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(allowCustomKeyboards, forKey: .allowCustomKeyboards)
         try container.encodeIfPresent(showBetaSettings, forKey: .showBetaSettings)
         try container.encodeIfPresent(isCallKitEnabled, forKey: .isCallKitEnabled)
+        try container.encodeIfPresent(autoAcceptGroupInviteFrom?.rawValue, forKey: .autoAcceptGroupInviteFrom)
 
     }
 
@@ -485,7 +494,11 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         self.allowCustomKeyboards = try values.decodeIfPresent(Bool.self, forKey: .allowCustomKeyboards)
         self.showBetaSettings = try values.decodeIfPresent(Bool.self, forKey: .showBetaSettings)
         self.isCallKitEnabled = try values.decodeIfPresent(Bool.self, forKey: .isCallKitEnabled)
-        
+        if let rawValue = try values.decodeIfPresent(String.self, forKey: .autoAcceptGroupInviteFrom) {
+            self.autoAcceptGroupInviteFrom = ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom(rawValue: rawValue)
+        } else {
+            self.autoAcceptGroupInviteFrom = nil
+        }
     }
 }
 

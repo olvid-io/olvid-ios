@@ -41,7 +41,7 @@ final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpe
         obvContext.performAndWait {
 
             do {
-                guard let persistedMessageSent = try PersistedMessageSent.get(with: persistedMessageSentObjectID, within: obvContext.context) as? PersistedMessageSent else {
+                guard let persistedMessageSent = try PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
                     return cancel(withReason: .internalError)
                 }
                 

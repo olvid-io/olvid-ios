@@ -244,7 +244,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
 
     private func observeNotifications() {
         notificationTokens.append(
-            ObvMessengerInternalNotification.observePreferredComposeMessageViewActionsDidChange(queue: OperationQueue.main) { [weak self] in
+            ObvMessengerSettingsNotifications.observePreferredComposeMessageViewActionsDidChange(queue: OperationQueue.main) { [weak self] in
                 self?.processPreferredComposeMessageViewActionsDidChange()
             })
         NotificationCenter.default.addObserver(self, selector: #selector(handleAudioInterruption), name: AVAudioSession.interruptionNotification, object: nil)
@@ -1574,7 +1574,7 @@ extension NewComposeMessageView {
     
     private func evaluateNewAttachmentState() -> AttachmentsState {
         assert(Thread.isMainThread)
-        self.numberOfAttachments = draft.draftFyleJoins.count
+        self.numberOfAttachments = draft.fyleJoins.count
         return self.numberOfAttachments == 0 ? .noAttachment : .hasAttachments
     }
 

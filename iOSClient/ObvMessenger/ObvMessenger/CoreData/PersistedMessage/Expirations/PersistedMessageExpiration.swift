@@ -68,7 +68,7 @@ class PersistedMessageExpiration: NSManagedObject {
         super.didSave()
 
         if self.isInserted {
-            ObvMessengerInternalNotification.newMessageExpiration(expirationDate: expirationDate)
+            ObvMessengerCoreDataNotification.newMessageExpiration(expirationDate: expirationDate)
                 .postOnDispatchQueue()
         }
     }
@@ -86,16 +86,5 @@ class PersistedMessageExpiration: NSManagedObject {
         }
     }
     
-    
-}
-
-extension PersistedMessageExpiration {
-    
-    static func deleteAllOrphanedExpirations(within context: NSManagedObjectContext) throws {
-        try PersistedExpirationForReceivedMessageWithLimitedVisibility.deleteAllOrphaned(within: context)
-        try PersistedExpirationForReceivedMessageWithLimitedExistence.deleteAllOrphaned(within: context)
-        try PersistedExpirationForSentMessageWithLimitedVisibility.deleteAllOrphaned(within: context)
-        try PersistedExpirationForSentMessageWithLimitedExistence.deleteAllOrphaned(within: context)
-    }
     
 }

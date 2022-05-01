@@ -36,7 +36,9 @@ enum ObvUserNotificationID: Int {
     case acceptGroupInvite
     case autoconfirmedContactIntroduction
     case increaseMediatorTrustLevelRequired
+    case oneToOneInvitationReceived
     case missedCall
+    case shouldGrantRecordPermissionToReceiveIncomingCalls
 
     case staticIdentifier = 1000
 }
@@ -67,7 +69,10 @@ enum ObvUserNotificationIdentifier {
     case acceptGroupInvite(persistedInvitationUUID: UUID)
     case autoconfirmedContactIntroduction(persistedInvitationUUID: UUID)
     case increaseMediatorTrustLevelRequired(persistedInvitationUUID: UUID)
+    case oneToOneInvitationReceived(persistedInvitationUUID: UUID)
     case missedCall(callUUID: UUID)
+    // When a called was missed because of record permission is either denied or undetermined
+    case shouldGrantRecordPermissionToReceiveIncomingCalls
     // Static identifier, when notifications should not disclose any content
     case staticIdentifier
 
@@ -99,6 +104,10 @@ enum ObvUserNotificationIdentifier {
             return "reaction_\(messageURI.absoluteString)_\(contactURI.absoluteString)"
         case .newReactionNotificationWithHiddenContent:
             return "newMessageNotificationWithHiddenContent"
+        case .oneToOneInvitationReceived(persistedInvitationUUID: let uuid):
+            return "oneToOneInvitationReceived_\(uuid.uuidString)"
+        case .shouldGrantRecordPermissionToReceiveIncomingCalls:
+            return "shouldGrantRecordPermissionToReceiveIncomingCalls"
         case .staticIdentifier:
             return "staticIdentifier"
         }
@@ -118,6 +127,8 @@ enum ObvUserNotificationIdentifier {
         case .autoconfirmedContactIntroduction: return .autoconfirmedContactIntroduction
         case .increaseMediatorTrustLevelRequired: return .increaseMediatorTrustLevelRequired
         case .missedCall: return .missedCall
+        case .oneToOneInvitationReceived: return .oneToOneInvitationReceived
+        case .shouldGrantRecordPermissionToReceiveIncomingCalls: return .shouldGrantRecordPermissionToReceiveIncomingCalls
         case .staticIdentifier: return .staticIdentifier
         }
     }
@@ -126,9 +137,9 @@ enum ObvUserNotificationIdentifier {
         switch self {
         case .newMessage, .newMessageNotificationWithHiddenContent:
             return "MessageThread"
-        case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired:
+        case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .oneToOneInvitationReceived:
             return "InvitationThread"
-        case .missedCall:
+        case .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls:
             return "CallThread"
         case .newReaction, .newReactionNotificationWithHiddenContent:
             return "ReactionThread"
@@ -141,11 +152,11 @@ enum ObvUserNotificationIdentifier {
     /// All the cases that return a non-nil category must be registered in this class initializer
     func getCategory() -> UserNotificationCategory? {
         switch self {
-        case .acceptInvite, .acceptMediatorInvite, .acceptGroupInvite:
+        case .acceptInvite, .acceptMediatorInvite, .acceptGroupInvite, .oneToOneInvitationReceived:
             return .acceptInviteCategory
         case .newMessage:
             return .newMessageCategory
-        case .missedCall:
+        case .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls:
             return .missedCallCategory
         case .sasExchange, .mutualTrustConfirmed, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .newMessageNotificationWithHiddenContent, .staticIdentifier, .newReaction, .newReactionNotificationWithHiddenContent:
             return nil

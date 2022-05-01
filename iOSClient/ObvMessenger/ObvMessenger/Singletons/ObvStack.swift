@@ -33,6 +33,7 @@ final class ObvStack {
     private static var _shared: CoreDataStack<ObvMessengerPersistentContainer>!
     
     static func initSharedInstance(transactionAuthor: String, runningLog: RunningLogError, enableMigrations: Bool) throws {
+        guard _shared == nil else { return }
         let manager = DataMigrationManagerForObvMessenger(modelName: "ObvMessenger", storeName: "ObvMessenger", transactionAuthor: transactionAuthor, enableMigrations: enableMigrations, migrationRunningLog: runningLog)
         try manager.initializeCoreDataStack()
         _shared = manager.coreDataStack
@@ -45,15 +46,5 @@ final class ObvStack {
         }
         return _shared!
     }()
-    
-}
-
-extension CoreDataStack: ObvContextCreator {
-    
-    public func newBackgroundContext(flowId: FlowIdentifier, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function) -> ObvContext {
-        let context = newBackgroundContext()
-        let obvContext = ObvContext(context: context, flowId: flowId, file: file, line: line, function: function)
-        return obvContext
-    }
     
 }

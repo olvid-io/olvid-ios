@@ -35,12 +35,13 @@ public struct ObvContactIdentity: ObvIdentity {
     public let isCertifiedByOwnKeycloak: Bool
     public let isActive: Bool
     public let isRevokedAsCompromised: Bool
+    public let isOneToOne: Bool
 
     public var currentIdentityDetails: ObvIdentityDetails {
         return trustedIdentityDetails
     }
 
-    init(cryptoIdentity: ObvCryptoIdentity, trustedIdentityDetails: ObvIdentityDetails, publishedIdentityDetails: ObvIdentityDetails?, ownedIdentity: ObvOwnedIdentity, isCertifiedByOwnKeycloak: Bool, isActive: Bool, isRevokedAsCompromised: Bool) {
+    init(cryptoIdentity: ObvCryptoIdentity, trustedIdentityDetails: ObvIdentityDetails, publishedIdentityDetails: ObvIdentityDetails?, ownedIdentity: ObvOwnedIdentity, isCertifiedByOwnKeycloak: Bool, isActive: Bool, isRevokedAsCompromised: Bool, isOneToOne: Bool) {
         self.cryptoId = ObvCryptoId(cryptoIdentity: cryptoIdentity)
         self.trustedIdentityDetails = trustedIdentityDetails
         self.publishedIdentityDetails = publishedIdentityDetails
@@ -48,6 +49,7 @@ public struct ObvContactIdentity: ObvIdentity {
         self.isCertifiedByOwnKeycloak = isCertifiedByOwnKeycloak
         self.isActive = isActive
         self.isRevokedAsCompromised = isRevokedAsCompromised
+        self.isOneToOne = isOneToOne
     }
     
     public func getGenericIdentityWithPublishedOrTrustedDetails() -> ObvGenericIdentity {
@@ -97,13 +99,20 @@ internal extension ObvContactIdentity {
         } catch {
             return nil
         }
+        let isOneToOne: Bool
+        do {
+            isOneToOne = try identityDelegate.isOneToOneContact(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity, within: obvContext)
+        } catch {
+            return nil
+        }
         self.init(cryptoIdentity: contactCryptoIdentity,
                   trustedIdentityDetails: allIdentityDetails.trustedIdentityDetails,
                   publishedIdentityDetails: allIdentityDetails.publishedIdentityDetails,
                   ownedIdentity: ownedIdentity,
                   isCertifiedByOwnKeycloak: isCertifiedByOwnKeycloak,
                   isActive: isActive,
-                  isRevokedAsCompromised: isRevokedAsCompromised)
+                  isRevokedAsCompromised: isRevokedAsCompromised,
+                  isOneToOne: isOneToOne)
     }
     
 }
@@ -125,6 +134,7 @@ extension ObvContactIdentity: Codable {
         case isCertifiedByOwnKeycloak = "is_certified_by_own_keycloak"
         case isActive = "is_active"
         case isRevokedAsCompromised = "is_revoked_as_compromised"
+        case isOneToOne = "one_to_one"
     }
 
 }

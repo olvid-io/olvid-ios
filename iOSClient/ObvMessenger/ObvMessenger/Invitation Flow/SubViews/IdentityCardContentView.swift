@@ -317,6 +317,9 @@ protocol SingleContactIdentityDelegate: AnyObject {
     func userWantsToDisplay(persistedContactGroup: PersistedContactGroup)
     func userWantsToDisplay(persistedDiscussion: PersistedDiscussion)
     func userWantsToEditContactNickname()
+    func userWantsToInviteContactToOneToOne()
+    func userWantsToCancelSentInviteContactToOneToOne()
+    func userWantsToSyncOneToOneStatusOfContact()
 }
 
 
@@ -330,10 +333,12 @@ final class SingleContactIdentity: SingleIdentity {
     @Published var contactStatus: PersistedObvContactIdentity.Status
     @Published var customDisplayName: String?
     @Published var contactHasNoDevice: Bool
+    @Published var contactIsOneToOne: Bool
     @Published var isActive: Bool
     @Published var showReblockView: Bool
     @Published var tappedGroup: PersistedContactGroup? = nil
     @Published var groupFetchRequest: NSFetchRequest<PersistedContactGroup>?
+    @Published var oneToOneInvitationSentFetchRequest: NSFetchRequest<PersistedInvitationOneToOneInvitationSent>
 
     let trustOrigins: [ObvTrustOrigin]
     var publishedProfilePicture: Binding<UIImage?>!
@@ -353,17 +358,19 @@ final class SingleContactIdentity: SingleIdentity {
     private let observeChangesMadeToContact: Bool
 
     /// For previews only
-    init(firstName: String?, lastName: String?, position: String?, company: String?, customDisplayName: String? = nil, editionMode: CircleAndTitlesEditionMode = .none, publishedContactDetails: ObvIdentityDetails?, contactStatus: PersistedObvContactIdentity.Status, contactHasNoDevice: Bool, isActive: Bool, trustOrigins: [ObvTrustOrigin] = []) {
+    init(firstName: String?, lastName: String?, position: String?, company: String?, customDisplayName: String? = nil, editionMode: CircleAndTitlesEditionMode = .none, publishedContactDetails: ObvIdentityDetails?, contactStatus: PersistedObvContactIdentity.Status, contactHasNoDevice: Bool, contactIsOneToOne: Bool, isActive: Bool, trustOrigins: [ObvTrustOrigin] = []) {
         self.publishedContactDetails = publishedContactDetails
         self.contactStatus = contactStatus
         self.persistedContact = nil
         self.customDisplayName = customDisplayName
         self.contactHasNoDevice = contactHasNoDevice
+        self.contactIsOneToOne = contactIsOneToOne
         self.isActive = isActive
         self.showReblockView = false
         self.observeChangesMadeToContact = false
         self.trustOrigins = trustOrigins
         self.groupFetchRequest = nil
+        self.oneToOneInvitationSentFetchRequest = PersistedInvitationOneToOneInvitationSent.getFetchRequestWithNoResult()
         super.init(firstName: firstName,
                    lastName: lastName,
                    position: position,
@@ -386,6 +393,7 @@ final class SingleContactIdentity: SingleIdentity {
         self.customDisplayName = persistedContact.customDisplayName
         self.customPhotoURL = persistedContact.customPhotoURL
         self.contactHasNoDevice = persistedContact.devices.isEmpty
+        self.contactIsOneToOne = persistedContact.isOneToOne
         self.isActive = persistedContact.isActive
         self.showReblockView = false
         let coreDetails = persistedContact.identityCoreDetails
@@ -395,6 +403,11 @@ final class SingleContactIdentity: SingleIdentity {
             self.groupFetchRequest = PersistedContactGroup.getFetchRequestForAllContactGroupsOfContact(persistedContact)
         } else {
             self.groupFetchRequest = nil
+        }
+        if let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId {
+            self.oneToOneInvitationSentFetchRequest = PersistedInvitationOneToOneInvitationSent.getFetchRequest(fromOwnedIdentity: ownedCryptoId, toContact: persistedContact.cryptoId)
+        } else {
+            self.oneToOneInvitationSentFetchRequest = PersistedInvitationOneToOneInvitationSent.getFetchRequestWithNoResult()
         }
         super.init(firstName: coreDetails.firstName,
                    lastName: coreDetails.lastName,
@@ -563,11 +576,11 @@ final class SingleContactIdentity: SingleIdentity {
     private func observeUpdateMadesToContactDevices() {
         guard let persistedContact = self.persistedContact else { assertionFailure(); return }
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeDeletedPersistedObvContactDevice(queue: OperationQueue.main) { [weak self] (contactCryptoId) in
+            ObvMessengerCoreDataNotification.observeDeletedPersistedObvContactDevice(queue: OperationQueue.main) { [weak self] (contactCryptoId) in
                 guard contactCryptoId == persistedContact.cryptoId else { return }
                 self?.setTrustedVariables(with: persistedContact)
             },
-            ObvMessengerInternalNotification.observeNewPersistedObvContactDevice(queue: OperationQueue.main) { [weak self] (_, contactCryptoId) in
+            ObvMessengerCoreDataNotification.observeNewPersistedObvContactDevice(queue: OperationQueue.main) { [weak self] (_, contactCryptoId) in
                 guard contactCryptoId == persistedContact.cryptoId else { return }
                 self?.setTrustedVariables(with: persistedContact)
             },
@@ -603,7 +616,7 @@ final class SingleContactIdentity: SingleIdentity {
         guard let currentContactCryptoId = persistedContact?.cryptoId else { assertionFailure(); return }
         guard let currentOwnedCryptoId = persistedContact?.ownedIdentity?.cryptoId else { return }
         let id = self.id
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedContactHasNewStatus(queue: OperationQueue.main) { (contactCryptoId, ownedCryptoId) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactHasNewStatus(queue: OperationQueue.main) { (contactCryptoId, ownedCryptoId) in
             guard (currentContactCryptoId, currentOwnedCryptoId) == (contactCryptoId, ownedCryptoId) else { return }
             ObvMessengerInternalNotification.obvContactRequest(requestUUID: id, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
                 .postOnDispatchQueue()
@@ -646,6 +659,7 @@ final class SingleContactIdentity: SingleIdentity {
             self.isActive = contact.isActive
             self.contactStatus = contact.status
             self.customDisplayName = contact.customDisplayName
+            self.contactIsOneToOne = contact.isOneToOne
             self.changed.toggle()
         }
     }
@@ -685,7 +699,10 @@ final class SingleContactIdentity: SingleIdentity {
     }
 
     func userWantsToDiscuss() {
-        guard let discussion = persistedContact?.oneToOneDiscussion else { assertionFailure(); return }
+        guard contactIsOneToOne else { assertionFailure(); return }
+        guard let persistedContact = self.persistedContact else { assertionFailure(); return }
+        guard persistedContact.isOneToOne else { assertionFailure("Trying to have a one-to-one discussion with a contact that is not OneToOne"); return }
+        guard let discussion = try? persistedContact.oneToOneDiscussion else { assertionFailure(); return }
         delegate?.userWantsToDisplay(persistedDiscussion: discussion)
     }
     
@@ -701,7 +718,33 @@ final class SingleContactIdentity: SingleIdentity {
     func userWantsToEditContactNickname() {
         delegate?.userWantsToEditContactNickname()
     }
+    
+    func userWantsToInviteContactToOneToOne() {
+        delegate?.userWantsToInviteContactToOneToOne()
+    }
+    
+    func userWantsToCancelSentInviteContactToOneToOne() {
+        delegate?.userWantsToCancelSentInviteContactToOneToOne()
+    }
 
+    enum ContactDeletionType {
+        case downgradeToNonOneToOne
+        case fullDeletion
+        case legacyFullDeletion
+    }
+    
+    var preferredDeletionType: ContactDeletionType {
+        guard let persistedContact = self.persistedContact else { return .fullDeletion }
+        guard persistedContact.supportsCapability(.oneToOneContacts) else {
+            return .legacyFullDeletion
+        }
+        return persistedContact.isOneToOne ? .downgradeToNonOneToOne : .fullDeletion
+    }
+    
+    func userWantsToSyncOneToOneStatusOfContact() {
+        delegate?.userWantsToSyncOneToOneStatusOfContact()
+    }
+    
 }
 
 
@@ -830,68 +873,6 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
 
 }
 
-struct ProfilePictureView: View {
-
-    let profilePicture: UIImage?
-    let circleBackgroundColor: UIColor?
-    let circleTextColor: UIColor?
-    let circledTextView: Text?
-    let imageSystemName: String
-    let customCircleDiameter: CGFloat?
-    let showGreenShield: Bool
-    let showRedShield: Bool
-
-    init(profilePicture: UIImage?,
-         circleBackgroundColor: UIColor?,
-         circleTextColor: UIColor?,
-         circledTextView: Text?,
-         imageSystemName: String,
-         showGreenShield: Bool,
-         showRedShield: Bool,
-         customCircleDiameter: CGFloat? = ProfilePictureView.circleDiameter) {
-        self.profilePicture = profilePicture
-        self.circleBackgroundColor = circleBackgroundColor
-        self.circleTextColor = circleTextColor
-        self.circledTextView = circledTextView
-        self.imageSystemName = imageSystemName
-        self.showGreenShield = showGreenShield
-        self.showRedShield = showRedShield
-        self.customCircleDiameter = customCircleDiameter
-    }
-
-    static let circleDiameter: CGFloat = 60.0
-
-    var body : some View {
-        Group {
-            if let profilePicture = profilePicture {
-                Image(uiImage: profilePicture)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: customCircleDiameter ?? ProfilePictureView.circleDiameter, height: customCircleDiameter ?? ProfilePictureView.circleDiameter)
-                    .clipShape(Circle())
-            } else {
-                InitialCircleView(circledTextView: circledTextView,
-                                  imageSystemName: imageSystemName,
-                                  circleBackgroundColor: circleBackgroundColor,
-                                  circleTextColor: circleTextColor,
-                                  circleDiameter: customCircleDiameter ?? ProfilePictureView.circleDiameter)
-            }
-        }
-        .overlay(Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: (customCircleDiameter ?? ProfilePictureView.circleDiameter) / 4))
-                    .foregroundColor(showGreenShield ? Color(AppTheme.shared.colorScheme.green) : .clear),
-                 alignment: .topTrailing
-        )
-        .overlay(Image(systemIcon: .exclamationmarkShieldFill)
-                    .font(.system(size: (customCircleDiameter ?? ProfilePictureView.circleDiameter) / 2))
-                    .foregroundColor(showRedShield ? .red : .clear),
-                 alignment: .center
-        )
-        
-    }
-}
-
-
 struct ProfilePictureAction {
     let title: String
     let handler: () -> Void
@@ -915,7 +896,7 @@ struct IdentityCardContentView: View {
                             circleBackgroundColor: model.identityColors?.background,
                             circleTextColor: model.identityColors?.text,
                             circledTextView: model.circledTextView([model.firstName, model.lastName]),
-                            imageSystemName: "person",
+                            systemImage: .person,
                             profilePicture: model.profilePicture,
                             changed: $model.changed,
                             showGreenShield: model.showGreenShield,
@@ -971,7 +952,7 @@ struct ContactIdentityCardContentView: View {
                             circleBackgroundColor: model.identityColors?.background,
                             circleTextColor: model.identityColors?.text,
                             circledTextView: model.circledTextView([titlePart1, titlePart2]),
-                            imageSystemName: "person",
+                            systemImage: .person,
                             profilePicture: profilePicture,
                             changed: $model.changed,
                             showGreenShield: model.showGreenShield,
@@ -1006,7 +987,7 @@ struct GroupCardContentView: View {
                             circleBackgroundColor: model.groupColors?.background,
                             circleTextColor: model.groupColors?.text,
                             circledTextView: circledTextView,
-                            imageSystemName: "person.3.fill",
+                            systemImage: .person3Fill,
                             profilePicture: model.profilePicture,
                             changed: $model.changed,
                             showGreenShield: false,
@@ -1016,262 +997,6 @@ struct GroupCardContentView: View {
     }
 
 }
-
-enum CircleAndTitlesDisplayMode {
-    case normal
-    case small
-    case header(tapToFullscreen: Bool)
-}
-
-enum CircleAndTitlesEditionMode {
-    case none
-    case picture
-    case nicknameAndPicture(action: () -> Void)
-}
-
-struct CircleAndTitlesView: View {
-    
-    private let titlePart1: String?
-    private let titlePart2: String?
-    private let subtitle: String?
-    private let subsubtitle: String?
-    private let circleBackgroundColor: UIColor?
-    private let circleTextColor: UIColor?
-    private let circledTextView: Text?
-    private let imageSystemName: String
-    @Binding var profilePicture: UIImage?
-    @Binding var changed: Bool
-    private let alignment: VerticalAlignment
-    private let showGreenShield: Bool
-    private let showRedShield: Bool
-    private let displayMode: CircleAndTitlesDisplayMode
-    private let editionMode: CircleAndTitlesEditionMode
-
-    @State private var profilePictureFullScreenIsPresented = false
-
-    init(titlePart1: String?, titlePart2: String?, subtitle: String?, subsubtitle: String?, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circledTextView: Text?, imageSystemName: String, profilePicture: Binding<UIImage?>, changed: Binding<Bool>, alignment: VerticalAlignment = .center, showGreenShield: Bool, showRedShield: Bool, editionMode: CircleAndTitlesEditionMode, displayMode: CircleAndTitlesDisplayMode) {
-        self.titlePart1 = titlePart1
-        self.titlePart2 = titlePart2
-        self.subtitle = subtitle
-        self.subsubtitle = subsubtitle
-        self.circleBackgroundColor = circleBackgroundColor
-        self.circleTextColor = circleTextColor
-        self.circledTextView = circledTextView
-        self.imageSystemName = imageSystemName
-        self._profilePicture = profilePicture
-        self._changed = changed
-        self.alignment = alignment
-        self.editionMode = editionMode
-        self.displayMode = displayMode
-        self.showGreenShield = showGreenShield
-        self.showRedShield = showRedShield
-    }
-
-    private var circleDiameter: CGFloat {
-        switch displayMode {
-        case .small:
-            return 40.0
-        case .normal:
-            return ProfilePictureView.circleDiameter
-        case .header:
-            return 120
-        }
-    }
-
-    private var pictureViewInner: some View {
-        ProfilePictureView(profilePicture: profilePicture, circleBackgroundColor: circleBackgroundColor, circleTextColor: circleTextColor, circledTextView: circledTextView, imageSystemName: imageSystemName, showGreenShield: showGreenShield, showRedShield: showRedShield, customCircleDiameter: circleDiameter)
-    }
-
-    private var pictureView: some View {
-        ZStack {
-            if #available(iOS 14.0, *) {
-                pictureViewInner
-                    .onTapGesture {
-                        guard case .header(let tapToFullscreen) = displayMode else { return }
-                        guard tapToFullscreen else { return }
-                        guard profilePicture != nil else {
-                            profilePictureFullScreenIsPresented = false
-                            return
-                        }
-                        profilePictureFullScreenIsPresented.toggle()
-                    }
-                    .fullScreenCover(isPresented: $profilePictureFullScreenIsPresented) {
-                        FullScreenProfilePictureView(photo: profilePicture)
-                            .background(BackgroundBlurView()
-                                            .edgesIgnoringSafeArea(.all))
-                    }
-            } else {
-                pictureViewInner
-            }
-            switch editionMode {
-            case .none:
-                EmptyView()
-            case .picture:
-                CircledCameraButtonView(profilePicture: $profilePicture)
-                    .offset(CGSize(width: ProfilePictureView.circleDiameter/3, height: ProfilePictureView.circleDiameter/3))
-            case .nicknameAndPicture(let action):
-                Button(action: action) {
-                    CircledPencilView()
-                }
-                .offset(CGSize(width: circleDiameter/3, height: circleDiameter/3))
-            }
-        }
-    }
-
-    private var displayNameForHeader: String {
-        let _titlePart1 = titlePart1 ?? ""
-        let _titlePart2 = titlePart2 ?? ""
-        return [_titlePart1, _titlePart2].joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var body: some View {
-        switch displayMode {
-        case .normal, .small:
-            HStack(alignment: self.alignment, spacing: 16) {
-                pictureView
-                TextView(titlePart1: titlePart1,
-                         titlePart2: titlePart2,
-                         subtitle: subtitle,
-                         subsubtitle: subsubtitle)
-            }
-        case .header:
-            VStack(spacing: 8) {
-                pictureView
-                Text(displayNameForHeader)
-                    .font(.system(.largeTitle, design: .rounded))
-                    .fontWeight(.semibold)
-            }
-        }
-    }
-}
-
-fileprivate struct FullScreenProfilePictureView: View {
-    @Environment(\.presentationMode) var presentationMode
-    var photo: UIImage? // We use a binding here because this is what a SingleIdentity exposes
-
-    var body: some View {
-        ZStack {
-            Color.black
-                .opacity(0.1)
-                .edgesIgnoringSafeArea(.all)
-            if let photo = photo {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .onTapGesture {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-}
-
-fileprivate struct BackgroundBlurView: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let effect = UIBlurEffect(style: .regular)
-        let view = UIVisualEffectView(effect: effect)
-        DispatchQueue.main.async {
-            view.superview?.superview?.backgroundColor = .clear
-        }
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
-}
-
-
-fileprivate struct TextView: View {
-    
-    let titlePart1: String?
-    let titlePart2: String?
-    let subtitle: String?
-    let subsubtitle: String?
-    
-    private var titlePart1Count: Int { titlePart1?.count ?? 0 }
-    private var titlePart2Count: Int { titlePart2?.count ?? 0 }
-    private var subtitleCount: Int { subtitle?.count ?? 0 }
-    private var subsubtitleCount: Int { subsubtitle?.count ?? 0 }
-
-    /// This variable allows to control when an animation is performed on `titlePart1`.
-    ///
-    /// We do not want to animate a text made to the text of `titlePart1`, which is the reason why we cannot simply
-    /// set an .animation(...) on the view `Text(titlePart1)`. Instead, we use another version of the animation
-    /// modifier where we can provide a `value` that is used to determine when the animation should be active.
-    /// We want it to be active when the *other* strings of this view change.
-    ///
-    /// For example, when the `subtitle` goes from empty to
-    /// one character, we want `titlePart1` to move to the top in an animate way. As one can see, in that specific case,
-    /// the value of `animateTitlePart1OnChange` will change when `subtitle` (or any of the other strings apart from
-    /// `titlePart1`) changes. This is the reason why we use exactly this value for controling the animation of `titlePart1`.
-    private var animateTitlePart1OnChange: Int {
-        titlePart2Count + subtitleCount + subsubtitleCount
-    }
-
-    private var animateTitlePart2OnChange: Int {
-        titlePart1Count + subtitleCount + subsubtitleCount
-    }
-
-    private var animateSubtitleOnChange: Int {
-        titlePart1Count + titlePart2Count + subsubtitleCount
-    }
-
-    private var animateSubsubtitleOnChange: Int {
-        titlePart1Count + titlePart2Count + subtitleCount
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if titlePart1 != nil || titlePart2 != nil {
-                HStack(spacing: 0) {
-                    if let titlePart1 = self.titlePart1, !titlePart1.isEmpty {
-                        Group {
-                            Text(titlePart1)
-                                .font(.system(.headline, design: .rounded))
-                                .lineLimit(1)
-                                .animation(.spring(), value: animateTitlePart1OnChange)
-                        }
-                    }
-                    if let titlePart1 = self.titlePart1, let titlePart2 = self.titlePart2, !titlePart1.isEmpty, !titlePart2.isEmpty {
-                        Text(" ")
-                            .font(.system(.headline, design: .rounded))
-                            .lineLimit(1)
-                    }
-                    if let titlePart2 = self.titlePart2, !titlePart2.isEmpty {
-                        Text(titlePart2)
-                            .font(.system(.headline, design: .rounded))
-                            .fontWeight(.heavy)
-                            .lineLimit(1)
-                            .animation(.spring(), value: animateTitlePart2OnChange)
-                    }
-                }
-                .layoutPriority(0)
-            }
-            if let subtitle = self.subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.footnote)
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    .lineLimit(1)
-                    .animation(.spring(), value: animateSubtitleOnChange)
-            }
-            if let subsubtitle = self.subsubtitle, !subsubtitle.isEmpty {
-                Text(subsubtitle)
-                    .font(.footnote)
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    .lineLimit(1)
-                    .animation(.spring(), value: animateSubsubtitleOnChange)
-            }
-        }
-    }
-}
-
-
-
-
-
-
-
 
 struct IdentityCardContentView_Previews: PreviewProvider {
     

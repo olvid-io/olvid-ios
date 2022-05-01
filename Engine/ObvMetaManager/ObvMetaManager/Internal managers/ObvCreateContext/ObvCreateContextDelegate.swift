@@ -23,7 +23,7 @@ import os.log
 import ObvTypes
 import OlvidUtils
 
-public protocol ObvCreateContextDelegate: ObvManager {
+public protocol ObvCreateContextDelegate: ObvManager, ObvContextCreator {
     
     var persistentStoreCoordinator: NSPersistentStoreCoordinator { get }
     

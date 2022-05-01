@@ -28,7 +28,7 @@ import os.log
 final class SyncPersistedContactGroupsWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SyncPersistedContactGroupsWithEngineOperation.self))
     
     init(obvEngine: ObvEngine) {
         self.obvEngine = obvEngine
@@ -87,12 +87,12 @@ final class SyncPersistedContactGroupsWithEngineOperation: ContextualOperationWi
                 while let obvContactGroup = missingObvContactGroups.popFirst() {
                     switch obvContactGroup.groupType {
                     case .joined:
-                        guard PersistedContactGroupJoined(contactGroup: obvContactGroup, within: obvContext.context) != nil else {
+                        guard (try? PersistedContactGroupJoined(contactGroup: obvContactGroup, within: obvContext.context)) != nil else {
                             os_log("Could not create a missing persisted contact group joined", log: log, type: .error)
                             continue
                         }
                     case .owned:
-                        guard PersistedContactGroupOwned(contactGroup: obvContactGroup, within: obvContext.context) != nil  else {
+                        guard (try? PersistedContactGroupOwned(contactGroup: obvContactGroup, within: obvContext.context)) != nil  else {
                             os_log("Could not create a missing persisted contact group owned", log: log, type: .error)
                             continue
                         }
@@ -111,7 +111,11 @@ final class SyncPersistedContactGroupsWithEngineOperation: ContextualOperationWi
                     } catch let error {
                         os_log("Could not set the contacts of a contact group while bootstrapping: %{public}@", log: log, type: .fault, error.localizedDescription)
                     }
-                    persistedContactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
+                    do {
+                        try persistedContactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
+                    } catch {
+                        return cancel(withReason: .coreDataError(error: error))
+                    }
                     persistedContactGroup.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
                 }
                 

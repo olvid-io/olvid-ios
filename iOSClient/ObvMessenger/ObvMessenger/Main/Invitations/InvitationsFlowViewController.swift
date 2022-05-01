@@ -26,7 +26,7 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
     
     private(set) var ownedCryptoId: ObvCryptoId!
 
-    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: InvitationsFlowViewController.self))
 
     var observationTokens = [NSObjectProtocol]()
     
@@ -92,7 +92,7 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
     }
 
     func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
             guard let _self = self else { return }
             _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
         })

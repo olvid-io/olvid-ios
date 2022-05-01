@@ -24,6 +24,7 @@ import CryptoKit
 
 enum ObvSystemIcon {
 
+    case archiveboxFill
     case arrowClockwise
     case arrowCounterclockwiseCircleFill
     case arrowDown
@@ -37,6 +38,7 @@ enum ObvSystemIcon {
     case arrowshapeTurnUpForwardFill
     case arrowshapeTurnUpLeft2
     case arrowshapeTurnUpLeftCircleFill
+    case arrowTriangle2CirclepathCircle
     case book
     case camera
     case cartFill
@@ -49,9 +51,11 @@ enum ObvSystemIcon {
     case chevronRight
     case chevronRightCircle
     case chevronRightCircleFill
+    case circle
     case circleFill
     case creditcardFill
     case docOnClipboardFill
+    case docFill
     case docOnDoc
     case docRichtext
     case earBadgeCheckmark
@@ -66,6 +70,7 @@ enum ObvSystemIcon {
     case flameFill
     case folderCircle
     case folderFill
+    case forwardFill
     case gear
     case gearshapeFill
     case giftcardFill
@@ -119,6 +124,7 @@ enum ObvSystemIcon {
     case questionmarkCircle
     case questionmarkCircleFill
     case rectangleAndPencilAndEllipsis
+    case rectangleCompressVertical
     case restartCircle
     case scanner
     case serverRack
@@ -131,6 +137,7 @@ enum ObvSystemIcon {
     case trash
     case trashCircle
     case xmark
+    case xmarkCircle
     case xmarkCircleFill
     case xmarkOctagonFill
     case heartSlashFill
@@ -161,6 +168,12 @@ enum ObvSystemIcon {
             }
         case .arrowshapeTurnUpLeftCircleFill:
             return "arrowshape.turn.up.left.circle.fill"
+        case .arrowTriangle2CirclepathCircle:
+            if #available(iOS 14, *) {
+                return "arrow.triangle.2.circlepath.circle"
+            } else {
+                return "arrow.clockwise"
+            }
         case .trashCircle:
             return "trash.circle"
         case .scanner:
@@ -273,6 +286,8 @@ enum ObvSystemIcon {
             return "icloud.fill"
         case .folderFill:
             return "folder.fill"
+        case .forwardFill:
+            return "forward.fill"
         case .qrcode:
             return "qrcode"
         case .gear:
@@ -345,6 +360,8 @@ enum ObvSystemIcon {
             return "paperplane.fill"
         case .xmark:
             return "xmark"
+        case .xmarkCircle:
+            return "xmark.circle"
         case .xmarkCircleFill:
             return "xmark.circle.fill"
         case .xmarkOctagonFill:
@@ -445,6 +462,14 @@ enum ObvSystemIcon {
             }
         case .heartSlashFill:
             return "heart.slash.fill"
+        case .circle:
+            return "circle"
+        case .archiveboxFill:
+            return "archivebox.fill"
+        case .docFill:
+            return "doc.fill"
+        case .rectangleCompressVertical:
+            return "rectangle.compress.vertical"
         }
     }
 }

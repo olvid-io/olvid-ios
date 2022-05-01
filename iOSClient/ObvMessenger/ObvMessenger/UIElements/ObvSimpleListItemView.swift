@@ -26,17 +26,21 @@ struct ObvSimpleListItemView: View {
     private let title: Text
     private let value: Text
     private let valueToCopyOnLongPress: String?
+    private let buttonConfig: (title: LocalizedStringKey, titleOfOverlayDisplayedOnTap: LocalizedStringKey, action: () -> Void)?
     
     @State private var showValueCopiedOverlay = false
+    @State private var showButtonOverlay = false
     
-    init(title: Text, value: String?) {
+    init(title: Text, value: String?, buttonConfig: (title: LocalizedStringKey, titleOfOverlayDisplayedOnTap: LocalizedStringKey, action: () -> Void)? = nil) {
         self.title = title
+        self.buttonConfig = buttonConfig
         self.value = Text(value ?? "-")
         self.valueToCopyOnLongPress = value
     }
     
     init(title: Text, date: Date?) {
         self.title = title
+        self.buttonConfig = nil
         if let date = date {
             if #available(iOS 14, *) {
                 self.value = Text(date, style: .date)
@@ -55,35 +59,60 @@ struct ObvSimpleListItemView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            title
-                .foregroundColor(Color(AppTheme.shared.colorScheme.label))
-                .font(.headline)
-                .padding(.bottom, 4.0)
-            value
-                .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                .font(.body)
-            HStack { Spacer() }
-        }
-        .onTapGesture(count: 2) {
-            guard let valueToCopyOnLongPress = self.valueToCopyOnLongPress else { return }
-            UIPasteboard.general.string = valueToCopyOnLongPress
-            showValueCopiedOverlay.toggle()
-            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
+        HStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                title
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                    .font(.headline)
+                    .padding(.bottom, 4.0)
+                value
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .font(.body)
+                HStack { Spacer() }
+            }
+            .onTapGesture(count: 2) {
+                guard let valueToCopyOnLongPress = self.valueToCopyOnLongPress else { return }
+                UIPasteboard.general.string = valueToCopyOnLongPress
                 showValueCopiedOverlay.toggle()
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
+                    showValueCopiedOverlay.toggle()
+                }
+            }
+            .overlay(
+                Text("VALUE_COPIED")
+                    .font(.system(.callout, design: .rounded))
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .padding()
+                    .background(
+                        BlurView(style: .systemUltraThinMaterial).clipShape(Capsule(style: .continuous))
+                    )
+                    .scaleEffect(showValueCopiedOverlay ? 1.0 : 0.5)
+                    .opacity(showValueCopiedOverlay ? 1.0 : 0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0), value: showValueCopiedOverlay)
+            )
+            if let buttonConfig = self.buttonConfig {
+                Button(buttonConfig.title) {
+                    showButtonOverlay.toggle()
+                    buttonConfig.action()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
+                        showButtonOverlay.toggle()
+                    }
+                }
+                .buttonStyle(.borderless)
+                .padding(.leading, 8)
             }
         }
         .overlay(
-            Text("VALUE_COPIED")
+            Text(self.buttonConfig?.titleOfOverlayDisplayedOnTap ?? "")
                 .font(.system(.callout, design: .rounded))
                 .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
                 .padding()
                 .background(
                     BlurView(style: .systemUltraThinMaterial).clipShape(Capsule(style: .continuous))
                 )
-                .scaleEffect(showValueCopiedOverlay ? 1.0 : 0.5)
-                .opacity(showValueCopiedOverlay ? 1.0 : 0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0), value: showValueCopiedOverlay)
+                .scaleEffect(showButtonOverlay ? 1.0 : 0.5)
+                .opacity(showButtonOverlay ? 1.0 : 0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0), value: showButtonOverlay)
         )
     }
 }

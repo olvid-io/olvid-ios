@@ -73,7 +73,7 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
     
     private let navigationTitleLabel = UILabel()
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SingleDiscussionViewController.self))
 
     private var accessoryViewIsShown = false
     private var accessoryViewWasRequested = false
@@ -316,7 +316,7 @@ extension SingleDiscussionViewController {
                     actions: [UIAction(title:
                                         NSLocalizedString("UNMUTE_NOTIFICATIONS", comment: "")
                     ) { _ in
-                        ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(muteNotificationsDuration: nil), localConfigurationObjectID: self.discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+                        ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(muteNotificationsDuration: nil), localConfigurationObjectID: self.discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
                     }])
                 items += [unmuteButton]
             }
@@ -587,14 +587,14 @@ extension SingleDiscussionViewController {
     }
     
     private func observePersistedContactGroupHasUpdatedContactIdentitiesNotifications() {
-        let token = ObvMessengerInternalNotification.observePersistedContactGroupHasUpdatedContactIdentities(queue: OperationQueue.main) { [weak self] (_, _, _) in
+        let token = ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities(queue: OperationQueue.main) { [weak self] (_, _, _) in
             self?.reloadInputViews()
         }
         observationTokens.append(token)
     }
 
     private func observeCallLogItemWasUpdatedNotifications() {
-        let token = ObvMessengerInternalNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] _, _ in
+        let token = VoIPNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] _, _ in
             self?.collectionView.reloadData()
         }
         observationTokens.append(token)
@@ -1848,7 +1848,7 @@ extension SingleDiscussionViewController {
     
     // Refresh the discussion title if it is updated
     private func observePersistedDiscussionHasNewTitleNotifications() {
-        let token = ObvMessengerInternalNotification.observePersistedDiscussionHasNewTitle(queue: OperationQueue.main) { [weak self] (objectID, title) in
+        let token = ObvMessengerCoreDataNotification.observePersistedDiscussionHasNewTitle(queue: OperationQueue.main) { [weak self] (objectID, title) in
             assert(self?.discussion?.managedObjectContext == ObvStack.shared.viewContext)
             guard objectID == self?.discussion?.typedObjectID else { return }
             self?.navigationTitleLabel.text = title
@@ -1859,7 +1859,7 @@ extension SingleDiscussionViewController {
     
     private func observePersistedContactHasNewCustomDisplayNameNotifications() {
         let log = self.log
-        let token = ObvMessengerInternalNotification.observePersistedContactHasNewCustomDisplayName(queue: OperationQueue.main) { [weak self] (contactCryptoId) in
+        let token = ObvMessengerCoreDataNotification.observePersistedContactHasNewCustomDisplayName(queue: OperationQueue.main) { [weak self] (contactCryptoId) in
             guard let _self = self else { return }
             guard let groupDiscussion = _self.discussion as? PersistedGroupDiscussion else { return }
             guard let contactGroup = groupDiscussion.contactGroup else {
@@ -2029,7 +2029,7 @@ extension SingleDiscussionViewController {
             _self.objectIDsOfNewMessages.remove(objectID)
             numberOfNewMessagesSystemMessage.updateAndPotentiallyDeleteNumberOfUnreadReceivedMessagesSystemMessage(newNumberOfUnreadReceivedMessages: _self.objectIDsOfNewMessages.count)
         })
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageSystemWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageSystemWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _) in
             guard let _self = self else { return }
             guard let numberOfNewMessagesSystemMessage = try? PersistedMessageSystem.getNumberOfNewMessagesSystemMessage(in: _self.discussion) else { return }
             guard _self.objectIDsOfNewMessages.contains(objectID) else { return }

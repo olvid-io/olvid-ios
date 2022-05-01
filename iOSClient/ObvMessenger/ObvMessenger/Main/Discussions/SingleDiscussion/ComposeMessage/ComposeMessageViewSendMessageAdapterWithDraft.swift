@@ -67,7 +67,7 @@ final class ComposeMessageViewSendMessageAdapterWithDraft: ComposeMessageViewSen
                 return
             }
             
-            guard !textToSend.isEmpty || !writableDraft.draftFyleJoins.isEmpty else {
+            guard !textToSend.isEmpty || !writableDraft.fyleJoins.isEmpty else {
                 DispatchQueue.main.async {
                     composeMessageView.unfreeze()
                 }
@@ -88,7 +88,7 @@ final class ComposeMessageViewSendMessageAdapterWithDraft: ComposeMessageViewSen
     
     
     private func observeDraftWasSentNotifications() {
-        let token = ObvMessengerInternalNotification.observeDraftWasSent(queue: OperationQueue.main) { (draftObjectID) in
+        let token = ObvMessengerCoreDataNotification.observeDraftWasSent(queue: OperationQueue.main) { (draftObjectID) in
             guard self.draft.typedObjectID == draftObjectID else { return }
             ObvStack.shared.viewContext.refresh(self.draft, mergeChanges: false)
             self.composeMessageView?.loadDataSource()

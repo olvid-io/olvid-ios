@@ -48,6 +48,10 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         }
     }
 
+    override var message: PersistedMessage? { sentMessage }
+
+    override var fullFileIsAvailable: Bool { true }
+
     // MARK: - Relationships
     
     @NSManaged private(set) var sentMessage: PersistedMessageSent
@@ -97,19 +101,19 @@ extension SentFyleMessageJoinWithStatus {
 
 extension SentFyleMessageJoinWithStatus {
     
-    convenience init?(draftFyleJoin: DraftFyleJoin, persistedMessageSentObjectID: NSManagedObjectID, within context: NSManagedObjectContext) {
+    convenience init?(fyleJoin: FyleJoin, persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, within context: NSManagedObjectContext) {
         
-        guard let fyle = draftFyleJoin.fyle else { return nil }
+        guard let fyle = fyleJoin.fyle else { return nil }
 
         // Pre-compute a few things
 
-        guard let persistedMessageSent = PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: context) else { return nil }
+        guard let persistedMessageSent = try? PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: context) else { return nil }
 
         // Call the superclass initializer
 
         self.init(totalUnitCount: fyle.getFileSize() ?? 0,
-                  fileName: draftFyleJoin.fileName,
-                  uti: draftFyleJoin.uti,
+                  fileName: fyleJoin.fileName,
+                  uti: fyleJoin.uti,
                   rawStatus: FyleStatus.uploadable.rawValue,
                   fyle: fyle,
                   forEntityName: SentFyleMessageJoinWithStatus.entityName,
@@ -118,7 +122,7 @@ extension SentFyleMessageJoinWithStatus {
         // Set the remaining properties and relationships
 
         self.identifierForNotifications = nil
-        self.index = draftFyleJoin.index
+        self.index = fyleJoin.index
         self.sentMessage = persistedMessageSent
         
     }

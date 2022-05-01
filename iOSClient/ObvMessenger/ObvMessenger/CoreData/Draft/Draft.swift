@@ -23,7 +23,7 @@ protocol Draft {
     
     var body: String? { get }
     var replyTo: PersistedMessage? { get }
-    var draftFyleJoins: [DraftFyleJoin] { get }
+    var fyleJoins: [FyleJoin] { get }
     var discussion: PersistedDiscussion { get }
     var readOnce: Bool { get }
     var visibilityDuration: TimeInterval? { get }

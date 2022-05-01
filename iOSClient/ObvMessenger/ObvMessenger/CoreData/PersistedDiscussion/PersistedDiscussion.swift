@@ -68,9 +68,11 @@ class PersistedDiscussion: NSManagedObject {
 
 extension PersistedDiscussion {
     
-    convenience init?(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) {
+    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
         
-        guard let context = ownedIdentity.managedObjectContext else { return nil }
+        guard let context = ownedIdentity.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
@@ -85,7 +87,7 @@ extension PersistedDiscussion {
         if sharedConfigurationToKeep != nil {
             self.sharedConfiguration = sharedConfigurationToKeep!
         } else {
-            guard let sharedConfiguration = PersistedDiscussionSharedConfiguration(discussion: self) else { return nil }
+            let sharedConfiguration = try PersistedDiscussionSharedConfiguration(discussion: self)
             if let groupDiscussion = self as? PersistedGroupDiscussion, let contactGroup = groupDiscussion.contactGroup, contactGroup.category == .owned {
                 sharedConfiguration.setValuesUsingSettings()
             } else if self is PersistedOneToOneDiscussion {
@@ -94,8 +96,8 @@ extension PersistedDiscussion {
             self.sharedConfiguration = sharedConfiguration
         }
         
-        guard let localConfiguration = localConfigurationToKeep ?? PersistedDiscussionLocalConfiguration(discussion: self) else { return nil }
-        guard let draft = PersistedDraft(within: self) else { return nil }
+        let localConfiguration = try (localConfigurationToKeep ?? PersistedDiscussionLocalConfiguration(discussion: self))
+        let draft = try PersistedDraft(within: self)
         self.localConfiguration = localConfiguration
         self.sharedConfiguration = sharedConfiguration
         self.draft = draft
@@ -182,14 +184,7 @@ extension PersistedDiscussion {
             self.title = newTitle
         }
     }
-    
-    func computeNumberOfNewReceivedMessages() -> Int {
-        var numberOfNewMessages = 0
-        numberOfNewMessages += (try? PersistedMessageReceived.countNew(within: self)) ?? 0
-        numberOfNewMessages += (try? PersistedMessageSystem.countNew(within: self)) ?? 0
-        return numberOfNewMessages
-    }
-    
+
     func insertSystemMessagesIfDiscussionIsEmpty(markAsRead: Bool) throws {
         guard self.messages.isEmpty else { return }
         let systemMessage = try PersistedMessageSystem(.discussionIsEndToEndEncrypted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: self)
@@ -208,7 +203,6 @@ extension PersistedDiscussion {
         try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: markAsRead)
     }
     
-
     func getAllActiveParticipants() throws -> (ownCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) {
         let contactCryptoIds: Set<ObvCryptoId>
         let ownCryptoId: ObvCryptoId
@@ -405,94 +399,6 @@ extension PersistedDiscussion {
         
 }
 
-
-// MARK: - Utility methods for PersistedSystemMessage showing the number of new messages
-
-extension PersistedDiscussion {
-    
-    var appropriateSortIndexAndNumberOfNewMessagesForNewMessagesSystemMessage: (sortIndex: Double, numberOfNewMessages: Int)? {
-        
-        assert(Thread.isMainThread)
-        
-        guard let context = self.managedObjectContext else {
-            assertionFailure()
-            return nil
-        }
-        
-        guard context.concurrencyType == NSManagedObjectContextConcurrencyType.mainQueueConcurrencyType else {
-            assertionFailure()
-            return nil
-        }
-        
-        let firstNewMessage: PersistedMessage
-        do {
-            let firstNewReceivedMessage: PersistedMessageReceived?
-            do {
-                firstNewReceivedMessage = try PersistedMessageReceived.getFirstNew(in: self)
-            } catch {
-                assertionFailure()
-                return nil
-            }
-            
-            let firstNewRelevantSystemMessage: PersistedMessageSystem?
-            do {
-                firstNewRelevantSystemMessage = try PersistedMessageSystem.getFirstNewRelevantSystemMessage(in: self)
-            } catch {
-                assertionFailure()
-                return nil
-            }
-            
-            switch (firstNewReceivedMessage, firstNewRelevantSystemMessage) {
-            case (.none, .none):
-                return nil
-            case (.some(let msg), .none):
-                firstNewMessage = msg
-            case (.none, .some(let msg)):
-                firstNewMessage = msg
-            case (.some(let msg1), .some(let msg2)):
-                firstNewMessage = msg1.sortIndex < msg2.sortIndex ? msg1 : msg2
-            }
-        }
-                
-        let numberOfNewMessages: Int
-        do {
-            let numberOfNewReceivedMessages = try PersistedMessageReceived.countNew(within: self)
-            let numberOfNewRelevantSystemMessages = try PersistedMessageSystem.countNewRelevantSystemMessages(in: self)
-            numberOfNewMessages = numberOfNewReceivedMessages + numberOfNewRelevantSystemMessages
-        } catch {
-            assertionFailure()
-            return nil
-        }
-        
-        guard numberOfNewMessages > 0 else {
-            return nil
-        }
-        
-        let sortIndexForFirstNewMessageLimit: Double
-        
-        if let messageAboveFirstUnNewReceivedMessage = try? PersistedMessage.getMessage(beforeSortIndex: firstNewMessage.sortIndex, in: self) {
-            if (messageAboveFirstUnNewReceivedMessage as? PersistedMessageSystem)?.category == .numberOfNewMessages {
-                // The message just above the first new message is a PersistedMessageSystem showing the number of new messages
-                // We can simply use its sortIndex
-                sortIndexForFirstNewMessageLimit = messageAboveFirstUnNewReceivedMessage.sortIndex
-            } else {
-                // The message just above the first new message is *not* a PersistedMessageSystem showing the number of new messages
-                // We compute the mean of the sort indexes of the two messages to get a sortIndex appropriate to "insert" a new message between the two
-                let preceedingSortIndex = messageAboveFirstUnNewReceivedMessage.sortIndex
-                sortIndexForFirstNewMessageLimit = (firstNewMessage.sortIndex + preceedingSortIndex) / 2.0
-            }
-        } else {
-            // There is no message above, we simply take a smaller sort index
-            let preceedingSortIndex = firstNewMessage.sortIndex - 1
-            sortIndexForFirstNewMessageLimit = (firstNewMessage.sortIndex + preceedingSortIndex) / 2.0
-        }
-        
-        return (sortIndexForFirstNewMessageLimit, numberOfNewMessages)
-
-    }
-    
-}
-
 // MARK: - Sending notifications on changes
 
 extension PersistedDiscussion {
@@ -511,16 +417,16 @@ extension PersistedDiscussion {
         super.didSave()
         
         if changedKeys.contains(PersistedDiscussion.titleKey) {
-            ObvMessengerInternalNotification.persistedDiscussionHasNewTitle(objectID: typedObjectID, title: title)
+            ObvMessengerCoreDataNotification.persistedDiscussionHasNewTitle(objectID: typedObjectID, title: title)
                 .postOnDispatchQueue()
         }
 
         if isInserted, let discussionThatWasLocked = discussionThatWasLocked {
-            ObvMessengerInternalNotification.newLockedPersistedDiscussion(previousDiscussionUriRepresentation: discussionThatWasLocked, newLockedDiscussionId: typedObjectID).postOnDispatchQueue()
+            ObvMessengerCoreDataNotification.newLockedPersistedDiscussion(previousDiscussionUriRepresentation: discussionThatWasLocked, newLockedDiscussionId: typedObjectID).postOnDispatchQueue()
         }
 
         if isDeleted {
-            ObvMessengerInternalNotification.persistedDiscussionWasDeleted(discussionUriRepresentation: typedObjectID.uriRepresentation()).postOnDispatchQueue()
+            ObvMessengerCoreDataNotification.persistedDiscussionWasDeleted(discussionUriRepresentation: typedObjectID.uriRepresentation()).postOnDispatchQueue()
         }       
     }
     

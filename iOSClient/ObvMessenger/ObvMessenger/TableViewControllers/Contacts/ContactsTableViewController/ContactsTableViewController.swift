@@ -28,13 +28,14 @@ class ContactsTableViewController: UITableViewController {
     
     let allowDeletion: Bool
     let disableContactsWithoutDevice: Bool
+    let oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus
     var titleChipTextForIdentity = [ObvCryptoId: String]()
     var cellBackgroundColor: UIColor?
     var customSelectionStyle = CustomSelectionStyle.system
     
     var predicate: NSPredicate! {
         didSet {
-            self.fetchedResultsController = PersistedObvContactIdentity.getFetchedResultsController(predicate: predicate, within: ObvStack.shared.viewContext)
+            self.fetchedResultsController = PersistedObvContactIdentity.getFetchedResultsController(predicate: predicate, whereOneToOneStatusIs: oneToOneStatus, within: ObvStack.shared.viewContext)
         }
     }
     private var fetchedResultsController: NSFetchedResultsController<PersistedObvContactIdentity>! {
@@ -75,7 +76,7 @@ class ContactsTableViewController: UITableViewController {
     // Constants
     
     private let defaultRowAnimation = UITableView.RowAnimation.automatic
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactsTableViewController.self))
     
     // Other variables
     
@@ -94,9 +95,9 @@ class ContactsTableViewController: UITableViewController {
         didSet {
             if let searchPredicate = self.searchPredicate {
                 let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, searchPredicate])
-                self.fetchedResultsController = PersistedObvContactIdentity.getFetchedResultsController(predicate: compoundPredicate, within: ObvStack.shared.viewContext)
+                self.fetchedResultsController = PersistedObvContactIdentity.getFetchedResultsController(predicate: compoundPredicate, whereOneToOneStatusIs: oneToOneStatus, within: ObvStack.shared.viewContext)
             } else {
-                self.fetchedResultsController = PersistedObvContactIdentity.getFetchedResultsController(predicate: predicate, within: ObvStack.shared.viewContext)
+                self.fetchedResultsController = PersistedObvContactIdentity.getFetchedResultsController(predicate: predicate, whereOneToOneStatusIs: oneToOneStatus, within: ObvStack.shared.viewContext)
             }
             tableView.reloadData()
             reSelectSelectedContacts()
@@ -121,9 +122,10 @@ class ContactsTableViewController: UITableViewController {
     
     // MARK: - Initializer
     
-    init(disableContactsWithoutDevice: Bool, allowDeletion: Bool = false) {
+    init(disableContactsWithoutDevice: Bool, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, allowDeletion: Bool = false) {
         self.disableContactsWithoutDevice = disableContactsWithoutDevice
         self.allowDeletion = allowDeletion
+        self.oneToOneStatus = oneToOneStatus
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -168,7 +170,7 @@ extension ContactsTableViewController {
 
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerInternalNotification.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
             self?.tableView.reloadData()
         }
         self.notificationTokens.append(token)

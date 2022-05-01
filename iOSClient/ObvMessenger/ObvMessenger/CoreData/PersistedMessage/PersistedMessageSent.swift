@@ -46,41 +46,7 @@ final class PersistedMessageSent: PersistedMessage {
         case read = 4
         
         static func < (lhs: PersistedMessageSent.MessageStatus, rhs: PersistedMessageSent.MessageStatus) -> Bool {
-            switch lhs {
-            case .unprocessed:
-                switch rhs {
-                case .unprocessed:
-                    return false
-                case .processing, .sent, .delivered, .read:
-                    return true
-                }
-            case .processing:
-                switch rhs {
-                case .unprocessed, .processing:
-                    return false
-                case .sent, .delivered, .read:
-                    return true
-                }
-            case .sent:
-                switch rhs {
-                case .unprocessed, .processing, .sent:
-                    return false
-                case .delivered, .read:
-                    return true
-                }
-            case .delivered:
-                switch rhs {
-                case .unprocessed, .processing, .sent, .delivered:
-                    return false
-                case .read:
-                    return true
-                }
-            case .read:
-                switch rhs {
-                case .unprocessed, .processing, .sent, .delivered, .read:
-                    return false
-                }
-            }
+            return lhs.rawValue < rhs.rawValue
         }
 
     }
@@ -97,6 +63,8 @@ final class PersistedMessageSent: PersistedMessage {
     @NSManaged private var unsortedFyleMessageJoinWithStatuses: Set<SentFyleMessageJoinWithStatus>
 
     // MARK: - Computed variables
+
+    override var kind: PersistedMessageKind { .sent }
     
     var wasSent: Bool {
         switch status {
@@ -116,7 +84,7 @@ final class PersistedMessageSent: PersistedMessage {
             }
         }
         set {
-            guard self.status != newValue else { return }
+            guard self.status < newValue else { return }
             self.rawStatus = newValue.rawValue
             switch self.status {
             case .unprocessed:
@@ -163,32 +131,23 @@ final class PersistedMessageSent: PersistedMessage {
     /// It loops through all infos and set the status to the "minimum" possible status.
     func refreshStatus() {
         let notDeletedUnsortedRecipientsInfos = unsortedRecipientsInfos.filter { !$0.isDeleted }
+
         let atLeastOneInfoHasMessageIdentifierFromEngine = notDeletedUnsortedRecipientsInfos.contains(where: { $0.messageIdentifierFromEngine != nil })
-        guard atLeastOneInfoHasMessageIdentifierFromEngine else {
-            guard self.status < MessageStatus.unprocessed else { return }
-            self.status = .unprocessed
-            return
-        }
         let allMessageAndAttachmentsAreSent = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.messageAndAttachmentsAreSent }
-        guard allMessageAndAttachmentsAreSent else {
-            guard self.status < MessageStatus.processing else { return }
-            self.status = .processing
-            return
-        }
         let allInfosHaveTimestampDelivered = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.timestampDelivered != nil }
-        guard allInfosHaveTimestampDelivered else {
-            guard self.status < MessageStatus.sent else { return }
-            self.status = .sent
-            return
-        }
         let allInfosHaveTimestampRead = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.timestampRead != nil }
-        guard allInfosHaveTimestampRead else {
-            guard self.status < MessageStatus.delivered else { return }
+
+        if allInfosHaveTimestampRead {
+            self.status = .read
+        } else if allInfosHaveTimestampDelivered {
             self.status = .delivered
-            return
+        } else if allMessageAndAttachmentsAreSent {
+            self.status = .sent
+        } else if atLeastOneInfoHasMessageIdentifierFromEngine {
+            self.status = .processing
+        } else {
+            self.status = .unprocessed
         }
-        guard self.status < MessageStatus.read else { return }
-        self.status = .read
     }
     
 
@@ -202,11 +161,7 @@ final class PersistedMessageSent: PersistedMessage {
             return unsortedFyleMessageJoinWithStatuses.sorted(by: { $0.index < $1.index })
         }
     }
-    
-    override var earliestExpiration: PersistedMessageExpiration? {
-        PersistedMessageExpiration.getEarliestExpiration(self.expirationForSentLimitedExistence, self.expirationForSentLimitedVisibility)
-    }
-    
+
     private var changedKeys = Set<String>()
 
     var isEphemeralMessage: Bool {
@@ -215,7 +170,10 @@ final class PersistedMessageSent: PersistedMessage {
     
     /// `true` when this instance can be edited after being sent
     override var textBodyCanBeEdited: Bool {
-        return super.textBodyCanBeEdited
+        guard self.discussion is PersistedOneToOneDiscussion || self.discussion is PersistedGroupDiscussion else { return false }
+        guard !self.isLocallyWiped else { return false }
+        guard !self.isRemoteWiped else { return false }
+        return true
     }
     
     @objc override func editTextBody(newTextBody: String?) throws {
@@ -228,6 +186,21 @@ final class PersistedMessageSent: PersistedMessage {
     }
     
 
+    override func toMessageReferenceJSON() -> MessageReferenceJSON? {
+        return toSentMessageReferenceJSON()
+    }
+
+    override var fyleMessageJoinWithStatus: [FyleMessageJoinWithStatus]? {
+        fyleMessageJoinWithStatuses
+    }
+
+    override var messageIdentifiersFromEngine: Set<Data> {
+        Set(unsortedRecipientsInfos.compactMap({ $0.messageIdentifierFromEngine }))
+    }
+
+    override var genericRepliesTo: PersistedMessage.RepliedMessage {
+        repliesTo.toRepliedMessage
+    }
 }
 
 
@@ -235,14 +208,21 @@ final class PersistedMessageSent: PersistedMessage {
 
 extension PersistedMessageSent {
     
-    enum RepliedMessage {
+    private enum RepliedMessageForMessageSent {
         case none
         case available(message: PersistedMessage)
         case deleted
+
+        var toRepliedMessage: RepliedMessage {
+            switch self {
+            case .none: return .none
+            case .available(let message): return .available(message: message)
+            case .deleted: return .deleted
+            }
+        }
     }
-    
-    
-    var repliesTo: RepliedMessage {
+
+    private var repliesTo: RepliedMessageForMessageSent {
         if let messageRepliedTo = self.rawMessageRepliedTo {
             return .available(message: messageRepliedTo)
         } else if self.isReplyToAnotherMessage {
@@ -258,46 +238,46 @@ extension PersistedMessageSent {
 // MARK: - Initializer
 
 extension PersistedMessageSent {
-    
-    convenience init(draft: Draft) throws {
-        
-        guard let context = draft.discussion.managedObjectContext else { assertionFailure(); throw PersistedMessageSent.makeError(message: "Could not find context") }
-        
+
+    convenience init(body: String?, replyTo: PersistedMessage?, fyleJoins: [FyleJoin], discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, existenceDuration: TimeInterval?) throws {
+
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw PersistedMessageSent.makeError(message: "Could not find context") }
+
         let timestamp = Date()
 
-        let lastSortIndex = try PersistedMessage.getLargestSortIndex(in: draft.discussion)
+        let lastSortIndex = try PersistedMessage.getLargestSortIndex(in: discussion)
         let sortIndex = 1/100.0 + ceil(lastSortIndex) // We add "10 milliseconds"
 
-        let readOnce = draft.discussion.sharedConfiguration.readOnce || draft.readOnce
-        let visibilityDuration: TimeInterval? = TimeInterval.optionalMin(draft.discussion.sharedConfiguration.visibilityDuration, draft.visibilityDuration)
-        let existenceDuration: TimeInterval? = TimeInterval.optionalMin(draft.discussion.sharedConfiguration.existenceDuration, draft.existenceDuration)
-        let isReplyToAnotherMessage = draft.replyTo != nil
+        let readOnce = discussion.sharedConfiguration.readOnce || readOnce
+        let visibilityDuration: TimeInterval? = TimeInterval.optionalMin(discussion.sharedConfiguration.visibilityDuration, visibilityDuration)
+        let existenceDuration: TimeInterval? = TimeInterval.optionalMin(discussion.sharedConfiguration.existenceDuration, existenceDuration)
+        let isReplyToAnotherMessage = replyTo != nil
 
         try self.init(timestamp: timestamp,
-                      body: draft.body,
+                      body: body,
                       rawStatus: MessageStatus.unprocessed.rawValue,
-                      senderSequenceNumber: draft.discussion.lastOutboundMessageSequenceNumber + 1,
+                      senderSequenceNumber: discussion.lastOutboundMessageSequenceNumber + 1,
                       sortIndex: sortIndex,
                       isReplyToAnotherMessage: isReplyToAnotherMessage,
-                      replyTo: draft.replyTo,
-                      discussion: draft.discussion,
+                      replyTo: replyTo,
+                      discussion: discussion,
                       readOnce: readOnce,
                       visibilityDuration: visibilityDuration,
                       forEntityName: PersistedMessageSent.entityName)
-                
+
         self.existenceDuration = existenceDuration
         self.unsortedFyleMessageJoinWithStatuses = Set<SentFyleMessageJoinWithStatus>()
-        draft.draftFyleJoins.forEach {
-            if let sentFyleMessageJoinWithStatuses = SentFyleMessageJoinWithStatus.init(draftFyleJoin: $0, persistedMessageSentObjectID: self.objectID, within: context) {
+        fyleJoins.forEach {
+            if let sentFyleMessageJoinWithStatuses = SentFyleMessageJoinWithStatus.init(fyleJoin: $0, persistedMessageSentObjectID: self.typedObjectID, within: context) {
                 self.unsortedFyleMessageJoinWithStatuses.insert(sentFyleMessageJoinWithStatuses)
             } else {
                 debugPrint("Could not create SentFyleMessageJoinWithStatus")
             }
         }
-        
+
         // Create the recipient infos entries for the contact(s) that are part of the discussion
         self.unsortedRecipientsInfos = Set<PersistedMessageSentRecipientInfos>()
-        if let oneToOneDiscussion = draft.discussion as? PersistedOneToOneDiscussion {
+        if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
             guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
                 throw makeError(message: "Could not find contact identity. This is ok if it has just been deleted.")
@@ -312,7 +292,7 @@ extension PersistedMessageSent {
                 throw makeError(message: "Could not find PersistedMessageSentRecipientInfos")
             }
             self.unsortedRecipientsInfos.insert(infos)
-        } else if let groupDiscussion = draft.discussion as? PersistedGroupDiscussion {
+        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
             guard let contactGroup = groupDiscussion.contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 throw makeError(message: "Could find contact group (this is ok if it was just deleted)")
@@ -337,7 +317,17 @@ extension PersistedMessageSent {
         }
 
         discussion.lastOutboundMessageSequenceNumber = self.senderSequenceNumber
-        
+
+    }
+
+    convenience init(draft: Draft) throws {
+        try self.init(body: draft.body,
+                  replyTo: draft.replyTo,
+                      fyleJoins: draft.fyleJoins,
+                  discussion: draft.discussion,
+                  readOnce: draft.readOnce,
+                  visibilityDuration: draft.visibilityDuration,
+                  existenceDuration: draft.existenceDuration)
     }
     
     
@@ -475,15 +465,11 @@ extension PersistedMessageSent {
         }
     }
 
-    static func getPersistedMessageSent(objectID: NSManagedObjectID, within context: NSManagedObjectContext) -> PersistedMessageSent? {
-        let persistedMessageSent: PersistedMessageSent
-        do {
-            guard let res = try context.existingObject(with: objectID) as? PersistedMessageSent else { throw NSError() }
-            persistedMessageSent = res
-        } catch {
-            return nil
-        }
-        return persistedMessageSent
+    static func getPersistedMessageSent(objectID: TypeSafeManagedObjectID<PersistedMessageSent>, within context: NSManagedObjectContext) throws -> PersistedMessageSent? {
+        let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
+        request.predicate = PersistedMessage.Predicate.withObjectID(objectID.objectID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
 
     static func getAllProcessing(within context: NSManagedObjectContext) throws -> [PersistedMessageSent] {
@@ -571,23 +557,6 @@ extension PersistedMessageSent {
         ])
         return try context.count(for: request)
     }
-    
-    /// This method returns the number of outbound messages within the specified discussion that are at least in the `sent` state, and
-    /// that occur after the message passed as a parameter.
-    /// This method is typically used for displaying count based retention information for a specific message.
-    static func countAllSentMessages(after messageObjectID: NSManagedObjectID, discussion: PersistedDiscussion) throws -> Int {
-        guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
-        guard let message = try PersistedMessage.get(with: messageObjectID, within: context) else {
-            throw makeError(message: "Cannot find message to compare to")
-        }
-        let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withinDiscussion(discussion),
-            Predicate.wasSent,
-            Predicate.withLargerSortIndex(than: message)
-        ])
-        return try context.count(for: request)
-    }
 
 }
 
@@ -633,7 +602,7 @@ extension PersistedMessageSent {
         
         // When a readOnce message is sent, we notify. This is catched by the coordinator that checks whether the user is in the message's discussion or not. If this is the case, nothing happens. Otherwise the coordiantor deletes this readOnce message.
         if changedKeys.contains(PersistedMessageSent.rawStatusKey) && self.status == .sent && self.readOnce {
-            ObvMessengerInternalNotification.aReadOncePersistedMessageSentWasSent(persistedMessageSentObjectID: self.objectID,
+            ObvMessengerCoreDataNotification.aReadOncePersistedMessageSentWasSent(persistedMessageSentObjectID: self.objectID,
                                                                                   persistedDiscussionObjectID: self.discussion.typedObjectID)
                 .postOnDispatchQueue()
         }

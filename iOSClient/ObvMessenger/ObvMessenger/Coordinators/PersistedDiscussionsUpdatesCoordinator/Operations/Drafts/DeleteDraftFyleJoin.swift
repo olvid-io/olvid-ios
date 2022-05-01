@@ -26,7 +26,7 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
 
     private let draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteDraftFyleJoinOperation.self))
 
     init(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) {
         self.draftFyleJoinObjectID = draftFyleJoinObjectID
@@ -46,7 +46,7 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
                 return cancel(withReason: .coreDataError(error: error))
             }
 
-            ObvMessengerInternalNotification.draftFyleJoinWasDeleted(discussionUriRepresentation: draft.discussion.typedObjectID.uriRepresentation(), draftUriRepresentation: draft.typedObjectID.uriRepresentation(), draftFyleJoinUriRepresentation: persistedDraftFyleJoin.typedObjectID.uriRepresentation()).postOnDispatchQueue()
+            ObvMessengerCoreDataNotification.draftFyleJoinWasDeleted(discussionUriRepresentation: draft.discussion.typedObjectID.uriRepresentation(), draftUriRepresentation: draft.typedObjectID.uriRepresentation(), draftFyleJoinUriRepresentation: persistedDraftFyleJoin.typedObjectID.uriRepresentation()).postOnDispatchQueue()
         }
     }
 

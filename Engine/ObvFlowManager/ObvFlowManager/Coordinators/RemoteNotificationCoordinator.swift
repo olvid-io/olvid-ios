@@ -79,12 +79,12 @@ extension RemoteNotificationCoordinator {
             
             let timer = Timer(timeInterval: ObvConstants.maxAllowedTimeForProcessingReceivedRemoteNotification, repeats: false) { [weak self] timer in
                 self?.queueForTimerBlocks.async {
-                    os_log("🌊 Firing timer within flow %{public}@", log: log, type: .error, flowId.debugDescription)
+                    os_log("🌊⏰ Firing timer within flow %{public}@", log: log, type: .error, flowId.debugDescription)
                     self?.backgroundActivitiesQueue.sync {
                         if let expectations = self?._currentExpectationsWithinFlow[flowId]?.expectations {
-                            os_log("🌊🌊 Calling endBackgroundActivity for flow %{public}@ as the timer expired. These expectations were not met: %{public}@", log: log, type: .error, flowId.debugDescription, Expectation.description(of: expectations))
+                            os_log("🌊🌊⏰ Calling endBackgroundActivity for flow %{public}@ as the timer expired. These expectations were not met: %{public}@", log: log, type: .error, flowId.debugDescription, Expectation.description(of: expectations))
                         } else {
-                            os_log("🌊🌊 Calling endBackgroundActivity for flow %{public}@ as the timer expired. No expectations were found, which probably means this flow was not initiated du to a remove notification.", log: log, type: .error, flowId.debugDescription)
+                            os_log("🌊🌊⏰ Calling endBackgroundActivity for flow %{public}@ as the timer expired. No expectations were found, which probably means this flow was not initiated du to a remove notification.", log: log, type: .error, flowId.debugDescription)
                         }
                     }
                     self?.endFlow(withId: flowId, with: .failed)
@@ -130,6 +130,41 @@ extension RemoteNotificationCoordinator {
         
         endFlowIfItHasNoMoreExpectations(flowId: flowId, result: .newData)
 
+    }
+    
+    
+    /// In certain cases, it is unnecessary to specify a specific flow because the resulting code would be less robust. This is for example the case when we are notified that a specific message has been processed.
+    /// In that case, we do not really care of the exact flow in which the processing has been made. Instead, since we know that a flow is expecting that this specific will be processed, we can simply scan through all flows and update all those that match at least one the expectation to find (and remove).
+    /// During the update, we add the "expectations to add" to all flows. This is more resilient to the situation where the, e.g., network fetch manager changes flow when processing a message.
+    private func updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set<Expectation>, expectationsToAdd: [Expectation], receivedOnFlowId: FlowIdentifier) {
+        
+        guard let delegateManager = delegateManager else { return }
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: RemoteNotificationCoordinator.logCategory)
+
+        var flowsToUpdate = Set<FlowIdentifier>()
+        
+        backgroundActivitiesQueue.sync {
+            
+            // Determine the list of flows whose exepectations contain all the expectations to find
+            
+            flowsToUpdate = Set(_currentExpectationsWithinFlow.compactMap { (flowId, value) in
+                value.expectations.intersection(expectationsToFindAndRemove).isEmpty ? nil : flowId
+            })
+            
+            for flowId in flowsToUpdate {
+                guard let value = _currentExpectationsWithinFlow[flowId] else { assertionFailure(); continue }
+                os_log("🌊 Expectations of flow %{public}@ (received on flow %{public}@) before update: %{public}@", log: log, type: .info, flowId.debugDescription, receivedOnFlowId.debugDescription, Expectation.description(of: value.expectations))
+                let newExpectations = value.expectations.subtracting(expectationsToFindAndRemove).union(expectationsToAdd)
+                _currentExpectationsWithinFlow[flowId] = (newExpectations, value.completionHandler, value.timer)
+                os_log("🌊 Expectations of flow %{public}@ (received on flow %{public}@) after update : %{public}@", log: log, type: .info, flowId.debugDescription, receivedOnFlowId.debugDescription, Expectation.description(of: newExpectations))
+            }
+            
+        }
+        
+        for flowId in flowsToUpdate {
+            endFlowIfItHasNoMoreExpectations(flowId: flowId, result: .newData)
+        }
+        
     }
 
 
@@ -203,14 +238,34 @@ extension RemoteNotificationCoordinator {
             return
         }
         
-        
-        // NewOutboxMessageAndAttachmentsToUpload
-        do {
-            let NotificationType = ObvNetworkPostNotification.NewOutboxMessageAndAttachmentsToUpload.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (messageId, attachmentIds, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
+        notificationCenterTokens.append(contentsOf: [
+            
+            // NoInboxMessageToProcess
+            ObvNetworkFetchNotificationNew.observeNoInboxMessageToProcess(within: notificationDelegate) { [weak self] (flowId) in
+                self?.updateExpectationsOfFlow(withId: flowId,
+                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
+                                               expectationsToAdd: [])
+
+            },
+            
+            // NewInboxMessageToProcess
+            ObvNetworkFetchNotificationNew.observeNewInboxMessageToProcess(within: notificationDelegate) { [weak self] (messageId, _, flowId) in
+                self?.updateExpectationsOfFlow(withId: flowId,
+                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
+                                               expectationsToAdd: [.networkReceivedMessageWasProcessed(messageId: messageId)])
+            },
+
+            // NetworkReceivedMessageWasProcessed
+            // At the time we receive this notification, we expect the expectations to contain either .processingOfProtocolMessage or .decisionToDownloadAttachmentOrNotHasBeenTaken
+            ObvChannelNotification.observeNetworkReceivedMessageWasProcessed(within: notificationDelegate) { [weak self] messageId, flowId in
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.networkReceivedMessageWasProcessed(messageId: messageId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
+            },
+
+            // NewOutboxMessageAndAttachmentsToUpload
+            ObvNetworkPostNotification.observeNewOutboxMessageAndAttachmentsToUpload(within: notificationDelegate) { [weak self] (messageId, attachmentIds, flowId) in
+                os_log("NewOutboxMessageAndAttachmentsToUpload notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
                 if attachmentIds.isEmpty {
                     self?.updateExpectationsOfFlow(withId: flowId,
                                                    expectationsToRemove: [],
@@ -221,52 +276,10 @@ extension RemoteNotificationCoordinator {
                                                    expectationsToRemove: [],
                                                    expectationsToAdd: expectationsToAdd)
                 }
-                
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-
-        
-        // NoInboxMessageToProcess
-        do {
-            notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeNoInboxMessageToProcess(within: notificationDelegate) { [weak self] (flowId) in
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
-                                               expectationsToAdd: [])
-
-            })
-        }
-        
-        
-        // NewInboxMessageToProcess
-        do {
-            notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeNewInboxMessageToProcess(within: notificationDelegate, block: { [weak self] (messageId, _, flowId) in
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
-                                               expectationsToAdd: [.networkReceivedMessageWasProcessed(messageId: messageId)])
-            }))            
-        }
-
-        
-        // NetworkReceivedMessageWasProcessed
-        // At the time we receive this notification, we expect the expectations to contain either .processingOfProtocolMessage or .decisionToDownloadAttachmentOrNotHasBeenTaken
-        do {
-            let NotificationType = ObvChannelNotification.NetworkReceivedMessageWasProcessed.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                os_log("Received a notification: %{public}@", log: log, type: .info, NotificationType.name.rawValue)
-                guard let (messageId, flowId) = NotificationType.parse(notification) else { return }
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.networkReceivedMessageWasProcessed(messageId: messageId)],
-                                               expectationsToAdd: [])
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // ApplicationMessageDecrypted
-        do {
-            notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeApplicationMessageDecrypted(within: notificationDelegate) { [weak self] (messageId, attachmentIds, hasEncryptedExtendedMessagePayload, flowId) in
+            },
+                        
+            // ApplicationMessageDecrypted
+            ObvNetworkFetchNotificationNew.observeApplicationMessageDecrypted(within: notificationDelegate) { [weak self] (messageId, attachmentIds, hasEncryptedExtendedMessagePayload, flowId) in
                 os_log("Received a notification: ApplicationMessageDecrypted messageId: %{public}@", log: log, type: .info, messageId.debugDescription)
 
                 var expectationsToAdd = [Expectation]()
@@ -279,114 +292,74 @@ extension RemoteNotificationCoordinator {
                 if expectationsToAdd.isEmpty {
                     expectationsToAdd.append(.deletionOfInboxMessage(withId: messageId))
                 }
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.networkReceivedMessageWasProcessed(messageId: messageId)]),
+                                                   expectationsToAdd: expectationsToAdd,
+                                                   receivedOnFlowId: flowId)
+            },
+            
+            // OutboxMessageAndAttachmentsDeleted
+            ObvNetworkPostNotification.observeOutboxMessageAndAttachmentsDeleted(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                os_log("Received a notification: OutboxMessageAndAttachmentsDeleted", log: log, type: .info)
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.deletionOfOutboxMessage(withId: messageId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
+            },
+            
+            // AttachmentsUploadsRequestIsTakenCareOf
+            ObvNetworkPostNotification.observeAttachmentUploadRequestIsTakenCareOf(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                os_log("AttachmentUploadRequestIsTakenCareOf notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.attachmentUploadRequestIsTakenCareOfForAttachment(withId: attachmentId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
+            },
+            
+            // InboxAttachmentWasTakenCareOf
+            ObvNetworkFetchNotificationNew.observeInboxAttachmentWasTakenCareOf(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                self?.attachmentDownloadDecisionHasBeenTaken(attachmentId: attachmentId, flowId: flowId)
+            },
+            
+            // DownloadingMessageExtendedPayloadFailed
+            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadFailed(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.extendedMessagePayloadWasDownloaded(messageId: messageId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
+            },
+            
+            // DownloadingMessageExtendedPayloadWasPerformed
+            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, _, flowId) in
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.extendedMessagePayloadWasDownloaded(messageId: messageId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
+            },
+            
+            // ProtocolMessageToProcess
+            ObvProtocolNotification.observeProtocolMessageToProcess(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
                 self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.applicationMessageDecrypted(messageId: messageId), .uidsOfMessagesThatWillBeDownloaded],
-                                               expectationsToAdd: expectationsToAdd)
-            })
-        }
-        
-        
+                                               expectationsToRemove: [],
+                                               expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
+            },
+            
+            // ProtocolMessageProcessed
+            ObvProtocolNotification.observeProtocolMessageProcessed(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.endOfProcessingOfProtocolMessage(withId: protocolMessageId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
+            },
+
+        ])
+
         // InboxMessageDeletedFromServerAndInboxesWithinBackgroundActivity
         do {
             let NotificationType = ObvNetworkFetchNotification.InboxMessageDeletedFromServerAndInboxes.self
             let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
                 guard let (messageId, flowId) = NotificationType.parse(notification) else { return }
                 os_log("Received a notification: %{public}@ for messageId %{public}@", log: log, type: .info, NotificationType.name.rawValue, messageId.debugDescription)
-
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.deletionOfInboxMessage(withId: messageId)],
-                                               expectationsToAdd: [])
-                
+                self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.deletionOfInboxMessage(withId: messageId)]),
+                                                   expectationsToAdd: [],
+                                                   receivedOnFlowId: flowId)
             }
             notificationCenterTokens.append(token)
         }
-
-        
-        // ProtocolMessageToProcessWithinBackgroundActivity
-        do {
-            let NotificationType = ObvProtocolNotification.ProtocolMessageToProcess.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                os_log("Received a notification: %{public}@", log: log, type: .info, NotificationType.name.rawValue)
-                guard let (protocolMessageId, flowId) = NotificationType.parse(notification) else { return }
-                
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
-                                               expectationsToAdd: [.processingOfProtocolMessage(withId: protocolMessageId)])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // ProtocolMessageProcessedWithinBackgroundActivity
-        do {
-            let NotificationType = ObvProtocolNotification.ProtocolMessageProcessed.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                os_log("Received a notification: %{public}@", log: log, type: .info, NotificationType.name.rawValue)
-                guard let (protocolMessageId, flowId) = NotificationType.parse(notification) else { return }
-                
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.processingOfProtocolMessage(withId: protocolMessageId)],
-                                               expectationsToAdd: [])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // OutboxMessageAndAttachmentsDeleted
-        do {
-            let NotificationType = ObvNetworkPostNotification.OutboxMessageAndAttachmentsDeleted.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                os_log("Received a notification: %{public}@", log: log, type: .info, NotificationType.name.rawValue)
-                guard let (messageId, flowId) = NotificationType.parse(notification) else { return }
-                
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.deletionOfOutboxMessage(withId: messageId)],
-                                               expectationsToAdd: [])
-                
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // AttachmentsUploadsRequestIsTakenCareOf
-        do {
-            let NotificationType = ObvNetworkPostNotification.AttachmentUploadRequestIsTakenCareOf.self
-            let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-                guard let (attachmentId, flowId) = NotificationType.parse(notification) else { return }
-                os_log("%{public}@ notification received within flow %{public}@", log: log, type: .debug, NotificationType.name.rawValue, flowId.debugDescription)
-                
-                self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.attachmentUploadRequestIsTakenCareOfForAttachment(withId: attachmentId)],
-                                               expectationsToAdd: [])
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // InboxAttachmentWasTakenCareOf
-        do {
-            let token = ObvNetworkFetchNotificationNew.observeInboxAttachmentWasTakenCareOf(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
-                self?.attachmentDownloadDecisionHasBeenTaken(attachmentId: attachmentId, flowId: flowId)
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        
-        // DownloadingMessageExtendedPayloadFailed
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadFailed(within: notificationDelegate) { [weak self] (messageId, flowId) in
-            self?.updateExpectationsOfFlow(withId: flowId,
-                                           expectationsToRemove: [.extendedMessagePayloadWasDownloaded(messageId: messageId)],
-                                           expectationsToAdd: [])
-        })
-
-        // DownloadingMessageExtendedPayloadWasPerformed
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, _, flowId) in
-            self?.updateExpectationsOfFlow(withId: flowId,
-                                           expectationsToRemove: [.extendedMessagePayloadWasDownloaded(messageId: messageId)],
-                                           expectationsToAdd: [])
-        })
 
     }
     
@@ -407,7 +380,7 @@ extension RemoteNotificationCoordinator {
         os_log("🌊 attachmentDownloadDecisionHasBeenTaken was called within flow %{public}@", log: log, type: .info, flowId.debugDescription)
         
         self.updateExpectationsOfFlow(withId: flowId,
-                                      expectationsToRemove: [Expectation.decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: attachmentId)],
+                                      expectationsToRemove: [.decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: attachmentId)],
                                       expectationsToAdd: [])
         
     }

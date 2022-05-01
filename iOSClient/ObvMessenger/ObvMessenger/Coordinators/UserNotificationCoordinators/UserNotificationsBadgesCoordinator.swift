@@ -35,7 +35,7 @@ final class UserNotificationsBadgesCoordinator: NSObject {
     
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationsBadgesCoordinator.self))
     private var notificationTokens = [NSObjectProtocol]()
     private let queueForBadgesOperations: OperationQueue = {
         let opQueue = OperationQueue()

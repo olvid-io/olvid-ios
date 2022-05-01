@@ -33,7 +33,7 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
 
     // Constants
     
-    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactsFlowViewController.self))
 
     // Delegate
     
@@ -44,7 +44,7 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
     // Factory (required because creating a custom init does not work under iOS 12)
     static func create(ownedCryptoId: ObvCryptoId) -> ContactsFlowViewController {
 
-        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId)
+        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true)
         let vc = self.init(rootViewController: allContactsVC)
 
         vc.ownedCryptoId = ownedCryptoId
@@ -93,7 +93,7 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
     func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
             guard let _self = self else { return }
             _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
         })

@@ -25,7 +25,7 @@ import CoreData
 @available(iOS 14.0, *)
 final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
     
-    private var draftFyleJoin: DraftFyleJoin?
+    private var fyleJoin: FyleJoin?
  
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -38,12 +38,12 @@ final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
 
     var isSharingActionAvailable: Bool { true }
     
-    func updateWith(draftFyleJoin: DraftFyleJoin, indexPath: IndexPath, delegate: ViewShowingHardLinksDelegate?, cacheDelegate: DiscussionCacheDelegate?) {
+    func updateWith(fyleJoin: FyleJoin, indexPath: IndexPath, delegate: ViewShowingHardLinksDelegate?, cacheDelegate: DiscussionCacheDelegate?) {
         assert(delegate != nil)
         assert(cacheDelegate != nil)
         self.delegate = delegate
         self.cacheDelegate = cacheDelegate
-        self.draftFyleJoin = draftFyleJoin
+        self.fyleJoin = fyleJoin
         self.setNeedsUpdateConfiguration()
     }
     
@@ -57,7 +57,7 @@ final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
         // If those assert fail, it probably mean that a previous the AttachmentsCollectionViewController was not deallocated (i.e., there is a memory cycle)
         assert(delegate != nil)
         assert(cacheDelegate != nil)
-        guard let draftFyleJoin = self.draftFyleJoin as? PersistedDraftFyleJoin else { assertionFailure(); return }
+        guard let draftFyleJoin = self.fyleJoin as? PersistedDraftFyleJoin else { assertionFailure(); return }
         var content = AttachmentCellCustomContentConfiguration().updated(for: state)
         // If the draftFyleJoin has no fyle, we can't compute a thumbnail.
         // If there is a fyle, either we already have hardlink to the fyle, in which case we can use it as a fileURL, or we don't have one. In that case, we request one and, when we receive it, we store is and ask the cell to update its configuration.

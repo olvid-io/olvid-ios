@@ -26,7 +26,7 @@ import OlvidUtils
 /// This operation deletes enough messages (and their attachments) to make sure the discussion contains no more messages than its count based retention policy (if any).
 final class DeleteMessagesWithExpiredCountBasedRetentionOperation: OperationWithSpecificReasonForCancel<DeleteMessagesWithExpiredCountBasedRetentionOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteMessagesWithExpiredCountBasedRetentionOperation.self))
 
     private(set) var numberOfDeletedMessages = 0
     

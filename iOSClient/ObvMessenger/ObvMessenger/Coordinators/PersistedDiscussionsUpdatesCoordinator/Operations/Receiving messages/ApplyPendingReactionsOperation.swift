@@ -28,7 +28,7 @@ import ObvTypes
 /// This operation looks for an existing `PendingMessageReaction`. If one is found, this operation executes a `UpdateReactionsOfMessageOperation`.
 final class ApplyPendingReactionsOperation: ContextualOperationWithSpecificReasonForCancel<ApplyPendingReactionsOperationReasonForCancel> {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ApplyPendingReactionsOperation.self))
 
     private let obvMessage: ObvMessage
     private let messageJSON: MessageJSON
@@ -53,7 +53,7 @@ final class ApplyPendingReactionsOperation: ContextualOperationWithSpecificReaso
 
             let persistedContactIdentity: PersistedObvContactIdentity
             do {
-                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, within: obvContext.context) else {
+                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
                 persistedContactIdentity = _persistedContactIdentity
@@ -66,17 +66,19 @@ final class ApplyPendingReactionsOperation: ContextualOperationWithSpecificReaso
             }
 
             let discussion: PersistedDiscussion
-            if let groupId = messageJSON.groupId {
-                do {
+            do {
+                if let groupId = messageJSON.groupId {
                     guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                    discussion = oneToOneDiscussion
+                } else {
+                    return cancel(withReason: .couldNotFindDiscussion)
                 }
-            } else {
-                discussion = persistedContactIdentity.oneToOneDiscussion
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
 
             // Look for an existing PendingMessageReaction for the received message in that discussion
@@ -135,11 +137,13 @@ enum ApplyPendingReactionsOperationReasonForCancel: LocalizedErrorWithLogType {
     case coreDataError(error: Error)
     case couldNotFindPersistedMessageReceived
     case updateReactionsOperationCancelled(reason: UpdateReactionsOperationReasonForCancel)
+    case couldNotFindDiscussion
 
     var logType: OSLogType {
         switch self {
         case .couldNotFindPersistedObvContactIdentityInDatabase,
-                .couldNotFindPersistedContactGroupInDatabase:
+                .couldNotFindPersistedContactGroupInDatabase,
+                .couldNotFindDiscussion:
             return .error
         case .unknownReason,
                 .contextIsNil,
@@ -170,6 +174,8 @@ enum ApplyPendingReactionsOperationReasonForCancel: LocalizedErrorWithLogType {
             return "Could not find message received although it is expected to be created within this context at this point"
         case .updateReactionsOperationCancelled(reason: let reason):
             return reason.errorDescription
+        case .couldNotFindDiscussion:
+            return "Could not find discussion"
         }
     }
 

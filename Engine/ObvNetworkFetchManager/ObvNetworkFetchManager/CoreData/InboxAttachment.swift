@@ -62,7 +62,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     private static let rawMessageIdUidKey = "rawMessageIdUid"
     private static let chunksKey = "chunks"
     private static let sessionKey = "session"
-    private static let messageFromCryptoIdentityKey = [messageKey, InboxMessage.fromCryptoIdentityKey].joined(separator: ".")
+    private static let messageFromCryptoIdentityKey = [messageKey, InboxMessage.Predicate.Key.fromCryptoIdentityKey.rawValue].joined(separator: ".")
 
     enum Status: Int, CustomDebugStringConvertible {
         case paused = 0

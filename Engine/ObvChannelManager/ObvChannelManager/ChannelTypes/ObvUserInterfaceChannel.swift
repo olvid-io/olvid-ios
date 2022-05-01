@@ -25,6 +25,7 @@ import ObvCrypto
 import ObvMetaManager
 import ObvTypes
 
+
 final class ObvUserInterfaceChannel: ObvChannel {
     
     private static let logCategory = "ObvUserInterfaceChannel"
@@ -47,9 +48,9 @@ final class ObvUserInterfaceChannel: ObvChannel {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvUserInterfaceChannel.logCategory)
 
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The notification delegate is not set")
+        guard let obvUserInterfaceChannelDelegate = delegateManager.obvUserInterfaceChannelDelegate else {
+            os_log("The obvUserInterfaceChannelDelegate is not set", log: log, type: .fault)
+            throw Self.makeError(message: "The obvUserInterfaceChannelDelegate is not set")
         }
 
         switch message.messageType {
@@ -62,11 +63,9 @@ final class ObvUserInterfaceChannel: ObvChannel {
                 throw Self.makeError(message: "Could not cast to dialog message")
             }
             
-            let NotificationType = ObvChannelNotification.NewUserDialogToPresent.self
-            let userInfo = [NotificationType.Key.obvChannelDialogMessageToSend: message,
-                            NotificationType.Key.obvContext: obvContext] as [String: Any]
-            notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                        
+            // This actually calls a method on the ObvEngine that synchronously
+            try obvUserInterfaceChannelDelegate.newUserDialogToPresent(obvChannelDialogMessageToSend: message, within: obvContext)
+            
             let randomUid = UID.gen(with: prng)
             let messageId = MessageIdentifier(ownedCryptoIdentity: toOwnedIdentity, uid: randomUid)
 

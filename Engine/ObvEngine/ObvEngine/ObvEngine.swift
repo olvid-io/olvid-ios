@@ -112,7 +112,8 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos))
         
         // ObvProcessDownloadedMessageDelegate, ObvChannelDelegate
-        obvManagers.append(ObvChannelManagerImplementation(readOnly: false))
+        let channelManager = ObvChannelManagerImplementation(readOnly: false)
+        obvManagers.append(channelManager)
         
         // ObvProtocolDelegate, ObvFullRatchetProtocolStarterDelegate
         obvManagers.append(ObvProtocolManager(prng: prng, downloadedUserData: downloadedUserData))
@@ -125,6 +126,8 @@ public final class ObvEngine: ObvManager {
         
         let fullEngine = try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: appNotificationCenter, appType: appType, runningLog: runningLog)
 
+        channelManager.setObvUserInterfaceChannelDelegate(fullEngine)
+        
         fullEngine.engineCoordinator.delegateManager = fullEngine.delegateManager
         fullEngine.engineCoordinator.obvEngine = fullEngine
         
@@ -166,7 +169,8 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos))
 
         // ObvProcessDownloadedMessageDelegate, ObvChannelDelegate
-        obvManagers.append(ObvChannelManagerImplementation(readOnly: false))
+        let channelManager = ObvChannelManagerImplementation(readOnly: false)
+        obvManagers.append(channelManager)
 
         // ObvProtocolDelegate, ObvFullRatchetProtocolStarterDelegate
         obvManagers.append(ObvProtocolManagerDummy())
@@ -179,8 +183,11 @@ public final class ObvEngine: ObvManager {
 
         let dummyNotificationCenter = NotificationCenter.init()
 
-        return try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: dummyNotificationCenter, appType: appType, runningLog: runningLog)
+        let engine = try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: dummyNotificationCenter, appType: appType, runningLog: runningLog)
 
+        channelManager.setObvUserInterfaceChannelDelegate(engine)
+        
+        return engine
 
     }
     
@@ -214,7 +221,8 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos))
         
         // ObvProcessDownloadedMessageDelegate, ObvChannelDelegate
-        obvManagers.append(ObvChannelManagerImplementation(readOnly: true))
+        let channelManager = ObvChannelManagerImplementation(readOnly: true)
+        obvManagers.append(channelManager)
         
         // ObvProtocolDelegate, ObvFullRatchetProtocolStarterDelegate
         obvManagers.append(ObvProtocolManagerDummy())
@@ -227,8 +235,11 @@ public final class ObvEngine: ObvManager {
         
         let dummyNotificationCenter = NotificationCenter.init()
         
-        return try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: dummyNotificationCenter, appType: appType, runningLog: runningLog)
+        let engine = try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: dummyNotificationCenter, appType: appType, runningLog: runningLog)
 
+        channelManager.setObvUserInterfaceChannelDelegate(engine)
+        
+        return engine
         
     }
     
@@ -814,14 +825,14 @@ extension ObvEngine {
 
     public func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedUserDetails) throws {
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
-        guard let protocolDelegate = protocolDelegate else { throw NSError() }
+        guard let protocolDelegate = protocolDelegate else { throw ObvEngine.makeError(message: "The protocol delegate is not set") }
         guard let flowDelegate = flowDelegate else { return }
         guard let channelDelegate = channelDelegate else { throw ObvEngine.makeError(message: "Channel Delegate is not set") }
 
         guard let contactIdentity = signedContactDetails.identity else { throw makeError(message: "Could not determine contact identity") }
         guard let contactIdentityToAdd = ObvCryptoIdentity(from: contactIdentity) else { throw makeError(message: "Could not parse contact identity") }
         
-        let message = try protocolDelegate.getInitiateAddKeycloakContactMessageForObliviousChannelManagementProtocol(
+        let message = try protocolDelegate.getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(
             ownedIdentity: ownedCryptoId.cryptoIdentity,
             contactIdentityToAdd: contactIdentityToAdd,
             signedContactDetails: signedContactDetails.signedUserDetails)
@@ -1192,8 +1203,8 @@ extension ObvEngine {
         
         // We prepare the appropriate message for starting the ObliviousChannelManagementProtocol step allowing to delete the contact
         
-        let message = try protocolDelegate.getInitiateContactDeletionMessageForObliviousChannelManagementProtocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                                                                                  contactIdentityToDelete: contactCryptoId.cryptoIdentity)
+        let message = try protocolDelegate.getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                                         contactIdentityToDelete: contactCryptoId.cryptoIdentity)
         
         
         // The ObliviousChannelManagementProtocol fails to delete a contact if this contact is part of a group. We check this here and throw if this is the case.
@@ -1356,6 +1367,75 @@ extension ObvEngine {
         }
     }
 
+    
+    public func sendOneToOneInvitation(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId) throws {
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw ObvEngine.makeError(message: "Channel Delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The createContextDelegate is not set") }
+        
+        let message = try protocolDelegate.getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: contactIdentity.cryptoIdentity)
+        let flowId = FlowIdentifier()
+        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+            guard let _self = self else { return }
+            do {
+                _ = try channelDelegate.post(message, randomizedWith: _self.prng, within: obvContext)
+                try obvContext.save(logOnFailure: _self.log)
+            } catch {
+                os_log("Could not post initial message for starting OneToOne contact invitation protocol: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
+    }
+
+    
+    public func downgradeOneToOneContact(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId) throws {
+        
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw ObvEngine.makeError(message: "Channel Delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The createContextDelegate is not set") }
+
+        let message = try protocolDelegate.getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: contactIdentity.cryptoIdentity)
+        let flowId = FlowIdentifier()
+        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+            guard let _self = self else { return }
+            do {
+                _ = try channelDelegate.post(message, randomizedWith: _self.prng, within: obvContext)
+                try obvContext.save(logOnFailure: _self.log)
+            } catch {
+                os_log("Could not post initial message for starting OneToOne contact invitation protocol: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
+
+    }
+    
+    
+    public func requestOneStatusSyncRequest(ownedIdentity: ObvCryptoId, contactsToSync: Set<ObvCryptoId>) async throws {
+        
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw ObvEngine.makeError(message: "Channel Delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The createContextDelegate is not set") }
+
+        let contactsToSync = Set(contactsToSync.map { $0.cryptoIdentity })
+        
+        let message = try protocolDelegate.getInitialMessageForOneStatusSyncRequest(ownedIdentity: ownedIdentity.cryptoIdentity, contactsToSync: contactsToSync)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let flowId = FlowIdentifier()
+            do {
+                try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+                    _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    continuation.resume()
+                    return
+                }
+            } catch {
+                continuation.resume(throwing: error)
+                return
+            }
+        }
+        
+    }
+    
 }
 
 
@@ -1413,12 +1493,12 @@ extension ObvEngine {
     }
     
     
-    public func getCapabilitiesOfOwnedIdentity(_ ownedCryptoId: ObvCryptoId) throws -> Set<ObvCapability> {
+    public func getCapabilitiesOfOwnedIdentity(_ ownedCryptoId: ObvCryptoId) throws -> Set<ObvCapability>? {
         
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
         
-        var capabilities = Set<ObvCapability>()
+        var capabilities: Set<ObvCapability>? = nil
         let randomFlowId = FlowIdentifier()
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { obvContext in
             capabilities = try identityDelegate.getCapabilitiesOfOwnedIdentity(ownedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext)
@@ -1486,29 +1566,22 @@ extension ObvEngine {
     }
     
     
-    public func resendDialogs() throws {
+    /// When bootstraping the app, we want to resync the PersistedInvitations with the persisted dialogs of the engine. This methods allows to get all the dialogs.
+    public func getAllDialogsWithinEngine() async throws -> [ObvDialog] {
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
-        var error: Error?
         let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            guard let persistedDialogs = PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext) else {
-                error = NSError()
-                return
-            }
-            persistedDialogs.forEach {
-                $0.resend()
-            }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvDialog], Error>) in
             do {
-                try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
+                try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
+                    let persistedDialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
+                    let obvDialogs = persistedDialogs.compactMap({ $0.obvDialog })
+                    continuation.resume(returning: obvDialogs)
+                }
+            } catch {
+                continuation.resume(throwing: error)
             }
-        }
-        guard error == nil else {
-            throw error!
         }
     }
-    
     
     
     public func respondTo(_ obvDialog: ObvDialog) {
@@ -2455,6 +2528,12 @@ extension ObvEngine {
     ///   - completionHandler: A completion block, executed when the post has done was is required. Hint : for now, this is only used when calling this method from the share extension, in order to dismiss the share extension on post completion.
     public func post(messagePayload: Data, extendedPayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachmentsToSend: [ObvAttachmentToSend], toContactIdentitiesWithCryptoId contactCryptoIds: Set<ObvCryptoId>, ofOwnedIdentityWithCryptoId ownedCryptoId: ObvCryptoId, completionHandler: (() -> Void)? = nil) throws -> [ObvCryptoId: Data] {
         
+        guard !contactCryptoIds.isEmpty else {
+            assertionFailure("We should not be posting to an empty set of contacts. This might be a bug.")
+            completionHandler?()
+            return [:]
+        }
+        
         guard let createContextDelegate = self.createContextDelegate else { throw makeError(message: "The create context delegate is not set") }
         guard let channelDelegate = self.channelDelegate else { throw makeError(message: "The channel delegate is not set") }
         guard let flowDelegate = self.flowDelegate else { throw makeError(message: "The flow delegate is not set") }
@@ -2690,32 +2769,25 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func storeCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier backgroundURLSessionIdentifier: String) {
+    public func storeCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier backgroundURLSessionIdentifier: String) throws {
         
         let flowId = FlowIdentifier()
         
-        guard let networkPostDelegate = networkPostDelegate else {
-            os_log("The network post delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        guard let networkFetchDelegate = networkFetchDelegate else {
-            os_log("The network fetch delegate is not set", log: log, type: .fault)
-            return
-        }
+        guard let networkPostDelegate = networkPostDelegate else { throw Self.makeError(message: "The network post delegate is not set") }
+        guard let networkFetchDelegate = networkFetchDelegate else { throw Self.makeError(message: "The network fetch delegate is not set") }
 
         if networkPostDelegate.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: backgroundURLSessionIdentifier) {
-            os_log("The background URLSession Identifier %{public}@ is appropriate for the Network Post Delegate", log: log, type: .info, backgroundURLSessionIdentifier)
+            os_log("🌊 The background URLSession Identifier %{public}@ is appropriate for the Network Post Delegate", log: log, type: .info, backgroundURLSessionIdentifier)
             networkPostDelegate.storeCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: backgroundURLSessionIdentifier, withinFlowId: flowId)
         }
         
         if networkFetchDelegate.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: backgroundURLSessionIdentifier) {
-            os_log("The background URLSession Identifier %{public}@ is appropriate for the Network Fetch Delegate", log: log, type: .info, backgroundURLSessionIdentifier)
+            os_log("🌊 The background URLSession Identifier %{public}@ is appropriate for the Network Fetch Delegate", log: log, type: .info, backgroundURLSessionIdentifier)
             networkFetchDelegate.processCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: backgroundURLSessionIdentifier, withinFlowId: flowId)
         }
         
         if returnReceiptSender.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: backgroundURLSessionIdentifier) {
-            os_log("The background URLSession Identifier %{public}@ is appropriate for the Return Receipt Sender", log: log, type: .info, backgroundURLSessionIdentifier)
+            os_log("🌊 The background URLSession Identifier %{public}@ is appropriate for the Return Receipt Sender", log: log, type: .info, backgroundURLSessionIdentifier)
             self.returnReceiptSender.storeCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: backgroundURLSessionIdentifier)
         }
     }
@@ -2768,14 +2840,14 @@ extension ObvEngine {
             guard let identities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
                 os_log("Could not get owned identities", log: log, type: .fault)
                 completionHandler(.failed)
-                error = NSError()
+                error = Self.makeError(message: "Could not get owned identities")
                 return
             }
             switch identities.count {
             case 0:
                 os_log("There is no owned identity", log: log, type: .error)
                 completionHandler(.failed)
-                error = NSError()
+                error = Self.makeError(message: "There is no owned identity")
             case 1:
                 ownedIdentity = identities.first!
                 do {
@@ -2788,7 +2860,7 @@ extension ObvEngine {
             default:
                 os_log("For now, we only handle the case where there one, and only one owned identity", log: log, type: .fault)
                 completionHandler(.failed)
-                error = NSError()
+                error = Self.makeError(message: "For now, we only handle the case where there one, and only one owned identity")
             }
         }
         guard error == nil else {
@@ -3034,25 +3106,26 @@ extension ObvEngine {
     }
     
     
-    public func verifyBackupKeyString(_ backupSeedString: String, completion: @escaping (Result<Void,Error>) -> Void) throws {
+    public func verifyBackupKeyString(_ backupSeedString: String) async throws -> Bool {
         
         guard let backupDelegate = self.backupDelegate else {
             os_log("The backup delegate is not set", log: log, type: .fault)
             assertionFailure()
-            throw ObvEngine.makeError(message: "Internal error")
+            throw Self.makeError(message: "Internal error")
         }
 
         let flowId = FlowIdentifier()
 
-        backupDelegate.verifyBackupKey(backupSeedString: backupSeedString, flowId: flowId, completion: completion)
+        return try await backupDelegate.verifyBackupKey(backupSeedString: backupSeedString, flowId: flowId)
         
     }
 
 
-    public func initiateBackup(forExport: Bool, requestUUID: UUID) {
+    public func initiateBackup(forExport: Bool, requestUUID: UUID) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
         let flowId = requestUUID
+        guard let backupDelegate = self.backupDelegate else { assertionFailure(); throw Self.makeError(message: "The backup delegate is not set") }
         os_log("Starting backup within flow %{public}@", log: log, type: .info, flowId.debugDescription)
-        try? backupDelegate?.initiateBackup(forExport: forExport, backupRequestIdentifier: flowId)
+        return try await backupDelegate.initiateBackup(forExport: forExport, backupRequestIdentifier: flowId)
     }
 
     
@@ -3060,7 +3133,8 @@ extension ObvEngine {
         return BackupSeed.acceptableCharacters
     }
     
-    public func recoverBackupData(_ backupData: Data, withBackupKey backupKey: String, completion: @escaping (Result<(backupRequestIdentifier: UUID, backupDate: Date),BackupRestoreError>) -> Void) throws {
+    
+    public func recoverBackupData(_ backupData: Data, withBackupKey backupKey: String) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
         
         guard let backupDelegate = self.backupDelegate else {
             assertionFailure()
@@ -3070,14 +3144,12 @@ extension ObvEngine {
         let backupRequestIdentifier = FlowIdentifier()
         os_log("Starting backup decryption with backup identifier %{public}@", log: log, type: .info, backupRequestIdentifier.debugDescription)
 
-        DispatchQueue(label: "Queue for recovering backup data").async {
-            backupDelegate.recoverBackupData(backupData, withBackupKey: backupKey, backupRequestIdentifier: backupRequestIdentifier, completion: completion)
-        }
+        return try await backupDelegate.recoverBackupData(backupData, withBackupKey: backupKey, backupRequestIdentifier: backupRequestIdentifier)
         
     }
     
     
-    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier, completionHandler: @escaping ((Result<Void,Error>) -> Void)) throws {
+    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier) async throws {
         
         os_log("Starting backup restore identified by %{public}@", log: log, type: .info, backupRequestIdentifier.debugDescription)
         
@@ -3086,9 +3158,7 @@ extension ObvEngine {
             throw makeError(message: "The backup delegate is not set")
         }
         
-        DispatchQueue(label: "Background queue for restoring a backup within the engine").async {
-            backupDelegate.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier, completionHandler: completionHandler)
-        }
+        try await backupDelegate.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier)
         
     }
     
@@ -3221,4 +3291,160 @@ public struct EngineOptionalWrapper<T> {
     public init(_ value: T?) {
         self.value = value
     }
+}
+
+
+
+// MARK: - ObvUserInterfaceChannelDelegate
+
+extension ObvEngine: ObvUserInterfaceChannelDelegate {
+ 
+    /// This method gets called when the Channel Manager notifies that a new user dialog is about to be ready to be presented to the user.
+    /// Within this method, we save a similar notification within the `PersistedEngineDialog` database.
+    /// This database is in charge of sending a notification to the App.
+    public func newUserDialogToPresent(obvChannelDialogMessageToSend: ObvChannelDialogMessageToSend, within obvContext: ObvContext) throws {
+        
+        guard let identityDelegate = identityDelegate else {
+            throw Self.makeError(message: "The identity delegate is not set")
+        }
+        
+        let obvDialog: ObvDialog
+        do {
+            
+            switch obvChannelDialogMessageToSend.channelType {
+            case .UserInterface(uuid: let uuid, ownedIdentity: let ownedCryptoIdentity, dialogType: let obvChannelDialogToSendType):
+                
+                // Construct an ObvOwnedIdentity
+                
+                let ownedIdentity: ObvOwnedIdentity
+                do {
+                    let _ownedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext)
+                    guard _ownedIdentity != nil else {
+                        os_log("Could not get the owned identity", log: log, type: .fault)
+                        return
+                    }
+                    ownedIdentity = _ownedIdentity!
+                }
+                
+                // Construct the dialog category
+                
+                let category: ObvDialog.Category
+                do {
+                    switch obvChannelDialogToSendType {
+                    
+                    case .inviteSent(contact: let contact):
+                        let urlIdentity = ObvURLIdentity(cryptoIdentity: contact.cryptoIdentity, fullDisplayName: contact.fullDisplayName)
+                        category = ObvDialog.Category.inviteSent(contactIdentity: urlIdentity)
+                    
+                    case .acceptInvite(contact: let contact):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        category = ObvDialog.Category.acceptInvite(contactIdentity: obvContactIdentity)
+                    
+                    case .invitationAccepted(contact: let contact):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        category = ObvDialog.Category.invitationAccepted(contactIdentity: obvContactIdentity)
+                    
+                    case .sasExchange(contact: let contact, sasToDisplay: let sasToDisplay, numberOfBadEnteredSas: let numberOfBadEnteredSas):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        category = ObvDialog.Category.sasExchange(contactIdentity: obvContactIdentity, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: numberOfBadEnteredSas)
+                    
+                    case .sasConfirmed(contact: let contact, sasToDisplay: let sasToDisplay, sasEntered: let sasEntered):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        category = ObvDialog.Category.sasConfirmed(contactIdentity: obvContactIdentity, sasToDisplay: sasToDisplay, sasEntered: sasEntered)
+                    
+                    case .mutualTrustConfirmed(contact: let contact):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        category = ObvDialog.Category.mutualTrustConfirmed(contactIdentity: obvContactIdentity)
+                    
+                    case .acceptMediatorInvite(contact: let contact, mediatorIdentity: let mediatorIdentity):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                        category = ObvDialog.Category.acceptMediatorInvite(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
+                        
+                    case .increaseMediatorTrustLevelRequired(contact: let contact, mediatorIdentity: let mediatorIdentity):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                        category = ObvDialog.Category.increaseMediatorTrustLevelRequired(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
+
+                    case .autoconfirmedContactIntroduction(contact: let contact, mediatorIdentity: let mediatorIdentity):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                        category = ObvDialog.Category.autoconfirmedContactIntroduction(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
+
+                    case .mediatorInviteAccepted(contact: let contact, mediatorIdentity: let mediatorIdentity):
+                        let obvContactIdentity = ObvGenericIdentity(cryptoIdentity: contact.cryptoIdentity, currentCoreIdentityDetails: contact.coreDetails)
+                        guard let obvMediatorIdentity = ObvContactIdentity(contactCryptoIdentity: mediatorIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                        category = ObvDialog.Category.mediatorInviteAccepted(contactIdentity: obvContactIdentity, mediatorIdentity: obvMediatorIdentity.getGenericIdentity())
+                    
+                    case .acceptGroupInvite(groupInformation: let groupInformation, pendingGroupMembers: let pendingMembers, receivedMessageTimestamp: _):
+                        let obvGroupMembers: Set<ObvGenericIdentity> = Set(pendingMembers.map {
+                            let obvIdentity = ObvGenericIdentity(cryptoIdentity: $0.cryptoIdentity, currentCoreIdentityDetails: $0.coreDetails)
+                            return obvIdentity
+                        })
+                        let groupOwner: ObvGenericIdentity
+                        if groupInformation.groupOwnerIdentity == ownedCryptoIdentity {
+                            guard let _groupOwner = ObvOwnedIdentity(ownedCryptoIdentity: groupInformation.groupOwnerIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                            groupOwner = _groupOwner.getGenericIdentity()
+                        } else {
+                            guard let _groupOwner = ObvContactIdentity.init(contactCryptoIdentity: groupInformation.groupOwnerIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                            groupOwner = _groupOwner.getGenericIdentity()
+                        }
+                        category = ObvDialog.Category.acceptGroupInvite(groupMembers: obvGroupMembers, groupOwner: groupOwner)
+
+                    case .increaseGroupOwnerTrustLevel(groupInformation: let groupInformation, pendingGroupMembers: _, receivedMessageTimestamp: _):
+                        let groupOwner: ObvGenericIdentity
+                        if groupInformation.groupOwnerIdentity == ownedCryptoIdentity {
+                            return // Should never happen
+                        } else {
+                            guard let _groupOwner = ObvContactIdentity(contactCryptoIdentity: groupInformation.groupOwnerIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return }
+                            groupOwner = _groupOwner.getGenericIdentity()
+                        }
+                        category = ObvDialog.Category.increaseGroupOwnerTrustLevelRequired(groupOwner: groupOwner)
+                        
+                    case .oneToOneInvitationSent(contact: let contact, ownedIdentity: let ownedIdentity):
+                        guard let obvContact = ObvContactIdentity(contactCryptoIdentity: contact, ownedCryptoIdentity: ownedIdentity, identityDelegate: identityDelegate, within: obvContext) else {
+                            assertionFailure()
+                            return
+                        }
+                        category = ObvDialog.Category.oneToOneInvitationSent(contactIdentity: obvContact.getGenericIdentity())
+                        
+                    case .oneToOneInvitationReceived(contact: let contact, ownedIdentity: let ownedIdentity):
+                        guard let obvContact = ObvContactIdentity(contactCryptoIdentity: contact, ownedCryptoIdentity: ownedIdentity, identityDelegate: identityDelegate, within: obvContext) else {
+                            assertionFailure()
+                            return
+                        }
+                        category = ObvDialog.Category.oneToOneInvitationReceived(contactIdentity: obvContact.getGenericIdentity())
+                    case .delete:
+                        // This is a special case: we simply delete any existing realted PersistedEngineDialog and return
+                        PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext)
+                        return
+                    }
+                }
+                
+                // Construct the dialog
+                
+                obvDialog = ObvDialog(uuid: uuid,
+                                      encodedElements: obvChannelDialogMessageToSend.encodedElements,
+                                      ownedCryptoId: ownedIdentity.cryptoId,
+                                      category: category)
+            default:
+                return
+            }
+        }
+        
+        // We have a dialog to present to the user, we persist it in the `PersistedEngineDialog` database. If another `PersistedEngineDialog` exist with the same UUID, it is part of the same protocol and we simply update this instance.
+        if let previousDialog = PersistedEngineDialog.get(uid: obvDialog.uuid, appNotificationCenter: appNotificationCenter, within: obvContext) {
+            do {
+                try previousDialog.update(with: obvDialog)
+            } catch {
+                os_log("Could not update PersistedEngineDialog with the new ObvDialog", log: log, type: .fault)
+                obvContext.delete(previousDialog)
+                _ = PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext)
+            }
+        } else {
+            _ = PersistedEngineDialog(with: obvDialog, appNotificationCenter: appNotificationCenter, within: obvContext)
+        }
+
+    }
+    
 }

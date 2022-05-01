@@ -1,0 +1,153 @@
+import:
+    - Foundation
+    - ObvCrypto
+    - ObvTypes
+    - OlvidUtils
+options:
+  - {key: post, value: postOnBackgroundQueue}
+  - {key: notificationCenterName, value: notificationDelegate}
+  - {key: notificationCenterType, value: ObvNotificationDelegate}
+  - {key: visibility, value: public}
+  - {key: objectInObserve, value: false}
+notifications:
+- name: serverReportedThatAnotherDeviceIsAlreadyRegistered
+  params:
+    - {name: ownedIdentity, type: ObvCryptoIdentity}
+    - {name: flowId, type: FlowIdentifier}
+- name: serverReportedThatThisDeviceWasSuccessfullyRegistered
+  params:
+    - {name: ownedIdentity, type: ObvCryptoIdentity}
+    - {name: flowId, type: FlowIdentifier}
+- name: fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive
+  params:
+    - {name: ownedIdentity, type: ObvCryptoIdentity}
+    - {name: flowId, type: FlowIdentifier}
+- name: serverRequiresThisDeviceToRegisterToPushNotifications
+  params:
+    - {name: ownedIdentity, type: ObvCryptoIdentity}
+    - {name: flowId, type: FlowIdentifier}
+- name: inboxAttachmentHasNewProgress
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: progress, type: Progress}
+  - {name: flowId, type: FlowIdentifier}
+- name: inboxAttachmentWasDownloaded
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: inboxAttachmentDownloadCancelledByServer
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: inboxAttachmentWasTakenCareOf
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: noInboxMessageToProcess
+  params:
+  - {name: flowId, type: FlowIdentifier}
+- name: newInboxMessageToProcess
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: attachmentIds, type: [AttachmentIdentifier]}
+  - {name: flowId, type: FlowIdentifier}
+- name: turnCredentialsReceived
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: callUuid, type: UUID}
+  - {name: turnCredentialsWithTurnServers, type: TurnCredentialsWithTurnServers}
+  - {name: flowId, type: FlowIdentifier}
+- name: turnCredentialsReceptionFailure
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: callUuid, type: UUID}
+  - {name: flowId, type: FlowIdentifier}
+- name: turnCredentialsReceptionPermissionDenied
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: callUuid, type: UUID}
+  - {name: flowId, type: FlowIdentifier}
+- name: turnCredentialServerDoesNotSupportCalls
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: callUuid, type: UUID}
+  - {name: flowId, type: FlowIdentifier}
+- name: cannotReturnAnyProgressForMessageAttachments
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: apiKeyStatus, type: APIKeyStatus}
+  - {name: apiPermissions, type: APIPermissions}
+  - {name: apiKeyExpirationDate, type: "Date?"}
+- name: newAPIKeyElementsForAPIKey
+  params:
+  - {name: serverURL, type: URL}
+  - {name: apiKey, type: UUID}
+  - {name: apiKeyStatus, type: APIKeyStatus}
+  - {name: apiPermissions, type: APIPermissions}
+  - {name: apiKeyExpirationDate, type: "Date?"}
+- name: newFreeTrialAPIKeyForOwnedIdentity
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: apiKey, type: UUID}
+  - {name: flowId, type: FlowIdentifier}
+- name: noMoreFreeTrialAPIKeyAvailableForOwnedIdentity
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: freeTrialIsStillAvailableForOwnedIdentity
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: appStoreReceiptVerificationFailed
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: transactionIdentifier, type: String}
+  - {name: flowId, type: FlowIdentifier}
+- name: appStoreReceiptVerificationSucceededAndSubscriptionIsValid
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: transactionIdentifier, type: String}
+  - {name: apiKey, type: UUID}
+  - {name: flowId, type: FlowIdentifier}
+- name: appStoreReceiptVerificationSucceededButSubscriptionIsExpired
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: transactionIdentifier, type: String}
+  - {name: flowId, type: FlowIdentifier}
+- name: wellKnownHasBeenUpdated
+  params:
+  - {name: serverURL, type: URL}
+  - {name: appInfo, type: "[String: AppInfo]"}
+  - {name: flowId, type: FlowIdentifier}
+- name: wellKnownHasBeenDownloaded
+  params:
+  - {name: serverURL, type: URL}
+  - {name: appInfo, type: "[String: AppInfo]"}
+  - {name: flowId, type: FlowIdentifier}
+- name: wellKnownDownloadFailure
+  params:
+  - {name: serverURL, type: URL}
+  - {name: flowId, type: FlowIdentifier}
+- name: apiKeyStatusQueryFailed
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: apiKey, type: UUID}
+- name: applicationMessageDecrypted
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: attachmentIds, type: [AttachmentIdentifier]}
+  - {name: hasEncryptedExtendedMessagePayload, type: Bool}
+  - {name: flowId, type: FlowIdentifier}
+- name: downloadingMessageExtendedPayloadWasPerformed
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: extendedMessagePayload, type: Data}
+  - {name: flowId, type: FlowIdentifier}
+- name: downloadingMessageExtendedPayloadFailed
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}

@@ -73,7 +73,7 @@ struct OwnedIdentityDetailedInfosView: View {
                             circleBackgroundColor: ownedIdentity.cryptoId.colors.background,
                             circleTextColor: ownedIdentity.cryptoId.colors.text,
                             circledTextView: circledTextView,
-                            imageSystemName: "person",
+                            systemImage: .person,
                             profilePicture: .constant(profilePicture),
                             changed: .constant(false),
                             showGreenShield: ownedIdentity.isKeycloakManaged,
@@ -128,6 +128,14 @@ struct OwnedIdentityDetailedInfosView: View {
                             case .webrtcContinuousICE:
                                 ObvSimpleListItemView(
                                     title: Text("CAPABILITY_WEBRTC_CONTINUOUS_ICE"),
+                                    value: ownedIdentity.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No)
+                            case .oneToOneContacts:
+                                ObvSimpleListItemView(
+                                    title: Text("CAPABILITY_ONE_TO_ONE_CONTACTS"),
+                                    value: ownedIdentity.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No)
+                            case .groupsV2:
+                                ObvSimpleListItemView(
+                                    title: Text("CAPABILITY_GROUPS_V2"),
                                     value: ownedIdentity.supportsCapability(capability) ? CommonString.Word.Yes : CommonString.Word.No)
                             }
                         }

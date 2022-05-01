@@ -19,30 +19,41 @@
 
 import SwiftUI
 
+enum InitialCircleViewSystemImage {
+    case lockFill
+    case person3Fill
+    case person
+
+    var icon: ObvSystemIcon {
+        switch self {
+        case .lockFill: return .lockFill
+        case .person3Fill: return .person3Fill
+        case .person: return .person
+        }
+    }
+}
 
 struct InitialCircleView: View {
 
     let circledTextView: Text?
-    let imageSystemName: String
+    let systemImage: InitialCircleViewSystemImage
     let circleBackgroundColor: UIColor?
     let circleTextColor: UIColor?
     let circleDiameter: CGFloat
 
-    init(circledTextView: Text?, imageSystemName: String, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circleDiameter: CGFloat = 70.0) {
+    init(circledTextView: Text?, systemImage: InitialCircleViewSystemImage, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circleDiameter: CGFloat = 70.0) {
         self.circledTextView = circledTextView
-        self.imageSystemName = imageSystemName
+        self.systemImage = systemImage
         self.circleBackgroundColor = circleBackgroundColor
         self.circleTextColor = circleTextColor
         self.circleDiameter = circleDiameter
     }
         
-    private var imageSystemSizeAdjustement: CGFloat {
-        switch imageSystemName {
-        case "person": return 2
-        case "person.3": return 3
-        case "person.3.fill": return 3
-        case "person.fill": return 1.8
-        default: assertionFailure(); return 1
+    private var systemImageSizeAdjustement: CGFloat {
+        switch systemImage {
+        case .person: return 2
+        case .person3Fill: return 3
+        case .lockFill: return 2
         }
     }
     
@@ -64,8 +75,8 @@ struct InitialCircleView: View {
                     .font(Font.system(size: circleDiameter/2.0, weight: .black, design: .rounded))
                     .foregroundColor(textColor)
             } else {
-                Image(systemName: imageSystemName)
-                    .font(Font.system(size: circleDiameter/imageSystemSizeAdjustement, weight: .semibold, design: .default))
+                Image(systemName: systemImage.icon.systemName)
+                    .font(Font.system(size: circleDiameter/systemImageSizeAdjustement, weight: .semibold, design: .default))
                     .foregroundColor(textColor)
             }
         }
@@ -79,7 +90,7 @@ struct InitialCircleView_Previews: PreviewProvider {
     private struct TestData: Identifiable {
         let id = UUID()
         let circledTextView: Text?
-        let imageSystemName: String
+        let systemImage: InitialCircleViewSystemImage
         let circleBackgroundColor: UIColor?
         let circleTextColor: UIColor?
         let circleDiameter: CGFloat
@@ -87,32 +98,32 @@ struct InitialCircleView_Previews: PreviewProvider {
     
     private static let testData = [
         TestData(circledTextView: Text("SV"),
-                 imageSystemName: "person",
+                 systemImage: .person,
                  circleBackgroundColor: nil,
                  circleTextColor: nil,
                  circleDiameter: 70),
         TestData(circledTextView: Text("A"),
-                 imageSystemName: "person",
+                 systemImage: .person,
                  circleBackgroundColor: .red,
                  circleTextColor: .blue,
                  circleDiameter: 70),
         TestData(circledTextView: Text("MF"),
-                 imageSystemName: "person",
+                 systemImage: .person,
                  circleBackgroundColor: nil,
                  circleTextColor: nil,
                  circleDiameter: 120),
         TestData(circledTextView: nil,
-                 imageSystemName: "person.fill",
+                 systemImage: .person,
                  circleBackgroundColor: .purple,
                  circleTextColor: .green,
                  circleDiameter: 70),
         TestData(circledTextView: nil,
-                 imageSystemName: "person.fill",
+                 systemImage: .person,
                  circleBackgroundColor: .purple,
                  circleTextColor: .green,
                  circleDiameter: 120),
         TestData(circledTextView: nil,
-                 imageSystemName: "person",
+                 systemImage: .person,
                  circleBackgroundColor: .purple,
                  circleTextColor: .green,
                  circleDiameter: 70),
@@ -122,7 +133,7 @@ struct InitialCircleView_Previews: PreviewProvider {
         Group {
             ForEach(testData) {
                 InitialCircleView(circledTextView: $0.circledTextView,
-                                  imageSystemName: $0.imageSystemName,
+                                  systemImage: $0.systemImage,
                                   circleBackgroundColor: $0.circleBackgroundColor,
                                   circleTextColor: $0.circleTextColor,
                                   circleDiameter: $0.circleDiameter)
@@ -133,7 +144,7 @@ struct InitialCircleView_Previews: PreviewProvider {
             }
             ForEach(testData) {
                 InitialCircleView(circledTextView: $0.circledTextView,
-                                  imageSystemName: $0.imageSystemName,
+                                  systemImage: $0.systemImage,
                                   circleBackgroundColor: $0.circleBackgroundColor,
                                   circleTextColor: $0.circleTextColor,
                                   circleDiameter: $0.circleDiameter)

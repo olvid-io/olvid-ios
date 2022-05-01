@@ -37,6 +37,9 @@ class ProtocolStep {
         return concreteCryptoProtocol.obvContext
     }
     
+    let identityDelegate: ObvIdentityDelegate
+    let channelDelegate: ObvChannelDelegate
+    
     init?(expectedToIdentity: ObvCryptoIdentity, expectedReceptionChannelInfo: ObvProtocolReceptionChannelInfo, receivedMessage: ConcreteProtocolMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
         
         let log = OSLog(subsystem: concreteCryptoProtocol.delegateManager.logSubsystem, category: "ProtocolStepOperation")
@@ -49,10 +52,20 @@ class ProtocolStep {
             os_log("The message's receptionChannelInfo is nil", log: log, type: .error)
             return nil
         }
-        guard let identityDelegate = concreteCryptoProtocol.delegateManager.identityDelegate else {
+        guard let _identityDelegate = concreteCryptoProtocol.delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
+            assertionFailure()
             return nil
         }
+        self.identityDelegate = _identityDelegate
+
+        guard let _channelDelegate = concreteCryptoProtocol.delegateManager.channelDelegate else {
+            os_log("The channel delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return nil
+        }
+        self.channelDelegate = _channelDelegate
+
         do {
             guard try expectedReceptionChannelInfo.accepts(receivedMessageReceptionChannelInfo, identityDelegate: identityDelegate, within: concreteCryptoProtocol.obvContext) else {
                 os_log("Unexpected receptionChannelInfo (%{public}@ does not accept %{public}@)", log: log, type: .error, expectedReceptionChannelInfo.debugDescription, receivedMessageReceptionChannelInfo.debugDescription)
@@ -69,10 +82,15 @@ class ProtocolStep {
     
     
     final func execute() {
+        let log = OSLog(subsystem: concreteCryptoProtocol.delegateManager.logSubsystem, category: "ProtocolStep")
         var newState: ConcreteProtocolState?
+        let stepDescription = String(describing: self).split(separator: ".").map({ String($0) }).last ?? String(describing: self)
         do {
+            os_log("[%{public}@] Starting step        : %{public}@", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription)
             newState = try executeStep(within: obvContext)
+            os_log("[%{public}@] Ending step          : %{public}@", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription)
         } catch {
+            os_log("[%{public}@] Ending step (throwed): %{public}@", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription)
             isCancelled = true
             return
         }
@@ -99,5 +117,9 @@ class ProtocolStep {
         return CoreProtocolMessage(channelType: .Local(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                                    cryptoProtocolId: otherCryptoProtocolId,
                                    protocolInstanceUid: otherProtocolInstanceUid)
+    }
+    
+    static func makeError(message: String) -> Error {
+        NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
     }
 }

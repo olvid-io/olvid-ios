@@ -60,9 +60,9 @@ extension InvitationsCollectionViewController {
         }
 
         struct MutualTrustConfirmed {
-            static let subtitle = NSLocalizedString("Mutual Trust Confirmed", comment: "Invitation subtitle")
+            static let subtitle = NSLocalizedString("MUTUAL_TRUST_CONFIRMED", comment: "Invitation subtitle")
             static let details = { (name: String) in
-                String.localizedStringWithFormat(NSLocalizedString("Well done! You trust %@'s identity and %@ now trusts yours back. A secure channel between you and %@ is being established. As soon as it will be, %@ will appear in your contacts. Please note that this requires %@'s device to be online.", comment: "Invitation details"), name, name, name, name, name)
+                String.localizedStringWithFormat(NSLocalizedString("MUTUAL_TRUST_CONFIRMED_DETAILS_%@", comment: "Invitation details"), name)
             }
 
         }
@@ -103,7 +103,7 @@ extension InvitationsCollectionViewController {
         struct AcceptGroupInvite {
             static let subtitle = CommonString.Title.invitationToJoinGroup
             static let details = { (groupOwnerName: String) in
-                String.localizedStringWithFormat(NSLocalizedString("You are invited to join a group created by %@. You may silently discard this invitation or accept it. In the latter case, each of the group member will appear in your contacts.", comment: "Invitation details"), groupOwnerName)
+                String.localizedStringWithFormat(NSLocalizedString("YOU_ARE_INVITED_TO_JOIN_A_GROUP_CREATED_BY_%@_EXPLANATION", comment: "Invitation details"), groupOwnerName)
             }
             static let subsubTitle = NSLocalizedString("Group Members:", comment: "Title before the list of group members.")
         }
@@ -122,6 +122,20 @@ extension InvitationsCollectionViewController {
                 String.localizedStringWithFormat(NSLocalizedString("%1$@ is inviting you to a discussion group.\n\nOlvid\'s security policy requires you to re-validate the identity of %1$@ by exchanging 4-digit codes with them.", comment: "Invitation details"), groupOwnerName)
             }
             static let buttonTitle = { (groupOwnerName: String) in String.localizedStringWithFormat(NSLocalizedString("Exchange digits with %@", comment: "Button title"), groupOwnerName) }
+        }
+        
+        struct OneToOneInvitationSent {
+            static let subtitle = NSLocalizedString("ONE_TO_ONE_INVITATION_SENT", comment: "")
+            static let details = { (contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("ONE_TO_ONE_DISCUSSION_INVITATION_SENT_TO_%@", comment: "Invitation details"), contactName)
+            }
+        }
+        
+        struct OneToOneInvitationReceived {
+            static let subtitle = NSLocalizedString("ONE_TO_ONE_INVITATION_RECEIVED", comment: "")
+            static let details = { (contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("ONE_TO_ONE_DISCUSSION_INVITATION_RECEIVED_FROM_%@", comment: "Invitation details"), contactName)
+            }
         }
 
         struct GroupCreated {

@@ -31,8 +31,6 @@ final class AppBackupCoordinator: ObvBackupable {
     private let obvEngine: ObvEngine
     private var notificationTokens = [NSObjectProtocol]()
     private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier?
-    private var currentBackupRequestUuid: UUID?
-    private weak var sourceViewForNextBackupExport: UIView?
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppBackupCoordinator.self))
 
@@ -53,6 +51,8 @@ final class AppBackupCoordinator: ObvBackupable {
     /// used when the user explicitely ask for an iCloud backup.
     private var uuidOfForcedBackupRequests = Set<UUID>()
 
+    private let interalQueue = OperationQueue.createSerialQueue(name: "AppBackupCoordinator internal queue", qualityOfService: .default)
+    
     public static var backupIdentifier: String {
         return "app" // This value is ignored by the engine
     }
@@ -77,57 +77,61 @@ final class AppBackupCoordinator: ObvBackupable {
         
     private func observeNotifications() {
         
-        let log = Self.log
+        // Internal notifications
         
-        notificationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged(queue: OperationQueue.main) { [weak self] (previousState, currentState) in            
-            if currentState.isInitializedAndActive {
-                self?.performAutomaticBackupIfRequired(forceBackup: false)
-            } else if currentState.isInitialized && previousState.iOSAppState == .active {
-                self?.performAutomaticBackupIfRequired(forceBackup: false)
-            }
-        })
-        
-        notificationTokens.append(ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (backupKeyString, backupKeyInformation) in
-            // When a new backup key is created, we immediately perform a fresh automatic backup if required
-            self?.performAutomaticBackupIfRequired(forceBackup: false)
-        })
-        
-        notificationTokens.append(ObvEngineNotificationNew.observeBackupFailed(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (backupRequestUuid) in
-            guard backupRequestUuid == self?.currentBackupRequestUuid else { return }
-            self?.endBackgroundTaskNow()
-        })
-        
-        notificationTokens.append(ObvEngineNotificationNew.observeBackupForUploadWasFinished(within: NotificationCenter.default) { [weak self] (backupRequestUuid, backupKeyUid, backupVersion, encryptedContent) in
-            guard backupRequestUuid == self?.currentBackupRequestUuid else { return }
-            do {
-                // The following method ends the task, so there is no need to call endBackgroundTaskNow here.
-                try self?.newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: backupKeyUid,
-                                                                         backupVersion: backupVersion,
-                                                                         encryptedContent: encryptedContent,
-                                                                         backupRequestUuid: backupRequestUuid)
-            } catch let error {
-                os_log("Could not process new available encrypted backup: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        })
-        
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserWantsToPerfomCloudKitBackupNow(queue: OperationQueue.main) { [weak self] in
-            self?.performAutomaticBackupIfRequired(forceBackup: true)
-        })
-        
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserWantsToPerfomBackupForExportNow(queue: OperationQueue.main) { [weak self] (sourceView) in
-            self?.sourceViewForNextBackupExport = sourceView
-            _ = self?.obvEngine.initiateBackup(forExport: true, requestUUID: UUID())
-        })
-        
-        notificationTokens.append(ObvEngineNotificationNew.observeBackupForExportWasFinished(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (backupRequestUuid, backupKeyUid, backupVersion, encryptedContent) in
-            self?.newEncryptedBackupAvailableForExport(backupKeyUid: backupKeyUid, backupVersion: backupVersion, encryptedContent: encryptedContent)
-        })
+        notificationTokens.append(contentsOf: [
+            ObvMessengerInternalNotification.observeAppStateChanged(queue: interalQueue) { [weak self] (previousState, currentState) in
+                if currentState.isInitializedAndActive {
+                    self?.performBackupToCloudKit(manuallyRequestByUser: false)
+                } else if currentState.isInitialized && previousState.iOSAppState == .active {
+                    self?.performBackupToCloudKit(manuallyRequestByUser: false)
+                }
+            },
+            ObvMessengerInternalNotification.observeUserWantsToPerfomBackupForExportNow(queue: interalQueue) { [weak self] (sourceView) in
+                self?.processUserWantsToPerfomBackupForExportNow(sourceView: sourceView)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToPerfomCloudKitBackupNow(queue: interalQueue) { [weak self] in
+                self?.performBackupToCloudKit(manuallyRequestByUser: true)
+            },
+            ObvMessengerInternalNotification.observeIncrementalCleanBackupInProgress(queue: OperationQueue.main) { currentCount, cleanAllDevices in
+                Self.cleanPreviousICloudBackupsThenLogResult(currentCount: currentCount, cleanAllDevices: cleanAllDevices)
+            },
+        ])
 
-        notificationTokens.append(ObvMessengerInternalNotification.observeIncrementalCleanBackupInProgress(queue: OperationQueue.main) { currentCount, cleanAllDevices in
-            Self.cleanPreviousICloudBackupsThenLogResult(currentCount: currentCount,
-                                                         cleanAllDevices: cleanAllDevices)
-        })
+        // Engine notifications
+        
+        notificationTokens.append(contentsOf: [
+            ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default, queue: interalQueue) { [weak self] (backupKeyString, backupKeyInformation) in
+                // When a new backup key is created, we immediately perform a fresh automatic backup if required
+                self?.performBackupToCloudKit(manuallyRequestByUser: false)
+            },
+        ])
+
     }
+    
+}
+
+
+// MARK: - Requesting backup for export
+
+extension AppBackupCoordinator {
+    
+    
+    private func processUserWantsToPerfomBackupForExportNow(sourceView: UIView) {
+        Task {
+            do {
+                let (backupKeyUid, backupVersion, encryptedContent) = try await obvEngine.initiateBackup(forExport: true, requestUUID: UUID())
+                DispatchQueue.main.async { [weak self] in
+                    self?.newEncryptedBackupAvailableForExport(backupKeyUid: backupKeyUid, backupVersion: backupVersion, encryptedContent: encryptedContent, sourceView: sourceView)
+                }
+            } catch {
+                /// If the backup fails we do nothing. We probably should since, in practice, the user will see a never ending spinner.
+                os_log("The backup failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                return
+            }
+        }
+    }
+    
     
 }
 
@@ -137,45 +141,66 @@ final class AppBackupCoordinator: ObvBackupable {
 extension AppBackupCoordinator {
     
     private func endBackgroundTaskNow() {
-        guard let identifier = backgroundTaskIdentifier else { assertionFailure(); return }
-        self.backgroundTaskIdentifier = nil
-        self.currentBackupRequestUuid = nil
-        os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: Self.log, type: .info, identifier.rawValue)
-        UIApplication.shared.endBackgroundTask(identifier)
+        interalQueue.addOperation { [weak self] in
+            guard let _self = self else { return }
+            guard let backgroundTaskIdentifier = _self.backgroundTaskIdentifier else { assertionFailure(); return }
+            _self.backgroundTaskIdentifier = nil
+            os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue)
+            UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
+        }
     }
     
     
-    private func performAutomaticBackupIfRequired(forceBackup: Bool) {
-        let log = Self.log
+    private func performBackupToCloudKit(manuallyRequestByUser: Bool) {
+        assert(OperationQueue.current == interalQueue)
+        os_log("Call to performBackupToICloud with manuallyRequestByUser: %{public}@. The current background task identifier is %{public}@", log: Self.log, type: .info, manuallyRequestByUser.description, backgroundTaskIdentifier.debugDescription)
         guard backgroundTaskIdentifier == nil else { return }
         // Check whether automatic backups are requested
-        guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || forceBackup else {
-            os_log("A backup key is available, but since automatic backup are not requested, and since we are not considering a manual backup, we do not perform an backup to the cloud", log: log, type: .info)
+        guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || manuallyRequestByUser else {
+            os_log("A backup key is available, but since automatic backup are not requested, and since we are not considering a manual backup, we do not perform an backup to the cloud", log: Self.log, type: .info)
             return
         }
         backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: "Olvid Automatic Backup") {
-            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: log, type: .fault)
+            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: Self.log, type: .fault)
             return
         }
-        os_log("Starting background task for automatic backup with background task idenfier: %{public}d", log: log, type: .info, backgroundTaskIdentifier!.rawValue)
-        guard (obvEngine.isBackupRequired || forceBackup) && currentBackupRequestUuid == nil else {
+        os_log("Starting background task for automatic backup with background task idenfier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier!.rawValue)
+        guard (obvEngine.isBackupRequired || manuallyRequestByUser) else {
             endBackgroundTaskNow()
             return
         }
         // If we reach this point, we should try to perform a backup
-        // Will eventually receive a BackupFailed or a BackupForUploadWasFinished notification.
-        os_log("Initiating automatic backup to CloudKit", log: log, type: .info)
-        let currentBackupRequestUuid = UUID()
-        if forceBackup {
-            uuidOfForcedBackupRequests.insert(currentBackupRequestUuid)
+        
+        Task(priority: manuallyRequestByUser ? .userInitiated : .background) {
+            do {
+                let backupRequestUuid = UUID()
+                let (backupKeyUid, version, encryptedContent) = try await obvEngine.initiateBackup(forExport: false, requestUUID: backupRequestUuid)
+                interalQueue.addOperation { [weak self] in
+                    do {
+                        try self?.newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: backupKeyUid,
+                                                                                 backupVersion: version,
+                                                                                 encryptedContent: encryptedContent,
+                                                                                 backupRequestUuid: backupRequestUuid,
+                                                                                 manuallyRequestByUser: manuallyRequestByUser)
+                    } catch {
+                        os_log("Failed to perform automatic backup: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                        self?.endBackgroundTaskNow()
+                        assertionFailure()
+                        return
+                    }
+                }
+            } catch {
+                os_log("Failed to perform automatic backup: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                endBackgroundTaskNow()
+                assertionFailure()
+                return
+            }
         }
-        self.currentBackupRequestUuid = currentBackupRequestUuid
-        obvEngine.initiateBackup(forExport: false, requestUUID: currentBackupRequestUuid)
     }
     
     
-    private func newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, backupRequestUuid: UUID) throws {
-        assert(Thread.current != Thread.main)
+    private func newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, backupRequestUuid: UUID, manuallyRequestByUser: Bool) throws {
+        assert(OperationQueue.current == interalQueue)
         let log = Self.log
         os_log("New encrypted available for upload to CloudKit", log: log, type: .info)
         let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: log)
@@ -192,7 +217,7 @@ extension AppBackupCoordinator {
                 self?.endBackgroundTaskNow()
                 return
             }
-            self?.uploadBackupFileToCloudKit(backupFile: backupFile, container: container, backupRequestUuid: backupRequestUuid)
+            self?.uploadBackupFileToCloudKit(backupFile: backupFile, container: container, backupRequestUuid: backupRequestUuid, manuallyRequestByUser: manuallyRequestByUser)
 
             if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
                 Self.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
@@ -201,7 +226,7 @@ extension AppBackupCoordinator {
     }
 
     
-    private func uploadBackupFileToCloudKit(backupFile: BackupFile, container: CKContainer, backupRequestUuid: UUID) {
+    private func uploadBackupFileToCloudKit(backupFile: BackupFile, container: CKContainer, backupRequestUuid: UUID, manuallyRequestByUser: Bool) {
         
         let log = Self.log
         os_log("Will upload backup to CloudKit", log: log, type: .info)
@@ -229,7 +254,7 @@ extension AppBackupCoordinator {
         let privateDatabase = container.privateCloudDatabase
         
         // Last chance to check whether automatic backup are enabled or if the backup was manually requested (i.e., forced).
-        guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || uuidOfForcedBackupRequests.contains(backupRequestUuid) else {
+        guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || manuallyRequestByUser else {
             os_log("We cancel the backup upload to iCloud since automatic backups are disabled and since this backup was not manually requested.", log: log, type: .error)
             assertionFailure()
             return
@@ -650,14 +675,11 @@ extension AppBackupCoordinator {
 
 extension AppBackupCoordinator {
     
-    private func newEncryptedBackupAvailableForExport(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data) {
+    private func newEncryptedBackupAvailableForExport(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, sourceView: UIView) {
         assert(Thread.isMainThread)
         
         guard let vcDelegate = self.vcDelegate else { assertionFailure(); return }
-        
-        guard let sourceView = self.sourceViewForNextBackupExport else { assertionFailure(); return }
-        self.sourceViewForNextBackupExport = nil
-        
+                
         let log = Self.log
         
         let backupFile: BackupFile
@@ -776,34 +798,29 @@ extension CKRecord {
 
 extension AppBackupCoordinator {
     
-    func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier, _ completionHandler: @escaping (Result<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) -> Void) {
-        ObvStack.shared.performBackgroundTask { context in
-            let ownedIdentities: [PersistedObvOwnedIdentity]
+    func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) in
             do {
-                ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: context)
-            } catch {
-                completionHandler(.failure(error))
-                return
-            }
-            let appBackupItem = AppBackupItem(ownedIdentities: ownedIdentities)
-            let jsonEncoder = JSONEncoder()
-            let internalData: String
-            do {
-                let data = try jsonEncoder.encode(appBackupItem)
-                guard let json = String(data: data, encoding: .utf8) else {
-                    throw AppBackupCoordinator.makeError(message: "Could not convert json to UTF8 string during app backup")
+                try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { context in
+                    let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: context)
+                    let appBackupItem = AppBackupItem(ownedIdentities: ownedIdentities)
+                    let jsonEncoder = JSONEncoder()
+                    let data = try jsonEncoder.encode(appBackupItem)
+                    guard let internalData = String(data: data, encoding: .utf8) else {
+                        throw Self.makeError(message: "Could not convert json to UTF8 string during app backup")
+                    }
+                    continuation.resume(returning: (internalData, AppBackupCoordinator.backupIdentifier, .app))
                 }
-                internalData = json
-            } catch let error {
-                completionHandler(.failure(error))
-                return
+            } catch {
+                continuation.resume(throwing: error)
             }
-            completionHandler(.success((internalData, AppBackupCoordinator.backupIdentifier, .app)))
         }
+        
     }
-
-
-    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String, _ completionHandler: @escaping (Error?) -> Void) {
+ 
+    
+    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String) async throws {
         
         // This is called when all the engine data have been restored. We can thus start the restore of app backuped data.
         
@@ -811,70 +828,73 @@ extension AppBackupCoordinator {
         
         let log = AppBackupCoordinator.log
         
-        ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine { result in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+         
+            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine { result in
 
-            switch result {
+                switch result {
 
-            case .failure(let error):
-                completionHandler(error)
-                return
-                
-            case .success:
-
-                // The app database is in sync with the engine database.
-                // We can use the backuped data so as to "update" certain app database objects.
-                // We first need to parse the internal json
-                
-                let internalJsonData = internalJson.data(using: .utf8)!
-                let jsonDecoder = JSONDecoder()
-                let appBackupItem: AppBackupItem
-                do {
-                    appBackupItem = try jsonDecoder.decode(AppBackupItem.self, from: internalJsonData)
-                } catch {
-                    // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
-                    assertionFailure()
-                    completionHandler(nil)
+                case .failure(let error):
+                    continuation.resume(throwing: error)
                     return
-                }
+                    
+                case .success:
 
-                // Step 1: update all owned identities, contacts, and groups
-                
-                if let ownedIdentityBackupItems = appBackupItem.ownedIdentities {
-                    ObvStack.shared.performBackgroundTaskAndWait { context in
-                        
-                        ownedIdentityBackupItems.forEach { ownedIdentityBackupItem in
-                            do {
-                                try ownedIdentityBackupItem.updateExistingInstance(within: context)
-                            } catch {
-                                os_log("One of the app backup item could not be fully restored: %{public}@", log: log, type: .fault, error.localizedDescription)
-                                assertionFailure()
-                                // Continue anyway
-                            }
-                        }
-                        
-                        do {
-                            try context.save(logOnFailure: AppBackupCoordinator.log)
-                        } catch {
-                            // Although we did not succeed to restore the app backup, we consider its ok (for now)
-                            assertionFailure(error.localizedDescription)
-                            return
-                        }
-
+                    // The app database is in sync with the engine database.
+                    // We can use the backuped data so as to "update" certain app database objects.
+                    // We first need to parse the internal json
+                    
+                    let internalJsonData = internalJson.data(using: .utf8)!
+                    let jsonDecoder = JSONDecoder()
+                    let appBackupItem: AppBackupItem
+                    do {
+                        appBackupItem = try jsonDecoder.decode(AppBackupItem.self, from: internalJsonData)
+                    } catch {
+                        // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
+                        assertionFailure()
+                        continuation.resume()
+                        return
                     }
+
+                    // Step 1: update all owned identities, contacts, and groups
+                    
+                    if let ownedIdentityBackupItems = appBackupItem.ownedIdentities {
+                        ObvStack.shared.performBackgroundTaskAndWait { context in
+                            
+                            ownedIdentityBackupItems.forEach { ownedIdentityBackupItem in
+                                do {
+                                    try ownedIdentityBackupItem.updateExistingInstance(within: context)
+                                } catch {
+                                    os_log("One of the app backup item could not be fully restored: %{public}@", log: log, type: .fault, error.localizedDescription)
+                                    assertionFailure()
+                                    // Continue anyway
+                                }
+                            }
+                            
+                            do {
+                                try context.save(logOnFailure: AppBackupCoordinator.log)
+                            } catch {
+                                // Although we did not succeed to restore the app backup, we consider its ok (for now)
+                                assertionFailure(error.localizedDescription)
+                                return
+                            }
+
+                        }
+                    }
+                    
+                    // Step 2: Update the app global configuration
+                    
+                    appBackupItem.globalSettings.updateExistingObvMessengerSettings()
+                    
+                    // We restored the app data, we can call the completion handler
+                    
+                    continuation.resume()
+                    
                 }
                 
-                // Step 2: Update the app global configuration
-                
-                appBackupItem.globalSettings.updateExistingObvMessengerSettings()
-                
-                // We restored the app data, we can call the completion handler
-                
-                completionHandler(nil)
-                
-            }
-            
-        }.postOnDispatchQueue(DispatchQueue(label: "Queue for posting a requestSyncAppDatabasesWithEngine notification"))
-        
+            }.postOnDispatchQueue(DispatchQueue(label: "Queue for posting a requestSyncAppDatabasesWithEngine notification"))
+
+        }
         
     }
 

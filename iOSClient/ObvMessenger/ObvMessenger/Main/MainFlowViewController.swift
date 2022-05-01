@@ -133,7 +133,7 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                 }
                 return
             }
-            let contactCount = (try? PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, within: context))?.count
+            let contactCount = try? PersistedObvContactIdentity.countContactsOfOwnedIdentity(ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: context)
             guard contactCount == 0 else {
                 DispatchQueue.main.async { [weak self] in
                     self?.mainTabBarController.selectedIndex = ChildTypes.contacts
@@ -159,7 +159,7 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         observeCallHasBeenUpdated()
 
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeOwnedIdentityWasDeactivated(queue: .main) { [weak self] _ in
+            ObvMessengerCoreDataNotification.observeOwnedIdentityWasDeactivated(queue: .main) { [weak self] _ in
                 self?.presentOwnedIdentityIsNotActiveViewControllerIfRequired()
             },
             ObvMessengerInternalNotification.observeAppStateChanged(queue: .main) { [weak self] (previousState, currentState) in
@@ -209,6 +209,9 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                         UIApplication.shared.open(appSettings, options: [:])
                     case .upgradeIOS:
                         break
+                    case .newerAppVersionAvailable:
+                        guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
+                        UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
                     }
                 }
             },
@@ -220,6 +223,9 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
                     case .upgradeIOS:
+                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
+                            .postOnDispatchQueue()
+                    case .newerAppVersionAvailable:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
                     }
@@ -495,6 +501,31 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
                     }
                 }
             }
+            return
+        }
+        guard (ObvMessengerSettings.AppVersionAvailable.minimum ?? 0) <= ObvMessengerConstants.bundleVersionAsInt else {
+            let vc = OlvidAlertViewController()
+            vc.configure(
+                title: Strings.AlertInstalledAppIsOutDated.title,
+                body: Strings.AlertInstalledAppIsOutDated.body,
+                primaryActionTitle: Strings.AlertInstalledAppIsOutDated.primaryActionTitle,
+                primaryAction: {
+                    guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
+                    UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
+                },
+                secondaryActionTitle: CommonString.Word.Later,
+                secondaryAction: { [weak self] in
+                    self?.dismissPresentedViewController()
+                })
+            vc.modalPresentationStyle = .pageSheet
+            if #available(iOS 15, *) {
+                if let sheet = vc.sheetPresentationController {
+                    sheet.detents = [.large()]
+                    sheet.prefersGrabberVisible = true
+                    sheet.preferredCornerRadius = 16.0
+                }
+            }
+            self.present(vc, animated: true)
             return
         }
     }
@@ -886,8 +917,10 @@ extension MainFlowViewController {
         }
         let ownedIdentity = ownedIdentities.first!
         
+        let contactIds = contacts.map({ OlvidUserId.known(contactObjectID: $0.typedObjectID, ownCryptoId: ownedIdentity.cryptoId, remoteCryptoId: $0.cryptoId, displayName: $0.fullDisplayName) })
+        
         if ownedIdentity.apiPermissions.contains(.canCall) {
-            ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIDs: contactIDs, groupId: groupId)
+            ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIds: contactIds, groupId: groupId)
                 .postOnDispatchQueue()
         } else {
             if #available(iOS 13, *) {
@@ -897,7 +930,7 @@ extension MainFlowViewController {
                 }
             } else {
                 // Under iOS 11 and 12, we send the user directely to the call view. The call will fail.
-                ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIDs: contactIDs, groupId: groupId)
+                ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIds: contactIds, groupId: groupId)
                     .postOnDispatchQueue()
             }
         }
@@ -927,7 +960,13 @@ extension MainFlowViewController {
 
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Call, systemIcon: .phoneFill)
 
-            let vc = MultipleContactsViewController(ownedCryptoId: ownedIdentity.cryptoId, mode: .restricted(to: contactCryptoIds), button: button, defaultSelectedContacts: Set(contacts), disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, selectionStyle: .checkmark) { selectedContacts in
+            let vc = MultipleContactsViewController(ownedCryptoId: ownedIdentity.cryptoId,
+                                                    mode: .restricted(to: contactCryptoIds, oneToOneStatus: .any),
+                                                    button: button, defaultSelectedContacts: Set(contacts),
+                                                    disableContactsWithoutDevice: true,
+                                                    allowMultipleSelection: true,
+                                                    showExplanation: false,
+                                                    selectionStyle: .checkmark) { selectedContacts in
 
                 ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: selectedContacts.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
 
@@ -958,7 +997,7 @@ extension MainFlowViewController {
     }
 
     private func observeCallHasBeenUpdated() {
-        observationTokens.append(ObvMessengerInternalNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] call, updateKind in
+        observationTokens.append(VoIPNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] call, updateKind in
             guard case .state(let newState) = updateKind else { return }
             guard newState == .kicked else { return }
 
@@ -1713,6 +1752,12 @@ extension MainFlowViewController {
             static let message = { (contactName: String) in
                 String.localizedStringWithFormat(NSLocalizedString("MISSING_CHANNEL_FOR_CALL_MESSAGE_%@", comment: "Alert message"), contactName)
             }
+        }
+        
+        struct AlertInstalledAppIsOutDated {
+            static let title = NSLocalizedString("INSTALLED_APP_IS_OUTDATED_ALERT_TITLE", comment: "Alert title")
+            static let body = NSLocalizedString("INSTALLED_APP_IS_OUTDATED_ALERT_BODY", comment: "Alert title")
+            static let primaryActionTitle = NSLocalizedString("UPGRADE_NOW", comment: "Alert title")
         }
         
     }

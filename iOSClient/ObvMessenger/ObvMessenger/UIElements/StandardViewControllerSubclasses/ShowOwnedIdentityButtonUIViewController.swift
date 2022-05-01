@@ -27,6 +27,9 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
     let ownedCryptoId: ObvCryptoId
     let log: OSLog
     private let titleLabel = UILabel()
+
+    private var viewDidLoadWasCalled = false
+    private var barButtonItemToShowInsteadOfOwnedIdentityButton: UIBarButtonItem? = nil
     
     init(ownedCryptoId: ObvCryptoId, logCategory: String) {
         self.ownedCryptoId = ownedCryptoId
@@ -48,31 +51,44 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
         }
     }
     
+    
+    func replaceOwnedIdentityButton(byIcon icon: ObvSystemIcon, target: Any, action: Selector) {
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemIcon: icon, withConfiguration: symbolConfiguration)
+        let barButtonItem = UIBarButtonItem(image: image, style: .plain, target: target, action: action)
+        barButtonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+        barButtonItemToShowInsteadOfOwnedIdentityButton = barButtonItem
+        if viewDidLoadWasCalled {
+            self.navigationItem.leftBarButtonItem = barButtonItem
+        }
+    }
+    
+    
+    private func makeOwnedIdentityButton() -> UIBarButtonItem {
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemIcon: .personCropCircle, withConfiguration: symbolConfiguration)
+        let barButtonItem = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(ownedCircledInitialsBarButtonItemWasTapped))
+        barButtonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+        return barButtonItem
+    }
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        viewDidLoadWasCalled = true
         
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = UIFont.systemFont(ofSize: 20.0, weight: .heavy)
         titleLabel.text = self.title
         self.navigationItem.titleView = titleLabel
-        if #available(iOS 13, *) {
-            if let appearance = self.navigationController?.navigationBar.standardAppearance.copy() {
-                appearance.configureWithTransparentBackground()
-                appearance.shadowColor = .clear
-                appearance.backgroundEffect = UIBlurEffect(style: .regular)
-                navigationItem.standardAppearance = appearance
-            }
+        if let appearance = self.navigationController?.navigationBar.standardAppearance.copy() {
+            appearance.configureWithTransparentBackground()
+            appearance.shadowColor = .clear
+            appearance.backgroundEffect = UIBlurEffect(style: .regular)
+            navigationItem.standardAppearance = appearance
         }
 
-        let barButtonItem: UIBarButtonItem
-        if #available(iOS 13, *) {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "person.crop.circle", withConfiguration: symbolConfiguration)
-            barButtonItem = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(ownedCircledInitialsBarButtonItemWasTapped))
-        } else {
-            barButtonItem = UIBarButtonItem(title: NSLocalizedString("My Id", comment: ""), style: .done, target: self, action: #selector(ownedCircledInitialsBarButtonItemWasTapped))
-        }
-        barButtonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+        let barButtonItem = barButtonItemToShowInsteadOfOwnedIdentityButton ?? makeOwnedIdentityButton()
         self.navigationItem.leftBarButtonItem = barButtonItem
 
     }

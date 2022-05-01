@@ -67,7 +67,7 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
 
             for participantId in callReport.participantInfos {
                 if let participantId = participantId,
-                   let contactIdentity = try? PersistedObvContactIdentity.get(objectID: participantId.contactID, within: context) {
+                   let contactIdentity = try? PersistedObvContactIdentity.get(objectID: participantId.contactObjectID, within: context) {
                     if let logContact = item.logContacts.first(where: { $0.contactIdentity?.cryptoId == contactIdentity.cryptoId }) {
                         // Update the current contact with the last report.
                         logContact.callReportKind = callReportKind

@@ -36,7 +36,7 @@ final class PersistedMessageSystem: PersistedMessage {
 
     private static let errorDomain = "PersistedMessageSystem"
     
-    private static func makeError(message: String) -> Error {
+    static func makeError(message: String) -> Error {
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
@@ -143,7 +143,13 @@ final class PersistedMessageSystem: PersistedMessage {
     @NSManaged private(set) var optionalCallLogItem: PersistedCallLogItem?
 
     // MARK: - Computed variables
-    
+
+    override var kind: PersistedMessageKind { .system }
+
+    override var isNumberOfNewMessagesMessageSystem: Bool {
+        return category == .numberOfNewMessages
+    }
+
     var category: Category {
         get {
             return Category(rawValue: self.rawCategory)!
@@ -355,6 +361,10 @@ extension PersistedMessageSystem {
         
         guard category != .numberOfNewMessages else { assertionFailure(); throw PersistedMessageSystem.makeError(message: "Inappropriate initializer called") }
         
+        if category != .discussionIsEndToEndEncrypted && discussion.messages.isEmpty {
+            try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: true)
+        }
+        
         // If we received a timestamp from server, we use it to compute the sort index.
         // Otherwise, we place the system message at the very bottom of the discussion.
         let sortIndex: Double
@@ -385,53 +395,11 @@ extension PersistedMessageSystem {
         
         discussion.lastSystemMessageSequenceNumber = self.senderSequenceNumber
     }
-    
-    
-    /// This initialiser is specific to `numberOfNewMessages` system messages
-    ///
-    /// - Parameter discussion: The persisted discussion in which a `numberOfNewMessages` should be added
-    private convenience init?(discussion: PersistedDiscussion) throws {
-        
-        assert(Thread.isMainThread)
-        
-        guard let context = discussion.managedObjectContext else {
-            assertionFailure()
-            throw PersistedMessageSystem.makeError(message: "Could not find context")
-        }
-        
-        guard context.concurrencyType == NSManagedObjectContextConcurrencyType.mainQueueConcurrencyType else {
-            assertionFailure()
-            throw PersistedMessageSystem.makeError(message: "The number of message system message should exclusively be created on the main thread")
-        }
-        
-        guard let (sortIndexForFirstNewMessageLimit, numberOfNewMessages) = discussion.appropriateSortIndexAndNumberOfNewMessagesForNewMessagesSystemMessage else {
-            return nil
-        }
-        
-        try self.init(timestamp: Date.distantPast,
-                      body: nil,
-                      rawStatus: MessageStatus.read.rawValue,
-                      senderSequenceNumber: 0,
-                      sortIndex: sortIndexForFirstNewMessageLimit,
-                      isReplyToAnotherMessage: false,
-                      replyTo: nil,
-                      discussion: discussion,
-                      readOnce: false,
-                      visibilityDuration: nil,
-                      forEntityName: PersistedMessageSystem.entityName)
-        
-        self.rawCategory = Category.numberOfNewMessages.rawValue
-        self.associatedData = nil
-        self.optionalContactIdentity = nil
-        
-        self.numberOfUnreadReceivedMessages = numberOfNewMessages
-
-    }
 
     /// This initialiser is specific to `numberOfNewMessages` system messages
     ///
     /// - Parameter discussion: The persisted discussion in which a `numberOfNewMessages` should be added
-    private convenience init(discussion: PersistedDiscussion, sortIndexForFirstNewMessageLimit: Double, timestamp: Date, numberOfNewMessages: Int) throws {
+    convenience init(discussion: PersistedDiscussion, sortIndexForFirstNewMessageLimit: Double, timestamp: Date, numberOfNewMessages: Int) throws {
         
         assert(Thread.isMainThread)
         
@@ -464,25 +432,6 @@ extension PersistedMessageSystem {
         self.numberOfUnreadReceivedMessages = numberOfNewMessages
 
     }
-
-    
-    static func insertNumberOfNewMessagesSystemMessage(within discussion: PersistedDiscussion) throws -> PersistedMessageSystem? {
-        assert(Thread.isMainThread)
-        guard let context = discussion.managedObjectContext else {
-            throw makeError(message: "Could not find appropriate NSManagedObjectContext within discussion object")
-        }
-        guard context.concurrencyType == NSManagedObjectContextConcurrencyType.mainQueueConcurrencyType else {
-            assertionFailure()
-            throw makeError(message: "insertNumberOfNewMessagesSystemMessage should be called on the main thread")
-        }
-        if let message = try PersistedMessageSystem(discussion: discussion) {
-            context.insert(message)
-            return message
-        } else {
-            return nil
-        }
-    }
-    
     
     static func insertOrUpdateNumberOfNewMessagesSystemMessage(within discussion: PersistedDiscussion, timestamp: Date, sortIndex: Double, appropriateNumberOfNewMessages: Int) throws -> PersistedMessageSystem? {
         assert(Thread.isMainThread)
@@ -678,7 +627,7 @@ extension PersistedMessageSystem {
     }
 
     static func countNew(within discussion: PersistedDiscussion) throws -> Int {
-        guard let context = discussion.managedObjectContext else { throw NSError() }
+        guard let context = discussion.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isNew,
@@ -782,7 +731,7 @@ extension PersistedMessageSystem {
                 assertionFailure()
                 return
             }
-            ObvMessengerInternalNotification.persistedMessageSystemWasDeleted(objectID: objectID, discussionObjectID: discussionObjectID)
+            ObvMessengerCoreDataNotification.persistedMessageSystemWasDeleted(objectID: objectID, discussionObjectID: discussionObjectID)
                 .postOnDispatchQueue()
         }
     }

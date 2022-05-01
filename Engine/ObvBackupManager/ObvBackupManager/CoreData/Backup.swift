@@ -290,16 +290,7 @@ extension Backup {
             case .ongoing:
                 notification = nil
             case .ready:
-                if let successfulBackupInfos = successfulBackupInfos {
-                    if successfulBackupInfos.forExport {
-                        notification = ObvBackupNotification.backupForExportWasFinished(backupKeyUid: successfulBackupInfos.backupKeyUid, version: successfulBackupInfos.version, encryptedContent: successfulBackupInfos.encryptedContentRaw, flowId: flowId)
-                    } else {
-                        notification = ObvBackupNotification.backupForUploadWasFinished(backupKeyUid: successfulBackupInfos.backupKeyUid, version: successfulBackupInfos.version, encryptedContent: successfulBackupInfos.encryptedContentRaw, flowId: flowId)
-                    }
-                } else {
-                    assertionFailure()
-                    notification = ObvBackupNotification.backupFailed(flowId: flowId)
-                }
+                notification = nil
             case .exported:
                 if let successfulBackupInfos = successfulBackupInfos {
                     notification = ObvBackupNotification.backupForExportWasExported(backupKeyUid: successfulBackupInfos.backupKeyUid, version: successfulBackupInfos.version, flowId: flowId)
@@ -315,9 +306,9 @@ extension Backup {
                     assertionFailure()
                 }
             case .failed:
-                notification = ObvBackupNotification.backupFailed(flowId: flowId)
+                notification = nil
             }
-            notification?.postOnDispatchQueue(withLabel: "Queue for posting a Backup status changed notification", within: notificationDelegate)
+            notification?.postOnBackgroundQueue(within: notificationDelegate)
         }
         
     }

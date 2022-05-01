@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: WipeExpiredMessagesOperation.self))
 
     let launchedByBackgroundTask: Bool
     
@@ -122,12 +122,12 @@ final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonF
                     
                     for discussionUriRepresentation in wipedMessageInfos.map({ $0.discussionUriRepresentation }) {
                         let messageUriRepresentations = Set(wipedMessageInfos.filter({ $0.discussionUriRepresentation == discussionUriRepresentation }).map({ $0.messageUriRepresentation }))
-                        ObvMessengerInternalNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+                        ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
                             .postOnDispatchQueue()
                     }
                     for discussionUriRepresentation in deletedMessageInfos.map({ $0.discussionUriRepresentation }) {
                         let messageUriRepresentations = Set(deletedMessageInfos.filter({ $0.discussionUriRepresentation == discussionUriRepresentation }).map({ $0.messageUriRepresentation }))
-                        ObvMessengerInternalNotification.persistedMessagesWereDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+                        ObvMessengerCoreDataNotification.persistedMessagesWereDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
                             .postOnDispatchQueue()
                     }
 

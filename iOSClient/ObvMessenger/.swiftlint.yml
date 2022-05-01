@@ -34,7 +34,7 @@ disabled_rules:
   - unused_setter_value
 custom_rules:
   commented_code:
-    regex: '(?<!:|\/)\/\/\h*[a-z.](?!wiftlint)'
+    regex: '\n\h*(?<!:|\/)\/\/\h*[a-z.](?!wiftlint)'
     message: "Comment starting with lowercase letter - did you forget to delete old code?"
   multiline_commented_code:
     regex: '^\s*[a-z]'

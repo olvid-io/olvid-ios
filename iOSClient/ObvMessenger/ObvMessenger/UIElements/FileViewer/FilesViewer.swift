@@ -27,7 +27,7 @@ import QuickLook
 
 final class FilesViewer: NSObject {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: FilesViewer.self))
     
     /// Empty when using the initialiser using hard links
     let shownFyleMessageJoins: [FyleMessageJoinWithStatus]

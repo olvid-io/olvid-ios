@@ -24,29 +24,38 @@ import ObvEngine
 import OlvidUtils
 
 
+protocol UnprocessedPersistedMessageSentProvider: Operation {
+    var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>? { get }
+}
+
+protocol ExtendedPayloadProvider: Operation {
+    var extendedPayload: Data? { get }
+}
+
+
 final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWithSpecificReasonForCancel<SendUnprocessedPersistedMessageSentOperationReasonForCancel> {
     
-    private let persistedMessageSentObjectID: NSManagedObjectID?
-    private let op: CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation?
-    private let extendedPayloadOp: ComputeExtendedPayloadOperation
+    private let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private let unprocessedPersistedMessageSentProvider: UnprocessedPersistedMessageSentProvider?
+    private let extendedPayloadProvider: ExtendedPayloadProvider?
     private let obvEngine: ObvEngine
     private let completionHandler: (() -> Void)?
 
-    init(persistedMessageSentObjectID: NSManagedObjectID, extendedPayloadOp: ComputeExtendedPayloadOperation, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
+    init(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
         self.persistedMessageSentObjectID = persistedMessageSentObjectID
-        self.op = nil
+        self.unprocessedPersistedMessageSentProvider = nil
         self.obvEngine = obvEngine
         self.completionHandler = completionHandler
-        self.extendedPayloadOp = extendedPayloadOp
+        self.extendedPayloadProvider = extendedPayloadProvider
         super.init()
     }
 
-    init(op: CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation, extendedPayloadOp: ComputeExtendedPayloadOperation, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
+    init(unprocessedPersistedMessageSentProvider: UnprocessedPersistedMessageSentProvider, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
         self.persistedMessageSentObjectID = nil
-        self.op = op
+        self.unprocessedPersistedMessageSentProvider = unprocessedPersistedMessageSentProvider
         self.obvEngine = obvEngine
         self.completionHandler = completionHandler
-        self.extendedPayloadOp = extendedPayloadOp
+        self.extendedPayloadProvider = extendedPayloadProvider
         super.init()
     }
 
@@ -54,12 +63,13 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
 
     override func main() {
         
-        let persistedMessageSentObjectID: NSManagedObjectID
+        let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
         
         if let _persistedMessageSentObjectID = self.persistedMessageSentObjectID {
             persistedMessageSentObjectID = _persistedMessageSentObjectID
-        } else if let op = self.op {
-            guard let _persistedMessageSentObjectID = op.persistedMessageSentObjectID else {
+        } else if let unprocessedPersistedMessageSentProvider = self.unprocessedPersistedMessageSentProvider {
+            assert(unprocessedPersistedMessageSentProvider.isFinished)
+            guard let _persistedMessageSentObjectID = unprocessedPersistedMessageSentProvider.persistedMessageSentObjectID else {
                 return cancel(withReason: .persistedMessageSentObjectIDIsNil)
             }
             persistedMessageSentObjectID = _persistedMessageSentObjectID
@@ -73,9 +83,15 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
         }
         
         obvContext.performAndWait {
-            
-            guard let persistedMessageSent = PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
-                return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
+
+            let persistedMessageSent: PersistedMessageSent
+            do {
+                guard let _persistedMessageSent = try PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
+                }
+                persistedMessageSent = _persistedMessageSent
+            } catch(let error) {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             guard persistedMessageSent.status == .unprocessed || persistedMessageSent.status == .processing else {
@@ -125,19 +141,28 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
              */
 
             let contactCryptoIds = Set(persistedMessageSent.unsortedRecipientsInfos.filter({ $0.messageIdentifierFromEngine == nil }).map({ $0.recipientCryptoId }))
-            
+
+            let extendedPayload: Data?
+            if let extendedPayloadProvider = extendedPayloadProvider {
+                assert(extendedPayloadProvider.isFinished)
+                extendedPayload = extendedPayloadProvider.extendedPayload
+            } else {
+                extendedPayload = nil
+            }
+
             // Post the message
                         
             let messageIdentifierForContactToWhichTheMessageWasSent: [ObvCryptoId: Data]
             do {
-                messageIdentifierForContactToWhichTheMessageWasSent = try obvEngine.post(messagePayload: messagePayload,
-                                                                                         extendedPayload: extendedPayloadOp.extendedPayload,
-                                                                                         withUserContent: true,
-                                                                                         isVoipMessageForStartingCall: false,
-                                                                                         attachmentsToSend: attachmentsToSend,
-                                                                                         toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                                                                         ofOwnedIdentityWithCryptoId: ownedCryptoId,
-                                                                                         completionHandler: completionHandler)
+                messageIdentifierForContactToWhichTheMessageWasSent =
+                try obvEngine.post(messagePayload: messagePayload,
+                                   extendedPayload: extendedPayload,
+                                   withUserContent: true,
+                                   isVoipMessageForStartingCall: false,
+                                   attachmentsToSend: attachmentsToSend,
+                                   toContactIdentitiesWithCryptoId: contactCryptoIds,
+                                   ofOwnedIdentityWithCryptoId: ownedCryptoId,
+                                   completionHandler: completionHandler)
             } catch {
                 return cancel(withReason: .couldNotPostMessageWithinEngine)
             }

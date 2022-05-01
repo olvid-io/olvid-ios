@@ -24,8 +24,8 @@ import ObvEngine
 import ObvTypes
 import OlvidUtils
 
-/// This operation looks for a persisted discussion (either one2one or for a group) that is the most appropriate given the parameters. In case the groupId is non nil, it looks for a group discussion and makes sure the contct identity is part of the group (but not necessarily owner).
-/// If this operation finishes without cancelling, the value of the `discussion` variable is guaranteed to be set.
+/// This operation looks for a persisted discussion (either one2one or for a group) that is the most appropriate given the parameters. In case the groupId is non nil, it looks for a group discussion and makes sure the contact identity is part of the group (but not necessarily owner).
+/// If this operation finishes without cancelling, the value of the `discussionObjectID` variable is guaranteed to be set.
 final class GetAppropriateDiscussionOperation: OperationWithSpecificReasonForCancel<GetAppropriateDiscussionOperationReasonForCancel> {
 
     private let contact: ObvContactIdentity
@@ -33,7 +33,7 @@ final class GetAppropriateDiscussionOperation: OperationWithSpecificReasonForCan
     
     private(set) var discussionObjectID: NSManagedObjectID?
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: GetAppropriateDiscussionOperation.self))
 
     init(contact: ObvContactIdentity, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
         self.contact = contact
@@ -47,7 +47,7 @@ final class GetAppropriateDiscussionOperation: OperationWithSpecificReasonForCan
             
             let persistedContact: PersistedObvContactIdentity
             do {
-                guard let _persistedContact = try PersistedObvContactIdentity.get(persisted: contact, within: context) else {
+                guard let _persistedContact = try PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else {
                     return cancel(withReason: .couldNotFindContact)
                 }
                 persistedContact = _persistedContact
@@ -90,6 +90,7 @@ final class GetAppropriateDiscussionOperation: OperationWithSpecificReasonForCan
                     guard let discussion = try PersistedOneToOneDiscussion.get(with: persistedContact) else {
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
+                    assert(persistedContact.isOneToOne)
                     // If we reach this point, we found the appropriate one2one discussion
                     self.discussionObjectID = discussion.objectID
                     return

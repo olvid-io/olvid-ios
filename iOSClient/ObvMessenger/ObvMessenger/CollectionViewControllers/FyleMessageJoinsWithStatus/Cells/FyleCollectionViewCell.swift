@@ -104,18 +104,18 @@ class FyleCollectionViewCell: UICollectionViewCell {
     }
     
     
-    func configure(with draftFyleJoin: DraftFyleJoin) {
+    func configure(with fyleJoin: FyleJoin) {
         
-        guard let draftFyleJoinFyle = draftFyleJoin.fyle else { return }
-        guard let fyleElement = draftFyleJoin.genericFyleElement else { return }
+        guard let draftFyleJoinFyle = fyleJoin.fyle else { return }
+        guard let fyleElement = fyleJoin.genericFyleElement else { return }
 
         guard self.fyle?.objectID != draftFyleJoinFyle.objectID else {
             return
         }
         
-        self.fyle = draftFyleJoin.fyle
+        self.fyle = fyleJoin.fyle
         
-        self.setTitle(to: draftFyleJoin.fileName)
+        self.setTitle(to: fyleJoin.fileName)
         self.setByteSize(to: Int(draftFyleJoinFyle.getFileSize() ?? -1))
         self.setPreview(with: fyleElement, thumbnailType: .normal)
         self.imageViewPlaceholder.tintColor = AppTheme.shared.colorScheme.tertiaryLabel

@@ -31,7 +31,7 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
     private let optionalCallLogItemObjectID: TypeSafeManagedObjectID<PersistedCallLogItem>?
     private let messageUploadTimestampFromServer: Date?
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: InsertPersistedMessageSystemIntoDiscussionOperation.self))
 
     init(persistedMessageSystemCategory: PersistedMessageSystem.Category,
          persistedDiscussionObjectID: NSManagedObjectID,

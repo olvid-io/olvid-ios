@@ -2,7 +2,7 @@
 "%@ and" = "%@ and";
 
 /* Invitation details */
-"%@ wants to introduce you to %@. If you do trust %@ for this, you may accept this invitation and %@ will soon appear in your contacts, with no further actions from your part (provided that %@ also accepts the invitation). If you don't trust %@ or if you simply do not want to be introduced to %@ you can ignore this invitation (neither %@ nor %@ will be notified of this)." = "%@ wants to introduce you to %@. If you do trust %@ for this, you may accept this invitation and %@ will soon appear in your contacts, with no further actions from your part (provided that %@ also accepts the invitation). If you don't trust %@ or if you simply do not want to be introduced to %@ you can ignore this invitation (neither %@ nor %@ will be notified of this).";
+"%@ wants to introduce you to %@. If you do trust %@ for this, you may accept this invitation and %@ will soon appear in your contacts, with no further actions from your part (provided that %@ also accepts the invitation). If you don't trust %@ or if you simply do not want to be introduced to %@ you can ignore this invitation (neither %@ nor %@ will be notified of this)." = "%1$@ would like to introduce you to %2$@. If you accept, %2$@ will be part of your contacts and you will have a private discussion with them.";
 
 /* No comment provided by engineer. */
 "A file named %@ already exists within the following location:
@@ -63,7 +63,7 @@ On My iPhone > Olvid";
 "Delete Message and Attachments" = "Delete Message and Attachments";
 
 /* Alert title */
-"Delete this contact?" = "Delete this contact?";
+"Delete this contact?" = "Delete this user?";
 
 /* Invitation subtitle */
 "Digits confirmed" = "Code confirmed";
@@ -152,7 +152,7 @@ On My iPhone > Olvid";
 "Members of %@" = "Members of %@";
 
 /* Invitation subtitle */
-"Mutual Trust Confirmed" = "Secure channel in progress";
+"MUTUAL_TRUST_CONFIRMED" = "User added to your contacts";
 
 /* Notification title */
 "Mutual trust confirmed!" = "Secure channel in progress";
@@ -171,7 +171,7 @@ On My iPhone > Olvid";
 "New message from %@" = "New message from %@";
 
 /* Invitation subtitle */
-"New Suggested Introduction" = "New Suggested Introduction";
+"New Suggested Introduction" = "Contact introduction";
 
 /* Action title */
 "No" = "No";
@@ -218,7 +218,7 @@ On My iPhone > Olvid";
 "We started a new discussion group creation for you. Go to the Invitations tab to see who accepted your invitation so far." = "We started a new discussion group creation for you.";
 
 /* Invitation details */
-"Well done! You trust %@'s identity and %@ now trusts yours back. A secure channel between you and %@ is being established. As soon as it will be, %@ will appear in your contacts. Please note that this requires %@'s device to be online." = "Well done! A secure channel between you and %1$@ is in progress. As soon as it is ready, you will be able to discuss with %1$@.";
+"MUTUAL_TRUST_CONFIRMED_DETAILS_%@" = "Well done! %1$@ is now part of your contacts and you can have a private discussion with them.";
 
 /* Message of alert */
 "What do you want to do with this file?" = "What do you want to do with this file?";
@@ -236,7 +236,7 @@ On My iPhone > Olvid";
 "You are about to delete a file." = "You are about to delete a file.";
 
 /* Invitation details */
-"You are invited to join a group created by %@. You may silently discard this invitation or accept it. In the latter case, each of the group member will appear in your contacts." = "You are invited to join a group created by %@. You may discard this invitation or accept it. In the latter case, each of the group member will appear in your contacts.";
+"YOU_ARE_INVITED_TO_JOIN_A_GROUP_CREATED_BY_%@_EXPLANATION" = "You are invited to join a group created by %@.";
 
 /* Invitation details */
 "You have accepted to join a group created by %@." = "You have accepted to join a group created by %@.";
@@ -744,10 +744,10 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "Contact cannot be deleted for now" = "Contact cannot be deleted for now";
 
 /* Alert message */
-"You cannot remove %@ from your contacts as both of you belong to some common groups. You will need to leave these groups to proceed." = "You cannot remove %@ from your contacts as both of you belong to some common groups. You will need to leave these groups to proceed.";
+"You cannot remove %@ from your contacts as both of you belong to some common groups. You will need to leave these groups to proceed." = "You cannot delete the user %@ as both of you belong to some common groups. You will need to leave these groups to proceed.";
 
 /* Alert message */
-"You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nReally delete this contact?" = "You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nReally delete this contact?";
+"You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nReally delete this contact?" = "You are about to delete the user %1$@.\n\nReally delete this contact?";
 
 /* Alert message */
 "You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nNote that %1$@ is a pending member in at least one group you belong to. %1$@ might get added back to your contacts in a near future. You may want to leave these groups to avoid this.\n\nReally delete this contact?" = "You are about to remove %1$@ from your contacts. You will no longer be able to exchange messages with them.\n\nNote that %1$@ is a pending member in at least one group you belong to. %1$@ might get added back to your contacts in a near future. You may want to leave these groups to avoid this.\n\nReally delete this contact?";
@@ -1173,8 +1173,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "CALL_STATE_HANGED_UP" = "Hanged up";
 
-"CALL_STATE_TIMEOUT" = "Timeout";
-
 "Restore" = "Restore";
 
 "Could not read backup file" = "Could not read backup file";
@@ -1258,8 +1256,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "WITH_ONE_PARTICIPANT" = "with one participant";
 
 "WITH_%@_PARTICIPANTS" = "with %@ participants";
-
-"UNANSWERED" = "Unanswered";
 
 "Hangup" = "Hangup";
 
@@ -1965,6 +1961,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "PLEASE_UPDATE_OLVID_FROM_MAIN_APP" = "Please launch the Olvid App in order to finalize its update 🚀. You will be able to share content once this is done 😉.";
 
+"PLEASE_LAUNCH_OLVID_FROM_MAIN_APP" = "Please launch the Olvid App to be able to share content 😉.";
+
 "SCAN_DOCUMENT" = "Scan a document";
 
 "EPHEMERAL_MESSAGE" = "Ephemeral message";
@@ -2188,3 +2186,87 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "DELETE_OWN_REACTION" = "Delete my reaction";
 
 "VALIDATING_ENTERPRISE_CONFIGURATION" = "Performing an automatic configuration...";
+
+"CONTACTS_AND_GROUPS" = "Contacts & Groups";
+
+"Everyone" = "Everyone";
+
+"No one" = "No one";
+
+"AUTO_ACCEPT_GROUP_INVITES_FROM" = "Automatically accept group invitations from…";
+
+"AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_TITLE" = "Heads up!";
+
+"CAPABILITY_ONE_TO_ONE_CONTACTS" = "One2One contacts ";
+
+"CAPABILITY_GROUPS_V2" = "Groups v2";
+
+"INVITE_%@_IF_YOU_WANT_ONE_TO_ONE_DISCUSSION" = "To have a private discussion with %@ and add them to your contacts, touch \"Invite\".";
+
+"ONE_TO_ONE_DISCUSSION_INVITATION_SENT_TO_%@" = "You invited %@ to have a private discussion. Please wait until they accept it 🤞.";
+
+"ONE_TO_ONE_INVITATION_SENT" = "Invitation sent";
+
+"ONE_TO_ONE_INVITATION_RECEIVED" = "Private discussion invitation";
+
+"ONE_TO_ONE_DISCUSSION_INVITATION_RECEIVED_FROM_%@" = "To start a private discussion with %@ and add them to your contacts, touch \"Accept\".";
+
+"STOP_ONE_TO_ONE_DISCUSSION_WITH_CONTACT_ALERT_TITLE" = "Remove from contacts?";
+
+"DO_YOU_WISH_TO_STOP_ONE_TO_ONE_DISCUSSION_WITH_@_ALERT_MESSAGE" = "Removing %1$@ from your contacts will end the private discussion you have with this user (in other words, you will no longer be able to exchange messages in your private discussion with %1$@). You will still be able to exchange messages in groups you have in common.";
+
+"DO_STOP_ONE_TO_ONE_DISCUSSION" = "Remove from contacts";
+
+"DOWNGRADE_CONTACT_TO_NON_ONE_TO_ONE_BUTTON_TITLE" = "Remove from contacts";
+
+"DELETE_OLVID_USER" = "Delete this user";
+
+"OTHER_KNOWN_USERS" = "Other known users";
+
+"EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS" = "The following users are not part of your contacts (yet), so you cannot have a private discussion with them. But you can invite them easily 🚀!";
+
+"%@_INVITES_YOU_TO_ONE_TO_ONE_DISCUSSION" = "%@ invites you to have a private discussion. If you accept, this user will be added to your contacts.";
+
+"DELETE_USER_ACTION_TITLE" = "Delete this user now";
+
+"INVITE_REQUIRED_ALERT_TITLE" = "Invitation required";
+
+"YOU_NEED_TO_INVITE_%@_BEFORE_HAVING_DISCUSSION_ALERT_MESSAGE" = "You cannot have a private discussion with %@ until they are part of your contacts. Do you wish to invite them now?";
+
+"SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE" = "A new version of Olvid is available 🥳!";
+
+"SNACK_BAR_BUTTON_TITLE_NEW_APP_VERSION_AVAILABLE" = "Info";
+
+"SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE" = "A new version of Olvid is available 🥳!";
+
+"SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE" = "A new version of Olvid is available from the App Store. You are missing out amazing new features 🤓! We recommend you upgrade now 🚀.";
+
+"GO_TO_APP_STORE_BUTTON_TITLE" = "Open the App Store";
+
+"INSTALLED_APP_IS_OUTDATED_ALERT_TITLE" = "Your Olvid version is obsolete 😱!";
+
+"INSTALLED_APP_IS_OUTDATED_ALERT_BODY" = "But don't worry 😊. You can upgrade now to the latest version of Olvid and discover its amazing new features 🤓! We recommend you upgrade now 🚀.";
+
+"UPGRADE_NOW" = "Upgrade now";
+
+"MINIMUM_SUPPORTED_VERSION" = "Minimum supported version";
+
+"MINIMUM_RECOMMENDED_VERSION" = "Minimum recommended version";
+
+"UPGRADE_OLVID_NOW" = "Upgrade Olvid now";
+
+"SYNC" = "Sync";
+
+"SYNC_REQUEST_SENT" = "Sync request sent";
+
+"Choose" = "Choose";
+
+"FAILED" = "Failed 😢";
+
+"CALL_INITIALISATION_NOT_SUPPORTED" = "Secure calls are not supported";
+
+"CALL_FAILED" = "Call failed 😟";
+
+"Choose" = "Choose";
+
+"YOUR_MESSAGE" = "Your message...";

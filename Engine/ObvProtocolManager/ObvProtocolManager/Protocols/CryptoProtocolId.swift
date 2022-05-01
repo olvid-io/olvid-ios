@@ -36,13 +36,14 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
     case DownloadIdentityPhoto = 7
     case GroupInvitation = 8
     case GroupManagement = 9
-    case ObliviousChannelManagement = 10
+    case ContactManagement = 10
     case TrustEstablishmentWithSAS = 11
     case TrustEstablishmentWithMutualScan = 12
     case FullRatchet = 13
     case DownloadGroupPhoto = 14
     case KeycloakContactAddition = 15
     case ContactCapabilitiesDiscovery = 16
+    case OneToOneContactInvitation = 17
 
     func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
         var concreteCryptoProtocol: ConcreteCryptoProtocol?
@@ -65,8 +66,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
             concreteCryptoProtocol = GroupInvitationProtocol(protocolInstance: instance, prng: prng)
         case .GroupManagement:
             concreteCryptoProtocol = GroupManagementProtocol(protocolInstance: instance, prng: prng)
-        case .ObliviousChannelManagement:
-            concreteCryptoProtocol = ObliviousChannelManagementProtocol(protocolInstance: instance, prng: prng)
+        case .ContactManagement:
+            concreteCryptoProtocol = ContactManagementProtocol(protocolInstance: instance, prng: prng)
         case .TrustEstablishmentWithSAS:
             concreteCryptoProtocol = TrustEstablishmentWithSASProtocol(protocolInstance: instance, prng: prng)
         case .FullRatchet:
@@ -79,6 +80,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
             concreteCryptoProtocol = TrustEstablishmentWithMutualScanProtocol(protocolInstance: instance, prng: prng)
         case .ContactCapabilitiesDiscovery:
             concreteCryptoProtocol = DeviceCapabilitiesDiscoveryProtocol(protocolInstance: instance, prng: prng)
+        case .OneToOneContactInvitation:
+            concreteCryptoProtocol = OneToOneContactInvitationProtocol(protocolInstance: instance, prng: prng)
         }
         return concreteCryptoProtocol
     }
@@ -148,8 +151,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
                                            delegateManager: delegateManager,
                                            prng: prng,
                                            within: obvContext)
-        case .ObliviousChannelManagement:
-            return ObliviousChannelManagementProtocol(instanceUid: instanceUid,
+        case .ContactManagement:
+            return ContactManagementProtocol(instanceUid: instanceUid,
                                                       currentState: ConcreteProtocolInitialState(),
                                                       ownedCryptoIdentity: ownedCryptoIdentity,
                                                       delegateManager: delegateManager,
@@ -192,11 +195,18 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
                                                             within: obvContext)
         case .ContactCapabilitiesDiscovery:
             return DeviceCapabilitiesDiscoveryProtocol(instanceUid: instanceUid,
-                                                        currentState: ConcreteProtocolInitialState(),
-                                                        ownedCryptoIdentity: ownedCryptoIdentity,
-                                                        delegateManager: delegateManager,
-                                                        prng: prng,
-                                                        within: obvContext)
+                                                       currentState: ConcreteProtocolInitialState(),
+                                                       ownedCryptoIdentity: ownedCryptoIdentity,
+                                                       delegateManager: delegateManager,
+                                                       prng: prng,
+                                                       within: obvContext)
+        case .OneToOneContactInvitation:
+            return OneToOneContactInvitationProtocol(instanceUid: instanceUid,
+                                                     currentState: ConcreteProtocolInitialState(),
+                                                     ownedCryptoIdentity: ownedCryptoIdentity,
+                                                     delegateManager: delegateManager,
+                                                     prng: prng,
+                                                     within: obvContext)
         }
     }
 }
@@ -214,13 +224,14 @@ extension CryptoProtocolId {
         case .DownloadIdentityPhoto: return "DownloadIdentityPhoto"
         case .GroupInvitation: return "GroupInvitation"
         case .GroupManagement: return "GroupManagement"
-        case .ObliviousChannelManagement: return "ObliviousChannelManagement"
+        case .ContactManagement: return "ContactManagement"
         case .TrustEstablishmentWithSAS: return "TrustEstablishmentWithSAS"
         case .FullRatchet: return "FullRatchet"
         case .DownloadGroupPhoto: return "DownloadGroupPhoto"
         case .KeycloakContactAddition: return "KeycloakContactAddition"
         case .TrustEstablishmentWithMutualScan: return "TrustEstablishmentWithMutualScan"
         case .ContactCapabilitiesDiscovery: return "ContactCapabilitiesDiscovery"
+        case .OneToOneContactInvitation: return "OneToOneContactInvitation"
         }
     }
 

@@ -100,32 +100,25 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting IntroduceContactsStep", log: log, type: .debug)
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentityA = receivedMessage.contactIdentityA
             let contactIdentityCoreDetailsA = receivedMessage.contactIdentityCoreDetailsA
             let contactIdentityB = receivedMessage.contactIdentityB
             let contactIdentityCoreDetailsB = receivedMessage.contactIdentityCoreDetailsB
 
-            // Make sure both contacts are trusted (i.e., are part of the ContactIdentity database of the owned identity)
+            // Make sure both contacts are trusted (i.e., are part of the ContactIdentity database of the owned identity), active and OneToOne.
             
             for contactIdentity in [contactIdentityA, contactIdentityB] {
-                guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+                guard (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
                     os_log("One of the contact identities is not yet trusted", log: log, type: .debug)
                     return CancelledState()
                 }
                 guard try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
                     os_log("One of the contact identities is not active", log: log, type: .debug)
+                    return CancelledState()
+                }
+                guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
+                    os_log("One of the contact identities is not a OneToOne contact", log: log, type: .debug)
                     return CancelledState()
                 }
             }
@@ -154,7 +147,6 @@ extension ContactMutualIntroductionProtocol {
 
             // Return the new state
             
-            os_log("ContactMutualIntroductionProtocol: ending IntroduceContactsStep", log: log, type: .debug)
             return ContactsIntroducedState()
 
         }
@@ -182,18 +174,7 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting ShowInvitationDialogStep", log: log, type: .debug)
             
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let contactIdentity = receivedMessage.contactIdentity
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
             let dialogUuid = UUID()
@@ -203,12 +184,24 @@ extension ContactMutualIntroductionProtocol {
                 return CancelledState()
             }
             
-            // If the introduced contact is already part of our contacts, we show no dialog to the user. We automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message.
+            // Check that the mediator is a OneToOne contact. If not, we discard the invite.
             
-            guard (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: mediatorIdentity, within: obvContext) else {
+                os_log("We received mutual introduction invite from a mediator that is not a OneToOne contact. We discard the message.", log: log, type: .error)
+                return CancelledState()
+            }
+            
+            // Check whether the introduced contact is already a One2One contact.
+            
+            let contactAlreadyTrusted = try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
+            
+            if contactAlreadyTrusted {
                 
+                // If the introduced contact is already part of our OneToOne contacts (thust trusted), we show no dialog to the user.
+                // We automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message.
+
                 do {
-                    let notifyContactOfAcceptedInvitationMessageInitializer = {                        (coreProtocolMessage: CoreProtocolMessage, contactDeviceUids: [UID], signature: Data) -> ContactMutualIntroductionProtocol.NotifyContactOfAcceptedInvitationMessage in
+                    let notifyContactOfAcceptedInvitationMessageInitializer = { (coreProtocolMessage: CoreProtocolMessage, contactDeviceUids: [UID], signature: Data) -> ContactMutualIntroductionProtocol.NotifyContactOfAcceptedInvitationMessage in
                         return NotifyContactOfAcceptedInvitationMessage(coreProtocolMessage: coreProtocolMessage, contactDeviceUids: contactDeviceUids, signature: signature)
                     }
                     try signAndSendNotificationOfAcceptedInvitationMessage(ownedIdentity: ownedIdentity,
@@ -228,146 +221,52 @@ extension ContactMutualIntroductionProtocol {
                                                mediatorIdentity: mediatorIdentity,
                                                dialogUuid: dialogUuid,
                                                acceptType: AcceptType.alreadyTrusted)
-            }
-            
-            // If we reach this point, the introduced contact is not in our contacts already. We evaluate the TrustLevel we have for the mediator. If it is high enough, we automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message. Otherwise, we show a "simple" accept dialog to present to the user if the Trust Level we have in the mediator is high enough. Otherwise, we show a dialog inviting the user to increase the Trust Level she has in the mediator or in the introduced contact.
-            
-            let mediatorTrustLevel: TrustLevel
-            do {
-                mediatorTrustLevel = try identityDelegate.getTrustLevel(forContactIdentity: mediatorIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-            } catch {
-                os_log("Could not get the mediator's Trust Level", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            if mediatorTrustLevel >= ObvConstants.autoAcceptTrustLevelTreshold {
-                
-                do {
-                    let notifyContactOfAcceptedInvitationMessageInitializer = {                        (coreProtocolMessage: CoreProtocolMessage, contactDeviceUids: [UID], signature: Data) -> ContactMutualIntroductionProtocol.NotifyContactOfAcceptedInvitationMessage in
-                        return NotifyContactOfAcceptedInvitationMessage(coreProtocolMessage: coreProtocolMessage, contactDeviceUids: contactDeviceUids, signature: signature)
-                    }
-                    try signAndSendNotificationOfAcceptedInvitationMessage(ownedIdentity: ownedIdentity,
-                                                                           contactIdentity: contactIdentity,
-                                                                           mediatorIdentity: mediatorIdentity,
-                                                                           prng: prng,
-                                                                           notifyContactOfAcceptedInvitationMessageInitializer: notifyContactOfAcceptedInvitationMessageInitializer,
-                                                                           log: log,
-                                                                           delegateManager: delegateManager)
-                } catch {
-                    os_log("Could not sign and send notification of accepted invitation", log: log, type: .fault)
-                    return CancelledState()
-                }
-                
-                return InvitationAcceptedState(contactIdentity: contactIdentity,
-                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                               mediatorIdentity: mediatorIdentity,
-                                               dialogUuid: dialogUuid,
-                                               acceptType: AcceptType.automatic)
-                
-            } else if mediatorTrustLevel >= ObvConstants.userConfirmationTrustLevelTreshold {
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the mediator increases
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: mediatorIdentity,
-                                                                           targetTrustLevel: ObvConstants.autoAcceptTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                    os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the contact (remote identity) increases
-                
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: contactIdentity,
-                                                                           targetTrustLevel: TrustLevel.zero,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
 
-                // Display a dialog allowing to accept/re1ject the mediator's invite
+            } else {
                 
+                // If we reach this point, the introduced contact is not trusted yet (i.e., not OneToOne or not a contact at all).
+                // Display a dialog allowing to accept/reject the mediator's invite.
+
                 do {
                     let dialogType = ObvChannelDialogToSendType.acceptMediatorInvite(contact: CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails),
                                                                                      mediatorIdentity: mediatorIdentity)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                     let concreteProtocolMessage = AcceptMediatorInviteDialogMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
-                // Return the new state
-                
-                os_log("ContactMutualIntroductionProtocol: ending ShowInvitationDialogStep", log: log, type: .debug)
-                return InvitationReceivedState(contactIdentity: contactIdentity,
-                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                               mediatorIdentity: mediatorIdentity,
-                                               dialogUuid: dialogUuid)
-                
-            } else {
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: mediatorIdentity,
-                                                                           targetTrustLevel: ObvConstants.userConfirmationTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the contact (remote identity) increases
-                
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: contactIdentity,
-                                                                           targetTrustLevel: TrustLevel.zero,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-
-                // Display a dialog notifying the user that she must increase the Trust Level she has in the mediator (or in the contact)
-                
-                let dialogUuid = UUID()
+                // If, in the future, the introduced contact becomes a OneToOne contact, we want end this protocol.
+                // For this reason, we create a ProtocolInstanceWaitingForContactUpgradeToOneToOne entry now.
                 
                 do {
-                    let dialogType = ObvChannelDialogToSendType.increaseMediatorTrustLevelRequired(contact: CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails),
-                                                                                                   mediatorIdentity: mediatorIdentity)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
-                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
+                    
+                    guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+                        os_log("Could not retrive this protocol instance", log: log, type: .fault)
+                        assertionFailure()
+                        return CancelledState()
+                    }
 
+                    _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(
+                        ownedCryptoIdentity: ownedIdentity,
+                        contactCryptoIdentity: contactIdentity,
+                        messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
+                        protocolInstance: thisProtocolInstance,
+                        delegateManager: delegateManager)
+
+                }
+                
                 // Return the new state
                 
-                os_log("ContactMutualIntroductionProtocol: ending ShowInvitationDialogStep", log: log, type: .debug)
                 return InvitationReceivedState(contactIdentity: contactIdentity,
                                                contactIdentityCoreDetails: contactIdentityCoreDetails,
                                                mediatorIdentity: mediatorIdentity,
                                                dialogUuid: dialogUuid)
-                
+
             }
-            
+                            
         }
     }
     
@@ -393,18 +292,7 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting PropagateInviteResponseStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let mediatorIdentity = startState.mediatorIdentity
@@ -417,16 +305,13 @@ extension ContactMutualIntroductionProtocol {
             do {
                 let dialogUuidFromState = startState.dialogUuid
                 let dialogUuidFromMessage = receivedMessage.dialogUuid
-                guard dialogUuidFromState == dialogUuidFromMessage else { throw NSError() }
+                guard dialogUuidFromState == dialogUuidFromMessage else { throw Self.makeError(message: "Unexpected dialog UUID") }
                 dialogUuid = dialogUuidFromState
             }
                         
             // Propagate the accept/reject to other owned devices
             
-            guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
-                os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
-                return CancelledState()
-            }
+            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
@@ -436,7 +321,9 @@ extension ContactMutualIntroductionProtocol {
                                                                                contactIdentity: contactIdentity,
                                                                                contactIdentityCoreDetails: contactIdentityCoreDetails,
                                                                                mediatorIdentity: mediatorIdentity)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
@@ -452,7 +339,9 @@ extension ContactMutualIntroductionProtocol {
                 let dialogType = ObvChannelDialogToSendType.delete
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
 
                 return InvitationRejectedState()
@@ -466,7 +355,9 @@ extension ContactMutualIntroductionProtocol {
                                                                                    mediatorIdentity: mediatorIdentity)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -488,7 +379,6 @@ extension ContactMutualIntroductionProtocol {
             
             // Return the new state
             
-            os_log("ContactMutualIntroductionProtocol: ending PropagateInviteResponseStep", log: log, type: .debug)
             return InvitationAcceptedState(contactIdentity: contactIdentity,
                                            contactIdentityCoreDetails: contactIdentityCoreDetails,
                                            mediatorIdentity: mediatorIdentity,
@@ -519,14 +409,6 @@ extension ContactMutualIntroductionProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting ProcessPropagatedInviteResponseStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             // We do not use startState.contactIdentity
             // We do not use startState.contactIdentityCoreDetails
             // We do not use startState.mediatorIdentity
@@ -544,7 +426,9 @@ extension ContactMutualIntroductionProtocol {
                 let dialogType = ObvChannelDialogToSendType.delete
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 
                 return InvitationRejectedState()
@@ -558,13 +442,14 @@ extension ContactMutualIntroductionProtocol {
                                                                                    mediatorIdentity: mediatorIdentity)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Return the new state
             
-            os_log("ContactMutualIntroductionProtocol: ending ProcessPropagatedInviteResponseStep", log: log, type: .debug)
             return InvitationAcceptedState(contactIdentity: contactIdentity,
                                            contactIdentityCoreDetails: contactIdentityCoreDetails,
                                            mediatorIdentity: mediatorIdentity,
@@ -596,21 +481,10 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting PropagateNotificationAddTrustAndSendAckStep", log: log, type: .debug)
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
                 os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
+                throw Self.makeError(message: "The solve challenge delegate is not set")
             }
 
             let contactIdentity = startState.contactIdentity
@@ -640,10 +514,10 @@ extension ContactMutualIntroductionProtocol {
                 
                 let trustOrigin = TrustOrigin.introduction(timestamp: Date(), mediator: mediatorIdentity)
                 
-                if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
@@ -658,17 +532,16 @@ extension ContactMutualIntroductionProtocol {
             
             // We propagate the notification to our other owned devices
             
-            guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
-                os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
-                return CancelledState()
-            }
+            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
             
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateContactNotificationOfAcceptedInvitationMessage(coreProtocolMessage: coreMessage,
                                                                                   contactDeviceUids: contactDeviceUids)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate notification to other devices.", log: log, type: .fault)
@@ -682,13 +555,14 @@ extension ContactMutualIntroductionProtocol {
             do {
                 let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = AckMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
             
-            os_log("ContactMutualIntroductionProtocol: ending PropagateNotificationAddTrustAndSendAckStep", log: log, type: .debug)
             return WaitingForAckState(contactIdentity: contactIdentity,
                                       contactIdentityCoreDetails: contactIdentityCoreDetails,
                                       mediatorIdentity: mediatorIdentity,
@@ -720,12 +594,6 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting ProcessPropagatedNotificationAndAddTrustStep", log: log, type: .debug)
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -741,10 +609,10 @@ extension ContactMutualIntroductionProtocol {
                 
                 let trustOrigin = TrustOrigin.introduction(timestamp: Date(), mediator: mediatorIdentity)
                 
-                if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+                    try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
@@ -759,7 +627,6 @@ extension ContactMutualIntroductionProtocol {
 
             // Return the new state
             
-            os_log("ContactMutualIntroductionProtocol: ending ProcessPropagatedNotificationAndAddTrustStep", log: log, type: .debug)
             return WaitingForAckState(contactIdentity: contactIdentity,
                                       contactIdentityCoreDetails: contactIdentityCoreDetails,
                                       mediatorIdentity: mediatorIdentity,
@@ -790,14 +657,6 @@ extension ContactMutualIntroductionProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting NotifyMutualTrustEstablishedStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let dialogUuid = startState.dialogUuid
@@ -816,7 +675,9 @@ extension ContactMutualIntroductionProtocol {
                 let dialogType = ObvChannelDialogToSendType.autoconfirmedContactIntroduction(contact: contact, mediatorIdentity: mediatorIdentity)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 
             case AcceptType.manual:
@@ -824,7 +685,9 @@ extension ContactMutualIntroductionProtocol {
                 let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 
             default:
@@ -834,7 +697,6 @@ extension ContactMutualIntroductionProtocol {
             
             // Return the new state
             
-            os_log("ContactMutualIntroductionProtocol: ending NotifyMutualTrustEstablishedStep", log: log, type: .debug)
             return MutualTrustEstablishedState()
             
         }
@@ -863,18 +725,6 @@ extension ContactMutualIntroductionProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
-            os_log("ContactMutualIntroductionProtocol: starting RecheckTrustLevelsAfterTrustLevelIncreaseStep", log: log, type: .debug)
-            defer { os_log("ContactMutualIntroductionProtocol: ending RecheckTrustLevelsAfterTrustLevelIncreaseStep", log: log, type: .debug) }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                throw NSError()
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channelDelegate is not set", log: log, type: .fault)
-                throw NSError()
-            }
 
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
@@ -883,27 +733,34 @@ extension ContactMutualIntroductionProtocol {
 
             let identityWithIncreasedTrustLevel = receivedMessage.contactIdentity
             
-            // Check that the identity having an increased trust level is either the mediator or the contact
+            // Check that the identity having an increased trust level is the contact
             
-            guard [mediatorIdentity, contactIdentity].contains(identityWithIncreasedTrustLevel) else {
-                os_log("The identity with an increased trust level is neither the mediator nor the remote identity", log: log, type: .error)
+            guard contactIdentity == identityWithIncreasedTrustLevel else {
+                os_log("The identity with an increased trust level is not the remote identity", log: log, type: .error)
                 return startState
             }
             
-            // If the introduced contact is now part of our contacts, we remove any previous dialog showed to the user. We automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message.
+            // Check whether the introduced contact is already a One2One contact.
             
-            guard (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
+            let contactAlreadyTrusted = try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
+
+            if contactAlreadyTrusted {
                 
+                // If the introduced contact is now part of our OneToOne contacts, we remove any previous dialog showed to the user.
+                // We automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message.
+
                 do {
                     let dialogType = ObvChannelDialogToSendType.delete
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 do {
-                    let notifyContactOfAcceptedInvitationMessageInitializer = {                        (coreProtocolMessage: CoreProtocolMessage, contactDeviceUids: [UID], signature: Data) -> ContactMutualIntroductionProtocol.NotifyContactOfAcceptedInvitationMessage in
+                    let notifyContactOfAcceptedInvitationMessageInitializer = { (coreProtocolMessage: CoreProtocolMessage, contactDeviceUids: [UID], signature: Data) -> ContactMutualIntroductionProtocol.NotifyContactOfAcceptedInvitationMessage in
                         return NotifyContactOfAcceptedInvitationMessage(coreProtocolMessage: coreProtocolMessage, contactDeviceUids: contactDeviceUids, signature: signature)
                     }
                     try signAndSendNotificationOfAcceptedInvitationMessage(ownedIdentity: ownedIdentity,
@@ -923,170 +780,60 @@ extension ContactMutualIntroductionProtocol {
                                                mediatorIdentity: mediatorIdentity,
                                                dialogUuid: dialogUuid,
                                                acceptType: AcceptType.alreadyTrusted)
-            }
-            
-            // If we reach this point, the introduced contact is not in our contacts already. We evaluate the (new) TrustLevel we have for the mediator. If it is high enough, we remove any previous dialog, we automatically accept the invitation, and notify our contact using a NotifyContactOfAcceptedInvitation message. Otherwise, we show a "simple" accept dialog to present to the user if the Trust Level we have in the mediator is high enough. Otherwise, we show a dialog inviting the user to increase the Trust Level she has in the mediator or in the introduced contact.
-            
-            let mediatorTrustLevel: TrustLevel
-            do {
-                mediatorTrustLevel = try identityDelegate.getTrustLevel(forContactIdentity: mediatorIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-            } catch {
-                os_log("Could not get the mediator's Trust Level", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            if mediatorTrustLevel >= ObvConstants.autoAcceptTrustLevelTreshold {
 
-                do {
-                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                    let dialogType = ObvChannelDialogToSendType.mediatorInviteAccepted(contact: contact,
-                                                                                       mediatorIdentity: mediatorIdentity)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
-                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
+                
+            } else {
+                
+                // If we reach this point, the introduced contact is not trusted yet (i.e., not OneToOne or not a contact at all).
 
-                do {
-                    let notifyContactOfAcceptedInvitationMessageInitializer = {                        (coreProtocolMessage: CoreProtocolMessage, contactDeviceUids: [UID], signature: Data) -> ContactMutualIntroductionProtocol.NotifyContactOfAcceptedInvitationMessage in
-                        return NotifyContactOfAcceptedInvitationMessage(coreProtocolMessage: coreProtocolMessage, contactDeviceUids: contactDeviceUids, signature: signature)
-                    }
-                    try signAndSendNotificationOfAcceptedInvitationMessage(ownedIdentity: ownedIdentity,
-                                                                           contactIdentity: contactIdentity,
-                                                                           mediatorIdentity: mediatorIdentity,
-                                                                           prng: prng,
-                                                                           notifyContactOfAcceptedInvitationMessageInitializer: notifyContactOfAcceptedInvitationMessageInitializer,
-                                                                           log: log,
-                                                                           delegateManager: delegateManager)
-                } catch {
-                    os_log("Could not sign and send notification of accepted invitation", log: log, type: .fault)
-                    return CancelledState()
-                }
-                
-                return InvitationAcceptedState(contactIdentity: contactIdentity,
-                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                               mediatorIdentity: mediatorIdentity,
-                                               dialogUuid: dialogUuid,
-                                               acceptType: AcceptType.automatic)
-                
-            } else if mediatorTrustLevel >= ObvConstants.userConfirmationTrustLevelTreshold {
-                
                 guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
                     os_log("Could not retrive this protocol instance", log: log, type: .fault)
                     return CancelledState()
                 }
 
-                // Remove any previous ProtocolInstanceWaitingForTrustLevelIncrease entry concerning the mediator for this protocol instance
+                // Remove any previous ProtocolInstanceWaitingForContactUpgradeToOneToOne entry concerning the mediator for this protocol instance
                 
                 do {
-                    try ProtocolInstanceWaitingForTrustLevelIncrease.deleteRelatedToProtocolInstance(thisProtocolInstance, contactCryptoIdentity: mediatorIdentity, delegateManager: delegateManager)
+                    try ProtocolInstanceWaitingForContactUpgradeToOneToOne.deleteRelatedToProtocolInstance(
+                        thisProtocolInstance,
+                        contactCryptoIdentity: mediatorIdentity,
+                        delegateManager: delegateManager)
                 } catch {
-                    os_log("Could not delete previous ProtocolInstanceWaitingForTrustLevelIncrease entries", log: log, type: .fault)
+                    os_log("Could not delete previous ProtocolInstanceWaitingForContactUpgradeToOneToOne entries", log: log, type: .fault)
                     return CancelledState()
                 }
                 
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the mediator increases
+                // Insert an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database, so as to be notified if the Trust Level we have in the contact (remote identity) increases
                 
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: mediatorIdentity,
-                                                                           targetTrustLevel: ObvConstants.autoAcceptTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
+                guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
+                                                                                 contactCryptoIdentity: contactIdentity,
+                                                                                 messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
+                                                                                 protocolInstance: thisProtocolInstance,
+                                                                                 delegateManager: delegateManager)
                     else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the contact (remote identity) increases
-                
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: contactIdentity,
-                                                                           targetTrustLevel: TrustLevel.zero,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
+                        os_log("Could not create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne database", log: log, type: .fault)
                         return CancelledState()
                 }
                 
                 
-                // Display a dialog allowing to accept/re1ject the mediator's invite
+                // Display a dialog allowing to accept/reject the mediator's invite
                 
                 do {
                     let dialogType = ObvChannelDialogToSendType.acceptMediatorInvite(contact: CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails),
                                                                                      mediatorIdentity: mediatorIdentity)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                     let concreteProtocolMessage = AcceptMediatorInviteDialogMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 // Return the new state
                 return startState
                 
-            } else {
-                
-                // Display a dialog notifying the user that she must increase the Trust Level she has in the mediator (or in the contact)
-                // Should never occur here
-                
-                guard let thisProtocolInstance = ProtocolInstance.get(cryptoProtocolId: cryptoProtocolId, uid: protocolInstanceUid, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-                    os_log("Could not retrive this protocol instance", log: log, type: .fault)
-                    return CancelledState()
-                }
-
-                // Remove any previous ProtocolInstanceWaitingForTrustLevelIncrease entry for this protocol instance
-                
-                do {
-                    try ProtocolInstanceWaitingForTrustLevelIncrease.deleteRelatedToProtocolInstance(thisProtocolInstance, contactCryptoIdentity: mediatorIdentity, delegateManager: delegateManager)
-                } catch {
-                    os_log("Could not delete previous ProtocolInstanceWaitingForTrustLevelIncrease entries", log: log, type: .fault)
-                    return CancelledState()
-                }
-
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the mediator increases
-
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: mediatorIdentity,
-                                                                           targetTrustLevel: ObvConstants.userConfirmationTrustLevelTreshold,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                // Insert an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database, so as to be notified if the Trust Level we have in the contact (remote identity) increases
-                
-                guard let _ = ProtocolInstanceWaitingForTrustLevelIncrease(ownedCryptoIdentity: ownedIdentity,
-                                                                           contactCryptoIdentity: contactIdentity,
-                                                                           targetTrustLevel: TrustLevel.zero,
-                                                                           messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
-                                                                           protocolInstance: thisProtocolInstance,
-                                                                           delegateManager: delegateManager)
-                    else {
-                        os_log("Could not create an entry in the ProtocolInstanceWaitingForTrustLevelIncrease database", log: log, type: .fault)
-                        return CancelledState()
-                }
-                
-                // Display a dialog notifying the user that she must increase the Trust Level she has in the mediator (or in the contact)
-                
-                do {
-                    let dialogType = ObvChannelDialogToSendType.increaseMediatorTrustLevelRequired(contact: CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails),
-                                                                                                   mediatorIdentity: mediatorIdentity)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
-                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                }
-                
-                // Return the new state
-                return startState
-
             }
-
+            
         }
         
     }
@@ -1101,17 +848,17 @@ extension ProtocolStep {
         
         guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
             os_log("The solveChallengeDelegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The solve challenge delegate is not set")
         }
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         guard let channelDelegate = delegateManager.channelDelegate else {
             os_log("The channelDelegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The channel delegate is not set")
         }
 
         let signature: Data
@@ -1121,7 +868,7 @@ extension ProtocolStep {
             let prefix = ContactMutualIntroductionProtocol.signatureChallengePrefix
             guard let sig = try? solveChallengeDelegate.solveChallenge(challenge, prefixedWith: prefix, for: ownedIdentity, using: prng, within: obvContext) else {
                 os_log("Could not compute signature", log: log, type: .fault)
-                throw NSError()
+                throw Self.makeError(message: "Could not compute signature")
             }
             signature = sig
         }
@@ -1130,7 +877,9 @@ extension ProtocolStep {
             let ownedDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
             let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
             let concreteProtocolMessage = notifyContactOfAcceptedInvitationMessageInitializer(coreMessage, Array(ownedDeviceUids), signature)
-            guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+            guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
         }
         

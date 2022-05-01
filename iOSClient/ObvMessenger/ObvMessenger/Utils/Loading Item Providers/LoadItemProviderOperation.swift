@@ -33,7 +33,7 @@ import OlvidUtils
 /// - It keeps track of the UTI and of the file name so as to return an appropriate `loadedFileRepresentation`.
 final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<LoadItemProviderOperationReasonForCancel> {
     
-    private let preferredUTIs = [kUTTypeFileURL, kUTTypeJPEG, kUTTypePNG, kUTTypeMPEG4, kUTTypeMP3].map({ $0 as String })
+    private let preferredUTIs = [kUTTypeFileURL, kUTTypeJPEG, kUTTypePNG, kUTTypeMPEG4, kUTTypeMP3, kUTTypeQuickTimeMovie].map({ $0 as String })
     private let ignoredUTIs = [UTI.Bitmoji.avatarID, UTI.Bitmoji.comicID, UTI.Bitmoji.packID]
 
     private let itemProviderOrItemURL: ItemProviderOrItemURL
@@ -109,7 +109,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             _isFinished = true
             return
         }
-        
+
         let availablePreferredUTIs = preferredUTIs.filter({ filteredTypeIdentifiers.contains($0) })
         let utiToLoad: String
         if !availablePreferredUTIs.isEmpty {
@@ -225,8 +225,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             }
             
         } else if utiToLoad == String(kUTTypeImage) {
-            
-            // Note that we do not check whether the uti "conforms" to kUTTypeImage. This would be the case pf jpeg and png images, which we want to load "as is"
+
+            // Note that we do not check whether the uti "conforms" to kUTTypeImage. This would be the case of jpeg and png images, which we want to load "as is"
             
             itemProvider.loadItem(forTypeIdentifier: String(kUTTypeImage)) { [weak self] (item, error) in
                 guard error == nil else {

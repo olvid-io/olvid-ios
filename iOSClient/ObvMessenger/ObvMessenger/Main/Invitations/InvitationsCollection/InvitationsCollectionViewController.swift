@@ -136,6 +136,12 @@ extension InvitationsCollectionViewController {
     }
     
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        performFetch()
+    }
+    
+    
     @available(iOS, introduced: 13.0, deprecated: 14.0, message: "Used because iOS 13 does not support UIMenu on UIBarButtonItem")
     @objc private func ellipsisButtonTappedSelector() {
         ellipsisButtonTapped(sourceBarButtonItem: navigationItem.rightBarButtonItem)
@@ -151,7 +157,7 @@ extension InvitationsCollectionViewController {
     }
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerInternalNotification.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
             self?.collectionView.reloadData()
         }
         self.notificationTokens.append(token)
@@ -204,6 +210,10 @@ extension InvitationsCollectionViewController: NSFetchedResultsControllerDelegat
     private func configureTheFetchedResultsController() {
         fetchedResultsController = PersistedInvitation.getFetchedResultsControllerForOwnedIdentity(with: ownedCryptoId, within: ObvStack.shared.viewContext)
         fetchedResultsController.delegate = self
+    }
+    
+    
+    private func performFetch() {
         do {
             try fetchedResultsController.performFetch()
         } catch let error {
@@ -335,7 +345,10 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
         case 1:
             let frcIndexPath = frcIndexPathFrom(cvIndexPath: indexPath)
             let persistedInvitation = fetchedResultsController.object(at: frcIndexPath)
-            let cell = dequeueReusableCell(for: persistedInvitation.obvDialog.category, in: collectionView, at: indexPath)
+            guard let obvDialog = persistedInvitation.obvDialog else {
+                return fakeCell(indexPath: indexPath)
+            }
+            let cell = dequeueReusableCell(for: obvDialog.category, in: collectionView, at: indexPath)
             if let cell = cell as? InvitationCollectionCell {
                 configure(cell, with: persistedInvitation)
             }
@@ -343,6 +356,23 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
         default:
             return UICollectionViewCell()
         }
+    }
+    
+    
+    /// In case we cannot parse the ObvDialog of a PersistedInvitation, we display a fake cell. It won't last for long anyway, since the corresponding
+    /// PersistedInvitation is going to be deleted during bottstrap.
+    private func fakeCell(indexPath: IndexPath) -> UICollectionViewCell {
+        assertionFailure()
+        var cell = collectionView.dequeueReusableCell(withReuseIdentifier: TitledCardCollectionViewCell.identifier, for: indexPath) as! TitledCardCollectionViewCell
+        cell.title = ""
+        cell.subtitle = ""
+        cell.date = Date()
+        cell.identityColors = nil
+        cell.details = ""
+        cell.buttonTitle = CommonString.Word.Abort
+        cell.buttonAction = {}
+        cell.useLeadingButton()
+        return cell
     }
     
     
@@ -366,13 +396,15 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             return collectionView.dequeueReusableCell(withReuseIdentifier: TitledCardCollectionViewCell.identifier, for: indexPath)
         case .acceptGroupInvite:
             return collectionView.dequeueReusableCell(withReuseIdentifier: AcceptGroupInviteCollectionViewCell.identifier, for: indexPath)
-        case .groupJoined:
-            return collectionView.dequeueReusableCell(withReuseIdentifier: MultipleButtonsCollectionViewCell.identifier, for: indexPath)
         case .increaseMediatorTrustLevelRequired:
             return collectionView.dequeueReusableCell(withReuseIdentifier: MultipleButtonsCollectionViewCell.identifier, for: indexPath)
         case .increaseGroupOwnerTrustLevelRequired:
             return collectionView.dequeueReusableCell(withReuseIdentifier: MultipleButtonsCollectionViewCell.identifier, for: indexPath)
         case .autoconfirmedContactIntroduction:
+            return collectionView.dequeueReusableCell(withReuseIdentifier: MultipleButtonsCollectionViewCell.identifier, for: indexPath)
+        case .oneToOneInvitationSent:
+            return collectionView.dequeueReusableCell(withReuseIdentifier: TitledCardCollectionViewCell.identifier, for: indexPath)
+        case .oneToOneInvitationReceived:
             return collectionView.dequeueReusableCell(withReuseIdentifier: MultipleButtonsCollectionViewCell.identifier, for: indexPath)
         }
     }
@@ -395,11 +427,13 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
 
         cellToConfigure.setWidth(to: newWidth)
         
-        switch persistedInvitation.obvDialog.category {
+        guard let obvDialog = persistedInvitation.obvDialog else { assertionFailure(); return }
+        
+        switch obvDialog.category {
             
         case .inviteSent(contactIdentity: let contactURLIdentity):
             guard var cell = cellToConfigure as? TitledCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = contactURLIdentity.fullDisplayName
@@ -409,13 +443,13 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.details = Strings.InviteSent.details(contactURLIdentity.fullDisplayName)
             cell.buttonTitle = CommonString.Word.Abort
             cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
         case .acceptInvite(contactIdentity: let contactIdentity):
             guard var cell = cellToConfigure as? ButtonsCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
@@ -426,15 +460,15 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.buttonTitle1 = CommonString.Word.Accept
             cell.buttonTitle2 = Strings.AcceptInvite.buttonTitle2
             cell.button1Action = {
-                [weak self] in self?.acceptInvitation(dialog: persistedInvitation.obvDialog)
+                [weak self] in self?.acceptInvitation(dialog: obvDialog)
             }
             cell.button2Action = {
-                [weak self] in self?.rejectInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                [weak self] in self?.rejectInvitation(dialog: obvDialog, confirmed: false)
             }
             
         case .invitationAccepted(contactIdentity: let contactIdentity):
             guard var cell = cellToConfigure as? TitledCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
@@ -444,13 +478,13 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.details = Strings.InvitationAccepted.details(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))
             cell.buttonTitle = CommonString.Word.Abort
             cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
         case .sasExchange(contactIdentity: let contactIdentity, sasToDisplay: let sasToDisplay, numberOfBadEnteredSas: let numberOfBadEnteredSas):
             guard var cell = cellToConfigure as? SasCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             let sas = String.init(data: sasToDisplay, encoding: .utf8) ?? ""
@@ -463,10 +497,10 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.resetContactSas()
             cell.onSasInput = { [weak self] (enteredDigits) in
                 self?.contactsForWhichASASWasEntered.insert(contactIdentity.cryptoId)
-                self?.onSasInput(dialog: persistedInvitation.obvDialog, enteredDigits)
+                self?.onSasInput(dialog: obvDialog, enteredDigits)
             }
             cell.onAbort = { [weak self] in
-                self?.abandonInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             if numberOfBadEnteredSas > 0 && contactsForWhichASASWasEntered.contains(contactIdentity.cryptoId) {
                 contactsForWhichASASWasEntered.remove(contactIdentity.cryptoId)
@@ -478,7 +512,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             
         case .sasConfirmed(contactIdentity: let contactIdentity, sasToDisplay: let sasToDisplay, sasEntered: _):
             guard var cell = cellToConfigure as? SasAcceptedCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             let sas = String.init(data: sasToDisplay, encoding: .utf8) ?? ""
@@ -490,13 +524,13 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             try? cell.setOwnSas(ownSas: sasToDisplay)
             cell.buttonTitle = CommonString.Word.Abort
             cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
         case .mutualTrustConfirmed(contactIdentity: let contactIdentity):
             guard var cell = cellToConfigure as? MultipleButtonsCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
@@ -509,7 +543,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 guard let _self = self else { return }
                 ObvStack.shared.performBackgroundTask { (context) in
                     guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
-                    guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject) else { return }
+                    guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject, whereOneToOneStatusIs: .any) else { return }
                     let contactIdentityURI = contactIdendityObject.objectID.uriRepresentation()
                     let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: contactIdentityURI)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
@@ -523,7 +557,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
 
         case .acceptMediatorInvite(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
             guard var cell = cellToConfigure as? ButtonsCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = "\(mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)) → \(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
@@ -534,15 +568,15 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.buttonTitle1 = CommonString.Word.Accept
             cell.buttonTitle2 = Strings.AcceptMediatorInvite.buttonTitle2
             cell.button1Action = { [weak self] in
-                self?.respondToAcceptMediatorInvite(dialog: persistedInvitation.obvDialog, acceptInvite: true)
+                self?.respondToAcceptMediatorInvite(dialog: obvDialog, acceptInvite: true)
             }
             cell.button2Action = { [weak self] in
-                self?.respondToAcceptMediatorInvite(dialog: persistedInvitation.obvDialog, acceptInvite: false)
+                self?.respondToAcceptMediatorInvite(dialog: obvDialog, acceptInvite: false)
             }
             
         case .increaseMediatorTrustLevelRequired(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
             guard var cell = cellToConfigure as? MultipleButtonsCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = "\(mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)) → \(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
@@ -569,12 +603,12 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             }
             // Button for aborting
             cell.addButton(title: CommonString.Word.Abort, style: .obvButtonBorderless) {
-                [weak self] in self?.abandonInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
 
         case .mediatorInviteAccepted(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
             guard var cell = cellToConfigure as? TitledCardCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = "\(mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)) → \(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
@@ -584,13 +618,13 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.details = Strings.MediatorInviteAccepted.details(mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full), contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))
             cell.buttonTitle = CommonString.Word.Abort
             cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: persistedInvitation.obvDialog, confirmed: false)
+                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
         case .autoconfirmedContactIntroduction(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
             guard var cell = cellToConfigure as? MultipleButtonsCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = "\(mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)) → \(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
@@ -603,7 +637,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 guard let _self = self else { return }
                 ObvStack.shared.performBackgroundTask { (context) in
                     guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
-                    guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject) else { return }
+                    guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject, whereOneToOneStatusIs: .any) else { return }
                     let contactIdentityURI = contactIdendityObject.objectID.uriRepresentation()
                     let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: contactIdentityURI)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
@@ -617,7 +651,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
 
         case .acceptGroupInvite(groupMembers: let groupMembers, groupOwner: let groupOwner):
             guard var cell = cellToConfigure as? AcceptGroupInviteCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = "\(groupOwner.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
@@ -628,46 +662,17 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.buttonTitle1 = CommonString.Word.Accept
             cell.buttonTitle2 = CommonString.Word.Decline
             cell.button1Action = { [weak self] in
-                self?.acceptGroupInvite(dialog: persistedInvitation.obvDialog)
+                self?.acceptGroupInvite(dialog: obvDialog)
             }
             cell.button2Action = { [weak self] in
-                self?.rejectGroupInvite(dialog: persistedInvitation.obvDialog, confirmed: false)
+                self?.rejectGroupInvite(dialog: obvDialog, confirmed: false)
             }
             cell.setTitle(with: Strings.AcceptGroupInvite.subsubTitle)
             cell.setList(with: groupMembers.map { $0.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full) })
 
-        case .groupJoined(groupOwner: let groupOwner, groupUid: let groupUid):
-            guard var cell = cellToConfigure as? MultipleButtonsCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
-                return
-            }
-            cell.title = groupOwner.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-            cell.subtitle = Strings.GroupJoined.subtitle
-            cell.date = persistedInvitation.date
-            cell.identityColors = groupOwner.cryptoId.colors
-            cell.details = Strings.GroupJoined.details(groupOwner.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.firstNameThenLastName))
-            cell.buttonsStackView.axis = .horizontal
-            // Button for showing the Contact Group
-            cell.addButton(title: Strings.GroupJoined.showGroupButtonTitle, style: .obvButtonBorderless) { [weak self] in
-                guard let _self = self else { return }
-                ObvStack.shared.performBackgroundTask { (context) in
-                    let groupId = (groupUid, groupOwner.cryptoId)
-                    guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
-                    guard let contactGroup = try? PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else { return }
-                    let contactGroupURI = contactGroup.objectID.uriRepresentation()
-                    let deepLink = ObvDeepLink.contactGroupDetails(contactGroupURI: contactGroupURI)
-                    ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-                        .postOnDispatchQueue()
-                }
-            }
-            // Button for discarding the invitation
-            cell.addButton(title: CommonString.Word.Ok, style: .obvButton) { [weak self] in
-                try? self?.obvEngine.deleteDialog(with: persistedInvitation.uuid)
-            }
-
         case .increaseGroupOwnerTrustLevelRequired(groupOwner: let groupOwner):
             guard var cell = cellToConfigure as? MultipleButtonsCollectionViewCell else {
-                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), persistedInvitation.obvDialog.category.description)
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
             cell.title = "\(groupOwner.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
@@ -686,7 +691,52 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             }
             // Button for aborting
             cell.addButton(title: CommonString.Word.Reject, style: .obvButtonBorderless) { [weak self] in
-                self?.rejectGroupInvite(dialog: persistedInvitation.obvDialog, confirmed: false)
+                self?.rejectGroupInvite(dialog: obvDialog, confirmed: false)
+            }
+            
+        case .oneToOneInvitationSent(contactIdentity: let contactIdentity):
+            guard var cell = cellToConfigure as? TitledCardCollectionViewCell else {
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
+                return
+            }
+            cell.title = "\(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
+            cell.subtitle = Strings.OneToOneInvitationSent.subtitle
+            cell.date = persistedInvitation.date
+            cell.identityColors = contactIdentity.cryptoId.colors
+            cell.details = Strings.OneToOneInvitationSent.details(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.short))
+            // Button for aborting
+            cell.buttonTitle = CommonString.Word.Abort
+            cell.buttonAction = { [weak self] in
+                assert(Thread.isMainThread)
+                guard let ownedCryptoId = self?.ownedCryptoId else { return }
+                self?.delegate?.userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ownedCryptoId, contactCryptoId: contactIdentity.cryptoId)
+            }
+            cell.useLeadingButton()
+
+        case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
+            guard var cell = cellToConfigure as? MultipleButtonsCollectionViewCell else {
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
+                return
+            }
+            cell.title = "\(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))"
+            cell.subtitle = Strings.OneToOneInvitationReceived.subtitle
+            cell.date = persistedInvitation.date
+            cell.identityColors = contactIdentity.cryptoId.colors
+            cell.details = Strings.OneToOneInvitationReceived.details(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.short))
+            // Button for increasing the group owner TL
+            do {
+                let title = CommonString.Word.Accept
+                cell.addButton(title: title, style: .obvButton) { [weak self] in
+                    var localDialog = obvDialog
+                    try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: true)
+                    self?.obvEngine.respondTo(localDialog)
+                }
+            }
+            // Button for aborting
+            cell.addButton(title: CommonString.Word.Reject, style: .obvButtonBorderless) { [weak self] in
+                var localDialog = obvDialog
+                try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: false)
+                self?.obvEngine.respondTo(localDialog)
             }
         }
         

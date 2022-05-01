@@ -68,18 +68,27 @@ final class PersistedContactGroupJoined: PersistedContactGroup {
 
 extension PersistedContactGroupJoined {
     
-    convenience init?(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) {
+    convenience init(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) throws {
 
-        guard contactGroup.groupType == .joined else { return nil }
-
-        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else { return nil }
-        guard let owner = try? PersistedObvContactIdentity.get(cryptoId: contactGroup.groupOwner.cryptoId, ownedIdentity: ownedIdentity) else { return nil }
+        guard contactGroup.groupType == .joined else {
+            assertionFailure()
+            throw Self.makeError(message: "Unexpected group type")
+        }
         
-        self.init(contactGroup: contactGroup,
-                  groupName: contactGroup.trustedOrLatestCoreDetails.name,
-                  category: .joined,
-                  forEntityName: PersistedContactGroupJoined.entityName,
-                  within: context)
+        guard let ownedIdentity = try PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not find owned identity")
+        }
+        guard let owner = try PersistedObvContactIdentity.get(cryptoId: contactGroup.groupOwner.cryptoId, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not find contact identity")
+        }
+        
+        try self.init(contactGroup: contactGroup,
+                      groupName: contactGroup.trustedOrLatestCoreDetails.name,
+                      category: .joined,
+                      forEntityName: PersistedContactGroupJoined.entityName,
+                      within: context)
         
         self.groupNameCustom = nil
         self.rawStatus = Status.noNewPublishedDetails.rawValue

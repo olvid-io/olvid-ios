@@ -25,12 +25,18 @@ import os.log
 import OlvidUtils
 import UniformTypeIdentifiers
 
+enum PersistedMessageKind {
+    case none
+    case received
+    case sent
+    case system
+}
 
 @objc(PersistedMessage)
 class PersistedMessage: NSManagedObject {
-    
-    private static let entityName = "PersistedMessage"
-    
+
+    static let PersistedMessageEntityName = "PersistedMessage"
+
     static let bodyKey = "body"
     static let rawStatusKey = "rawStatus"
     static let rawVisibilityDurationKey = "rawVisibilityDuration"
@@ -40,7 +46,7 @@ class PersistedMessage: NSManagedObject {
     static let sortIndexKey = "sortIndex"
     static let timestampKey = "timestamp"
     static let discussionKey = "discussion"
-    private static let readOnceToBeDeletedKey = "readOnceToBeDeleted"
+    static let readOnceToBeDeletedKey = "readOnceToBeDeleted"
     static let muteNotificationsEndDateKey = [discussionKey, PersistedDiscussion.localConfigurationKey, PersistedDiscussionLocalConfiguration.muteNotificationsEndDateKey].joined(separator: ".")
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessage")
@@ -68,6 +74,11 @@ class PersistedMessage: NSManagedObject {
     @NSManaged private var rawReactions: [PersistedMessageReaction]?
 
     // MARK: - Other variables
+
+    var kind: PersistedMessageKind {
+        assertionFailure("Kind must be overriden in subclasses")
+        return .none
+    }
     
     var visibilityDuration: TimeInterval? {
         get {
@@ -86,35 +97,12 @@ class PersistedMessage: NSManagedObject {
     @objc(textBody)
     var textBody: String? {
         if body == nil || body?.isEmpty == true { return nil }
-        if let receivedMessage = self as? PersistedMessageReceived, receivedMessage.readingRequiresUserAction {
-            return NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
-        } else {
-            return self.body
-        }
+        // Override in PersistedMessageReceived
+        return self.body
     }
     
     var textBodyToSend: String? { self.body }
-    
-    var fyleMessageJoinWithStatus: [FyleMessageJoinWithStatus]? {
-        if let receivedMessage = self as? PersistedMessageReceived {
-            return receivedMessage.fyleMessageJoinWithStatuses
-        } else if let sentMessage = self as? PersistedMessageSent {
-            return sentMessage.fyleMessageJoinWithStatuses
-        } else {
-            return nil
-        }
-    }
-    
-    var messageIdentifiersFromEngine: Set<Data> {
-        if let msg = self as? PersistedMessageSent {
-            return Set(msg.unsortedRecipientsInfos.compactMap({ $0.messageIdentifierFromEngine }))
-        } else if let msg = self as? PersistedMessageReceived {
-            return Set([msg.messageIdentifierFromEngine])
-        } else {
-            return Set()
-        }
-    }
-    
+
     func deleteBody() {
         self.body = nil
     }
@@ -127,22 +115,12 @@ class PersistedMessage: NSManagedObject {
         self.discussion.retainWipedOutboundMessages
     }
 
-    var earliestExpiration: PersistedMessageExpiration? {
-        if let sentMessage = self as? PersistedMessageSent {
-            return sentMessage.earliestExpiration
-        } else if let receivedMessage = self as? PersistedMessageReceived {
-            return receivedMessage.earliestExpiration
-        } else {
-            return nil
-        }
-    }
-
     var initialExistenceDuration: TimeInterval? {
         if let sentMessage = self as? PersistedMessageSent {
             return sentMessage.existenceDuration
-        } else if let receivedMessage = self as? PersistedMessageReceived {
-            return receivedMessage.initialExistenceDuration
         } else {
+            // Override in PersistedMessageReceived
+            assert(kind == .system)
             return nil
         }
     }
@@ -162,16 +140,10 @@ class PersistedMessage: NSManagedObject {
     }
 
     var isWiped: Bool { isLocallyWiped || isRemoteWiped }
-    
+
     /// `true` when this instance can be edited after being sent.
-    var textBodyCanBeEdited: Bool {
-        guard self is PersistedMessageSent || self is PersistedMessageReceived else { return false }
-        guard self.discussion is PersistedOneToOneDiscussion || self.discussion is PersistedGroupDiscussion else { return false }
-        guard !self.isLocallyWiped else { return false }
-        guard !self.isRemoteWiped else { return false }
-        return true
-    }
-    
+    var textBodyCanBeEdited: Bool { false }
+
     /// Shall only be called from the overriding method in `PersistedMessageSent`
     @objc func editTextBody(newTextBody: String?) throws {
         guard self.textBodyCanBeEdited else {
@@ -183,12 +155,15 @@ class PersistedMessage: NSManagedObject {
     var isEdited: Bool {
         self.metadata.first(where: { $0.kind == .edited }) != nil
     }
-    
+
+    var isNumberOfNewMessagesMessageSystem: Bool {
+        // Overriden in PersistedMessageSystem
+        return false
+    }
     
     /// This method is specific to system messages, when their category is `numberOfNewMessages`.
     func resetSortIndexOfNumberOfNewMessagesSystemMessage(to newSortIndex: Double) throws {
-        guard let systemMessage = self as? PersistedMessageSystem else { throw makeError(message: "Cannot reset sort index of this message type") }
-        guard systemMessage.category == .numberOfNewMessages else { throw makeError(message: "Cannot change sort index of this category of system message") }
+        guard isNumberOfNewMessagesMessageSystem else { throw makeError(message: "Cannot reset sort index of this message type") }
         self.sortIndex = newSortIndex
     }
     
@@ -197,6 +172,17 @@ class PersistedMessage: NSManagedObject {
                                                              UTType.png.identifier,
                                                              UTType.gif.identifier,
                                                              UTType.heic.identifier ]))
+
+    func toMessageReferenceJSON() -> MessageReferenceJSON? {
+        assertionFailure("We do not expect this function to be called on anything else than a PersistedMessageSent or a PersistedMessageReceived where this function is overriden")
+        return nil
+    }
+
+    var fyleMessageJoinWithStatus: [FyleMessageJoinWithStatus]? { nil }
+
+    var messageIdentifiersFromEngine: Set<Data> { Set() }
+
+    var genericRepliesTo: RepliedMessage { .none }
 
 }
 
@@ -265,11 +251,10 @@ extension PersistedMessage {
         guard let context = self.managedObjectContext else { assertionFailure(); throw makeError(message: "Could not find context") }
         context.delete(self)
     }
-    
-    
+
     /// Should *only* be called from `PersistedMessageReceived`
     func setRawMessageRepliedTo(with rawMessageRepliedTo: PersistedMessage) {
-        assert(self is PersistedMessageReceived)
+        assert(kind == .received)
         self.rawMessageRepliedTo = rawMessageRepliedTo
     }
     
@@ -279,7 +264,7 @@ extension PersistedMessage {
 // MARK: - Reply-to
 
 extension PersistedMessage {
-    
+
     enum RepliedMessage {
         case none
         case notAvailableYet
@@ -287,108 +272,9 @@ extension PersistedMessage {
         case deleted
     }
 
-    
-    var genericRepliesTo: RepliedMessage {
-        if let messageReceived = self as? PersistedMessageReceived {
-            switch messageReceived.repliesTo {
-            case .none:
-                return .none
-            case .notAvailableYet:
-                return .notAvailableYet
-            case .available(message: let message):
-                return .available(message: message)
-            case .deleted:
-                return .deleted
-            }
-        } else if let messageSent = self as? PersistedMessageSent {
-            switch messageSent.repliesTo {
-            case .none:
-                return .none
-            case .available(message: let message):
-                return .available(message: message)
-            case .deleted:
-                return .deleted
-            }
-        } else {
-            return .none
-        }
-    }
-    
 }
 
 
-
-// MARK: - Utils for section identifiers
-
-extension PersistedMessage {
-    
-    private static func computeSectionIdentifier(fromTimestamp timestamp: Date, sortIndex: Double, discussion: PersistedDiscussion) throws -> String {
-        let calendar = Calendar.current
-        let dateComponents = Set<Calendar.Component>([.year, .month, .day])
-        let components = calendar.dateComponents(dateComponents, from: timestamp)
-        let computedSectionIdentifier = String(format: "%ld", components.year!*10000 + components.month!*100 + components.day!)
-        
-        /* Before returning the section identifier, we make sure that the `sectionIdentifier` of this message is not
-         * conflicting with the ones of the previous and next messages:
-         * - If a previous message exists, we must have appropriateSectionIdentifier >= prevMsg.sectionIdentifier
-         * - If a next message exists,  we must have appropriateSectionIdentifier <= nextMsg.sectionIdentifier
-         * At least one constraint will be verified. If one is not, we use the "bound" as the appropriateSectionIdentifier.
-         * If both constraints are ok, we use the computedSectionIdentifier as the appropriate section identifier.
-         */
-
-        let appropriateSectionIdentifier: String
-        if let previousMessage = try PersistedMessage.getMessage(beforeSortIndex: sortIndex, in: discussion),
-            previousMessage.sectionIdentifier > computedSectionIdentifier {
-            appropriateSectionIdentifier = previousMessage.sectionIdentifier
-        } else if let nextMessage = try PersistedMessage.getMessage(afterSortIndex: sortIndex, in: discussion),
-            nextMessage.sectionIdentifier < computedSectionIdentifier {
-            appropriateSectionIdentifier = nextMessage.sectionIdentifier
-        } else {
-            appropriateSectionIdentifier = computedSectionIdentifier
-        }
-        
-        return appropriateSectionIdentifier
-    }
-
-    
-    static func getSectionTitle(fromSectionIdentifier sectionIdentifier: String, usingDateFormatter df: DateFormatter) -> String? {
-        guard let components = getDateComponents(fromSectionIdentifier: sectionIdentifier) else { return nil }
-        guard let date = components.date else { return nil }
-        return df.string(from: date)
-    }
-    
-    
-    static func getDateComponents(fromSectionIdentifier sectionIdentifier: String) -> DateComponents? {
-        guard var numeric = Int(sectionIdentifier) else { return nil }
-        let calendar = Calendar.current
-        let year = numeric / 10000
-        numeric -= year * 10000
-        let month = numeric / 100
-        numeric -= month * 100
-        let day = numeric
-        let components = DateComponents(calendar: calendar, year: year, month: month, day: day)
-        return components
-    }
-    
-}
-
-
-// MARK: - Getting ReplyToJSON
-
-extension PersistedMessage {
-    
-    func toMessageReferenceJSON() -> MessageReferenceJSON? {
-        if let sentMessage = self as? PersistedMessageSent {
-            return sentMessage.toSentMessageReferenceJSON()
-        } else if let receivedMessage = self as? PersistedMessageReceived {
-            return receivedMessage.toReceivedMessageReferenceJSON()
-        } else {
-            assertionFailure("We do not expect this function to be called on anything else than a PersistedMessageSent or a PersistedMessageReceived")
-            return nil
-        }
-    }
-    
-}
 
 // MARK: - Reactions Util
 
@@ -439,12 +325,67 @@ extension PersistedMessage {
     
 }
 
+// MARK: - Utils for section identifiers
+
+extension PersistedMessage {
+
+    private static func computeSectionIdentifier(fromTimestamp timestamp: Date, sortIndex: Double, discussion: PersistedDiscussion) throws -> String {
+        let calendar = Calendar.current
+        let dateComponents = Set<Calendar.Component>([.year, .month, .day])
+        let components = calendar.dateComponents(dateComponents, from: timestamp)
+        let computedSectionIdentifier = String(format: "%ld", components.year!*10000 + components.month!*100 + components.day!)
+
+        /* Before returning the section identifier, we make sure that the `sectionIdentifier` of this message is not
+         * conflicting with the ones of the previous and next messages:
+         * - If a previous message exists, we must have appropriateSectionIdentifier >= prevMsg.sectionIdentifier
+         * - If a next message exists,  we must have appropriateSectionIdentifier <= nextMsg.sectionIdentifier
+         * At least one constraint will be verified. If one is not, we use the "bound" as the appropriateSectionIdentifier.
+         * If both constraints are ok, we use the computedSectionIdentifier as the appropriate section identifier.
+         */
+
+        let appropriateSectionIdentifier: String
+        if let previousMessageValues = try PersistedMessage.getMessageValues(beforeSortIndex: sortIndex, in: discussion, propertiesToFetch: [sectionIdentifierKey]),
+           let sectionIdentifier = previousMessageValues[sectionIdentifierKey] as? String,
+           sectionIdentifier > computedSectionIdentifier {
+            appropriateSectionIdentifier = sectionIdentifier
+        } else if let nextMessageValues = try PersistedMessage.getMessageValues(afterSortIndex: sortIndex, in: discussion, propertiesToFetch: [sectionIdentifierKey]),
+                  let sectionIdentifier = nextMessageValues[sectionIdentifierKey] as? String,
+                  sectionIdentifier < computedSectionIdentifier {
+            appropriateSectionIdentifier = sectionIdentifier
+        } else {
+            appropriateSectionIdentifier = computedSectionIdentifier
+        }
+
+        return appropriateSectionIdentifier
+    }
+
+
+    static func getSectionTitle(fromSectionIdentifier sectionIdentifier: String, usingDateFormatter df: DateFormatter) -> String? {
+        guard let components = getDateComponents(fromSectionIdentifier: sectionIdentifier) else { return nil }
+        guard let date = components.date else { return nil }
+        return df.string(from: date)
+    }
+
+
+    static func getDateComponents(fromSectionIdentifier sectionIdentifier: String) -> DateComponents? {
+        guard var numeric = Int(sectionIdentifier) else { return nil }
+        let calendar = Calendar.current
+        let year = numeric / 10000
+        numeric -= year * 10000
+        let month = numeric / 100
+        numeric -= month * 100
+        let day = numeric
+        let components = DateComponents(calendar: calendar, year: year, month: month, day: day)
+        return components
+    }
+
+}
 
 // MARK: - Convenience DB getters
 
 extension PersistedMessage {
-    
-    private struct Predicate {
+
+    struct Predicate {
         static var readOnceToBeDeleted: NSPredicate {
             NSPredicate(format: "\(PersistedMessage.readOnceToBeDeletedKey) == TRUE")
         }
@@ -454,273 +395,61 @@ extension PersistedMessage {
         static func withinDiscussion(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
             NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID)
         }
-        static var isOutboundMessage: NSPredicate {
-            NSPredicate(format: "entity == %@", PersistedMessageSent.entity())
-        }
-        static var isInboundMessage: NSPredicate {
-            NSPredicate(format: "entity == %@", PersistedMessageReceived.entity())
-        }
-        static var isNotInboundMessage: NSPredicate {
-            NSPredicate(format: "entity != %@", PersistedMessageReceived.entity())
-        }
-        static var isSystemMessage: NSPredicate {
-            NSPredicate(format: "entity == %@", PersistedMessageSystem.entity())
-        }
-        static var outboundMessageThatWasSent: NSPredicate {
-            NSCompoundPredicate(andPredicateWithSubpredicates: [
-                isOutboundMessage,
-                PersistedMessageSent.Predicate.wasSent,
-            ])
-        }
-        static var inboundMessageThatIsNotNewAnymore: NSPredicate {
-            NSCompoundPredicate(andPredicateWithSubpredicates: [
-                isInboundMessage,
-                PersistedMessageReceived.Predicate.isNotNewAnymore,
-            ])
-        }
         static func objectsWithObjectId(in objectIDs: [NSManagedObjectID]) -> NSPredicate {
             NSPredicate(format: "self in %@", objectIDs)
         }
-        static func withSortIndexSmallerThan(_ sortIndex: Double) -> NSPredicate {
-            NSPredicate(format: "%K < %lf", sortIndexKey, sortIndex)
-        }
         static func withSortIndexLargerThan(_ sortIndex: Double) -> NSPredicate {
             NSPredicate(format: "%K > %lf", sortIndexKey, sortIndex)
-        }
-        static func withSectionIdentifier(_ sectionIdentifier: String) -> NSPredicate {
-            NSPredicate(format: "%K == %@", PersistedMessage.sectionIdentifierKey, sectionIdentifier)
         }
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(format: "self == %@", objectID)
         }
     }
 
-    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessage> {
-        return NSFetchRequest<PersistedMessage>(entityName: PersistedMessage.entityName)
+    @nonobjc static func dictionaryFetchRequest() -> NSFetchRequest<NSDictionary> {
+        return NSFetchRequest<NSDictionary>(entityName: PersistedMessage.PersistedMessageEntityName)
     }
 
-    
-    static func getMessageRightBeforeReceivedMessageInSameSection(_ message: PersistedMessageReceived) throws -> PersistedMessage? {
-        guard let context = message.managedObjectContext else { throw NSError() }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withSortIndexSmallerThan(message.sortIndex),
-            Predicate.withSectionIdentifier(message.sectionIdentifier),
-        ])
-        request.sortDescriptors = [
-            NSSortDescriptor(key: PersistedMessage.sectionIdentifierKey, ascending: true),
-            NSSortDescriptor(key: sortIndexKey, ascending: false),
-        ]
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
-    
-    static func getLargestSortIndex(in discussion: PersistedDiscussion) throws -> Double {
-        let lastMessage = try getLastMessage(in: discussion)
-        return lastMessage?.sortIndex ?? 0
-    }
-    
-    
-    static func getLastMessage(in discussion: PersistedDiscussion) throws -> PersistedMessage? {
+    static func getLastMessageValues(in discussion: PersistedDiscussion, propertiesToFetch: [String]) throws -> NSDictionary? {
         guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
         request.predicate = NSPredicate(format: "%K == %@", discussionKey, discussion)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
+        request.propertiesToFetch = propertiesToFetch
+        request.resultType = .dictionaryResultType
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
-    
-    
-    static func getMessage(afterSortIndex sortIndex: Double, in discussion: PersistedDiscussion) throws -> PersistedMessage? {
+
+    static func getLargestSortIndex(in discussion: PersistedDiscussion) throws -> Double {
+        let lastMassageValues = try getLastMessageValues(in: discussion, propertiesToFetch: [sortIndexKey])
+        return lastMassageValues?[sortIndexKey] as? Double ?? 0
+    }
+
+    static func getMessageValues(beforeSortIndex sortIndex: Double, in discussion: PersistedDiscussion,  propertiesToFetch: [String]) throws -> NSDictionary? {
         guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
+        request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
+                                        discussionKey, discussion,
+                                        sortIndexKey, sortIndex)
+        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
+        request.resultType = .dictionaryResultType
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    static func getMessageValues(afterSortIndex sortIndex: Double, in discussion: PersistedDiscussion,  propertiesToFetch: [String]) throws -> NSDictionary? {
+        guard let context = discussion.managedObjectContext else { return nil }
+        let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K > %lf",
                                         discussionKey, discussion,
                                         sortIndexKey, sortIndex)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-    
-    
-    static func getMessage(beforeSortIndex sortIndex: Double, in discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
-                                        discussionKey, discussion,
-                                        sortIndexKey, sortIndex)
-        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
+        request.resultType = .dictionaryResultType
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
 
-    static func getMessage(beforeSortIndex sortIndex: Double, inDiscussionWithObjectID objectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> PersistedMessage? {
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
-                                        discussionKey, objectID.objectID,
-                                        sortIndexKey, sortIndex)
-        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
-    static func get(with objectID: TypeSafeManagedObjectID<PersistedMessage>, within context: NSManagedObjectContext) throws -> PersistedMessage? {
-        return try get(with: objectID.objectID, within: context)
-    }
-
-    static func get(with objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedMessage? {
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = Predicate.withObjectID(objectID)
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-    
-    static func getAll(with objectIDs: [NSManagedObjectID], within context: NSManagedObjectContext) throws -> [PersistedMessage] {
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = Predicate.objectsWithObjectId(in: objectIDs)
-        request.fetchBatchSize = 1_000
-        return try context.fetch(request)
-    }
-    
-    static func deleteAllWithinDiscussion(persistedDiscussionObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws {
-        // For now, the structure of the database prevents batch deletion
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", discussionKey, persistedDiscussionObjectID)
-        request.fetchBatchSize = 1_000
-        request.includesPropertyValues = false
-        let messages = try context.fetch(request)
-        _ = messages.map { context.delete($0) }
-    }
-
-    
-    static func getNumberOfMessagesWithinDiscussion(discussionObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> Int {
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", discussionKey, discussionObjectID)
-        return try context.count(for: request)
-    }
-    
-    
-    static func getAppropriateIllustrativeMessage(in discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: false)]
-        request.fetchLimit = 1
-        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
-            NSCompoundPredicate(andPredicateWithSubpredicates: [
-                Predicate.withinDiscussion(discussion),
-                Predicate.isInboundMessage,
-            ]),
-            NSCompoundPredicate(andPredicateWithSubpredicates: [
-                Predicate.withinDiscussion(discussion),
-                Predicate.isOutboundMessage,
-            ]),
-            NSCompoundPredicate(andPredicateWithSubpredicates: [
-                Predicate.withinDiscussion(discussion),
-                Predicate.isSystemMessage,
-                PersistedMessageSystem.Predicate.isRelevantForIllustrativeMessage,
-            ]),
-        ])
-        return try context.fetch(request).first
-    }
-
-    
-    static func findMessageFrom(reference referenceJSON: MessageReferenceJSON, within discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        if let message = try PersistedMessageReceived.get(senderSequenceNumber: referenceJSON.senderSequenceNumber,
-                                                          senderThreadIdentifier: referenceJSON.senderThreadIdentifier,
-                                                          contactIdentity: referenceJSON.senderIdentifier,
-                                                          discussion: discussion) {
-            return message
-        } else if let message = try PersistedMessageSent.get(senderSequenceNumber: referenceJSON.senderSequenceNumber,
-                                                             senderThreadIdentifier: referenceJSON.senderThreadIdentifier,
-                                                             ownedIdentity: referenceJSON.senderIdentifier,
-                                                             discussion: discussion) {
-            assert(referenceJSON.senderIdentifier == discussion.ownedIdentity!.cryptoId.getIdentity())
-            return message
-        } else {
-            return nil
-        }
-    }
-    
-
-}
-
-
-// MARK: - Convenience NSFetchedResultsController creators
-
-extension PersistedMessage {
-
-    static func getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
-        let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: true)]
-        fetchRequest.fetchBatchSize = 500
-        fetchRequest.propertiesToFetch = [
-            bodyKey,
-            rawStatusKey,
-            rawVisibilityDurationKey,
-            readOnceKey,
-            sectionIdentifierKey,
-            senderSequenceNumberKey,
-            sortIndexKey,
-            timestampKey,
-        ]
-        fetchRequest.returnsObjectsAsFaults = false
-        fetchRequest.shouldRefreshRefetchedObjects = true
-        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
-                                                                  managedObjectContext: context,
-                                                                  sectionNameKeyPath: sectionIdentifierKey,
-                                                                  cacheName: nil)
-        
-        return fetchedResultsController
-    }
-    
-    
-    static func getFetchedResultsControllerForLastMessagesWithinDiscussion(discussionObjectID: NSManagedObjectID, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
-        
-        let numberOfMessagesToFetch = 20
-        
-        let numberOfMessages: Int
-        do {
-            numberOfMessages = try getNumberOfMessagesWithinDiscussion(discussionObjectID: discussionObjectID, within: context)
-        } catch {
-            numberOfMessages = 0
-        }
-        
-        let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", discussionKey, discussionObjectID)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: true)]
-        fetchRequest.fetchLimit = min(numberOfMessagesToFetch, numberOfMessages)
-        fetchRequest.fetchOffset = max(0, numberOfMessages - numberOfMessagesToFetch)
-        
-        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
-                                                                  managedObjectContext: context,
-                                                                  sectionNameKeyPath: sectionIdentifierKey,
-                                                                  cacheName: nil)
-        
-        return fetchedResultsController
-    }
-
-    
-    /// This method deletes the first outbound/inbound messages of the discussion, up to the `count` parameter.
-    /// Oubound messages only concerns sent messages. Outbound messages only concerns non-new messages.
-    static func deleteFirstMessages(discussion: PersistedDiscussion, count: Int) throws {
-        guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
-        guard count > 0 else { return }
-        let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: true)]
-        fetchRequest.fetchLimit = count
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withinDiscussion(discussion),
-            NSCompoundPredicate(orPredicateWithSubpredicates: [
-                Predicate.outboundMessageThatWasSent,
-                Predicate.inboundMessageThatIsNotNewAnymore,
-            ]),
-        ])
-        let messages = try context.fetch(fetchRequest)
-        messages.forEach { context.delete($0) }
-    }
-    
 }
 
 // MARK: - Reacting to changes
@@ -889,7 +618,7 @@ final class PersistedMessageTimestampedMetadata: NSManagedObject {
         super.didSave()
         if isInserted {
             guard let message = self.message else { assertionFailure(); return }
-            ObvMessengerInternalNotification.persistedMessageHasNewMetadata(persistedMessageObjectID: message.objectID)
+            ObvMessengerCoreDataNotification.persistedMessageHasNewMetadata(persistedMessageObjectID: message.objectID)
                 .postOnDispatchQueue()
         }
     }

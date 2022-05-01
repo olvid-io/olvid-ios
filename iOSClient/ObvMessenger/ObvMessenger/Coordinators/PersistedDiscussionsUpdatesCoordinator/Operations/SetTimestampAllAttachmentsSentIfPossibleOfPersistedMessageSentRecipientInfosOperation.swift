@@ -26,7 +26,7 @@ import OlvidUtils
 final class SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation: OperationWithSpecificReasonForCancel<SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperationReasonForCancel> {
  
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation.self))
 
     private let messageIdentifierFromEngine: Data
     

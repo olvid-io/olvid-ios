@@ -34,7 +34,7 @@ extension GroupInvitationProtocol {
         case DialogAcceptGroupInvitation = 2
         case InvitationResponse = 3
         case PropagateInvitationResponse = 4
-        case TrustLevelIncreased = 5
+        // We remove the TrustLevelIncreased case on 2022-01-27 when implementing the two-level address bool
         case DialogInformative = 6
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
@@ -44,7 +44,6 @@ extension GroupInvitationProtocol {
             case .DialogAcceptGroupInvitation : return DialogAcceptGroupInvitationMessage.self
             case .InvitationResponse          : return InvitationResponseMessage.self
             case .PropagateInvitationResponse : return PropagateInvitationResponseMessage.self
-            case .TrustLevelIncreased         : return TrustLevelIncreasedMessage.self
             case .DialogInformative           : return DialogInformativeMessage.self
             }
         }
@@ -220,36 +219,6 @@ extension GroupInvitationProtocol {
         }
         
     }
-
-    
-    // MARK: - InvitationResponseMessage
-    
-    struct TrustLevelIncreasedMessage: ConcreteProtocolMessage {
-        
-        let id: ConcreteProtocolMessageId = MessageId.TrustLevelIncreased
-        let coreProtocolMessage: CoreProtocolMessage
-        
-        let identityWithTrustLevelIncreased: ObvCryptoIdentity
-        
-        var encodedInputs: [ObvEncoded] {
-            return [identityWithTrustLevelIncreased.encode()]
-        }
-        
-        // Initializers
-        
-        init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.identityWithTrustLevelIncreased = try message.encodedInputs[0].decode()
-        }
-        
-        init(coreProtocolMessage: CoreProtocolMessage, identityWithTrustLevelIncreased: ObvCryptoIdentity) {
-            self.coreProtocolMessage = coreProtocolMessage
-            self.identityWithTrustLevelIncreased = identityWithTrustLevelIncreased
-        }
-        
-    }
-
     
     // MARK: - DialogInformativeMessage
     // This message is always sent from this protocol, never to this protocol

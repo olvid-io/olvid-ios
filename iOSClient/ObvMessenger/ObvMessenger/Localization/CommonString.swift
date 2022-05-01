@@ -38,6 +38,7 @@ struct CommonString {
         static let Camera = NSLocalizedString("Camera", comment: "Camera word, capitalized")
         static let Cancel = NSLocalizedString("Cancel", comment: "Cancel word, capitalized")
         static let Chat = NSLocalizedString("Chat", comment: "Chat word, capitalized")
+        static let Choose = NSLocalizedString("Choose", comment: "Choose word, capitalized")
         static let Clean = NSLocalizedString("Clean", comment: "Clean word, capitalized")
         static let Completely = NSLocalizedString("Completely", comment: "Completely word, capitalized")
         static let Confirmation = NSLocalizedString("Confirmation", comment: "Confirmation word, capitalized")
@@ -60,6 +61,8 @@ struct CommonString {
         static let Downloads = NSLocalizedString("Downloads", comment: "Downloads word, capitalized")
         static let Edit = NSLocalizedString("Edit", comment: "Edit word, capitalized")
         static let Edited = NSLocalizedString("Edited", comment: "Edited word, capitalized")
+        static let Error = NSLocalizedString("ERROR", comment: "Error word, capitalized")
+        static let Everyone = NSLocalizedString("Everyone", comment: "Everyone word, capitalized")
         static let Exclude = NSLocalizedString("Exclude", comment: "Exclude word, capitalized")
         static let Expiration = NSLocalizedString("Expiration", comment: "Expiration word, capitalized")
         static let Expired = NSLocalizedString("Expired", comment: "Expired word, capitalized")
@@ -78,6 +81,7 @@ struct CommonString {
         static let Next = NSLocalizedString("Next", comment: "Next word, capitalized")
         static let No = NSLocalizedString("No", comment: "No word, capitalized")
         static let None = NSLocalizedString("None", comment: "None word, capitalized")
+        static let NoOne = NSLocalizedString("No one", comment: "No one word, capitalized")
         static let Notifications = NSLocalizedString("Notifications", comment: "Notifications word, capitalized")
         static let Now = NSLocalizedString("Now", comment: "Now word, capitalized")
         static let Off = NSLocalizedString("Off", comment: "Off word, capitalized")
@@ -142,6 +146,8 @@ struct CommonString {
             String.localizedStringWithFormat(NSLocalizedString("Introduce %@ to...", comment: "Title of the table listing all identities but the one to introduce"), contactIdentityDisplayName)
         }
         static let deleteOwnReaction = NSLocalizedString("DELETE_OWN_REACTION", comment: "Title")
+        static let contactsAndGroups = NSLocalizedString("CONTACTS_AND_GROUPS", comment: "Title")
+        static let contactsSortOrder = NSLocalizedString("CONTACTS_SORT_ORDER", comment: "Title")
     }
     
     static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")

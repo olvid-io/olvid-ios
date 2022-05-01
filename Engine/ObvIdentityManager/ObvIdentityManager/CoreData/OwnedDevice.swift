@@ -128,8 +128,10 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
 
 extension OwnedDevice {
     
-    var allCapabilities: Set<ObvCapability> {
-        guard let split = self.rawCapabilities?.split(separator: "|") else { return Set<ObvCapability>() }
+    /// Returns `nil` if the device capabilities were never set yet
+    var allCapabilities: Set<ObvCapability>? {
+        guard let rawCapabilities = self.rawCapabilities else { return nil }
+        let split = rawCapabilities.split(separator: "|")
         return Set(split.compactMap({ ObvCapability(rawValue: String($0)) }))
     }
 

@@ -26,10 +26,14 @@ import MobileCoreServices
 import ObvEncoder
 import ObvMetaManager
 
-final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReasonForCancel<ComputeExtendedPayloadOperationReasonForCancel> {
-    
-    private let op: CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation?
-    private let persistedMessageSentObjectID: NSManagedObjectID?
+private enum ComputeExtendedPayloadOperationInput {
+    case message(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>)
+    case unprocessedPersistedMessageSentProvider(_: UnprocessedPersistedMessageSentProvider)
+}
+
+final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReasonForCancel<ComputeExtendedPayloadOperationReasonForCancel>, ExtendedPayloadProvider {
+
+    private let input: ComputeExtendedPayloadOperationInput
     private let maxNumberOfDownsizedImages = 25
     
     static let downsizedImageSize = CGSize(width: 40, height: 40) // In pixels
@@ -37,35 +41,29 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
     private static let errorDomain = "ComputeExtendedPayloadOperation"
     fileprivate static func makeError(message: String) -> Error { NSError(domain: ComputeExtendedPayloadOperation.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    init(op: CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation) {
-        self.op = op
-        self.persistedMessageSentObjectID = nil
+    init(provider: UnprocessedPersistedMessageSentProvider) {
+        self.input = .unprocessedPersistedMessageSentProvider(provider)
         super.init()
     }
 
-    init(persistedMessageSentObjectID: NSManagedObjectID) {
-        self.op = nil
-        self.persistedMessageSentObjectID = persistedMessageSentObjectID
+    init(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>) {
+        self.input = .message(persistedMessageSentObjectID: persistedMessageSentObjectID)
         super.init()
     }
-    
+
     private(set) var extendedPayload: Data?
-    
+
     override func main() {
-        
-        let persistedMessageSentObjectID: NSManagedObjectID
-        
-        if let _persistedMessageSentObjectID = self.persistedMessageSentObjectID {
+
+        let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
+        switch input {
+        case .message(let _persistedMessageSentObjectID):
             persistedMessageSentObjectID = _persistedMessageSentObjectID
-        } else if let op = self.op {
-            guard let _persistedMessageSentObjectID = op.persistedMessageSentObjectID else {
+        case .unprocessedPersistedMessageSentProvider(let provider):
+            guard let _persistedMessageSentObjectID = provider.persistedMessageSentObjectID else {
                 return cancel(withReason: .persistedMessageSentObjectIDIsNil)
             }
             persistedMessageSentObjectID = _persistedMessageSentObjectID
-        } else {
-            // This should never happen since either self.persistedMessageSentObjectID or self.op must be non nil
-            assertionFailure()
-            return cancel(withReason: .cannotDeterminePersistedMessageSentObjectID)
         }
 
         guard let obvContext = self.obvContext else {
@@ -73,17 +71,23 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
         }
 
         obvContext.performAndWait {
-            
-            guard let persistedMessageSent = PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
-                return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
+
+            let persistedMessageSent: PersistedMessageSent
+            do {
+                guard let _persistedMessageSent = try PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
+                }
+                persistedMessageSent = _persistedMessageSent
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
-            
+
             guard persistedMessageSent.status == .unprocessed || persistedMessageSent.status == .processing else {
                 return
             }
-            
+
             guard !persistedMessageSent.fyleMessageJoinWithStatuses.isEmpty else { return }
-            
+
             // Compute up to 25 downsized images
 
             var attachmentNumbersAnddownsizedImages = [(attachmentNumber: Int, downsizedImage: CGImage)]()
@@ -96,30 +100,30 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
                 // Resize the squared image to a resolution larger, but close to 40x40 pixels
                 guard let downsizedImage = downsizeImage(squareImage) else { continue }
-                
+
                 attachmentNumbersAnddownsizedImages.append((join.index, downsizedImage))
-                
+
                 guard attachmentNumbersAnddownsizedImages.count < maxNumberOfDownsizedImages else { break }
             }
-            
+
             guard !attachmentNumbersAnddownsizedImages.isEmpty else { return }
-            
+
             // Compute a single image composed of the downsized image, from left to right, from down to bottom.
 
             guard let singleImage = createSingleImageComposedOfImages(attachmentNumbersAnddownsizedImages.map({ $0.downsizedImage })) else {
                 assertionFailure("Could not compute single image from downsized images")
                 return
             }
-            
+
             // Export single image to jpeg, try to remove EXIF attributes, and encode the result
-            
+
             guard let jpegDataOfSingleImage = UIImage(cgImage: singleImage).jpegData(compressionQuality: 0.75) else {
                 assertionFailure("Could not export single image to Jpeg")
                 return
             }
-            
+
             let jpegDataOfSingleImageWithoutAttributes = removeJpegAttributesFromJpegDataOfSingleImage(jpegDataOfSingleImage)
-            
+
             let encodedImageData = (jpegDataOfSingleImageWithoutAttributes ?? jpegDataOfSingleImage).encode()
 
             let encodedListOfAttachmentNumbers = attachmentNumbersAnddownsizedImages.map({ $0.attachmentNumber }).map({ $0.encode() }).encode()
@@ -128,13 +132,13 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
                 encodedListOfAttachmentNumbers,
                 encodedImageData,
             ].encode()
-            
+
             self.extendedPayload = encodedExtendedPayload.rawData
         }
-        
+
     }
-    
-    
+
+
     /// Returns a square image extracted from the image at `url`, as well as the appropriate orientation allowing to turn this `CGImage` back into an `UIImage`.
     private func extractSquaredImageFromImage(at url: URL) -> CGImage? {
         guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
@@ -403,13 +407,12 @@ enum ComputeExtendedPayloadOperationReasonForCancel: LocalizedErrorWithLogType {
     case contextIsNil
     case coreDataError(error: Error)
     case persistedMessageSentObjectIDIsNil
-    case cannotDeterminePersistedMessageSentObjectID
     case couldNotFindPersistedMessageSentInDatabase
 
     
     var logType: OSLogType {
         switch self {
-        case .coreDataError, .contextIsNil, .persistedMessageSentObjectIDIsNil, .cannotDeterminePersistedMessageSentObjectID:
+        case .coreDataError, .contextIsNil, .persistedMessageSentObjectIDIsNil:
             return .fault
         case .couldNotFindPersistedMessageSentInDatabase:
             return .error
@@ -422,8 +425,6 @@ enum ComputeExtendedPayloadOperationReasonForCancel: LocalizedErrorWithLogType {
         case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
         case .persistedMessageSentObjectIDIsNil:
             return "persistedMessageSentObjectID is nil"
-        case .cannotDeterminePersistedMessageSentObjectID:
-            return "Cannot determine PersistedMessageSentObjectID"
         case .couldNotFindPersistedMessageSentInDatabase:
             return "Could not find the PersistedMessageSent in database"
         }

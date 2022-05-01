@@ -111,21 +111,21 @@ final class MultipleReactionsView: ViewForOlvidStack {
         addSubview(backgroundBubble)
         backgroundBubble.translatesAutoresizingMaskIntoConstraints = false
         backgroundBubble.backgroundColor = .systemBackground
-        backgroundBubble.layer.cornerRadius = MessageCellConstants.cornerRadiusForInformationsViews
+        backgroundBubble.layer.cornerRadius = 15
         
         backgroundBubble.addSubview(bubble)
         bubble.translatesAutoresizingMaskIntoConstraints = false
         bubble.backgroundColor = AppTheme.shared.colorScheme.newReceivedCellBackground // Always, even for reactions on received message cells
-        bubble.layer.cornerRadius = MessageCellConstants.cornerRadiusForInformationsViews - 2
+        bubble.layer.cornerRadius = backgroundBubble.layer.cornerRadius - 2
         
         bubble.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
         
         let constraints = [
-            backgroundBubble.topAnchor.constraint(equalTo: self.topAnchor, constant: -12),
+            backgroundBubble.topAnchor.constraint(equalTo: self.topAnchor),
             backgroundBubble.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             backgroundBubble.bottomAnchor.constraint(equalTo: self.bottomAnchor),
-            backgroundBubble.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: 4),
+            backgroundBubble.leadingAnchor.constraint(equalTo: self.leadingAnchor),
             bubble.topAnchor.constraint(equalTo: backgroundBubble.topAnchor, constant: 2),
             bubble.trailingAnchor.constraint(equalTo: backgroundBubble.trailingAnchor, constant: -2),
             bubble.bottomAnchor.constraint(equalTo: backgroundBubble.bottomAnchor, constant: -2),
@@ -138,8 +138,8 @@ final class MultipleReactionsView: ViewForOlvidStack {
         NSLayoutConstraint.activate(constraints)
 
         let sizeConstraints = [
-            bubble.heightAnchor.constraint(equalToConstant: 24),
-            backgroundBubble.heightAnchor.constraint(equalToConstant: 28),
+            bubble.heightAnchor.constraint(equalToConstant: 26),
+            backgroundBubble.heightAnchor.constraint(equalToConstant: 30),
         ]
         NSLayoutConstraint.activate(sizeConstraints)
         
@@ -190,7 +190,7 @@ fileprivate final class ReactionView: ViewForOlvidStack {
         
         addSubview(emoji)
         emoji.translatesAutoresizingMaskIntoConstraints = false
-        emoji.font = UIFont.systemFont(ofSize: 12)
+        emoji.font = UIFont.systemFont(ofSize: 14)
         
         addSubview(count)
         count.translatesAutoresizingMaskIntoConstraints = false

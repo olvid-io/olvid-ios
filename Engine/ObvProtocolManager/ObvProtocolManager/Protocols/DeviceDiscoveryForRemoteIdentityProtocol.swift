@@ -30,7 +30,7 @@ import OlvidUtils
 
 public struct DeviceDiscoveryForRemoteIdentityProtocol: ConcreteCryptoProtocol {
     
-    private static let logCategory = "DeviceDiscoveryForRemoteIdentityProtocol"
+    static let logCategory = "DeviceDiscoveryForRemoteIdentityProtocol"
     
     static let id = CryptoProtocolId.DeviceDiscoveryForRemoteIdentity
     
@@ -113,14 +113,6 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: starting SendRequestStep", log: log, type: .debug)
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
-
             let remoteIdentity = receivedMessage.remoteIdentity
             
             // Send the server query
@@ -133,7 +125,6 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             
             // Return the new state
             
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: ending SendRequestStep", log: log, type: .debug)
             return WaitingForDeviceUidsState.init(remoteIdentity: remoteIdentity)
         }
     }
@@ -159,18 +150,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: starting ProcessDeviceUidsFromServerOrSendRequestStep", log: log, type: .debug)
             
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return nil
-            }
-
             let remoteIdentity = startState.remoteIdentity
             guard let deviceUids = receivedMessage.deviceUids else {
                 os_log("The received server response does not contain device uids", log: log, type: .error)
@@ -213,7 +193,6 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
                 
             }
 
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: ending ProcessDeviceUidsFromServerOrSendRequestStep", log: log, type: .debug)
             return nextState
         }
     }
@@ -237,19 +216,6 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: starting RespondToRequestStep", log: log, type: .debug)
-            
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return nil
-            }
-            
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return nil
-            }
-            
             let remoteIdentity = receivedMessage.remoteIdentity
             let remoteDeviceUid = receivedMessage.remoteDeviceUid
             
@@ -267,7 +233,6 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             }
             
             // Return the new state
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: ending RespondToRequestStep", log: log, type: .debug)
             return DeviceUidsSentState()
         }
     }
@@ -292,14 +257,10 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: starting ProcessDeviceUidsStep", log: log, type: .debug)
-            
             let remoteIdentity = startState.remoteIdentity
             let deviceUids = receivedMessage.deviceUids
             
             // Return the new state
-            os_log("DeviceDiscoveryForRemoteIdentityProtocol: ending ProcessDeviceUidsStep", log: log, type: .debug)
             return DeviceUidsReceivedState(remoteIdentity: remoteIdentity, deviceUids: deviceUids)
             
         }

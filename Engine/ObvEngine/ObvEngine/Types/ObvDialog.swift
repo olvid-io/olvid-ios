@@ -32,6 +32,8 @@ public struct ObvDialog: ObvCodable, Equatable {
     public let category: Category
     internal var encodedResponse: ObvEncoded?
     
+    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
     public static func == (lhs: ObvDialog, rhs: ObvDialog) -> Bool {
         guard lhs.uuid == rhs.uuid else { return false }
         guard lhs.ownedCryptoId == rhs.ownedCryptoId else { return false }
@@ -52,7 +54,7 @@ public struct ObvDialog: ObvCodable, Equatable {
         case .acceptInvite:
             encodedResponse = acceptInvite.encode()
         default:
-            throw NSError()
+            throw Self.makeError(message: "Bad category")
         }
     }
     
@@ -61,7 +63,7 @@ public struct ObvDialog: ObvCodable, Equatable {
         case .sasExchange:
             encodedResponse = otherSas.encode()
         default:
-            throw NSError()
+            throw Self.makeError(message: "Bad category")
         }
     }
     
@@ -70,7 +72,7 @@ public struct ObvDialog: ObvCodable, Equatable {
         case .acceptMediatorInvite:
             encodedResponse = acceptInvite.encode()
         default:
-            throw NSError()
+            throw Self.makeError(message: "Bad category")
         }
     }
     
@@ -80,7 +82,7 @@ public struct ObvDialog: ObvCodable, Equatable {
         case .acceptGroupInvite:
             encodedResponse = acceptInvite.encode()
         default:
-            throw NSError()
+            throw Self.makeError(message: "Bad category")
         }
     }
     
@@ -90,7 +92,27 @@ public struct ObvDialog: ObvCodable, Equatable {
         case .increaseGroupOwnerTrustLevelRequired:
             encodedResponse = false.encode()
         default:
-            throw NSError()
+            throw Self.makeError(message: "Bad category")
+        }
+    }
+    
+    
+    public mutating func setResponseToOneToOneInvitationReceived(invitationAccepted: Bool) throws {
+        switch category {
+        case .oneToOneInvitationReceived:
+            encodedResponse = invitationAccepted.encode()
+        default:
+            throw Self.makeError(message: "Bad category")
+        }
+    }
+    
+    
+    public mutating func cancelOneToOneInvitationSent() throws {
+        switch category {
+        case .oneToOneInvitationSent:
+            encodedResponse = true.encode()
+        default:
+            throw Self.makeError(message: "Bad category")
         }
     }
 
@@ -101,7 +123,7 @@ public struct ObvDialog: ObvCodable, Equatable {
              .invitationAccepted,
              .mutualTrustConfirmed,
              .mediatorInviteAccepted,
-             .groupJoined,
+             .oneToOneInvitationSent,
              .autoconfirmedContactIntroduction:
             return false
         case .acceptInvite,
@@ -110,6 +132,7 @@ public struct ObvDialog: ObvCodable, Equatable {
              .acceptMediatorInvite,
              .acceptGroupInvite,
              .increaseMediatorTrustLevelRequired,
+             .oneToOneInvitationReceived,
              .increaseGroupOwnerTrustLevelRequired:
             return true
         }
@@ -137,7 +160,10 @@ extension ObvDialog {
         // Dialogs related to contact groups
         case acceptGroupInvite(groupMembers: Set<ObvGenericIdentity>, groupOwner: ObvGenericIdentity)
         case increaseGroupOwnerTrustLevelRequired(groupOwner: ObvGenericIdentity)
-        case groupJoined(groupOwner: ObvGenericIdentity, groupUid: UID)
+        
+        // Dialogs related to OneToOne invitations
+        case oneToOneInvitationSent(contactIdentity: ObvGenericIdentity)
+        case oneToOneInvitationReceived(contactIdentity: ObvGenericIdentity)
 
         private var raw: Int {
             switch self {
@@ -153,7 +179,8 @@ extension ObvDialog {
             case .increaseMediatorTrustLevelRequired: return 11
             case .increaseGroupOwnerTrustLevelRequired: return 12
             case .autoconfirmedContactIntroduction: return 13
-            case .groupJoined: return 14
+            case .oneToOneInvitationSent: return 14
+            case .oneToOneInvitationReceived: return 15
             }
         }
         
@@ -243,10 +270,17 @@ extension ObvDialog {
                 default:
                     return false
                 }
-            case .groupJoined(groupOwner: let a1, groupUid: let b1):
+            case .oneToOneInvitationSent(contactIdentity: let a1):
                 switch rhs {
-                case .groupJoined(groupOwner: let a2, groupUid: let b2):
-                    return a1 == a2 && b1 == b2
+                case .oneToOneInvitationSent(contactIdentity: let a2):
+                    return a1 == a2
+                default:
+                    return false
+                }
+            case .oneToOneInvitationReceived(contactIdentity: let a1):
+                switch rhs {
+                case .oneToOneInvitationReceived(contactIdentity: let a2):
+                    return a1 == a2
                 default:
                     return false
                 }
@@ -282,8 +316,10 @@ extension ObvDialog {
                 encodedVars = [encodedGroupMembers, encodedGroupOwner].encode()
             case .increaseGroupOwnerTrustLevelRequired(groupOwner: let groupOwner):
                 encodedVars = [groupOwner].encode()
-            case .groupJoined(groupOwner: let groupOwner, groupUid: let groupUid):
-                encodedVars = [groupOwner, groupUid].encode()
+            case .oneToOneInvitationSent(contactIdentity: let contactIdentity):
+                encodedVars = [contactIdentity].encode()
+            case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
+                encodedVars = [contactIdentity].encode()
             }
             let encodedObvDialog = [raw.encode(), encodedVars].encode()
             return encodedObvDialog
@@ -369,11 +405,15 @@ extension ObvDialog {
                 guard let mediatorIdentity = try? encodedVars[1].decode() as ObvGenericIdentity else { return nil }
                 self = .autoconfirmedContactIntroduction(contactIdentity: contactIdentity, mediatorIdentity: mediatorIdentity)
             case 14:
-                /* groupJoined */
-                guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { return nil }
-                guard let groupOwner = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
-                guard let groupUid = try? encodedVars[1].decode() as UID else { return nil }
-                self = .groupJoined(groupOwner: groupOwner, groupUid: groupUid)
+                /* oneToOneInvitationSent */
+                guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
+                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                self = .oneToOneInvitationSent(contactIdentity: contactIdentity)
+            case 15:
+                /* oneToOneInvitationReceived */
+                guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
+                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                self = .oneToOneInvitationReceived(contactIdentity: contactIdentity)
 
             default:
                 return nil
@@ -406,8 +446,10 @@ extension ObvDialog {
                 return "increaseGroupOwnerTrustLevelRequired"
             case .autoconfirmedContactIntroduction:
                 return "autoconfirmedContactIntroduction"
-            case .groupJoined:
-                return "groupJoined"
+            case .oneToOneInvitationSent:
+                return "oneToOneInvitationSent"
+            case .oneToOneInvitationReceived:
+                return "oneToOneInvitationReceived"
             }
         }
 

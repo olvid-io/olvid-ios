@@ -55,7 +55,7 @@ final class Fyle: NSManagedObject {
         self.sha256 = sha256
         
         self.allDraftFyleJoins = Set<PersistedDraftFyleJoin>()
-        self.allFyleMessageJoinWithStatus = Set<ReceivedFyleMessageJoinWithStatus>()
+        self.allFyleMessageJoinWithStatus = Set<FyleMessageJoinWithStatus>()
     }
     
     static func getFileURL(lastPathComponent: String) -> URL {

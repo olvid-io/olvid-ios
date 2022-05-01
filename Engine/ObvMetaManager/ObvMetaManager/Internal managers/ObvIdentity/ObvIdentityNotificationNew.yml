@@ -105,3 +105,15 @@ notifications:
   params:
   - {name: ownedIdentity, type: ObvCryptoIdentity}
   - {name: flowId, type: FlowIdentifier}
+- name: contactIdentityOneToOneStatusChanged
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: flowId, type: FlowIdentifier}
+- name: contactTrustLevelWasIncreased
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: trustLevelOfContactIdentity, type: TrustLevel}
+  - {name: isOneToOne, type: Bool}
+  - {name: flowId, type: FlowIdentifier}

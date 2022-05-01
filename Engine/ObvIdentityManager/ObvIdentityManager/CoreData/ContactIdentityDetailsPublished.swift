@@ -27,7 +27,7 @@ import ObvMetaManager
 import OlvidUtils
 
 @objc(ContactIdentityDetailsPublished)
-final class ContactIdentityDetailsPublished: ContactIdentityDetails {
+final class ContactIdentityDetailsPublished: ContactIdentityDetails, ObvErrorMaker {
 
     // MARK: Internal constants
     
@@ -73,7 +73,12 @@ extension ContactIdentityDetailsPublished {
 
         self.version = newContactIdentityDetailsElements.version
         
-        if newContactIdentityDetailsElements.coreDetails != self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails {
+        guard let storedPublishedCoreDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)?.coreDetails else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not get the local version of the contact published details")
+        }
+        
+        if newContactIdentityDetailsElements.coreDetails != storedPublishedCoreDetails {
             self.serializedIdentityCoreDetails = try newContactIdentityDetailsElements.coreDetails.encode()
         }
         
@@ -97,15 +102,15 @@ extension ContactIdentityDetailsPublished {
         guard !isDeleted else {
             return
         }
-        
+
+        let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsPublished.entityName)
+
         guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsPublished.entityName)
             os_log("The delegate manager is not set", log: log, type: .fault)
             return
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: ContactIdentityDetailsPublished.entityName)
             os_log("The notification delegate is not set", log: log, type: .fault)
             return
         }
@@ -113,12 +118,16 @@ extension ContactIdentityDetailsPublished {
         
         if !isDeleted {
             
-            let publishedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+            if let publishedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
             let NotificationType = ObvIdentityNotification.NewPublishedContactIdentityDetails.self
             let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
                             NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
                             NotificationType.Key.publishedIdentityDetails: publishedIdentityDetails] as [String: Any]
             notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+            } else {
+                os_log("Could not notify about the new ContactIdentityDetailsPublished", log: log, type: .fault)
+                assertionFailure()
+            }
 
         } 
     }

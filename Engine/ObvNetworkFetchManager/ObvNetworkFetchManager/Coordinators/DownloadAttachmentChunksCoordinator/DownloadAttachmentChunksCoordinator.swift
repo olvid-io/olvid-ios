@@ -33,7 +33,7 @@ final class DownloadAttachmentChunksCoordinator {
     private let internalQueueForHandlers = DispatchQueue(label: "Internal queue for handlers")
     private var _handlerForSessionIdentifier = [String: (() -> Void)]()
     private let localQueue = DispatchQueue(label: "DownloadAttachmentChunksCoordinatorQueue")
-    private let queueForNotifications = OperationQueue()
+    private let queueForNotifications = DispatchQueue(label: "DownloadAttachmentChunksCoordinator queue for notifications")
 
     // We only use the `downloadAttachment` counter
     private var failedAttemptsCounterManager = FailedAttemptsCounterManager()
@@ -436,7 +436,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             // We notify that the attachment has been taken care of. This will be catched by the flow manager.
             for attachmentId in resumedAttachmentIds {
                 ObvNetworkFetchNotificationNew.inboxAttachmentWasTakenCareOf(attachmentId: attachmentId, flowId: flowId)
-                    .postOnOperationQueue(operationQueue: _self.queueForNotifications, within: notificationDelegate)
+                    .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
             }
 
         } // End of localQueue.async
@@ -506,7 +506,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             _self.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
         
             ObvNetworkFetchNotificationNew.inboxAttachmentWasTakenCareOf(attachmentId: attachmentId, flowId: flowId)
-                .postOnOperationQueue(operationQueue: _self.queueForNotifications, within: notificationDelegate)
+                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
 
         } // End of localQueue.async
                 

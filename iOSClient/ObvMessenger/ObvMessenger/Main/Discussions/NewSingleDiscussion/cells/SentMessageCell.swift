@@ -473,7 +473,6 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
     private let wipedView = WipedView(expirationIndicatorSide: .leading)
     private let backgroundView = SentMessageCellBackgroundView()
     private let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .leading)
-    private let bottomHorizontalStack = OlvidHorizontalStackView(gap: 4.0, side: .bothSides, debugName: "statusAndDate and reactions horizontal stack view", showInStack: true)
 
     private var appliedConfiguration: SentMessageCellCustomContentConfiguration!
 
@@ -482,6 +481,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
     fileprivate weak var reactionsDelegate: ReactionsDelegate?
 
+    private var doubleTapGesture: UITapGestureRecognizer!
+    
     // The following variables allow to handle the pan gesture allowing to answer a specific message
     private var frameBeforeDrag: CGRect?
     private var pan: UIPanGestureRecognizer!
@@ -603,6 +604,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
     private func setupInternalViews() {
 
+        self.addDoubleTapGestureRecognizer()
+
         addSubview(backgroundView)
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.reset()
@@ -632,11 +635,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
         mainStack.addArrangedSubview(attachmentsView)
 
-        mainStack.addArrangedSubview(bottomHorizontalStack)
+        mainStack.addArrangedSubview(statusAndDateView)
 
-        bottomHorizontalStack.addArrangedSubview(multipleReactionsView)
-
-        bottomHorizontalStack.addArrangedSubview(statusAndDateView)
 
         NSLayoutConstraint.activate([
             
@@ -657,13 +657,23 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
         ])
 
         // This constraint prevents the app from crashing in case there is nothing to display within the cell
+
         do {
             let safeHeightConstraint = self.heightAnchor.constraint(equalToConstant: 0)
             safeHeightConstraint.priority = .defaultLow
             safeHeightConstraint.isActive = true
         }
+        
+        // Last, we add the reaction view on top of everything and pin it to the status and date view
+        
+        addSubview(multipleReactionsView)
+        multipleReactionsView.translatesAutoresizingMaskIntoConstraints = false
 
-        self.addDoubleTapGestureRecognizer()
+        NSLayoutConstraint.activate([
+            statusAndDateView.leadingAnchor.constraint(equalTo: multipleReactionsView.trailingAnchor, constant: 8),
+            statusAndDateView.bottomAnchor.constraint(equalTo: multipleReactionsView.bottomAnchor, constant: -2),
+        ])
+
     }
 
     
@@ -672,9 +682,9 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
     }
 
     private func addDoubleTapGestureRecognizer() {
-        let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(userDoubleTappedOnThisCell))
-        doubleTapGesture.numberOfTapsRequired = 2
-        self.addGestureRecognizer(doubleTapGesture)
+        self.doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(userDoubleTappedOnThisCell))
+        self.doubleTapGesture!.numberOfTapsRequired = 2
+        self.addGestureRecognizer(self.doubleTapGesture!)
     }
 
 
@@ -755,6 +765,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             multipleImagesView.showInStack = false
         } else {
             multipleImagesView.setConfiguration(newConfig.multipleImagesViewConfiguration)
+            multipleImagesView.gestureRecognizersOnImageViewsRequire(toFail: doubleTapGesture)
             multipleImagesView.showInStack = true
         }
 

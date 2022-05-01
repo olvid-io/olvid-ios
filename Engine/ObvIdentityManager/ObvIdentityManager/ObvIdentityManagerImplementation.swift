@@ -60,6 +60,10 @@ public final class ObvIdentityManagerImplementation {
         self.delegateManager = ObvIdentityDelegateManager(sharedContainerIdentifier: sharedContainerIdentifier, identityPhotosDirectory: identityPhotosDirectory, prng: prng)
     }
     
+    deinit {
+        debugPrint("Deinit of ObvIdentityManagerImplementation")
+    }
+    
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
 
@@ -80,120 +84,82 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     public var backupSource: ObvBackupableObjectSource { .engine }
     
-    public func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier, _ completionHandler: @escaping (Result<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) -> Void) {
+    public func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
         let delegateManager = self.delegateManager
-        delegateManager.contextCreator.performBackgroundTask(flowId: backupRequestIdentifier) { (obvContext) in
-            let queue = DispatchQueue(label: "Queue for sending backup data from the identity manager")
-            let ownedIdentities: [OwnedIdentity]
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) in
             do {
-                ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { obvContext in
+                    let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                    guard !ownedIdentities.isEmpty else {
+                        throw Self.makeError(message: "No data to backup since we could not find any owned identity")
+                    }
+                    let ownedIdentitiesBackupItems = Set(ownedIdentities.map { $0.backupItem })
+                    let jsonEncoder = JSONEncoder()
+                    let data = try jsonEncoder.encode(ownedIdentitiesBackupItems)
+                    guard let internalData = String(data: data, encoding: .utf8) else {
+                        throw Self.makeError(message: "Could not convert json to UTF8 string during backup")
+                    }
+                    continuation.resume(returning: (internalData, ObvIdentityManagerImplementation.backupIdentifier, .engine))
+                }
             } catch {
-                queue.async {
-                    completionHandler(.failure(error))
-                }
-                return
-            }
-            let ownedIdentitiesBackupItems = Set(ownedIdentities.map { $0.backupItem })
-            let jsonEncoder = JSONEncoder()
-            let internalData: String
-            do {
-                let data = try jsonEncoder.encode(ownedIdentitiesBackupItems)
-                guard let json = String(data: data, encoding: .utf8) else {
-                    throw ObvIdentityManagerImplementation.makeError(message: "Could not convert json to UTF8 string during backup")
-                }
-                internalData = json
-            } catch let error {
-                completionHandler(.failure(error))
-                return
-            }
-            queue.async {
-                completionHandler(.success((internalData, ObvIdentityManagerImplementation.backupIdentifier, .engine)))
+                continuation.resume(throwing: error)
             }
         }
     }
     
     
-    public func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String, _ completionHandler: @escaping (Error?) -> Void) {
+    public func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String) async throws {
         let delegateManager = self.delegateManager
         let log = self.log
         let prng = self.prng
-        delegateManager.contextCreator.performBackgroundTask(flowId: backupRequestIdentifier) { (obvContext) in
-            let queue = DispatchQueue(label: "Queue for sending backup restore results from the identity manager")
-            let ownedIdentities: [OwnedIdentity]
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             do {
-                ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
-                guard ownedIdentities.isEmpty else {
-                    let error = ObvIdentityManagerImplementation.makeError(message: "📲 An owned identity is already present in database. The engine does not support multiple owned identities at this time")
-                    queue.async {
-                        completionHandler(error)
+                try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { (obvContext) in
+                    let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                    guard ownedIdentities.isEmpty else {
+                        throw Self.makeError(message: "📲 An owned identity is already present in database. The engine does not support multiple owned identities at this time")
                     }
+                    // If we reach this point, we can try to restore the backup
+                    let internalJsonData = internalJson.data(using: .utf8)!
+                    let jsonDecoder = JSONDecoder()
+                    let ownedIdentityBackupItems = try jsonDecoder.decode([OwnedIdentityBackupItem].self, from: internalJsonData)
+                    
+                    os_log("📲 The identity manager successfully parsed the internal json during the restore of the backup within flow %{public}@", log: log, type: .info, backupRequestIdentifier.debugDescription)
+                    
+                    guard ownedIdentityBackupItems.count == 1, let ownedIdentityBackupItem = ownedIdentityBackupItems.first else {
+                        os_log("📲 Unexpected number of owned identity to restore. We expect exactly one, we got %d", log: log, type: .fault, ownedIdentityBackupItems.count)
+                        throw Self.makeError(message: "Unexpected number of owned identity to restore")
+                    }
+                    
+                    os_log("📲 We have exactly one owned identity to restore within flow %{public}@. We restore it now.", log: log, type: .info, backupRequestIdentifier.debugDescription)
+                    
+                    os_log("📲 Restoring the database owned identity instance within flow %{public}@...", log: log, type: .info, backupRequestIdentifier.debugDescription)
+                    
+                    let associationsForRelationships: BackupItemObjectAssociations
+                    do {
+                        var associations = BackupItemObjectAssociations()
+                        try ownedIdentityBackupItem.restoreInstance(within: obvContext, associations: &associations, notificationDelegate: delegateManager.notificationDelegate)
+                        associationsForRelationships = associations
+                    }
+                    
+                    os_log("📲 The instances were re-created. We now recreate the relationships.", log: log, type: .info)
+                    
+                    try ownedIdentityBackupItem.restoreRelationships(associations: associationsForRelationships, prng: prng, within: obvContext)
+                    
+                    os_log("📲 The relationships were recreated. Saving the context.", log: log, type: .info)
+                    
+                    try obvContext.save(logOnFailure: log)
+                    
+                    os_log("📲 Context saved. We successfully restored the owned identity. Yepee!", log: log, type: .info, backupRequestIdentifier.debugDescription)
+                    
+                    continuation.resume()
                     return
+                    
                 }
             } catch {
-                queue.async {
-                    completionHandler(error)
-                }
+                continuation.resume(throwing: error)
                 return
             }
-            // If we reach this point, we can try to restore the backup
-            let internalJsonData = internalJson.data(using: .utf8)!
-            let ownedIdentityBackupItems: [OwnedIdentityBackupItem]
-            do {
-                let jsonDecoder = JSONDecoder()
-                ownedIdentityBackupItems = try jsonDecoder.decode([OwnedIdentityBackupItem].self, from: internalJsonData)
-            } catch let error {
-                queue.async { completionHandler(error) }
-                return
-            }
-            
-            os_log("📲 The identity manager successfully parsed the internal json during the restore of the backup within flow %{public}@", log: log, type: .info, backupRequestIdentifier.debugDescription)
-
-            guard ownedIdentityBackupItems.count == 1 else {
-                os_log("📲 Unexpected number of owned identity to restore. We expect exactly one, we got %d", log: log, type: .fault, ownedIdentityBackupItems.count)
-                let error =  ObvIdentityManagerImplementation.makeError(message: "Unexpected number of owned identity to restore")
-                queue.async { completionHandler(error) }
-                return
-            }
-            
-            let ownedIdentityBackupItem = ownedIdentityBackupItems.first!
-            
-            os_log("📲 We have exactly one owned identity to restore within flow %{public}@. We restore it now.", log: log, type: .info, backupRequestIdentifier.debugDescription)
-
-            os_log("📲 Restoring the database owned identity instance within flow %{public}@...", log: log, type: .info, backupRequestIdentifier.debugDescription)
-            
-            let associationsForRelationships: BackupItemObjectAssociations
-            do {
-                var associations = BackupItemObjectAssociations()
-                try ownedIdentityBackupItem.restoreInstance(within: obvContext, associations: &associations, notificationDelegate: delegateManager.notificationDelegate)
-                associationsForRelationships = associations
-            } catch let error {
-                os_log("📲 Could not restore owned identity instance: %{public}@", log: log, type: .error, error.localizedDescription)
-                queue.async { completionHandler(error) }
-                return
-            }
-            
-            os_log("📲 The instances were re-created. We now recreate the relationships.", log: log, type: .info)
-            
-            do {
-                try ownedIdentityBackupItem.restoreRelationships(associations: associationsForRelationships, prng: prng, within: obvContext)
-            } catch let error {
-                os_log("📲 Could not recreate relationships: %{public}@", log: log, type: .error, error.localizedDescription)
-                queue.async { completionHandler(error) }
-                return
-            }
-            
-            os_log("📲 The relationships were recreated. Saving the context.", log: log, type: .info)
-
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                queue.async { completionHandler(error) }
-                return
-            }
-            
-            os_log("📲 Context saved. We successfully restored the owned identity. Yepee!", log: log, type: .info, backupRequestIdentifier.debugDescription)
-            queue.async { completionHandler(nil) }
-
         }
     }
 
@@ -229,7 +195,15 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     public func getAllContactsWithMissingPhotoUrl(within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, identityDetailsElements: IdentityDetailsElements)] {
         let details = try ContactIdentityDetails.getAllWithMissingPhotoFilename(within: obvContext)
-        let results = details.map { ($0.contactIdentity.ownedIdentity.cryptoIdentity, $0.contactIdentity.cryptoIdentity, $0.getIdentityDetailsElements(identityPhotosDirectory: delegateManager.identityPhotosDirectory)) }
+        let results: [(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, identityDetailsElements: IdentityDetailsElements)] = details.compactMap { contactIdentityDetails in
+            guard let identityDetailsElements = contactIdentityDetails.getIdentityDetailsElements(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
+                assertionFailure()
+                return nil
+            }
+            return (contactIdentityDetails.contactIdentity.ownedIdentity.cryptoIdentity,
+                    contactIdentityDetails.contactIdentity.cryptoIdentity,
+                    identityDetailsElements)
+        }
         return results
     }
     
@@ -659,18 +633,19 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     // MARK: - API related to contact identities
 
-    public func addContactIdentity(_ contactIdentity: ObvCryptoIdentity, with identityCoreDetails: ObvIdentityCoreDetails, andTrustOrigin trustOrigin: TrustOrigin, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    public func addContactIdentity(_ contactIdentity: ObvCryptoIdentity, with identityCoreDetails: ObvIdentityCoreDetails, andTrustOrigin trustOrigin: TrustOrigin, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within obvContext: ObvContext) throws {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
         }
-        guard ContactIdentity(cryptoIdentity: contactIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: ownedIdentity, delegateManager: delegateManager) != nil else {
+        guard ContactIdentity(cryptoIdentity: contactIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: ownedIdentity, isOneToOne: newOneToOneValue, delegateManager: delegateManager) != nil else {
             throw makeError(message: "Could not create ContactIdentity instance")
         }
     }
 
-    public func addTrustOrigin(_ trustOrigin: TrustOrigin, toContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    public func addTrustOrigin(_ trustOrigin: TrustOrigin, toContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within obvContext: ObvContext) throws {
         guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw NSError() }
         try contactObj.addTrustOrigin(trustOrigin)
+        contactObj.setIsOneToOne(to: newOneToOneValue)
     }
     
     public func getTrustOrigins(forContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [TrustOrigin] {
@@ -694,7 +669,9 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     public func getIdentityDetailsOfContactIdentity(_ contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails?, trustedIdentityDetails: ObvIdentityDetails) {
         guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
         let publishedIdentityDetails = contactObj.publishedIdentityDetails?.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
-        let trustedIdentityDetails = contactObj.trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+        guard let trustedIdentityDetails = contactObj.trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
+            throw Self.makeError(message: "Failed to get identity details of contact identity as we failed to get the trusted details")
+        }
         return (publishedIdentityDetails, trustedIdentityDetails)
     }
 
@@ -704,7 +681,9 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
         guard let publishedIdentityDetails = contactIdentity.publishedIdentityDetails else { return nil }
         
-        let publishedDetails = publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+        guard let publishedDetails = publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
+            throw Self.makeError(message: "Failed to get the published details from the published identity details")
+        }
         let publishedCoreDetails = publishedDetails.coreDetails
         let contactIdentityDetailsElements = IdentityDetailsElements(version: publishedIdentityDetails.version,
                                                                      coreDetails: publishedCoreDetails,
@@ -718,7 +697,9 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         guard let contactIdentity = try ContactIdentity.get(contactIdentity: identity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact") }
         let trustedIdentityDetails = contactIdentity.trustedIdentityDetails
         
-        let trustedDetails = trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
+        guard let trustedDetails = trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
+            throw Self.makeError(message: "Failed to get the trusted details from the trusted identity details")
+        }
         let trustedCoreDetails = trustedDetails.coreDetails
         let contactIdentityDetailsElements = IdentityDetailsElements(version: trustedIdentityDetails.version,
                                                                      coreDetails: trustedCoreDetails,
@@ -794,6 +775,15 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         contactIdentityObject.setForcefullyTrustedByUser(to: forcefullyTrustedByUser, delegateManager: delegateManager)
     }
     
+    public func isOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { return false }
+        return contactIdentityObject.isOneToOne
+    }
+    
+    public func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, within obvContext: ObvContext) throws {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
+        contactIdentityObject.setIsOneToOne(to: newIsOneToOneStatus)
+    }
     
     // MARK: - API related to contact devices
     
@@ -1484,7 +1474,7 @@ extension ObvIdentityManagerImplementation: ObvSolveChallengeDelegate {
 
 extension ObvIdentityManagerImplementation {
     
-    public func getCapabilitiesOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability> {
+    public func getCapabilitiesOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>? {
         guard let contactIdentity = try ContactIdentity.get(contactIdentity: contactIdentity,
                                                         ownedIdentity: ownedIdentity,
                                                         delegateManager: delegateManager,
@@ -1495,7 +1485,7 @@ extension ObvIdentityManagerImplementation {
     }
     
     
-    public func getCapabilitiesOfContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within obvContext: ObvContext) throws -> Set<ObvCapability> {
+    public func getCapabilitiesOfContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>? {
         guard let contactIdentity = try ContactIdentity.get(contactIdentity: contactIdentity,
                                                         ownedIdentity: ownedIdentity,
                                                         delegateManager: delegateManager,
@@ -1538,7 +1528,7 @@ extension ObvIdentityManagerImplementation {
 
 extension ObvIdentityManagerImplementation {
     
-    public func getCapabilitiesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability> {
+    public func getCapabilitiesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>? {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity,
                                                         delegateManager: delegateManager,
                                                         within: obvContext) else {
@@ -1548,7 +1538,7 @@ extension ObvIdentityManagerImplementation {
     }
     
     
-    public func getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability> {
+    public func getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>? {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity,
                                                         delegateManager: delegateManager,
                                                         within: obvContext) else {
@@ -1558,7 +1548,7 @@ extension ObvIdentityManagerImplementation {
     }
     
     
-    public func getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, within obvContext: ObvContext) throws -> Set<ObvCapability> {
+    public func getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>? {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity,
                                                         delegateManager: delegateManager,
                                                         within: obvContext) else {

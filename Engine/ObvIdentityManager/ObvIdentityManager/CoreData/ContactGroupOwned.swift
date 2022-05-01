@@ -269,8 +269,10 @@ extension ContactGroupOwned {
             })
         
         let reallyNewPendingMemberObjects: Set<PendingGroupMember> = Set( try newPendingMemberIdentities.map { (contact) in
-            let publishedCoreDetails = contact.publishedIdentityDetails?.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
-            let trustedCoreDetails = contact.trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+            let publishedCoreDetails = contact.publishedIdentityDetails?.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)?.coreDetails
+            guard let trustedCoreDetails = contact.trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)?.coreDetails else {
+                throw Self.makeError(message: "Could not get the trusted details of a contact")
+            }
             let coreDetails = publishedCoreDetails ?? trustedCoreDetails
             let cryptoIdentityWithCoreDetails = CryptoIdentityWithCoreDetails(cryptoIdentity: contact.cryptoIdentity,
                                                                               coreDetails: coreDetails)

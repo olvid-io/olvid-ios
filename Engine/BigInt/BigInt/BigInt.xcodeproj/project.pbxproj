@@ -147,9 +147,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4A23FEE1F5D7B0B00BF68ED /* Build configuration list for PBXNativeTarget "BigInt" */;
 			buildPhases = (
+				C4A23FD71F5D7B0B00BF68ED /* Headers */,
 				C4A23FD51F5D7B0B00BF68ED /* Sources */,
 				C4A23FD61F5D7B0B00BF68ED /* Frameworks */,
-				C4A23FD71F5D7B0B00BF68ED /* Headers */,
 				C0A7695B276FEF9E00D22EE4 /* ShellScript */,
 			);
 			buildRules = (

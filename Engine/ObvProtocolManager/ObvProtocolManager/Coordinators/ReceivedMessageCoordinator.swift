@@ -231,10 +231,8 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
                 
                 os_log("We found an old received message with uid %{public}@ that we will re-process within flow %{public}@", log: log, type: .info, receivedMessage.messageId.debugDescription, operation.flowId.debugDescription)
                 
-                let NotificationType = ObvProtocolNotification.ProtocolMessageToProcess.self
-                let userInfo = [NotificationType.Key.protocolMessageId: receivedMessage.messageId,
-                                NotificationType.Key.flowId: operation.flowId] as [String: Any]
-                notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                ObvProtocolNotification.protocolMessageToProcess(protocolMessageId: receivedMessage.messageId, flowId: operation.flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
                 
             }
             
@@ -246,10 +244,8 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
             
             // If there were other received messages to process, we already send the appropriate notifications. We can now notify that we processed the (now deleted) original received message
             
-            let NotificationType = ObvProtocolNotification.ProtocolMessageProcessed.self
-            let userInfo = [NotificationType.Key.protocolMessageId: operation.receivedMessageId,
-                            NotificationType.Key.flowId: operation.flowId] as [String: Any]
-            notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+            ObvProtocolNotification.protocolMessageProcessed(protocolMessageId: operation.receivedMessageId, flowId: operation.flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
             
             // Now we can try to process the other received messages
             
@@ -295,10 +291,8 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
         
         // Whatever the reason for cancel, we notify that the received message has been processed
         
-        let NotificationType = ObvProtocolNotification.ProtocolMessageProcessed.self
-        let userInfo = [NotificationType.Key.protocolMessageId: operation.receivedMessageId,
-                        NotificationType.Key.flowId: operation.flowId] as [String: Any]
-        notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+        ObvProtocolNotification.protocolMessageProcessed(protocolMessageId: operation.receivedMessageId, flowId: operation.flowId)
+            .postOnBackgroundQueue(within: notificationDelegate)
 
         // Deal with the reason for cancel
         

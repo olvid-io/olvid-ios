@@ -51,12 +51,7 @@ final class WellKnownCoordinator {
     private func makeError(message: String) -> Error { NSError(domain: WellKnownCoordinator.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private let queueForNotifications = OperationQueue()
     
-    private let internalQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        queue.name = "WellKnownCoordinator internal Queue"
-        return queue
-    }()
+    private let internalQueue = OperationQueue.createSerialQueue(name: "WellKnownCoordinator internal Queue", qualityOfService: .background)
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
 
@@ -281,6 +276,19 @@ extension WellKnownCoordinator: UpdateCachedWellKnownOperationDelegate {
         setWellKnownJSON(newWellKnownJSON, for: server)
 
         delegateManager.networkFetchFlowDelegate.cachedWellKnownWasUpdated(server: server, newWellKnownJSON: newWellKnownJSON, flowId: flowId)
+        
+    }
+    
+    
+    func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier) {
+        
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            return
+        }
+
+        delegateManager.networkFetchFlowDelegate.currentCachedWellKnownCorrespondToThatOnServer(server: server, wellKnownJSON: wellKnownJSON, flowId: flowId)
         
     }
 

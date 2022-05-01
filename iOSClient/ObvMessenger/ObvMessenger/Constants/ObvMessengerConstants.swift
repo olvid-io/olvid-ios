@@ -155,13 +155,35 @@ struct ObvMessengerConstants {
     
     // WebRTC
     
-    struct TurnServerURLs {
-        static let loadBalanced = [
-            "turns:turn-scaled.olvid.io:5349?transport=udp",
+    struct ICEServerURLs {
+        private static let global = [
+            "turn:turn-scaled.olvid.io:5349?transport=udp",
+            "turn:turn-scaled.olvid.io:443?transport=tcp",
             "turns:turn-scaled.olvid.io:443?transport=tcp",
         ]
+        private struct regional {
+            static let eu = [
+                "turn:eu.turn-scaled.olvid.io:5349?transport=udp",
+                "turn:eu.turn-scaled.olvid.io:443?transport=tcp",
+                "turns:eu.turn-scaled.olvid.io:443?transport=tcp",
+            ]
+            static let us = [
+                "turn:us.turn-scaled.olvid.io:5349?transport=udp",
+                "turn:us.turn-scaled.olvid.io:443?transport=tcp",
+                "turns:us.turn-scaled.olvid.io:443?transport=tcp",
+            ]
+            static let ap = [
+                "turn:ap.turn-scaled.olvid.io:5349?transport=udp",
+                "turn:ap.turn-scaled.olvid.io:443?transport=tcp",
+                "turns:ap.turn-scaled.olvid.io:443?transport=tcp",
+            ]
+        }
+        static var preferred: [String] {
+            // At some point, a setting should allow to choose between global or regional settings
+            return global
+        }
     }
-    
+
     // Version
     
     static let shortVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"]! as! String // Such as 0.3
@@ -181,10 +203,11 @@ struct ObvMessengerConstants {
     
     static let requestIdentifiersOfSilentNotificationsAddedByExtension = "requestIdentifiersOfSilentNotificationsAddedByExtension"
     static let requestIdentifiersOfFullNotificationsAddedByExtension = "requestIdentifiersOfFullNotificationsAddedByExtension"
+    static let objectsModifiedByShareExtension = "objectsModifiedByShareExtension"
     
     // Capabilities
     
     static let supportedObvCapabilities: Set<ObvCapability> = {
-        [.webrtcContinuousICE]
+        [.webrtcContinuousICE, .oneToOneContacts]
     }()
 }

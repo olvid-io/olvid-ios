@@ -56,12 +56,54 @@ public final class ObvBackupManagerImplementation {
     fileprivate static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { ObvBackupManagerImplementation.makeError(message: message) }
 
-    private var backupsBeingCurrentltyRestored = [FlowIdentifier: FullBackup]()
+    private let internalSyncQueue = DispatchQueue(label: "ObvBackupManagerImplementation internal sync queue", attributes: .concurrent)
+
+    private var _backupsBeingCurrentltyRestored = [FlowIdentifier: FullBackup]()
+
+    private func addBackupBeingCurrentltyRestored(flowId: FlowIdentifier, fullbackup: FullBackup) {
+        internalSyncQueue.async(flags: .barrier) { [weak self] in
+            assert(self?._backupsBeingCurrentltyRestored[flowId] == nil)
+            self?._backupsBeingCurrentltyRestored[flowId] = fullbackup
+        }
+    }
+    private func getBackupBeingCurrentltyRestored(flowId: FlowIdentifier) -> FullBackup? {
+        var fullbackup: FullBackup?
+        internalSyncQueue.sync {
+            fullbackup = _backupsBeingCurrentltyRestored[flowId]
+        }
+        return fullbackup
+    }
+    private func removeBackupBeingCurrentltyRestored(flowId: FlowIdentifier) {
+        internalSyncQueue.async(flags: .barrier) { [weak self] in
+            assert(self?._backupsBeingCurrentltyRestored[flowId] != nil)
+            self?._backupsBeingCurrentltyRestored.removeValue(forKey: flowId)
+        }
+    }
+    
     
     /// The stored derived keys only include public keys. This array allows to store the derived keys when a backup is successfully recovered,
     /// so as to use these keys again for future backups.
-    private var derivedKeysForBackupBeingCurrentltyRestored = [FlowIdentifier: DerivedKeysForBackup]()
-    
+    private var _derivedKeysForBackupBeingCurrentlyRestored = [FlowIdentifier: DerivedKeysForBackup]()
+    private func addDerivedKeysForBackupBeingCurrentlyRestored(flowId: FlowIdentifier, derivedKeys: DerivedKeysForBackup) {
+        internalSyncQueue.async(flags: .barrier) { [weak self] in
+            assert(self?._derivedKeysForBackupBeingCurrentlyRestored[flowId] == nil)
+            self?._derivedKeysForBackupBeingCurrentlyRestored[flowId] = derivedKeys
+        }
+    }
+    private func getDerivedKeysForBackupBeingCurrentlyRestored(flowId: FlowIdentifier) -> DerivedKeysForBackup? {
+        var derivedKeys: DerivedKeysForBackup?
+        internalSyncQueue.sync {
+            derivedKeys = _derivedKeysForBackupBeingCurrentlyRestored[flowId]
+        }
+        return derivedKeys
+    }
+    private func removeDerivedKeysForBackupBeingCurrentlyRestored(flowId: FlowIdentifier) {
+        internalSyncQueue.async(flags: .barrier) { [weak self] in
+            assert(self?._derivedKeysForBackupBeingCurrentlyRestored[flowId] != nil)
+            self?._derivedKeysForBackupBeingCurrentlyRestored.removeValue(forKey: flowId)
+        }
+    }
+
     // MARK: Initialiser
     
     var backupableManagers = [Weak<AnyObject>]() // Array of weak references to the ObvBackupable's (one for the app, and potentially several for the engine's managers)
@@ -78,62 +120,6 @@ public final class ObvBackupManagerImplementation {
         self.delegateManager = ObvBackupDelegateManager()
         self.prng = prng
         
-    }
-    
-    private let internalQueueForBackupKeyVerification = DispatchQueue(label: "Queue for backup verification")
-    
-    private let internalJsonToBackupQueue = DispatchQueue(label: "Queue for retrieving internal data to backup")
-    private var _internalJsonToBackup: [FlowIdentifier: [ObvBackupableObjectSource: [String: String]]] = [:]
-
-    private func addInternalJsonToBackup(_ internalJsonAndIdentifier: (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), backupRequestIdentifier: FlowIdentifier) {
-        internalJsonToBackupQueue.sync {
-            var values = _internalJsonToBackup[backupRequestIdentifier] ?? [:]
-            if var subValues = values[internalJsonAndIdentifier.source] {
-                subValues[internalJsonAndIdentifier.internalJsonIdentifier] = internalJsonAndIdentifier.internalJson
-                values[internalJsonAndIdentifier.source] = subValues
-            } else {
-                let subValues = [internalJsonAndIdentifier.internalJsonIdentifier: internalJsonAndIdentifier.internalJson]
-                values[internalJsonAndIdentifier.source] = subValues
-            }
-            _internalJsonToBackup[backupRequestIdentifier] = values
-        }
-    }
-
-    private func getNumberOfBackupedManagers(backupRequestIdentifier: FlowIdentifier) -> Int {
-        var res = 0
-        internalJsonToBackupQueue.sync {
-            res = _internalJsonToBackup[backupRequestIdentifier]?.count ?? 0
-        }
-        return res
-    }
-    
-    private func removeInternalDataToBackup(flowId: FlowIdentifier) -> [ObvBackupableObjectSource: [String: String]] {
-        var res = [ObvBackupableObjectSource: [String: String]]()
-        internalJsonToBackupQueue.sync {
-            res = _internalJsonToBackup.removeValue(forKey: flowId) ?? [:]
-        }
-        return res
-    }
-    
-    /* During a restore, we keep track of the backups parts that were successuflly restored (we expect two at this time: the
-     * identity manager and the app). When the list (indexed by the backup flow identifier) contains all the expected elements
-     * the backup is considered to be successfull and a notification is sent.
-     */
-    private var _restoredObvBackupables = [FlowIdentifier: [(source: ObvBackupableObjectSource, backupIdentifier: String)]]()
-    private func addToRestoredObvBackupables(backupRequestIdentifier: FlowIdentifier, value: (source: ObvBackupableObjectSource, backupIdentifier: String)) {
-        internalJsonToBackupQueue.sync {
-            var values = _restoredObvBackupables[backupRequestIdentifier] ?? []
-            guard values.contains(where: { $0.source == value.source && $0.backupIdentifier == value.backupIdentifier }) == false else { assertionFailure(); return }
-            values.append(contentsOf: [value])
-            _restoredObvBackupables[backupRequestIdentifier] = values
-        }
-    }
-    private func numberOfRestoredObvBackupablesDuringBackup(backupRequestIdentifier: FlowIdentifier) -> Int {
-        var res = 0
-        internalJsonToBackupQueue.sync {
-            res = _restoredObvBackupables[backupRequestIdentifier]?.count ?? 0
-        }
-        return res
     }
     
 }
@@ -175,8 +161,8 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
                 try BackupKey.deleteAll(delegateManager: delegateManager, within: obvContext)
             } catch let error {
                 os_log("Could not delete all previous backup keys within flow %{public}@: %{public}@", log: log, type: .fault, obvContext.flowId.debugDescription, error.localizedDescription)
-                let notification = ObvBackupNotification.backupSeedGenerationFailed(flowId: flowId)
-                notification.postOnDispatchQueue(withLabel: "Queue for posting backupSeedGenerationFailed notification", within: notificationDelegate)
+                ObvBackupNotification.backupSeedGenerationFailed(flowId: flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
                 return
             }
             
@@ -187,186 +173,102 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
                 try obvContext.save(logOnFailure: log)
             } catch let error {
                 os_log("Could not delete previous backup keys nor create new backup key within flow %{public}@: %{public}@", log: log, type: .fault, obvContext.flowId.debugDescription, error.localizedDescription)
-                let notification = ObvBackupNotification.backupSeedGenerationFailed(flowId: flowId)
-                notification.postOnDispatchQueue(withLabel: "Queue for posting backupSeedGenerationFailed notification", within: notificationDelegate)
+                ObvBackupNotification.backupSeedGenerationFailed(flowId: flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
                 return
             }
             
             self?.evaluateIfBackupIsRequired(flowId: flowId)
             
             os_log("New backup key was generated within flow %{public}@", log: log, type: .info, obvContext.flowId.debugDescription)
-            let notification = ObvBackupNotification.newBackupSeedGenerated(backupSeedString: newBackupSeed.description, backupKeyInformation: backupKeyInformation, flowId: flowId)
-            notification.postOnDispatchQueue(withLabel: "Queue for posting newBackupSeedGenerated notification", within: notificationDelegate)
+            ObvBackupNotification.newBackupSeedGenerated(backupSeedString: newBackupSeed.description, backupKeyInformation: backupKeyInformation, flowId: flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
             
         }
         
     }
     
     
-    public func verifyBackupKey(backupSeedString: String, flowId: FlowIdentifier, completion: @escaping (Result<Void,Error>) -> Void) {
+    public func verifyBackupKey(backupSeedString: String, flowId: FlowIdentifier) async throws -> Bool {
 
         let log = self.log
 
-        internalQueueForBackupKeyVerification.async { [weak self] in
-            
-            guard let _self = self else { return }
-            
-            _self.delegateManager.contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
                 
-                var validationSuccess = false
-                defer {
-                    if validationSuccess {
-                        completion(.success(()))
-                    } else {
-                        completion(.failure(_self.makeError(message: "backup key verification failed")))
+            do {
+                try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+                    
+                    guard let currentBackupKey = try getCurrentBackupKey(within: obvContext) else {
+                        throw Self.makeError(message: "No current backup key")
                     }
-                }
-                
-                let currentBackupKey: BackupKey
-                do {
-                    guard let _currentBackupKey = try _self.getCurrentBackupKey(within: obvContext) else {
-                        throw ObvBackupManagerImplementation.makeError(message: "No current backup key")
+                    
+                    guard let backupSeed = BackupSeed(backupSeedString) else {
+                        os_log("The backup seed string is not appropriate", log: log, type: .error)
+                        throw Self.makeError(message: "The backup seed string is not appropriate")
                     }
-                    currentBackupKey = _currentBackupKey
-                } catch let error {
-                    os_log("Could not get current backup key with flow %{public}@: %{public}@", log: log, type: .fault, flowId.debugDescription, error.localizedDescription)
-                    return
+                    
+                    guard backupSeed.deriveKeysForBackup() == currentBackupKey.derivedKeysForBackup else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    
+                    // If we reach this point, the entered seed matches the current backup key
+                    
+                    currentBackupKey.addSuccessfulVerification()
+                    do {
+                        try obvContext.save(logOnFailure: log)
+                    } catch {
+                        assertionFailure()
+                        // Continue anyway since the backup key is correct
+                    }
+                    
+                    continuation.resume(returning: true)
                 }
-                
-                guard let backupSeed = BackupSeed(backupSeedString) else {
-                    os_log("The backup seed string is not appropriate", log: log, type: .error)
-                    return
-                }
-                
-                guard backupSeed.deriveKeysForBackup() == currentBackupKey.derivedKeysForBackup else { return }
-                
-                // If we reach this point, the entered seed matches the current backup key
-                
-                currentBackupKey.addSuccessfulVerification()
-                do {
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("Could not increment the number of successful verifications of the current backup key: %{public}@", log: log, type: .error, error.localizedDescription)
-                    return
-                }
-                
-                validationSuccess = true
-                
+            } catch {
+                continuation.resume(throwing: error)
             }
             
         }
         
     }
     
-    public func initiateBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier) throws {
+    
+    /// Creates a new `Backup` item in database, containing all the internal data to backup of the registered backupable objects.
+    public func initiateBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
         
         let log = self.log
-        let delegateManager = self.delegateManager
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        var ongoingBackupSavedToDatabase = false
-        defer {
-            if !ongoingBackupSavedToDatabase {
-                let notification = ObvBackupNotification.backupFailed(flowId: backupRequestIdentifier)
-                notification.postOnDispatchQueue(withLabel: "Queue for posting backupFailed notification", within: notificationDelegate)
-            }
-        }
         
         guard appBackupableObjectIsRegistered else {
             os_log("Cannot backup yet. The app backupable object is not registered yet.", log: log, type: .fault)
-            throw ObvBackupManagerImplementation.makeError(message: "Cannot backup yet. The app backupable object is not registered yet.")
+            throw Self.makeError(message: "Cannot backup yet. The app backupable object is not registered yet.")
         }
         
         guard let backupableObjects = self.backupableManagers.map({ $0.value }) as? [ObvBackupable] else {
             os_log("Critical error. Could not recover the managers to backup", log: log, type: .default)
-            throw ObvBackupManagerImplementation.makeError(message: "Critical error. Could not recover the managers to backup")
+            throw Self.makeError(message: "Critical error. Could not recover the managers to backup")
         }
 
         os_log("Initiating a backup for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
         
-        delegateManager.contextCreator.performBackgroundTaskAndWait(flowId: backupRequestIdentifier) { [weak self] (obvContext) in
-            
-            guard let _self = self else { return }
-            
-            let currentBackupKey: BackupKey
-            do {
-                guard let _currentBackupKey = try _self.getCurrentBackupKey(within: obvContext) else {
-                    throw ObvBackupManagerImplementation.makeError(message: "No backup key available")
-                }
-                currentBackupKey = _currentBackupKey
-            } catch let error {
-                os_log("Could not get current backup key for backup request identified by %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
-                return
-            }
-            
-            os_log("An appropriate backup key was found for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
-
-            let backupObjectID: NSManagedObjectID
-            do {
-                let backup = try Backup.createOngoingBackup(forExport: forExport, backupKey: currentBackupKey, delegateManager: delegateManager)
-                try obvContext.save(logOnFailure: log)
-                backupObjectID = backup.objectID
-                os_log("The new ongoing backup for backup request identified by %{public}@ has version %d", log: log, type: .info, backupRequestIdentifier.description, backup.version)
-            } catch let error {
-                os_log("Could not create ongoing backup for backup request identified by %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
-                return
-            }
-            
-            ongoingBackupSavedToDatabase = true
-            
-            for backupableManager in backupableObjects {
-                backupableManager.provideInternalDataForBackup(backupRequestIdentifier: backupRequestIdentifier) { result in
-                    switch result {
-                    case .failure(let error):
-                        
-                        os_log("Could not get internal data for backup from one of the backupable managers: %{public}@", log: log, type: .fault, error.localizedDescription)
-                        delegateManager.contextCreator.performBackgroundTask(flowId: backupRequestIdentifier) { (obvContext) in
-                            let backup: Backup
-                            do {
-                                guard let _backup = try Backup.get(objectID: backupObjectID, delegateManager: delegateManager, within: obvContext) else {
-                                    throw ObvBackupManagerImplementation.makeError(message: "Could not find Backup in database")
-                                }
-                                backup = _backup
-                            } catch let error {
-                                os_log("Could not find any appropriate ongoing backup: %{public}@", log: log, type: .fault, error.localizedDescription)
-                                return
-                            }
-                            do {
-                                try backup.setFailed()
-                                try obvContext.save(logOnFailure: log)
-                            } catch let error {
-                                os_log("Could not mark the backup as failed: %{public}@", log: log, type: .fault, error.localizedDescription)
-                                return
-                            }
-                        }
-                        return
-                        
-                    case .success(let internalJsonAndIdentifier):
-                        
-                        // If we reach this point, the backupable manager did send an appropriate json of its internal data to backup
-                        
-                        self?.addInternalJsonToBackup(internalJsonAndIdentifier, backupRequestIdentifier: backupRequestIdentifier)
-                        guard self?.getNumberOfBackupedManagers(backupRequestIdentifier: backupRequestIdentifier) == backupableObjects.count else {
-                            debugPrint("Still waiting for some managers to provide their internal data for backup")
-                            return
-                        }
-                        
-                        // If we reach this point, we have the internal data of all the managers
-                        
-                        os_log("All backupable managers provided their data for the backup for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
-                        self?.allManagersProvidedTheirInternalJsonAndIdentifier(flowId: backupRequestIdentifier, backupObjectID: backupObjectID)
-                        
-                    }
-                }
-            }
-
+        let allInternalDataForBackup = try await provideAllInternalDataForBackupFromBackupableObjects(backupableObjects, backupRequestIdentifier: backupRequestIdentifier)
+        
+        // If we reach this step, all the backupable objects provided their internal data to backup.
+        
+        guard allInternalDataForBackup.count == backupableObjects.count else {
+            assertionFailure()
+            throw Self.makeError(message: "Unexpected number of internal data for backup")
         }
                 
+        let fullBackup = try FullBackup(allInternalJsonAndIdentifier: allInternalDataForBackup)
+        
+        // Create and compress the full backup
+        
+        let compressedFullBackupData = try fullBackup.computeCompressedData(flowId: backupRequestIdentifier, log: log)
+        
+        os_log("The compressed full backup is made of %d bytes within flow %{public}@", log: log, type: .info, compressedFullBackupData.count, backupRequestIdentifier.description)
+
+        return try await createPersistedBackup(forExport: forExport, backupRequestIdentifier: backupRequestIdentifier, compressedFullBackupData: compressedFullBackupData)
+        
     }
     
     
@@ -487,228 +389,176 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
     }
     
     /// This method allows to recover the backuped data. It does not restore the data though.
-    public func recoverBackupData(_ backupData: Data, withBackupKey backupKey: String, backupRequestIdentifier: FlowIdentifier, completion: @escaping (Result<(backupRequestIdentifier: UUID, backupDate: Date), BackupRestoreError>) -> Void) {
+    /// If this method throws, the Error is a BackupRestoreError.
+    public func recoverBackupData(_ backupData: Data, withBackupKey backupKey: String, backupRequestIdentifier: FlowIdentifier) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
 
-        assert(Thread.current != Thread.main)
-        
-        var fullBackup: FullBackup?
-        var usedDerivedKeys: DerivedKeysForBackup?
-        var backupRestoreError: BackupRestoreError?
-        defer {
-            if let fullBackup = fullBackup {
-                backupsBeingCurrentltyRestored[backupRequestIdentifier] = fullBackup
-                // If the backup was fully recovered, we can store the used derived keys (if we have them)/
-                // This will allow to store these keys in DB at the time the backup is actually restored.
-                if let usedDerivedKeys = usedDerivedKeys {
-                    derivedKeysForBackupBeingCurrentltyRestored[backupRequestIdentifier] = usedDerivedKeys
-                } else {
-                    assertionFailure()
-                }
-                completion(.success((backupRequestIdentifier, fullBackup.backupDate)))
-            } else {
-                let error = backupRestoreError ?? .internalError(code: -1)
-                completion(.failure(error))
-            }
-        }
-        
-        // Compute the derive keys from the backup key
+        // Compute the derived keys from the backup key
         
         os_log("Computing the derived keys from the backup key for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
 
         guard let backupSeed = BackupSeed(backupKey) else {
             os_log("Could not compute backup seed for backup request identified by %{public}@", log: log, type: .fault)
-            backupRestoreError = .internalError(code: 0)
-            return
+            throw BackupRestoreError.internalError(code: 0)
         }
-        
+
         let derivedKeysForBackup = backupSeed.deriveKeysForBackup()
-        usedDerivedKeys = derivedKeysForBackup.copyWithoutPrivateKeyForEncryption()
-        
+        let usedDerivedKeys = derivedKeysForBackup.copyWithoutPrivateKeyForEncryption()
+
         // We check the mac of encryptedBackupData
 
         os_log("Checking the mac of encrypted backup for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
 
-        let macAlgoByteId = derivedKeysForBackup.macKey.algorithmImplementationByteId
-        let macLength = MAC.outputLength(for: macAlgoByteId)
-        guard backupData.count >= macLength else {
-            os_log("The backup data is too small for backup request identified by %{public}@", log: log, type: .error, backupRequestIdentifier.description)
-            backupRestoreError = .internalError(code: 1)
-            return
-        }
-        let receivedMac = backupData[backupData.endIndex-macLength..<backupData.endIndex]
-        let encryptedBackup = backupData[backupData.startIndex..<backupData.endIndex-macLength]
-        let computedMac: Data
-        do {
-            computedMac = try MAC.compute(forData: encryptedBackup, withKey: derivedKeysForBackup.macKey)
-        } catch {
-            os_log("The MAC computation failed %{public}@ for backup request identified by %{public}@", log: log, type: .error, error.localizedDescription, backupRequestIdentifier.description)
-            backupRestoreError = .macComputationFailed
-            return
-        }
+        let (computedMac, receivedMac, encryptedBackup) = try await computeMAC(derivedKeysForBackup: derivedKeysForBackup, backupData: backupData)
 
         guard computedMac == receivedMac else {
             os_log("The mac comparison failed during the recover of the backup for backup request identified by %{public}@", log: log, type: .error)
-            backupRestoreError = .macComparisonFailed
-            return
+            throw BackupRestoreError.macComparisonFailed
         }
-        
+
         os_log("The mac of the backup data is correct for backup request identified by %{public}@. Decrypting the data", log: log, type: .info, backupRequestIdentifier.description)
 
         // We decrypt the data
         
         guard let privateKey = derivedKeysForBackup.privateKeyForEncryption else {
             os_log("The private key for decryption is nil, which is unexpected", log: log, type: .fault)
-            backupRestoreError = .internalError(code: 2)
-            return
+            throw BackupRestoreError.internalError(code: 2)
         }
         guard let compressedFullBackupData = PublicKeyEncryption.decrypt(EncryptedData(data: encryptedBackup), using: privateKey) else {
             os_log("We failed to decrypt the encrypted backup", log: log, type: .error)
-            backupRestoreError = .backupDataDecryptionFailed
-            return
+            throw BackupRestoreError.backupDataDecryptionFailed
         }
         
         os_log("The backup data was successfully decrypted for backup request identified by %{public}@. We can decompress this data.", log: log, type: .info, backupRequestIdentifier.description)
 
-        let fullBackupData: Data
+        let fullBackup: FullBackup
         do {
-            fullBackupData = try decompressCompressedBackupContent(compressedFullBackupData)
+            fullBackup = try await FullBackup(compressedFullBackupData: compressedFullBackupData)
         } catch {
-            os_log("Could not decompress the backup data for backup request identified by %{public}@", log: log, type: .error)
-            backupRestoreError = .internalError(code: 3)
-            return
+            throw BackupRestoreError.internalError(code: 3)
         }
         
-        os_log("The backup data was successfully decompressed for backup request identified by %{public}@.", log: log, type: .info, backupRequestIdentifier.description)
+        addBackupBeingCurrentltyRestored(flowId: backupRequestIdentifier, fullbackup: fullBackup)
+        addDerivedKeysForBackupBeingCurrentlyRestored(flowId: backupRequestIdentifier, derivedKeys: usedDerivedKeys)
 
-        do {
-            let jsonEncoder = JSONDecoder()
-            fullBackup = try jsonEncoder.decode(FullBackup.self, from: fullBackupData)
-        } catch let error {
-            debugPrint(error.localizedDescription)
-            backupRestoreError = .internalError(code: 4)
-            return
-        }
-
-    }
-
-
-    
-    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier, completionHandler: @escaping ((Result<Void, Error>) -> Void)) {
-
-        assert(Thread.current != Thread.main)
-
-        guard let fullBackup = backupsBeingCurrentltyRestored[backupRequestIdentifier] else {
-            completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Full backup was not found and thus cannot be restored")))
-            return
-        }
-        
-        guard appBackupableObjectIsRegistered else {
-            completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Cannot restore backup yet. The app backupable object is not registered yet.")))
-            return
-        }
-
-        guard let backupableObjects = self.backupableManagers.map({ $0.value }) as? [ObvBackupable] else {
-            completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Critical error. Could not recover the managers to backup")))
-            return
-        }
-        
-        // Restore the engine managers first
-        
-        let backupableManagerObjects = backupableObjects.filter({ $0 is ObvBackupableManager })
-        let backupableAppObjects = backupableObjects.filter({ !($0 is ObvBackupableManager) })
-        guard backupableAppObjects.count == 1 else {
-            completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Expecting exactly one backupable app object, got \(backupableAppObjects.count)")))
-            return
-        }
-        let backupableAppObject = backupableAppObjects.first!
-        
-        for backupableManagerObject in backupableManagerObjects {
-            guard let internalJson = fullBackup.allInternalJsonAndIdentifier[backupableManagerObject.backupSource]?[backupableManagerObject.backupIdentifier] else {
-                completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Could not recover the internal backup of one of the managers (identified by key \(backupableManagerObject.backupIdentifier)")))
-                return
-            }
-            backupableManagerObject.restoreBackup(backupRequestIdentifier: backupRequestIdentifier, internalJson: internalJson) { [weak self] (error) in
-                guard error == nil else {
-                    self?.backupsBeingCurrentltyRestored.removeValue(forKey: backupRequestIdentifier)
-                    completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Could not restore backup for \(backupableManagerObject.backupIdentifier) : \(error!.localizedDescription)")))
-                    return
-                }
-                self?.addToRestoredObvBackupables(backupRequestIdentifier: backupRequestIdentifier, value: (backupableManagerObject.backupSource, backupableManagerObject.backupIdentifier))
-                if self?.numberOfRestoredObvBackupablesDuringBackup(backupRequestIdentifier: backupRequestIdentifier) == backupableManagerObjects.count {
-                    self?.allManagersWereRestored(backupRequestIdentifier: backupRequestIdentifier, backupableAppObject: backupableAppObject, completionHandler: completionHandler)
-                }
-            }
-        }
-
-        // The rest of the procedure is performed in `allManagersWereRestored(...)`
+        return (backupRequestIdentifier, fullBackup.backupDate)
         
     }
     
     
-    /// Called during a backup restore, when all managers (well, the identity manager) have been successfully restored in DB. We can now call the restoreBackup(...) method of the app.
-    private func allManagersWereRestored(backupRequestIdentifier: FlowIdentifier, backupableAppObject: ObvBackupable, completionHandler: @escaping ((Result<Void, Error>) -> Void)) {
-
-        guard let fullBackup = backupsBeingCurrentltyRestored[backupRequestIdentifier] else {
-            completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Full backup was not found and thus cannot be restored")))
-            return
-        }
-
-        guard let internalJson = fullBackup.allInternalJsonAndIdentifier[backupableAppObject.backupSource]?[backupableAppObject.backupIdentifier] else {
-            os_log("Could not recover the internal backup of the app (identified by key %{public}@)", log: log, type: .default, backupableAppObject.backupIdentifier)
-            return
-        }
-
-        backupableAppObject.restoreBackup(backupRequestIdentifier: backupRequestIdentifier, internalJson: internalJson) { [weak self] (error) in
-            guard error == nil else {
-                self?.backupsBeingCurrentltyRestored.removeValue(forKey: backupRequestIdentifier)
-                completionHandler(.failure(ObvBackupManagerImplementation.makeError(message: "Could not restore backup for \(backupableAppObject.backupIdentifier) : \(error!.localizedDescription)")))
+    private func computeMAC(derivedKeysForBackup: DerivedKeysForBackup, backupData: Data) async throws -> (computedMac: Data, receivedMac: Data, encryptedBackup: Data) {
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(computedMac: Data, receivedMac: Data, encryptedBackup: Data), Error>) in
+            
+            let macAlgoByteId = derivedKeysForBackup.macKey.algorithmImplementationByteId
+            let macLength = MAC.outputLength(for: macAlgoByteId)
+            guard backupData.count >= macLength else {
+                os_log("The backup data is too small for backup request", log: log, type: .error)
+                continuation.resume(throwing: BackupRestoreError.macComputationFailed)
                 return
             }
-
-            self?.fullBackupRestored(backupRequestIdentifier: backupRequestIdentifier, completionHandler: completionHandler)
+            let receivedMac = backupData[backupData.endIndex-macLength..<backupData.endIndex]
+            let encryptedBackup = backupData[backupData.startIndex..<backupData.endIndex-macLength]
+            let computedMac: Data
+            do {
+                computedMac = try MAC.compute(forData: encryptedBackup, withKey: derivedKeysForBackup.macKey)
+            } catch {
+                continuation.resume(throwing: BackupRestoreError.macComputationFailed)
+                return
+            }
+            continuation.resume(returning: (computedMac, receivedMac, encryptedBackup))
             
         }
         
     }
+
     
-    
-    private func fullBackupRestored(backupRequestIdentifier: FlowIdentifier, completionHandler: @escaping ((Result<Void, Error>) -> Void)) {
-        // We stored the (public part) of the derived keys used to decrypt the backup during the execution of recoverBackupData(...). Since we now that these keys worked and allowed to access a backup that was restored, we save these keys in DB now so that they can be used for subsequent backups.
-        guard let usedDerivedKeys = self.derivedKeysForBackupBeingCurrentltyRestored[backupRequestIdentifier] else {
+    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier) async throws {
+
+        guard let fullBackup = getBackupBeingCurrentltyRestored(flowId: backupRequestIdentifier) else {
             assertionFailure()
-            completionHandler(.success(())) // It is ok to tell the app the backup was restored
+            throw Self.makeError(message: "Full backup was not found and thus cannot be restored")
+        }
+        
+        guard appBackupableObjectIsRegistered else {
+            assertionFailure()
+            throw Self.makeError(message: "Cannot restore backup yet. The app backupable object is not registered yet.")
+        }
+
+        guard let backupableObjects = self.backupableManagers.map({ $0.value }) as? [ObvBackupable] else {
+            assertionFailure()
+            throw Self.makeError(message: "Critical error. Could not recover the managers to backup")
+        }
+        
+        // Get the engine managers and the (single) app object to restore
+        
+        let backupableManagerObjects = backupableObjects.filter({ $0 is ObvBackupableManager })
+        let backupableAppObjects = backupableObjects.filter({ !($0 is ObvBackupableManager) })
+        guard backupableAppObjects.count == 1 else {
+            throw Self.makeError(message: "Expecting exactly one backupable app object, got \(backupableAppObjects.count)")
+        }
+        let backupableAppObject = backupableAppObjects.first!
+        
+        // Restore the engine managers first
+
+        try await restoreBackupableManagerObjects(backupableManagerObjects: backupableManagerObjects, fullBackup: fullBackup, backupRequestIdentifier: backupRequestIdentifier)
+        
+        // Restore the app object
+        
+        guard let internalJson = fullBackup.allInternalJsonAndIdentifier[backupableAppObject.backupSource]?[backupableAppObject.backupIdentifier] else {
+            os_log("Could not recover the internal backup of the app (identified by key %{public}@)", log: log, type: .default, backupableAppObject.backupIdentifier)
+            throw Self.makeError(message: "Could not recover the internal backup of the app")
+        }
+
+        try await backupableAppObject.restoreBackup(backupRequestIdentifier: backupRequestIdentifier, internalJson: internalJson)
+        
+        // If we reach this point, the full backup was restored
+
+        await fullBackupRestored(backupRequestIdentifier: backupRequestIdentifier)
+        
+    }
+    
+    
+    private func fullBackupRestored(backupRequestIdentifier: FlowIdentifier) async {
+
+        // We stored the (public part) of the derived keys used to decrypt the backup during the execution of recoverBackupData(...). Since we now that these keys worked and allowed to access a backup that was restored, we save these keys in DB now so that they can be used for subsequent backups.
+        guard let usedDerivedKeys = getDerivedKeysForBackupBeingCurrentlyRestored(flowId: backupRequestIdentifier) else {
+            assertionFailure()
             return
         }
      
         let delegateManager = self.delegateManager
         let log = self.log
         
-        self.delegateManager.contextCreator.performBackgroundTaskAndWait(flowId: backupRequestIdentifier) { obvContext in
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             
-            do {
-                try BackupKey.deleteAll(delegateManager: delegateManager, within: obvContext)
-            } catch let error {
-                os_log("Could not delete all previous backup keys within flow %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
-                assertionFailure()
-                completionHandler(.success(())) // It is ok to tell the app the backup was restored
-                return
+            delegateManager.contextCreator.performBackgroundTaskAndWait(flowId: backupRequestIdentifier) { obvContext in
+                
+                do {
+                    try BackupKey.deleteAll(delegateManager: delegateManager, within: obvContext)
+                } catch let error {
+                    os_log("Could not delete all previous backup keys within flow %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
+                    assertionFailure()
+                    continuation.resume() // It is ok to tell the app the backup was restored
+                    return
+                }
+                
+                _ = BackupKey(derivedKeysForBackup: usedDerivedKeys, delegateManager: delegateManager, within: obvContext)
+                
+                do {
+                    try obvContext.save(logOnFailure: log)
+                } catch let error {
+                    os_log("Could not delete previous backup keys nor create new backup key within flow %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
+                    continuation.resume() // It is ok to tell the app the backup was restored
+                    return
+                }
+
             }
+                    
+            removeBackupBeingCurrentltyRestored(flowId: backupRequestIdentifier)
             
-            _ = BackupKey(derivedKeysForBackup: usedDerivedKeys, delegateManager: delegateManager, within: obvContext)
-            
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                os_log("Could not delete previous backup keys nor create new backup key within flow %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
-                completionHandler(.success(())) // It is ok to tell the app the backup was restored
-                return
-            }
+            continuation.resume()
 
         }
-                
-        _ = backupsBeingCurrentltyRestored.removeValue(forKey: backupRequestIdentifier)
-        
-        completionHandler(.success(())) // It is ok to tell the app the backup was restored
         
     }
     
@@ -723,6 +573,104 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
 // MARK: - Helpers
 
 extension ObvBackupManagerImplementation {
+    
+    
+    private func createPersistedBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier, compressedFullBackupData: Data) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
+        
+        assert(!Thread.isMainThread)
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(backupKeyUid: UID, version: Int, encryptedContent: Data), Error>) in
+            
+            do {
+                try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { (obvContext) in
+
+                    guard let currentBackupKey = try getCurrentBackupKey(within: obvContext) else {
+                        throw ObvBackupManagerImplementation.makeError(message: "No backup key available")
+                    }
+
+                    os_log("An appropriate backup key was found for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
+
+                    let backup = try Backup.createOngoingBackup(forExport: forExport, backupKey: currentBackupKey, delegateManager: delegateManager)
+                    
+                    os_log("The new ongoing backup for backup request identified by %{public}@ has version %d", log: log, type: .info, backupRequestIdentifier.description, backup.version)
+                    
+                    // Get the backup item from database in order to recover the current crypto keys
+                    
+                    guard let derivedKeysForBackup = backup.backupKey?.derivedKeysForBackup else {
+                        os_log("Could not find any backup key for ongoing backup", log: log, type: .fault)
+                        throw Self.makeError(message: "Could not find any backup key for ongoing backup")
+                    }
+                    
+                    // At this point we have a compressed backup and the appropriate keys. We can encrypt the backup.
+
+                    os_log("Encrypting the compressed full backup for backupRequestIdentifier %{public}@", log: log, type: .info, backupRequestIdentifier.description)
+                    
+                    let encryptedBackup = PublicKeyEncryption.encrypt(compressedFullBackupData, using: derivedKeysForBackup.publicKeyForEncryption, and: prng)
+                    let macOfEncryptedBackup = try MAC.compute(forData: encryptedBackup, withKey: derivedKeysForBackup.macKey)
+                    let authenticatedEncryptedBackup = EncryptedData(data: encryptedBackup.raw + macOfEncryptedBackup)
+                    
+                    os_log("The encrypted backup was computed (size is %d bytes) for backupRequestIdentifier %{public}@", log: log, type: .info, authenticatedEncryptedBackup.count, backupRequestIdentifier.description)
+
+                    try backup.setReady(withEncryptedContent: authenticatedEncryptedBackup)
+                    try obvContext.save(logOnFailure: log)
+                   
+                    os_log("The encrypted backup was saved to DB for backupRequestIdentifier %{public}@", log: log, type: .info, backupRequestIdentifier.description)
+
+                    guard let successfulBackupInfos = backup.successfulBackupInfos else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Unexpected error: No successfulBackupInfos although the backup was saved to DB")
+                    }
+
+                    continuation.resume(returning: (successfulBackupInfos.backupKeyUid, successfulBackupInfos.version, successfulBackupInfos.encryptedContentRaw))
+                    
+                }
+            } catch {
+                continuation.resume(throwing: error)
+            }
+            
+        }
+
+    }
+    
+    
+    /// This internal method restores the engine managers
+    private func restoreBackupableManagerObjects(backupableManagerObjects: [ObvBackupable], fullBackup: FullBackup, backupRequestIdentifier: FlowIdentifier) async throws {
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for backupableManagerObject in backupableManagerObjects {
+                group.addTask {
+                    guard let internalJson = fullBackup.allInternalJsonAndIdentifier[backupableManagerObject.backupSource]?[backupableManagerObject.backupIdentifier] else {
+                        throw Self.makeError(message: "Could not recover the internal backup of one of the managers (identified by key \(backupableManagerObject.backupIdentifier)")
+                    }
+                    try await backupableManagerObject.restoreBackup(backupRequestIdentifier: backupRequestIdentifier, internalJson: internalJson)
+                }
+                guard !group.isCancelled else {
+                    throw Self.makeError(message: "Failed to restore a backup")
+                }
+            }
+        }
+        
+    }
+    
+    
+    private func provideAllInternalDataForBackupFromBackupableObjects(_ backupableObjects: [ObvBackupable], backupRequestIdentifier: FlowIdentifier) async throws -> [ObvBackupableObjectSource: [String: String]] {
+        
+        var internalJsonsAndIdentifiers = [ObvBackupableObjectSource: [String: String]]()
+        
+        try await withThrowingTaskGroup(of: (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource).self) { group in
+            for backupableManager in backupableObjects {
+                group.addTask {
+                    return try await backupableManager.provideInternalDataForBackup(backupRequestIdentifier: backupRequestIdentifier)
+                }
+            }
+            for try await internalDataForBackup in group {
+                internalJsonsAndIdentifiers[internalDataForBackup.source] = [internalDataForBackup.internalJsonIdentifier: internalDataForBackup.internalJson]
+            }
+        }
+        
+        return internalJsonsAndIdentifiers
+    }
+    
     
     private func getCurrentBackupKey(within obvContext: ObvContext) throws -> BackupKey? {
         let flowId = obvContext.flowId
@@ -744,227 +692,7 @@ extension ObvBackupManagerImplementation {
         }
         return backupKeys.first!
     }
-
     
-    private func allManagersProvidedTheirInternalJsonAndIdentifier(flowId: FlowIdentifier, backupObjectID: NSManagedObjectID) {
-        
-        let log = self.log
-        let prng = self.prng
-
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
-            return
-        }
-
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            
-            let backup: Backup
-            do {
-                guard let _backup = try Backup.get(objectID: backupObjectID, delegateManager: delegateManager, within: obvContext) else { throw ObvBackupManagerImplementation.makeError(message: "Could not find Backup in database") }
-                backup = _backup
-            } catch let error {
-                os_log("Could not find any appropriate ongoing backup: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-
-            let allInternalJsonAndIdentifier = removeInternalDataToBackup(flowId: flowId)
-            guard allInternalJsonAndIdentifier.count == backupableManagers.count else {
-                os_log("Backup failed. Unexpected number of data to backup given the number of managers.", log: log, type: .fault)
-                do {
-                    try backup.setFailed()
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("%{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-                assertionFailure()
-                return
-            }
-            
-            let fullBackup: FullBackup
-            do {
-                fullBackup = try FullBackup(allInternalJsonAndIdentifier: allInternalJsonAndIdentifier)
-            } catch {
-                os_log("Backup failed: %{public}@", log: log, type: .fault, error.localizedDescription)
-                do {
-                    try backup.setFailed()
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("%{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-                assertionFailure()
-                return
-            }
-            
-            // Create the full backup content
-            
-            os_log("Creating full backup content within flow %{public}@", log: log, type: .info, flowId.description)
-            
-            let fullBackupData: Data
-            do {
-                let jsonEncoder = JSONEncoder()
-                fullBackupData = try jsonEncoder.encode(fullBackup)
-            } catch let error {
-                os_log("Backup failed. Could not encode the internal json: %{public}@", log: log, type: .fault, error.localizedDescription)
-                do {
-                    try backup.setFailed()
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("%{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-                assertionFailure()
-                return
-            }
-
-            // Compress the full backup content
-
-            os_log("Compressing the %d bytes full backup content within flow %{public}@", log: log, type: .info, fullBackupData.count, flowId.description)
-
-            let compressedFullBackupData: Data
-            do {
-                compressedFullBackupData = try compressFullBackupContent(fullBackupData)
-            } catch let error {
-                os_log("Could not compress backup data: %{public}@", log: log, type: .fault, error.localizedDescription)
-                do {
-                    try backup.setFailed()
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("%{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-                assertionFailure()
-                return
-            }
-
-            os_log("The compressed full backup is made of %d bytes within flow %{public}@", log: log, type: .info, compressedFullBackupData.count, flowId.description)
-
-            // Get the backup item from database in order to recover the current crypto keys
-            
-            guard let derivedKeysForBackup = backup.backupKey?.derivedKeysForBackup else {
-                os_log("Could not find any backup key for ongoing backup", log: log, type: .fault)
-                do {
-                    try backup.setFailed()
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("%{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-                assertionFailure()
-                return
-            }
-            
-            // At this point we have a compressed backup and the appropriate keys. We can encrypt the backup.
-
-            os_log("Encrypting the compressed full backup within flow %{public}@", log: log, type: .info, flowId.description)
-            
-            let authenticatedEncryptedBackup: EncryptedData
-            do {
-                let encryptedBackup = PublicKeyEncryption.encrypt(compressedFullBackupData, using: derivedKeysForBackup.publicKeyForEncryption, and: prng)
-                let macOfEncryptedBackup = try MAC.compute(forData: encryptedBackup, withKey: derivedKeysForBackup.macKey)
-                authenticatedEncryptedBackup = EncryptedData(data: encryptedBackup.raw + macOfEncryptedBackup)
-            } catch {
-                os_log("Could not encrypt full backup content", log: log, type: .fault)
-                do {
-                    try backup.setFailed()
-                    try obvContext.save(logOnFailure: log)
-                } catch let error {
-                    os_log("%{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
-                }
-                assertionFailure()
-                return
-            }
-            
-            os_log("The encrypted backup was computed (size is %d bytes) within flow %{public}@", log: log, type: .info, authenticatedEncryptedBackup.count, flowId.description)
-
-            do {
-                try backup.setReady(withEncryptedContent: authenticatedEncryptedBackup)
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                os_log("Could not save the encrypted backup to DB with flow %{public}@: %{public}@", log: log, type: .fault, flowId.description, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-            
-            os_log("The encrypted backup was saved to DB within flow %{public}@", log: log, type: .info, flowId.description)
-
-            assert(backup.successfulBackupInfos != nil)
-
-        }
-        
-        
-    }
-    
-    
-    private func compressFullBackupContent(_ fullBackupContent: Data) throws -> Data {
-    
-        // See https://developer.apple.com/documentation/accelerate/compressing_and_decompressing_data_with_buffer_compression
-        // We use a method working under iOS 11+. Under iOS 13+, we could use simpler APIs.
-        
-        var sourceBuffer = [UInt8](fullBackupContent)
-        let destinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: fullBackupContent.count)
-        let algorithm = COMPRESSION_ZLIB
-        let compressedSize = compression_encode_buffer(destinationBuffer, fullBackupContent.count, &sourceBuffer, fullBackupContent.count, nil, algorithm)
-        guard compressedSize > 0 else {
-            throw ObvBackupManagerImplementation.makeError(message: "Compression failed")
-        }
-        let compressedFullBackupData = Data(bytes: destinationBuffer, count: compressedSize)
-        return compressedFullBackupData
-        
-    }
-    
-    
-    private func decompressCompressedBackupContent(_ compressedFullBackupData: Data) throws -> Data {
-        
-        var decodedCapacity = compressedFullBackupData.count * 8
-        let algorithm = COMPRESSION_ZLIB
-        // Allow a capacity of about 100MB
-        while decodedCapacity < 100_000_000 {
-
-            var success = false
-
-            let fullBackupContent = compressedFullBackupData.withUnsafeBytes { (encodedSourceBuffer: UnsafeRawBufferPointer) -> Data in
-                guard let encodedSourcePtr = encodedSourceBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
-                    fatalError("Cannot point to data.")
-                }
-                let decodedDestinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: decodedCapacity)
-                defer { decodedDestinationBuffer.deallocate() }
-                let decodedCharCount = compression_decode_buffer(decodedDestinationBuffer,
-                                                                 decodedCapacity,
-                                                                 encodedSourcePtr,
-                                                                 compressedFullBackupData.count,
-                                                                 nil,
-                                                                 algorithm)
-                if decodedCharCount == 0 || decodedCharCount == decodedCapacity {
-                    success = false
-                    return Data()
-                } else {
-                    success = true
-                    return Data(bytes: decodedDestinationBuffer, count: decodedCharCount)
-                }
-            }
-            
-            if success {
-                return fullBackupContent
-            } else {
-                decodedCapacity *= 2
-            }
-        }
-
-        // If we reach this point, something went wrong
-        throw ObvBackupManagerImplementation.makeError(message: "Could not decompress buffer")
-        
-    }
-
 }
 
 
@@ -1066,7 +794,7 @@ fileprivate struct FullBackup: Codable {
     private let appBackup: String?
     private let engineManagerBackups: [String: String]
     let backupTimestamp: Int /// In milliseconds
-    let jsonVersion: Int = 0
+    let jsonVersion: Int
     
     var backupDate: Date {
         return Date(timeIntervalSince1970: Double(backupTimestamp / 1000))
@@ -1108,6 +836,14 @@ fileprivate struct FullBackup: Codable {
         }
         self.appBackup = appBackup
         self.engineManagerBackups = engineManagerBackups
+        self.jsonVersion = 0
+    }
+    
+    
+    init(compressedFullBackupData: Data) async throws {
+        let fullBackupData = try await Self.decompressCompressedBackupContent(compressedFullBackupData)
+        let jsonEncoder = JSONDecoder()
+        self = try jsonEncoder.decode(FullBackup.self, from: fullBackupData)
     }
     
     
@@ -1120,4 +856,87 @@ fileprivate struct FullBackup: Codable {
         return result
     }
  
+    func computeCompressedData(flowId: FlowIdentifier, log: OSLog) throws -> Data {
+        
+        // Create the full backup content
+        
+        os_log("Creating full backup content within flow %{public}@", log: log, type: .info, flowId.description)
+        
+        let jsonEncoder = JSONEncoder()
+        let fullBackupData = try jsonEncoder.encode(self)
+
+        // Compress the full backup content
+
+        os_log("Compressing the %d bytes full backup content within flow %{public}@", log: log, type: .info, fullBackupData.count, flowId.description)
+
+        let compressedFullBackupData = try compressFullBackupContent(fullBackupData)
+        
+        return compressedFullBackupData
+
+    }
+    
+    
+    private func compressFullBackupContent(_ fullBackupContent: Data) throws -> Data {
+    
+        // See https://developer.apple.com/documentation/accelerate/compressing_and_decompressing_data_with_buffer_compression
+        // We use a method working under iOS 11+. Under iOS 13+, we could use simpler APIs.
+        
+        var sourceBuffer = [UInt8](fullBackupContent)
+        let destinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: fullBackupContent.count)
+        let algorithm = COMPRESSION_ZLIB
+        let compressedSize = compression_encode_buffer(destinationBuffer, fullBackupContent.count, &sourceBuffer, fullBackupContent.count, nil, algorithm)
+        guard compressedSize > 0 else {
+            throw ObvBackupManagerImplementation.makeError(message: "Compression failed")
+        }
+        let compressedFullBackupData = Data(bytes: destinationBuffer, count: compressedSize)
+        return compressedFullBackupData
+        
+    }
+
+    
+    private static func decompressCompressedBackupContent(_ compressedFullBackupData: Data) async throws -> Data {
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+            var decodedCapacity = compressedFullBackupData.count * 8
+            let algorithm = COMPRESSION_ZLIB
+            // Allow a capacity of about 100MB
+            while decodedCapacity < 100_000_000 {
+
+                var success = false
+
+                let fullBackupContent = compressedFullBackupData.withUnsafeBytes { (encodedSourceBuffer: UnsafeRawBufferPointer) -> Data in
+                    guard let encodedSourcePtr = encodedSourceBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                        fatalError("Cannot point to data.")
+                    }
+                    let decodedDestinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: decodedCapacity)
+                    defer { decodedDestinationBuffer.deallocate() }
+                    let decodedCharCount = compression_decode_buffer(decodedDestinationBuffer,
+                                                                     decodedCapacity,
+                                                                     encodedSourcePtr,
+                                                                     compressedFullBackupData.count,
+                                                                     nil,
+                                                                     algorithm)
+                    if decodedCharCount == 0 || decodedCharCount == decodedCapacity {
+                        success = false
+                        return Data()
+                    } else {
+                        success = true
+                        return Data(bytes: decodedDestinationBuffer, count: decodedCharCount)
+                    }
+                }
+                
+                if success {
+                    continuation.resume(returning: fullBackupContent)
+                    return
+                } else {
+                    decodedCapacity *= 2
+                }
+            }
+
+            // If we reach this point, something went wrong
+            continuation.resume(throwing: ObvBackupManagerImplementation.makeError(message: "Could not decompress buffer"))
+        }
+                
+    }
+
 }

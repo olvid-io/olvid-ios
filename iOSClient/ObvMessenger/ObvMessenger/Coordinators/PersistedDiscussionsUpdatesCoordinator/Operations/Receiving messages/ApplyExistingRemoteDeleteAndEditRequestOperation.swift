@@ -29,7 +29,7 @@ import ObvTypes
 /// operation, depending on the nature of the request found.
 final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperationWithSpecificReasonForCancel<ApplyingRemoteDeleteAndEditRequestOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ApplyExistingRemoteDeleteAndEditRequestOperation.self))
 
     private let obvMessage: ObvMessage
     private let messageJSON: MessageJSON
@@ -54,7 +54,7 @@ final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperatio
             
             let persistedContactIdentity: PersistedObvContactIdentity
             do {
-                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, within: obvContext.context) else {
+                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
                 persistedContactIdentity = _persistedContactIdentity
@@ -67,17 +67,19 @@ final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperatio
             }
 
             let discussion: PersistedDiscussion
-            if let groupId = messageJSON.groupId {
-                do {
+            do {
+                if let groupId = messageJSON.groupId {
                     guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                    discussion = oneToOneDiscussion
+                } else {
+                    return cancel(withReason: .couldNotFindDiscussion)
                 }
-            } else {
-                discussion = persistedContactIdentity.oneToOneDiscussion
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             // Look for an existing RemoteDeleteAndEditRequest for the received message in that discussion
@@ -158,11 +160,13 @@ enum ApplyingRemoteDeleteAndEditRequestOperationReasonForCancel: LocalizedErrorW
     case couldNotFindPersistedMessageReceived
     case wipeMessagesOperationCancelled(reason: WipeMessagesOperationReasonForCancel)
     case editTextBodyOfReceivedMessageOperation(reason: EditTextBodyOfReceivedMessageOperationReasonForCancel)
+    case couldNotFindDiscussion
 
     var logType: OSLogType {
         switch self {
         case .couldNotFindPersistedObvContactIdentityInDatabase,
-             .couldNotFindPersistedContactGroupInDatabase:
+                .couldNotFindPersistedContactGroupInDatabase,
+                .couldNotFindDiscussion:
             return .error
         case .unknownReason,
              .contextIsNil,
@@ -197,6 +201,8 @@ enum ApplyingRemoteDeleteAndEditRequestOperationReasonForCancel: LocalizedErrorW
             return reason.errorDescription
         case .editTextBodyOfReceivedMessageOperation(reason: let reason):
             return reason.errorDescription
+        case .couldNotFindDiscussion:
+            return "Could not find discussion"
         }
     }
     

@@ -26,7 +26,7 @@ import OlvidUtils
 /// This operation deletes all sent/received messages (and attachments) that were sent/received at a time that is longer than their time based retention time (if any).
 final class DeleteMessagesWithExpiredTimeBasedRetentionOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteMessagesWithExpiredTimeBasedRetentionOperation.self))
 
     private(set) var numberOfDeletedMessages = 0
     

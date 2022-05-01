@@ -29,7 +29,7 @@ import SwiftUI
 
 class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: OnboardingFlowViewController.self))
 
     weak var delegate: OnboardingFlowViewControllerDelegate?
     private var notificationCenterTokens = [NSObjectProtocol]()
@@ -683,7 +683,6 @@ extension OnboardingFlowViewController: BackupRestoreViewHostingControllerDelega
     
     
     func proceedWithBackupFile(atUrl url: URL) {
-        // For iOS 13+ only
         assert(Thread.isMainThread)
         let vc = BackupKeyVerifierViewHostingController(obvEngine: obvEngine, backupFileURL: url, dismissAction: {}, dismissThenGenerateNewBackupKeyAction: {})
         vc.delegate = self
@@ -792,30 +791,20 @@ extension OnboardingFlowViewController: UIDocumentPickerDelegate {
 extension OnboardingFlowViewController: BackupKeyTesterDelegate {
     
     func userWantsToRestoreBackupIdentifiedByRequestUuid(_ backupRequestUuid: UUID) {
-        let log = self.log
         DispatchQueue.main.async { [weak self] in
             let backupRestoringWaitingScreenVC = BackupRestoringWaitingScreenViewController()
             backupRestoringWaitingScreenVC.delegate = self
             backupRestoringWaitingScreenVC.backupRequestUuid = backupRequestUuid
             self?.flowNavigationController?.pushViewController(backupRestoringWaitingScreenVC, animated: true)
-            DispatchQueue(label: "Queue for restoring backup").async {
+            
+            Task { [weak self] in
                 do {
-                    try self?.obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestUuid) { result in
-                        switch result {
-                        case .failure:
-                            DispatchQueue.main.async {
-                                backupRestoringWaitingScreenVC.setRestoreFailed()
-                            }
-                        case .success:
-                            self?.ownedIdentityRestoredFromBackupRestore()
-                            return
-                        }
-                    }
+                    try await self?.obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestUuid)
+                    assert(Thread.isMainThread)
+                    self?.ownedIdentityRestoredFromBackupRestore()
                 } catch {
-                    os_log("Could not restore full backup", log: log, type: .error)
-                    DispatchQueue.main.async {
-                        backupRestoringWaitingScreenVC.setRestoreFailed()
-                    }
+                    assert(Thread.isMainThread)
+                    backupRestoringWaitingScreenVC.setRestoreFailed()
                 }
             }
         }

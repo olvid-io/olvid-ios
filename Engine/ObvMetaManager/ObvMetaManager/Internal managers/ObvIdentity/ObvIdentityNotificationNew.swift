@@ -54,6 +54,8 @@ public enum ObvIdentityNotificationNew {
 	case contactWasRevokedAsCompromised(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case contactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case ownedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+	case contactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+	case contactTrustLevelWasIncreased(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, trustLevelOfContactIdentity: TrustLevel, isOneToOne: Bool, flowId: FlowIdentifier)
 
 	private enum Name {
 		case contactIdentityIsNowTrusted
@@ -77,6 +79,8 @@ public enum ObvIdentityNotificationNew {
 		case contactWasRevokedAsCompromised
 		case contactObvCapabilitiesWereUpdated
 		case ownedIdentityCapabilitiesWereUpdated
+		case contactIdentityOneToOneStatusChanged
+		case contactTrustLevelWasIncreased
 
 		private var namePrefix: String { String(describing: ObvIdentityNotificationNew.self) }
 
@@ -110,6 +114,8 @@ public enum ObvIdentityNotificationNew {
 			case .contactWasRevokedAsCompromised: return Name.contactWasRevokedAsCompromised.name
 			case .contactObvCapabilitiesWereUpdated: return Name.contactObvCapabilitiesWereUpdated.name
 			case .ownedIdentityCapabilitiesWereUpdated: return Name.ownedIdentityCapabilitiesWereUpdated.name
+			case .contactIdentityOneToOneStatusChanged: return Name.contactIdentityOneToOneStatusChanged.name
+			case .contactTrustLevelWasIncreased: return Name.contactTrustLevelWasIncreased.name
 			}
 		}
 	}
@@ -230,6 +236,20 @@ public enum ObvIdentityNotificationNew {
 		case .ownedIdentityCapabilitiesWereUpdated(ownedIdentity: let ownedIdentity, flowId: let flowId):
 			info = [
 				"ownedIdentity": ownedIdentity,
+				"flowId": flowId,
+			]
+		case .contactIdentityOneToOneStatusChanged(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, flowId: let flowId):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"contactIdentity": contactIdentity,
+				"flowId": flowId,
+			]
+		case .contactTrustLevelWasIncreased(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, trustLevelOfContactIdentity: let trustLevelOfContactIdentity, isOneToOne: let isOneToOne, flowId: let flowId):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"contactIdentity": contactIdentity,
+				"trustLevelOfContactIdentity": trustLevelOfContactIdentity,
+				"isOneToOne": isOneToOne,
 				"flowId": flowId,
 			]
 		}
@@ -442,6 +462,28 @@ public enum ObvIdentityNotificationNew {
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(ownedIdentity, flowId)
+		}
+	}
+
+	public static func observeContactIdentityOneToOneStatusChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.contactIdentityOneToOneStatusChanged.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(ownedIdentity, contactIdentity, flowId)
+		}
+	}
+
+	public static func observeContactTrustLevelWasIncreased(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, TrustLevel, Bool, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.contactTrustLevelWasIncreased.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
+			let trustLevelOfContactIdentity = notification.userInfo!["trustLevelOfContactIdentity"] as! TrustLevel
+			let isOneToOne = notification.userInfo!["isOneToOne"] as! Bool
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(ownedIdentity, contactIdentity, trustLevelOfContactIdentity, isOneToOne, flowId)
 		}
 	}
 

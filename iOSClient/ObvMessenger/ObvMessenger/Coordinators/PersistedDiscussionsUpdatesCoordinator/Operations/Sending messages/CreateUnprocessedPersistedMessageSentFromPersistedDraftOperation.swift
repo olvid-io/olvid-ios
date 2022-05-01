@@ -23,10 +23,10 @@ import os.log
 import OlvidUtils
 
 
-final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel> {
+final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
     
     private let persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>
-    private(set) var persistedMessageSentObjectID: NSManagedObjectID?
+    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
 
     init(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
         self.persistedDraftObjectID = persistedDraftObjectID
@@ -80,10 +80,10 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
             draftToSend.reset()
 
             do {
-                self.persistedMessageSentObjectID = persistedMessageSent.objectID
+                self.persistedMessageSentObjectID = persistedMessageSent.typedObjectID
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { assertionFailure(); return }
-                    ObvMessengerInternalNotification.draftToSendWasReset(discussionObjectID: discussionObjectID, draftObjectID: draftToSendObjectID)
+                    ObvMessengerCoreDataNotification.draftToSendWasReset(discussionObjectID: discussionObjectID, draftObjectID: draftToSendObjectID)
                         .postOnDispatchQueue()
                 }
             } catch {

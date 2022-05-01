@@ -40,6 +40,42 @@ struct ObvMessengerSettings {
         }
     }
     
+    struct ContactsAndGroups {
+        
+        private struct Keys {
+            static let autoAcceptGroupInviteFrom = "settings.contacts.and.groups.autoAcceptGroupInviteFrom"
+        }
+        
+        enum AutoAcceptGroupInviteFrom: String, CaseIterable {
+            case everyone = "everyone"
+            case oneToOneContactsOnly = "contacts"
+            case noOne = "nobody"
+            
+            var localizedDescription: String {
+                switch self {
+                case .everyone:
+                    return CommonString.Word.Everyone
+                case .oneToOneContactsOnly:
+                    return CommonString.Word.Contacts
+                case .noOne:
+                    return CommonString.Word.NoOne
+                }
+            }
+            
+        }
+        
+        static var autoAcceptGroupInviteFrom: AutoAcceptGroupInviteFrom {
+            get {
+                let raw = userDefaults.stringOrNil(forKey: Keys.autoAcceptGroupInviteFrom) ?? AutoAcceptGroupInviteFrom.oneToOneContactsOnly.rawValue
+                return AutoAcceptGroupInviteFrom(rawValue: raw) ?? .oneToOneContactsOnly
+            }
+            set {
+                userDefaults.set(newValue.rawValue, forKey: Keys.autoAcceptGroupInviteFrom)
+            }
+        }
+        
+    }
+    
     struct Interface {
 
         private struct Keys {
@@ -56,7 +92,7 @@ struct ObvMessengerSettings {
             }
             set {
                 userDefaults.set(newValue.rawValue, forKey: Keys.identityColorStyle)
-                ObvMessengerInternalNotification.identityColorStyleDidChange.postOnDispatchQueue()
+                ObvMessengerSettingsNotifications.identityColorStyleDidChange.postOnDispatchQueue()
             }
         }
 
@@ -68,7 +104,7 @@ struct ObvMessengerSettings {
             }
             set {
                 userDefaults.set(newValue.rawValue, forKey: Keys.contactsSortOrder)
-                ObvMessengerInternalNotification.contactsSortOrderDidChange.postOnDispatchQueue()
+                ObvMessengerSettingsNotifications.contactsSortOrderDidChange.postOnDispatchQueue()
             }
         }
         
@@ -94,7 +130,7 @@ struct ObvMessengerSettings {
             set {
                 let newRawValues = newValue.filter({ $0.canBeReordered }).map({ $0.rawValue })
                 userDefaults.set(newRawValues, forKey: Keys.preferredComposeMessageViewActions)
-                ObvMessengerInternalNotification.preferredComposeMessageViewActionsDidChange.postOnDispatchQueue()
+                ObvMessengerSettingsNotifications.preferredComposeMessageViewActionsDidChange.postOnDispatchQueue()
             }
         }
         
@@ -313,7 +349,7 @@ struct ObvMessengerSettings {
                 guard ObvMessengerConstants.isRunningOnRealDevice else { return }
                 guard newValue != isCallKitEnabled else { return }
                 userDefaults.set(newValue, forKey: "settings.voip.isCallKitEnabled")
-                ObvMessengerInternalNotification.isCallKitEnabledSettingDidChange
+                ObvMessengerSettingsNotifications.isCallKitEnabledSettingDidChange
                     .postOnDispatchQueue()
             }
         }
@@ -325,7 +361,7 @@ struct ObvMessengerSettings {
             set {
                 guard newValue != isIncludesCallsInRecentsEnabled else { return }
                 userDefaults.set(newValue, forKey: "settings.voip.isIncludesCallsInRecentsEnabled")
-                ObvMessengerInternalNotification.isIncludesCallsInRecentsEnabledSettingDidChange
+                ObvMessengerSettingsNotifications.isIncludesCallsInRecentsEnabledSettingDidChange
                     .postOnDispatchQueue()
             }
         }
@@ -439,9 +475,7 @@ struct ObvMessengerSettings {
             set {
                 guard newValue != defaultEmojiButton else { return }
                 userDefaults.set(newValue, forKey: Keys.defaultEmojiButton)
-                if #available(iOS 13, *) {
-                    ObvMessengerSettingsObservableObject.shared.defaultEmojiButton = defaultEmojiButton
-                }
+                ObvMessengerSettingsObservableObject.shared.defaultEmojiButton = defaultEmojiButton
             }
         }
     }
@@ -479,6 +513,39 @@ struct ObvMessengerSettings {
         
     }
     
+    // MARK: - Minimum and latest iOS App versions sent by the server
+    
+    struct AppVersionAvailable {
+        
+        private struct Key {
+            static let minimum = "settings.AppVersionAvailable.minimum"
+            static let latest = "settings.AppVersionAvailable.latest"
+        }
+        
+        /// This corresponds to the minimum acceptable iOS build version returned by the server when querying the well known point.
+        static var minimum: Int? {
+            get {
+                return userDefaults.integerOrNil(forKey: Key.minimum)
+            }
+            set {
+                guard newValue != minimum else { return }
+                userDefaults.set(newValue, forKey: Key.minimum)
+            }
+        }
+
+        /// This corresponds to the latest acceptable iOS build version returned by the server when querying the well known point.
+        static var latest: Int? {
+            get {
+                return userDefaults.integerOrNil(forKey: Key.latest)
+            }
+            set {
+                guard newValue != latest else { return }
+                userDefaults.set(newValue, forKey: Key.latest)
+            }
+        }
+
+    }
+    
 }
 
 
@@ -493,91 +560,6 @@ final class ObvMessengerPreferredEmojisListObservable: ObservableObject {
     
 }
 
-
-// MARK: - For Backup purposes
-
-extension GlobalSettingsBackupItem {
-    
-    func updateExistingObvMessengerSettings() {
-        
-        // Downloads
-
-        if let value = self.maxAttachmentSizeForAutomaticDownload {
-            ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload = value
-        }
-
-        // Interface
-
-        if let value = self.identityColorStyle {
-            ObvMessengerSettings.Interface.identityColorStyle = value
-        }
-        if let value = self.contactsSortOrder {
-            ObvMessengerSettings.Interface.contactsSortOrder = value
-        }
-        if let value = self.useOldDiscussionInterface {
-            ObvMessengerSettings.Interface.useOldDiscussionInterface = value
-        }
-        
-        // Discussions
-
-        if let value = self.sendReadReceipt {
-            ObvMessengerSettings.Discussions.doSendReadReceipt = value
-        }
-        if let value = self.doFetchContentRichURLsMetadata {
-            ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata = value
-        }
-        if let value = self.readOnce {
-            ObvMessengerSettings.Discussions.readOnce = value
-        }
-        if let value = self.visibilityDuration {
-            ObvMessengerSettings.Discussions.visibilityDuration = value
-        }
-        if let value = self.existenceDuration {
-            ObvMessengerSettings.Discussions.existenceDuration = value
-        }
-        if let value = self.countBasedRetentionPolicy, value > 0 {
-            ObvMessengerSettings.Discussions.countBasedRetentionPolicyIsActive = true
-            ObvMessengerSettings.Discussions.countBasedRetentionPolicy = value
-        }
-        if let value = self.timeBasedRetentionPolicy {
-            ObvMessengerSettings.Discussions.timeBasedRetentionPolicy = value
-        }
-        if let value = self.autoRead {
-            ObvMessengerSettings.Discussions.autoRead = value
-        }
-        if let value = self.retainWipedOutboundMessages {
-            ObvMessengerSettings.Discussions.retainWipedOutboundMessages = value
-        }
-        
-        // Privacy
-
-        if let value = self.hideNotificationContent {
-            ObvMessengerSettings.Privacy.hideNotificationContent = value
-        }
-        
-        // VoIP
-
-        if let value = self.isCallKitEnabled {
-            ObvMessengerSettings.VoIP.isCallKitEnabled = value
-        }
-        
-        // Advanced
-
-        if let value = self.allowCustomKeyboards {
-            ObvMessengerSettings.Advanced.allowCustomKeyboards = value
-        }
-        
-        // BetaConfiguration
-        
-        if let value = self.showBetaSettings {
-            ObvMessengerSettings.BetaConfiguration.showBetaSettings = value
-        }
-        
-    }
-    
-}
-
-
 /// This singleton makes it possible to observe certain changes made to the settings.
 
 final class ObvMessengerSettingsObservableObject: ObservableObject {
@@ -590,4 +572,31 @@ final class ObvMessengerSettingsObservableObject: ObservableObject {
         defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
     }
     
+}
+
+extension UserDefaults {
+
+    func addObjectsModifiedByShareExtension(_ urlsAndEntityName: [(URL, String)]) {
+        var dict = dictionary(forKey: ObvMessengerConstants.objectsModifiedByShareExtension) ?? [:]
+        for (url, entityName) in urlsAndEntityName {
+            dict[url.absoluteString] = entityName
+        }
+        set(dict, forKey: ObvMessengerConstants.objectsModifiedByShareExtension)
+    }
+
+    func resetObjectsModifiedByShareExtension() {
+        removeObject(forKey: ObvMessengerConstants.objectsModifiedByShareExtension)
+    }
+
+    var objectsModifiedByShareExtensionURLAndEntityName: [(URL, String)] {
+        guard let dict = dictionary(forKey: ObvMessengerConstants.objectsModifiedByShareExtension) else {
+            return []
+        }
+        return dict.compactMap { (urlAsString, entityNameAsAny) in
+            guard let url = URL(string: urlAsString) else { return nil }
+            guard let entityName = entityNameAsAny as? String else { return nil }
+            return (url, entityName)
+        }
+    }
+
 }

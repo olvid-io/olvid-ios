@@ -76,7 +76,7 @@ fileprivate struct MetadataView: View {
         case .read: return NSLocalizedString("Read", comment: "")
         case .wiped: return NSLocalizedString("Wiped", comment: "")
         case .remoteWiped(remoteCryptoId: let cryptoId):
-            if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: cryptoId, ownedIdentityCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) {
+            if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: cryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
                 return String.localizedStringWithFormat(NSLocalizedString("Remotely wiped by %@", comment: ""), contact.customDisplayName ?? contact.fullDisplayName)
             } else {
                 return NSLocalizedString("Remotely wiped", comment: "")

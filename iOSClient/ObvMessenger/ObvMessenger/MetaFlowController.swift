@@ -101,6 +101,8 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         self.snackBarCoordinator = SnackBarCoordinator(obvEngine: obvEngine)
 
         self.appBackupCoordinator.vcDelegate = self
+        AppStateManager.shared.callStateDelegate = self.callManager
+        Task.detached { [weak self] in await self?.callManager.finalizeInitialisation() }
         
         // Internal notifications
         
@@ -121,6 +123,9 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         observeUserWantsToNavigateToDeepLinkNotifications()
         observeRequestUserDeniedRecordPermissionAlertNotifications()
         observeInstalledOlvidAppIsOutdatedNotification()
+        observeRequestHardLinkToFyle()
+        observeRequestAllHardLinksToFyles()
+
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeUserOwnedIdentityWasRevokedByKeycloak(queue: OperationQueue.main) { [weak self] ownedCryptoId in
                 self?.processUserOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ownedCryptoId)
@@ -129,13 +134,19 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         
         // Listening to ObvEngine Notification
         
-        observeNewUserDialogToPresentNotifications()
-        observeAPersistedDialogWasDeletedNotifications()
+        observationTokens.append(contentsOf: [
+            ObvEngineNotificationNew.observeWellKnownDownloadedSuccess(within: NotificationCenter.default) { [weak self] _, appInfo in
+                self?.processWellKnownAppInfo(appInfo)
+            },
+            ObvEngineNotificationNew.observeWellKnownUpdatedSuccess(within: NotificationCenter.default) { [weak self] _, appInfo in
+                self?.processWellKnownAppInfo(appInfo)
+            },
+        ])
 
         // Observe changes of the App State
         observeAppStateChangedNotifications()
         
-        // Listen pour StoreKit transactions
+        // Listen to StoreKit transactions
         self.subscriptionCoordinator.listenToSKPaymentTransactions()
         
     }
@@ -144,6 +155,28 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
+    private struct AppInfoKey {
+        static let minimumAppVersion = "min_ios"
+        static let latestAppVersion = "latest_ios"
+    }
+    
+    private func processWellKnownAppInfo(_ appInfo: [String: AppInfo]) {
+        switch appInfo[AppInfoKey.minimumAppVersion] {
+        case .int(let version):
+            ObvMessengerSettings.AppVersionAvailable.minimum = version
+        default:
+            assertionFailure()
+        }
+        switch appInfo[AppInfoKey.latestAppVersion] {
+        case .int(let version):
+            ObvMessengerSettings.AppVersionAvailable.latest = version
+        default:
+            assertionFailure()
+        }
+        os_log("Minimum recommended app build version from server: %{public}@", log: log, type: .info, String(describing: ObvMessengerSettings.AppVersionAvailable.minimum))
+        os_log("Latest recommended app build version from server: %{public}@", log: log, type: .info, String(describing: ObvMessengerSettings.AppVersionAvailable.latest))
+        os_log("Installed app build version: %{public}@", log: log, type: .info, ObvMessengerConstants.bundleVersion)
+    }
 
     private func observePastedStringIsNotValidOlvidURLNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observePastedStringIsNotValidOlvidURL(queue: OperationQueue.main) { [weak self] in
@@ -270,7 +303,21 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             }
         })
     }
-    
+
+    private func observeRequestHardLinkToFyle() {
+        observationTokens.append(
+            ObvMessengerInternalNotification.observeRequestHardLinkToFyle() { (fyleElement, completionHandler) in
+                self.hardLinksToFylesCoordinator.requestHardLinkToFyle(fyleElement: fyleElement, completionHandler: completionHandler)
+            })
+    }
+
+    private func observeRequestAllHardLinksToFyles() {
+        observationTokens.append(
+            ObvMessengerInternalNotification.observeRequestAllHardLinksToFyles() { (fyleElements, completionHandler) in
+                self.hardLinksToFylesCoordinator.requestAllHardLinksToFyles(fyleElements: fyleElements, completionHandler: completionHandler)
+            })
+    }
+
 }
 
 
@@ -702,30 +749,6 @@ extension MetaFlowController {
         observationTokens.append(token)
     }
     
-
-    /// This method is used as a completion handler of the UIActivityViewController presented to the user when she wants to share a file.
-    private func uiActivityViewControllerCompletionWithItemsHandler(activityType: UIActivity.ActivityType?, completed: Bool, returnedItems: [Any]?, error: Error?) {
-        
-        guard let activityType = activityType else { return }
-        
-        switch activityType {
-        case UIActivity.ActivityType(rawValue: "com.apple.CloudDocsUI.AddToiCloudDrive"):
-            // The user chose the Files app in the share menu
-            guard completed else { return }
-            let alert = UIAlertController(title: Strings.AlertSuccessfulExportToFilesApp.title, message: nil, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: CommonString.Word.Ok, style: .default)
-            alert.addAction(okAction)
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.present(alert, animated: true)
-            } else {
-                self.present(alert, animated: true)
-            }
-        default:
-            break
-        }
-
-    }
-
     
     private func introduceContact(_ contactCryptoId: ObvCryptoId, withCoreDetails contactCoreDetails: ObvIdentityCoreDetails, to otherContacts: [(cryptoId: ObvCryptoId, coreDetails: ObvIdentityCoreDetails)], forOwnedCryptoId ownedCryptoId: ObvCryptoId, confirmed: Bool) {
         
@@ -798,51 +821,6 @@ extension MetaFlowController {
     }
     
     
-}
-
-
-// MARK: - Feeding the PersistedInvitation database
-
-extension MetaFlowController {
-    
-    private func observeNewUserDialogToPresentNotifications() {
-        let NotificationType = ObvEngineNotification.NewUserDialogToPresent.self
-        let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let obvDialog = NotificationType.parse(notification) else { return }
-            ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                context.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
-                context.name = "Context created in MetaFlowController within observeNewUserDialogToPresentNotifications"
-                do {
-                    try PersistedInvitation.insertOrUpdate(obvDialog, within: context)
-                    try context.save(logOnFailure: _self.log)
-                } catch let error {
-                    os_log("Could not save/update a PersistedInvitation: %@", log: _self.log, type: .error, error.localizedDescription)
-                    return
-                }
-            }
-        }
-        observationTokens.append(token)
-    }
-    
-    private func observeAPersistedDialogWasDeletedNotifications() {
-        let token = NotificationCenter.default.addObserver(forName: ObvEngineNotification.APersistedDialogWasDeleted.name, object: nil, queue: nil) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let uuid = ObvEngineNotification.APersistedDialogWasDeleted.parse(notification) else { return }
-            ObvStack.shared.performBackgroundTask { (context) in
-                context.name = "Context created in MetaFlowController within observeAPersistedDialogWasDeletedNotifications"
-                do {
-                    guard let persistedInvitation = try PersistedInvitation.get(uuid: uuid, within: context) else { return }
-                    context.delete(persistedInvitation)
-                    try context.save(logOnFailure: _self.log)
-                } catch let error {
-                    os_log("Could not delete PersistedInvitation: %@", log: _self.log, type: .error, error.localizedDescription)
-                    return
-                }
-            }
-        }
-        observationTokens.append(token)
-    }
 }
 
 

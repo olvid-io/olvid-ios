@@ -23,7 +23,7 @@ import AVFoundation
 
 final class QRCodeScannerViewController: UIViewController {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: QRCodeScannerViewController.self))
 
     @IBOutlet weak var cancelButton: ObvFloatingButton!
     @IBOutlet weak var explanationLabel: UILabel!

@@ -46,6 +46,8 @@ struct SingleContactIdentityInnerView: View {
     @Binding var changed: Bool
     @Binding var contactStatus: PersistedObvContactIdentity.Status
     @Binding var tappedGroup: PersistedContactGroup?
+    
+    @State private var showAlertCannotDiscussWithNonOneToOne = false
 
     @Environment(\.presentationMode) var presentationMode
     
@@ -67,10 +69,16 @@ struct SingleContactIdentityInnerView: View {
                                 .padding(.top, 16)
                         } else {
                             HStack {
-                                OlvidButton(style: .standardWithBlueText,
+                                OlvidButton(style: contact.contactIsOneToOne ? .standardWithBlueText : .standard,
                                             title: Text(CommonString.Word.Chat),
                                             systemIcon: .textBubbleFill,
-                                            action: contact.userWantsToDiscuss)
+                                            action: {
+                                    if contact.contactIsOneToOne {
+                                        contact.userWantsToDiscuss()
+                                    } else {
+                                        showAlertCannotDiscussWithNonOneToOne.toggle()
+                                    }
+                                })
                                 OlvidButton(style: .standardWithBlueText,
                                             title: Text(CommonString.Word.Call),
                                             systemIcon: .phoneFill,
@@ -114,6 +122,14 @@ struct SingleContactIdentityInnerView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 32)
+                .alert(isPresented: $showAlertCannotDiscussWithNonOneToOne) {
+                    Alert(title: Text("INVITE_REQUIRED_ALERT_TITLE"),
+                          message: Text("YOU_NEED_TO_INVITE_\(contact.getFirstName(for: .trusted))_BEFORE_HAVING_DISCUSSION_ALERT_MESSAGE"),
+                          primaryButton: .cancel(Text("Cancel")),
+                          secondaryButton: .default(Text("Invite")) {
+                        contact.userWantsToInviteContactToOneToOne()
+                    })
+                }
             }
         }
     }
@@ -243,40 +259,72 @@ fileprivate struct ContactIdentityCardViews: View {
     @ObservedObject var contact: SingleContactIdentity
     @Binding var changed: Bool
     @Binding var contactStatus: PersistedObvContactIdentity.Status
+    
+    private var OneToOneInvitationSentFetchRequest: FetchRequest<PersistedInvitationOneToOneInvitationSent>
 
     private var deviceName: String {
         UIDevice.current.name
     }
 
     private let introduceAction: OlvidButtonAction
+    private let inviteToOneToOneAction: OlvidButtonAction
+    private let abortInviteToOneToOneAction: OlvidButtonAction
     private let updateDetailsAction: OlvidButtonAction
 
     init(contact: SingleContactIdentity, changed: Binding<Bool>, contactStatus: Binding<PersistedObvContactIdentity.Status>) {
         self.contact = contact
         self._changed = changed
         self._contactStatus = contactStatus
+        self.OneToOneInvitationSentFetchRequest = FetchRequest(fetchRequest: contact.oneToOneInvitationSentFetchRequest)
         self.introduceAction = OlvidButtonAction(action: contact.introduceToAnotherContact,
                                                  title: Text("INTRODUCE_\(contact.publishedContactDetails?.coreDetails.getDisplayNameWithStyle(.short) ?? contact.shortDisplayableName)_TO"),
                                                  systemIcon: .arrowshapeTurnUpForwardFill)
+        self.inviteToOneToOneAction = OlvidButtonAction(action: contact.userWantsToInviteContactToOneToOne,
+                                                        title: Text(CommonString.Word.Invite),
+                                                        systemIcon: .personCropCircleBadgePlus)
         self.updateDetailsAction = OlvidButtonAction(action: contact.updateDetails,
                                                      title: Text("UPDATE_DETAILS"),
                                                      systemIcon: .personCropCircleBadgeCheckmark)
+        self.abortInviteToOneToOneAction = OlvidButtonAction(action: contact.userWantsToCancelSentInviteContactToOneToOne,
+                                                             title: Text(CommonString.Word.Abort),
+                                                             systemIcon: .xmarkCircleFill,
+                                                             style: .standardWithBlueText)
     }
     
+    private func actionsForMainCard(hasOneToOneInvitationSent: Bool) -> [OlvidButtonAction] {
+        guard !contact.contactHasNoDevice && contact.isActive else { return [] }
+        if contact.contactIsOneToOne {
+            return [introduceAction]
+        } else if hasOneToOneInvitationSent {
+            return [abortInviteToOneToOneAction]
+        } else {
+            return [inviteToOneToOneAction]
+        }
+    }
     
-    
+    private func explanationForMainCard(hasOneToOneInvitationSent: Bool) -> Text? {
+        guard !contact.contactHasNoDevice && contact.isActive else { return nil }
+        if contact.contactIsOneToOne {
+            return nil
+        } else if hasOneToOneInvitationSent {
+            return Text("ONE_TO_ONE_DISCUSSION_INVITATION_SENT_TO_\(contact.getFirstName(for: .trusted))")
+        } else {
+            return Text("INVITE_\(contact.getFirstName(for: .trusted))_IF_YOU_WANT_ONE_TO_ONE_DISCUSSION")
+        }
+    }
+        
     var body: some View {
         switch contactStatus {
         case .noNewPublishedDetails:
             ContactIdentityCardView(contact: contact,
-                                    actions: [introduceAction],
+                                    actions: actionsForMainCard(hasOneToOneInvitationSent: OneToOneInvitationSentFetchRequest.wrappedValue.isEmpty ? false : true),
                                     preferredDetails: .trusted,
                                     topLeftText: nil,
-                                    explanationText: nil)
+                                    explanationText: explanationForMainCard(hasOneToOneInvitationSent: OneToOneInvitationSentFetchRequest.wrappedValue.isEmpty ? false : true))
         case .unseenPublishedDetails, .seenPublishedDetails:
             VStack(spacing: 12) {
                 ContactIdentityCardView(contact: contact,
-                                        actions: [introduceAction],
+                                        actions: actionsForMainCard(hasOneToOneInvitationSent: OneToOneInvitationSentFetchRequest.wrappedValue.isEmpty ? false : true),
                                         preferredDetails: .publishedOrTrusted,
                                         topLeftText: Text("New"),
                                         explanationText: nil)
@@ -301,6 +349,14 @@ fileprivate struct BottomButtonsView: View {
     @State private var confirmRecreateTheSecureChannelSheetPresented = false
     @State private var showingContactDetails = false
     
+    private var deleteContactButtonTitle: Text {
+        switch contact.preferredDeletionType {
+        case .legacyFullDeletion: return Text("DELETE_CONTACT")
+        case .downgradeToNonOneToOne: return Text("DOWNGRADE_CONTACT_TO_NON_ONE_TO_ONE_BUTTON_TITLE")
+        case .fullDeletion: return Text("DELETE_OLVID_USER")
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 8) {
             
@@ -316,7 +372,7 @@ fileprivate struct BottomButtonsView: View {
                         ])
                     }
             }
-
+            
             if let persistedContact = contact.persistedContact {
                 OlvidButton(style: .standard,
                             title: Text("SHOW_CONTACT_DETAILS"),
@@ -324,13 +380,14 @@ fileprivate struct BottomButtonsView: View {
                             action: { showingContactDetails.toggle() })
                     .sheet(isPresented: $showingContactDetails,
                            onDismiss: nil) {
-                        ContactDetailedInfosView(contact: persistedContact)
+                        ContactDetailedInfosView(contact: persistedContact,
+                                                 userWantsToSyncOneToOneStatusOfContact: contact.userWantsToSyncOneToOneStatusOfContact)
                     }
             }
             
             // No confirmation required, this confirmation is requested in the containing View Controller
             OlvidButton(style: .standard,
-                        title: Text("DELETE_CONTACT"),
+                        title: deleteContactButtonTitle,
                         systemIcon: .minusCircle,
                         action: userWantsToDeleteContact)
         }
@@ -545,6 +602,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                publishedContactDetails: nil,
                                                contactStatus: .noNewPublishedDetails,
                                                contactHasNoDevice: false,
+                                               contactIsOneToOne: true,
                                                isActive: true,
                                                trustOrigins: trustOrigins)
     
@@ -556,6 +614,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                                publishedContactDetails: otherIdentityDetails,
                                                                contactStatus: .seenPublishedDetails,
                                                                contactHasNoDevice: false,
+                                                               contactIsOneToOne: true,
                                                                isActive: true,
                                                                trustOrigins: trustOrigins)
     
@@ -567,6 +626,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                             publishedContactDetails: nil,
                                                             contactStatus: .noNewPublishedDetails,
                                                             contactHasNoDevice: true,
+                                                            contactIsOneToOne: true,
                                                             isActive: true,
                                                             trustOrigins: trustOrigins)
 

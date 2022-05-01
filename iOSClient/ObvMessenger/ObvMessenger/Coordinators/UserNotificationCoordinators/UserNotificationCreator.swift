@@ -32,6 +32,7 @@ struct UserNotificationKeys {
     static let callUUID = "callUUID"
     static let messageIdentifierForNotification = "messageIdentifierForNotification"
     static let persistedInvitationUUID = "persistedInvitationUUID"
+    static let reactionIdentifierForNotification = "reactionIdentifierForNotification"
 }
 
 struct UserNotificationCreator {
@@ -99,6 +100,34 @@ struct UserNotificationCreator {
         }
     }
     
+
+    /// This static method is used as a best effort to deliver a notification. For example, it is used when, after an app upgrade, we receive a user notification before the app has been launched and thus, before database migration.
+    /// In that situation, the engine initialisation fails within this extension (since this extension is not allowed to perform database migrations). Still, we want users to be notified. We create a minimal notification to do so.
+    /// This method is also used at the very beginning of ``createNewMessageNotification``, to create a notification content that we then augment if possible.
+    static func createMinimalNotification(badge: NSNumber? = nil) -> (notificationId: ObvUserNotificationIdentifier, notificationContent: UNMutableNotificationContent) {
+        
+        // Configure the notification content
+        let notificationContent = UNMutableNotificationContent()
+        notificationContent.badge = badge
+        notificationContent.sound = UNNotificationSound.default
+
+        let notificationId = ObvUserNotificationIdentifier.staticIdentifier
+        
+        notificationContent.title = Strings.NewPersistedMessageReceivedMinimal.title
+        notificationContent.subtitle = ""
+        notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
+        
+        let deepLink = ObvDeepLink.latestDiscussions
+        notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
+
+        return (notificationId, notificationContent)
+
+    }
+    
+    
+    /// This static method creates a new message notification.
     static func createNewMessageNotification(body: String?,
                                              messageIdentifierFromEngine: Data,
                                              contact: PersistedObvContactIdentity,
@@ -110,13 +139,9 @@ struct UserNotificationCreator {
                 
         let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
 
-        // Configure the notification content
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.badge = badge
-        notificationContent.sound = UNNotificationSound.default
-
-        let notificationId: ObvUserNotificationIdentifier
-
+        // Configure the minimal notification content
+        var (notificationId, notificationContent) = createMinimalNotification(badge: badge)
+        
         var incomingMessageIntent: INSendMessageIntent?
 
         switch hideNotificationContent {
@@ -169,16 +194,10 @@ struct UserNotificationCreator {
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
 
         case .completely:
-
-            notificationId = ObvUserNotificationIdentifier.staticIdentifier
             
-            notificationContent.title = Strings.NewPersistedMessageReceivedMinimal.title
-            notificationContent.subtitle = ""
-            notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
+            // In that case, we keep the "minimal" notification content created earlier.
+            break
             
-            let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
-
         }
         
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
@@ -191,6 +210,7 @@ struct UserNotificationCreator {
             return (notificationId, notificationContent)
         }
     }
+    
 
     @available(iOS 15.0, *)
     static func buildSendMessageIntent(notificationContent: UNNotificationContent,
@@ -285,11 +305,15 @@ struct UserNotificationCreator {
                 let mediatorDisplayName = mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
                 notificationContent.title = Strings.IncreaseMediatorTrustLevelRequired.title
                 notificationContent.body = Strings.IncreaseMediatorTrustLevelRequired.body(mediatorDisplayName, contactDisplayName)
+            case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
+                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
+                notificationContent.title = Strings.AcceptOneToOneInvite.title
+                notificationContent.body = Strings.AcceptOneToOneInvite.body(contactDisplayName)
             case .inviteSent,
                  .invitationAccepted,
                  .sasConfirmed,
                  .mediatorInviteAccepted,
-                 .groupJoined,
+                 .oneToOneInvitationSent,
                  .increaseGroupOwnerTrustLevelRequired:
                 // For now, we do not notify when receiving these dialogs
                 return nil
@@ -341,11 +365,14 @@ struct UserNotificationCreator {
                 notificationId = ObvUserNotificationIdentifier.autoconfirmedContactIntroduction(persistedInvitationUUID: persistedInvitationUUID)
             case .increaseMediatorTrustLevelRequired(contactIdentity: _, mediatorIdentity: _):
                 notificationId = ObvUserNotificationIdentifier.increaseMediatorTrustLevelRequired(persistedInvitationUUID: persistedInvitationUUID)
+            case .oneToOneInvitationReceived(contactIdentity: _):
+                notificationId = ObvUserNotificationIdentifier.oneToOneInvitationReceived(persistedInvitationUUID: persistedInvitationUUID)
+                notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
             case .inviteSent,
                  .invitationAccepted,
                  .sasConfirmed,
                  .mediatorInviteAccepted,
-                 .groupJoined,
+                 .oneToOneInvitationSent,
                  .increaseGroupOwnerTrustLevelRequired:
                 // For now, we do not notify when receiving these dialogs
                 return nil
@@ -378,7 +405,7 @@ struct UserNotificationCreator {
         let deepLink = ObvDeepLink.requestRecordPermission
 
         notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
-        let notificationId = ObvUserNotificationIdentifier.staticIdentifier
+        let notificationId = ObvUserNotificationIdentifier.shouldGrantRecordPermissionToReceiveIncomingCalls
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
@@ -396,7 +423,7 @@ struct UserNotificationCreator {
         let deepLink = ObvDeepLink.requestRecordPermission
         notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
 
-        let notificationId = ObvUserNotificationIdentifier.staticIdentifier
+        let notificationId = ObvUserNotificationIdentifier.shouldGrantRecordPermissionToReceiveIncomingCalls
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
@@ -415,11 +442,10 @@ struct UserNotificationCreator {
 
         let discussion = message.discussion
 
-        let notificationContent = UNMutableNotificationContent()
-        notificationContent.sound = UNNotificationSound.default
+        // Configure the minimal notification content
+        var (notificationId, notificationContent) = createMinimalNotification(badge: nil)
 
         var sendMessageIntent: INSendMessageIntent?
-        let notificationId: ObvUserNotificationIdentifier
 
         switch hideNotificationContent {
         case .no:
@@ -439,6 +465,8 @@ struct UserNotificationCreator {
             let deepLink = ObvDeepLink.message(messageObjectURI: message.objectID.uriRepresentation())
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.reactionTimestamp] = reactionTimestamp
+            notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
+
 
         case .partially:
             notificationId = .newReactionNotificationWithHiddenContent
@@ -449,15 +477,11 @@ struct UserNotificationCreator {
 
             let deepLink = ObvDeepLink.message(messageObjectURI: message.objectID.uriRepresentation())
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
         case .completely:
-            notificationId = ObvUserNotificationIdentifier.staticIdentifier
 
-            notificationContent.title = Strings.NewPersistedMessageReceivedMinimal.title
-            notificationContent.subtitle = ""
-            notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
-
-            let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            // In that case, we keep the "minimal" notification content created earlier.
+            break
         }
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)

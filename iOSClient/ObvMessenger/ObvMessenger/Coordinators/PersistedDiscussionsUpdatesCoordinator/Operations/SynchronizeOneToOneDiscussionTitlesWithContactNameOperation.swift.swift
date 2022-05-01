@@ -25,7 +25,7 @@ final class SynchronizeOneToOneDiscussionTitlesWithContactNameOperation: Context
     
     private let ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SynchronizeOneToOneDiscussionTitlesWithContactNameOperation.self))
 
     init(ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>) {
         self.ownedIdentityObjectID = ownedIdentityObjectID

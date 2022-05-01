@@ -23,72 +23,103 @@ import ObvTypes
 import ObvCrypto
 import OlvidUtils
 
-public struct ObvChannelNotification {
-    
-    public struct NewUserDialogToPresent {
-        public static let name = NSNotification.Name("ObvChannelNotification.NewUserDialogToPresent")
-        public struct Key {
-            public static let obvChannelDialogMessageToSend = "obvChannelDialogMessageToSend" // ObvChannelDialogMessageToSend
-            public static let obvContext = "obvContext"
-        }
-        public static func parse(_ notification: Notification) -> (obvChannelDialogMessageToSend: ObvChannelDialogMessageToSend, context: ObvContext)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let obvChannelDialogMessageToSend = userInfo[Key.obvChannelDialogMessageToSend] as? ObvChannelDialogMessageToSend else { return nil }
-            guard let obvContext = userInfo[Key.obvContext] as? ObvContext else { return nil }
-            return (obvChannelDialogMessageToSend, obvContext)
-        }
-    }
+fileprivate struct OptionalWrapper<T> {
+	let value: T?
+	public init() {
+		self.value = nil
+	}
+	public init(_ value: T?) {
+		self.value = value
+	}
+}
 
-    
-    public struct NewConfirmedObliviousChannel {
-        public static let name = NSNotification.Name("ObvChannelNotification.NewConfirmedObliviousChannel")
-        public struct Key {
-            public static let currentDeviceUid = "currentDeviceUid"
-            public static let remoteCryptoIdentity = "remoteCryptoIdentity"
-            public static let remoteDeviceUid = "remoteDeviceUid"
-        }
-        public static func parse(_ notification: Notification) -> (currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let currentDeviceUid = userInfo[Key.currentDeviceUid] as? UID else { return nil }
-            guard let remoteCryptoIdentity = userInfo[Key.remoteCryptoIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let remoteDeviceUid = userInfo[Key.remoteDeviceUid] as? UID else { return nil }
-            return (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid)
-        }
-    }
-    
-    
-    public struct DeletedConfirmedObliviousChannel {
-        public static let name = NSNotification.Name("ObvChannelNotification.DeletedConfirmedObliviousChannel")
-        public struct Key {
-            public static let currentDeviceUid = "currentDeviceUid"
-            public static let remoteCryptoIdentity = "remoteCryptoIdentity"
-            public static let remoteDeviceUid = "remoteDeviceUid"
-        }
-        public static func parse(_ notification: Notification) -> (currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let currentDeviceUid = userInfo[Key.currentDeviceUid] as? UID else { return nil }
-            guard let remoteCryptoIdentity = userInfo[Key.remoteCryptoIdentity] as? ObvCryptoIdentity else { return nil }
-            guard let remoteDeviceUid = userInfo[Key.remoteDeviceUid] as? UID else { return nil }
-            return (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid)
-        }
-    }
+public enum ObvChannelNotification {
+	case newConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
+	case deletedConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
+	case networkReceivedMessageWasProcessed(messageId: MessageIdentifier, flowId: FlowIdentifier)
 
-    
-    public struct NetworkReceivedMessageWasProcessed {
-        public static let name = NSNotification.Name("ObvChannelNotification.NetworkReceivedMessageWasProcessed")
-        public struct Key {
-            public static let messageId = "messageId"
-            public static let flowId = "flowId"
-        }
-        public static func parse(_ notification: Notification) -> (messageId: MessageIdentifier, flowId: FlowIdentifier)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let messageId = userInfo[Key.messageId] as? MessageIdentifier else { return nil }
-            guard let flowId = userInfo[Key.flowId] as? FlowIdentifier else { return nil }
-            return (messageId, flowId)
-        }
-    }
+	private enum Name {
+		case newConfirmedObliviousChannel
+		case deletedConfirmedObliviousChannel
+		case networkReceivedMessageWasProcessed
+
+		private var namePrefix: String { String(describing: ObvChannelNotification.self) }
+
+		private var nameSuffix: String { String(describing: self) }
+
+		var name: NSNotification.Name {
+			let name = [namePrefix, nameSuffix].joined(separator: ".")
+			return NSNotification.Name(name)
+		}
+
+		static func forInternalNotification(_ notification: ObvChannelNotification) -> NSNotification.Name {
+			switch notification {
+			case .newConfirmedObliviousChannel: return Name.newConfirmedObliviousChannel.name
+			case .deletedConfirmedObliviousChannel: return Name.deletedConfirmedObliviousChannel.name
+			case .networkReceivedMessageWasProcessed: return Name.networkReceivedMessageWasProcessed.name
+			}
+		}
+	}
+	private var userInfo: [AnyHashable: Any]? {
+		let info: [AnyHashable: Any]?
+		switch self {
+		case .newConfirmedObliviousChannel(currentDeviceUid: let currentDeviceUid, remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: let remoteDeviceUid):
+			info = [
+				"currentDeviceUid": currentDeviceUid,
+				"remoteCryptoIdentity": remoteCryptoIdentity,
+				"remoteDeviceUid": remoteDeviceUid,
+			]
+		case .deletedConfirmedObliviousChannel(currentDeviceUid: let currentDeviceUid, remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: let remoteDeviceUid):
+			info = [
+				"currentDeviceUid": currentDeviceUid,
+				"remoteCryptoIdentity": remoteCryptoIdentity,
+				"remoteDeviceUid": remoteDeviceUid,
+			]
+		case .networkReceivedMessageWasProcessed(messageId: let messageId, flowId: let flowId):
+			info = [
+				"messageId": messageId,
+				"flowId": flowId,
+			]
+		}
+		return info
+	}
+
+	public func postOnBackgroundQueue(_ queue: DispatchQueue? = nil, within notificationDelegate: ObvNotificationDelegate) {
+		let name = Name.forInternalNotification(self)
+		let label = "Queue for posting \(name.rawValue) notification"
+		let backgroundQueue = queue ?? DispatchQueue(label: label)
+		backgroundQueue.async {
+			notificationDelegate.post(name: name, userInfo: userInfo)
+		}
+	}
+
+	public static func observeNewConfirmedObliviousChannel(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (UID, ObvCryptoIdentity, UID) -> Void) -> NSObjectProtocol {
+		let name = Name.newConfirmedObliviousChannel.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let currentDeviceUid = notification.userInfo!["currentDeviceUid"] as! UID
+			let remoteCryptoIdentity = notification.userInfo!["remoteCryptoIdentity"] as! ObvCryptoIdentity
+			let remoteDeviceUid = notification.userInfo!["remoteDeviceUid"] as! UID
+			block(currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid)
+		}
+	}
+
+	public static func observeDeletedConfirmedObliviousChannel(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (UID, ObvCryptoIdentity, UID) -> Void) -> NSObjectProtocol {
+		let name = Name.deletedConfirmedObliviousChannel.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let currentDeviceUid = notification.userInfo!["currentDeviceUid"] as! UID
+			let remoteCryptoIdentity = notification.userInfo!["remoteCryptoIdentity"] as! ObvCryptoIdentity
+			let remoteDeviceUid = notification.userInfo!["remoteDeviceUid"] as! UID
+			block(currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid)
+		}
+	}
+
+	public static func observeNetworkReceivedMessageWasProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.networkReceivedMessageWasProcessed.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(messageId, flowId)
+		}
+	}
+
 }

@@ -20,7 +20,7 @@
 import SwiftUI
 
 struct CallAnswerAndRejectButtonsView: View {
-    var callState: CallState
+    var callIsInInitialState: Bool
     var actionReject: () -> Void
     var actionAccept: () -> Void
     var actionAddParticipant: () -> Void
@@ -33,7 +33,7 @@ struct CallAnswerAndRejectButtonsView: View {
                 AddParticipantButtonView(actionAddParticipant: actionAddParticipant)
             }
             Spacer()
-            HangupDeclineButtonView(callState: callState, actionReject: actionReject)
+            HangupDeclineButtonView(callIsInInitialState: callIsInInitialState, actionReject: actionReject)
             Spacer()
             if showAcceptButton {
                 AcceptButtonView(actionAccept: actionAccept)
@@ -48,25 +48,25 @@ struct CallAnswerAndRejectButtonsView: View {
 struct CallAnswerAndRejectButtonsView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            CallAnswerAndRejectButtonsView(callState: .initial, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: true, showAddParticipantButton: false)
+            CallAnswerAndRejectButtonsView(callIsInInitialState: true, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: true, showAddParticipantButton: false)
                 .padding()
                 .previewLayout(.sizeThatFits)
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .light)
                 .previewDisplayName("Static example in light mode")
-            CallAnswerAndRejectButtonsView(callState: .initial, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: true, showAddParticipantButton: false)
+            CallAnswerAndRejectButtonsView(callIsInInitialState: true, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: true, showAddParticipantButton: false)
                 .padding()
                 .previewLayout(.sizeThatFits)
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .dark)
                 .previewDisplayName("Static example in dark mode")
-            CallAnswerAndRejectButtonsView(callState: .callInProgress, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: false, showAddParticipantButton: false)
+            CallAnswerAndRejectButtonsView(callIsInInitialState: false, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: false, showAddParticipantButton: false)
                 .padding()
                 .previewLayout(.sizeThatFits)
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .dark)
                 .previewDisplayName("Static example in dark mode")
-            CallAnswerAndRejectButtonsView(callState: .callInProgress, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: false, showAddParticipantButton: true)
+            CallAnswerAndRejectButtonsView(callIsInInitialState: false, actionReject: {}, actionAccept: {}, actionAddParticipant: {}, showAcceptButton: false, showAddParticipantButton: true)
                 .padding()
                 .previewLayout(.sizeThatFits)
                 .background(Color(.systemBackground))
@@ -85,7 +85,7 @@ struct CallAnswerAndRejectButtonsView_Previews: PreviewProvider {
 fileprivate struct CallAnswerAndRejectButtonsMockView: View {
     @ObservedObject var object: MockObject
     var body: some View {
-        CallAnswerAndRejectButtonsView(callState: object.state,
+        CallAnswerAndRejectButtonsView(callIsInInitialState: object.callIsInInitialState,
                                        actionReject: object.actionReject,
                                        actionAccept: object.actionAccept,
                                        actionAddParticipant: object.actionAddParticipant,
@@ -98,12 +98,12 @@ fileprivate struct CallAnswerAndRejectButtonsMockView: View {
 fileprivate class MockObject: ObservableObject {
     @Published private(set) var showAcceptButton = true
     @Published private(set) var showAddPartcipantButton = false
-    @Published private(set) var state: CallState = .initial
+    @Published private(set) var callIsInInitialState: Bool = true
     func actionReject() {
-        withAnimation { state = .initial; showAcceptButton.toggle() }
+        withAnimation { callIsInInitialState.toggle(); showAcceptButton.toggle() }
     }
     func actionAccept() {
-        withAnimation { state = .callInProgress; showAcceptButton.toggle() }
+        withAnimation { callIsInInitialState.toggle(); showAcceptButton.toggle() }
     }
     func actionAddParticipant() { }
 }

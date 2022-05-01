@@ -56,7 +56,7 @@ final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpeci
             let contact: PersistedObvContactIdentity
             do {
                 do {
-                    guard let _contact = try PersistedObvContactIdentity.get(persisted: requester, within: obvContext.context) else {
+                    guard let _contact = try PersistedObvContactIdentity.get(persisted: requester, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindContact)
                     }
                     contact = _contact
@@ -78,17 +78,19 @@ final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpeci
             // Recover the appropriate discussion
             
             let discussion: PersistedDiscussion
-            if let groupId = self.groupId {
-                do {
+            do {
+                if let groupId = self.groupId {
                     guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindGroupDiscussion)
                     }
                     discussion = group.discussion
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                } else if let oneToOneDiscussion = try contact.oneToOneDiscussion {
+                    discussion = oneToOneDiscussion
+                } else {
+                    return cancel(withReason: .couldNotFindAnyDiscussion)
                 }
-            } else {
-                discussion = contact.oneToOneDiscussion
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
             // If the message to edit can be found, edit it. If not save the request for later if `saveRequestIfMessageCannotBeFound` is true
@@ -125,10 +127,11 @@ enum EditTextBodyOfReceivedMessageOperationReasonForCancel: LocalizedErrorWithLo
     case requesterIsNotTheOneWhoSentTheOriginalMessage
     case cannotFindMessageReceived
     case couldNotEditMessage(error: Error)
+    case couldNotFindAnyDiscussion
 
     var logType: OSLogType {
         switch self {
-        case .coreDataError, .couldNotFindContact, .couldNotFindOwnedIdentity, .requesterIsNotTheOneWhoSentTheOriginalMessage, .couldNotFindGroupDiscussion, .cannotFindMessageReceived, .couldNotEditMessage, .contextIsNil:
+        case .coreDataError, .couldNotFindContact, .couldNotFindOwnedIdentity, .requesterIsNotTheOneWhoSentTheOriginalMessage, .couldNotFindGroupDiscussion, .cannotFindMessageReceived, .couldNotEditMessage, .contextIsNil, .couldNotFindAnyDiscussion:
             return .fault
         }
     }
@@ -151,7 +154,8 @@ enum EditTextBodyOfReceivedMessageOperationReasonForCancel: LocalizedErrorWithLo
             return "Could not find received message to edit"
         case .couldNotEditMessage(error: let error):
             return "Could not edit message: \(error.localizedDescription)"
-
+        case .couldNotFindAnyDiscussion:
+            return "Could not find any discussion"
         }
     }
 

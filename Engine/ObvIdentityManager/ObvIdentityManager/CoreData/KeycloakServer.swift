@@ -377,8 +377,8 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
                 assertionFailure()
                 return
             }
-            let notification = ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-            notification.postOnDispatchQueue(withLabel: "Queue for sending a backupableManagerDatabaseContentChanged notification", within: notificationDelegate)
+            ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
         }
 
     }

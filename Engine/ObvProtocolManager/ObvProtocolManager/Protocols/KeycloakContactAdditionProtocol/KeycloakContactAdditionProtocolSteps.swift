@@ -83,17 +83,6 @@ extension KeycloakContactAdditionProtocol {
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
-            os_log("KeycloakContactAdditionProtocol: starting VerifyContactAndStartDeviceDiscoveryStep", log: log, type: .debug)
-
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
 
             let contactIdentity = receivedMessage.contactIdentity
             let signedContactDetails = receivedMessage.signedContactDetails
@@ -180,17 +169,6 @@ extension KeycloakContactAdditionProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
-            os_log("KeycloakContactAdditionProtocol: starting AddContactAndSendRequestStep", log: log, type: .debug)
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let identityCoreDetails = startState.identityCoreDetails
@@ -205,19 +183,20 @@ extension KeycloakContactAdditionProtocol {
             }
 
             // Actually create the contact
+            
             let contactCreated: Bool
             let trustTimestamp = Date()
             let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
             if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
                 contactCreated = true
-                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
 
                 for contactDeviceUid in contactDeviceUids {
                     try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 }
             } else {
                 contactCreated = false
-                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 // No need to add devices, they should be in sync already
             }
 
@@ -263,13 +242,6 @@ extension KeycloakContactAdditionProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
-            os_log("KeycloakContactAdditionProtocol: starting ProcessPropagatedContactAdditionStep", log: log, type: .debug)
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
 
             let contactIdentity = receivedMessage.contactIdentity
             let keycloakServerURL = receivedMessage.keycloakServerURL
@@ -279,13 +251,13 @@ extension KeycloakContactAdditionProtocol {
 
             let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
             if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
 
                 for contactDeviceUid in contactDeviceUids {
                     try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 }
             } else {
-                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 // No need to add devices, they should be in sync already
             }
 
@@ -310,17 +282,6 @@ extension KeycloakContactAdditionProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
-            os_log("KeycloakContactAdditionProtocol: starting ProcessReceivedKeycloakInviteStep", log: log, type: .debug)
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
 
             let contactIdentity = receivedMessage.contactIdentity
             let signedContactDetails = receivedMessage.signedContactDetails
@@ -368,17 +329,6 @@ extension KeycloakContactAdditionProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
-            os_log("KeycloakContactAdditionProtocol: starting AddContactAndSendConfirmationStep", log: log, type: .debug)
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
-            guard let channelDelegate = delegateManager.channelDelegate else {
-                os_log("The channel delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let identityCoreDetails = startState.identityCoreDetails
@@ -401,13 +351,13 @@ extension KeycloakContactAdditionProtocol {
             let trustTimestamp = Date()
             let trustOrigin: TrustOrigin = .keycloak(timestamp: trustTimestamp, keycloakServer: keycloakServerURL)
             if (try? !identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addContactIdentity(contactIdentity, with: identityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
 
                 for contactDeviceUid in contactDeviceUids {
                     try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 }
             } else {
-                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 // No need to add devices, they should be in sync already
             }
 
@@ -437,13 +387,6 @@ extension KeycloakContactAdditionProtocol {
         }
 
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakContactAdditionProtocol.logCategory)
-            os_log("KeycloakContactAdditionProtocol: starting ProcessConfirmationStep", log: log, type: .debug)
-
-            guard let identityDelegate = delegateManager.identityDelegate else {
-                os_log("The identity delegate is not set", log: log, type: .fault)
-                return FinishedState()
-            }
 
             let contactIdentity = startState.contactIdentity
             let keycloakServerURL = startState.keycloakServerURL

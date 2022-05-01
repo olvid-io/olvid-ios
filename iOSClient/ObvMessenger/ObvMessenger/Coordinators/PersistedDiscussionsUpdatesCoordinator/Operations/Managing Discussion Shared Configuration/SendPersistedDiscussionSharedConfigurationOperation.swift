@@ -28,7 +28,7 @@ final class SendPersistedDiscussionSharedConfigurationOperation: OperationWithSp
     private let persistedDiscussionObjectID: NSManagedObjectID
     private let obvEngine: ObvEngine
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SendPersistedDiscussionSharedConfigurationOperation.self))
 
     init(persistedDiscussionObjectID: NSManagedObjectID, obvEngine: ObvEngine) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID
@@ -105,16 +105,18 @@ final class SendPersistedDiscussionSharedConfigurationOperation: OperationWithSp
                 return cancel(withReason: .failedToEncodeSettings)
             }
             
-            do {
-                _ = try obvEngine.post(messagePayload: payload,
-                                       extendedPayload: nil,
-                                       withUserContent: false,
-                                       isVoipMessageForStartingCall: false,
-                                       attachmentsToSend: [],
-                                       toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                       ofOwnedIdentityWithCryptoId: ownCryptoId)
-            } catch {
-                return cancel(withReason: .couldNotPostMessageWithinEngine)
+            if !contactCryptoIds.isEmpty {
+                do {
+                    _ = try obvEngine.post(messagePayload: payload,
+                                           extendedPayload: nil,
+                                           withUserContent: false,
+                                           isVoipMessageForStartingCall: false,
+                                           attachmentsToSend: [],
+                                           toContactIdentitiesWithCryptoId: contactCryptoIds,
+                                           ofOwnedIdentityWithCryptoId: ownCryptoId)
+                } catch {
+                    return cancel(withReason: .couldNotPostMessageWithinEngine)
+                }
             }
             
         }

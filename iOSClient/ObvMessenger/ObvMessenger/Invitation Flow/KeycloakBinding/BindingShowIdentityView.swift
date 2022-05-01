@@ -142,7 +142,7 @@ struct BindingShowIdentityInnerView: View {
                                     circleBackgroundColor: circleBackgroundColor,
                                     circleTextColor: circleTextColor,
                                     circledTextView: circledTextView,
-                                    imageSystemName: ObvSystemIcon.person.systemName,
+                                    systemImage: .person,
                                     profilePicture: .constant(profilePicture),
                                     changed: .constant(false),
                                     showGreenShield: true,

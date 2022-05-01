@@ -25,7 +25,7 @@ import OlvidUtils
 
 final class CleanCallLogContactsOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CleanCallLogContactsOperation.self))
 
     override func main() {
 

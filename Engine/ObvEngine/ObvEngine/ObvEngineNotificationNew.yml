@@ -14,21 +14,6 @@ notifications:
   params:
       - {name: backupKeyString, type: String}
       - {name: obvBackupKeyInformation, type: ObvBackupKeyInformation}
-- name: backupForExportWasFinished
-  params:
-      - {name: backupRequestUuid, type: UUID}
-      - {name: backupKeyUid, type: UID}
-      - {name: version, type: Int}
-      - {name: encryptedContent, type: Data}
-- name: backupForUploadWasFinished
-  params:
-      - {name: backupRequestUuid, type: UUID}
-      - {name: backupKeyUid, type: UID}
-      - {name: version, type: Int}
-      - {name: encryptedContent, type: Data}
-- name: backupFailed
-  params:
-      - {name: backupRequestUuid, type: UUID}
 - name: ownedIdentityWasDeactivated
   params:
       - {name: ownedIdentity, type: ObvCryptoId}
@@ -109,7 +94,8 @@ notifications:
       - {name: obvReturnReceipt, type: ObvReturnReceipt}
 - name: contactWasDeleted
   params:
-      - {name: obvContactIdentity, type: ObvContactIdentity}
+      - {name: ownedCryptoId, type: ObvCryptoId}
+      - {name: contactCryptoId, type: ObvCryptoId}
 - name: newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity
   params:
       - {name: ownedIdentity, type: ObvCryptoId}
@@ -168,6 +154,7 @@ notifications:
 - name: wellKnownDownloadedSuccess
   params:
       - {name: serverURL, type: URL}
+      - {name: appInfo, type: "[String: AppInfo]"}
 - name: wellKnownDownloadedFailure
   params:
       - {name: serverURL, type: URL}
@@ -215,3 +202,9 @@ notifications:
 - name: OwnedIdentityCapabilitiesWereUpdated
   params:
   - {name: ownedIdentity, type: ObvOwnedIdentity}
+- name: newUserDialogToPresent
+  params:
+  - {name: obvDialog, type: ObvDialog}
+- name: aPersistedDialogWasDeleted
+  params:
+  - {name: uuid, type: UUID}

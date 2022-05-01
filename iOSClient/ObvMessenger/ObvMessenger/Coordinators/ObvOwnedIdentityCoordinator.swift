@@ -107,7 +107,7 @@ extension ObvOwnedIdentityCoordinator {
     private func observeNewPersistedObvOwnedIdentityNotifications() {
         let log = self.log
         let obvEngine = self.obvEngine
-        let token = ObvMessengerInternalNotification.observeNewPersistedObvOwnedIdentity(queue: internalQueue) { ownedCryptoId in
+        let token = ObvMessengerCoreDataNotification.observeNewPersistedObvOwnedIdentity(queue: internalQueue) { ownedCryptoId in
             os_log("We received an NewPersistedObvOwnedIdentity notification", log: log, type: .info)
             // Fetch the owned identity from DB. If it is active, we want to kick other devices on next register to push notifications.
             // This works because:
@@ -129,12 +129,10 @@ extension ObvOwnedIdentityCoordinator {
                 }
             }
             guard let ownedIdentityIsActive = ownedIdentityIsActive else { assertionFailure(); return }
-            DispatchQueue.main.async {
-                if ownedIdentityIsActive {
-                    ObvPushNotificationManager.shared.doKickOtherDevicesOnNextRegister()
-                }
-                ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+            if ownedIdentityIsActive {
+                ObvPushNotificationManager.shared.doKickOtherDevicesOnNextRegister()
             }
+            ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
             // When a new owned identity is created, we request an update of the owned identity capabilities
             do {
                 try obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)

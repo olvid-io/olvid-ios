@@ -178,19 +178,19 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         // Properties specific to this concrete protocol message
 
         let rawContactObvCapabilities: Set<String>
-        let isReponse: Bool
+        let isResponse: Bool
 
         // Init when sending this message
 
         init(coreProtocolMessage: CoreProtocolMessage, ownCapabilities: Set<ObvCapability>, isReponse: Bool) {
             self.coreProtocolMessage = coreProtocolMessage
             self.rawContactObvCapabilities = Set(ownCapabilities.map({ $0.rawValue }))
-            self.isReponse = isReponse
+            self.isResponse = isReponse
         }
 
         var encodedInputs: [ObvEncoded] {
             let encodedRawCapabilities = rawContactObvCapabilities.map({ $0.encode() })
-            return [encodedRawCapabilities.encode(), isReponse.encode()]
+            return [encodedRawCapabilities.encode(), isResponse.encode()]
         }
 
         // Init when receiving this message
@@ -202,7 +202,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
             self.rawContactObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(message.encodedInputs[0])
-            self.isReponse = try message.encodedInputs[1].decode()
+            self.isResponse = try message.encodedInputs[1].decode()
         }
 
     }

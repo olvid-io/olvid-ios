@@ -39,7 +39,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
     }
 
     private func observePreferredComposeMessageViewActionsDidChangeNotifications() {
-        let token = ObvMessengerInternalNotification.observePreferredComposeMessageViewActionsDidChange(queue: OperationQueue.main) { [weak self] in
+        let token = ObvMessengerSettingsNotifications.observePreferredComposeMessageViewActionsDidChange(queue: OperationQueue.main) { [weak self] in
             assert(Thread.isMainThread)
             guard let _self = self else { return }
             guard let section = _self.shownSections.firstIndex(of: .preferredComposeMessageViewActionsOrder) else { assertionFailure(); return }
@@ -393,7 +393,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
             case .changeDefaultEmoji:
                 let model = EmojiPickerViewModel(selectedEmoji: configuration.defaultEmoji) { emoji in
                     let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji: emoji)
-                    ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
+                    ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
                         .postOnDispatchQueue()
                 }
                 let vc = EmojiPickerHostingViewController(model: model)
@@ -407,7 +407,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
                 }
             case .resetDefaultEmoji:
                 let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji: nil)
-                ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
+                ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
                     .postOnDispatchQueue()
             }
         }

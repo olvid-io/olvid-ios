@@ -64,7 +64,7 @@ final class ExpirationMessagesCoordinator {
     
     private func observeNewMessageExpirationNotifications() {
         let log = ExpirationMessagesCoordinator.log
-        observationTokens.append(ObvMessengerInternalNotification.observeNewMessageExpiration(queue: internalQueue) { [weak self] (_) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeNewMessageExpiration(queue: internalQueue) { [weak self] (_) in
             guard let _self = self else { return }
             let now = Date()
             let op = ScheduleNextTimerOperation(now: now, currentTimer: _self.nextTimer, log: log, delegate: _self)

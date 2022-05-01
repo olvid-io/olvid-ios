@@ -26,8 +26,9 @@ public protocol ObvBackupable: AnyObject {
     static var backupIdentifier: String { get }
     var backupIdentifier: String { get }
 
-    func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier, _ completionHandler: @escaping (Result<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) -> Void)
-    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String, _ completionHandler: @escaping (Error?) -> Void)
+    func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource)
+
+    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String) async throws
 
 }
 

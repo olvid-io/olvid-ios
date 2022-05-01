@@ -344,7 +344,8 @@ final class ProtocolOperation: ObvOperation {
     }
     
     
-    /// This method looks for a protocol instance related to the concrete protocol instance passed as an input. If it manages to do so, it updates this instance with the state of the concrete crypto protocol.
+    /// This method looks for a protocol instance related to the concrete protocol instance passed as an input. If it manages to do
+    /// so, it updates this instance with the state of the concrete crypto protocol.
     private func saveStateOf(_ concreteCryptoProtocolInNewState: ConcreteCryptoProtocol, within obvContext: ObvContext) throws {
         
         guard let delegateManager = delegateManager else {

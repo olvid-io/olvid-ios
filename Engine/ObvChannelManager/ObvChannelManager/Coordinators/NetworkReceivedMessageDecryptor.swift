@@ -88,16 +88,16 @@ extension NetworkReceivedMessageDecryptor {
                                                                                     toOwnedIdentity: receivedMessage.messageId.ownedCryptoIdentity,
                                                                                     delegateManager: delegateManager,
                                                                                     within: obvContext) {
-            os_log("A received wrapped key was decrypted using an Oblivious channel", log: log, type: .debug)
+            os_log("🔑 A received wrapped key was decrypted using an Oblivious channel", log: log, type: .debug)
             decryptAndProcess(receivedMessage, with: messageKey, channelType: channelInfo, within: obvContext)
         } else if let (messageKey, channelInfo) = ObvAsymmetricChannel.unwrapMessageKey(wrappedKey: receivedMessage.wrappedKey,
                                                                                         toOwnedIdentity: receivedMessage.messageId.ownedCryptoIdentity,
                                                                                         delegateManager: delegateManager,
                                                                                         within: obvContext) {
-            os_log("A received wrapped key was decrypted using an Asymmetric Channel", log: log, type: .debug)
+            os_log("🔑 A received wrapped key was decrypted using an Asymmetric Channel", log: log, type: .debug)
             decryptAndProcess(receivedMessage, with: messageKey, channelType: channelInfo, within: obvContext)
         } else {
-            os_log("The received message %@ could not be decrypted", log: log, type: .error, receivedMessage.messageId.debugDescription)
+            os_log("🔑 The received message %@ could not be decrypted", log: log, type: .error, receivedMessage.messageId.debugDescription)
             networkFetchDelegate.deleteMessageAndAttachments(messageId: receivedMessage.messageId, within: obvContext)
         }
         
@@ -133,7 +133,7 @@ extension NetworkReceivedMessageDecryptor {
         switch obvChannelReceivedMessage.type {
             
         case .ProtocolMessage:
-            os_log("New protocol message", log: log, type: .debug)
+            os_log("🔑 New protocol message with id %{public}@", log: log, type: .info, receivedMessage.messageId.debugDescription)
             if let receivedProtocolMessage = ReceivedProtocolMessage(with: obvChannelReceivedMessage) {
                 let protocolReceivedMessage = receivedProtocolMessage.protocolReceivedMessage
                 do {
@@ -149,7 +149,7 @@ extension NetworkReceivedMessageDecryptor {
             }
             
         case .ApplicationMessage:
-            os_log("🌊 New application message within flow %{public}@", log: log, type: .debug, obvContext.flowId.debugDescription)
+            os_log("🔑🌊 New application message within flow %{public}@ with id %{public}@", log: log, type: .info, obvContext.flowId.debugDescription, receivedMessage.messageId.debugDescription)
             if let receivedApplicationMessage = ReceivedApplicationMessage(with: obvChannelReceivedMessage) {
                 do {
                     guard receivedApplicationMessage.attachmentsInfos.count == obvChannelReceivedMessage.attachmentCount else {
