@@ -262,6 +262,7 @@ notifications:
   params:
   - {name: value, type: PersistedDiscussionLocalConfigurationValue}
   - {name: persistedDiscussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
 - name: discussionLocalConfigurationHasBeenUpdated
   params:
   - {name: newValue, type: PersistedDiscussionLocalConfigurationValue}
@@ -362,3 +363,19 @@ notifications:
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: contactCryptoId, type: ObvCryptoId}
+- name: userRepliedToReceivedMessageWithinTheNotificationExtension
+  params:
+  - {name: persistedContactObjectID, type: NSManagedObjectID}
+  - {name: messageIdentifierFromEngine, type: Data}
+  - {name: textBody, type: String}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
+- name: userRepliedToMissedCallWithinTheNotificationExtension
+  params:
+  - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
+  - {name: textBody, type: String}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
+- name: userWantsToMarkAsReadMessageWithinTheNotificationExtension
+  params:
+  - {name: persistedContactObjectID, type: NSManagedObjectID}
+  - {name: messageIdentifierFromEngine, type: Data}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}

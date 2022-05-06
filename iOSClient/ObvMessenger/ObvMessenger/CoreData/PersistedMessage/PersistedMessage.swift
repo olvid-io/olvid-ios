@@ -141,10 +141,10 @@ class PersistedMessage: NSManagedObject {
 
     var isWiped: Bool { isLocallyWiped || isRemoteWiped }
 
-    /// `true` when this instance can be edited after being sent.
+    /// In general, a message cannot be edited. Note that we expect `PersistedMessageSent` and `PersistedMessageReceived` to override this variable in return `true` when appropriate.
     var textBodyCanBeEdited: Bool { false }
 
-    /// Shall only be called from the overriding method in `PersistedMessageSent`
+
     @objc func editTextBody(newTextBody: String?) throws {
         guard self.textBodyCanBeEdited else {
             throw makeError(message: "The text body of this message cannot be edited now")
@@ -152,6 +152,7 @@ class PersistedMessage: NSManagedObject {
         self.body = newTextBody
     }
 
+    
     var isEdited: Bool {
         self.metadata.first(where: { $0.kind == .edited }) != nil
     }

@@ -403,6 +403,9 @@
 /* Action title */
 "Mark all as read" = "Tout marquer comme lu";
 
+/* Action title */
+"MARK_AS_READ" = "Marquer comme lu";
+
 /* Table view group header */
 "Maximum size for automatic downloads" = "Taille maximum pour téléchargement automatique";
 
@@ -2093,7 +2096,7 @@
 "CLEANING_IN_PROGRESS" = "Nettoyage en cours";
 "CLEANING_TERMINATED" = "Nettoyage terminé";
 
-"DRAP_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST" = "Déposez ici vos émojis préférés !";
+"DRAG_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST" = "Déposez ici vos réactions préférés !";
 
 "CONTACT_IS_NOT_ACTIVE_EXPLANATION_TITLE" = "Contact revoqué par le fournisseur d'identités de votre société";
 
@@ -2173,6 +2176,8 @@
 
 "OPEN_SOURCE_LICENCES" = "Licences Open Source";
 
+"HOW_TO_ADD_REACTION_TO_A_MESSAGE" = "Vous pouvez appuyer deux fois sur un message pour ajouter une reaction.";
+
 "RESET_COMPOSE_MESSAGE_VIEW_ACTIONS_ORDER" = "Réinitialiser l'ordre des boutons";
 
 "UNAVAILABLE_MESSAGE" = "Message non disponible";
@@ -2204,6 +2209,7 @@
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" = "Pour vous assurez que vous utilisez la dernière version d'iOS, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle.";
 
 "MESSAGE_REACTION_NOTIFICATION_%@_%@" = "A réagi %@ à : %@";
+"MESSAGE_REACTION_NOTIFICATION_%@" = "A réagi %@ à votre message";
 
 "NEW_REACTION" = "Nouvelle réaction";
 "TAP_TO_SEE_THE_REACTION" = "Appuyez pour voir la réaction.";
@@ -2293,6 +2299,8 @@
 
 "Choose" = "Choisir";
 
+"SEND_MESSAGE" = "Envoyer un message";
+
 "FAILED" = "Échec 😢";
 
 "CALL_INITIALISATION_NOT_SUPPORTED" = "Appels non supportés";
@@ -2302,3 +2310,9 @@
 "Choose" = "Choisir";
 
 "YOUR_MESSAGE" = "Votre message...";
+
+"HOW_TO_ADD_MESSAGE_REACTION" = "Tapez deux fois sur le message pour ajouter votre réaction.";
+
+"HOW_TO_ADD_REACTION_TO_PREFFERED" = "Ajoutez une étoile à une réaction pour l'ajouter à vos réactions préférées.";
+
+"HOW_TO_REMOVE_OWN_REACTION" = "Tappez pour supprimer votre réaction.";

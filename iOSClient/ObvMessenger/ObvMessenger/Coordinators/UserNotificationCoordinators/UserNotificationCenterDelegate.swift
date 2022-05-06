@@ -20,6 +20,7 @@
 import UIKit
 import UserNotifications
 import os.log
+import CoreData
 
 
 final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
@@ -44,8 +45,7 @@ final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDe
 // MARK: - UNUserNotificationCenterDelegate
 
 extension UserNotificationCenterDelegate {
-    
-    
+
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         assert(Thread.isMainThread)
                 
@@ -193,10 +193,22 @@ extension UserNotificationCenterDelegate {
         }
 
         guard let action = UserNotificationAction(rawValue: response.actionIdentifier) else {
-            // This happens, e.g., when tapping a message notification. In that case, the action identifier is UNNotificationDefaultActionIdentifier
-            assert(response.actionIdentifier == UNNotificationDefaultActionIdentifier)
-            completionHandler(false)
-            return
+            switch response.actionIdentifier {
+            case UNNotificationDismissActionIdentifier:
+                // If the user simply dismissed the notification, we consider that the action was handled
+                completionHandler(true)
+                return
+            case UNNotificationDefaultActionIdentifier:
+                // If the user tapped the notification, it means she wishes to open Olvid and navigate to the discussion.
+                // We consider that this notification is not handled and complete with `false`. The caller of this method will handle the rest.
+                completionHandler(false)
+                return
+            default:
+                // This is not expected
+                assertionFailure()
+                completionHandler(false)
+                return
+            }
         }
 
         let userInfo = response.notification.request.content.userInfo
@@ -213,18 +225,9 @@ extension UserNotificationCenterDelegate {
             handleInvitationActions(action: action, persistedInvitationUuid: persistedInvitationUuid, completionHandler: completionHandler)
         case .mute:
             guard let persistedDiscussionObjectURIAsString = userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
-                  let persistedDiscussionObjectURI = URL(string: persistedDiscussionObjectURIAsString)
-            else {
-                assertionFailure()
-                completionHandler(false)
-                return
-            }
-            guard let objectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI) else {
-                assertionFailure()
-                completionHandler(false)
-                return
-            }
-            guard let persistedGroupDiscussionEntityName = PersistedGroupDiscussion.entity().name,
+                  let persistedDiscussionObjectURI = URL(string: persistedDiscussionObjectURIAsString),
+                  let objectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI),
+                  let persistedGroupDiscussionEntityName = PersistedGroupDiscussion.entity().name,
                   let persistedOneToOneDiscussionEntityName = PersistedOneToOneDiscussion.entity().name,
                   let persistedDiscussionEntityName = PersistedDiscussion.entity().name
             else {
@@ -251,6 +254,39 @@ extension UserNotificationCenterDelegate {
                 return
             }
             handleCallBackAction(callUUID: callUUID, completionHandler: completionHandler)
+        case .replyTo:
+            guard let messageIdentifierFromEngineAsString = userInfo[UserNotificationKeys.messageIdentifierFromEngine] as? String,
+                  let messageIdentifierFromEngine = Data(hexString: messageIdentifierFromEngineAsString),
+                  let persistedContactObjectURIAsString = userInfo[UserNotificationKeys.persistedContactObjectURI] as? String,
+                  let persistedContactObjectURI = URL(string: persistedContactObjectURIAsString),
+                  let persistedContactObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedContactObjectURI),
+                  let textResponse = response as? UNTextInputNotificationResponse else {
+                assertionFailure()
+                completionHandler(false)
+                return
+            }
+            handleReplyToMessageAction(messageIdentifierFromEngine: messageIdentifierFromEngine, persistedContactObjectID: persistedContactObjectID, textBody: textResponse.userText, completionHandler: completionHandler)
+        case .sendMessage:
+            guard let persistedDiscussionObjectURIAsString = userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
+                  let persistedDiscussionObjectURI = URL(string: persistedDiscussionObjectURIAsString),
+                  let persistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI),
+                  let textResponse = response as? UNTextInputNotificationResponse else {
+                      assertionFailure()
+                      completionHandler(false)
+                      return
+                  }
+            handleSendMessageAction(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textResponse.userText, completionHandler: completionHandler)
+        case .markAsRead:
+            guard let messageIdentifierFromEngineAsString = userInfo[UserNotificationKeys.messageIdentifierFromEngine] as? String,
+                  let messageIdentifierFromEngine = Data(hexString: messageIdentifierFromEngineAsString),
+                  let persistedContactObjectURIAsString = userInfo[UserNotificationKeys.persistedContactObjectURI] as? String,
+                  let persistedContactObjectURI = URL(string: persistedContactObjectURIAsString),
+                  let persistedContactObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedContactObjectURI) else {
+                      assertionFailure()
+                      completionHandler(false)
+                return
+                  }
+            handleMarkAsReadAction(messageIdentifierFromEngine: messageIdentifierFromEngine, persistedContactObjectID: persistedContactObjectID, completionHandler: completionHandler)
         }
     }
     
@@ -258,9 +294,8 @@ extension UserNotificationCenterDelegate {
     private func handleMuteActions(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, completionHandler: @escaping (Bool) -> Void) {
         ObvMessengerInternalNotification.userWantsToUpdateLocalConfigurationOfDiscussion(
             value: .muteNotificationsDuration(muteNotificationsDuration: .oneHour),
-            persistedDiscussionObjectID: persistedDiscussionObjectID
-        ).postOnDispatchQueue()
-        completionHandler(true)
+            persistedDiscussionObjectID: persistedDiscussionObjectID,
+            completionHandler: completionHandler).postOnDispatchQueue()
     }
 
     
@@ -270,9 +305,8 @@ extension UserNotificationCenterDelegate {
                 let contacts = item.logContacts.compactMap { $0.contactIdentity?.typedObjectID }
                 ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contacts, groupId: try? item.getGroupId()).postOnDispatchQueue()
             }
-            DispatchQueue.main.async {
-                completionHandler(true)
-            }
+            // The action launch the app in foreground to perform the call, we can terminate the action now
+            DispatchQueue.main.async { completionHandler(true) }
         }
     }
 
@@ -294,84 +328,42 @@ extension UserNotificationCenterDelegate {
                 return
             }
 
+            let acceptInvite: Bool
+            switch action {
+            case .accept:
+                acceptInvite = true
+            case .decline:
+                _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
+                acceptInvite = false
+            case .mute, .callBack, .replyTo, .sendMessage, .markAsRead:
+                assertionFailure()
+                DispatchQueue.main.async { completionHandler(false) }
+                return
+            }
+
             guard let obvDialog = persistedInvitation.obvDialog else { assertionFailure(); return }
             switch obvDialog.category {
             case .acceptInvite:
                 var localDialog = obvDialog
-                switch action {
-                case .accept:
-                    try? localDialog.setResponseToAcceptInvite(acceptInvite: true)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .decline:
-                    _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
-                    try? localDialog.setResponseToAcceptInvite(acceptInvite: false)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .mute, .callBack:
-                    assertionFailure()
-                    DispatchQueue.main.async { completionHandler(false) }
-                    return
-                }
+                try? localDialog.setResponseToAcceptInvite(acceptInvite: acceptInvite)
+                _self.appDelegate.obvEngine.respondTo(localDialog)
+                DispatchQueue.main.async { completionHandler(true) }
             case .acceptMediatorInvite:
                 var localDialog = obvDialog
-                switch action {
-                case .accept:
-                    try? localDialog.setResponseToAcceptMediatorInvite(acceptInvite: true)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .decline:
-                    _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
-                    try? localDialog.setResponseToAcceptMediatorInvite(acceptInvite: false)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .mute, .callBack:
-                    assertionFailure()
-                    DispatchQueue.main.async { completionHandler(false) }
-                    return
-                }
+                try? localDialog.setResponseToAcceptMediatorInvite(acceptInvite: acceptInvite)
+                _self.appDelegate.obvEngine.respondTo(localDialog)
+                DispatchQueue.main.async { completionHandler(true) }
+                return
             case .acceptGroupInvite:
                 var localDialog = obvDialog
-                switch action {
-                case .accept:
-                    try? localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .decline:
-                    _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
-                    try? localDialog.setResponseToAcceptGroupInvite(acceptInvite: false)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .mute, .callBack:
-                    assertionFailure()
-                    DispatchQueue.main.async { completionHandler(false) }
-                    return
-                }
+                try? localDialog.setResponseToAcceptGroupInvite(acceptInvite: acceptInvite)
+                _self.appDelegate.obvEngine.respondTo(localDialog)
+                DispatchQueue.main.async { completionHandler(true) }
             case .oneToOneInvitationReceived:
                 var localDialog = obvDialog
-                switch action {
-                case .accept:
-                    try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: true)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .decline:
-                    _self.waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
-                    try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: false)
-                    _self.appDelegate.obvEngine.respondTo(localDialog)
-                    DispatchQueue.main.async { completionHandler(true) }
-                    return
-                case .mute, .callBack:
-                    assertionFailure()
-                    DispatchQueue.main.async { completionHandler(false) }
-                    return
-                }
+                try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: acceptInvite)
+                _self.appDelegate.obvEngine.respondTo(localDialog)
+                DispatchQueue.main.async { completionHandler(true) }
             default:
                 assertionFailure()
                 DispatchQueue.main.async { completionHandler(false) }
@@ -380,7 +372,27 @@ extension UserNotificationCenterDelegate {
         }
         
     }
-    
+
+
+    private func handleReplyToMessageAction(messageIdentifierFromEngine: Data, persistedContactObjectID: NSManagedObjectID, textBody: String, completionHandler: @escaping (Bool) -> Void) {
+        ObvStack.shared.performBackgroundTask { (context) in
+            ObvMessengerInternalNotification.userRepliedToReceivedMessageWithinTheNotificationExtension(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody, completionHandler: completionHandler).postOnDispatchQueue()
+        }
+    }
+
+
+    private func handleSendMessageAction(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: @escaping (Bool) -> Void) {
+        ObvStack.shared.performBackgroundTask { (context) in
+            ObvMessengerInternalNotification.userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textBody, completionHandler: completionHandler).postOnDispatchQueue()
+        }
+    }
+
+    private func handleMarkAsReadAction(messageIdentifierFromEngine: Data, persistedContactObjectID: NSManagedObjectID, completionHandler: @escaping (Bool) -> Void) {
+        ObvStack.shared.performBackgroundTask { (context) in
+            ObvMessengerInternalNotification.userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, completionHandler: completionHandler).postOnDispatchQueue()
+        }
+    }
+
     
     private func waitUntilApplicationIconBadgeNumberWasUpdatedNotification() {
         

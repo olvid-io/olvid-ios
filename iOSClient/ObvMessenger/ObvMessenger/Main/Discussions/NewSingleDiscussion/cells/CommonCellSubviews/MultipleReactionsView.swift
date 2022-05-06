@@ -48,7 +48,7 @@ struct ReactionAndCount: Equatable, Hashable, Comparable, Identifiable {
 }
 
 
-final class MultipleReactionsView: ViewForOlvidStack {
+final class MultipleReactionsView: UIView {
     
     
     func setReactions(to reactions: [ReactionAndCount],

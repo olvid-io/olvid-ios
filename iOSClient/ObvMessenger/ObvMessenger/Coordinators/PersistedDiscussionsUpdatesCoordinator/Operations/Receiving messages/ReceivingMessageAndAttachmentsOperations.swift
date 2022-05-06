@@ -56,25 +56,20 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
         let currentUserActivityPersistedDiscussionObjectID = ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID
         
         obvContext.performAndWait {
-              
-            // Grab the persisted contact and the appropriate discussion
             
-            let persistedContactIdentity: PersistedObvContactIdentity
             do {
-                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                
+                // Grab the persisted contact and the appropriate discussion
+                
+                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
-                persistedContactIdentity = _persistedContactIdentity
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
-                return cancel(withReason: .couldNotDetermineOwnedIdentity)
-            }
-
-            let discussion: PersistedDiscussion
-            do {
+                
+                guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
+                    return cancel(withReason: .couldNotDetermineOwnedIdentity)
+                }
+                
+                let discussion: PersistedDiscussion
                 if let groupId = messageJSON.groupId {
                     guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
@@ -88,37 +83,87 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 } else {
                     return cancel(withReason: .couldNotFindDiscussion)
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            // Try to insert a EndToEndEncryptedSystemMessage if the discussion is empty
-            
-            try? PersistedDiscussion.insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: discussion.objectID, markAsRead: true, within: obvContext.context)
-            
-            // If overridePreviousPersistedMessage is true, we update any previously stored message from DB. If no such message exists, we create it.
-            // If overridePreviousPersistedMessage is false, we make sure that no existing PersistedMessageReceived exists in DB. If this is the case, we create the message.
-            // Note that processing attachments requires overridePreviousPersistedMessage to be true
-            
-            if overridePreviousPersistedMessage {
                 
-                if let previousMessage = PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContactIdentity) {
+                // Try to insert a EndToEndEncryptedSystemMessage if the discussion is empty
+                
+                try? PersistedDiscussion.insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: discussion.objectID, markAsRead: true, within: obvContext.context)
+                
+                // If overridePreviousPersistedMessage is true, we update any previously stored message from DB. If no such message exists, we create it.
+                // If overridePreviousPersistedMessage is false, we make sure that no existing PersistedMessageReceived exists in DB. If this is the case, we create the message.
+                // Note that processing attachments requires overridePreviousPersistedMessage to be true
+                
+                if overridePreviousPersistedMessage {
                     
-                    os_log("Updating a previous received message...", log: log, type: .info)
+                    if let previousMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContactIdentity) {
+                        
+                        os_log("Updating a previous received message...", log: log, type: .info)
+                        
+                        do {
+                            try previousMessage.update(withMessageJSON: messageJSON,
+                                                       messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
+                                                       returnReceiptJSON: returnReceiptJSON,
+                                                       messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                                       downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
+                                                       localDownloadTimestamp: obvMessage.localDownloadTimestamp,
+                                                       discussion: discussion)
+                        } catch {
+                            os_log("Could not update existing received message: %{public}@", log: log, type: .error, error.localizedDescription)
+                        }
+                        
+                    } else {
+                        
+                        // Create the PersistedMessageReceived
+                        
+                        os_log("Creating a persisted message (overridePreviousPersistedMessage: %{public}@)", log: log, type: .debug, overridePreviousPersistedMessage.description)
+                        let missedMessageCount = updateNextMessageMissedMessageCountAndGetCurrentMissedMessageCount(
+                            discussion: discussion,
+                            contactIdentity: persistedContactIdentity,
+                            senderThreadIdentifier: messageJSON.senderThreadIdentifier,
+                            senderSequenceNumber: messageJSON.senderSequenceNumber)
+                        
+                        guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                                             downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
+                                                             localDownloadTimestamp: obvMessage.localDownloadTimestamp,
+                                                             messageJSON: messageJSON,
+                                                             contactIdentity: persistedContactIdentity,
+                                                             messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
+                                                             returnReceiptJSON: returnReceiptJSON,
+                                                             missedMessageCount: missedMessageCount,
+                                                             discussion: discussion)) != nil
+                        else {
+                            return cancel(withReason: .couldNotCreatePersistedMessageReceived)
+                        }
+                        
+                    }
                     
-                    do {
-                        try previousMessage.update(withMessageJSON: messageJSON,
-                                                   messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
-                                                   returnReceiptJSON: returnReceiptJSON,
-                                                   messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                                                   downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
-                                                   localDownloadTimestamp: obvMessage.localDownloadTimestamp,
-                                                   discussion: discussion)
-                    } catch {
-                        os_log("Could not update existing received message: %{public}@", log: log, type: .error, error.localizedDescription)
+                    // Process the attachments within the message
+                    
+                    for obvAttachment in obvMessage.attachments {
+                        do {
+                            try ReceivingMessageAndAttachmentsOperationHelper.processFyleWithinDownloadingAttachment(obvAttachment,
+                                                                                                                     newProgress: nil,
+                                                                                                                     obvEngine: obvEngine,
+                                                                                                                     log: log,
+                                                                                                                     within: obvContext)
+                        } catch {
+                            os_log("Could not process one of the message's attachments: %{public}@", log: log, type: .fault, error.localizedDescription)
+                            // We continue anyway
+                        }
                     }
                     
                 } else {
+                    
+                    // Make sure the message does not already exists in DB
+                    
+                    guard try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContactIdentity) == nil else {
+                        return
+                    }
+                    
+                    // We make sure that message has a body (for now, this message comes from the notification extension, and there is no point in creating a `PersistedMessageReceived` if there is no body.
+                    
+                    guard messageJSON.body?.isEmpty == false else {
+                        return
+                    }
                     
                     // Create the PersistedMessageReceived
                     
@@ -128,7 +173,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                         contactIdentity: persistedContactIdentity,
                         senderThreadIdentifier: messageJSON.senderThreadIdentifier,
                         senderSequenceNumber: messageJSON.senderSequenceNumber)
-
+                    
                     guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
                                                          downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
                                                          localDownloadTimestamp: obvMessage.localDownloadTimestamp,
@@ -144,100 +189,53 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     
                 }
                 
-                // Process the attachments within the message
+                /* The following block of code objective allows to auto-read ephemeral received messges if appropriate.
+                 * We first check whether the current user activity is to be within a discussion. If not,
+                 * we never auto-read.
+                 * If she is within a discussion, we consider all inserted received messages that are ephemeral and
+                 * that require user action to be read. For each of these messages, we check that its discussion
+                 * is identical to the one corresponding to the user activity, and that this discussion configuration
+                 * has its auto-read setting set to `true`.
+                 * Finally, if the message ephemerality is more restrictive than that of the discussion, we do not auto-read.
+                 * In that case, and in that case only, we immediately allow reading of the message.
+                 */
                 
-                for obvAttachment in obvMessage.attachments {
-                    do {
-                        try ReceivingMessageAndAttachmentsOperationHelper.processFyleWithinDownloadingAttachment(obvAttachment,
-                                                                                                                 newProgress: nil,
-                                                                                                                 obvEngine: obvEngine,
-                                                                                                                 log: log,
-                                                                                                                 within: obvContext)
-                    } catch {
-                        os_log("Could not process one of the message's attachments: %{public}@", log: log, type: .fault, error.localizedDescription)
-                        // We continue anyway
+                if let currentUserActivityPersistedDiscussionObjectID = currentUserActivityPersistedDiscussionObjectID, AppStateManager.shared.currentState.isInitializedAndActive {
+                    
+                    let insertedReceivedEphemeralMessagesWithUserAction: [PersistedMessageReceived] = obvContext.context.insertedObjects.compactMap({
+                        guard let receivedMessage = $0 as? PersistedMessageReceived,
+                              receivedMessage.isEphemeralMessageWithUserAction
+                        else {
+                            return nil
+                        }
+                        return receivedMessage
+                    })
+                    
+                    insertedReceivedEphemeralMessagesWithUserAction.forEach { insertedReceivedEphemeralMessageWithUserAction in
+                        guard insertedReceivedEphemeralMessageWithUserAction.discussion.typedObjectID == currentUserActivityPersistedDiscussionObjectID,
+                              insertedReceivedEphemeralMessageWithUserAction.discussion.autoRead == true
+                        else {
+                            return
+                        }
+                        // Check that the message ephemerality is at least that of the discussion, otherwise, do not auto read
+                        guard insertedReceivedEphemeralMessageWithUserAction.ephemeralityIsAtLeastAsPermissiveThanDiscussionSharedConfiguration else {
+                            return
+                        }
+                        // If we reach this point, we are receiving a message that is readOnce, within a discussion with an auto-read setting that is the one currently shown to the user. In that case, we auto-read the message.
+                        do {
+                            try insertedReceivedEphemeralMessageWithUserAction.allowReading(now: Date())
+                        } catch {
+                            os_log("We received a read-once message within a discussion with auto-read that is shown on screen. We should auto-read the message, but this failed: %{public}@", log: log, type: .fault, error.localizedDescription)
+                            assertionFailure()
+                            // We continue anyway
+                        }
                     }
                 }
                 
-            } else {
-                
-                guard PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContactIdentity) == nil else {
-                    return
-                }
-                
-                // We make sure that message has a body (for now, this message comes from the notification extension, and there is no point in creating a `PersistedMessageReceived` if there is no body.
-
-                guard messageJSON.body?.isEmpty == false else {
-                    return
-                }
-                
-                // Create the PersistedMessageReceived
-                
-                os_log("Creating a persisted message (overridePreviousPersistedMessage: %{public}@)", log: log, type: .debug, overridePreviousPersistedMessage.description)
-                let missedMessageCount = updateNextMessageMissedMessageCountAndGetCurrentMissedMessageCount(
-                    discussion: discussion,
-                    contactIdentity: persistedContactIdentity,
-                    senderThreadIdentifier: messageJSON.senderThreadIdentifier,
-                    senderSequenceNumber: messageJSON.senderSequenceNumber)
-
-                guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                                                     downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
-                                                     localDownloadTimestamp: obvMessage.localDownloadTimestamp,
-                                                     messageJSON: messageJSON,
-                                                     contactIdentity: persistedContactIdentity,
-                                                     messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
-                                                     returnReceiptJSON: returnReceiptJSON,
-                                                     missedMessageCount: missedMessageCount,
-                                                     discussion: discussion)) != nil
-                else {
-                    return cancel(withReason: .couldNotCreatePersistedMessageReceived)
-                }
-                
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
             
-            /* The following block of code objective allows to auto-read ephemeral received messges if appropriate.
-             * We first check whether the current user activity is to be within a discussion. If not,
-             * we never auto-read.
-             * If she is within a discussion, we consider all inserted received messages that are ephemeral and
-             * that require user action to be read. For each of these messages, we check that its discussion
-             * is identical to the one corresponding to the user activity, and that this discussion configuration
-             * has its auto-read setting set to `true`.
-             * Finally, if the message ephemerality is more restrictive than that of the discussion, we do not auto-read.
-             * In that case, and in that case only, we immediately allow reading of the message.
-             */
-            
-            if let currentUserActivityPersistedDiscussionObjectID = currentUserActivityPersistedDiscussionObjectID, AppStateManager.shared.currentState.isInitializedAndActive {
-                
-                let insertedReceivedEphemeralMessagesWithUserAction: [PersistedMessageReceived] = obvContext.context.insertedObjects.compactMap({
-                    guard let receivedMessage = $0 as? PersistedMessageReceived,
-                          receivedMessage.isEphemeralMessageWithUserAction
-                    else {
-                        return nil
-                    }
-                    return receivedMessage
-                })
-                
-                insertedReceivedEphemeralMessagesWithUserAction.forEach { insertedReceivedEphemeralMessageWithUserAction in
-                    guard insertedReceivedEphemeralMessageWithUserAction.discussion.typedObjectID == currentUserActivityPersistedDiscussionObjectID,
-                          insertedReceivedEphemeralMessageWithUserAction.discussion.autoRead == true
-                    else {
-                        return
-                    }
-                    // Check that the message ephemerality is at least that of the discussion, otherwise, do not auto read
-                    guard insertedReceivedEphemeralMessageWithUserAction.ephemeralityIsAtLeastAsPermissiveThanDiscussionSharedConfiguration else {
-                        return
-                    }
-                    // If we reach this point, we are receiving a message that is readOnce, within a discussion with an auto-read setting that is the one currently shown to the user. In that case, we auto-read the message.
-                    do {
-                        try insertedReceivedEphemeralMessageWithUserAction.allowReading(now: Date())
-                    } catch {
-                        os_log("We received a read-once message within a discussion with auto-read that is shown on screen. We should auto-read the message, but this failed: %{public}@", log: log, type: .fault, error.localizedDescription)
-                        assertionFailure()
-                        // We continue anyway
-                    }
-                }
-            }
-
         }
         
     }

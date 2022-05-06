@@ -219,6 +219,8 @@ extension WellKnownCoordinator: WellKnownDownloadOperationDelegate {
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
+        os_log("Well known was downloaded", log: log, type: .info)
+        
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator manager is not set", log: log, type: .fault)
             assertionFailure()

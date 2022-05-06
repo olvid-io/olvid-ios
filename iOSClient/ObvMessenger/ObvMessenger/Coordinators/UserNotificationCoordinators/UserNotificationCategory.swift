@@ -25,37 +25,61 @@ import UserNotifications
 enum UserNotificationCategory: CaseIterable {
     case acceptInviteCategory
     case newMessageCategory
+    case newMessageWithLimitedVisibilityCategory
     case missedCallCategory
+    case newReactionCategory
 
-    func getIdentifier() -> String {
+    var identifier: String {
         switch self {
         case .acceptInviteCategory:
             return "acceptInviteCategory"
         case .newMessageCategory:
             return "newMessageCategory"
+        case .newMessageWithLimitedVisibilityCategory:
+            return "newMessageWithLimitedVisibilityCategory"
         case .missedCallCategory:
             return "missedCallCategory"
+        case .newReactionCategory:
+            return "newReactionCategory"
         }
     }
-    
+
     func getCategory() -> UNNotificationCategory {
         switch self {
         case .acceptInviteCategory:
-            return UNNotificationCategory(identifier: self.getIdentifier(),
-                                          actions: [UserNotificationAction.accept.action, UserNotificationAction.decline.action],
+            return UNNotificationCategory(identifier: identifier,
+                                          actions: [.accept, .decline],
                                           intentIdentifiers: [],
                                           options: [.customDismissAction])
         case .newMessageCategory:
-            return UNNotificationCategory(identifier: self.getIdentifier(),
-                                          actions: [UserNotificationAction.mute.action],
+            return UNNotificationCategory(identifier: identifier,
+                                          actions: [.mute, .replyTo, .markAsRead],
+                                          intentIdentifiers: [],
+                                          options: [.customDismissAction])
+        case .newMessageWithLimitedVisibilityCategory:
+            return UNNotificationCategory(identifier: identifier,
+                                          actions: [.mute],
                                           intentIdentifiers: [],
                                           options: [.customDismissAction])
         case .missedCallCategory:
-            return UNNotificationCategory(identifier: self.getIdentifier(),
-                                          actions: [UserNotificationAction.callBack.action],
+            return UNNotificationCategory(identifier: identifier,
+                                          actions: [.callBack, .sendMessage],
+                                          intentIdentifiers: [],
+                                          options: [.customDismissAction])
+        case .newReactionCategory:
+            return UNNotificationCategory(identifier: identifier,
+                                          actions: [.mute],
                                           intentIdentifiers: [],
                                           options: [.customDismissAction])
         }
     }
     
+}
+
+extension UNNotificationCategory {
+
+    convenience init(identifier: String, actions: [UserNotificationAction], intentIdentifiers: [String], options: UNNotificationCategoryOptions = []) {
+        self.init(identifier: identifier, actions: actions.map({ $0.action }), intentIdentifiers: intentIdentifiers, options: options)
+    }
+
 }

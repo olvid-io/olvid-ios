@@ -116,7 +116,7 @@ fileprivate struct InnerEmojiView: View {
     @Binding var showVariantsView: String?
     @Binding var draggedEmoji: String?
 
-    static let defaultFontSize: CGFloat = 35.0
+    static let defaultFontSize: CGFloat = 33.0
 
     private var showBackground: Bool {
         guard let selectedEmoji = selectedEmoji else { return false }
@@ -175,26 +175,6 @@ fileprivate struct InnerEmojiView: View {
                     Text(emoji)
                         .font(.system(size: fontSize * 1.5))
                 })
-            }
-    }
-}
-
-@available(iOS 15.0, *)
-fileprivate struct Positions: PreferenceKey {
-    static var defaultValue: [String: Anchor<CGPoint>] = [:]
-    static func reduce(value: inout [String: Anchor<CGPoint>], nextValue: () -> [String: Anchor<CGPoint>]) {
-        value.merge(nextValue(), uniquingKeysWith: { current, _ in
-            return current })
-    }
-}
-
-@available(iOS 15.0, *)
-fileprivate struct PositionReader: View {
-    let tag: String
-    var body: some View {
-        Color.clear
-            .anchorPreference(key: Positions.self, value: .center) { (anchor) in
-                [tag: anchor]
             }
     }
 }
@@ -278,8 +258,8 @@ fileprivate struct VariantEmojiPickerView: View {
     var body: some View {
         VStack(spacing: 2) {
             if !showPickers {
-                LazyHGrid(rows: [EmojiPickerInnerView.gridItem],
-                          spacing: EmojiPickerInnerView.gridSpacing) {
+                LazyHGrid(rows: [EmojiUtils.gridItem],
+                          spacing: EmojiUtils.gridSpacing) {
                     ForEach(emojisToShow, id: \.self) { emoji in
                         InnerEmojiView(emoji: emoji,
                                        selectAction: selectAction,
@@ -294,7 +274,7 @@ fileprivate struct VariantEmojiPickerView: View {
                     }
                 }
             } else {
-                HStack(spacing: EmojiPickerInnerView.gridSpacing) {
+                HStack(spacing: EmojiUtils.gridSpacing) {
                     ForEach(emojisToShow, id: \.self) { emoji in
                         InnerEmojiView(emoji: emoji,
                                        selectAction: selectAction,
@@ -338,9 +318,9 @@ fileprivate struct VariantEmojiPickerView: View {
                 }
             }
         }
-        .frame(width: showPickers ? Self.widthColWithPicker * EmojiPickerInnerView.gridColumnSize :
-                CGFloat(emojis.count + 1) * EmojiPickerInnerView.gridColumnSize,
-               height: showPickers ? Self.heightColWithPicker * EmojiPickerInnerView.gridColumnSize : EmojiPickerInnerView.gridColumnSize)
+        .frame(width: showPickers ? Self.widthColWithPicker * EmojiUtils.gridColumnSize :
+                CGFloat(emojis.count + 1) * EmojiUtils.gridColumnSize,
+               height: showPickers ? Self.heightColWithPicker * EmojiUtils.gridColumnSize : EmojiUtils.gridColumnSize)
         .padding(2)
         .background {
             RoundedRectangle(cornerRadius: 16.0)
@@ -373,19 +353,248 @@ extension EmojiGroup {
 }
 
 @available(iOS 15.0, *)
+struct EmojiUtils {
+
+    static let gridItemSize: CGFloat = 36
+    static let gridSpacing: CGFloat = 5
+    static let gridColumnSize: CGFloat = gridItemSize + gridSpacing
+
+    typealias ScrollCorrectionType = String?
+
+    static let gridItem: GridItem = .init(.fixed(gridItemSize), spacing: gridSpacing)
+
+    static func computeRowsCount(geometry: GeometryProxy) -> Int {
+        let height = geometry.size.height
+        return Int(height / Self.gridColumnSize)
+    }
+
+    fileprivate static var allEmojis: [Emoji] {
+        EmojiList.allEmojis.map { Emoji(defaultEmoji: $0) }
+    }
+
+    static var none: String { "     " }
+    static func isNone(_ s: String) -> Bool { s == none }
+
+    static func scrollTo(geometry: GeometryProxy,
+                         scrollViewProxy: ScrollViewProxy,
+                         emoji: String,
+                         detector: CurrentValueSubject<ScrollCorrectionType, Never>) {
+        guard geometry.size.width > 0 else { return }
+        /// Stop current scrolling correction
+        detector.send(nil)
+        /// Computes the number of columns
+        let cols = (geometry.size.width / Self.gridColumnSize).rounded(.down)
+        /// Compute the left and right padding needs to be centered
+        let padding = (geometry.size.width - cols * Self.gridColumnSize) / 2
+        /// UnitPoint takes a ratio betwen the parent and child position
+        let x = padding / geometry.size.width
+        withAnimation {
+            scrollViewProxy.scrollTo(emoji, anchor: UnitPoint(x: x, y: 1))
+        }
+    }
+
+    static func scrollTo(geometry: GeometryProxy,
+                         scrollViewProxy: ScrollViewProxy,
+                         emojis: [String],
+                         emoji: String,
+                         rowsCount: Int,
+                         detector: CurrentValueSubject<ScrollCorrectionType, Never>) {
+        guard rowsCount > 0 else { return }
+        guard geometry.size.width > 0 else { return }
+
+        /// Stop current scrolling correction
+        detector.send(nil)
+        /// Computes the number of columns
+        let cols = (geometry.size.width / Self.gridColumnSize).rounded(.down)
+        let padding = (geometry.size.width - cols * Self.gridColumnSize) / 2
+
+        guard let emojiIndex = emojis.firstIndex(of: emoji) else { return }
+
+        let emojiCol = CGFloat(emojiIndex) / CGFloat(rowsCount)
+        let colsCount = (CGFloat(emojis.count) / CGFloat(rowsCount)).rounded(.up)
+
+        let trailingCols = colsCount - emojiCol
+        var emojiToScroll = emoji
+        if CGFloat(trailingCols) < cols {
+            let delta = cols - CGFloat(trailingCols)
+            let emojiToScrollIndex = emojiIndex - Int(delta) * rowsCount
+            guard 0 <= emojiToScrollIndex && emojiToScrollIndex < emojis.count else { return }
+            emojiToScroll = emojis[emojiToScrollIndex]
+        }
+
+        /// Compute the left and right padding needs to be centered
+        /// UnitPoint takes a ratio betwen the parent and child position
+        let x = padding / geometry.size.width
+        withAnimation {
+            scrollViewProxy.scrollTo(emojiToScroll, anchor: UnitPoint(x: x, y: 1))
+        }
+    }
+}
+
+@available(iOS 15.0, *)
+enum PreferredEmojiPickerInnerViewInput {
+    case normal(selectedEmoji: Binding<String?>, draggedEmoji: Binding<String?>, selectAction: () -> Void, haptic: () -> Void)
+    case viewer(emojiToShow: String?, addAdditionalSpace: Bool)
+
+    var selectedEmoji: Binding<String?> {
+        switch self {
+        case .normal(let selectedEmoji, _, _, _):
+            return selectedEmoji
+        case .viewer:
+            return .constant(nil)
+        }
+    }
+
+    var draggedEmoji: Binding<String?> {
+        switch self {
+        case .normal(_, let draggedEmoji, _, _):
+            return draggedEmoji
+        case .viewer:
+            return .constant(nil)
+        }
+    }
+
+    var selectAction: () -> Void {
+        switch self {
+        case .normal(_, _, let selectAction, _):
+            return selectAction
+        case .viewer:
+            return { }
+        }
+    }
+
+    var haptic: () -> Void {
+        switch self {
+        case .normal(_, _, _, let haptic):
+            return haptic
+        case .viewer:
+            return { }
+        }
+    }
+
+    var addAdditionalSpace: Bool {
+        switch self {
+        case .normal:
+            return true
+        case .viewer(_, let addAdditionalSpace):
+            return addAdditionalSpace
+        }
+    }
+}
+
+@available(iOS 15.0, *)
+struct PreferredEmojiPickerInnerView: View {
+
+    let input: PreferredEmojiPickerInnerViewInput
+
+    @ObservedObject var preferredEmojiList: ObvMessengerPreferredEmojisListObservable
+    private let scrollCorrectionDetector: CurrentValueSubject<EmojiUtils.ScrollCorrectionType, Never>
+    private let scrollCorrectionPublisher: AnyPublisher<EmojiUtils.ScrollCorrectionType, Never>
+
+
+    init(input: PreferredEmojiPickerInnerViewInput,
+         preferredEmojiList: ObvMessengerPreferredEmojisListObservable) {
+        self.input = input
+        self.preferredEmojiList = preferredEmojiList
+
+        do {
+            let detector = CurrentValueSubject<EmojiUtils.ScrollCorrectionType, Never>(nil)
+            self.scrollCorrectionPublisher = detector
+                .debounce(for: .seconds(0.2), scheduler: DispatchQueue.main)
+                .dropFirst()
+                .eraseToAnyPublisher()
+            self.scrollCorrectionDetector = detector
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            HStack {
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack {
+                        ScrollViewReader { scrollViewProxy in
+                            LazyHGrid(rows: [EmojiUtils.gridItem],
+                                      spacing: EmojiUtils.gridSpacing) {
+                                ReorderableForEach(items: $preferredEmojiList.emojis,
+                                                   draggedItem: input.draggedEmoji,
+                                                   haptic: input.haptic,
+                                                   none: input.addAdditionalSpace ? EmojiUtils.none : nil) { emoji in
+                                    InnerEmojiView(emoji: emoji,
+                                                   selectAction: input.selectAction,
+                                                   hasVariants: false,
+                                                   isPreferredView: true,
+                                                   haptic: input.haptic,
+                                                   isNone: EmojiUtils.isNone,
+                                                   selectedEmoji: input.selectedEmoji,
+                                                   showVariantsView: .init(get: { nil }, set: { _ in }),
+                                                   draggedEmoji: input.draggedEmoji)
+                                        .background(PositionReader(tag: emoji))
+                                        .id(emoji)
+                                }
+                            }
+                                      .padding()
+                                      .onPreferenceChange(Positions.self) { positions in
+                                          /// Send the emoji at the top left
+                                          var values = positions.map { ($0.key, geometry[$0.value]) }
+                                              .filter { $0.1.x >= 0 }
+                                          values.sort(by: { l, r in l.1.x <= r.1.x })
+                                          if let (emoji, _) = values.first {
+                                              scrollCorrectionDetector.send(emoji)
+                                          }
+                                      }
+                                      .onReceive(scrollCorrectionPublisher) {
+                                          guard let emoji = $0 else { return }
+                                          /// Scroll to the top left emoji with corrected position
+                                          EmojiUtils.scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: emoji, detector: scrollCorrectionDetector)
+                                      }
+                                      .onAppear {
+                                          switch input {
+                                          case .normal(selectedEmoji: let selectedEmoji, _, _, _):
+                                              if let selectedEmoji = selectedEmoji.wrappedValue,
+                                                 preferredEmojiList.emojis.contains(selectedEmoji) {
+                                                  EmojiUtils.scrollTo(geometry: geometry,
+                                                                      scrollViewProxy: scrollViewProxy,
+                                                                      emojis: preferredEmojiList.emojis,
+                                                                      emoji: selectedEmoji,
+                                                                      rowsCount: 1,
+                                                                      detector: scrollCorrectionDetector)
+                                              } else if let first = preferredEmojiList.emojis.first {
+                                                  EmojiUtils.scrollTo(geometry: geometry,
+                                                                      scrollViewProxy: scrollViewProxy,
+                                                                      emoji: first,
+                                                                      detector: scrollCorrectionDetector)
+                                              }
+                                          case .viewer(emojiToShow: let emojiToShow, _):
+                                              if let emojiToShow = emojiToShow {
+                                                  scrollViewProxy.scrollTo(emojiToShow)
+                                              }
+                                          }
+                                      }
+                        }
+                        if preferredEmojiList.emojis.isEmpty {
+                            Text("DRAG_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST")
+                                .font(Font.system(.callout, design: .rounded).weight(.bold))
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: EmojiUtils.gridColumnSize * 2)
+    }
+}
+
+@available(iOS 15.0, *)
 struct EmojiPickerInnerView: View {
 
     @Binding var selectedEmoji: String?
     let selectAction: () -> Void
     let haptic: () -> Void
+
     @ObservedObject var preferredEmojiList: ObvMessengerPreferredEmojisListObservable
 
     // The emoji at the top left
-    typealias ScrollCorrectionType = String?
-    let allEmojisScrollCorrectionDetector: CurrentValueSubject<ScrollCorrectionType, Never>
-    let allEmojisScrollCorrectionPublisher: AnyPublisher<ScrollCorrectionType, Never>
-    let preferredScrollCorrectionDetector: CurrentValueSubject<ScrollCorrectionType, Never>
-    let preferredScrollCorrectionPublisher: AnyPublisher<ScrollCorrectionType, Never>
+    private let scrollCorrectionDetector: CurrentValueSubject<EmojiUtils.ScrollCorrectionType, Never>
+    private let scrollCorrectionPublisher: AnyPublisher<EmojiUtils.ScrollCorrectionType, Never>
 
     init(selectedEmoji: Binding<String?>,
          selectAction: @escaping () -> Void,
@@ -397,22 +606,14 @@ struct EmojiPickerInnerView: View {
         self.preferredEmojiList = preferredEmojiList
 
         do {
-            let allEmojisDetector = CurrentValueSubject<ScrollCorrectionType, Never>(nil)
-            self.allEmojisScrollCorrectionPublisher = allEmojisDetector
+            let detector = CurrentValueSubject<EmojiUtils.ScrollCorrectionType, Never>(nil)
+            self.scrollCorrectionPublisher = detector
                 .debounce(for: .seconds(0.2), scheduler: DispatchQueue.main)
                 .dropFirst()
                 .eraseToAnyPublisher()
-            self.allEmojisScrollCorrectionDetector = allEmojisDetector
+            self.scrollCorrectionDetector = detector
         }
 
-        do {
-            let preferredDetector = CurrentValueSubject<ScrollCorrectionType, Never>(nil)
-            self.preferredScrollCorrectionPublisher = preferredDetector
-                .debounce(for: .seconds(0.2), scheduler: DispatchQueue.main)
-                .dropFirst()
-                .eraseToAnyPublisher()
-            self.preferredScrollCorrectionDetector = preferredDetector
-        }
     }
 
     @State private var selectedGroup: EmojiGroup = EmojiGroup.allCases.first!
@@ -432,99 +633,24 @@ struct EmojiPickerInnerView: View {
     @State private var draggedEmoji: String? = nil
     @State private var rowsCount: Int? = nil
 
-    fileprivate static let gridItemSize: CGFloat = 35
-    fileprivate static let gridSpacing: CGFloat = 5
-    fileprivate static let gridColumnSize: CGFloat = gridItemSize + gridSpacing
-
-    fileprivate static let gridItem: GridItem = .init(.fixed(Self.gridItemSize), spacing: Self.gridSpacing)
-
-    func computeRowsCount(geometry: GeometryProxy) -> Int {
-        let height = geometry.size.height
-        return Int(height / Self.gridColumnSize)
-    }
-
-    private var allEmojis: [Emoji] {
-        EmojiList.allEmojis.map { Emoji(defaultEmoji: $0) }
-    }
-
-    private var none: String { "     " }
-    private func isNone(_ s: String) -> Bool { s == none }
-
     var body: some View {
         VStack(alignment: .center) {
-            GeometryReader { geometry in
-                HStack {
-                    ScrollView(.horizontal, showsIndicators: true) {
-                        HStack {
-                            ScrollViewReader { scrollViewProxy in
-                                LazyHGrid(rows: [Self.gridItem],
-                                          spacing: Self.gridSpacing) {
-                                    ReorderableForEach(items: $preferredEmojiList.emojis,
-                                                       draggedItem: $draggedEmoji,
-                                                       haptic: haptic,
-                                                       none: none) { emoji in
-                                        InnerEmojiView(emoji: emoji,
-                                                       selectAction: selectAction,
-                                                       hasVariants: false,
-                                                       isPreferredView: true,
-                                                       haptic: haptic,
-                                                       isNone: isNone,
-                                                       selectedEmoji: $selectedEmoji,
-                                                       showVariantsView: .init(get: { nil }, set: { _ in }),
-                                                       draggedEmoji: $draggedEmoji)
-                                            .background(PositionReader(tag: emoji))
-                                            .id(emoji)
-                                    }
-                                }
-                                          .padding()
-                                          .onPreferenceChange(Positions.self) { positions in
-                                              /// Send the emoji at the top left
-                                              var values = positions.map { ($0.key, geometry[$0.value]) }
-                                                  .filter { $0.1.x >= 0 }
-                                              values.sort(by: { l, r in l.1.x <= r.1.x })
-                                              if let (emoji, _) = values.first {
-                                                  preferredScrollCorrectionDetector.send(emoji)
-                                              }
-                                          }
-                                          .onReceive(preferredScrollCorrectionPublisher) {
-                                              guard let emoji = $0 else { return }
-                                              /// Scroll to the top left emoji with corrected position
-                                              scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: emoji, detector: preferredScrollCorrectionDetector)
-                                          }
-                                          .onAppear {
-                                              if let selectedEmoji = selectedEmoji,
-                                                 preferredEmojiList.emojis.contains(selectedEmoji) {
-                                                  scrollTo(geometry: geometry,
-                                                           scrollViewProxy: scrollViewProxy,
-                                                           emojis: preferredEmojiList.emojis,
-                                                           emoji: selectedEmoji,
-                                                           rowsCount: 1,
-                                                           detector: preferredScrollCorrectionDetector)
-                                              } else if let first = preferredEmojiList.emojis.first {
-                                                  scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: first, detector: preferredScrollCorrectionDetector)
-                                              }
-                                          }
-                            }
-                            if preferredEmojiList.emojis.isEmpty {
-                                Text("DRAP_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST")
-                                    .font(Font.system(.callout, design: .rounded).weight(.bold))
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(height: Self.gridColumnSize * 2)
+            PreferredEmojiPickerInnerView(input: .normal(selectedEmoji: $selectedEmoji,
+                                                         draggedEmoji: $draggedEmoji,
+                                                         selectAction: selectAction,
+                                                         haptic: haptic),
+                                          preferredEmojiList: preferredEmojiList)
             Divider()
             GeometryReader { geometry in
                 ScrollView(.horizontal, showsIndicators: true) {
                     ScrollViewReader { scrollViewProxy in
-                        LazyHGrid(rows: [GridItem](repeating: Self.gridItem,
-                                                   count: rowsCount ?? computeRowsCount(geometry: geometry)),
-                                  spacing: Self.gridSpacing) {
-                            ForEach(allEmojis) { emoji in
+                        LazyHGrid(rows: [GridItem](repeating: EmojiUtils.gridItem,
+                                                   count: rowsCount ?? EmojiUtils.computeRowsCount(geometry: geometry)),
+                                  spacing: EmojiUtils.gridSpacing) {
+                            ForEach(EmojiUtils.allEmojis) { emoji in
                                 EmojiView(emoji: emoji, selectAction: selectAction,
                                           haptic: haptic,
-                                          isNone: isNone,
+                                          isNone: EmojiUtils.isNone,
                                           selectedEmoji: $selectedEmoji,
                                           showVariantsView: $showVariantsView,
                                           draggedEmoji: $draggedEmoji)
@@ -534,7 +660,7 @@ struct EmojiPickerInnerView: View {
                                   .padding()
                                   .onChange(of: scrollToGroup) { group in
                                       guard let group = group else { return }
-                                      scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: group.firstEmoji, detector: allEmojisScrollCorrectionDetector)
+                                      EmojiUtils.scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: group.firstEmoji, detector: scrollCorrectionDetector)
                                       scrollToGroup = nil
                                   }
                                   .onPreferenceChange(Positions.self) { positions in
@@ -543,7 +669,7 @@ struct EmojiPickerInnerView: View {
                                           .filter { $0.1.x >= 0 }
                                       values.sort(by: { l, r in l.1.x <= r.1.x && l.1.y <= r.1.y })
                                       if let (emoji, _) = values.first {
-                                          allEmojisScrollCorrectionDetector.send(emoji)
+                                          scrollCorrectionDetector.send(emoji)
                                       }
                                       if let (emoji, _) = values.last {
                                           if let position = EmojiList.allEmojis.firstIndex(of: emoji),
@@ -555,16 +681,16 @@ struct EmojiPickerInnerView: View {
                                           self.draggedEmoji = nil
                                       }
                                       if self.rowsCount == nil {
-                                          let rowCount = computeRowsCount(geometry: geometry)
+                                          let rowCount = EmojiUtils.computeRowsCount(geometry: geometry)
                                           if rowCount > 0 {
                                               self.rowsCount = rowCount
                                           }
                                       }
                                   }
-                                  .onReceive(allEmojisScrollCorrectionPublisher) {
+                                  .onReceive(scrollCorrectionPublisher) {
                                       guard let emoji = $0 else { return }
                                       /// Scroll to the top left emoji with corrected position
-                                      scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: emoji, detector: allEmojisScrollCorrectionDetector)
+                                      EmojiUtils.scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: emoji, detector: scrollCorrectionDetector)
                                   }
                                   .onAppear {
                                       /// Set the current position of the scroll and set the current group
@@ -588,17 +714,17 @@ struct EmojiPickerInnerView: View {
                                               selectedGroup = group
                                           }
                                           if let representative = representative {
-                                              scrollTo(geometry: geometry,
+                                              EmojiUtils.scrollTo(geometry: geometry,
                                                        scrollViewProxy: scrollViewProxy,
-                                                       emojis: allEmojis.map({$0.defaultEmoji}),
+                                                                  emojis: EmojiUtils.allEmojis.map({$0.defaultEmoji}),
                                                        emoji: representative,
-                                                       rowsCount: rowsCount ?? computeRowsCount(geometry: geometry),
-                                                       detector: allEmojisScrollCorrectionDetector)
+                                                                  rowsCount: rowsCount ?? EmojiUtils.computeRowsCount(geometry: geometry),
+                                                       detector: scrollCorrectionDetector)
                                           }
                                       } else if let firstGroup = EmojiGroup.allCases.first {
                                           selectedGroup = firstGroup
                                           if let first = EmojiList.allEmojis.first {
-                                              scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: first, detector: allEmojisScrollCorrectionDetector)
+                                              EmojiUtils.scrollTo(geometry: geometry, scrollViewProxy: scrollViewProxy, emoji: first, detector: scrollCorrectionDetector)
                                           }
                                       }
                                   }
@@ -606,7 +732,7 @@ struct EmojiPickerInnerView: View {
                 }
                 .onAppear {
                     guard self.rowsCount == nil else { return }
-                    let rowCount = computeRowsCount(geometry: geometry)
+                    let rowCount = EmojiUtils.computeRowsCount(geometry: geometry)
                     if rowCount > 0 {
                         self.rowsCount = rowCount
                     }
@@ -623,14 +749,14 @@ struct EmojiPickerInnerView: View {
                         ZStack {
                             /// Show a comics like arrow above the selected emojis
                             Rectangle()
-                                .frame(width: Self.gridColumnSize / 2, height: Self.gridColumnSize / 2)
+                                .frame(width: EmojiUtils.gridColumnSize / 2, height: EmojiUtils.gridColumnSize / 2)
                                 .foregroundColor(.gray)
                                 .rotationEffect(.degrees(45))
-                                .position(x: arrowPosition.x, y: arrowPosition.y + Self.gridColumnSize / 3)
+                                .position(x: arrowPosition.x, y: arrowPosition.y + EmojiUtils.gridColumnSize / 3)
                             VariantEmojiPickerView(emojis: emojisToShow,
                                                    selectAction: selectAction,
                                                    haptic: haptic,
-                                                   isNone: isNone,
+                                                   isNone: EmojiUtils.isNone,
                                                    selectedEmoji: $selectedEmoji,
                                                    draggedEmoji: $draggedEmoji)
                                 .position(variantsViewPosition)
@@ -664,61 +790,6 @@ struct EmojiPickerInnerView: View {
         .background(.thinMaterial)
     }
 
-    fileprivate func scrollTo(geometry: GeometryProxy,
-                              scrollViewProxy: ScrollViewProxy,
-                              emoji: String,
-                              detector: CurrentValueSubject<ScrollCorrectionType, Never>) {
-        guard geometry.size.width > 0 else { return }
-        /// Stop current scrolling correction
-        detector.send(nil)
-        /// Computes the number of columns
-        let cols = (geometry.size.width / Self.gridColumnSize).rounded(.down)
-        /// Compute the left and right padding needs to be centered
-        let padding = (geometry.size.width - cols * Self.gridColumnSize) / 2
-        /// UnitPoint takes a ratio betwen the parent and child position
-        let x = padding / geometry.size.width
-        withAnimation {
-            scrollViewProxy.scrollTo(emoji, anchor: UnitPoint(x: x, y: 1))
-        }
-    }
-
-    fileprivate func scrollTo(geometry: GeometryProxy,
-                              scrollViewProxy: ScrollViewProxy,
-                              emojis: [String],
-                              emoji: String,
-                              rowsCount: Int,
-                              detector: CurrentValueSubject<ScrollCorrectionType, Never>) {
-        guard rowsCount > 0 else { return }
-        guard geometry.size.width > 0 else { return }
-
-        /// Stop current scrolling correction
-        detector.send(nil)
-        /// Computes the number of columns
-        let cols = (geometry.size.width / Self.gridColumnSize).rounded(.down)
-        let padding = (geometry.size.width - cols * Self.gridColumnSize) / 2
-
-        guard let emojiIndex = emojis.firstIndex(of: emoji) else { return }
-
-        let emojiCol = CGFloat(emojiIndex) / CGFloat(rowsCount)
-        let colsCount = (CGFloat(emojis.count) / CGFloat(rowsCount)).rounded(.up)
-
-        let trailingCols = colsCount - emojiCol
-        var emojiToScroll = emoji
-        if CGFloat(trailingCols) < cols {
-            let delta = cols - CGFloat(trailingCols)
-            let emojiToScrollIndex = emojiIndex - Int(delta) * rowsCount
-            guard 0 <= emojiToScrollIndex && emojiToScrollIndex < emojis.count else { return }
-            emojiToScroll = emojis[emojiToScrollIndex]
-        }
-
-        /// Compute the left and right padding needs to be centered
-        /// UnitPoint takes a ratio betwen the parent and child position
-        let x = padding / geometry.size.width
-        withAnimation {
-            scrollViewProxy.scrollTo(emojiToScroll, anchor: UnitPoint(x: x, y: 1))
-        }
-    }
-
     /// Returns the a pair of position of the given emoji, the first position of the variants view
     /// The code takes care that the bouds of the variants view are inside the view regardless of the position of the selected variant.
     fileprivate func getPosition(geometry: GeometryProxy, emoji: String, emojisCount: Int, positions: [String: Anchor<CGPoint>]) -> (CGPoint, CGPoint)? {
@@ -730,19 +801,19 @@ struct EmojiPickerInnerView: View {
         /// Compute the current trailing and leading space between the bound of the view and the frame
         let cols = viewWithPicker ? 4 : emojisCount
         let trailingCols: Int = cols / 2
-        let trailing = frame.maxX - point.x - Self.gridColumnSize * CGFloat(trailingCols)
+        let trailing = frame.maxX - point.x - EmojiUtils.gridColumnSize * CGFloat(trailingCols)
         let leadingCol = cols - trailingCols
-        let leading = point.x - Self.gridColumnSize * CGFloat(leadingCol) - frame.minX
+        let leading = point.x - EmojiUtils.gridColumnSize * CGFloat(leadingCol) - frame.minX
         /// Look is some space is negative, we should shift to view the show it entirely
         var indexDelta = 0
         if trailing < 0 {
-            indexDelta = Int((trailing / Self.gridColumnSize).rounded(.up))
+            indexDelta = Int((trailing / EmojiUtils.gridColumnSize).rounded(.up))
         } else if leading < 0 {
-            indexDelta = Int((-leading / Self.gridColumnSize).rounded(.up))
+            indexDelta = Int((-leading / EmojiUtils.gridColumnSize).rounded(.up))
         }
-        let xCorrection = (CGFloat(indexDelta) - 0.5) * Self.gridColumnSize
-        let yCorrection = -(viewWithPicker ? 0.5 + VariantEmojiPickerView.heightColWithPicker / 2 : 1.0) * Self.gridColumnSize
+        let xCorrection = (CGFloat(indexDelta) - 0.5) * EmojiUtils.gridColumnSize
+        let yCorrection = -(viewWithPicker ? 0.5 + VariantEmojiPickerView.heightColWithPicker / 2 : 1.0) * EmojiUtils.gridColumnSize
         return (CGPoint(x: point.x + xCorrection, y: point.y + yCorrection),
-                CGPoint(x: point.x, y: point.y - Self.gridColumnSize))
+                CGPoint(x: point.x, y: point.y - EmojiUtils.gridColumnSize))
     }
 }

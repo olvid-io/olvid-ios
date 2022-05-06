@@ -30,6 +30,8 @@ final class PendingMessageReaction: NSManagedObject {
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { PendingMessageReaction.makeError(message: message) }
 
+    // MARK: - Attributes
+
     @NSManaged private(set) var emoji: String?
     @NSManaged private var senderIdentifier: Data
     @NSManaged private var senderSequenceNumber: Int

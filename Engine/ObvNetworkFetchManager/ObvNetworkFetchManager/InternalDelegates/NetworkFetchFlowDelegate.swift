@@ -53,8 +53,8 @@ protocol NetworkFetchFlowDelegate {
     
     func downloadingMessagesAndListingAttachmentFailed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
     func downloadingMessagesAndListingAttachmentWasNotNeeded(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
-    func downloadingMessagesAndListingAttachmentWasPerformed(for: ObvCryptoIdentity, andDeviceUid: UID, idsOfNewMessages: [MessageIdentifier], flowId: FlowIdentifier)
-    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(for identity: ObvCryptoIdentity, idOfNewMessage: MessageIdentifier, flowId: FlowIdentifier)
+    func downloadingMessagesAndListingAttachmentWasPerformed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
+    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(flowId: FlowIdentifier)
     func processUnprocessedMessages(flowId: FlowIdentifier)
     func messagePayloadAndFromIdentityWereSet(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
     

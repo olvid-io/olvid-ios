@@ -168,6 +168,7 @@ class NotificationService: UNNotificationServiceExtension {
                 let badge = incrAndGetBadge()
                 let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(
                     body: messageReceived.textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
+                    isEphemeralMessageWithUserAction: messageReceived.isEphemeralMessageWithUserAction,
                     messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine,
                     contact: contact,
                     attachmentsFileNames: [],
@@ -319,8 +320,11 @@ class NotificationService: UNNotificationServiceExtension {
 
                 if let messageJSON = persistedItemJSON.message {
                     let textBody: String?
-                    if let expiration = messageJSON.expiration,
-                       expiration.visibilityDuration != nil || expiration.readOnce {
+                    var isEphemeralMessageWithUserAction = false
+                    if let expiration = messageJSON.expiration, expiration.visibilityDuration != nil || expiration.readOnce {
+                        isEphemeralMessageWithUserAction = true
+                    }
+                    if isEphemeralMessageWithUserAction {
                         textBody = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
                     } else {
                         textBody = messageJSON.body
@@ -328,6 +332,7 @@ class NotificationService: UNNotificationServiceExtension {
                     let badge = incrAndGetBadge()
                     let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(
                         body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
+                        isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
                         messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine,
                         contact: persistedContactIdentity,
                         attachmentsFileNames: [],
@@ -342,9 +347,9 @@ class NotificationService: UNNotificationServiceExtension {
                     guard message is PersistedMessageSent, !message.isWiped else { return }
 
                     if let emoji = reactionJSON.emoji {
-                        let (_, notificationContent) = UserNotificationCreator.createReactionNotification(message: message, contact: persistedContactIdentity, emoji: emoji, reactionTimestamp: obvMessage.messageUploadTimestampFromServer)
-
-                        self?.fullAttemptContent = notificationContent
+                        if let (_, notificationContent) = UserNotificationCreator.createReactionNotification(message: message, contact: persistedContactIdentity, emoji: emoji, reactionTimestamp: obvMessage.messageUploadTimestampFromServer) {
+                            self?.fullAttemptContent = notificationContent
+                        }
                     } else {
                         // Nothing can be done: we are not able to remove the notification from the extension and we cannot wake up the app.
                     }

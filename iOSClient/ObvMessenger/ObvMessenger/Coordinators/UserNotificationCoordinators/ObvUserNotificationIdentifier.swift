@@ -156,9 +156,13 @@ enum ObvUserNotificationIdentifier {
             return .acceptInviteCategory
         case .newMessage:
             return .newMessageCategory
+        case .newMessageNotificationWithHiddenContent:
+            return .newMessageWithLimitedVisibilityCategory
         case .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls:
             return .missedCallCategory
-        case .sasExchange, .mutualTrustConfirmed, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .newMessageNotificationWithHiddenContent, .staticIdentifier, .newReaction, .newReactionNotificationWithHiddenContent:
+        case .newReaction, .newReactionNotificationWithHiddenContent:
+            return .newReactionCategory
+        case .sasExchange, .mutualTrustConfirmed, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .staticIdentifier:
             return nil
         }
     }

@@ -71,15 +71,23 @@ public struct ObvAttachment: Hashable {
         return self.status == .paused
     }
     
-    private static let errorDomain = String(describing: ObvAttachment.self)
+    
+    private static func makeError(message: String, code: Int = 0) -> Error {
+        NSError(domain: "ObvAttachment", code: code, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
 
     init(attachmentId: AttachmentIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws {
-        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, flowId: obvContext.flowId) else { throw NSError() }
+        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, flowId: obvContext.flowId) else {
+            throw Self.makeError(message: "Coult not get attachment")
+        }
         try self.init(networkReceivedAttachment: networkReceivedAttachment, identityDelegate: identityDelegate, within: obvContext)
     }
     
     init(attachmentId: AttachmentIdentifier, fromContactIdentity: ObvContactIdentity, networkFetchDelegate: ObvNetworkFetchDelegate, flowId: FlowIdentifier) throws {
-        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, flowId: flowId) else { throw NSError() }
+        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, flowId: flowId) else {
+            throw Self.makeError(message: "Coult not get attachment")
+        }
         self.fromContactIdentity = fromContactIdentity
         self.attachmentId = networkReceivedAttachment.attachmentId
         metadata = networkReceivedAttachment.metadata
@@ -94,7 +102,9 @@ public struct ObvAttachment: Hashable {
         guard let obvContact = ObvContactIdentity(contactCryptoIdentity: networkReceivedAttachment.fromCryptoIdentity,
                                                   ownedCryptoIdentity: networkReceivedAttachment.attachmentId.messageId.ownedCryptoIdentity,
                                                   identityDelegate: identityDelegate,
-                                                  within: obvContext) else { throw NSError() }
+                                                  within: obvContext) else {
+            throw Self.makeError(message: "Could not get ObvContactIdentity")
+        }
         self.fromContactIdentity = obvContact
         self.attachmentId = networkReceivedAttachment.attachmentId
         metadata = networkReceivedAttachment.metadata
@@ -162,9 +172,7 @@ extension ObvAttachment: Codable {
         self.url = try values.decode(URL.self, forKey: .url)
         let rawStatus = try values.decode(Int.self, forKey: .status)
         guard let status = Status(rawValue: rawStatus) else {
-            let message = "Could not decode status"
-            let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-            throw NSError(domain: ObvAttachment.errorDomain, code: 0, userInfo: userInfo)
+            throw Self.makeError(message: "Could not decode status")
         }
         self.status = status
         self.attachmentId = try values.decode(AttachmentIdentifier.self, forKey: .attachmentId)

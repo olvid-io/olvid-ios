@@ -1000,9 +1000,9 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
          */
         
         if newConfig.readingRequiresUserAction {
-            multipleReactionsView.showInStack = false
+            multipleReactionsView.isHidden = true
         } else {
-            multipleReactionsView.showInStack = true
+            multipleReactionsView.isHidden = false
             if newConfig.reactionAndCounts.isEmpty {
                 multipleReactionsView.setReactions(to: [ReactionAndCount(emoji: "", count: 1)], messageID: messageObjectID?.downcast)
                 multipleReactionsView.alpha = 0.0

@@ -108,7 +108,7 @@ enum ObvMessengerInternalNotification {
 	case requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: (([HardLinkToFyle?]) -> Void))
 	case userWantsToRemoveDraftFyleJoin(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>)
 	case userWantsToChangeContactsSortOrder(ownedCryptoId: ObvCryptoId, sortOrder: ContactsSortOrder)
-	case userWantsToUpdateLocalConfigurationOfDiscussion(value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
+	case userWantsToUpdateLocalConfigurationOfDiscussion(value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, completionHandler: (Bool) -> Void)
 	case discussionLocalConfigurationHasBeenUpdated(newValue: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
 	case audioInputHasBeenActivated(label: String, activate: () -> Void)
 	case aViewRequiresObvMutualScanUrl(remoteIdentity: Data, ownedCryptoId: ObvCryptoId, completionHandler: ((ObvMutualScanUrl) -> Void))
@@ -141,6 +141,9 @@ enum ObvMessengerInternalNotification {
 	case uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: (SignedUserDetails?) -> Void)
 	case listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case userWantsToSendOneToOneInvitationToContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
+	case userRepliedToReceivedMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, textBody: String, completionHandler: (Bool) -> Void)
+	case userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: (Bool) -> Void)
+	case userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: (Bool) -> Void)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -250,6 +253,9 @@ enum ObvMessengerInternalNotification {
 		case uiRequiresSignedOwnedDetails
 		case listMessagesOnServerBackgroundTaskWasLaunched
 		case userWantsToSendOneToOneInvitationToContact
+		case userRepliedToReceivedMessageWithinTheNotificationExtension
+		case userRepliedToMissedCallWithinTheNotificationExtension
+		case userWantsToMarkAsReadMessageWithinTheNotificationExtension
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -369,6 +375,9 @@ enum ObvMessengerInternalNotification {
 			case .uiRequiresSignedOwnedDetails: return Name.uiRequiresSignedOwnedDetails.name
 			case .listMessagesOnServerBackgroundTaskWasLaunched: return Name.listMessagesOnServerBackgroundTaskWasLaunched.name
 			case .userWantsToSendOneToOneInvitationToContact: return Name.userWantsToSendOneToOneInvitationToContact.name
+			case .userRepliedToReceivedMessageWithinTheNotificationExtension: return Name.userRepliedToReceivedMessageWithinTheNotificationExtension.name
+			case .userRepliedToMissedCallWithinTheNotificationExtension: return Name.userRepliedToMissedCallWithinTheNotificationExtension.name
+			case .userWantsToMarkAsReadMessageWithinTheNotificationExtension: return Name.userWantsToMarkAsReadMessageWithinTheNotificationExtension.name
 			}
 		}
 	}
@@ -698,10 +707,11 @@ enum ObvMessengerInternalNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"sortOrder": sortOrder,
 			]
-		case .userWantsToUpdateLocalConfigurationOfDiscussion(value: let value, persistedDiscussionObjectID: let persistedDiscussionObjectID):
+		case .userWantsToUpdateLocalConfigurationOfDiscussion(value: let value, persistedDiscussionObjectID: let persistedDiscussionObjectID, completionHandler: let completionHandler):
 			info = [
 				"value": value,
 				"persistedDiscussionObjectID": persistedDiscussionObjectID,
+				"completionHandler": completionHandler,
 			]
 		case .discussionLocalConfigurationHasBeenUpdated(newValue: let newValue, localConfigurationObjectID: let localConfigurationObjectID):
 			info = [
@@ -834,6 +844,25 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 				"contactCryptoId": contactCryptoId,
+			]
+		case .userRepliedToReceivedMessageWithinTheNotificationExtension(persistedContactObjectID: let persistedContactObjectID, messageIdentifierFromEngine: let messageIdentifierFromEngine, textBody: let textBody, completionHandler: let completionHandler):
+			info = [
+				"persistedContactObjectID": persistedContactObjectID,
+				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"textBody": textBody,
+				"completionHandler": completionHandler,
+			]
+		case .userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: let persistedDiscussionObjectID, textBody: let textBody, completionHandler: let completionHandler):
+			info = [
+				"persistedDiscussionObjectID": persistedDiscussionObjectID,
+				"textBody": textBody,
+				"completionHandler": completionHandler,
+			]
+		case .userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: let persistedContactObjectID, messageIdentifierFromEngine: let messageIdentifierFromEngine, completionHandler: let completionHandler):
+			info = [
+				"persistedContactObjectID": persistedContactObjectID,
+				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"completionHandler": completionHandler,
 			]
 		}
 		return info
@@ -1501,12 +1530,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToUpdateLocalConfigurationOfDiscussion(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (PersistedDiscussionLocalConfigurationValue, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToUpdateLocalConfigurationOfDiscussion(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (PersistedDiscussionLocalConfigurationValue, TypeSafeManagedObjectID<PersistedDiscussion>, @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToUpdateLocalConfigurationOfDiscussion.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let value = notification.userInfo!["value"] as! PersistedDiscussionLocalConfigurationValue
 			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(value, persistedDiscussionObjectID)
+			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
+			block(value, persistedDiscussionObjectID, completionHandler)
 		}
 	}
 
@@ -1776,6 +1806,37 @@ enum ObvMessengerInternalNotification {
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
 			block(ownedCryptoId, contactCryptoId)
+		}
+	}
+
+	static func observeUserRepliedToReceivedMessageWithinTheNotificationExtension(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data, String, @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+		let name = Name.userRepliedToReceivedMessageWithinTheNotificationExtension.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let persistedContactObjectID = notification.userInfo!["persistedContactObjectID"] as! NSManagedObjectID
+			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
+			let textBody = notification.userInfo!["textBody"] as! String
+			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
+			block(persistedContactObjectID, messageIdentifierFromEngine, textBody, completionHandler)
+		}
+	}
+
+	static func observeUserRepliedToMissedCallWithinTheNotificationExtension(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, String, @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+		let name = Name.userRepliedToMissedCallWithinTheNotificationExtension.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! NSManagedObjectID
+			let textBody = notification.userInfo!["textBody"] as! String
+			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
+			block(persistedDiscussionObjectID, textBody, completionHandler)
+		}
+	}
+
+	static func observeUserWantsToMarkAsReadMessageWithinTheNotificationExtension(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data, @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToMarkAsReadMessageWithinTheNotificationExtension.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let persistedContactObjectID = notification.userInfo!["persistedContactObjectID"] as! NSManagedObjectID
+			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
+			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
+			block(persistedContactObjectID, messageIdentifierFromEngine, completionHandler)
 		}
 	}
 

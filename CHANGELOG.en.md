@@ -1,8 +1,16 @@
 # Changelog
 
-## [0.10.0 (495)] - 2022-03-24
+## [0.10.1 (501)] - 2022-03-24
 
-- New behavior of your address book! Now, an Olvid user becomes a contact only if you explicitly agree. You are now in full control of your address book!
+- It is now possible to reply to a message or to mark it as read right from the notification!
+- If you like a particular reaction made by another user, you can now easily add it to the list of your preferred reactions.
+- Fixes a bug preventing a received message from being edited by the sender.
+- Fixes an issue preventing the minimum supported and recommended Olvid version would not be properly updated.
+- Background tasks are more reliable.
+
+## [0.10.0 (495)] - 2022-03-21
+
+- New behavior of your address book! Now, an Olvid user becomes a contact *only* if you explicitly agree. You are now in full control of your address book!
 - A new list of "other" Olvid users is now accessible from the "Contacts" tab. Typically, these users are part of the same discussion groups as you. Inviting these users to be a contact of yours can be done in one tap!
 - A group invite from a contact is now automatically accepted.
 - You still need to explicitly accept group invites from Olvid users who are not part of your contacts.

@@ -123,15 +123,9 @@ extension UserNotificationsBadgesCoordinator {
 
     private func observeUpdateBadgeBackgroundTaskWasLaunchedNotifications() {
         notificationTokens.append(ObvMessengerInternalNotification.observeUpdateBadgeBackgroundTaskWasLaunched() { (completion) in
-            let completionHandler: (Bool) -> Void = { (success) in
-                DispatchQueue.main.async {
-                    (UIApplication.shared.delegate as? AppDelegate)?.scheduleBackgroundTaskForUpdatingBadge()
-                    completion(success)
-                }
-            }
             self.recomputeAllBadges()
             os_log("🤿 Update badge task has been done in background", log: self.log, type: .info)
-            completionHandler(true)
+            completion(true)
         })
     }
 

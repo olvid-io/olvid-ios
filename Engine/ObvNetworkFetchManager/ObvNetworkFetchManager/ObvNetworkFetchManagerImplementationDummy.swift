@@ -26,8 +26,9 @@ import ObvTypes
 import OlvidUtils
 
 
-public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDelegate {
-    
+public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDelegate, ObvErrorMaker {
+
+    public static var errorDomain = "ObvNetworkFetchManagerImplementationDummy"
     static let defaultLogSubsystem = "io.olvid.network.fetch.dummy"
     lazy public var logSubsystem: String = {
         return ObvNetworkFetchManagerImplementationDummy.defaultLogSubsystem
@@ -110,27 +111,27 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     
     public func allAttachmentsCanBeDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) throws -> Bool {
         os_log("allAttachmentsCanBeDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "allAttachmentsCanBeDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation")
     }
     
     public func allAttachmentsHaveBeenDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) throws -> Bool {
         os_log("allAttachmentsHaveBeenDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "allAttachmentsHaveBeenDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation")
     }
     
     public func attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) throws -> Bool {
         os_log("attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation")
     }
     
     public func set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: MessageIdentifier, within obvContext: ObvContext) throws {
         os_log("set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation")
     }
     
     public func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) throws {
         os_log("pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) does nothing in this dummy implementation")
     }
     
     public func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) {

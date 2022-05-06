@@ -4,10 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>io.olvid.clean.expired.messages</string>
-		<string>io.olvid.apply.retention.policies</string>
-		<string>io.olvid.update.badge</string>
-		<string>io.list.messages.on.server</string>
+		<string>io.olvid.background.tasks</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>

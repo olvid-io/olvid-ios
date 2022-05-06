@@ -340,21 +340,18 @@ extension MessagesCoordinator: MessagesDelegate {
         let listOfMessageAndAttachmentsOnServer = [message]
         let localDownloadTimestamp = Date()
         
-        var idOfNewMessage: MessageIdentifier!
         try localQueue.sync {
-            
             let idsOfNewMessages = try saveMessagesAndAttachmentsFromServer(listOfMessageAndAttachmentsOnServer,
                                                                             downloadTimestampFromServer: downloadTimestampFromServer,
                                                                             localDownloadTimestamp: localDownloadTimestamp,
                                                                             ownedIdentity: ownedIdentity,
                                                                             flowId: flowId)
             guard idsOfNewMessages.count == 1 else { throw makeError(message: "Could not save message") }
-            idOfNewMessage = idsOfNewMessages.first!
         }
         
-        delegateManager?.networkFetchFlowDelegate.aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(for: ownedIdentity,
-                                                                                                                  idOfNewMessage: idOfNewMessage,
-                                                                                                                  flowId: flowId)
+        queueForCallingDelegate.async { [weak self] in
+            self?.delegateManager?.networkFetchFlowDelegate.aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(flowId: flowId)
+        }
         
     }
 }
@@ -585,7 +582,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                     os_log("🌊 We successfully downloaded %d messages (%d are new) for identity %@ within flow %{public}@", log: log, type: .debug, listOfMessageAndAttachmentsOnServer.count, idsOfNewMessages.count, ownedIdentity.debugDescription, flowId.debugDescription)
                     _ = removeInfoFor(task)
                     queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentWasPerformed(for: ownedIdentity, andDeviceUid: deviceUid, idsOfNewMessages: idsOfNewMessages, flowId: flowId)
+                        delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentWasPerformed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
                     }
                     
                 }
@@ -913,7 +910,6 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                 do {
                     message = try InboxMessage(
                         messageId: messageId,
-                        toIdentity: ownedIdentity,
                         encryptedContent: messageAndAttachmentsOnServer.encryptedContent,
                         hasEncryptedExtendedMessagePayload: messageAndAttachmentsOnServer.hasEncryptedExtendedMessagePayload,
                         wrappedKey: messageAndAttachmentsOnServer.wrappedKey,

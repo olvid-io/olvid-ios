@@ -34,6 +34,11 @@ public struct ObvCryptoId {
     public func belongsTo(serverURL: URL) -> Bool {
         return cryptoIdentity.serverURL == serverURL
     }
+    
+    private static func makeError(message: String, code: Int = 0) -> Error {
+        NSError(domain: "ObvCryptoId", code: code, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
 }
 
 
@@ -88,7 +93,7 @@ extension ObvCryptoId {
     }
     
     public init(identity: Data) throws {
-        guard let cryptoIdentity = ObvCryptoIdentity(from: identity) else { throw NSError() }
+        guard let cryptoIdentity = ObvCryptoIdentity(from: identity) else { throw Self.makeError(message: "Could not get ObvCryptoIdentity") }
         self.cryptoIdentity = cryptoIdentity
     }
     

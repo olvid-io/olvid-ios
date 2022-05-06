@@ -420,7 +420,9 @@ extension InboxAttachment {
             throw InternalError.couldNotCreateAttachmentFile(error: nil)
         }
         
-        guard let fh = FileHandle(forWritingAtPath: url.path) else { throw NSError() }
+        guard let fh = FileHandle(forWritingAtPath: url.path) else {
+            throw Self.makeError(message: "Could not get FileHandle")
+        }
         fh.seek(toFileOffset: UInt64(cleartextLength))
         fh.closeFile()
         

@@ -197,11 +197,13 @@ extension PersistedDiscussion {
         }
     }
 
+    
     static func insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: NSManagedObjectID, markAsRead: Bool, within context: NSManagedObjectContext) throws {
-        guard context.concurrencyType != .mainQueueConcurrencyType else { throw NSError() }
-        guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: context) else { throw NSError() }
+        guard context.concurrencyType != .mainQueueConcurrencyType else { throw Self.makeError(message: "insertSystemMessagesIfDiscussionIsEmpty expects to be on background context") }
+        guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: context) else { throw Self.makeError(message: "Could not find discussion") }
         try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: markAsRead)
     }
+    
     
     func getAllActiveParticipants() throws -> (ownCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) {
         let contactCryptoIds: Set<ObvCryptoId>

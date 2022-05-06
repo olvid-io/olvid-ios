@@ -158,10 +158,10 @@ extension ObvFlowManager {
     public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
         switch delegateType {
         case .ObvNotificationDelegate:
-            guard let delegate = delegate as? ObvNotificationDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNotificationDelegate else { throw Self.makeError(message: "The ObvNotificationDelegate is not set") }
             delegateManager.notificationDelegate = delegate
         default:
-            throw NSError()
+            throw Self.makeError(message: "Unexpected delegate type")
         }
     }
     

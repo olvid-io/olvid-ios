@@ -397,14 +397,14 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    func downloadingMessagesAndListingAttachmentWasPerformed(for identity: ObvCryptoIdentity, andDeviceUid uid: UID, idsOfNewMessages: [MessageIdentifier], flowId: FlowIdentifier) {
+    func downloadingMessagesAndListingAttachmentWasPerformed(for identity: ObvCryptoIdentity, andDeviceUid uid: UID, flowId: FlowIdentifier) {
         failedAttemptsCounterManager.reset(counter: .downloadMessagesAndListAttachments(ownedIdentity: identity))
         processUnprocessedMessages(flowId: flowId)
         pollingWorker.pollingIfRequired(for: identity, withDeviceUid: uid, flowId: flowId)
     }
     
     
-    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(for identity: ObvCryptoIdentity, idOfNewMessage: MessageIdentifier, flowId: FlowIdentifier) {
+    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(flowId: FlowIdentifier) {
         processUnprocessedMessages(flowId: flowId)
     }
     
@@ -1064,6 +1064,8 @@ extension NetworkFetchFlowCoordinator {
         }
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        os_log("New well known was cached", log: log, type: .info)
 
         guard let notificationDelegate = delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)

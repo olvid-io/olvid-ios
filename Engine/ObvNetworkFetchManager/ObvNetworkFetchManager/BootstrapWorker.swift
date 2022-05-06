@@ -75,7 +75,6 @@ final class BootstrapWorker {
             self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
             self?.reschedulePendingDeleteFromServers(flowId: flowId, log: log, delegateManager: delegateManager, contextCreator: contextCreator)
             delegateManager.downloadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessions(flowId: flowId)
-            delegateManager.wellKnownCacheDelegate.initializateCache(flowId: flowId)
         }
 
     }
@@ -106,6 +105,7 @@ final class BootstrapWorker {
             internalQueue.addOperation { [weak self] in
                 // We cannot call this method in the finalizeInitialization method because the generated notifications would not be received by the app
                 self?.rescheduleAllInboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
+                delegateManager.wellKnownCacheDelegate.initializateCache(flowId: flowId)
             }
         }
         

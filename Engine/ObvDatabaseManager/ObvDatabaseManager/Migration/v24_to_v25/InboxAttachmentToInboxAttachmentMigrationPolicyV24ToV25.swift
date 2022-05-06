@@ -209,7 +209,7 @@ extension InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25 {
             throw makeError(message: "Could not create file for writting chunks")
         }
         
-        guard let fh = FileHandle(forWritingAtPath: url.path) else { throw NSError() }
+        guard let fh = FileHandle(forWritingAtPath: url.path) else { throw makeError(message: "Could get FileHandle") }
         fh.seek(toFileOffset: UInt64(cleartextLength))
         fh.closeFile()
         

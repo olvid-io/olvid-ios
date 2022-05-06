@@ -66,6 +66,10 @@ final class PersistedMessageReceived: PersistedMessage {
     @NSManaged private var messageRepliedToIdentifier: PendingRepliedTo?
     @NSManaged private var unsortedFyleMessageJoinWithStatus: Set<ReceivedFyleMessageJoinWithStatus>
 
+
+    private var userInfoForDeletion: [String: Any]?
+    private var changedKeys = Set<String>()
+
     // MARK: - Computed variables
 
     override var kind: PersistedMessageKind { .received }
@@ -122,9 +126,7 @@ final class PersistedMessageReceived: PersistedMessage {
             return unsortedFyleMessageJoinWithStatus.sorted(by: { $0.numberFromEngine < $1.numberFromEngine })
         }
     }
-    
-    private var userInfoForDeletion: [String: Any]?
-    
+
     var returnReceipt: ReturnReceiptJSON? {
         guard let serializedReturnReceipt = self.serializedReturnReceipt else { return nil }
         do {
@@ -135,7 +137,6 @@ final class PersistedMessageReceived: PersistedMessage {
         }
     }
 
-    private var changedKeys = Set<String>()
 
     var isEphemeralMessage: Bool {
         self.readOnce || self.visibilityDuration != nil || self.initialExistenceDuration != nil
@@ -165,6 +166,16 @@ final class PersistedMessageReceived: PersistedMessage {
         try addMetadata(kind: .edited, date: messageUploadTimestampFromServer)
     }
 
+    
+    /// `true` when this instance can be edited after being received
+    override var textBodyCanBeEdited: Bool {
+        guard self.discussion is PersistedOneToOneDiscussion || self.discussion is PersistedGroupDiscussion else { return false }
+        guard !self.isLocallyWiped else { return false }
+        guard !self.isRemoteWiped else { return false }
+        return true
+    }
+
+    
     func updateMissedMessageCount(with missedMessageCount: Int) {
         self.missedMessageCount = missedMessageCount
     }
@@ -621,6 +632,7 @@ extension PersistedMessageReceived {
         request.fetchBatchSize = 10
         return try context.fetch(request)
     }
+
     
     static func get(messageIdentifierFromEngine: Data, from contact: ObvContactIdentity, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else { return nil }
@@ -633,15 +645,16 @@ extension PersistedMessageReceived {
     }
 
     
-    static func get(messageIdentifierFromEngine: Data, from persistedContact: PersistedObvContactIdentity) -> PersistedMessageReceived? {
-        guard let context = persistedContact.managedObjectContext else { return nil }
+    static func get(messageIdentifierFromEngine: Data, from persistedContact: PersistedObvContactIdentity) throws -> PersistedMessageReceived? {
+        guard let context = persistedContact.managedObjectContext else { throw Self.makeError(message: "PersistedObvContactIdentity's context is nil") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
                                         messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg,
                                         contactIdentityKey, persistedContact)
         request.fetchLimit = 1
-        do { return try context.fetch(request).first } catch { return nil }
+        return try context.fetch(request).first
     }
+
 
     static func get(senderSequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: Data, discussion: PersistedDiscussion) throws -> PersistedMessageReceived? {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context") }
@@ -686,10 +699,10 @@ extension PersistedMessageReceived {
     }
 
     
-    static func getPersistedMessageReceived(with objectID: NSManagedObjectID, within context: NSManagedObjectContext) -> PersistedMessageReceived? {
+    static func getPersistedMessageReceived(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, within context: NSManagedObjectContext) -> PersistedMessageReceived? {
         let persistedMessageReceived: PersistedMessageReceived
         do {
-            guard let res = try context.existingObject(with: objectID) as? PersistedMessageReceived else { throw NSError() }
+            guard let res = try context.existingObject(with: objectID.objectID) as? PersistedMessageReceived else { throw NSError() }
             persistedMessageReceived = res
         } catch {
             return nil
@@ -791,7 +804,7 @@ extension PersistedMessageReceived {
     
 
     static func batchDeletePendingRepliedToEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
-        try PendingRepliedTo.batchDeleteEntriesOlderThan(Date(timeIntervalSinceNow: -TimeInterval(months: 1)), within: context)
+        try PendingRepliedTo.batchDeleteEntriesOlderThan(date, within: context)
     }
 
     

@@ -148,6 +148,8 @@ struct CommonString {
         static let deleteOwnReaction = NSLocalizedString("DELETE_OWN_REACTION", comment: "Title")
         static let contactsAndGroups = NSLocalizedString("CONTACTS_AND_GROUPS", comment: "Title")
         static let contactsSortOrder = NSLocalizedString("CONTACTS_SORT_ORDER", comment: "Title")
+        static let sendMessage = NSLocalizedString("SEND_MESSAGE", comment: "Title")
+        static let markAsRead = NSLocalizedString("MARK_AS_READ", comment: "Title")
     }
     
     static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")

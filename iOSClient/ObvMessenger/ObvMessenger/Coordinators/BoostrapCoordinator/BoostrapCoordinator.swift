@@ -120,19 +120,13 @@ extension BootstrapCoordinator {
     
     
     private func deleteOldPendingRepliedTo() {
-        let log = self.log
-        ObvStack.shared.performBackgroundTaskAndWait { context in
-            do {
-                try PersistedMessageReceived.batchDeletePendingRepliedToEntriesOlderThan(Date(timeIntervalSinceNow: -TimeInterval(months: 1)), within: context)
-                try context.save(logOnFailure: log)
-            } catch {
-                assertionFailure()
-                os_log("Failed to delete old PendingRepliedTo entries: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-        }
+        assert(!Thread.isMainThread)
+        let op1 = DeleteOldPendingRepliedToOperation()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
     }
-    
-    
+
     private func removeOldCachedURLMetadata() {
         let dateLimit = Date().addingTimeInterval(TimeInterval(integerLiteral: -ObvMessengerConstants.TTL.cachedURLMetadata))
         LPMetadataProvider.removeCachedURLMetadata(olderThan: dateLimit)

@@ -25,6 +25,9 @@ enum UserNotificationAction: String {
     case decline = "DECLINE_ACTION"
     case mute = "MUTE_ACTION"
     case callBack = "CALL_BACK_ACTION"
+    case replyTo = "REPLY_TO_ACTION"
+    case sendMessage = "SEND_MESSAGE_ACTION"
+    case markAsRead = "MARK_AS_READ_ACTION"
 }
 
 extension UserNotificationAction {
@@ -34,6 +37,9 @@ extension UserNotificationAction {
         case .decline: return CommonString.Word.Decline
         case .mute: return CommonString.Word.Mute
         case .callBack: return CommonString.Title.callBack
+        case .replyTo: return CommonString.Word.Reply
+        case .sendMessage: return CommonString.Title.sendMessage
+        case .markAsRead: return CommonString.Title.markAsRead
         }
     }
 
@@ -43,6 +49,9 @@ extension UserNotificationAction {
         case .decline: return [.authenticationRequired, .destructive]
         case .mute: return [.authenticationRequired]
         case .callBack: return [.authenticationRequired, .foreground]
+        case .replyTo: return [.authenticationRequired]
+        case .sendMessage: return [.authenticationRequired]
+        case .markAsRead: return [.authenticationRequired]
         }
     }
 
@@ -52,16 +61,50 @@ extension UserNotificationAction {
         case .decline: return .multiply
         case .mute: return ObvMessengerConstants.muteIcon
         case .callBack: return .phoneFill
+        case .replyTo: return .arrowshapeTurnUpLeft2
+        case .sendMessage: return .arrowshapeTurnUpLeft2
+        case .markAsRead: return .envelopeOpenFill
+        }
+    }
+
+    private var textInput: (buttonTitle: String, placeholder: String)? {
+        switch self {
+        case .accept, .decline, .mute, .callBack, .markAsRead: return nil
+        case .replyTo, .sendMessage: return (CommonString.Word.Send, "Aa")
         }
     }
 
     var action: UNNotificationAction {
-        if #available(iOS 15.0, *) {
-            let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
-            return UNNotificationAction(identifier: rawValue, title: title, options: options, icon: actionIcon)
+        if let (buttonTitle, placeholder) = textInput {
+            return UNTextInputNotificationAction(identifier: rawValue, title: title, options: options, icon: icon, textInputButtonTitle: buttonTitle, textInputPlaceholder: placeholder)
         } else {
-            return UNNotificationAction(identifier: rawValue, title: title, options: options)
+            return UNNotificationAction(identifier: rawValue, title: title, options: options, icon: icon)
         }
     }
 
+}
+
+extension UNNotificationAction {
+
+    convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: ObvSystemIcon) {
+        if #available(iOS 15.0, *) {
+            let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
+            self.init(identifier: identifier, title: title, options: options, icon: actionIcon)
+        } else {
+            self.init(identifier: identifier, title: title, options: options)
+        }
+    }
+
+}
+
+extension UNTextInputNotificationAction {
+
+    convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: ObvSystemIcon, textInputButtonTitle: String, textInputPlaceholder: String) {
+        if #available(iOS 15.0, *) {
+            let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
+            self.init(identifier: identifier, title: title, options: options, icon: actionIcon, textInputButtonTitle: textInputButtonTitle, textInputPlaceholder: textInputPlaceholder)
+        } else {
+            self.init(identifier: identifier, title: title, options: options, textInputButtonTitle: textInputButtonTitle, textInputPlaceholder: textInputPlaceholder)
+        }
+    }
 }

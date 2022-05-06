@@ -65,6 +65,8 @@ extension NetworkReceivedMessageDecryptor {
         
     }
     
+    
+    /// This method is called on each new received message.
     func decryptAndProcess(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws {
         
         guard let delegateManager = delegateManager else {

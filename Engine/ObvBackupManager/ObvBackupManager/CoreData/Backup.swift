@@ -128,7 +128,7 @@ final class Backup: NSManagedObject, ObvManagedObject {
 
     private convenience init(forExport: Bool, status: Status, backupKey: BackupKey, delegateManager: ObvBackupDelegateManager) throws {
         
-        guard let obvContext = backupKey.obvContext else { throw NSError() }
+        guard let obvContext = backupKey.obvContext else { throw Self.makeError(message: "The context of the backupKey is nil") }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)

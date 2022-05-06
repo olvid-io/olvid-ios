@@ -28,10 +28,12 @@ struct UserNotificationKeys {
     static let id = "id"
     static let deepLink = "deepLink"
     static let persistedDiscussionObjectURI = "persistedDiscussionObjectURI"
+    static let persistedContactObjectURI = "persistedContactObjectURI"
     static let reactionTimestamp = "reactionTimestamp"
     static let callUUID = "callUUID"
     static let messageIdentifierForNotification = "messageIdentifierForNotification"
     static let persistedInvitationUUID = "persistedInvitationUUID"
+    static let messageIdentifierFromEngine = "messageIdentifierFromEngine"
     static let reactionIdentifierForNotification = "reactionIdentifierForNotification"
 }
 
@@ -129,6 +131,7 @@ struct UserNotificationCreator {
     
     /// This static method creates a new message notification.
     static func createNewMessageNotification(body: String?,
+                                             isEphemeralMessageWithUserAction: Bool,
                                              messageIdentifierFromEngine: Data,
                                              contact: PersistedObvContactIdentity,
                                              attachmentsFileNames: [String],
@@ -148,7 +151,11 @@ struct UserNotificationCreator {
             
         case .no:
 
-            notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageIdentifierFromEngine)
+            if isEphemeralMessageWithUserAction {
+                notificationId = .newMessageNotificationWithHiddenContent
+            } else {
+                notificationId = .newMessage(messageIdentifierFromEngine: messageIdentifierFromEngine)
+            }
 
             notificationContent.title = contact.customOrFullDisplayName
             if discussion is PersistedGroupDiscussion {
@@ -175,6 +182,8 @@ struct UserNotificationCreator {
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.typedObjectID.uriRepresentation().absoluteString
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
+            notificationContent.userInfo[UserNotificationKeys.persistedContactObjectURI] = contact.typedObjectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.messageIdentifierFromEngine] = messageIdentifierFromEngine.hexString()
 
             if #available(iOS 15.0, *) {
                 incomingMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, showGroupName: true, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
@@ -436,7 +445,7 @@ struct UserNotificationCreator {
         return createReactionNotification(message: message, contact: contact, emoji: reaction.emoji, reactionTimestamp: reaction.timestamp)
     }
 
-    static func createReactionNotification(message: PersistedMessage, contact: PersistedObvContactIdentity, emoji: String, reactionTimestamp: Date) -> (notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent) {
+    static func createReactionNotification(message: PersistedMessage, contact: PersistedObvContactIdentity, emoji: String, reactionTimestamp: Date) -> (notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent)? {
 
         let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
 
@@ -449,9 +458,19 @@ struct UserNotificationCreator {
 
         switch hideNotificationContent {
         case .no:
-            notificationId = .newReaction(messageURI: message.objectID.uriRepresentation(), contactURI: contact.objectID.uriRepresentation())
 
-            notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@_%@", comment: ""), emoji, message.textBody ?? "")
+            if let sentMessage = message as? PersistedMessageSent,
+               sentMessage.isEphemeralMessageWithLimitedVisibility {
+                notificationId = .newReactionNotificationWithHiddenContent
+                notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@", comment: ""), emoji)
+            } else if let textBody = message.textBody {
+                notificationId = .newReaction(messageURI: message.objectID.uriRepresentation(), contactURI: contact.objectID.uriRepresentation())
+                notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@_%@", comment: ""), emoji, textBody)
+            } else {
+                notificationId = .newReactionNotificationWithHiddenContent
+                notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@", comment: ""), emoji)
+            }
+
             if #available(iOS 15.0, *) {
                 sendMessageIntent = buildSendMessageIntent(notificationContent: notificationContent,
                                                            contact: contact,
@@ -466,6 +485,7 @@ struct UserNotificationCreator {
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.reactionTimestamp] = reactionTimestamp
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.objectID.uriRepresentation().absoluteString
 
 
         case .partially:
@@ -502,7 +522,7 @@ struct UserNotificationCreator {
         // We only set a category if the user does not hide the notification content:
         // Since we use categories to provide interaction within the notification (like accepting or rejectecting an invitation), it would make no sense if the notification does not display any content.
         if let category = notificationId.getCategory(), hideNotificationContent == .no {
-            notificationContent.categoryIdentifier = category.getIdentifier()
+            notificationContent.categoryIdentifier = category.identifier
         }
         notificationContent.userInfo[UserNotificationKeys.id] = notificationId.id.rawValue
     }

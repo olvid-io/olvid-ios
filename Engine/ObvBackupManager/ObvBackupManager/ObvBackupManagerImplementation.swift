@@ -703,13 +703,13 @@ extension ObvBackupManagerImplementation {
     public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
         switch delegateType {
         case .ObvCreateContextDelegate:
-            guard let delegate = delegate as? ObvCreateContextDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvCreateContextDelegate else { throw Self.makeError(message: "The ObvCreateContextDelegate is nil") }
             delegateManager.contextCreator = delegate
         case .ObvNotificationDelegate:
-            guard let delegate = delegate as? ObvNotificationDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNotificationDelegate else { throw Self.makeError(message: "The ObvNotificationDelegate is nil") }
             delegateManager.notificationDelegate = delegate
         default:
-            throw NSError()
+            throw Self.makeError(message: "Unexpected delegate type")
         }
     }
     

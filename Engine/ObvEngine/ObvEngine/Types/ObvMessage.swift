@@ -45,21 +45,30 @@ public struct ObvMessage {
         return fromContactIdentity.ownedIdentity.cryptoId
     }
     
+    
+    private static func makeError(message: String, code: Int = 0) -> Error {
+        NSError(domain: "ObvMessage", code: code, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
+    
     init(messageId: MessageIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws {
 
-        guard let networkReceivedMessage = networkFetchDelegate.getDecryptedMessage(messageId: messageId, flowId: obvContext.flowId) else { throw NSError() }
+        guard let networkReceivedMessage = networkFetchDelegate.getDecryptedMessage(messageId: messageId, flowId: obvContext.flowId) else {
+            throw Self.makeError(message: "The call to getDecryptedMessage did fail")
+        }
         
         try self.init(networkReceivedMessage: networkReceivedMessage, networkFetchDelegate: networkFetchDelegate, identityDelegate: identityDelegate, within: obvContext)
         
     }
     
+    
     init(networkReceivedMessage: ObvNetworkReceivedMessageDecrypted, networkFetchDelegate: ObvNetworkFetchDelegate, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws {
         guard let obvContact = ObvContactIdentity(contactCryptoIdentity: networkReceivedMessage.fromIdentity,
                                                   ownedCryptoIdentity: networkReceivedMessage.messageId.ownedCryptoIdentity,
                                                   identityDelegate: identityDelegate,
-                                                  within: obvContext) else { throw NSError() }
-        
-        
+                                                  within: obvContext) else {
+            throw Self.makeError(message: "Could not get ObvContactIdentity")
+        }
         
         self.fromContactIdentity = obvContact
         self.messageId = networkReceivedMessage.messageId

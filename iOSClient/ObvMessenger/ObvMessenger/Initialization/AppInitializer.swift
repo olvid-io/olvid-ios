@@ -309,9 +309,9 @@ final class AppInitializer {
         let log = self.log
         internalQueue.addOperation { [weak self] in
             let tag = UUID()
-            os_log("We are performing a background fetch. We tag it as @{public}@", log: log, type: .info, tag.uuidString)
+            os_log("We are performing a background fetch. We tag it as %{public}@", log: log, type: .info, tag.uuidString)
             let completionHandlerForEngine: (UIBackgroundFetchResult) -> Void = { (result) in
-                os_log("Calling the completion handler of the background fetch tagged as @{public}@. The result is %{public}@", log: log, type: .info, tag.uuidString, result.debugDescription)
+                os_log("Calling the completion handler of the background fetch tagged as %{public}@. The result is %{public}@", log: log, type: .info, tag.uuidString, result.debugDescription)
                 switch result {
                 case .newData, .noData:
                     success(true)
@@ -327,24 +327,6 @@ final class AppInitializer {
             DispatchQueue(label: "Queue created for handling background fetch tagged \(tag.uuidString)").async {
                 obvEngine.application(performFetchWithCompletionHandler: completionHandlerForEngine)
             }
-        }
-    }
-    
-}
-
-
-
-extension AppDelegate {
-
-    func scheduleBackgroundTaskForListingMessagesOnServer() {
-        let earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval(minutes: 15))
-        do {
-            try BackgroundTasksManager.shared.submit(task: .listMessagesOnServer, earliestBeginDate: earliestBeginDate)
-        } catch {
-            guard ObvMessengerConstants.isRunningOnRealDevice else { assertionFailure("We should not be scheduling BG tasks on a simulator as they are unsuported"); return }
-            os_log("🤿 Could not schedule next expiration: %{public}@", log: log, type: .fault, error.localizedDescription)
-            assertionFailure()
-            return
         }
     }
     

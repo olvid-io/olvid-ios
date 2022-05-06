@@ -144,8 +144,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerCoreDataNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
                 self?.processUserWantsToUpdateDiscussionLocalConfigurationNotification(with: value, localConfigurationObjectID: localConfigurationObjectID)
             },
-            ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, persistedDiscussionObjectID) in
-                self?.processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with: value, persistedDiscussionObjectID: persistedDiscussionObjectID)
+            ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, persistedDiscussionObjectID, completionHandler) in
+                self?.processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with: value, persistedDiscussionObjectID: persistedDiscussionObjectID, completionHandler: completionHandler)
             },
             ObvMessengerCoreDataNotification.observePersistedContactWasDeleted { [weak self ] _, _ in
                 self?.processPersistedContactWasDeletedNotification()
@@ -164,6 +164,15 @@ final class PersistedDiscussionsUpdatesCoordinator {
             },
             ObvMessengerCoreDataNotification.observeAOneToOneDiscussionTitleNeedsToBeReset { [weak self] ownedIdentityObjectID in
                 self?.processAOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: ownedIdentityObjectID)
+            },
+            ObvMessengerInternalNotification.observeUserRepliedToReceivedMessageWithinTheNotificationExtension { [weak self] persistedContactObjectID, messageIdentifierFromEngine, textBody, completionHandler in
+                self?.processUserRepliedToReceivedMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody, completionHandler: completionHandler)
+            },
+            ObvMessengerInternalNotification.observeUserRepliedToMissedCallWithinTheNotificationExtension { [weak self] persistedDiscussionObjectID, textBody, completionHandler in
+                self?.processUserRepliedToMissedCallWithinTheNotificationExtensionNotification(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textBody, completionHandler: completionHandler)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToMarkAsReadMessageWithinTheNotificationExtension { [weak self] persistedContactObjectID, messageIdentifierFromEngine, completionHandler in
+                self?.processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, completionHandler: completionHandler)
             },
         ])
         
@@ -1398,9 +1407,15 @@ extension PersistedDiscussionsUpdatesCoordinator {
         composedOp.logReasonIfCancelled(log: log)
     }
 
-    private func processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
+    private func processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, completionHandler: @escaping (Bool) -> Void) {
         let op = UpdateDiscussionLocalConfigurationOperation(value: value, persistedDiscussionObjectID: persistedDiscussionObjectID)
         let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        op.completionBlock = {
+            DispatchQueue.main.async {
+                completionHandler(!op.isCancelled)
+            }
+        }
+
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
     }
@@ -1725,6 +1740,60 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
     }
 
+    
+    private func processUserRepliedToReceivedMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, textBody: String, completionHandler: @escaping (Bool) -> Void) {
+        // This call will add the received message decrypted by the notification extension into the database to be sure that we will be able to reply to this message.
+        bootstrapMessagesDecryptedWithinNotificationExtension()
+
+        let op1 = CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody)
+        let op2 = MarkAsReadReceivedMessageOperation(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine)
+        let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: nil, obvEngine: obvEngine) {
+            DispatchQueue.main.async { completionHandler(true) }
+        }
+        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+
+        guard [op1, op2, op3].allSatisfy({ !$0.isCancelled }) else {
+            DispatchQueue.main.async { completionHandler(false) }
+            return
+        }
+    }
+
+
+    private func processUserRepliedToMissedCallWithinTheNotificationExtensionNotification(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: @escaping (Bool) -> Void) {
+
+        let op1 = CreateUnprocessedPersistedMessageSentFromBodyOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textBody)
+        let op2 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: nil, obvEngine: obvEngine) {
+            DispatchQueue.main.async { completionHandler(true) }
+        }
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+
+        guard !op1.isCancelled else {
+            DispatchQueue.main.async { completionHandler(false) }
+            return
+        }
+        guard !op2.isCancelled else {
+            DispatchQueue.main.async { completionHandler(false) }
+            return
+        }
+    }
+
+    
+    private func processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: @escaping (Bool) -> Void) {
+        // This call will add the received message decrypted by the notification extension into the database to be sure that we will be able to mark as read to this message.
+        bootstrapMessagesDecryptedWithinNotificationExtension()
+
+        let op = MarkAsReadReceivedMessageOperation(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine)
+        op.completionBlock = {
+            DispatchQueue.main.async { completionHandler(!op.isCancelled) }
+        }
+        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
 }
 
 

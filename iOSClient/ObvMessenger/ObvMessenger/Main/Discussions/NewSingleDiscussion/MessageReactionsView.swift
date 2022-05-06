@@ -55,6 +55,8 @@ final fileprivate class MessageReactionsListViewModel: ObservableObject {
     private(set) var messageInViewContext: PersistedMessage
     @Published var changed: Bool // This allows to "force" the refresh of the view
     private var observationTokens = [NSObjectProtocol]()
+    @ObservedObject var preferredEmojisList = ObvMessengerPreferredEmojisListObservable()
+    private let notificationGenerator = UINotificationFeedbackGenerator()
 
     fileprivate weak var delegate: MessageReactionsListViewModelDelegate?
 
@@ -98,6 +100,11 @@ final fileprivate class MessageReactionsListViewModel: ObservableObject {
             }
         })
     }
+
+    func successHaptic() {
+        notificationGenerator.notificationOccurred(.success)
+    }
+
 }
 
 fileprivate enum MessageReactionSender: Equatable, Hashable {
@@ -164,6 +171,14 @@ fileprivate class MessageReaction: Identifiable, Hashable, Comparable {
         }
     }
 
+    var isOwnedReaction: Bool {
+        switch sender {
+        case .contact:
+            return false
+        case .owned:
+            return true
+        }
+    }
 
 }
 
@@ -174,8 +189,10 @@ struct MessageReactionsListView: View {
 
     var body: some View {
         MessageReactionsListInnerView(reactions: model.reactions,
-                                  reactionsAndCount: model.reactionAndCount,
-                                  userWantsToDeleteItsReaction: model.userWantsToDeleteItsReaction)
+                                      reactionsAndCount: model.reactionAndCount,
+                                      preferredEmojiList: model.preferredEmojisList,
+                                      userWantsToDeleteItsReaction: model.userWantsToDeleteItsReaction,
+                                      successHaptic: model.successHaptic)
     }
 }
 
@@ -185,23 +202,58 @@ struct MessageReactionsListInnerView: View {
     fileprivate let reactions: [MessageReaction]
     let reactionsAndCount: [ReactionAndCount]
     let userWantsToDeleteItsReaction: () -> Void
+    let successHaptic: () -> Void
 
-    fileprivate init(reactions: [MessageReaction], reactionsAndCount: [ReactionAndCount], userWantsToDeleteItsReaction: @escaping () -> Void) {
+    @ObservedObject var preferredEmojiList: ObvMessengerPreferredEmojisListObservable
+
+    fileprivate init(reactions: [MessageReaction],
+                     reactionsAndCount: [ReactionAndCount],
+                     preferredEmojiList: ObvMessengerPreferredEmojisListObservable,
+                     userWantsToDeleteItsReaction: @escaping () -> Void,
+                     successHaptic: @escaping () -> Void) {
         self.reactions = reactions
         self.reactionsAndCount = reactionsAndCount
+        self.preferredEmojiList = preferredEmojiList
         self.userWantsToDeleteItsReaction = userWantsToDeleteItsReaction
+        self.successHaptic = successHaptic
     }
 
     var body: some View {
-        VStack(alignment: .center) {
-            List {
-                ForEach(reactions) { reaction in
-                    MessageReactionView(reaction: reaction,
-                                        userWantsToDeleteItsReaction: userWantsToDeleteItsReaction)
+        GeometryReader { geo in
+            VStack(alignment: .center, spacing: 0) {
+                List {
+                    Section {
+                        ForEach(0..<reactions.count, id: \.self) { index in
+                            MessageReactionView(index: index,
+                                                reactions: reactions,
+                                                userWantsToDeleteItsReaction: userWantsToDeleteItsReaction,
+                                                successHaptic: successHaptic,
+                                                preferredEmojiList: preferredEmojiList)
+                        }
+                    } footer: {
+                        VStack(alignment: .leading) {
+                            HStack(alignment: .firstTextBaseline) {
+                                FixedWidthImage(systemIcon: .handTap)
+                                Text("HOW_TO_ADD_MESSAGE_REACTION")
+                                Spacer()
+                            }
+                            if reactions.contains(where: { !$0.isOwnedReaction }) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    FixedWidthImage(systemIcon: .star)
+                                    Text("HOW_TO_ADD_REACTION_TO_PREFFERED")
+                                    Spacer()
+                                }
+                            }
+                            if reactions.contains(where: { $0.isOwnedReaction }) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    FixedWidthImage(systemIcon: .heartSlashFill)
+                                    Text("HOW_TO_REMOVE_OWN_REACTION")
+                                    Spacer()
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            Spacer()
-            GeometryReader { geo in
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(reactionsAndCount) { reactionAndCount in
@@ -214,17 +266,37 @@ struct MessageReactionsListInnerView: View {
                     }
                     .frame(minWidth: geo.size.width)
                 }
+                .frame(height: 50)
             }
-            .frame(height: 50)
         }
     }
+
+}
+
+
+fileprivate struct FixedWidthImage: View {
+    
+    let systemIcon: ObvSystemIcon
+    
+    var body: some View {
+        Image(systemIcon: systemIcon)
+            .frame(width: UIFont.preferredFont(forTextStyle: .body).pointSize)
+    }
+    
 }
 
 
 fileprivate struct MessageReactionView: View {
 
-    let reaction: MessageReaction
+    let index: Int
+    let reactions: [MessageReaction]
     let userWantsToDeleteItsReaction: () -> Void
+    let successHaptic: () -> Void
+    @ObservedObject var preferredEmojiList: ObvMessengerPreferredEmojisListObservable
+
+    var reaction: MessageReaction {
+        reactions[index]
+    }
 
     var body: some View {
         HStack {
@@ -238,15 +310,36 @@ fileprivate struct MessageReactionView: View {
                                      date: reaction.date)
             }
             Spacer()
-            if case .owned = reaction.sender {
-                Button {
+            Button {
+                switch reaction.sender {
+                case .contact:
+                    if preferredEmojiList.emojis.contains(reaction.emoji) {
+                        withAnimation {
+                            preferredEmojiList.emojis.removeAll { $0 == reaction.emoji }
+                        }
+                    } else {
+                        withAnimation {
+                            preferredEmojiList.emojis.append(reaction.emoji)
+                        }
+                    }
+                    successHaptic()
+                case .owned:
                     userWantsToDeleteItsReaction()
-                } label: {
+                }
+            } label: {
+                switch reaction.sender {
+                case .contact:
+                    if preferredEmojiList.emojis.contains(reaction.emoji) {
+                        Image(systemIcon: .starFill)
+                    } else {
+                        Image(systemIcon: .star)
+                    }
+                case .owned:
                     Image(systemIcon: .heartSlashFill)
                 }
-                // Avoid to execute the action when the user tap on every elements of the HStack
-                .buttonStyle(BorderlessButtonStyle())
             }
+            // Avoid to execute the action when the user tap on every elements of the HStack
+            .buttonStyle(BorderlessButtonStyle())
             Text(reaction.emoji)
         }
     }

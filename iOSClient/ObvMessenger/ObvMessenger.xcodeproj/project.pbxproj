@@ -102,6 +102,8 @@
 		C0541723248A40F20055B72C /* PersistedMessageExpiration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0541722248A40F20055B72C /* PersistedMessageExpiration.swift */; };
 		C0541725248A40F20055B72C /* PersistedMessageExpiration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0541722248A40F20055B72C /* PersistedMessageExpiration.swift */; };
 		C0567FEB277241E700313EFB /* ExternalLibrariesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0567FEA277241E700313EFB /* ExternalLibrariesViewController.swift */; };
+		C05C197227D91907007D4032 /* DeleteOldPendingRepliedToOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05C197127D91907007D4032 /* DeleteOldPendingRepliedToOperation.swift */; };
+		C05F8FCF27D57A0400B236B1 /* CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05F8FCE27D57A0400B236B1 /* CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.swift */; };
 		C0601BB12782F59900120A27 /* ChangeNewComposeMessageViewActionOrderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0601BB02782F59900120A27 /* ChangeNewComposeMessageViewActionOrderViewController.swift */; };
 		C064062826A1C70F00B25290 /* ObvAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04BABA126A1C43B00FBF283 /* ObvAudioPlayer.swift */; };
 		C06831C62722F60300C2693B /* MissedMessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06831C52722F60300C2693B /* MissedMessageBubbleView.swift */; };
@@ -184,6 +186,7 @@
 		C0B6C2E727A06EE300434D50 /* ObvNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C400059F20CB69A500AC148C /* ObvNavigationController.swift */; };
 		C0B6C33527A071FB00434D50 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C4CB84D92084B0DA004D0730 /* Assets.xcassets */; };
 		C0B6D92B27E49009006C8C9B /* SaveContextOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B6D92A27E49009006C8C9B /* SaveContextOperation.swift */; };
+		C0B6E0FF27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B6E0FE27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift */; };
 		C0BB70C22487928800AFD692 /* NSNumber+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB70C12487928800AFD692 /* NSNumber+Utils.swift */; };
 		C0BB70C42487928900AFD692 /* NSNumber+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB70C12487928800AFD692 /* NSNumber+Utils.swift */; };
 		C0BC223E24ADD10B00227D15 /* CellWithMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BC223D24ADD10B00227D15 /* CellWithMessage.swift */; };
@@ -204,6 +207,7 @@
 		C0CC887E269634B6009CAE24 /* RTCSdpType+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CC887D269634B5009CAE24 /* RTCSdpType+Extension.swift */; };
 		C0D4BF082625F47E001A561B /* MigrationAppDatabase_v28_to_v29.txt in Resources */ = {isa = PBXBuildFile; fileRef = C0D4BF072625F47E001A561B /* MigrationAppDatabase_v28_to_v29.txt */; };
 		C0D4BF0C2625F6BD001A561B /* ObvMessengerMappingModel_v28_to_v29.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C0D4BF0B2625F6BD001A561B /* ObvMessengerMappingModel_v28_to_v29.xcmappingmodel */; };
+		C0D7ACBC27DB5ACB009C5338 /* CreateUnprocessedPersistedMessageSentFromBodyOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D7ACBB27DB5ACB009C5338 /* CreateUnprocessedPersistedMessageSentFromBodyOperation.swift */; };
 		C0D7ACFD27DBB5BE009C5338 /* NSManagedObject+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D7ACFC27DBB5BE009C5338 /* NSManagedObject+Utils.swift */; };
 		C0DA1E642652C62F003A7756 /* CleanExpiredMuteNotficationEndDatesOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA1E632652C62F003A7756 /* CleanExpiredMuteNotficationEndDatesOperation.swift */; };
 		C0DA20152656EC52003A7756 /* WebRTCDataChannelMessageJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48177F8251B8F2800D8BEC7 /* WebRTCDataChannelMessageJSON.swift */; };
@@ -481,7 +485,6 @@
 		C44BDC7C22D63FFD00532073 /* PrivacyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44BDC7B22D63FFD00532073 /* PrivacyViewController.swift */; };
 		C44CB7CE26AEC12A00BB4389 /* ConfirmAddContactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44CB7CD26AEC12A00BB4389 /* ConfirmAddContactView.swift */; };
 		C44CCFED24CBA61B006E0428 /* RTCIceGatheringState+CustomDebugStringConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44CCFEC24CBA61B006E0428 /* RTCIceGatheringState+CustomDebugStringConvertible.swift */; };
-		C44D96E3281E976100E00119 /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C4F6E51B2778E71600DEA75F /* AppAuth */; };
 		C44DC382251BB30B00CBE322 /* DataChannelWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44DC381251BB30B00CBE322 /* DataChannelWorker.swift */; };
 		C44FB720237E0812000C09D4 /* PrivacyTableViewController+Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44FB71F237E0812000C09D4 /* PrivacyTableViewController+Strings.swift */; };
 		C44FDEB122555CFF000BDC76 /* NoChannelCollectionReusableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44FDEB022555CFF000BDC76 /* NoChannelCollectionReusableView.swift */; };
@@ -916,6 +919,7 @@
 		C4DAAD2A20AEDCD0005E63C0 /* ButtonsCardCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DAAD2820AEDCD0005E63C0 /* ButtonsCardCollectionViewCell.swift */; };
 		C4DAAD2D20AEDD33005E63C0 /* ButtonsCardCollectionViewCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = C4DAAD2C20AEDD33005E63C0 /* ButtonsCardCollectionViewCell.xib */; };
 		C4DAAD2F20AEE07A005E63C0 /* ObvButtonBorderless.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DAAD2E20AEE07A005E63C0 /* ObvButtonBorderless.swift */; };
+		C4DAE30B282518600013853E /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C4F6E51B2778E71600DEA75F /* AppAuth */; };
 		C4DB114C2763C77500740136 /* ObvSimpleListItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DB114B2763C77500740136 /* ObvSimpleListItemView.swift */; };
 		C4DB30122556E1D300060706 /* AvailableSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DB30112556E1D300060706 /* AvailableSubscription.swift */; };
 		C4DB63882409590800C02ADF /* BackupTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DB63872409590800C02ADF /* BackupTableViewController.swift */; };
@@ -1176,6 +1180,8 @@
 		C051CD85264C244700165E15 /* Bindings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bindings.swift; sourceTree = "<group>"; };
 		C0541722248A40F20055B72C /* PersistedMessageExpiration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMessageExpiration.swift; sourceTree = "<group>"; };
 		C0567FEA277241E700313EFB /* ExternalLibrariesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalLibrariesViewController.swift; sourceTree = "<group>"; };
+		C05C197127D91907007D4032 /* DeleteOldPendingRepliedToOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteOldPendingRepliedToOperation.swift; sourceTree = "<group>"; };
+		C05F8FCE27D57A0400B236B1 /* CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.swift; sourceTree = "<group>"; };
 		C0601BB02782F59900120A27 /* ChangeNewComposeMessageViewActionOrderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeNewComposeMessageViewActionOrderViewController.swift; sourceTree = "<group>"; };
 		C06831C52722F60300C2693B /* MissedMessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissedMessageBubbleView.swift; sourceTree = "<group>"; };
 		C06902E32677A97D00FD8F92 /* ReportEndCallOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportEndCallOperation.swift; sourceTree = "<group>"; };
@@ -1222,6 +1228,7 @@
 		C0B6C1A427A042C500434D50 /* ProfilePictureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePictureView.swift; sourceTree = "<group>"; };
 		C0B6C1A727A0431C00434D50 /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		C0B6D92A27E49009006C8C9B /* SaveContextOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveContextOperation.swift; sourceTree = "<group>"; };
+		C0B6E0FE27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkAsReadReceivedMessageOperation.swift; sourceTree = "<group>"; };
 		C0BB70C12487928800AFD692 /* NSNumber+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSNumber+Utils.swift"; sourceTree = "<group>"; };
 		C0BC223D24ADD10B00227D15 /* CellWithMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellWithMessage.swift; sourceTree = "<group>"; };
 		C0BC224124AF279900227D15 /* InfosOfSentMessageTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfosOfSentMessageTableViewController.swift; sourceTree = "<group>"; };
@@ -1238,6 +1245,7 @@
 		C0CC887D269634B5009CAE24 /* RTCSdpType+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RTCSdpType+Extension.swift"; sourceTree = "<group>"; };
 		C0D4BF072625F47E001A561B /* MigrationAppDatabase_v28_to_v29.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = MigrationAppDatabase_v28_to_v29.txt; sourceTree = "<group>"; };
 		C0D4BF0B2625F6BD001A561B /* ObvMessengerMappingModel_v28_to_v29.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvMessengerMappingModel_v28_to_v29.xcmappingmodel; sourceTree = "<group>"; };
+		C0D7ACBB27DB5ACB009C5338 /* CreateUnprocessedPersistedMessageSentFromBodyOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateUnprocessedPersistedMessageSentFromBodyOperation.swift; sourceTree = "<group>"; };
 		C0D7ACFC27DBB5BE009C5338 /* NSManagedObject+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Utils.swift"; sourceTree = "<group>"; };
 		C0DA1E632652C62F003A7756 /* CleanExpiredMuteNotficationEndDatesOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanExpiredMuteNotficationEndDatesOperation.swift; sourceTree = "<group>"; };
 		C0E1D2282718736A0085BAA2 /* ICloudBackupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudBackupListView.swift; sourceTree = "<group>"; };
@@ -2081,7 +2089,7 @@
 				C4CB87662084D644004D0730 /* ObvCrypto.framework in Frameworks */,
 				C4B140BF20F41D2A007AB7F5 /* ObvEngine.framework in Frameworks */,
 				C4CB877C2084D720004D0730 /* ObvProtocolManager.framework in Frameworks */,
-				C44D96E3281E976100E00119 /* AppAuth in Frameworks */,
+				C4DAE30B282518600013853E /* AppAuth in Frameworks */,
 				C4CB87722084D6F8004D0730 /* ObvMetaManager.framework in Frameworks */,
 				C418756526308E2800761E31 /* OlvidUtils.framework in Frameworks */,
 			);
@@ -2339,6 +2347,8 @@
 				C4238AB42507B6D30005EFCE /* CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation.swift */,
 				C40F986126BE107B00BC055A /* ComputeExtendedPayloadOperation.swift */,
 				C40EDA482507BD4200872B80 /* SendUnprocessedPersistedMessageSentOperation.swift */,
+				C05F8FCE27D57A0400B236B1 /* CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.swift */,
+				C0D7ACBB27DB5ACB009C5338 /* CreateUnprocessedPersistedMessageSentFromBodyOperation.swift */,
 				C080975D27D2792C003E2C4B /* RefreshUpdatedObjectsModifiedByShareExtensionOperation.swift */,
 			);
 			path = "Sending messages";
@@ -3311,6 +3321,7 @@
 				C4A4FB2E27A2E56300C430A3 /* AutoAcceptPendingGroupInvitesIfPossibleOperation.swift */,
 				C433D20227A35B8E0077976E /* DeletePersistedInvitationTheCannotBeParsedAnymoreOperation.swift */,
 				C4815C9727A84CA700512F4B /* SyncPersistedInvitationsWithEngineOperation.swift */,
+				C05C197127D91907007D4032 /* DeleteOldPendingRepliedToOperation.swift */,
 			);
 			path = Operations;
 			sourceTree = "<group>";
@@ -3707,6 +3718,7 @@
 				C48FDE7327030FDF0088F07B /* CleanOrphanedPersistedMessageTimestampedMetadataOperation.swift */,
 				C0C2D651275A5C2C001ECCBF /* DeleteOldOrOrphanedPendingReactionsOperation.swift */,
 				C0C2D655275A6137001ECCBF /* ApplyPendingReactionsOperation.swift */,
+				C0B6E0FE27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift */,
 			);
 			path = "Receiving messages";
 			sourceTree = "<group>";
@@ -5569,6 +5581,7 @@
 				C46F28442587E12C0079BA89 /* UtilsForAppMigrationV24ToV25.swift in Sources */,
 				C4E9E91020EE58B300A2CD4C /* SasAcceptedView.swift in Sources */,
 				C4EC96592591632500422DF1 /* SentMessageInfosHostingViewController.swift in Sources */,
+				C0D7ACBC27DB5ACB009C5338 /* CreateUnprocessedPersistedMessageSentFromBodyOperation.swift in Sources */,
 				C4E8E295226C770300CF83F7 /* SettingsFlowViewController.swift in Sources */,
 				C427B2F12519506B00D37D86 /* CallView.swift in Sources */,
 				C4FAE4B2250AE2D700A7468C /* ReceivingMessageAndAttachmentsOperations.swift in Sources */,
@@ -5653,6 +5666,7 @@
 				C47E8BFA22A184FF002DB74F /* PendingGroupMembersTableViewController+Strings.swift in Sources */,
 				C403CB9A23B43E650026EF32 /* BlockBarButtonItem.swift in Sources */,
 				C4814BD7218B166700F6743B /* TrustOriginsTableViewController.swift in Sources */,
+				C0B6E0FF27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift in Sources */,
 				C022097727A4555C006E330C /* PersistedDiscussionLocalConfiguration+Backup.swift in Sources */,
 				C4F08CB2226F33D8003719C0 /* UIImage+Insets.swift in Sources */,
 				C42C1E482518FEBC00F77B1A /* RoundedButtonView.swift in Sources */,
@@ -5889,6 +5903,7 @@
 				C49399C0268F609B009DCC82 /* MessageCellConstants.swift in Sources */,
 				C4EA017422010CEF00FAD04A /* PersistedObvContactIdentityToPersistedObvContactIdentityMigrationPolicyV8ToV9.swift in Sources */,
 				C4EA17832086A834004B312B /* DiscussionsFlowViewController.swift in Sources */,
+				C05F8FCF27D57A0400B236B1 /* CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.swift in Sources */,
 				C46A987A26910F22003ABC43 /* RemoveReplyToOnDraftOperation.swift in Sources */,
 				C4B067F127679F780002DC39 /* AppBackupItem.swift in Sources */,
 				C4F7305C25A3D4FF003D2363 /* MessageMetadatasSectionView.swift in Sources */,
@@ -5909,6 +5924,7 @@
 				C4FE5E712590BCF400453AA9 /* DeleteMessagesWithExpiredCountBasedRetentionOperation.swift in Sources */,
 				C413126B20B1543600F8FF94 /* InvitationCollectionCell.swift in Sources */,
 				C4AEE86225592B230059FB66 /* BackupKeyPartTextField.swift in Sources */,
+				C05C197227D91907007D4032 /* DeleteOldPendingRepliedToOperation.swift in Sources */,
 				C04E49A626E22A370042DDB6 /* UpdateDraftBodyOperation.swift in Sources */,
 				C44438312551D0B60073EFB5 /* PeriodUnit+localizedDescription.swift in Sources */,
 				C4CCF7A722671FDB0089B46F /* ObvAutoGrowingTextViewDelegate.swift in Sources */,
@@ -6215,7 +6231,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DEVELOPMENT_TEAM = VMDQ4PU27W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ObvMessengerIntentsExtension/Info.plist;
@@ -6227,7 +6243,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "io.olvid.messenger-debug.ObvMessengerIntentsExtension";
@@ -6246,7 +6262,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DEVELOPMENT_TEAM = VMDQ4PU27W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ObvMessengerIntentsExtension/Info.plist;
@@ -6258,7 +6274,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.messenger.ObvMessengerIntentsExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6276,7 +6292,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6287,7 +6303,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)";
@@ -6307,7 +6323,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6318,7 +6334,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6470,7 +6486,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessengerDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
@@ -6486,7 +6502,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				OTHER_SWIFT_FLAGS = "-Xfrontend -warn-long-function-bodies=500 -Xfrontend -warn-long-expression-type-checking=1500";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6508,7 +6524,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessenger.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
@@ -6525,7 +6541,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -6542,7 +6558,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6553,7 +6569,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)";
@@ -6573,7 +6589,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 495;
+				CURRENT_PROJECT_VERSION = 501;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6584,7 +6600,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.10.1;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)";
 				PRODUCT_NAME = "$(TARGET_NAME)";

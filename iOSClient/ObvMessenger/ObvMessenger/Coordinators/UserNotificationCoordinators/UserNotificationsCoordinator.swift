@@ -161,6 +161,7 @@ extension UserNotificationsCoordinator {
                 let discussion = messageReceived.discussion
                 let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(
                     body: messageReceived.textBody ?? "",
+                    isEphemeralMessageWithUserAction: messageReceived.isEphemeralMessageWithUserAction,
                     messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine,
                     contact: contactIdentity,
                     attachmentsFileNames: [],
@@ -231,6 +232,7 @@ extension UserNotificationsCoordinator {
                         let discussion = newMessage.discussion
                         let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(
                             body: newMessage.textBody ?? "",
+                            isEphemeralMessageWithUserAction: newMessage.isEphemeralMessageWithUserAction,
                             messageIdentifierFromEngine: newMessage.messageIdentifierFromEngine,
                             contact: contactIdentity,
                             attachmentsFileNames: [],

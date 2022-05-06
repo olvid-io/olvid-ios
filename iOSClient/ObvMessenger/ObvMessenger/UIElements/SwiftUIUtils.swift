@@ -78,3 +78,31 @@ struct DottedCircle: View {
             .frame(width: radius * 2, height: radius * 2)
     }
 }
+
+@available(iOS 13.0, *)
+struct Positions: PreferenceKey {
+    static var defaultValue: [String: Anchor<CGPoint>] = [:]
+    static func reduce(value: inout [String: Anchor<CGPoint>], nextValue: () -> [String: Anchor<CGPoint>]) {
+        value.merge(nextValue(), uniquingKeysWith: { current, _ in
+            return current })
+    }
+}
+
+@available(iOS 13.0, *)
+struct PositionReader: View {
+    let tag: String
+    var body: some View {
+        Color.clear
+            .anchorPreference(key: Positions.self, value: .center) { (anchor) in
+                [tag: anchor]
+            }
+    }
+}
+
+@available(iOS 13.0, *)
+extension Task where Success == Never, Failure == Never {
+    static func sleep(seconds: Double) async throws {
+        let duration = UInt64(seconds * 1_000_000_000)
+        try await Task.sleep(nanoseconds: duration)
+    }
+}

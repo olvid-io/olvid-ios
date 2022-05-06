@@ -118,33 +118,3 @@ enum UpdateDiscussionLocalConfigurationOperationReasonForCancel: LocalizedErrorW
 
 
 }
-
-
-extension AppDelegate {
-
-    func scheduleBackgroundTaskForUpdatingBadge() {
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            let nextExpirationDate: Date?
-            do {
-                nextExpirationDate = try PersistedDiscussionLocalConfiguration.getEarliestMuteExpirationDate(laterThan: Date(), within: context)
-            } catch {
-                os_log("🤿 We do not schedule any background task for updating badge since there is no mute expiration left", log: log, type: .info)
-                return
-            }
-            guard let nextExpirationDate = nextExpirationDate else { return}
-
-            os_log("🤿 Submit new update badge operation", log: log, type: .info)
-            let log = UpdateDiscussionLocalConfigurationOperation.log
-            do {
-                try BackgroundTasksManager.shared.submit(task: .updateBadge, earliestBeginDate: nextExpirationDate)
-            } catch {
-                guard ObvMessengerConstants.isRunningOnRealDevice else { assertionFailure("We should not be scheduling BG tasks on a simulator as they are unsuported"); return }
-                os_log("🤿 Could not schedule next expiration: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
-    }
-
-
-}

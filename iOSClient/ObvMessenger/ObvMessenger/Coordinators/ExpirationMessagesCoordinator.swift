@@ -75,13 +75,7 @@ final class ExpirationMessagesCoordinator {
     
     private func observeCleanExpiredMessagesBackgroundTaskWasLaunched() {
         observationTokens.append(ObvMessengerInternalNotification.observeCleanExpiredMessagesBackgroundTaskWasLaunched { (completion) in
-            let completionHandler: (Bool) -> Void = { (success) in
-                DispatchQueue.main.async {
-                    (UIApplication.shared.delegate as? AppDelegate)?.scheduleBackgroundTaskForCleaningExpiredMessages()
-                    completion(success)
-                }
-            }
-            ObvMessengerInternalNotification.wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: true, completionHandler: completionHandler)
+            ObvMessengerInternalNotification.wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: true, completionHandler: completion)
                 .postOnDispatchQueue()
         })
     }
@@ -180,44 +174,4 @@ fileprivate final class ScheduleNextTimerOperation: Operation {
 protocol ScheduleNextTimerOperationDelegate: AnyObject {
     func replaceCurrentTimerWith(newTimer: Timer)
     func timerFired(timer: Timer)
-}
-
-
-
-// MARK: - Extending AppDelegate for managing the background task allowing to wipe expired messages
-
-extension AppDelegate {
-
-    /// If there exists at least one message expiration in database, this method schedules a background task allowing to perform a wipe of the associated message in the background.
-    /// This method is called when the app goes in the background.
-    func scheduleBackgroundTaskForCleaningExpiredMessages() {
-        // We make sure the app was initialized. Otherwise, the shared stack is not garanteed to exist. Accessing it would crash the app.
-        guard AppStateManager.shared.currentState.isInitialized else { return }
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            let log = ExpirationMessagesCoordinator.log
-            let nextExpirationDate: Date
-            do {
-                guard let expiration = try PersistedMessageExpiration.getEarliestExpiration(laterThan: Date(), within: context) else {
-                    os_log("🤿 We do not schedule any background task for message expiration since there is no expiration left", log: log, type: .info)
-                    return
-                }
-                nextExpirationDate = expiration.expirationDate
-            } catch {
-                os_log("🤿 We could not get earliest expiration: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-            // If we reach this point, we should schedule a background task for message expiration
-            do {
-                try BackgroundTasksManager.shared.submit(task: .cleanExpiredMessages, earliestBeginDate: nextExpirationDate)
-            } catch {
-                guard ObvMessengerConstants.isRunningOnRealDevice else { assertionFailure("We should not be scheduling BG tasks on a simulator as they are unsuported"); return }
-                os_log("🤿 Could not schedule next expiration: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
-    }
-
-    
 }

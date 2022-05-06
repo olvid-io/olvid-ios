@@ -167,6 +167,11 @@ final class PersistedMessageSent: PersistedMessage {
     var isEphemeralMessage: Bool {
         readOnce || existenceDuration != nil || visibilityDuration != nil
     }
+
+    var isEphemeralMessageWithLimitedVisibility: Bool {
+        self.readOnce || self.visibilityDuration != nil
+    }
+
     
     /// `true` when this instance can be edited after being sent
     override var textBodyCanBeEdited: Bool {

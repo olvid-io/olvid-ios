@@ -34,16 +34,20 @@ protocol ExtendedPayloadProvider: Operation {
 
 
 final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWithSpecificReasonForCancel<SendUnprocessedPersistedMessageSentOperationReasonForCancel> {
+
+    private enum Input {
+        case messageObjectID(_: TypeSafeManagedObjectID<PersistedMessageSent>)
+        case provider(_: UnprocessedPersistedMessageSentProvider)
+    }
     
-    private let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
-    private let unprocessedPersistedMessageSentProvider: UnprocessedPersistedMessageSentProvider?
+    private let input: Input
+
     private let extendedPayloadProvider: ExtendedPayloadProvider?
     private let obvEngine: ObvEngine
     private let completionHandler: (() -> Void)?
 
     init(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
-        self.persistedMessageSentObjectID = persistedMessageSentObjectID
-        self.unprocessedPersistedMessageSentProvider = nil
+        self.input = .messageObjectID(persistedMessageSentObjectID)
         self.obvEngine = obvEngine
         self.completionHandler = completionHandler
         self.extendedPayloadProvider = extendedPayloadProvider
@@ -51,8 +55,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
     }
 
     init(unprocessedPersistedMessageSentProvider: UnprocessedPersistedMessageSentProvider, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
-        self.persistedMessageSentObjectID = nil
-        self.unprocessedPersistedMessageSentProvider = unprocessedPersistedMessageSentProvider
+        self.input = .provider(unprocessedPersistedMessageSentProvider)
         self.obvEngine = obvEngine
         self.completionHandler = completionHandler
         self.extendedPayloadProvider = extendedPayloadProvider
@@ -64,18 +67,16 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
     override func main() {
         
         let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
-        
-        if let _persistedMessageSentObjectID = self.persistedMessageSentObjectID {
+
+        switch input {
+        case .messageObjectID(let _persistedMessageSentObjectID):
             persistedMessageSentObjectID = _persistedMessageSentObjectID
-        } else if let unprocessedPersistedMessageSentProvider = self.unprocessedPersistedMessageSentProvider {
-            assert(unprocessedPersistedMessageSentProvider.isFinished)
-            guard let _persistedMessageSentObjectID = unprocessedPersistedMessageSentProvider.persistedMessageSentObjectID else {
+        case .provider(let provider):
+            assert(provider.isFinished)
+            guard let _persistedMessageSentObjectID = provider.persistedMessageSentObjectID else {
                 return cancel(withReason: .persistedMessageSentObjectIDIsNil)
             }
             persistedMessageSentObjectID = _persistedMessageSentObjectID
-        } else {
-            // This should never happen since either self.persistedMessageSentObjectID or self.op must be non nil
-            return cancel(withReason: .cannotDeterminePersistedMessageSentObjectID)
         }
         
         guard let obvContext = self.obvContext else {
@@ -186,7 +187,6 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
 
 enum SendUnprocessedPersistedMessageSentOperationReasonForCancel: LocalizedErrorWithLogType {
     
-    case cannotDeterminePersistedMessageSentObjectID
     case contextIsNil
     case persistedMessageSentObjectIDIsNil
     case couldNotFindPersistedMessageSentInDatabase
@@ -208,16 +208,13 @@ enum SendUnprocessedPersistedMessageSentOperationReasonForCancel: LocalizedError
              .encodingError,
              .coreDataError,
              .contextIsNil,
-             .persistedMessageSentObjectIDIsNil,
-             .cannotDeterminePersistedMessageSentObjectID:
+             .persistedMessageSentObjectIDIsNil:
             return .fault
         }
     }
     
     var errorDescription: String? {
         switch self {
-        case .cannotDeterminePersistedMessageSentObjectID:
-            return "Cannot determine PersistedMessageSentObjectID"
         case .persistedMessageSentObjectIDIsNil:
             return "persistedMessageSentObjectID is nil"
         case .contextIsNil:

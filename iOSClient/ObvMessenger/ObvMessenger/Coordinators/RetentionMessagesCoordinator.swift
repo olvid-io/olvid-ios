@@ -33,39 +33,9 @@ final class RetentionMessagesCoordinator {
 
     private func observeApplyRetentionPoliciesBackgroundTaskWasLaunchedNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeApplyRetentionPoliciesBackgroundTaskWasLaunched { (completion) in
-            let completionHandler: (Bool) -> Void = { (success) in
-                DispatchQueue.main.async {
-                    (UIApplication.shared.delegate as? AppDelegate)?.scheduleBackgroundTaskForApplyingRetentionPolicies()
-                    completion(success)
-                }
-            }
-            ObvMessengerInternalNotification.applyAllRetentionPoliciesNow(launchedByBackgroundTask: true, completionHandler: completionHandler)
+            ObvMessengerInternalNotification.applyAllRetentionPoliciesNow(launchedByBackgroundTask: true, completionHandler: completion)
                 .postOnDispatchQueue()
         })
     }
-    
-}
-
-
-// MARK: - Extending AppDelegate for managing the background task allowing to wipe expired messages
-
-extension AppDelegate {
-
-    /// If there exists at least one message expiration in database, this method schedules a background task allowing to perform a wipe of the associated message in the background.
-    /// This method is called when the app goes in the background.
-    func scheduleBackgroundTaskForApplyingRetentionPolicies() {
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            // If we reach this point, we should schedule a background task for message expiration
-            do {
-                try BackgroundTasksManager.shared.submit(task: .applyRetentionPolicies, earliestBeginDate: Date(timeIntervalSinceNow: TimeInterval(3_600)))
-            } catch {
-                guard ObvMessengerConstants.isRunningOnRealDevice else { assertionFailure("We should not be scheduling BG tasks on a simulator as they are unsuported"); return }
-                os_log("🤿 Could not schedule next BG task for applying retention policies: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
-    }
-
     
 }

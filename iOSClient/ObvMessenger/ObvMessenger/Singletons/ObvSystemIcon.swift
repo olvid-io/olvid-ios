@@ -61,6 +61,7 @@ enum ObvSystemIcon {
     case earBadgeCheckmark
     case ellipsisCircle
     case ellipsisCircleFill
+    case envelopeOpenFill
     case exclamationmarkCircle
     case exclamationmarkShieldFill
     case eyeFill
@@ -132,6 +133,8 @@ enum ObvSystemIcon {
     case speakerSlashFill
     case squareAndArrowUp
     case squareAndPencil
+    case star
+    case starFill
     case textBubbleFill
     case timer
     case trash
@@ -460,6 +463,10 @@ enum ObvSystemIcon {
             } else {
                 return "link"
             }
+        case .star:
+            return "star"
+        case .starFill:
+            return "star.fill"
         case .heartSlashFill:
             return "heart.slash.fill"
         case .circle:
@@ -470,6 +477,8 @@ enum ObvSystemIcon {
             return "doc.fill"
         case .rectangleCompressVertical:
             return "rectangle.compress.vertical"
+        case .envelopeOpenFill:
+            return "envelope.open.fill"
         }
     }
 }

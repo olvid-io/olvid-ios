@@ -1,8 +1,16 @@
 # Changelog
 
-## [0.10.0 (495)] - 2022-03-24
+## [0.10.1 (501)] - 2022-03-24
 
-- Nouveau comportement de votre carnet d'adresse Olvid ! Maintenant, un autre utilisateur d'Olvid devient un contact uniquement si vous l'acceptez explicitement. Vous avez enfin un contrôle total sur votre carnet d'adresse ;-)
+- Il est maintenant possible de répondre à un message, ou de le marquer comme lu, directement depuis la notification !
+- Si vous appréciez une réaction faite par un autre utilisateur, vous pouvez facilement l'ajouter à la liste de vos réactions préférées.
+- Corrige un problème empêchant un message reçu d'être édité par son envoyeur.
+- Corrige un problème empêchant la bonne mise à jour des versions supportées et recommandées d'Olvid.
+- Les tâches de fonds sont plus robustes.
+
+## [0.10.0 (495)] - 2022-03-21
+
+- Nouveau comportement de votre carnet d'adresse Olvid ! Maintenant, un autre utilisateur d'Olvid devient un contact *uniquement* si vous l'acceptez explicitement. Vous avez enfin un contrôle total sur votre carnet d'adresse ;-)
 - Une nouvelle liste « d'autres » utilisateurs d'Olvid est maintenant accessible depuis l'écran de Contacts. Ces utilisateurs sont typiquement ceux qui font partie des mêmes groupes que vous mais qui ne sont néanmoins pas des contacts. Pour vous les inviter en une touche !
 - Maintenant, une invitation à un groupe provenant d'un contact est automatiquement acceptée.
 - Vous devez toujours accepter explicitement une invitation à un groupe si elle provient d'un utilisateur qui ne fait partie de vos contacts.

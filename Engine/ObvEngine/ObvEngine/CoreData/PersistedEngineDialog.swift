@@ -86,7 +86,9 @@ final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
 extension PersistedEngineDialog {
     
     func update(with obvDialog: ObvDialog) throws {
-        guard self.uuid == obvDialog.uuid else { throw NSError() }
+        guard self.uuid == obvDialog.uuid else {
+            throw Self.makeError(message: "Could not get obvDialog's uuid")
+        }
         self.obvDialog = obvDialog
         notificationRelatedChanges.insert(.obvDialog)
     }

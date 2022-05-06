@@ -419,11 +419,10 @@ extension ObvEngine {
 
 // MARK: - Public API for managing the database
 
-extension ObvEngine {
+extension ObvEngine: ObvErrorMaker {
 
-    private static let errorDomain = "ObvEngine"
+    public static let errorDomain = "ObvEngine"
     
-    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
     
     public func replayTransactionsHistory() {

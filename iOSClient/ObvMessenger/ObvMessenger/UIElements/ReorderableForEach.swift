@@ -29,7 +29,7 @@ struct ItemView<Content: View, Item: ReorderableItem>: View {
 
     let item: Item
     let content: (Item) -> Content
-    let none: Item
+    let none: Item?
 
     @Binding var items: [Item]
     @Binding var currentDrop: Item?
@@ -56,14 +56,14 @@ struct ItemView<Content: View, Item: ReorderableItem>: View {
 struct ReorderableForEach<Content: View, Item: ReorderableItem>: View {
     @Binding private var items: [Item]
     @Binding private var draggedItem: Item?
-    private let none: Item
+    private let none: Item?
     private let content: (Item) -> Content
     private let haptic: () -> Void
 
     init(items: Binding<[Item]>,
          draggedItem: Binding<Item?>,
          haptic: @escaping () -> Void,
-         none: Item,
+         none: Item?,
          @ViewBuilder content: @escaping (Item) -> Content) {
         self._items = items
         self._draggedItem = draggedItem
@@ -74,15 +74,17 @@ struct ReorderableForEach<Content: View, Item: ReorderableItem>: View {
 
     @State private var currentDrop: Item?
 
-    /// List of items with an aditional none element
-    private var itemsWithLastSpace: [Item] {
+    /// List of items with an additional none element
+    private var itemsWithAdditionalSpace: [Item] {
         var result = items
-        result += [none]
+        if let none = none {
+            result += [none]
+        }
         return result
     }
 
     var body: some View {
-        ForEach(itemsWithLastSpace) { item in
+        ForEach(itemsWithAdditionalSpace) { item in
             ItemView(item: item,
                      content: content,
                      none: none,
@@ -127,7 +129,7 @@ struct ReorderableForEach<Content: View, Item: ReorderableItem>: View {
 @available(iOS 15, *)
 struct DropRelocateDelegate<Item: ReorderableItem>: DropDelegate {
     let item: Item
-    let none: Item
+    let none: Item?
     let haptic: () -> Void
     @Binding var items: [Item]
     @Binding var draggedItem: Item?

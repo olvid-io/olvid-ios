@@ -32,7 +32,7 @@ extension ObvEngine {
     
     func registerToInternalNotifications() throws {
         
-        guard let notificationDelegate = notificationDelegate else { throw NSError() }
+        guard let notificationDelegate = notificationDelegate else { throw Self.makeError(message: "The notification delegate is not set") }
         
         notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeAppStoreReceiptVerificationSucceededButSubscriptionIsExpired(within: notificationDelegate) { [weak self] (ownedIdentity, transactionIdentifier, flowId) in
             guard let _self = self else { return }
@@ -642,21 +642,15 @@ extension ObvEngine {
             guard let createContextDelegate = _self.createContextDelegate else { return }
             guard let identityDelegate = _self.identityDelegate else { return }
 
-            var obvContactIdentity: ObvContactIdentity!
-            var error: Error?
+            var obvContactIdentity: ObvContactIdentity?
             let randomFlowId = FlowIdentifier()
             createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                let _obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity,
-                                                             ownedCryptoIdentity: ownedCryptoIdentity,
-                                                             identityDelegate: identityDelegate,
-                                                             within: obvContext)
-                guard _obvContactIdentity != nil else {
-                    error = NSError()
-                    return
-                }
-                obvContactIdentity = _obvContactIdentity
+                obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity,
+                                                        ownedCryptoIdentity: ownedCryptoIdentity,
+                                                        identityDelegate: identityDelegate,
+                                                        within: obvContext)
             }
-            guard error == nil else {
+            guard let obvContactIdentity = obvContactIdentity else {
                 os_log("Could not get contact identity", log: _self.log, type: .fault)
                 return
             }
@@ -678,25 +672,18 @@ extension ObvEngine {
             guard let createContextDelegate = _self.createContextDelegate else { return }
             guard let identityDelegate = _self.identityDelegate else { return }
             
-            var obvContactIdentity: ObvContactIdentity!
-            var error: Error?
+            var obvContactIdentity: ObvContactIdentity?
             let randomFlowId = FlowIdentifier()
             createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                let _obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity,
+                obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity,
                                                              ownedCryptoIdentity: ownedCryptoIdentity,
                                                              identityDelegate: identityDelegate,
                                                              within: obvContext)
-                guard _obvContactIdentity != nil else {
-                    error = NSError()
-                    return
-                }
-                obvContactIdentity = _obvContactIdentity
             }
-            guard error == nil else {
+            guard let obvContactIdentity = obvContactIdentity else {
                 os_log("Could not get contact identity", log: _self.log, type: .fault)
                 return
             }
-            
             ObvEngineNotificationNew.updatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: false, publishedIdentityDetailsWereUpdated: true)
                 .postOnBackgroundQueue(within: _self.appNotificationCenter)
         }
@@ -852,19 +839,13 @@ extension ObvEngine {
             guard let createContextDelegate = _self.createContextDelegate else { return }
             guard let identityDelegate = _self.identityDelegate else { return }
             
-            var obvOwnedIdentity: ObvOwnedIdentity!
-            var error: Error?
+            var obvOwnedIdentity: ObvOwnedIdentity?
             let randomFlowId = FlowIdentifier()
             createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                let _obvOwnedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity,
-                                                         identityDelegate: identityDelegate, within: obvContext)
-                guard _obvOwnedIdentity != nil else {
-                    error = NSError()
-                    return
-                }
-                obvOwnedIdentity = _obvOwnedIdentity
+                obvOwnedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity,
+                                                    identityDelegate: identityDelegate, within: obvContext)
             }
-            guard error == nil else {
+            guard let obvOwnedIdentity = obvOwnedIdentity else {
                 os_log("Could not get owned identity", log: _self.log, type: .fault)
                 return
             }

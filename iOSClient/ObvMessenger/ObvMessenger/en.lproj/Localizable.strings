@@ -718,6 +718,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Mark all as read" = "Mark all as read";
 
+"MARK_AS_READ" = "Mark as read";
+
 "Deleted message" = "Deleted message";
 
 "Contact Introduction Performed" = "Contact Introduction Performed";
@@ -2061,7 +2063,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "CLEANING_IN_PROGRESS" = "Cleaning in progress";
 "CLEANING_TERMINATED" = "Cleaning is terminated";
 
-"DRAP_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST" = "Drop your favorite emojis here!";
+"DRAG_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST" = "Drop your favorite reactions here!";
 
 "CONTACT_IS_NOT_ACTIVE_EXPLANATION_TITLE" = "Contact revoked by your company's identity provider";
 
@@ -2141,6 +2143,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "OPEN_SOURCE_LICENCES" = "Open Source Licences";
 
+"HOW_TO_ADD_REACTION_TO_A_MESSAGE" = "You can double a tap a message to add a reaction.";
+
 "RESET_COMPOSE_MESSAGE_VIEW_ACTIONS_ORDER" = "Reset buttons order to default";
 
 "UNAVAILABLE_MESSAGE" = "Unavailable message";
@@ -2172,6 +2176,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" = "To make sure you use the latest version of iOS, go to Settings > General, then tap Software Update.";
 
 "MESSAGE_REACTION_NOTIFICATION_%@_%@" = "Reacted %@ to: %@";
+"MESSAGE_REACTION_NOTIFICATION_%@" = "Reacted %@ to your message";
 
 "NEW_REACTION" = "New reaction";
 "TAP_TO_SEE_THE_REACTION" = "Tap to see the reaction.";
@@ -2261,6 +2266,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Choose" = "Choose";
 
+"SEND_MESSAGE" = "Send message";
+
 "FAILED" = "Failed 😢";
 
 "CALL_INITIALISATION_NOT_SUPPORTED" = "Secure calls are not supported";
@@ -2270,3 +2277,9 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "Choose" = "Choose";
 
 "YOUR_MESSAGE" = "Your message...";
+
+"HOW_TO_ADD_MESSAGE_REACTION" = "Double tap a message to add a reaction.";
+
+"HOW_TO_ADD_REACTION_TO_PREFFERED" = "Add a star to a reaction to add it to your favorite reactions.";
+
+"HOW_TO_REMOVE_OWN_REACTION" = "Tap to remove your reaction.";

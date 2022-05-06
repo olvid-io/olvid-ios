@@ -75,10 +75,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         obvEngine?.applicationDidEnterBackground()
         BackgroundTasksManager.shared.cancelAllPendingBGTask()
-        scheduleBackgroundTaskForCleaningExpiredMessages()
-        scheduleBackgroundTaskForApplyingRetentionPolicies()
-        scheduleBackgroundTaskForUpdatingBadge()
-        scheduleBackgroundTaskForListingMessagesOnServer()
+        BackgroundTasksManager.shared.scheduleBackgroundTasks()
     }
     
     

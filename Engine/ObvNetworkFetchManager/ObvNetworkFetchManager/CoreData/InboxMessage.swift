@@ -126,7 +126,12 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: - Initializer
     
-    convenience init(messageId: MessageIdentifier, toIdentity: ObvCryptoIdentity, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
+    convenience init(messageId: MessageIdentifier, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
+        
+        guard !Self.thisMessageWasRecentlyDeleted(messageId: messageId) else {
+            assertionFailure("This assert can be removed if necessary")
+            throw InternalError.tryingToInsertAMessageThatWasAlreadyDeleted
+        }
         
         os_log("🔑 Creating InboxMessage with id %{public}@", log: Self.log, type: .info, messageId.debugDescription)
         
@@ -148,7 +153,39 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         self.wrappedKey = wrappedKey
         
     }
+    
+    
+    /// We keep in memory a list of all messages that were "recently" deleted. This prevents the re-creation of a message that we would list from the server and delete at the same time.
+    /// Every 10 minutes or so, we remove old entries.
+    private static var messagesRecentlyDeleted = [MessageIdentifier: Date]()
+    
+    
+    /// Allows to keep track of the date when we last removed old entries from `messagesRecentlyDeleted`
+    private static var lastRemovalOfOldEntriesInMessagesRecentlyDeleted = Date.distantPast
+    
+    
+    /// Removes old entries from `messagesRecentlyDeleted` but only if we did not do this recently.
+    private static func removeOldEntriesFromMessagesRecentlyDeletedIfAppropriate() {
+        // We do not remove old entries from `messagesRecentlyDeleted` if we did this already less than 10 minutes ago
+        guard Date().timeIntervalSince(lastRemovalOfOldEntriesInMessagesRecentlyDeleted) > TimeInterval(minutes: 10) else { return }
+        lastRemovalOfOldEntriesInMessagesRecentlyDeleted = Date()
+        let threshold = Date(timeInterval: -TimeInterval(minutes: 10), since: lastRemovalOfOldEntriesInMessagesRecentlyDeleted)
+        // Keep the most recent values in messagesRecentlyDeleted
+        messagesRecentlyDeleted = messagesRecentlyDeleted.filter({ $0.value > threshold })
+    }
+    
+    
+    /// Returns `true` iff we recently deleted a message with the given message identifier.
+    private static func thisMessageWasRecentlyDeleted(messageId: MessageIdentifier) -> Bool {
+        removeOldEntriesFromMessagesRecentlyDeletedIfAppropriate()
+        return messagesRecentlyDeleted.keys.contains(messageId)
+    }
 
+    
+    private static func trackRecentlyDeletedMessage(messageId: MessageIdentifier) {
+        messagesRecentlyDeleted[messageId] = Date()
+    }
+    
 }
 
 
@@ -284,4 +321,24 @@ extension InboxMessage {
         return (try obvContext.fetch(request)).first
     }
 
+}
+
+
+// MARK: - Other callbacks
+
+extension InboxMessage {
+    
+    override func prepareForDeletion() {
+        super.prepareForDeletion()
+        
+        // We do not wait until the context is saved for inserting the current message in the list of recently deleted messages.
+        // The reason is the following :
+        // - Either the save fails: in that case, the message stays in the database and we won't be able to create a new one with the same Id anyway.
+        //   This message will eventually be deleted and the list of recently deleted messages will be updated with a new, more recent, timestamp.
+        // - Either the save succeeds: in that case, we make sure that there won't be a time interval during which the message does not exists in DB without being stored in the list of recently deleted messages.
+        
+        Self.trackRecentlyDeletedMessage(messageId: self.messageId)
+        
+    }
+    
 }

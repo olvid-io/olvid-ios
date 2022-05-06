@@ -246,7 +246,7 @@ extension ObvProtocolManager {
         
         guard let genericReceivedMessage = GenericReceivedProtocolMessage(with: obvProtocolReceivedMessage) else {
             os_log("Could not parse the protocol received message", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "Could not parse the protocol received message")
         }
         
         save(genericReceivedMessage, within: obvContext)
@@ -257,8 +257,8 @@ extension ObvProtocolManager {
     public func process(_ obvProtocolReceivedDialogResponse: ObvProtocolReceivedDialogResponse, within obvContext: ObvContext) throws {
         
         guard let genericReceivedMessage = GenericReceivedProtocolMessage(with: obvProtocolReceivedDialogResponse) else {
-            os_log("Could not parse the protocol received dialog response ", log: log, type: .error)
-            throw NSError()
+            os_log("Could not parse the protocol received dialog response", log: log, type: .error)
+            throw Self.makeError(message: "Could not parse the protocol received dialog response ")
         }
 
         save(genericReceivedMessage, within: obvContext)
@@ -269,8 +269,8 @@ extension ObvProtocolManager {
     public func process(_ obvProtocolReceivedServerResponse: ObvProtocolReceivedServerResponse, within obvContext: ObvContext) throws {
         
         guard let genericReceivedMessage = GenericReceivedProtocolMessage(with: obvProtocolReceivedServerResponse) else {
-            os_log("Could not parse the protocol received dialog response ", log: log, type: .error)
-            throw NSError()
+            os_log("Could not parse the protocol received server response", log: log, type: .error)
+            throw Self.makeError(message: "Could not parse the protocol received server response")
         }
         
         save(genericReceivedMessage, within: obvContext)
@@ -281,6 +281,7 @@ extension ObvProtocolManager {
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)
+            assertionFailure()
             return
         }
         
