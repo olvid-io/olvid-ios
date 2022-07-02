@@ -300,14 +300,14 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         let remoteIdentity: ObvCryptoIdentity
         
         var encodedInputs: [ObvEncoded] {
-            return [remoteIdentity.encode()]
+            return [remoteIdentity.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            remoteIdentity = try message.encodedInputs.decode()
+            remoteIdentity = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, remoteIdentity: ObvCryptoIdentity) {
@@ -361,14 +361,14 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         let remoteDeviceUid: UID
         
         var encodedInputs: [ObvEncoded] {
-            return [remoteIdentity.encode(), remoteDeviceUid.encode()]
+            return [remoteIdentity.obvEncode(), remoteDeviceUid.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            (remoteIdentity, remoteDeviceUid) = try message.encodedInputs.decode()
+            (remoteIdentity, remoteDeviceUid) = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, remoteIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) {
@@ -389,7 +389,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         let deviceUids: [UID]
         
         var encodedInputs: [ObvEncoded] {
-            return [(deviceUids as [ObvEncodable]).encode()]
+            return [(deviceUids as [ObvEncodable]).obvEncode()]
         }
         
         // Initializers
@@ -399,7 +399,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             guard message.encodedInputs.count == 1 else { throw NSError() }
             let deviceUidsAsEncodedList = message.encodedInputs[0]
             guard let listOfEncodedUids = [ObvEncoded](deviceUidsAsEncodedList) else { throw NSError() }
-            deviceUids = try listOfEncodedUids.map { try $0.decode() }
+            deviceUids = try listOfEncodedUids.map { try $0.obvDecode() }
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, deviceUids: [UID]) {
@@ -442,15 +442,15 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         let remoteIdentity: ObvCryptoIdentity
         
         init(_ encoded: ObvEncoded) throws {
-            (remoteIdentity) = try encoded.decode()
+            (remoteIdentity) = try encoded.obvDecode()
         }
         
         init(remoteIdentity: ObvCryptoIdentity) {
             self.remoteIdentity = remoteIdentity
         }
         
-        func encode() -> ObvEncoded {
-            return remoteIdentity.encode()
+        func obvEncode() -> ObvEncoded {
+            return remoteIdentity.obvEncode()
         }
         
     }
@@ -465,9 +465,9 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         init(_ obvEncoded: ObvEncoded) throws {
             guard let listOfEncoded = [ObvEncoded](obvEncoded, expectedCount: 2) else { throw NSError() }
-            remoteIdentity = try listOfEncoded[0].decode()
+            remoteIdentity = try listOfEncoded[0].obvDecode()
             guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[1]) else { throw NSError() }
-            deviceUids = try listOfEncodedDeviceUids.map { return try $0.decode() }
+            deviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
         }
         
         init(remoteIdentity: ObvCryptoIdentity, deviceUids: [UID]) {
@@ -475,11 +475,11 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             self.deviceUids = deviceUids
         }
         
-        func encode() -> ObvEncoded {
-            let listOfEncodedDeviceUids = deviceUids.map { $0.encode() }
-            let encodedDeviceUids = listOfEncodedDeviceUids.encode()
-            let encodedRemoteIdentity = remoteIdentity.encode()
-            return [encodedRemoteIdentity, encodedDeviceUids].encode()
+        func obvEncode() -> ObvEncoded {
+            let listOfEncodedDeviceUids = deviceUids.map { $0.obvEncode() }
+            let encodedDeviceUids = listOfEncodedDeviceUids.obvEncode()
+            let encodedRemoteIdentity = remoteIdentity.obvEncode()
+            return [encodedRemoteIdentity, encodedDeviceUids].obvEncode()
         }
     }
 
@@ -491,7 +491,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

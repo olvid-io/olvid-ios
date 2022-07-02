@@ -21,5 +21,5 @@ import Foundation
 
 public protocol ObvDecoder {
     associatedtype DecodedType
-    static func decode(_: ObvEncoded) -> DecodedType?
+    static func obvDecode(_: ObvEncoded) -> DecodedType?
 }

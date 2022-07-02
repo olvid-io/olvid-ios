@@ -63,7 +63,7 @@ struct WellKnownServerConfigJSON: Decodable {
         self.turnServerURLs = try values.decodeIfPresent([String].self, forKey: .turnServerURLs) ?? []
     }
 
-    static func decode(_ data: Data) throws -> WellKnownServerConfigJSON {
+    static func jsonDecode(_ data: Data) throws -> WellKnownServerConfigJSON {
         let decoder = JSONDecoder()
         return try decoder.decode(WellKnownServerConfigJSON.self, from: data)
     }

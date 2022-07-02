@@ -251,7 +251,7 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
     
     private static func wrap(_ messageKey: AuthenticatedEncryptionKey, and keyId: CryptoKeyId, with channelKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> EncryptedData {
         let authEnc = channelKey.algorithmImplementationByteId.algorithmImplementation
-        let encryptedMessageKey = try! authEnc.encrypt(messageKey.encode().rawData, with: channelKey, and: prng)
+        let encryptedMessageKey = try! authEnc.encrypt(messageKey.obvEncode().rawData, with: channelKey, and: prng)
         let wrappedMessageKey = concat(keyId, with: encryptedMessageKey)
         return wrappedMessageKey
     }

@@ -206,10 +206,16 @@ struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
 
 
     private static func fyleMessageJoinWithStatusDirectory(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, fyleMessageJoinWithStatusObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, in currentSessionDirectoryForHardlinks: URL) -> URL {
-        let directory = fyleMessageJoinWithStatusObjectID.uriRepresentation().path.replacingOccurrences(of: "/", with: "_")
-        return messageDirectory(discussionURIRepresentation: discussionObjectID.uriRepresentation(), messageURIRepresentation: messageObjectID.uriRepresentation(), in: currentSessionDirectoryForHardlinks)
+        return fyleMessageJoinWithStatusDirectory(discussionURIRepresentation: discussionObjectID.uriRepresentation(), messageURIRepresentation: messageObjectID.uriRepresentation(), fyleMessageJoinWithStatusURIRepresentation: fyleMessageJoinWithStatusObjectID.uriRepresentation(), in: currentSessionDirectoryForHardlinks)
+    }
+    
+    
+    private static func fyleMessageJoinWithStatusDirectory(discussionURIRepresentation: TypeSafeURL<PersistedDiscussion>, messageURIRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinWithStatusURIRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>, in currentSessionDirectoryForHardlinks: URL) -> URL {
+        let directory = fyleMessageJoinWithStatusURIRepresentation.path.replacingOccurrences(of: "/", with: "_")
+        return messageDirectory(discussionURIRepresentation: discussionURIRepresentation, messageURIRepresentation: messageURIRepresentation, in: currentSessionDirectoryForHardlinks)
             .appendingPathComponent(directory, isDirectory: true)
     }
+    
 
     func directoryForHardLink(in currentSessionDirectoryForHardlinks: URL) -> URL {
         FyleElementForFyleMessageJoinWithStatus.fyleMessageJoinWithStatusDirectory(
@@ -243,6 +249,20 @@ struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
         try FileManager.default.moveItem(at: urlToTrash, to: trashURL)
     }
 
+    
+    static func trashMessageDirectoryIfEmpty(discussionURIRepresentation: TypeSafeURL<PersistedDiscussion>, messageURIRepresentation: TypeSafeURL<PersistedMessage>, in currentSessionDirectoryForHardlinks: URL) throws {
+        let urlToTrashIfEmpty = messageDirectory(discussionURIRepresentation: discussionURIRepresentation, messageURIRepresentation: messageURIRepresentation, in: currentSessionDirectoryForHardlinks)
+        guard FileManager.default.isDirectory(url: urlToTrashIfEmpty) else { return }
+        try trashMessageDirectory(discussionURIRepresentation: discussionURIRepresentation, messageURIRepresentation: messageURIRepresentation, in: currentSessionDirectoryForHardlinks)
+    }
+
+    
+    static func trashFyleMessageJoinWithStatusDirectory(discussionURIRepresentation: TypeSafeURL<PersistedDiscussion>, messageURIRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinWithStatusURIRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>, in currentSessionDirectoryForHardlinks: URL) throws {
+        let urlToTrash = fyleMessageJoinWithStatusDirectory(discussionURIRepresentation: discussionURIRepresentation, messageURIRepresentation: messageURIRepresentation, fyleMessageJoinWithStatusURIRepresentation: fyleMessageJoinWithStatusURIRepresentation, in: currentSessionDirectoryForHardlinks)
+        let trashURL = ObvMessengerConstants.containerURL.forTrash.appendingPathComponent(UUID().uuidString)
+        guard FileManager.default.fileExists(atPath: urlToTrash.path) else { return }
+        try FileManager.default.moveItem(at: urlToTrash, to: trashURL)
+    }
 }
 
 fileprivate extension FileManager {

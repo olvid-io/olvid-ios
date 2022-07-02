@@ -56,16 +56,16 @@ extension ServerQuery {
             }
         }
         
-        public func encode() -> ObvEncoded {
+        public func obvEncode() -> ObvEncoded {
             switch self {
             case .deviceDiscovery(of: let identity):
-                return [rawValue, identity].encode()
+                return [rawValue, identity].obvEncode()
             case .putUserData(label: let label, dataURL: let dataURL, dataKey: let dataKey):
-                return [rawValue, label, dataURL, dataKey].encode()
+                return [rawValue, label, dataURL, dataKey].obvEncode()
             case .getUserData(of: let identity, label: let label):
-                return [rawValue, identity, label].encode()
+                return [rawValue, identity, label].obvEncode()
             case .checkKeycloakRevocation(keycloakServerUrl: let keycloakServerUrl, signedContactDetails: let signedContactDetails):
-                return [rawValue, keycloakServerUrl, signedContactDetails].encode()
+                return [rawValue, keycloakServerUrl, signedContactDetails].obvEncode()
             }
         }
         

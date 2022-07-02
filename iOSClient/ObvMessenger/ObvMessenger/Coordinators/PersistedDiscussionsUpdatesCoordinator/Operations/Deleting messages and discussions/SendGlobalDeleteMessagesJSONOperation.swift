@@ -84,7 +84,7 @@ final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonFo
             
             let payload: Data
             do {
-                payload = try itemJSON.encode()
+                payload = try itemJSON.jsonEncode()
             } catch {
                 return cancel(withReason: .failedToEncodePersistedItemJSON)
             }

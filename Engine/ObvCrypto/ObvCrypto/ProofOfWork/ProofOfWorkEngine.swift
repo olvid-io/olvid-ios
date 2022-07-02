@@ -88,8 +88,8 @@ final class ProofOfWorkEngineSyndromeBased: ProofOfWorkEngine {
     }
     
     private static func encode(_ indexes: [Int]) -> ObvEncoded? {
-        let listOfEncodedIndexes = indexes.map() { $0.encode() }
-        return listOfEncodedIndexes.encode()
+        let listOfEncodedIndexes = indexes.map() { $0.obvEncode() }
+        return listOfEncodedIndexes.obvEncode()
     }
  
 }

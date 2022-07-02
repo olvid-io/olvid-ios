@@ -69,7 +69,7 @@ class ProtocolStep {
         do {
             guard try expectedReceptionChannelInfo.accepts(receivedMessageReceptionChannelInfo, identityDelegate: identityDelegate, within: concreteCryptoProtocol.obvContext) else {
                 os_log("Unexpected receptionChannelInfo (%{public}@ does not accept %{public}@)", log: log, type: .error, expectedReceptionChannelInfo.debugDescription, receivedMessageReceptionChannelInfo.debugDescription)
-                assertionFailure()
+                // assertionFailure()
                 return nil
             }
         } catch {

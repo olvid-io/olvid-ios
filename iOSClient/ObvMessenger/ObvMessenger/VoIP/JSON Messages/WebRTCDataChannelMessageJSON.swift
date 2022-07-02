@@ -47,12 +47,12 @@ struct WebRTCDataChannelMessageJSON: Codable {
         case serializedMessage = "m"
     }
 
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
 
-    static func decode(data: Data) throws -> Self {
+    static func jsonDecode(data: Data) throws -> Self {
         let decoder = JSONDecoder()
         return try decoder.decode(Self.self, from: data)
     }
@@ -71,12 +71,12 @@ extension WebRTCDataChannelInnerMessageJSON {
         NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
     }
 
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
 
-    static func decode(serializedMessage: String) throws -> Self {
+    static func jsonDecode(serializedMessage: String) throws -> Self {
         guard let data = serializedMessage.data(using: .utf8) else {
             throw Self.makeError(message: "Could not turn serialized message into data")
         }
@@ -85,7 +85,7 @@ extension WebRTCDataChannelInnerMessageJSON {
     }
 
     func embedInWebRTCDataChannelMessageJSON() throws -> WebRTCDataChannelMessageJSON {
-        let serializedMessageAsData = try self.encode()
+        let serializedMessageAsData = try self.jsonEncode()
         guard let serializedMessage = String(data: serializedMessageAsData, encoding: .utf8) else {
             throw Self.makeError(message: "Could not serialize message")
         }

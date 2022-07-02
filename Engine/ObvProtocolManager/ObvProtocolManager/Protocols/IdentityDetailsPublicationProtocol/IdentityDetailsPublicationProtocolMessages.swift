@@ -54,12 +54,12 @@ extension IdentityDetailsPublicationProtocol {
         let version: Int
         
         var encodedInputs: [ObvEncoded] {
-            return [version.encode()]
+            return [version.obvEncode()]
         }
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            self.version = try message.encodedInputs.decode()
+            self.version = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, version: Int) {
@@ -100,13 +100,13 @@ extension IdentityDetailsPublicationProtocol {
         let contactIdentityDetailsElements: IdentityDetailsElements
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.encode()
-            return [encodedContactIdentityDetailsElements.encode()]
+            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.jsonEncode()
+            return [encodedContactIdentityDetailsElements.obvEncode()]
         }
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.decode()
+            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
         

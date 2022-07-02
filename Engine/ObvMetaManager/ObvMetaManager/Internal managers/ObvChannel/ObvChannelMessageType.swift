@@ -37,8 +37,8 @@ extension ObvChannelMessageType {
         self = type
     }
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         let intValue = self.rawValue
-        return intValue.encode()
+        return intValue.obvEncode()
     }
 }

@@ -59,7 +59,7 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
     }
     
     lazy public var dataToSend: Data? = {
-        return [toIdentity.getIdentity(), token, deviceUid].encode().rawData
+        return [toIdentity.getIdentity(), token, deviceUid].obvEncode().rawData
     }()
     
     public struct MessageAndAttachmentsOnServer {

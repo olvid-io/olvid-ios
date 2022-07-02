@@ -34,7 +34,7 @@ protocol ObvChannelMessageToSendWrapper {
 fileprivate extension ObvChannelMessageToSendWrapper {
     
     static func generateContent(type: ObvChannelMessageType, encodedElements: ObvEncoded) -> ObvEncoded {
-        return [type.encode(), encodedElements].encode()
+        return [type.obvEncode(), encodedElements].obvEncode()
     }
     
     static func encryptContent(messageKey: AuthenticatedEncryptionKey, type: ObvChannelMessageType, encodedElements: ObvEncoded, extendedMessagePayload: Data?, randomizedWith prng: PRNGService) -> (encryptedMessagePayload: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?) {
@@ -161,8 +161,8 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
     
     private static func generateEncodedElements(fromMessagePayload payload: Data, and attachmentsAndKeys: [(attachment: ObvChannelApplicationMessageToSend.Attachment, key: AuthenticatedEncryptionKey)]) -> ObvEncoded {
         let listOfEncodedElementsFromAttachments = attachmentsAndKeys.map { $0.attachment.generateEncodedElement(including: $0.key) }
-        let encodedMessagePayload = [payload.encode()]
-        let encodedElements = (listOfEncodedElementsFromAttachments + encodedMessagePayload).encode()
+        let encodedMessagePayload = [payload.obvEncode()]
+        let encodedElements = (listOfEncodedElementsFromAttachments + encodedMessagePayload).obvEncode()
         return encodedElements
     }
     
@@ -213,7 +213,7 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
 // MARK: Extensing the standard ObvChannelApplicationMessageToSend's Attachment struct
 fileprivate extension ObvChannelApplicationMessageToSend.Attachment {
     func generateEncodedElement(including key: AuthenticatedEncryptionKey) -> ObvEncoded {
-        return [key, metadata].encode()
+        return [key, metadata].obvEncode()
     }
     
     func generateObvNetworkMessageToSendAttachment(including key: AuthenticatedEncryptionKey) -> ObvNetworkMessageToSend.Attachment {

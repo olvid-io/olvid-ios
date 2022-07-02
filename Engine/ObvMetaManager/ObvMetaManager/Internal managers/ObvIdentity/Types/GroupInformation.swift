@@ -37,7 +37,7 @@ public struct GroupInformation {
         self.groupOwnerIdentity = groupOwnerIdentity
         self.groupUid = groupUid
         self.groupDetailsElements = groupDetailsElements
-        self.serializedGroupDetailsElements = try groupDetailsElements.encode()
+        self.serializedGroupDetailsElements = try groupDetailsElements.jsonEncode()
     }
 
     
@@ -63,14 +63,14 @@ public struct GroupInformation {
 
 extension GroupInformation: ObvCodable {
 
-    public func encode() -> ObvEncoded {
-        return [self.groupOwnerIdentity, self.groupUid, self.serializedGroupDetailsElements].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [self.groupOwnerIdentity, self.groupUid, self.serializedGroupDetailsElements].obvEncode()
     }
 
 
     public init?(_ encoded: ObvEncoded) {
         do {
-            (groupOwnerIdentity, groupUid, serializedGroupDetailsElements) = try encoded.decode()
+            (groupOwnerIdentity, groupUid, serializedGroupDetailsElements) = try encoded.obvDecode()
             groupDetailsElements = try GroupDetailsElements(serializedGroupDetailsElements)
         } catch {
             return nil
@@ -134,11 +134,11 @@ public struct GroupInformationWithPhoto {
 
 extension GroupInformationWithPhoto: ObvCodable {
 
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         if let photoURL = self.photoURL {
-            return [groupInformation, photoURL].encode()
+            return [groupInformation, photoURL].obvEncode()
         } else {
-            return [groupInformation].encode()
+            return [groupInformation].obvEncode()
         }
     }
 

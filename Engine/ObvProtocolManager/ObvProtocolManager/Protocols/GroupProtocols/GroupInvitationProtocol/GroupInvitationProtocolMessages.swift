@@ -62,9 +62,9 @@ extension GroupInvitationProtocol {
         let membersAndPendingGroupMembers: Set<CryptoIdentityWithCoreDetails>
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (membersAndPendingGroupMembers.map { $0.encode() }).encode()
-            return [contactIdentity.encode(),
-                    groupInformation.encode(),
+            let encodedMembers = (membersAndPendingGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [contactIdentity.obvEncode(),
+                    groupInformation.obvEncode(),
                     encodedMembers]
         }
         
@@ -73,10 +73,10 @@ extension GroupInvitationProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 3 else { throw NSError() }
-            self.contactIdentity = try message.encodedInputs[0].decode()
-            self.groupInformation = try message.encodedInputs[1].decode()
+            self.contactIdentity = try message.encodedInputs[0].obvDecode()
+            self.groupInformation = try message.encodedInputs[1].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[2]) else { throw NSError() }
-            self.membersAndPendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.membersAndPendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             
         }
         
@@ -101,8 +101,8 @@ extension GroupInvitationProtocol {
         let pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (pendingGroupMembers.map { $0.encode() }).encode()
-            return [groupInformation.encode(),
+            let encodedMembers = (pendingGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformation.obvEncode(),
                     encodedMembers]
         }
         
@@ -111,9 +111,9 @@ extension GroupInvitationProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
-            self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             
         }
         
@@ -137,7 +137,7 @@ extension GroupInvitationProtocol {
         let invitationAccepted: Bool // Only used when this protocol receives this message
         
         var encodedInputs: [ObvEncoded] {
-            return [invitationAccepted.encode()]
+            return [invitationAccepted.obvEncode()]
         }
         
         // Initializers
@@ -145,7 +145,7 @@ extension GroupInvitationProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
-            invitationAccepted = try encodedUserDialogResponse.decode()
+            invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
             dialogUuid = userDialogUuid
         }
@@ -170,8 +170,8 @@ extension GroupInvitationProtocol {
         let invitationAccepted: Bool
 
         var encodedInputs: [ObvEncoded] {
-            return [groupUid.encode(),
-                    invitationAccepted.encode()]
+            return [groupUid.obvEncode(),
+                    invitationAccepted.obvEncode()]
         }
         
         // Initializers
@@ -179,8 +179,8 @@ extension GroupInvitationProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupUid = try message.encodedInputs[0].decode()
-            self.invitationAccepted = try message.encodedInputs[1].decode()
+            self.groupUid = try message.encodedInputs[0].obvDecode()
+            self.invitationAccepted = try message.encodedInputs[1].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupUid: UID, invitationAccepted: Bool) {
@@ -202,7 +202,7 @@ extension GroupInvitationProtocol {
         let invitationAccepted: Bool
         
         var encodedInputs: [ObvEncoded] {
-            return [invitationAccepted.encode()]
+            return [invitationAccepted.obvEncode()]
         }
         
         // Initializers
@@ -210,7 +210,7 @@ extension GroupInvitationProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.invitationAccepted = try message.encodedInputs[0].decode()
+            self.invitationAccepted = try message.encodedInputs[0].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, invitationAccepted: Bool) {

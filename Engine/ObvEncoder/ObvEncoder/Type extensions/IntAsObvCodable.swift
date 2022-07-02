@@ -31,7 +31,7 @@ extension Int: ObvCodable {
         self = ObvEncoded.lengthFrom(lengthAsData: obvEncoded.innerData)
     }
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         var innerData = Data()
         for i in 0..<Int.encodingLength {
             innerData.append(UInt8(self >> (8*(Int.encodingLength - 1 - i)) & 0xFF))

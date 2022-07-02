@@ -70,16 +70,16 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
         
         var listOfEncodedHeaders = [ObvEncoded]()
         for header in headers {
-            listOfEncodedHeaders.append(header.deviceUid.encode())
-            listOfEncodedHeaders.append(header.wrappedKey.raw.encode())
-            listOfEncodedHeaders.append(header.toIdentity.getIdentity().encode())
+            listOfEncodedHeaders.append(header.deviceUid.obvEncode())
+            listOfEncodedHeaders.append(header.wrappedKey.raw.obvEncode())
+            listOfEncodedHeaders.append(header.toIdentity.getIdentity().obvEncode())
         }
         
         var encryptedAttachmentEncodedLengths = [ObvEncoded]()
         var encryptedAttachmentChunkEncodedLengths = [ObvEncoded]()
         for encryptedAttachment in encryptedAttachments {
-            encryptedAttachmentEncodedLengths.append(encryptedAttachment.length.encode())
-            encryptedAttachmentChunkEncodedLengths.append(encryptedAttachment.chunkLength.encode())
+            encryptedAttachmentEncodedLengths.append(encryptedAttachment.length.obvEncode())
+            encryptedAttachmentChunkEncodedLengths.append(encryptedAttachment.chunkLength.obvEncode())
         }
         
         if let encryptedExtendedMessagePayload = self.encryptedExtendedMessagePayload, encryptedExtendedMessagePayload.count >= maxMessageExtendedContentLenghtForServer {
@@ -89,23 +89,23 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
         
         let listOfEncodedVals: [ObvEncoded]
         if let encryptedExtendedMessagePayload = self.encryptedExtendedMessagePayload, encryptedExtendedMessagePayload.count < maxMessageExtendedContentLenghtForServer {
-            listOfEncodedVals = [listOfEncodedHeaders.encode(),
-                                 encryptedContent.raw.encode(),
-                                 encryptedExtendedMessagePayload.raw.encode(),
-                                 isAppMessageWithUserContent.encode(),
-                                 isVoipMessageForStartingCall.encode(),
-                                 encryptedAttachmentEncodedLengths.encode(),
-                                 encryptedAttachmentChunkEncodedLengths.encode()]
+            listOfEncodedVals = [listOfEncodedHeaders.obvEncode(),
+                                 encryptedContent.raw.obvEncode(),
+                                 encryptedExtendedMessagePayload.raw.obvEncode(),
+                                 isAppMessageWithUserContent.obvEncode(),
+                                 isVoipMessageForStartingCall.obvEncode(),
+                                 encryptedAttachmentEncodedLengths.obvEncode(),
+                                 encryptedAttachmentChunkEncodedLengths.obvEncode()]
             
         } else {
-            listOfEncodedVals = [listOfEncodedHeaders.encode(),
-                                 encryptedContent.raw.encode(),
-                                 isAppMessageWithUserContent.encode(),
-                                 isVoipMessageForStartingCall.encode(),
-                                 encryptedAttachmentEncodedLengths.encode(),
-                                 encryptedAttachmentChunkEncodedLengths.encode()]
+            listOfEncodedVals = [listOfEncodedHeaders.obvEncode(),
+                                 encryptedContent.raw.obvEncode(),
+                                 isAppMessageWithUserContent.obvEncode(),
+                                 isVoipMessageForStartingCall.obvEncode(),
+                                 encryptedAttachmentEncodedLengths.obvEncode(),
+                                 encryptedAttachmentChunkEncodedLengths.obvEncode()]
         }
-        return listOfEncodedVals.encode().rawData
+        return listOfEncodedVals.obvEncode().rawData
     }()
     
     

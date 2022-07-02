@@ -61,17 +61,17 @@ extension ServerResponse {
             }
         }
         
-        public func encode() -> ObvEncoded {
+        public func obvEncode() -> ObvEncoded {
             switch self {
             case .deviceDiscovery(of: let identity, deviceUids: let deviceUids):
-                let listOfEncodedDeviceUids = deviceUids.map { $0.encode() }
-                return [rawValue.encode(), identity.encode(), listOfEncodedDeviceUids.encode()].encode()
+                let listOfEncodedDeviceUids = deviceUids.map { $0.obvEncode() }
+                return [rawValue.obvEncode(), identity.obvEncode(), listOfEncodedDeviceUids.obvEncode()].obvEncode()
             case .putUserData:
-                return [rawValue.encode()].encode()
+                return [rawValue.obvEncode()].obvEncode()
             case .getUserData(of: let identity, userDataPath: let userDataPath):
-                return [rawValue.encode(), identity.encode(), userDataPath.encode()].encode()
+                return [rawValue.obvEncode(), identity.obvEncode(), userDataPath.obvEncode()].obvEncode()
             case .checkKeycloakRevocation(verificationSuccessful: let verificationSuccessful):
-                return [rawValue.encode(), verificationSuccessful.encode()].encode()
+                return [rawValue.obvEncode(), verificationSuccessful.obvEncode()].obvEncode()
             }
         }
         

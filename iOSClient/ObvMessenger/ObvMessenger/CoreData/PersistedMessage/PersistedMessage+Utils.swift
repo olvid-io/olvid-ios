@@ -82,7 +82,7 @@ extension PersistedMessage {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K > %lf",
-                                        discussionKey, discussion,
+                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
                                         sortIndexKey, sortIndex)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
         request.fetchLimit = 1
@@ -93,7 +93,7 @@ extension PersistedMessage {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
-                                        discussionKey, discussion,
+                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
                                         sortIndexKey, sortIndex)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
         request.fetchLimit = 1
@@ -103,7 +103,7 @@ extension PersistedMessage {
     static func getMessage(beforeSortIndex sortIndex: Double, inDiscussionWithObjectID objectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> PersistedMessage? {
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
-                                        discussionKey, objectID.objectID,
+                                        PersistedMessage.Predicate.Key.discussion.rawValue, objectID.objectID,
                                         sortIndexKey, sortIndex)
         request.fetchLimit = 1
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
@@ -132,7 +132,7 @@ extension PersistedMessage {
     static func deleteAllWithinDiscussion(persistedDiscussionObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws {
         // For now, the structure of the database prevents batch deletion
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", discussionKey, persistedDiscussionObjectID)
+        request.predicate = NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, persistedDiscussionObjectID)
         request.fetchBatchSize = 1_000
         request.includesPropertyValues = false
         let messages = try context.fetch(request)
@@ -141,7 +141,7 @@ extension PersistedMessage {
 
     static func getNumberOfMessagesWithinDiscussion(discussionObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> Int {
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", discussionKey, discussionObjectID)
+        request.predicate = NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID)
         return try context.count(for: request)
     }
 
@@ -165,6 +165,15 @@ extension PersistedMessage {
                 PersistedMessageSystem.Predicate.isRelevantForIllustrativeMessage,
             ]),
         ])
+        return try context.fetch(request).first
+    }
+
+    static func getLastMessage(in discussion: PersistedDiscussion) throws -> PersistedMessage? {
+        guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
+        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: false)]
+        request.fetchLimit = 1
+        request.predicate = Predicate.withinDiscussion(discussion)
         return try context.fetch(request).first
     }
 
@@ -193,7 +202,7 @@ extension PersistedMessage {
 
     static func getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
         let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID)
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID)
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: true)]
         fetchRequest.fetchBatchSize = 500
         fetchRequest.propertiesToFetch = [
@@ -229,7 +238,7 @@ extension PersistedMessage {
         }
 
         let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", discussionKey, discussionObjectID)
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID)
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.sortIndexKey, ascending: true)]
         fetchRequest.fetchLimit = min(numberOfMessagesToFetch, numberOfMessages)
         fetchRequest.fetchOffset = max(0, numberOfMessages - numberOfMessagesToFetch)
@@ -259,6 +268,43 @@ extension PersistedMessage {
         ])
         let messages = try context.fetch(fetchRequest)
         messages.forEach { context.delete($0) }
+    }
+
+}
+
+
+// MARK: - Determining actions availability
+
+extension PersistedMessage {
+    
+    var copyActionCanBeMadeAvailable: Bool {
+        if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.copyActionCanBeMadeAvailableForReceivedMessage
+        } else if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.copyActionCanBeMadeAvailableForSentMessage
+        } else {
+            return false
+        }
+    }
+
+    var shareActionCanBeMadeAvailable: Bool {
+        if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.shareActionCanBeMadeAvailableForReceivedMessage
+        } else if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.shareActionCanBeMadeAvailableForSentMessage
+        } else {
+            return false
+        }
+    }
+    
+    var forwardActionCanBeMadeAvailable: Bool {
+        if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.forwardActionCanBeMadeAvailableForReceivedMessage
+        } else if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.forwardActionCanBeMadeAvailableForSentMessage
+        } else {
+            return false
+        }
     }
 
 }

@@ -59,7 +59,7 @@ public final class VerifyReceiptMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(), token, iOSStoreId, receiptData].encode().rawData
+        return [ownedIdentity.getIdentity(), token, iOSStoreId, receiptData].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, apiKey: UUID?)? {

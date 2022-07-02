@@ -44,6 +44,10 @@ public extension NSPredicate {
         self.init(format: "%K == %d", key.rawValue, int)
     }
 
+    convenience init<T: RawRepresentable>(_ key: T, EqualToString string: String) where T.RawValue == String {
+        self.init(format: "%K == %@", key.rawValue, string as NSString)
+    }
+
     convenience init<T: RawRepresentable>(_ key: T, DistinctFromInt int: Int) where T.RawValue == String {
         self.init(format: "%K != %d", key.rawValue, int)
     }
@@ -72,4 +76,7 @@ public extension NSPredicate {
         self.init(format: bool ? "%K == YES" : "%K == NO", key.rawValue)
     }
 
+    convenience init(withEntity entity: NSEntityDescription) {
+        self.init(format: "entity = %@", entity)
+    }
 }

@@ -106,7 +106,7 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
                 imageView.reset()
             }
             tapToReadView.messageObjectID = nil
-            bubble.backgroundColor = .clear
+            bubble.backgroundColor = .systemFill
         case .cancelledByServer:
             tapToReadView.isHidden = true
             hidingView.isHidden = false
@@ -155,7 +155,7 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         addSubview(bubble)
         bubble.translatesAutoresizingMaskIntoConstraints = false
         bubble.backgroundColor = .systemFill
-        
+
         addSubview(expirationIndicator)
         expirationIndicator.translatesAutoresizingMaskIntoConstraints = false
 

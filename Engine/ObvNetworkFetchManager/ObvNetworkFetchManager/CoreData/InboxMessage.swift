@@ -95,7 +95,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
             return key
         }
         set {
-            self.rawExtendedMessagePayloadKey = newValue?.encode().rawData
+            self.rawExtendedMessagePayloadKey = newValue?.obvEncode().rawData
         }
     }
     
@@ -129,7 +129,6 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     convenience init(messageId: MessageIdentifier, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
         
         guard !Self.thisMessageWasRecentlyDeleted(messageId: messageId) else {
-            assertionFailure("This assert can be removed if necessary")
             throw InternalError.tryingToInsertAMessageThatWasAlreadyDeleted
         }
         

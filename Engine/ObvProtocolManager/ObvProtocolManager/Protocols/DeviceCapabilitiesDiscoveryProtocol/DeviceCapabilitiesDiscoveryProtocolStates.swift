@@ -48,7 +48,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
         init() {}
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 
@@ -61,7 +61,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

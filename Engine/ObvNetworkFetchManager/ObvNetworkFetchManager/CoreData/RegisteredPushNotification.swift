@@ -52,7 +52,7 @@ final class RegisteredPushNotification: NSManagedObject, ObvManagedObject {
             return pushNotificationType
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue.encode().rawData, forKey: RegisteredPushNotification.pushNotificationTypeKey)
+            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: RegisteredPushNotification.pushNotificationTypeKey)
         }
     }
     

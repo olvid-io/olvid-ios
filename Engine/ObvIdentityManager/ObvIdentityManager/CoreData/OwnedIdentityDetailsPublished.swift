@@ -103,7 +103,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         } catch {
             return nil
         }
-        do { self.serializedIdentityCoreDetails = try identityDetails.coreDetails.encode() } catch { return nil }
+        do { self.serializedIdentityCoreDetails = try identityDetails.coreDetails.jsonEncode() } catch { return nil }
         self.version = version
         self.photoServerKeyEncoded = nil
         self.photoServerLabel = nil
@@ -218,7 +218,7 @@ extension OwnedIdentityDetailsPublished {
         let currentCoreDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
         let newCoreDetails = newIdentityDetails.coreDetails
         if newCoreDetails != currentCoreDetails {
-            self.serializedIdentityCoreDetails = try newIdentityDetails.coreDetails.encode()
+            self.serializedIdentityCoreDetails = try newIdentityDetails.coreDetails.jsonEncode()
             detailsWereUpdated = true
         }
         if try setOwnedIdentityPhotot(with: newIdentityDetails.photoURL, delegateManager: delegateManager) {
@@ -234,7 +234,7 @@ extension OwnedIdentityDetailsPublished {
     }
 
     func set(photoServerKeyAndLabel: PhotoServerKeyAndLabel) {
-        self.photoServerKeyEncoded = photoServerKeyAndLabel.key.encode().rawData
+        self.photoServerKeyEncoded = photoServerKeyAndLabel.key.obvEncode().rawData
         self.labelToDelete = self.photoServerLabel
         notificationRelatedChanges.insert(.photoServerLabel)
         self.photoServerLabel = photoServerKeyAndLabel.label

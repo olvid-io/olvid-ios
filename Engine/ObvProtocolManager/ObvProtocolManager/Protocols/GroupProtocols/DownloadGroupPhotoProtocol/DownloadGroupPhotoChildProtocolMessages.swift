@@ -50,12 +50,12 @@ extension DownloadGroupPhotoChildProtocol {
 
         let groupInformation: GroupInformation
 
-        var encodedInputs: [ObvEncoded] { [groupInformation.encode()] }
+        var encodedInputs: [ObvEncoded] { [groupInformation.obvEncode()] }
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {

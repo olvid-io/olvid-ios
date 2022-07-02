@@ -185,7 +185,7 @@ extension UserDetails: Codable, Identifiable, Hashable, Comparable {
         }
     }
 
-    fileprivate func encode() throws -> Data {
+    fileprivate func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
@@ -210,7 +210,7 @@ extension UserDetails: Codable, Identifiable, Hashable, Comparable {
     }
 
 
-    fileprivate static func decode(_ data: Data) throws -> UserDetails {
+    fileprivate static func jsonDecode(_ data: Data) throws -> UserDetails {
         let decoder = JSONDecoder()
         return try decoder.decode(UserDetails.self, from: data)
     }

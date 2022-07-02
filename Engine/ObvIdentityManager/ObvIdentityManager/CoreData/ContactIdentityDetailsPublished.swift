@@ -79,7 +79,7 @@ extension ContactIdentityDetailsPublished {
         }
         
         if newContactIdentityDetailsElements.coreDetails != storedPublishedCoreDetails {
-            self.serializedIdentityCoreDetails = try newContactIdentityDetailsElements.coreDetails.encode()
+            self.serializedIdentityCoreDetails = try newContactIdentityDetailsElements.coreDetails.jsonEncode()
         }
         
         if newContactIdentityDetailsElements.photoServerKeyAndLabel != self.photoServerKeyAndLabel {
@@ -196,7 +196,7 @@ struct ContactIdentityDetailsPublishedBackupItem: Codable, Hashable {
         try container.encode(serializedIdentityCoreDetailsAsString, forKey: .serializedIdentityCoreDetails)
         try container.encode(version, forKey: .version)
         // Local attributes
-        let photoServerKeyEncoded = photoServerKeyAndLabel?.key.encode().rawData
+        let photoServerKeyEncoded = photoServerKeyAndLabel?.key.obvEncode().rawData
         try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
         try container.encodeIfPresent(photoServerKeyAndLabel?.label, forKey: .photoServerLabel)
     }

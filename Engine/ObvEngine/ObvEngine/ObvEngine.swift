@@ -2969,13 +2969,14 @@ extension ObvEngine {
 
     
     public func applicationDidStartRunning(flowId: FlowIdentifier) {
-        queueForPerformingBootstrapMethods.async { [weak self] in
+        queueForPerformingBootstrapMethods.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
             guard let _self = self else { return }
             for manager in _self.delegateManager.registeredManagers {
                 manager.applicationDidStartRunning(flowId: flowId)
             }
         }
     }
+
     
     public func applicationDidEnterBackground() {
         queueForPerformingBootstrapMethods.async { [weak self] in

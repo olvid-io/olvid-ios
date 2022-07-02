@@ -40,6 +40,7 @@ enum ObvSystemIcon {
     case arrowshapeTurnUpLeftCircleFill
     case arrowTriangle2CirclepathCircle
     case book
+    case bubbleLeftAndBubbleRight
     case camera
     case cartFill
     case checkmark
@@ -118,6 +119,7 @@ enum ObvSystemIcon {
     case photo
     case photoOnRectangleAngled
     case playCircle
+    case playCircleFill
     case plus
     case plusCircle
     case qrcode
@@ -423,6 +425,8 @@ enum ObvSystemIcon {
             return "person.crop.circle.fill.badge.xmark"
         case .book:
             return "book"
+        case .bubbleLeftAndBubbleRight:
+            return "bubble.left.and.bubble.right"
         case .arrowUpArrowDownCircle:
             return "arrow.up.arrow.down.circle"
         case .speakerSlashFill:
@@ -443,6 +447,8 @@ enum ObvSystemIcon {
             return "mic.fill"
         case .playCircle:
             return "play.circle"
+        case .playCircleFill:
+            return "play.circle.fill"
         case .circleFill:
             return "circle.fill"
         case .muliplyCircleFill:

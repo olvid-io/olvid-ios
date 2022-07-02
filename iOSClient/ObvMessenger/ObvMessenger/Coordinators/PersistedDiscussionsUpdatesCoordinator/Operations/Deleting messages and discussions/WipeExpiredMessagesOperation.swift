@@ -70,7 +70,12 @@ final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonF
                         debugPrint("💾 Found 1 message with expiration for sent limited visibility")
                         if expirationForSentLimitedVisibility.retainWipedMessageSent {
                             for join in message.fyleMessageJoinWithStatuses {
-                                join.wipe()
+                                do {
+                                    try join.wipe()
+                                } catch {
+                                    os_log("Could not wipe a join of a message sent with expired visibility", log: log, type: .fault)
+                                    // Continue anyway
+                                }
                             }
                             do {
                                 if !message.isWiped {

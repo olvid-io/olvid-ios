@@ -57,7 +57,7 @@ extension ObvGroupCoreDetails: Codable {
     }
 
     
-    public func encode() throws -> Data {
+    public func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }

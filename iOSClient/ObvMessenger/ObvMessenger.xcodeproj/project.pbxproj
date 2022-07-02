@@ -186,6 +186,7 @@
 		C0B6C2E727A06EE300434D50 /* ObvNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C400059F20CB69A500AC148C /* ObvNavigationController.swift */; };
 		C0B6C33527A071FB00434D50 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C4CB84D92084B0DA004D0730 /* Assets.xcassets */; };
 		C0B6D92B27E49009006C8C9B /* SaveContextOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B6D92A27E49009006C8C9B /* SaveContextOperation.swift */; };
+		C0B6DF8927E8BD82006C8C9B /* AppIntentVocabulary.plist in Resources */ = {isa = PBXBuildFile; fileRef = C0B6DF8B27E8BD82006C8C9B /* AppIntentVocabulary.plist */; };
 		C0B6E0FF27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B6E0FE27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift */; };
 		C0BB70C22487928800AFD692 /* NSNumber+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB70C12487928800AFD692 /* NSNumber+Utils.swift */; };
 		C0BB70C42487928900AFD692 /* NSNumber+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB70C12487928800AFD692 /* NSNumber+Utils.swift */; };
@@ -545,6 +546,8 @@
 		C471C6FB254C54380057DF21 /* ProcessPurchasedOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C471C6FA254C54380057DF21 /* ProcessPurchasedOperation.swift */; };
 		C4722FDD22C2A8230069C944 /* UIView+RippleEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4722FDC22C2A8230069C944 /* UIView+RippleEffect.swift */; };
 		C473B2BF2294ACE800210568 /* OwnedGroupEditionFlowViewController+Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C473B2BE2294ACE800210568 /* OwnedGroupEditionFlowViewController+Strings.swift */; };
+		C474120B27EF06DC0085F110 /* CGSize+Hashable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474120A27EF06DC0085F110 /* CGSize+Hashable.swift */; };
+		C474125327EF59110085F110 /* FyleMessageJoinWithStatus+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474125227EF59110085F110 /* FyleMessageJoinWithStatus+Utils.swift */; };
 		C47425E8234E2C6E001FF92B /* InfosOfSentMessageInGroupDiscussionTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47425E7234E2C6E001FF92B /* InfosOfSentMessageInGroupDiscussionTableViewController.swift */; };
 		C475D97E22A690010084F0DF /* ObvMessengerMappingModel_v10_to_v11.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C475D97D22A690010084F0DF /* ObvMessengerMappingModel_v10_to_v11.xcmappingmodel */; };
 		C475D98022A692660084F0DF /* PersistedContactGroupJoinedToPersistedContactGroupJoinedMigrationPolicyV10ToV11.swift in Sources */ = {isa = PBXBuildFile; fileRef = C475D97F22A692660084F0DF /* PersistedContactGroupJoinedToPersistedContactGroupJoinedMigrationPolicyV10ToV11.swift */; };
@@ -594,9 +597,11 @@
 		C482C16124DD9061005DA0A9 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C482C16024DD9061005DA0A9 /* AppState.swift */; };
 		C4833AF6258282C00070A80E /* DiscussionsDefaultSettingsHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4833AF5258282C00070A80E /* DiscussionsDefaultSettingsHostingViewController.swift */; };
 		C4839C622785AC7C0065DC84 /* SettingsUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4839C602785AC7C0065DC84 /* SettingsUtils.swift */; };
+		C483AEE82870AE710027E62A /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C4F6E51B2778E71600DEA75F /* AppAuth */; };
 		C4842D5B24E5B2C300424F6E /* ObvCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4842D5A24E5B2C300424F6E /* ObvCompressor.swift */; };
 		C4842D5E24E5B3ED00424F6E /* ObvCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4842D5A24E5B2C300424F6E /* ObvCompressor.swift */; };
 		C4847879276A37C0009002E4 /* SyncPersistedObvOwnedIdentitiesWithEngineOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4847878276A37C0009002E4 /* SyncPersistedObvOwnedIdentitiesWithEngineOperation.swift */; };
+		C485C84227EE393B000199C0 /* DiscussionGalleryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C485C84127EE393B000199C0 /* DiscussionGalleryViewController.swift */; };
 		C48649D121E37F43005DB212 /* PersistedContactGroupOwned.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41C9CCF21B98A9F000B64F6 /* PersistedContactGroupOwned.swift */; };
 		C4864B1D21E3A29B005DB212 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = C42EDDCD218A1AE000592C37 /* Localizable.strings */; };
 		C48672C2220C452500C288FE /* UIView+SubviewsDeepSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48672C1220C452500C288FE /* UIView+SubviewsDeepSearch.swift */; };
@@ -772,6 +777,8 @@
 		C4A3A6CD220DCD9300DFE919 /* PersistedMessageSentToPersistedMessageSentMigrationPolicyV9ToV10.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A3A6CC220DCD9300DFE919 /* PersistedMessageSentToPersistedMessageSentMigrationPolicyV9ToV10.swift */; };
 		C4A4804E229E849900C7BFC8 /* PersistedMessageSystem+Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A4804D229E849900C7BFC8 /* PersistedMessageSystem+Strings.swift */; };
 		C4A48051229E851400C7BFC8 /* PersistedMessageSystem+Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A4804D229E849900C7BFC8 /* PersistedMessageSystem+Strings.swift */; };
+		C4A4CDC327F83915003F36BC /* URL+Thumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A4CDC227F83915003F36BC /* URL+Thumbnail.swift */; };
+		C4A4CDC427F83915003F36BC /* URL+Thumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A4CDC227F83915003F36BC /* URL+Thumbnail.swift */; };
 		C4A4FB2F27A2E56300C430A3 /* AutoAcceptPendingGroupInvitesIfPossibleOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A4FB2E27A2E56300C430A3 /* AutoAcceptPendingGroupInvitesIfPossibleOperation.swift */; };
 		C4A5B3E624314A80006F152D /* README-migration-app-v19-to-v20.txt in Resources */ = {isa = PBXBuildFile; fileRef = C4A5B3E524314A80006F152D /* README-migration-app-v19-to-v20.txt */; };
 		C4A6865A275FD66E0039B54F /* ContactDetailedInfosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A68659275FD66D0039B54F /* ContactDetailedInfosView.swift */; };
@@ -788,8 +795,9 @@
 		C4AAA827215E1F3100BF8D46 /* ObvFlowManager.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AAA826215E1F3100BF8D46 /* ObvFlowManager.framework */; };
 		C4AAA828215E1F9400BF8D46 /* ObvFlowManager.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C4AAA826215E1F3100BF8D46 /* ObvFlowManager.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C4AC59462510C60200EBD133 /* TrashFilesThatHaveNoAssociatedFyleOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AC59452510C60200EBD133 /* TrashFilesThatHaveNoAssociatedFyleOperation.swift */; };
+		C4AC5AA827F34F5B000DEA27 /* WipeFyleMessageJoinsWithStatusOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AC5AA727F34F5B000DEA27 /* WipeFyleMessageJoinsWithStatusOperation.swift */; };
 		C4AD03C42508DEE000B63E31 /* CancelUploadOrDownloadOfPersistedMessageOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AD03C32508DEE000B63E31 /* CancelUploadOrDownloadOfPersistedMessageOperation.swift */; };
-		C4AD03C72508ECCF00B63E31 /* DeletePersistedMessageOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AD03C62508ECCF00B63E31 /* DeletePersistedMessageOperation.swift */; };
+		C4AD03C72508ECCF00B63E31 /* DeletePersistedMessagesOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AD03C62508ECCF00B63E31 /* DeletePersistedMessagesOperation.swift */; };
 		C4AD03C92509003200B63E31 /* DeleteAllOrphanedFyleMessageJoinWithStatusOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AD03C82509003200B63E31 /* DeleteAllOrphanedFyleMessageJoinWithStatusOperation.swift */; };
 		C4AD03CB2509039800B63E31 /* DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AD03CA2509039800B63E31 /* DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation.swift */; };
 		C4AD03CD250912C700B63E31 /* DeleteAllPersistedMessagesWithinDiscussionOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AD03CC250912C700B63E31 /* DeleteAllPersistedMessagesWithinDiscussionOperation.swift */; };
@@ -843,6 +851,7 @@
 		C4C451CA26307C740046276D /* UpdateListOfContactsCertifiedByOwnKeycloakOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C451C926307C740046276D /* UpdateListOfContactsCertifiedByOwnKeycloakOperation.swift */; };
 		C4C59E1721A73D0F0068346D /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = C4C59E1621A73D0F0068346D /* Settings.bundle */; };
 		C4C59E7B21A76DB40068346D /* PersistedMessageSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C59E7A21A76DB40068346D /* PersistedMessageSystem.swift */; };
+		C4C73EEE27F650F1003B2AA5 /* ObvMessengerMappingModel_v43_to_v44.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C4C73EED27F650E9003B2AA5 /* ObvMessengerMappingModel_v43_to_v44.xcmappingmodel */; };
 		C4C74A4A208750A0009B915A /* MetaFlowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C74A49208750A0009B915A /* MetaFlowController.swift */; };
 		C4C74A4C208754D2009B915A /* OnboardingFlowViewControllerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C74A4B208754D2009B915A /* OnboardingFlowViewControllerDelegate.swift */; };
 		C4C74A4E2087578C009B915A /* UIViewController+ContentController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C74A4D2087578C009B915A /* UIViewController+ContentController.swift */; };
@@ -919,7 +928,6 @@
 		C4DAAD2A20AEDCD0005E63C0 /* ButtonsCardCollectionViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DAAD2820AEDCD0005E63C0 /* ButtonsCardCollectionViewCell.swift */; };
 		C4DAAD2D20AEDD33005E63C0 /* ButtonsCardCollectionViewCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = C4DAAD2C20AEDD33005E63C0 /* ButtonsCardCollectionViewCell.xib */; };
 		C4DAAD2F20AEE07A005E63C0 /* ObvButtonBorderless.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DAAD2E20AEE07A005E63C0 /* ObvButtonBorderless.swift */; };
-		C4DAE30B282518600013853E /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C4F6E51B2778E71600DEA75F /* AppAuth */; };
 		C4DB114C2763C77500740136 /* ObvSimpleListItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DB114B2763C77500740136 /* ObvSimpleListItemView.swift */; };
 		C4DB30122556E1D300060706 /* AvailableSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DB30112556E1D300060706 /* AvailableSubscription.swift */; };
 		C4DB63882409590800C02ADF /* BackupTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DB63872409590800C02ADF /* BackupTableViewController.swift */; };
@@ -1228,6 +1236,8 @@
 		C0B6C1A427A042C500434D50 /* ProfilePictureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePictureView.swift; sourceTree = "<group>"; };
 		C0B6C1A727A0431C00434D50 /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		C0B6D92A27E49009006C8C9B /* SaveContextOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveContextOperation.swift; sourceTree = "<group>"; };
+		C0B6DF8A27E8BD82006C8C9B /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = en; path = en.lproj/AppIntentVocabulary.plist; sourceTree = "<group>"; };
+		C0B6DF8C27E8BD8A006C8C9B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = fr; path = fr.lproj/AppIntentVocabulary.plist; sourceTree = "<group>"; };
 		C0B6E0FE27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkAsReadReceivedMessageOperation.swift; sourceTree = "<group>"; };
 		C0BB70C12487928800AFD692 /* NSNumber+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSNumber+Utils.swift"; sourceTree = "<group>"; };
 		C0BC223D24ADD10B00227D15 /* CellWithMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellWithMessage.swift; sourceTree = "<group>"; };
@@ -1560,6 +1570,9 @@
 		C471C6FA254C54380057DF21 /* ProcessPurchasedOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessPurchasedOperation.swift; sourceTree = "<group>"; };
 		C4722FDC22C2A8230069C944 /* UIView+RippleEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+RippleEffect.swift"; sourceTree = "<group>"; };
 		C473B2BE2294ACE800210568 /* OwnedGroupEditionFlowViewController+Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OwnedGroupEditionFlowViewController+Strings.swift"; sourceTree = "<group>"; };
+		C474120A27EF06DC0085F110 /* CGSize+Hashable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGSize+Hashable.swift"; sourceTree = "<group>"; };
+		C474125227EF59110085F110 /* FyleMessageJoinWithStatus+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FyleMessageJoinWithStatus+Utils.swift"; sourceTree = "<group>"; };
+		C474125727EFBB5F0085F110 /* ObvMessenger 44.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvMessenger 44.xcdatamodel"; sourceTree = "<group>"; };
 		C47425E7234E2C6E001FF92B /* InfosOfSentMessageInGroupDiscussionTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfosOfSentMessageInGroupDiscussionTableViewController.swift; sourceTree = "<group>"; };
 		C475D97D22A690010084F0DF /* ObvMessengerMappingModel_v10_to_v11.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvMessengerMappingModel_v10_to_v11.xcmappingmodel; sourceTree = "<group>"; };
 		C475D97F22A692660084F0DF /* PersistedContactGroupJoinedToPersistedContactGroupJoinedMigrationPolicyV10ToV11.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedContactGroupJoinedToPersistedContactGroupJoinedMigrationPolicyV10ToV11.swift; sourceTree = "<group>"; };
@@ -1613,6 +1626,7 @@
 		C4839C602785AC7C0065DC84 /* SettingsUtils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SettingsUtils.swift; sourceTree = "<group>"; };
 		C4842D5A24E5B2C300424F6E /* ObvCompressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCompressor.swift; sourceTree = "<group>"; };
 		C4847878276A37C0009002E4 /* SyncPersistedObvOwnedIdentitiesWithEngineOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPersistedObvOwnedIdentitiesWithEngineOperation.swift; sourceTree = "<group>"; };
+		C485C84127EE393B000199C0 /* DiscussionGalleryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscussionGalleryViewController.swift; sourceTree = "<group>"; };
 		C48672C1220C452500C288FE /* UIView+SubviewsDeepSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+SubviewsDeepSearch.swift"; sourceTree = "<group>"; };
 		C48672C4220C54CA00C288FE /* UIImage+CreateWithSolidColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+CreateWithSolidColor.swift"; sourceTree = "<group>"; };
 		C48672C6220C964100C288FE /* CanScrollToTop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanScrollToTop.swift; sourceTree = "<group>"; };
@@ -1747,6 +1761,7 @@
 		C498BA33208658AE007315D6 /* URL+QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+QRCode.swift"; sourceTree = "<group>"; };
 		C498BF7520CFE4B0009CC368 /* QRCodeScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScannerViewController.swift; sourceTree = "<group>"; };
 		C498BF7920CFFD1B009CC368 /* QRCodeScannerViewControllerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScannerViewControllerDelegate.swift; sourceTree = "<group>"; };
+		C49B026827F5D0AE0028AD1C /* MigrationAppDatabase_v43_to_v44.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationAppDatabase_v43_to_v44.md; sourceTree = "<group>"; };
 		C49BD17F20EBE3190004FD50 /* UIView+AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+AppTheme.swift"; sourceTree = "<group>"; };
 		C49D8D8F22D4A2290059DF1C /* ObvMessenger 16.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvMessenger 16.xcdatamodel"; sourceTree = "<group>"; };
 		C49D8D9122D4A2A20059DF1C /* PersistedDiscussionOneToOneLocked.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedDiscussionOneToOneLocked.swift; sourceTree = "<group>"; };
@@ -1775,6 +1790,7 @@
 		C4A3A6CA220DCD4400DFE919 /* PersistedMessageSystemToPersistedMessageSystemMigrationPolicyV9ToV10.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMessageSystemToPersistedMessageSystemMigrationPolicyV9ToV10.swift; sourceTree = "<group>"; };
 		C4A3A6CC220DCD9300DFE919 /* PersistedMessageSentToPersistedMessageSentMigrationPolicyV9ToV10.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMessageSentToPersistedMessageSentMigrationPolicyV9ToV10.swift; sourceTree = "<group>"; };
 		C4A4804D229E849900C7BFC8 /* PersistedMessageSystem+Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistedMessageSystem+Strings.swift"; sourceTree = "<group>"; };
+		C4A4CDC227F83915003F36BC /* URL+Thumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+Thumbnail.swift"; sourceTree = "<group>"; };
 		C4A4FB2E27A2E56300C430A3 /* AutoAcceptPendingGroupInvitesIfPossibleOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoAcceptPendingGroupInvitesIfPossibleOperation.swift; sourceTree = "<group>"; };
 		C4A5B3E524314A80006F152D /* README-migration-app-v19-to-v20.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "README-migration-app-v19-to-v20.txt"; sourceTree = "<group>"; };
 		C4A68659275FD66D0039B54F /* ContactDetailedInfosView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactDetailedInfosView.swift; sourceTree = "<group>"; };
@@ -1790,8 +1806,9 @@
 		C4AA9C69272605A80048577E /* SnackBarCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnackBarCoordinator.swift; sourceTree = "<group>"; };
 		C4AAA826215E1F3100BF8D46 /* ObvFlowManager.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = ObvFlowManager.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4AC59452510C60200EBD133 /* TrashFilesThatHaveNoAssociatedFyleOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashFilesThatHaveNoAssociatedFyleOperation.swift; sourceTree = "<group>"; };
+		C4AC5AA727F34F5B000DEA27 /* WipeFyleMessageJoinsWithStatusOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WipeFyleMessageJoinsWithStatusOperation.swift; sourceTree = "<group>"; };
 		C4AD03C32508DEE000B63E31 /* CancelUploadOrDownloadOfPersistedMessageOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancelUploadOrDownloadOfPersistedMessageOperation.swift; sourceTree = "<group>"; };
-		C4AD03C62508ECCF00B63E31 /* DeletePersistedMessageOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletePersistedMessageOperation.swift; sourceTree = "<group>"; };
+		C4AD03C62508ECCF00B63E31 /* DeletePersistedMessagesOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletePersistedMessagesOperation.swift; sourceTree = "<group>"; };
 		C4AD03C82509003200B63E31 /* DeleteAllOrphanedFyleMessageJoinWithStatusOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAllOrphanedFyleMessageJoinWithStatusOperation.swift; sourceTree = "<group>"; };
 		C4AD03CA2509039800B63E31 /* DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation.swift; sourceTree = "<group>"; };
 		C4AD03CC250912C700B63E31 /* DeleteAllPersistedMessagesWithinDiscussionOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAllPersistedMessagesWithinDiscussionOperation.swift; sourceTree = "<group>"; };
@@ -1843,6 +1860,7 @@
 		C4C451C926307C740046276D /* UpdateListOfContactsCertifiedByOwnKeycloakOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateListOfContactsCertifiedByOwnKeycloakOperation.swift; sourceTree = "<group>"; };
 		C4C59E1621A73D0F0068346D /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = Settings.bundle; sourceTree = "<group>"; };
 		C4C59E7A21A76DB40068346D /* PersistedMessageSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMessageSystem.swift; sourceTree = "<group>"; };
+		C4C73EED27F650E9003B2AA5 /* ObvMessengerMappingModel_v43_to_v44.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvMessengerMappingModel_v43_to_v44.xcmappingmodel; sourceTree = "<group>"; };
 		C4C74A49208750A0009B915A /* MetaFlowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaFlowController.swift; sourceTree = "<group>"; };
 		C4C74A4B208754D2009B915A /* OnboardingFlowViewControllerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlowViewControllerDelegate.swift; sourceTree = "<group>"; };
 		C4C74A4D2087578C009B915A /* UIViewController+ContentController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+ContentController.swift"; sourceTree = "<group>"; };
@@ -2089,7 +2107,7 @@
 				C4CB87662084D644004D0730 /* ObvCrypto.framework in Frameworks */,
 				C4B140BF20F41D2A007AB7F5 /* ObvEngine.framework in Frameworks */,
 				C4CB877C2084D720004D0730 /* ObvProtocolManager.framework in Frameworks */,
-				C4DAE30B282518600013853E /* AppAuth in Frameworks */,
+				C483AEE82870AE710027E62A /* AppAuth in Frameworks */,
 				C4CB87722084D6F8004D0730 /* ObvMetaManager.framework in Frameworks */,
 				C418756526308E2800761E31 /* OlvidUtils.framework in Frameworks */,
 			);
@@ -3326,6 +3344,14 @@
 			path = Operations;
 			sourceTree = "<group>";
 		};
+		C485C83F27EE3917000199C0 /* DiscussionGallery */ = {
+			isa = PBXGroup;
+			children = (
+				C485C84127EE393B000199C0 /* DiscussionGalleryViewController.swift */,
+			);
+			path = DiscussionGallery;
+			sourceTree = "<group>";
+		};
 		C486FB3827BE7E1500D60F81 /* CallParticipant */ = {
 			isa = PBXGroup;
 			children = (
@@ -3569,6 +3595,7 @@
 				C49399FF268F7E1C009DCC82 /* Layout */,
 				C49399FC268F7DDD009DCC82 /* SupplementaryViews */,
 				C49399BB268F6029009DCC82 /* cells */,
+				C485C83F27EE3917000199C0 /* DiscussionGallery */,
 			);
 			path = NewSingleDiscussion;
 			sourceTree = "<group>";
@@ -3729,7 +3756,7 @@
 				C4BD7256253CEBDA0054B4B4 /* Loading Item Providers */,
 				C492EEC52175345900018455 /* QRCodeScanner */,
 				C4924A532180CCF5000A3869 /* ObvDeepLink.swift */,
-				C498BA33208658AE007315D6 /* URL+QRCode.swift */,
+				C474120A27EF06DC0085F110 /* CGSize+Hashable.swift */,
 				C4C74A4D2087578C009B915A /* UIViewController+ContentController.swift */,
 				C4FDC52B20932DAB00D19886 /* UIViewController+AppDelegate.swift */,
 				C493797720B3FE39005BA001 /* UIView+EdgeConstraints.swift */,
@@ -3744,7 +3771,6 @@
 				C4702F322214D3CA00E2D8B4 /* EmojiUtils.swift */,
 				C4F08CB1226F33D8003719C0 /* UIImage+Insets.swift */,
 				C4722FDC22C2A8230069C944 /* UIView+RippleEffect.swift */,
-				C4CF938C2382F34E001FD46F /* UserDefaults+Extension.swift */,
 				C403CB9923B43E650026EF32 /* BlockBarButtonItem.swift */,
 				C44AF8EA23BAA79200B812A2 /* UIAlertController+SizeClass.swift */,
 				C432D64323BCE2F500189B5D /* StringUtils.swift */,
@@ -3756,7 +3782,6 @@
 				C4842D5A24E5B2C300424F6E /* ObvCompressor.swift */,
 				C0C5763F2510A2A300918C50 /* Concurrency.swift */,
 				C4DA42A6250B7C4700A8E909 /* Atomic.swift */,
-				C419759A25157DCA001A4B93 /* URL+MoveToTrash.swift */,
 				C44438302551D0B60073EFB5 /* PeriodUnit+localizedDescription.swift */,
 				C06E449C2641858A00AD7534 /* ObvDisplayNameStyle.swift */,
 				C05148C626458AC9009672A4 /* ContactsSortOrder.swift */,
@@ -3766,8 +3791,21 @@
 				C0C9ABE727C9356A00172444 /* EmojiList.swift */,
 				C425FBA12791B25E005B2710 /* IdentityCapability+Identifiable.swift */,
 				C0D7ACFC27DBB5BE009C5338 /* NSManagedObject+Utils.swift */,
+				C498BA33208658AE007315D6 /* URL+QRCode.swift */,
+				C419759A25157DCA001A4B93 /* URL+MoveToTrash.swift */,
+				C4A4CDC227F83915003F36BC /* URL+Thumbnail.swift */,
+				C4CF938C2382F34E001FD46F /* UserDefaults+Extension.swift */,
 			);
 			path = Utils;
+			sourceTree = "<group>";
+		};
+		C49B026627F5D0960028AD1C /* v43_to_v44 */ = {
+			isa = PBXGroup;
+			children = (
+				C49B026827F5D0AE0028AD1C /* MigrationAppDatabase_v43_to_v44.md */,
+				C4C73EED27F650E9003B2AA5 /* ObvMessengerMappingModel_v43_to_v44.xcmappingmodel */,
+			);
+			path = v43_to_v44;
 			sourceTree = "<group>";
 		};
 		C49D6AC3226863530054CFDB /* Settings */ = {
@@ -3839,6 +3877,7 @@
 		C4A27B142191ADA700E04F1E /* Migration */ = {
 			isa = PBXGroup;
 			children = (
+				C49B026627F5D0960028AD1C /* v43_to_v44 */,
 				C414B97A27A001650013C1E5 /* v42_to_v43 */,
 				C419B3B4279843FD005567DE /* v41_to_v42 */,
 				C412F0782794DE9300EEF71E /* v40_to_v41 */,
@@ -4173,6 +4212,7 @@
 				C0931BDA24CB0A3E00469E99 /* ObvMessengerInternalNotification.yml */,
 				C0931BDD24CB0FF200469E99 /* ObvMessengerInternalNotification.swift */,
 				C4CB84DE2084B0DA004D0730 /* Info.plist */,
+				C0B6DF8B27E8BD82006C8C9B /* AppIntentVocabulary.plist */,
 				C42EDDCA218A1AE000592C37 /* InfoPlist.strings */,
 				C43EB064218DE41200321E55 /* ObvMessenger.entitlements */,
 				C477631124E2B13A00DAB367 /* ObvMessengerDebug.entitlements */,
@@ -4517,7 +4557,7 @@
 			isa = PBXGroup;
 			children = (
 				C4AD03C32508DEE000B63E31 /* CancelUploadOrDownloadOfPersistedMessageOperation.swift */,
-				C4AD03C62508ECCF00B63E31 /* DeletePersistedMessageOperation.swift */,
+				C4AD03C62508ECCF00B63E31 /* DeletePersistedMessagesOperation.swift */,
 				C4AD03C82509003200B63E31 /* DeleteAllOrphanedFyleMessageJoinWithStatusOperation.swift */,
 				C4AD03CA2509039800B63E31 /* DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation.swift */,
 				C4AD03CC250912C700B63E31 /* DeleteAllPersistedMessagesWithinDiscussionOperation.swift */,
@@ -4528,6 +4568,7 @@
 				C4EB71BA25A488BD0070F7A5 /* SendGlobalDeleteMessagesJSONOperation.swift */,
 				C49FD44D25A6118C00EC4512 /* SendGlobalDeleteDiscussionJSONOperation.swift */,
 				C4F615E025AE1B7200DCA190 /* DeleteJsonMessageSavedByNotificationExtension.swift */,
+				C4AC5AA727F34F5B000DEA27 /* WipeFyleMessageJoinsWithStatusOperation.swift */,
 			);
 			path = "Deleting messages and discussions";
 			sourceTree = "<group>";
@@ -4632,6 +4673,7 @@
 				C4A76800213D5F310093D585 /* ReceivedFyleMessageJoinWithStatus.swift */,
 				C423EBC8214F0FF70082FC71 /* SentFyleMessageJoinWithStatus.swift */,
 				C40B2F392154F1F800A6B486 /* FyleMessageJoinWithStatus.swift */,
+				C474125227EF59110085F110 /* FyleMessageJoinWithStatus+Utils.swift */,
 				C07CB5EB2632C814005E0796 /* TypeSafeManagedObjectID.swift */,
 			);
 			path = CoreData;
@@ -4979,6 +5021,7 @@
 				C4B748432428CF0000DFF25F /* OwnedIdentityIsNotActiveViewController.xib in Resources */,
 				C0D4BF082625F47E001A561B /* MigrationAppDatabase_v28_to_v29.txt in Resources */,
 				C407C6CE20BD9FE100180199 /* OneButtonView.xib in Resources */,
+				C0B6DF8927E8BD82006C8C9B /* AppIntentVocabulary.plist in Resources */,
 				C4341AAE242F630200BD7840 /* InitializationFailureViewController.xib in Resources */,
 				C40DD80E2772210800CC0B3A /* MigrationAppDatabase_v37_to_v38.md in Resources */,
 				C493B73421CD3621000BDFF4 /* OverlayActionView.xib in Resources */,
@@ -5335,6 +5378,7 @@
 				C4D963CE2567ADBB00605E2E /* DiscussionSettingsHostingViewController.swift in Sources */,
 				C4A3A6C9220DCC5B00DFE919 /* MigrationUtilsV9ToV10.swift in Sources */,
 				C46750582256BEFE00DC90C9 /* SingleDiscussionViewControllerDelegate.swift in Sources */,
+				C4A4CDC327F83915003F36BC /* URL+Thumbnail.swift in Sources */,
 				C4EB71AF25A47E920070F7A5 /* DeletionType.swift in Sources */,
 				C4EE906C20B483E1008CF591 /* ObvTitleTableViewCell.swift in Sources */,
 				C0E3E53A273969EC00C926AA /* EmojiPickerView.swift in Sources */,
@@ -5399,6 +5443,7 @@
 				C4170BF32360416000646AD0 /* ObvCanShowHUD.swift in Sources */,
 				C4E56EB12782578500708B9D /* MessageCellString.swift in Sources */,
 				C4DD45962510106100C4666E /* ObvMessengerMappingModel_v22_to_v23.xcmappingmodel in Sources */,
+				C485C84227EE393B000199C0 /* DiscussionGalleryViewController.swift in Sources */,
 				C43C8F2420B04CEB00088D07 /* CellHeaderView.swift in Sources */,
 				C486FB3E27BE7E6200D60F81 /* CallParticipant.swift in Sources */,
 				C44FDEB122555CFF000BDC76 /* NoChannelCollectionReusableView.swift in Sources */,
@@ -5432,6 +5477,7 @@
 				C478741F26AACD7700A6875A /* ViewDisplayingContactImageDelegate.swift in Sources */,
 				C42B8604259A4B84007CD324 /* BetaConfigurationActivationView.swift in Sources */,
 				C4FB6CFB25767FBA00E86CED /* PersistedExpirationForSentMessageWithLimitedVisibility.swift in Sources */,
+				C4C73EEE27F650F1003B2AA5 /* ObvMessengerMappingModel_v43_to_v44.xcmappingmodel in Sources */,
 				C4EC965525914A1500422DF1 /* DateInfosOfSentMessageToManyContacts.swift in Sources */,
 				C40D2B5226DCE4E100B1202C /* ProcessReceivedExtendedPayloadOperation.swift in Sources */,
 				C06AE10526E3684B007A03F7 /* MuteDiscussionCoordinator.swift in Sources */,
@@ -5473,7 +5519,7 @@
 				C427AD8921D6A2B600B9F8F3 /* PersistedGroupDiscussionToPersistedGroupDiscussionMigrationPolicyV6ToV7.swift in Sources */,
 				C42895F6258C08E000FD6813 /* BackgroundTasksManager.swift in Sources */,
 				C4656F6427B7CE0E009D4615 /* ObvPeerConnection.swift in Sources */,
-				C4AD03C72508ECCF00B63E31 /* DeletePersistedMessageOperation.swift in Sources */,
+				C4AD03C72508ECCF00B63E31 /* DeletePersistedMessagesOperation.swift in Sources */,
 				C4BD7259253CEC080054B4B4 /* LoadItemProviderOperation.swift in Sources */,
 				C41FE3A5224D765C000AB2A5 /* ObvCollectionViewLayoutDelegate.swift in Sources */,
 				C40E4CA62171136700F57593 /* OneColumnView.swift in Sources */,
@@ -5584,6 +5630,7 @@
 				C0D7ACBC27DB5ACB009C5338 /* CreateUnprocessedPersistedMessageSentFromBodyOperation.swift in Sources */,
 				C4E8E295226C770300CF83F7 /* SettingsFlowViewController.swift in Sources */,
 				C427B2F12519506B00D37D86 /* CallView.swift in Sources */,
+				C474125327EF59110085F110 /* FyleMessageJoinWithStatus+Utils.swift in Sources */,
 				C4FAE4B2250AE2D700A7468C /* ReceivingMessageAndAttachmentsOperations.swift in Sources */,
 				C4722FDD22C2A8230069C944 /* UIView+RippleEffect.swift in Sources */,
 				C48973D0264C059700BE30B5 /* DeleteOldOrOrphanedRemoteDeleteAndEditRequestsOperation.swift in Sources */,
@@ -5672,6 +5719,7 @@
 				C42C1E482518FEBC00F77B1A /* RoundedButtonView.swift in Sources */,
 				C41143EB20AC7F43005DFB7A /* AppTheme.swift in Sources */,
 				C4688952250CB5BC00EE0754 /* MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer.swift in Sources */,
+				C474120B27EF06DC0085F110 /* CGSize+Hashable.swift in Sources */,
 				C4DD9FDC252749B7005BB83F /* CallViewHostingController.swift in Sources */,
 				C40005A020CB69A500AC148C /* ObvNavigationController.swift in Sources */,
 				C4710912236594C800E83899 /* DateInfosOfSentMessageToSingleContact.swift in Sources */,
@@ -5718,6 +5766,7 @@
 				C4E3C7DD23BE710300A18156 /* FetchContentRichURLsMetadataChooserTableViewController.swift in Sources */,
 				C49399E1268F671C009DCC82 /* MultipleImagesView.swift in Sources */,
 				C44222F7257807A100E43CBB /* PersistedExpirationForSentMessageWithLimitedExistence.swift in Sources */,
+				C4AC5AA827F34F5B000DEA27 /* WipeFyleMessageJoinsWithStatusOperation.swift in Sources */,
 				C0E3E1172731888A00C926AA /* SendReactionJSONOperation.swift in Sources */,
 				C4939A14268F837D009DCC82 /* NewComposeMessageView.swift in Sources */,
 				C4E5DEE3242E33D700D36A39 /* ObvMessengerMappingModel_v19_to_v20.xcmappingmodel in Sources */,
@@ -5966,6 +6015,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4A4CDC427F83915003F36BC /* URL+Thumbnail.swift in Sources */,
 				C02207F127A2AB31006E330C /* ObvCardView.swift in Sources */,
 				C0B6C10427A013BA00434D50 /* CommonString.swift in Sources */,
 				C02207EF27A2A27D006E330C /* FloatingActionButton.swift in Sources */,
@@ -6097,6 +6147,15 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		C0B6DF8B27E8BD82006C8C9B /* AppIntentVocabulary.plist */ = {
+			isa = PBXVariantGroup;
+			children = (
+				C0B6DF8A27E8BD82006C8C9B /* en */,
+				C0B6DF8C27E8BD8A006C8C9B /* fr */,
+			);
+			name = AppIntentVocabulary.plist;
+			sourceTree = "<group>";
+		};
 		C417DE13218A159B0068AA7F /* HelpCardCollectionViewCell.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -6231,7 +6290,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DEVELOPMENT_TEAM = VMDQ4PU27W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ObvMessengerIntentsExtension/Info.plist;
@@ -6243,7 +6302,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "io.olvid.messenger-debug.ObvMessengerIntentsExtension";
@@ -6262,7 +6321,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DEVELOPMENT_TEAM = VMDQ4PU27W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ObvMessengerIntentsExtension/Info.plist;
@@ -6274,7 +6333,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.messenger.ObvMessengerIntentsExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6292,7 +6351,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6303,7 +6362,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)";
@@ -6323,7 +6382,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6334,7 +6393,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6486,7 +6545,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessengerDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
@@ -6502,7 +6561,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				OTHER_SWIFT_FLAGS = "-Xfrontend -warn-long-function-bodies=500 -Xfrontend -warn-long-expression-type-checking=1500";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6524,7 +6583,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessenger.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
@@ -6541,7 +6600,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -6558,7 +6617,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6569,7 +6628,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)";
@@ -6589,7 +6648,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 501;
+				CURRENT_PROJECT_VERSION = 519;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -6600,7 +6659,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.1;
+				MARKETING_VERSION = 0.10.2;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -6695,6 +6754,7 @@
 		C4F533A0209C4AB500F5D2BB /* ObvMessenger.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				C474125727EFBB5F0085F110 /* ObvMessenger 44.xcdatamodel */,
 				C414B978279FFF9C0013C1E5 /* ObvMessenger 43.xcdatamodel */,
 				C419B27727983A23005567DE /* ObvMessenger 42.xcdatamodel */,
 				C425FB9F2791B01A005B2710 /* ObvMessenger 41.xcdatamodel */,
@@ -6739,7 +6799,7 @@
 				C4A27B1121919F6100E04F1E /* ObvMessenger 2.xcdatamodel */,
 				C4F533A1209C4AB500F5D2BB /* ObvMessenger.xcdatamodel */,
 			);
-			currentVersion = C414B978279FFF9C0013C1E5 /* ObvMessenger 43.xcdatamodel */;
+			currentVersion = C474125727EFBB5F0085F110 /* ObvMessenger 44.xcdatamodel */;
 			path = ObvMessenger.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

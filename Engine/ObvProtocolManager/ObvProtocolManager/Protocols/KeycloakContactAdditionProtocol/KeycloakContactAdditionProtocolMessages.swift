@@ -58,14 +58,14 @@ extension KeycloakContactAdditionProtocol {
         let signedContactDetails: String
 
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode(), signedContactDetails.encode()]
+            return [contactIdentity.obvEncode(), signedContactDetails.obvEncode()]
         }
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.contactIdentity = try message.encodedInputs[0].decode()
-            self.signedContactDetails = try message.encodedInputs[1].decode()
+            self.contactIdentity = try message.encodedInputs[0].obvDecode()
+            self.signedContactDetails = try message.encodedInputs[1].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, signedContactDetails: String) {
@@ -118,22 +118,22 @@ extension KeycloakContactAdditionProtocol {
         let trustTimestamp: Date
 
         var encodedInputs: [ObvEncoded] {
-            let encodedIdentityCoreDetails = try! identityCoreDetails.encode()
-            let listOfEncodedUids = contactDeviceUids.map { $0.encode() }
-            return [contactIdentity.encode(), keycloakServerURL.encode(), encodedIdentityCoreDetails.encode(), listOfEncodedUids.encode(), trustTimestamp.encode()]
+            let encodedIdentityCoreDetails = try! identityCoreDetails.jsonEncode()
+            let listOfEncodedUids = contactDeviceUids.map { $0.obvEncode() }
+            return [contactIdentity.obvEncode(), keycloakServerURL.obvEncode(), encodedIdentityCoreDetails.obvEncode(), listOfEncodedUids.obvEncode(), trustTimestamp.obvEncode()]
         }
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 5 else { assertionFailure(); throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.keycloakServerURL = try encodedElements[1].decode()
-            let encodedIdentityCoreDetails: Data = try encodedElements[2].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.keycloakServerURL = try encodedElements[1].obvDecode()
+            let encodedIdentityCoreDetails: Data = try encodedElements[2].obvDecode()
             self.identityCoreDetails = try ObvIdentityCoreDetails(encodedIdentityCoreDetails)
             guard let listOfEncodedDeviceUids = [ObvEncoded](encodedElements[3]) else { throw NSError() }
-            contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.decode() }
-            self.trustTimestamp = try encodedElements[4].decode()
+            contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
+            self.trustTimestamp = try encodedElements[4].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, keycloakServerURL: URL, identityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], trustTimestamp: Date) {
@@ -162,19 +162,19 @@ extension KeycloakContactAdditionProtocol {
         let keycloakServerURL: URL
 
         var encodedInputs: [ObvEncoded] {
-            let listOfEncodedUids = contactDeviceUids.map { $0.encode() }
-            return [contactIdentity.encode(), signedContactDetails.encode(), listOfEncodedUids.encode(), keycloakServerURL.encode()]
+            let listOfEncodedUids = contactDeviceUids.map { $0.obvEncode() }
+            return [contactIdentity.obvEncode(), signedContactDetails.obvEncode(), listOfEncodedUids.obvEncode(), keycloakServerURL.obvEncode()]
         }
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 4 else { assertionFailure(); throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.signedContactDetails = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.signedContactDetails = try encodedElements[1].obvDecode()
             guard let listOfEncodedDeviceUids = [ObvEncoded](encodedElements[2]) else { throw NSError() }
-            self.contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.decode() }
-            self.keycloakServerURL = try encodedElements[3].decode()
+            self.contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
+            self.keycloakServerURL = try encodedElements[3].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, signedContactDetails: String, contactDeviceUids: [UID], keycloakServerURL: URL) {
@@ -204,7 +204,7 @@ extension KeycloakContactAdditionProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw NSError() }
-            self.userNotRevoked = try encodedElements[0].decode()
+            self.userNotRevoked = try encodedElements[0].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage) {
@@ -224,13 +224,13 @@ extension KeycloakContactAdditionProtocol {
 
         let accepted: Bool
 
-        var encodedInputs: [ObvEncoded] { [accepted.encode()] }
+        var encodedInputs: [ObvEncoded] { [accepted.obvEncode()] }
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw NSError() }
-            self.accepted = try encodedElements[0].decode()
+            self.accepted = try encodedElements[0].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage, accepted: Bool) {

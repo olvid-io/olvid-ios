@@ -57,7 +57,7 @@ final class DataChannelWorker: NSObject, RTCDataChannelDelegate {
     
     
     func sendDataChannelMessage(_ message: WebRTCDataChannelMessageJSON) async throws {
-        let data = try message.encode()
+        let data = try message.jsonEncode()
         let buffer = RTCDataBuffer(data: data, isBinary: false)
         guard await peerConnection.sendData(buffer: buffer) else {
             throw makeError(message: "☎️ Failed to send message of type \(message.messageType.description) on webrtc data channel")
@@ -84,7 +84,7 @@ extension DataChannelWorker {
         assert(!buffer.isBinary)
         let webRTCDataChannelMessageJSON: WebRTCDataChannelMessageJSON
         do {
-            webRTCDataChannelMessageJSON = try WebRTCDataChannelMessageJSON.decode(data: buffer.data)
+            webRTCDataChannelMessageJSON = try WebRTCDataChannelMessageJSON.jsonDecode(data: buffer.data)
         } catch {
             os_log("☎️ Could not decode message received on the RTC data channel as a WebRTCMessageJSON: %{public}@", log: log, type: .fault, error.localizedDescription)
             return

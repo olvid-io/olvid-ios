@@ -35,9 +35,9 @@ extension PrivateKeyForAuthentication {
 }
 
 final class PrivateKeyForAuthenticationDecoder: ObvDecoder {
-    static func decode(_ encodedKey: ObvEncoded) -> PrivateKeyForAuthentication? {
+    static func obvDecode(_ encodedKey: ObvEncoded) -> PrivateKeyForAuthentication? {
         guard encodedKey.byteId == .privateKey else { return nil }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else { return nil }
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedKey) else { return nil }
         guard algorithmClassByteId == .authentication else { return nil }
         guard let implementationByteId = AuthenticationImplementationByteId(rawValue: implementationByteIdValue) else { return nil }
         switch implementationByteId {
@@ -79,7 +79,7 @@ struct PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve: PrivateKeyForAuth
 // Implementing ObvCodable
 extension PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve {
     init?(_ obvEncoded: ObvEncoded) {
-        guard let privateKey = PrivateKeyForAuthenticationDecoder.decode(obvEncoded) as? PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve else { return nil }
+        guard let privateKey = PrivateKeyForAuthenticationDecoder.obvDecode(obvEncoded) as? PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve else { return nil }
         self = privateKey
     }
 }

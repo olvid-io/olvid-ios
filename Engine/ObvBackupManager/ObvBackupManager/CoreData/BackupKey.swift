@@ -62,10 +62,10 @@ final class BackupKey: NSManagedObject, ObvManagedObject {
     private var encryptionPublicKey: PublicKeyForPublicKeyEncryption {
         get {
             let encoded = ObvEncoded(withRawData: encryptionPublicKeyRaw)!
-            return PublicKeyForPublicKeyEncryptionDecoder.decode(encoded)!
+            return PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encoded)!
         }
         set {
-            self.encryptionPublicKeyRaw = newValue.encode().rawData
+            self.encryptionPublicKeyRaw = newValue.obvEncode().rawData
         }
     }
     
@@ -75,7 +75,7 @@ final class BackupKey: NSManagedObject, ObvManagedObject {
             return MACKeyDecoder.decode(encoded)!
         }
         set {
-            self.macKeyRaw = newValue.encode().rawData
+            self.macKeyRaw = newValue.obvEncode().rawData
         }
     }
     

@@ -91,7 +91,7 @@ extension PublicKeyFromEdwardsCurvePoint {
         if self.point != nil {
             return self.point!.getObvDictionaryOfCoordinates()
         } else {
-            return [PointOnCurve.ObvDictionaryKey.forYCoordinate.data: self.yCoordinate.encode()]
+            return [PointOnCurve.ObvDictionaryKey.forYCoordinate.data: self.yCoordinate.obvEncode()]
         }
     }
     

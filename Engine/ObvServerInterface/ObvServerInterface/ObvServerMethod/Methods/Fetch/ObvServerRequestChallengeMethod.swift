@@ -57,7 +57,7 @@ public final class ObvServerRequestChallengeMethod: ObvServerDataMethod {
     }
     
     lazy public var dataToSend: Data? = {
-        return [toIdentity.getIdentity(), nonce, apiKey].encode().rawData
+        return [toIdentity.getIdentity(), nonce, apiKey].obvEncode().rawData
     }()
     
     

@@ -47,14 +47,14 @@ public struct ObvJWK: Equatable {
         self.jwk = jwk
     }
     
-    public func encode() throws -> Data {
+    public func jsonEncode() throws -> Data {
         guard let rawData = jwk.jsonData() else {
             throw ObvJWK.makeError(message: "Could not encode ObvJWK", error: nil)
         }
         return rawData
     }
 
-    public static func decode(rawObvJWK: Data) throws -> Self {
+    public static func jsonDecode(rawObvJWK: Data) throws -> Self {
         let decoder = JSONDecoder()
         if let rsaPublicKey = try? decoder.decode(RSAPublicKey.self, from: rawObvJWK) {
             return self.init(jwk: rsaPublicKey)
@@ -184,7 +184,7 @@ public struct ObvJWKLegacy: Decodable {
         }
     }
 
-    public static func decode(rawObvJWKLegacy: Data) throws -> Self {
+    public static func jsonDecode(rawObvJWKLegacy: Data) throws -> Self {
         let decoder = JSONDecoder()
         return try decoder.decode(Self.self, from: rawObvJWKLegacy)
     }

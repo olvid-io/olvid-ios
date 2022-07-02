@@ -124,14 +124,14 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
             let jpegDataOfSingleImageWithoutAttributes = removeJpegAttributesFromJpegDataOfSingleImage(jpegDataOfSingleImage)
 
-            let encodedImageData = (jpegDataOfSingleImageWithoutAttributes ?? jpegDataOfSingleImage).encode()
+            let encodedImageData = (jpegDataOfSingleImageWithoutAttributes ?? jpegDataOfSingleImage).obvEncode()
 
-            let encodedListOfAttachmentNumbers = attachmentNumbersAnddownsizedImages.map({ $0.attachmentNumber }).map({ $0.encode() }).encode()
+            let encodedListOfAttachmentNumbers = attachmentNumbersAnddownsizedImages.map({ $0.attachmentNumber }).map({ $0.obvEncode() }).obvEncode()
             let encodedExtendedPayload = [
-                0.encode(),
+                0.obvEncode(),
                 encodedListOfAttachmentNumbers,
                 encodedImageData,
-            ].encode()
+            ].obvEncode()
 
             self.extendedPayload = encodedExtendedPayload.rawData
         }

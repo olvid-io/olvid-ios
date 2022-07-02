@@ -202,7 +202,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .couldNotCopyItem(error: error))
                     return
                 }
-                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiToLoad, filename: filename)
+                let utiForFile = ObvUTIUtils.utiOfFile(atURL: pickerURL) ?? utiToLoad
+                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiForFile, filename: filename)
                 self?._isFinished = true
                 return
 

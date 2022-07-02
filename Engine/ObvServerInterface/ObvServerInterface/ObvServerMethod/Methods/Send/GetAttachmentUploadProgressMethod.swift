@@ -56,7 +56,7 @@ public final class GetAttachmentUploadProgressMethod: ObvServerDataMethod {
         return [
             attachmentId.messageId.uid,
             attachmentId.attachmentNumber,
-            ].encode().rawData
+            ].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, acknowledgedChunksNumbers: [Int]?)? {

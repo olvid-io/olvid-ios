@@ -99,9 +99,6 @@ final class EngineCoordinator {
             ObvNetworkFetchNotificationNew.observeAppStoreReceiptVerificationSucceededAndSubscriptionIsValid(within: notificationDelegate) { [weak self] (ownedIdentity, transactionIdentifier, apiKey, flowId) in
                 self?.setAPIKeyAndResetServerSession(ownedIdentity: ownedIdentity, apiKey: apiKey, transactionIdentifier: transactionIdentifier, flowId: flowId)
             },
-            ObvIdentityNotificationNew.observeContactWasDeleted(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, contactCryptoIdentity, contactTrustedIdentityDetails) in
-                self?.deleteProtocolMetadataRelatingToContactIdentity(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity)
-            },
             ObvIdentityNotificationNew.observeNewOwnedIdentityWithinIdentityManager(within: notificationDelegate) { [weak self] _ in
                 guard let _self = self else { return }
                 guard let obvEngine = _self.obvEngine else { assertionFailure(); return }
@@ -555,29 +552,7 @@ extension EngineCoordinator {
 
     }
     
-    
-    private func deleteProtocolMetadataRelatingToContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) {
-
-        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
-        guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
-
-        let log = self.log
-        let flowId = FlowIdentifier()
-
-        createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            do {
-                try protocolDelegate.deleteProtocolMetadataRelatingToContact(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                os_log("Could not delete all metadata relating to the deleted contact identity: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-            os_log("We deleted all metadata relating to the deleted contact identity", log: log, type: .info)
-        }
-    }
-    
-    
+        
     private func deactivateOwnedIdentity(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
         guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }

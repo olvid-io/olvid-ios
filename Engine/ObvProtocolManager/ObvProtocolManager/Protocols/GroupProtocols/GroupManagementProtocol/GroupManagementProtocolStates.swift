@@ -53,7 +53,7 @@ extension GroupManagementProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 
@@ -68,7 +68,7 @@ extension GroupManagementProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 

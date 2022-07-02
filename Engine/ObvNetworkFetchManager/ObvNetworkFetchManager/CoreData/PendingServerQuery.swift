@@ -55,7 +55,7 @@ class PendingServerQuery: NSManagedObject, ObvManagedObject {
             return ServerQuery.QueryType(encodedQueryType)!
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue.encode().rawData, forKey: PendingServerQuery.encodedQueryTypeKey)
+            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: PendingServerQuery.encodedQueryTypeKey)
         }
     }
     var responseType: ServerResponse.ResponseType? {
@@ -70,7 +70,7 @@ class PendingServerQuery: NSManagedObject, ObvManagedObject {
         }
         set {
             if let newValue = newValue {
-                kvoSafeSetPrimitiveValue(newValue.encode().rawData, forKey: PendingServerQuery.encodedResponseTypeKey)
+                kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: PendingServerQuery.encodedResponseTypeKey)
             }
         }
     }

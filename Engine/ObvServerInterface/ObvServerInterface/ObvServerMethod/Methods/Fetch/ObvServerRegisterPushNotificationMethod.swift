@@ -67,28 +67,28 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
     }
     
     lazy public var dataToSend: Data? = {
-        let listOfEncodedKeycloakPushTopics = keycloakPushTopics.map({ $0.encode() })
+        let listOfEncodedKeycloakPushTopics = keycloakPushTopics.map({ $0.obvEncode() })
         let encodedList: ObvEncoded
-        encodedList = [toIdentity.getIdentity().encode(),
-                       token.encode(),
-                       deviceUid.encode(),
-                       remoteNotificationByteIdentifierForServer.encode(),
+        encodedList = [toIdentity.getIdentity().obvEncode(),
+                       token.obvEncode(),
+                       deviceUid.obvEncode(),
+                       remoteNotificationByteIdentifierForServer.obvEncode(),
                        extraInfo,
-                       parameters.kickOtherDevices.encode(),
-                       parameters.useMultiDevice.encode(),
-                       listOfEncodedKeycloakPushTopics.encode()].encode()
+                       parameters.kickOtherDevices.obvEncode(),
+                       parameters.useMultiDevice.obvEncode(),
+                       listOfEncodedKeycloakPushTopics.obvEncode()].obvEncode()
         return encodedList.rawData
     }()
 
     lazy private var extraInfo: ObvEncoded = {
         if let (pushToken, voipToken, maskingUID) = self.deviceTokensAndmaskingUID {
             if let _voipToken = voipToken {
-                return [pushToken.encode(), maskingUID.encode(), _voipToken.encode()].encode()
+                return [pushToken.obvEncode(), maskingUID.obvEncode(), _voipToken.obvEncode()].obvEncode()
             } else {
-                return [pushToken.encode(), maskingUID.encode()].encode()
+                return [pushToken.obvEncode(), maskingUID.obvEncode()].obvEncode()
             }
         } else {
-            return Data(repeating: 0x00, count: 0).encode()
+            return Data(repeating: 0x00, count: 0).obvEncode()
         }
     }()
     

@@ -99,7 +99,7 @@ final class SendPersistedDiscussionSharedConfigurationOperation: OperationWithSp
             
             let payload: Data
             do {
-                payload = try itemJSON.encode()
+                payload = try itemJSON.jsonEncode()
             } catch {
                 os_log("Could not encode the shared discussion settings: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return cancel(withReason: .failedToEncodeSettings)

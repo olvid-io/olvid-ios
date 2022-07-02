@@ -20,6 +20,7 @@
 import UIKit
 import QuickLookThumbnailing
 import CoreData
+import os.log
 
 
 @available(iOS 14.0, *)
@@ -32,6 +33,8 @@ final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
         self.automaticallyUpdatesContentConfiguration = false
     }
     
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "AttachmentCell")
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -69,19 +72,28 @@ final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
                 content.thumbnail = thumbnail
             } else {
                 content.thumbnail = nil
-                cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                    guard success else { return }
-                    self?.setNeedsUpdateConfiguration()
-                })
+                Task {
+                    do {
+                        try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                        setNeedsUpdateConfiguration()
+                    } catch {
+                        os_log("The request image for hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
+                    }
+                }
             }
         } else {
             content.hardlink = nil
             AttachmentCell.hardlinkForDraftFyleObjectID.removeValue(forKey: draftFyleJoinObjectID)
             if let fyleElement = draftFyleJoin.fyleElement ?? draftFyleJoin.genericFyleElement {
-                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { hardlink in
+                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { result in
                     DispatchQueue.main.async { [weak self] in
-                        AttachmentCell.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID] = hardlink
-                        self?.setNeedsUpdateConfiguration()
+                        switch result {
+                        case .success(let hardlink):
+                            AttachmentCell.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID] = hardlink
+                            self?.setNeedsUpdateConfiguration()
+                        case .failure(let error):
+                            assertionFailure(error.localizedDescription)
+                        }
                     }
                 }.postOnDispatchQueue()
             }

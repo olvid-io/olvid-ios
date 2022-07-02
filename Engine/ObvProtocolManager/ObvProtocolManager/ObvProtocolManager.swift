@@ -170,13 +170,7 @@ extension ObvProtocolManager {
 // MARK: - Implementing ObvFullRatchetProtocolStarterDelegate
 
 extension ObvProtocolManager {
-    
-    
-    public func deleteProtocolMetadataRelatingToContact(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        try ChannelCreationPingSignatureReceived.deleteAllAssociatedWithContactIdentity(contactIdentity, ownedIdentity: ownedIdentity, within: obvContext)
-    }
-    
-    
+        
     public func startFullRatchetProtocolForObliviousChannelBetween(currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, ofRemoteIdentity remoteIdentity: ObvCryptoIdentity) throws {
         
         os_log("Starting startFullRatchetProtocolForObliviousChannelBetween", log: log, type: .info)

@@ -60,7 +60,7 @@ public final class RefreshInboxAttachmentSignedUrlServerMethod: ObvServerDataMet
     
     lazy public var dataToSend: Data? = {
         return [attachmentId.messageId.uid.raw,
-                attachmentId.attachmentNumber].encode().rawData
+                attachmentId.attachmentNumber].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, chunkDownloadPrivateUrls: [URL?]?)? {

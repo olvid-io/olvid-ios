@@ -43,12 +43,12 @@ extension CryptographicKey where Self: Equatable {
 
 // Implementing ObvEncodable
 extension CryptographicKey {
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         // Concatenate the algoClass byte identifier and the implementation byte identifier, encode the two bytes
         let encodedAlgoClassAndImplemByteIds = Data([self.algorithmClass.rawValue,
-                                                     self.algorithmImplementationByteIdValue]).encode()
+                                                     self.algorithmImplementationByteIdValue]).obvEncode()
         // Encode the ObvDictionary representing the internal elements of the cryptographic key
-        let encodedObvDic = obvDictionaryOfInternalElements.encode()
+        let encodedObvDic = obvDictionaryOfInternalElements.obvEncode()
         // Create a list containing the previous two ObvEncoded, and return its encoding
         let encodedElements = [encodedAlgoClassAndImplemByteIds, encodedObvDic]
         return ObvEncoded.pack(encodedElements, usingByteId: correspondingObvEncodedByteId)
@@ -56,7 +56,7 @@ extension CryptographicKey {
 }
 
 final class CryptographicKeyDecoder: ObvDecoder {
-    static func decode(_ obvEncoded: ObvEncoded) -> (algorithmClassByteId: CryptographicAlgorithmClassByteId, implementationByteIdValue: UInt8, obvDictionary: ObvDictionary)? {
+    static func obvDecode(_ obvEncoded: ObvEncoded) -> (algorithmClassByteId: CryptographicAlgorithmClassByteId, implementationByteIdValue: UInt8, obvDictionary: ObvDictionary)? {
         guard let unpackedList = ObvEncoded.unpack(obvEncoded) else { return nil }
         guard unpackedList.count == 2 else { return nil }
         let encodedAlgoClassAndImplemByteIds = unpackedList[0]

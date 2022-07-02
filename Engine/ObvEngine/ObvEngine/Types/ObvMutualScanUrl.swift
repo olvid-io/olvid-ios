@@ -45,7 +45,7 @@ public struct ObvMutualScanUrl {
         components.scheme = ObvMutualScanUrl.scheme
         components.host = ObvMutualScanUrl.host
         components.path = ObvMutualScanUrl.path
-        components.fragment = self.encode().rawData.base64EncodedString()
+        components.fragment = self.obvEncode().rawData.base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")
         return components.url!
@@ -78,13 +78,13 @@ extension ObvMutualScanUrl: ObvCodable {
         let cryptoIdentity: ObvCryptoIdentity
         let fullDisplayName: String
         let signature: Data
-        do { (cryptoIdentity, fullDisplayName, signature) = try obvEncoded.decode() } catch { return nil }
+        do { (cryptoIdentity, fullDisplayName, signature) = try obvEncoded.obvDecode() } catch { return nil }
         self.init(cryptoId: ObvCryptoId(cryptoIdentity: cryptoIdentity),
                   fullDisplayName: fullDisplayName,
                   signature: signature)
     }
     
-    public func encode() -> ObvEncoded {
-        return [self.cryptoId.cryptoIdentity, fullDisplayName, signature].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [self.cryptoId.cryptoIdentity, fullDisplayName, signature].obvEncode()
     }
 }

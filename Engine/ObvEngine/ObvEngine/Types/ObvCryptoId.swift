@@ -56,7 +56,7 @@ extension ObvCryptoId {
     
     
     public func encode() -> Data {
-        return self.cryptoIdentity.encode().rawData
+        return self.cryptoIdentity.obvEncode().rawData
     }
     
 }

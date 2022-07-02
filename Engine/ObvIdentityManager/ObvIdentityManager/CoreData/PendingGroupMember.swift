@@ -85,7 +85,7 @@ final class PendingGroupMember: NSManagedObject, ObvManagedObject {
         self.init(entity: entityDescription, insertInto: obvContext)
         self.cryptoIdentity = cryptoIdentityWithCoreDetails.cryptoIdentity
         self.declined = false
-        self.serializedIdentityCoreDetails = try cryptoIdentityWithCoreDetails.coreDetails.encode()
+        self.serializedIdentityCoreDetails = try cryptoIdentityWithCoreDetails.coreDetails.jsonEncode()
         self.contactGroup = contactGroup
         self.delegateManager = delegateManager
     }

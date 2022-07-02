@@ -21,9 +21,9 @@ import Foundation
 
 extension UUID: ObvCodable {
 
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         let uuidData = self.uuidString.data(using: .utf8)!
-        return uuidData.encode()
+        return uuidData.obvEncode()
     }
 
     public init?(_ obvEncoded: ObvEncoded) {

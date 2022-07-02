@@ -205,6 +205,8 @@
 		C47D1399234BA033000031CB /* ObvEngine-v20.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v20.xcdatamodel"; sourceTree = "<group>"; };
 		C48088A621DD2F6C0075151B /* ObvEngine-v7.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v7.xcdatamodel"; sourceTree = "<group>"; };
 		C4845F2C240680F000C6EBC1 /* ObvEngine-v21.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v21.xcdatamodel"; sourceTree = "<group>"; };
+		C485C83227EE2EA0000199C0 /* ObvEngine-v40.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v40.xcdatamodel"; sourceTree = "<group>"; };
+		C485C83827EE2F56000199C0 /* MigrationEngineDatabase_v39_to_v40.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationEngineDatabase_v39_to_v40.md; sourceTree = "<group>"; };
 		C4864A4A21E39436005DB212 /* ObvEngineMappingModel_v6_to_v7.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v6_to_v7.xcmappingmodel; sourceTree = "<group>"; };
 		C4864A4D21E39798005DB212 /* ObvEngineMappingModel_v7_to_v8.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v7_to_v8.xcmappingmodel; sourceTree = "<group>"; };
 		C48736BB21FF4D60001A5467 /* ObvEngineMappingModel_v8_to_v9.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v8_to_v9.xcmappingmodel; sourceTree = "<group>"; };
@@ -470,6 +472,14 @@
 			path = v13_to_v14;
 			sourceTree = "<group>";
 		};
+		C485C83727EE2F43000199C0 /* v39_to_v40 */ = {
+			isa = PBXGroup;
+			children = (
+				C485C83827EE2F56000199C0 /* MigrationEngineDatabase_v39_to_v40.md */,
+			);
+			path = v39_to_v40;
+			sourceTree = "<group>";
+		};
 		C4864A4521E393E3005DB212 /* v6_to_v7 */ = {
 			isa = PBXGroup;
 			children = (
@@ -518,6 +528,7 @@
 		C490F83421A42C7900A0C036 /* Migration */ = {
 			isa = PBXGroup;
 			children = (
+				C485C83727EE2F43000199C0 /* v39_to_v40 */,
 				C40D070527AABDB600D39C0F /* v38_to_v39 */,
 				C4010FAA27B2ADC000D4FE2D /* v37_to_v38 */,
 				C414B8EC279FF9E40013C1E5 /* v36_to_v37 */,
@@ -1254,6 +1265,7 @@
 		C42A52A021A0D4F1005FEEB5 /* ObvEngine.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				C485C83227EE2EA0000199C0 /* ObvEngine-v40.xcdatamodel */,
 				C40D070027AABD8200D39C0F /* ObvEngine-v39.xcdatamodel */,
 				C4D290E627A57F6000E160C5 /* ObvEngine-v38.xcdatamodel */,
 				C414B8E7279FF9A40013C1E5 /* ObvEngine-v37.xcdatamodel */,
@@ -1294,7 +1306,7 @@
 				C490F82821A42B5A00A0C036 /* ObvEngine-v2.xcdatamodel */,
 				C42A52A121A0D4F1005FEEB5 /* ObvEngine.xcdatamodel */,
 			);
-			currentVersion = C40D070027AABD8200D39C0F /* ObvEngine-v39.xcdatamodel */;
+			currentVersion = C485C83227EE2EA0000199C0 /* ObvEngine-v40.xcdatamodel */;
 			path = ObvEngine.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

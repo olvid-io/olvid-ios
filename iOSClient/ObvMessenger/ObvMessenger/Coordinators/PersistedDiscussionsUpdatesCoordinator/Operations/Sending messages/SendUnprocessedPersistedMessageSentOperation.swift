@@ -114,7 +114,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                     }
                     returnReceiptElements = obvEngine.generateReturnReceiptElements()
                     let returnReceiptJSON = ReturnReceiptJSON(returnReceiptElements: returnReceiptElements)
-                    messagePayload = try PersistedItemJSON(messageJSON: messageJSON, returnReceiptJSON: returnReceiptJSON).encode()
+                    messagePayload = try PersistedItemJSON(messageJSON: messageJSON, returnReceiptJSON: returnReceiptJSON).jsonEncode()
                 } catch {
                     return cancel(withReason: .encodingError(error: error))
                 }
@@ -123,7 +123,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                 
                 do {
                     attachmentsToSend = try persistedMessageSent.fyleMessageJoinWithStatuses.compactMap {
-                        guard let metadata = try $0.getFyleMetadata()?.encode() else { return nil }
+                        guard let metadata = try $0.getFyleMetadata()?.jsonEncode() else { return nil }
                         guard let fyle = $0.fyle else { return nil }
                         guard let totalUnitCount = fyle.getFileSize() else { return nil }
                         return ObvAttachmentToSend(fileURL: fyle.url,

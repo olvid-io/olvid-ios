@@ -36,6 +36,8 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
     weak var reactionsDelegate: ReactionsDelegate?
     weak var cellReconfigurator: CellReconfigurator?
 
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SentMessageCell")
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         self.automaticallyUpdatesContentConfiguration = false
@@ -161,15 +163,27 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
             content.singleImageViewConfiguration = nil
             content.multipleImagesViewConfiguration.removeAll()
         case 1:
-            content.singleImageViewConfiguration = singleImageViewConfigurationForImageAttachment(imageAttachments.first!, message: message, requiresCellSizing: false)
+            let size = CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
+            content.singleImageViewConfiguration = singleImageViewConfigurationForImageAttachment(imageAttachments.first!, size: size, requiresCellSizing: false)
             content.multipleImagesViewConfiguration.removeAll()
         default:
             content.singleImageViewConfiguration = nil
-            content.multipleImagesViewConfiguration = imageAttachments.map({ singleImageViewConfigurationForImageAttachment($0, message: message, requiresCellSizing: false) })
+            let smallImageSize = CGSize(width: MultipleImagesView.smallImageSize, height: MultipleImagesView.smallImageSize)
+            let wideImageSize = CGSize(width: MultipleImagesView.wideImageWidth, height: MultipleImagesView.smallImageSize)
+            if imageAttachments.count.isMultiple(of: 2) {
+                content.multipleImagesViewConfiguration = imageAttachments.map({ singleImageViewConfigurationForImageAttachment($0, size: smallImageSize, requiresCellSizing: false) })
+            } else {
+                let smallImageAttachments = imageAttachments[0..<imageAttachments.count-1]
+                let wideImageAttachment = imageAttachments.last!
+                var configurations = smallImageAttachments.map({ singleImageViewConfigurationForImageAttachment($0, size: smallImageSize, requiresCellSizing: false) })
+                configurations.append(singleImageViewConfigurationForImageAttachment(wideImageAttachment, size: wideImageSize, requiresCellSizing: false))
+                content.multipleImagesViewConfiguration = configurations
+            }
         }
         
         if let gifAttachment = gifAttachment {
-            content.singleGifViewConfiguration = singleImageViewConfigurationForImageAttachment(gifAttachment, message: message, requiresCellSizing: true)
+            let size = CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
+            content.singleGifViewConfiguration = singleImageViewConfigurationForImageAttachment(gifAttachment, size: size, requiresCellSizing: true)
         } else {
             content.singleGifViewConfiguration = nil
         }
@@ -178,7 +192,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
 
         var audioAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfAudioType
         if let firstAudioAttachment = audioAttachments.first {
-            content.audioPlayerConfiguration = attachmentViewConfigurationForAttachment(firstAudioAttachment, message: message)
+            content.audioPlayerConfiguration = attachmentViewConfigurationForAttachment(firstAudioAttachment)
             audioAttachments.removeAll(where: { $0 == firstAudioAttachment })
         } else {
             content.audioPlayerConfiguration = nil
@@ -187,7 +201,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
         // We choose to show audioPlayer only for the first audio song.
         otherAttachments += audioAttachments
 
-        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0, message: message) })
+        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0) })
 
         // Configure the rest
         
@@ -218,11 +232,10 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
     }
 
     
-    private func singleImageViewConfigurationForImageAttachment(_ imageAttachment: SentFyleMessageJoinWithStatus, message: PersistedMessageSent, requiresCellSizing: Bool) -> SingleImageView.Configuration {
+    private func singleImageViewConfigurationForImageAttachment(_ imageAttachment: SentFyleMessageJoinWithStatus, size: CGSize, requiresCellSizing: Bool) -> SingleImageView.Configuration {
         let imageAttachmentObjectID = (imageAttachment as FyleMessageJoinWithStatus).typedObjectID
         let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: imageAttachmentObjectID)
         let config: SingleImageView.Configuration
-        let size = CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
         switch imageAttachment.status {
         case .uploading, .uploadable:
             assert(cacheDelegate != nil)
@@ -231,14 +244,18 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, progress: imageAttachment.progress)
                 } else {
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, progress: imageAttachment.progress)
-                    cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                        guard success else { return }
-                        if requiresCellSizing {
-                            self?.cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: message.typedObjectID.downcast)
-                        } else {
-                            self?.setNeedsUpdateConfiguration()
+                    Task {
+                        do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                            if requiresCellSizing {
+                                cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: imageAttachment.sentMessage.typedObjectID.downcast)
+                            } else {
+                                setNeedsUpdateConfiguration()
+                            }
+                        } catch {
+                            os_log("The request image for hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
                         }
-                    })
+                    }
                 }
             } else {
                 config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, progress: imageAttachment.progress)
@@ -249,14 +266,18 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: image)
                 } else {
                     config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: nil)
-                    cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                        guard success else { return }
-                        if requiresCellSizing {
-                            self?.cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: message.typedObjectID.downcast)
-                        } else {
-                            self?.setNeedsUpdateConfiguration()
+                    Task {
+                        do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                            if requiresCellSizing {
+                                cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: imageAttachment.sentMessage.typedObjectID.downcast)
+                            } else {
+                                setNeedsUpdateConfiguration()
+                            }
+                        } catch {
+                            os_log("The request image for hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
                         }
-                    })
+                    }
                 }
             } else {
                 config = .complete(downsizedThumbnail: nil, hardlink: nil, thumbnail: nil)
@@ -266,7 +287,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
     }
 
     
-    private func attachmentViewConfigurationForAttachment(_ attachment: SentFyleMessageJoinWithStatus, message: PersistedMessageSent) -> AttachmentsView.Configuration {
+    private func attachmentViewConfigurationForAttachment(_ attachment: SentFyleMessageJoinWithStatus) -> AttachmentsView.Configuration {
         let attachmentObjectID = (attachment as FyleMessageJoinWithStatus).typedObjectID
         let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: attachmentObjectID)
         let config: AttachmentsView.Configuration
@@ -278,10 +299,14 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progress)
                 } else {
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progress)
-                    cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                        guard success else { return }
-                        self?.setNeedsUpdateConfiguration()
-                    })
+                    Task {
+                        do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                            setNeedsUpdateConfiguration()
+                        } catch {
+                            os_log("The request image for hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
+                        }
+                    }
                 }
             } else {
                 config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progress)
@@ -293,10 +318,14 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName)
                 } else {
                     config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName)
-                    cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                        guard success else { return }
-                        self?.setNeedsUpdateConfiguration()
-                    })
+                    Task {
+                        do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                            setNeedsUpdateConfiguration()
+                        } catch {
+                            os_log("The request image for hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
+                        }
+                    }
                 }
             } else {
                 config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName)
@@ -673,6 +702,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             statusAndDateView.leadingAnchor.constraint(equalTo: multipleReactionsView.trailingAnchor, constant: 8),
             statusAndDateView.bottomAnchor.constraint(equalTo: multipleReactionsView.bottomAnchor, constant: -2),
         ])
+
+        textBubble.linkTapGestureRequire(toFail: doubleTapGesture)
 
     }
 

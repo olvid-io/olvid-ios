@@ -82,7 +82,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     static func decodeEncodedListOfDeviceUids(_ obvEncoded: ObvEncoded) throws -> [UID] {
         guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { throw NSError() }
-        return try listOfEncodedUids.map { try $0.decode() }
+        return try listOfEncodedUids.map { try $0.obvDecode() }
     }
     
 }

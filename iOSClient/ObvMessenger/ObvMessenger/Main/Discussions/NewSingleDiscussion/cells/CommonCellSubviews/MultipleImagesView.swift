@@ -215,8 +215,8 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
     
     
     private let bubble = BubbleView()
-    private static var smallImageSize: CGFloat { HorizontalPairOfImagesView.smallImageSize }
-    private static var wideImageWidth: CGFloat { 2*smallImageSize + spacing } // 2*120+1
+    static var smallImageSize: CGFloat { HorizontalPairOfImagesView.smallImageSize }
+    static var wideImageWidth: CGFloat { 2*smallImageSize + spacing } // 2*120+1
     private static var spacing: CGFloat { HorizontalPairOfImagesView.spacing }
     private let mainStackView = OlvidVerticalStackView(gap: MultipleImagesView.spacing, side: .bothSides, debugName: "Multiple images main stack view", showInStack: true)
     private let wideImageView = UIImageViewForHardLinkForOlvidStack()

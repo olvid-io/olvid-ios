@@ -57,7 +57,7 @@ extension IdentityDetailsElements: Codable {
     }
     
     
-    public func encode() throws -> Data {
+    public func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
@@ -72,7 +72,7 @@ extension IdentityDetailsElements: Codable {
     }
     
     
-    static func decode(_ data: Data) throws -> IdentityDetailsElements {
+    static func jsonDecode(_ data: Data) throws -> IdentityDetailsElements {
         let decoder = JSONDecoder()
         return try decoder.decode(IdentityDetailsElements.self, from: data)
     }

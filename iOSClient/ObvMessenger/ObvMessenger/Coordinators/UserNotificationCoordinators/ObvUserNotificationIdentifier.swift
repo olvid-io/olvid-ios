@@ -175,19 +175,19 @@ enum ObvUserNotificationIdentifier {
     static func saveIdentifierForcedInNotificationExtension(identifier: String, messageIdentifierFromEngine: Data, timestamp: Date) {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { assertionFailure(); return }
         let currentEncoded = userDefaults.array(forKey: "notificationIdentifiersForcedInNotificationExtension") as? [Data] ?? []
-        var current = currentEncoded.compactMap({ try? IdentifierForcedInNotificationExtension.decode($0) })
+        var current = currentEncoded.compactMap({ try? IdentifierForcedInNotificationExtension.jsonDecode($0) })
         assert(!current.contains(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine }))
         current.removeAll(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine })
         current.removeAll(where: { abs($0.timestamp.timeIntervalSinceNow) > 604_800 }) // One week
         current.append(IdentifierForcedInNotificationExtension(identifierForcedByNotificationExtension: identifier, messageIdentifierFromEngine: messageIdentifierFromEngine, timestamp: timestamp))
-        userDefaults.set(current.compactMap({ try? $0.encode() }), forKey: "notificationIdentifiersForcedInNotificationExtension")
+        userDefaults.set(current.compactMap({ try? $0.jsonEncode() }), forKey: "notificationIdentifiersForcedInNotificationExtension")
     }
     
     
     static func loadIdentifierForcedInNotificationExtension(messageIdentifierFromEngine: Data) -> String? {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { assertionFailure(); return nil }
         let currentEncoded = userDefaults.array(forKey: "notificationIdentifiersForcedInNotificationExtension") as? [Data] ?? []
-        let current = currentEncoded.compactMap({ try? IdentifierForcedInNotificationExtension.decode($0) })
+        let current = currentEncoded.compactMap({ try? IdentifierForcedInNotificationExtension.jsonDecode($0) })
         return current.first(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine })?.identifierForcedByNotificationExtension
     }
     
@@ -204,11 +204,11 @@ fileprivate struct IdentifierForcedInNotificationExtension: Codable {
     let messageIdentifierFromEngine: Data
     let timestamp: Date
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         try JSONEncoder().encode(self)
     }
     
-    static func decode(_ data: Data) throws -> IdentifierForcedInNotificationExtension {
+    static func jsonDecode(_ data: Data) throws -> IdentifierForcedInNotificationExtension {
         let decoder = JSONDecoder()
         return try decoder.decode(IdentifierForcedInNotificationExtension.self, from: data)
     }

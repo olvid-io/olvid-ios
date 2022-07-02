@@ -59,11 +59,11 @@ extension ContactManagementProtocol {
         
         let contactIdentity: ObvCryptoIdentity
         
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity) {
@@ -103,11 +103,11 @@ extension ContactManagementProtocol {
         
         let contactIdentity: ObvCryptoIdentity
 
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity) {
@@ -127,11 +127,11 @@ extension ContactManagementProtocol {
         
         let contactIdentity: ObvCryptoIdentity
 
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity) {
@@ -171,11 +171,11 @@ extension ContactManagementProtocol {
         
         let contactIdentity: ObvCryptoIdentity
 
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity) {

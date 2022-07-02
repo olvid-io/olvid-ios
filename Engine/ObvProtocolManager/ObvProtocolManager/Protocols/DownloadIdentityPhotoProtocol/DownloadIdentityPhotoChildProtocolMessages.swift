@@ -53,15 +53,15 @@ extension DownloadIdentityPhotoChildProtocol {
         let contactIdentityDetailsElements: IdentityDetailsElements
 
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.encode()
-            return [contactIdentity.encode(), encodedContactIdentityDetailsElements.encode()]
+            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.jsonEncode()
+            return [contactIdentity.obvEncode(), encodedContactIdentityDetailsElements.obvEncode()]
         }
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.contactIdentity = try message.encodedInputs[0].decode()
-            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs[1].decode()
+            self.contactIdentity = try message.encodedInputs[0].obvDecode()
+            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs[1].obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
         

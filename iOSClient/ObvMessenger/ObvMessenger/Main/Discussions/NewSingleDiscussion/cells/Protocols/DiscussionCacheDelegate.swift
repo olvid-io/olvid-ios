@@ -24,8 +24,8 @@ protocol DiscussionCacheDelegate: AnyObject {
     
     // Cached images for hardlinks
     func getCachedImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) -> UIImage?
-    func requestImageForHardlink(hardlink: HardLinkToFyle, size: CGSize, completionWhenImageCached: @escaping ((Bool) -> Void))
-    
+    @discardableResult func requestImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) async throws -> UIImage
+
     // Cached data detection (used to decide wether data detection should be actived on text views)
     func getCachedDataDetection(text: String) -> UIDataDetectorTypes?
     func requestDataDetection(text: String, completionWhenDataDetectionCached: @escaping ((Bool) -> Void))
@@ -45,5 +45,9 @@ protocol DiscussionCacheDelegate: AnyObject {
     func getCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> UIImage?
     func removeCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
     func requestDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, data: Data, completionWhenImageCached: @escaping ((Result<Void, Error>) -> Void))
+    
+    // Images (and thumbnails) for FyleMessageJoinWithStatus
+    func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) -> UIImage?
+    func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) async throws
     
 }

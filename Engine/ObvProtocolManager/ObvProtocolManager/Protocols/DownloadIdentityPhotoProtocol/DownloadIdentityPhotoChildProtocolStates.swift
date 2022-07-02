@@ -54,15 +54,15 @@ extension DownloadIdentityPhotoChildProtocol {
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityDetailsElements: IdentityDetailsElements
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.encode()
-            return [contactIdentity, encodedContactIdentityDetailsElements].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.jsonEncode()
+            return [contactIdentity, encodedContactIdentityDetailsElements].obvEncode()
         }
         
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            let encodedContactIdentityDetailsElements: Data = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            let encodedContactIdentityDetailsElements: Data = try encodedElements[1].obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
         
@@ -80,7 +80,7 @@ extension DownloadIdentityPhotoChildProtocol {
         
         let id: ConcreteProtocolStateId = StateId.PhotoDownloaded
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
         init(_ encoded: ObvEncoded) throws {}
         
@@ -99,7 +99,7 @@ extension DownloadIdentityPhotoChildProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 

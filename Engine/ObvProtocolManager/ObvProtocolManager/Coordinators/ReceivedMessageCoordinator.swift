@@ -314,7 +314,7 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
                         let deleteDialog = ObvChannelDialogMessageToSend(uuid: dialogUuid,
                                                                          ownedIdentity: message.messageId.ownedCryptoIdentity,
                                                                          dialogType: ObvChannelDialogToSendType.delete,
-                                                                         encodedElements: 0.encode())
+                                                                         encodedElements: 0.obvEncode())
                         _ = try? channelDelegate.post(deleteDialog, randomizedWith: operation.prng, within: obvContext)
                         obvContext.delete(message)
                     }

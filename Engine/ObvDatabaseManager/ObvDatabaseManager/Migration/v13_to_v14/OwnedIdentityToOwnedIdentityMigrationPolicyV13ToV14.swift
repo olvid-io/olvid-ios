@@ -68,7 +68,7 @@ final class OwnedIdentityToOwnedIdentityMigrationPolicyV13ToV14: NSEntityMigrati
     
     private func iOSSecItemAdd(ownedCryptoIdentity: ObvOwnedCryptoIdentity) throws {
         let identity = ownedCryptoIdentity.getObvCryptoIdentity().getIdentity()
-        let encodedOwnedCryptoIdentity = ownedCryptoIdentity.encode()
+        let encodedOwnedCryptoIdentity = ownedCryptoIdentity.obvEncode()
         let accessGroup = Bundle.main.infoDictionary!["OBV_APP_GROUP_IDENTIFIER"]! as! String
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,

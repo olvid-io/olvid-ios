@@ -37,7 +37,7 @@ extension Bool: ObvCodable {
         }
     }
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         let innerData: Data
         if self {
             innerData = Data([0x01])

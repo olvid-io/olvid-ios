@@ -66,7 +66,7 @@ class KeyMaterial: NSManagedObject, ObvManagedObject {
             return try! AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
         }
         set {
-            let encodedKey = newValue.encode()
+            let encodedKey = newValue.obvEncode()
             kvoSafeSetPrimitiveValue(encodedKey.rawData, forKey: KeyMaterial.encodedKeyKey)
         }
     }

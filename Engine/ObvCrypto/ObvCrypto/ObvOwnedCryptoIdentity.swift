@@ -110,14 +110,14 @@ extension ObvOwnedCryptoIdentity {
 
 extension ObvOwnedCryptoIdentity: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        let listOfEncodedValues = [self.serverURL.encode(),
-                                   self.publicKeyForAuthentication.encode(),
-                                   self.publicKeyForPublicKeyEncryption.encode(),
-                                   self.privateKeyForAuthentication.encode(),
-                                   self.privateKeyForPublicKeyEncryption.encode(),
-                                   self.secretMACKey.encode()]
-        let obvEncoded = listOfEncodedValues.encode()
+    public func obvEncode() -> ObvEncoded {
+        let listOfEncodedValues = [self.serverURL.obvEncode(),
+                                   self.publicKeyForAuthentication.obvEncode(),
+                                   self.publicKeyForPublicKeyEncryption.obvEncode(),
+                                   self.privateKeyForAuthentication.obvEncode(),
+                                   self.privateKeyForPublicKeyEncryption.obvEncode(),
+                                   self.secretMACKey.obvEncode()]
+        let obvEncoded = listOfEncodedValues.obvEncode()
         return obvEncoded
     }
 
@@ -133,10 +133,10 @@ extension ObvOwnedCryptoIdentity: ObvCodable {
         let encodedsecretMACKey = listOfEncodedValues[5]
         // Decode the extracted values
         guard let serverURL = URL(encodedServer) else { return nil }
-        guard let publicKeyForAuthentication = PublicKeyForAuthenticationDecoder.decode(encodedPublicKeyForAuthentication) else { return nil }
-        guard let publicKeyForPublicKeyEncryption = PublicKeyForPublicKeyEncryptionDecoder.decode(encodedPublicKeyForPublicKeyEncryption) else { return nil }
-        guard let privateKeyForAuthentication = PrivateKeyForAuthenticationDecoder.decode(encodedPrivateKeyForAuthentication) else { return nil }
-        guard let privateKeyForPublicKeyEncryption = PrivateKeyForPublicKeyEncryptionDecoder.decode(encodedPrivateKeyForPublicKeyEncryption) else { return nil }
+        guard let publicKeyForAuthentication = PublicKeyForAuthenticationDecoder.obvDecode(encodedPublicKeyForAuthentication) else { return nil }
+        guard let publicKeyForPublicKeyEncryption = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedPublicKeyForPublicKeyEncryption) else { return nil }
+        guard let privateKeyForAuthentication = PrivateKeyForAuthenticationDecoder.obvDecode(encodedPrivateKeyForAuthentication) else { return nil }
+        guard let privateKeyForPublicKeyEncryption = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedPrivateKeyForPublicKeyEncryption) else { return nil }
         guard let secretMACKey = MACKeyDecoder.decode(encodedsecretMACKey) else { return nil }
         // Initialize and return a ObvCryptoIdentityObject
         self.init(serverURL: serverURL,
@@ -164,7 +164,7 @@ public class ObvOwnedCryptoIdentityTransformer: ValueTransformer {
     /// Transform an ObvCryptoIdentity into an instance of Data (which actually is the raw representation of an ObvEncoded object)
     override public func transformedValue(_ value: Any?) -> Any? {
         guard let obvCryptoIdentity = value as? ObvOwnedCryptoIdentity else { return nil }
-        let obvEncoded = obvCryptoIdentity.encode()
+        let obvEncoded = obvCryptoIdentity.obvEncode()
         return obvEncoded.rawData
     }
     
@@ -196,9 +196,9 @@ public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable {
     private let rawSecretMACKey: Data
 
     fileprivate init(obvOwnedCryptoIdentity: ObvOwnedCryptoIdentity) {
-        self.rawPrivateKeyForAuthentication = obvOwnedCryptoIdentity.privateKeyForAuthentication.encode().rawData
-        self.rawPrivateKeyForPublicKeyEncryption = obvOwnedCryptoIdentity.privateKeyForPublicKeyEncryption.encode().rawData
-        self.rawSecretMACKey = obvOwnedCryptoIdentity.secretMACKey.encode().rawData
+        self.rawPrivateKeyForAuthentication = obvOwnedCryptoIdentity.privateKeyForAuthentication.obvEncode().rawData
+        self.rawPrivateKeyForPublicKeyEncryption = obvOwnedCryptoIdentity.privateKeyForPublicKeyEncryption.obvEncode().rawData
+        self.rawSecretMACKey = obvOwnedCryptoIdentity.secretMACKey.obvEncode().rawData
     }
     
     enum CodingKeys: String, CodingKey {
@@ -209,12 +209,12 @@ public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable {
 
     private var privateKeyForAuthentication: PrivateKeyForAuthentication? {
         guard let encoded = ObvEncoded(withRawData: rawPrivateKeyForAuthentication) else { return nil }
-        return PrivateKeyForAuthenticationDecoder.decode(encoded)
+        return PrivateKeyForAuthenticationDecoder.obvDecode(encoded)
     }
 
     private var privateKeyForPublicKeyEncryption: PrivateKeyForPublicKeyEncryption? {
         guard let encoded = ObvEncoded(withRawData: rawPrivateKeyForPublicKeyEncryption) else { return nil }
-        return PrivateKeyForPublicKeyEncryptionDecoder.decode(encoded)
+        return PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encoded)
     }
     
     private var secretMACKey: MACKey? {

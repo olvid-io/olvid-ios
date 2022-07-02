@@ -42,13 +42,13 @@ struct GroupIdentifierForMigrationV9ToV10 {
 
 extension GroupIdentifierForMigrationV9ToV10: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        return [self.ownerIdentity, self.uid, self.name].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [self.ownerIdentity, self.uid, self.name].obvEncode()
     }
     
     
     public init?(_ encoded: ObvEncoded) {
-        do { (ownerIdentity, uid, name) = try encoded.decode() } catch { return nil }
+        do { (ownerIdentity, uid, name) = try encoded.obvDecode() } catch { return nil }
     }
     
 }

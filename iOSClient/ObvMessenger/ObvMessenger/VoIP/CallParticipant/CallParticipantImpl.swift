@@ -320,7 +320,7 @@ actor CallParticipantImpl: CallParticipant, ObvErrorMaker {
         do {
             let fromId = self.remoteCryptoId
             let toId = try ObvCryptoId(identity: message.to)
-            guard let messageType = WebRTCMessageJSON.MessageType(rawValue: message.relayedMessageType) else { throw NSError() }
+            guard let messageType = WebRTCMessageJSON.MessageType(rawValue: message.relayedMessageType) else { throw Self.makeError(message: "Could not parse WebRTCMessageJSON.MessageType") }
             let messagePayload = message.serializedMessagePayload
             await delegate?.relay(from: fromId, to: toId, messageType: messageType, messagePayload: messagePayload)
         } catch {
@@ -458,27 +458,27 @@ extension CallParticipantImpl: WebrtcPeerConnectionHolderDelegate {
             switch message.messageType {
                 
             case .muted:
-                let mutedMessage = try MutedMessageJSON.decode(serializedMessage: message.serializedMessage)
+                let mutedMessage = try MutedMessageJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ MutedMessageJSON received", log: log, type: .info)
                 await processMutedMessageJSON(message: mutedMessage)
                 
             case .updateParticipant:
-                let updateParticipantsMessage = try UpdateParticipantsMessageJSON.decode(serializedMessage: message.serializedMessage)
+                let updateParticipantsMessage = try UpdateParticipantsMessageJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ UpdateParticipantsMessageJSON received", log: log, type: .info)
                 try await processUpdateParticipantsMessageJSON(message: updateParticipantsMessage)
                 
             case .relayMessage:
-                let relayMessage = try RelayMessageJSON.decode(serializedMessage: message.serializedMessage)
+                let relayMessage = try RelayMessageJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ RelayMessageJSON received", log: log, type: .info)
                 await processRelayMessageJSON(message: relayMessage)
                 
             case .relayedMessage:
-                let relayedMessage = try RelayedMessageJSON.decode(serializedMessage: message.serializedMessage)
+                let relayedMessage = try RelayedMessageJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ RelayedMessageJSON received", log: log, type: .info)
                 try await processRelayedMessageJSON(message: relayedMessage)
                 
             case .hangedUpMessage:
-                let hangedUpMessage = try HangedUpDataChannelMessageJSON.decode(serializedMessage: message.serializedMessage)
+                let hangedUpMessage = try HangedUpDataChannelMessageJSON.jsonDecode(serializedMessage: message.serializedMessage)
                 os_log("☎️ HangedUpDataChannelMessageJSON received", log: log, type: .info)
                 try await processHangedUpMessage(message: hangedUpMessage)
                 

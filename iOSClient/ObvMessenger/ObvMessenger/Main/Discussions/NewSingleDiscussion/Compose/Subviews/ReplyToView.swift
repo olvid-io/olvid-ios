@@ -20,7 +20,7 @@
 import UIKit
 import CoreData
 import UniformTypeIdentifiers
-import QuickLookThumbnailing
+import os.log
 
 
 @available(iOS 15.0, *)
@@ -36,6 +36,8 @@ final class ReplyToView: UIView {
     private let buttonSize = CGFloat(44)
     private let imageSize = CGFloat(44)
     private let imageView = UIImageViewForHardLink()
+
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "ReplyToView")
 
     /// Implementing `UIViewWithThumbnailsForUTI`
     var imageForUTI = [String: UIImage]()
@@ -149,12 +151,16 @@ final class ReplyToView: UIView {
             if let join = fyleMessageJoinWithStatus.first(where: { $0.fullFileIsAvailable }) ?? fyleMessageJoinWithStatus.first {
                 let joinObjectID = join.typedObjectID
                 if let fyleElements = join.fyleElement {
-                    ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElements) { hardlink in
+                    ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElements) { result in
                         DispatchQueue.main.async { [weak self] in
-                            self?.hardlinkForFyleMessageJoinWithStatus[joinObjectID] = hardlink
-                            self?.setOrRequestImage(hardlink: hardlink, size: size)
-                            self?.imageView.isHidden = false
-                            return
+                            switch result {
+                            case .success(let hardlink):
+                                self?.hardlinkForFyleMessageJoinWithStatus[joinObjectID] = hardlink
+                                self?.setOrRequestImage(hardlink: hardlink, size: size)
+                                self?.imageView.isHidden = false
+                            case .failure(let error):
+                                assertionFailure(error.localizedDescription)
+                            }
                         }
                     }.postOnDispatchQueue()
                 }
@@ -165,17 +171,20 @@ final class ReplyToView: UIView {
     }
     
     
+    @MainActor
     private func setOrRequestImage(hardlink: HardLinkToFyle, size: CGSize) {
         if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
             imageView.setHardlink(newHardlink: hardlink, withImage: image)
         } else {
             imageView.setHardlink(newHardlink: hardlink, withImage: nil)
-            cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                guard success else { return }
-                guard let _self = self else { return }
-                guard let image = _self.cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) else { assertionFailure(); return }
-                _self.imageView.setHardlink(newHardlink: hardlink, withImage: image)
-            })
+            Task {
+                do {
+                    let image = try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                    imageView.setHardlink(newHardlink: hardlink, withImage: image)
+                } catch {
+                    os_log("The request for an image for the hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
+                }
+            }
         }
     }
     

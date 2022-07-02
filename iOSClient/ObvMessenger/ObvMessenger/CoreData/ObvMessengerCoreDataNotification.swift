@@ -62,6 +62,7 @@ enum ObvMessengerCoreDataNotification {
 	case persistedMessagesWereWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentations: Set<TypeSafeURL<PersistedMessage>>)
 	case draftToSendWasReset(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case draftFyleJoinWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>)
+	case fyleMessageJoinWasWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinUriRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>)
 
 	private enum Name {
 		case newDraftToSend
@@ -94,6 +95,7 @@ enum ObvMessengerCoreDataNotification {
 		case persistedMessagesWereWiped
 		case draftToSendWasReset
 		case draftFyleJoinWasDeleted
+		case fyleMessageJoinWasWiped
 
 		private var namePrefix: String { String(describing: ObvMessengerCoreDataNotification.self) }
 
@@ -136,6 +138,7 @@ enum ObvMessengerCoreDataNotification {
 			case .persistedMessagesWereWiped: return Name.persistedMessagesWereWiped.name
 			case .draftToSendWasReset: return Name.draftToSendWasReset.name
 			case .draftFyleJoinWasDeleted: return Name.draftFyleJoinWasDeleted.name
+			case .fyleMessageJoinWasWiped: return Name.fyleMessageJoinWasWiped.name
 			}
 		}
 	}
@@ -279,6 +282,12 @@ enum ObvMessengerCoreDataNotification {
 				"discussionUriRepresentation": discussionUriRepresentation,
 				"draftUriRepresentation": draftUriRepresentation,
 				"draftFyleJoinUriRepresentation": draftFyleJoinUriRepresentation,
+			]
+		case .fyleMessageJoinWasWiped(discussionUriRepresentation: let discussionUriRepresentation, messageUriRepresentation: let messageUriRepresentation, fyleMessageJoinUriRepresentation: let fyleMessageJoinUriRepresentation):
+			info = [
+				"discussionUriRepresentation": discussionUriRepresentation,
+				"messageUriRepresentation": messageUriRepresentation,
+				"fyleMessageJoinUriRepresentation": fyleMessageJoinUriRepresentation,
 			]
 		}
 		return info
@@ -564,6 +573,16 @@ enum ObvMessengerCoreDataNotification {
 			let draftUriRepresentation = notification.userInfo!["draftUriRepresentation"] as! TypeSafeURL<PersistedDraft>
 			let draftFyleJoinUriRepresentation = notification.userInfo!["draftFyleJoinUriRepresentation"] as! TypeSafeURL<PersistedDraftFyleJoin>
 			block(discussionUriRepresentation, draftUriRepresentation, draftFyleJoinUriRepresentation)
+		}
+	}
+
+	static func observeFyleMessageJoinWasWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, TypeSafeURL<PersistedMessage>, TypeSafeURL<FyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
+		let name = Name.fyleMessageJoinWasWiped.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
+			let messageUriRepresentation = notification.userInfo!["messageUriRepresentation"] as! TypeSafeURL<PersistedMessage>
+			let fyleMessageJoinUriRepresentation = notification.userInfo!["fyleMessageJoinUriRepresentation"] as! TypeSafeURL<FyleMessageJoinWithStatus>
+			block(discussionUriRepresentation, messageUriRepresentation, fyleMessageJoinUriRepresentation)
 		}
 	}
 

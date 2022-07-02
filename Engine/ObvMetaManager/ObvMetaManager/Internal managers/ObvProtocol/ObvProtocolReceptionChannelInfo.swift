@@ -87,16 +87,16 @@ public enum ObvProtocolReceptionChannelInfo: ObvCodable, Equatable {
         }
     }
 
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         switch self {
         case .ObliviousChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: let remoteDeviceUid):
-            return [self.intId, remoteCryptoIdentity, remoteDeviceUid].encode()
+            return [self.intId, remoteCryptoIdentity, remoteDeviceUid].obvEncode()
         case .AsymmetricChannel,
              .Local:
-            return [self.intId].encode()
+            return [self.intId].obvEncode()
         case .AnyObliviousChannelWithOwnedDevice(ownedIdentity: let ownedIdentity),
              .AnyObliviousChannel(ownedIdentity: let ownedIdentity):
-            return [self.intId, ownedIdentity].encode()
+            return [self.intId, ownedIdentity].obvEncode()
         }
     }
 

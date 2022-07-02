@@ -22,8 +22,8 @@ import Foundation
 extension Range: ObvCodable where Element == Int {
     
     
-    public func encode() -> ObvEncoded {
-        return [self.lowerBound, self.upperBound].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [self.lowerBound, self.upperBound].obvEncode()
     }
 
     

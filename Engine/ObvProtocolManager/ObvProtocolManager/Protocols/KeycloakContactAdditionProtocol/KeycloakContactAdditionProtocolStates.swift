@@ -55,18 +55,18 @@ extension KeycloakContactAdditionProtocol {
         let keycloakServerURL: URL
         let signedOwnedDetails: String // This is a JWS
 
-        func encode() -> ObvEncoded {
-            let encodedIdentityCoreDetails = try! identityCoreDetails.encode()
-            return [contactIdentity, encodedIdentityCoreDetails, keycloakServerURL, signedOwnedDetails].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedIdentityCoreDetails = try! identityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedIdentityCoreDetails, keycloakServerURL, signedOwnedDetails].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            let encodedIdentityCoreDetails: Data = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            let encodedIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             self.identityCoreDetails = try ObvIdentityCoreDetails(encodedIdentityCoreDetails)
-            self.keycloakServerURL = try encodedElements[2].decode()
-            self.signedOwnedDetails = try encodedElements[3].decode()
+            self.keycloakServerURL = try encodedElements[2].obvDecode()
+            self.signedOwnedDetails = try encodedElements[3].obvDecode()
         }
 
         init(contactIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, keycloakServerURL: URL, signedOwnedDetails: String) {
@@ -86,14 +86,14 @@ extension KeycloakContactAdditionProtocol {
         let contactIdentity: ObvCryptoIdentity
         let keycloakServerURL: URL
 
-        func encode() -> ObvEncoded {
-            return [contactIdentity, keycloakServerURL].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, keycloakServerURL].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 2) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.keycloakServerURL = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.keycloakServerURL = try encodedElements[1].obvDecode()
         }
 
         init(contactIdentity: ObvCryptoIdentity, keycloakServerUrl: URL) {
@@ -112,19 +112,19 @@ extension KeycloakContactAdditionProtocol {
         let contactDeviceUids: [UID]
         let keycloakServerURL: URL
 
-        func encode() -> ObvEncoded {
-            let encodedIdentityCoreDetails = try! identityCoreDetails.encode()
-            return [contactIdentity, encodedIdentityCoreDetails, contactDeviceUids as [ObvEncodable], keycloakServerURL].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedIdentityCoreDetails = try! identityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedIdentityCoreDetails, contactDeviceUids as [ObvEncodable], keycloakServerURL].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            let encodedIdentityCoreDetails: Data = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            let encodedIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             self.identityCoreDetails = try ObvIdentityCoreDetails(encodedIdentityCoreDetails)
             guard let listOfEncodedDeviceUids = [ObvEncoded](encodedElements[2]) else { throw NSError() }
-            contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.decode() }
-            self.keycloakServerURL = try encodedElements[3].decode()
+            contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
+            self.keycloakServerURL = try encodedElements[3].obvDecode()
         }
 
         init(contactIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], keycloakServerURL: URL) {
@@ -144,7 +144,7 @@ extension KeycloakContactAdditionProtocol {
 
         init() {}
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 }

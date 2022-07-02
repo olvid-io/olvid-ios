@@ -579,7 +579,7 @@ final class KeycloakManager: NSObject {
             if let latestLocalRevocationListTimestamp = latestLocalRevocationListTimestamp {
                 let query = ApiQueryForMePath(latestLocalRevocationListTimestamp: latestLocalRevocationListTimestamp)
                 do {
-                    dataToSend = try query.encode()
+                    dataToSend = try query.jsonEncode()
                 } catch {
                     os_log("Could not encode latestRevocationListTimestamp: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
                     assertionFailure()

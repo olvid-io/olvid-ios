@@ -49,7 +49,7 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
     lazy public var dataToSend: Data? = {
         /// The given serverLabel is a base64 of the binary label (created in StartPhotoUploadStep), but the server expects a binary, so we decode the base64 here.
         guard let binaryServerLabel = Data(base64Encoded: self.serverLabel) else { return nil }
-        return [self.toIdentity, binaryServerLabel].encode().rawData
+        return [self.toIdentity, binaryServerLabel].obvEncode().rawData
     }()
 
     public enum PossibleReturnStatus: UInt8 {

@@ -52,12 +52,12 @@ extension OneToOneContactInvitationProtocol {
         let contactIdentity: ObvCryptoIdentity
         let dialogUuid: UUID
         
-        func encode() -> ObvEncoded { [contactIdentity, dialogUuid].encode() }
+        func obvEncode() -> ObvEncoded { [contactIdentity, dialogUuid].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 2) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.dialogUuid = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.dialogUuid = try encodedElements[1].obvDecode()
         }
 
         init(contactIdentity: ObvCryptoIdentity, dialogUuid: UUID) {
@@ -75,12 +75,12 @@ extension OneToOneContactInvitationProtocol {
         let contactIdentity: ObvCryptoIdentity
         let dialogUuid: UUID
         
-        func encode() -> ObvEncoded { [contactIdentity, dialogUuid].encode() }
+        func obvEncode() -> ObvEncoded { [contactIdentity, dialogUuid].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 2) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.dialogUuid = try encodedElements[1].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.dialogUuid = try encodedElements[1].obvDecode()
         }
 
         init(contactIdentity: ObvCryptoIdentity, dialogUuid: UUID) {
@@ -99,7 +99,7 @@ extension OneToOneContactInvitationProtocol {
 
         init() {}
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 
@@ -112,7 +112,7 @@ extension OneToOneContactInvitationProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

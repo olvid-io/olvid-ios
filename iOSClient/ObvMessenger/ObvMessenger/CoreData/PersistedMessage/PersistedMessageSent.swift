@@ -30,8 +30,8 @@ final class PersistedMessageSent: PersistedMessage {
     private static let entityName = "PersistedMessageSent"
     private static let expirationForSentLimitedExistenceKey = "expirationForSentLimitedExistence"
     private static let expirationForSentLimitedVisibilityKey = "expirationForSentLimitedVisibility"
-    private static let discussionSenderThreadIdentifierKey = [discussionKey, PersistedDiscussion.senderThreadIdentifierKey].joined(separator: ".")
-    private static let discussionOwnedIdentityIdentityKey = [discussionKey, PersistedDiscussion.ownedIdentityKey, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+    private static let discussionSenderThreadIdentifierKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.senderThreadIdentifierKey].joined(separator: ".")
+    private static let discussionOwnedIdentityIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.ownedIdentityKey, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSent")
     
@@ -152,13 +152,14 @@ final class PersistedMessageSent: PersistedMessage {
     
 
     var fyleMessageJoinWithStatuses: [SentFyleMessageJoinWithStatus] {
-        switch unsortedFyleMessageJoinWithStatuses.count {
+        let nonWipedUnsortedFyleMessageJoinWithStatus = unsortedFyleMessageJoinWithStatuses.filter({ !$0.isWiped })
+        switch nonWipedUnsortedFyleMessageJoinWithStatus.count {
         case 0:
             return []
         case 1:
-            return [unsortedFyleMessageJoinWithStatuses.first!]
+            return [nonWipedUnsortedFyleMessageJoinWithStatus.first!]
         default:
-            return unsortedFyleMessageJoinWithStatuses.sorted(by: { $0.index < $1.index })
+            return nonWipedUnsortedFyleMessageJoinWithStatus.sorted(by: { $0.index < $1.index })
         }
     }
 
@@ -206,6 +207,12 @@ final class PersistedMessageSent: PersistedMessage {
     override var genericRepliesTo: PersistedMessage.RepliedMessage {
         repliesTo.toRepliedMessage
     }
+    
+    
+    override var shouldBeDeleted: Bool {
+        return super.shouldBeDeleted
+    }
+
 }
 
 
@@ -345,7 +352,7 @@ extension PersistedMessageSent {
             guard !isRemoteWiped else { return }
         }
         for join in fyleMessageJoinWithStatuses {
-            join.wipe()
+            try join.wipe()
         }
         self.deleteBody()
         try? self.reactions.forEach { try $0.delete() }
@@ -427,6 +434,26 @@ extension PersistedMessageSent {
     }
 }
 
+
+// MARK: - Determining actions availability
+
+extension PersistedMessageSent {
+    
+    var copyActionCanBeMadeAvailableForSentMessage: Bool {
+        return shareActionCanBeMadeAvailableForSentMessage
+    }
+
+    var shareActionCanBeMadeAvailableForSentMessage: Bool {
+        return !readOnce
+    }
+    
+    var forwardActionCanBeMadeAvailableForSentMessage: Bool {
+        return shareActionCanBeMadeAvailableForSentMessage
+    }
+
+}
+
+
 // MARK: - Convenience DB getters
 
 extension PersistedMessageSent {
@@ -457,10 +484,10 @@ extension PersistedMessageSent {
             ])
         }
         static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
-            NSPredicate(format: "%K == %@", discussionKey, discussion.objectID)
+            NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussion.objectID)
         }
         static func withinDiscussionWithObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
-            NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID)
+            NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID)
         }
         static func createdBefore(date: Date) -> NSPredicate {
             NSPredicate(format: "%K < %@", timestampKey, date as NSDate)
@@ -488,7 +515,7 @@ extension PersistedMessageSent {
         let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %d AND %K == %@",
                                         rawStatusKey, MessageStatus.processing.rawValue,
-                                        discussionKey, persistedDiscussionObjectID)
+                                        PersistedMessage.Predicate.Key.discussion.rawValue, persistedDiscussionObjectID)
         return try context.fetch(request)
     }
     

@@ -295,6 +295,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         super.viewWillDisappear(animated)
         composeMessageView?.discussionViewWillDisappear()
         invalidateTimerForRefreshingCellCountdowns()
+        processReceivedMessagesThatBecameNotNewDuringScrolling()
         if self.filesViewer == nil {
             // If the user is swiping to dismiss while the text view is editing, this code dismisses the keyboard and prevents it re-appearing if the user changes its mind and swipe back. The text view is reactivated in viewWillAppear.
             composeMessageView?.animatedEndEditing(completion: { _ in })
@@ -370,14 +371,18 @@ extension NewSingleDiscussionViewController {
             var items: [UIBarButtonItem] = []
             
             // Configure the menu for the right bar button item
-            
+
             do {
                 var menuElements: [UIMenuElement] = [
                     UIAction(
                         title: Strings.discussionSettings,
                         image: UIImage(systemIcon: .gearshapeFill),
                         handler: { [weak self] _ in self?.settingsButtonTapped() }
-                    )
+                    ),
+                    UIAction(
+                        title: CommonString.Word.Gallery,
+                        image: UIImage(systemIcon: .photoOnRectangleAngled),
+                        handler: { [weak self] _ in self?.galleryButtonTapped() })
                 ]
                 if discussion.isCallAvailable, AppStateManager.shared.appType == .mainApp {
                     menuElements += [
@@ -636,6 +641,13 @@ extension NewSingleDiscussionViewController {
         }
         present(vc, animated: true)
     }
+    
+    
+    private func galleryButtonTapped() {
+        let vc = DiscussionGalleryViewController(discussionObjectID: discussionObjectID)
+        let nav = ObvNavigationController(rootViewController: vc)
+        present(nav, animated: true)
+    }
 
     
     @objc func callButtonTapped() {
@@ -657,13 +669,18 @@ extension NewSingleDiscussionViewController {
     
     private func observeAppStateChanges() {
         observationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged(queue: OperationQueue.main) { [weak self] (previousState, currentState) in
+            debugPrint("🍆 \(previousState.iOSAppState.debugDescription) --> \(currentState.iOSAppState.debugDescription)")
             guard currentState.isInitialized else { return }
             if currentState.iOSAppState == .active, self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured ?? false {
                 self?.reconfigureCellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission()
             }
-            if previousState.iOSAppState != .notActive && currentState.iOSAppState == .notActive {
+            switch (previousState.iOSAppState, currentState.iOSAppState) {
+            case (.active, .notActive),
+                 (.mayResignActive, .inBackground):
                 guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == self?.discussionObjectID else { return }
                 self?.theUserLeftTheDiscussion()
+            default:
+                break
             }
         })
     }
@@ -1030,6 +1047,7 @@ extension NewSingleDiscussionViewController {
     
     private func theUserLeftTheDiscussion() {
         os_log("🛫 The user left the discussion", log: log, type: .info)
+        processReceivedMessagesThatBecameNotNewDuringScrolling()
         if !objectIDsOfMessagesToConsiderInNewMessagesCell.isEmpty {
             objectIDsOfMessagesToConsiderInNewMessagesCell.removeAll()
             // We check whether the discussion was left because the discussion was deleted. If this is not the case, we update the message system counting new messages.
@@ -1048,10 +1066,10 @@ extension NewSingleDiscussionViewController {
 
     }
     
-    /// This methods updates the `messagesToMarkAsNotNewWhenLeavingDiscussion` array when a cell becomes visible.
-    /// It also send a notification allowing the database to mark the message as not new (which will eventually send read receipt if this setting is set)
+    
+    /// This method sends a notification allowing the database to mark the message as not new (which will eventually send read receipt if this setting is set)
     private func markAsNotNewTheMessageInCell(_ cell: UICollectionViewCell) {
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
+        guard AppStateManager.shared.currentState.isInitialized else { return }
         guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == discussionObjectID else { return }
         guard viewDidAppearWasCalled else { return }
         let messageObjectId: TypeSafeManagedObjectID<PersistedMessage>
@@ -1066,12 +1084,26 @@ extension NewSingleDiscussionViewController {
         } else {
             return
         }
+        
+        // If the app is no active yet, we wait until it is before sending the `messagesAreNotNewAnymore` notification.
+        
+        guard AppStateManager.shared.currentState.isInitializedAndActive else {
+            AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive {
+                ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markAsNotNewTheMessageInCell for \([messageObjectId].count) messages (after waiting for the active state)")
+                ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageObjectId])
+                    .postOnDispatchQueue()
+            }
+            return
+        }
+        
         // If we are currently scrolling, we do *not* notify that a message has been read.
         // This would introduce animation glitches. Instead, we postpone the notification
         if currentScrolling == .none {
+            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markAsNotNewTheMessageInCell for \([messageObjectId].count) messages")
             ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageObjectId])
                 .postOnDispatchQueue()
         } else {
+            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] As currentScrolling is \(currentScrolling.debugDescription), we do not post messagesAreNotNewAnymore notification for \([messageObjectId].count) messages")
             messagesToMarkAsNotNewWhenScrollingEnds.insert(messageObjectId)
         }
     }
@@ -1080,6 +1112,8 @@ extension NewSingleDiscussionViewController {
     /// Marks all new received and relevant system messages that are visible as "not new"
     private func markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew() {
 
+        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew. AppStateManager.shared.currentState.isInitializedAndActive: \(AppStateManager.shared.currentState.isInitializedAndActive)")
+        
         let visibleReceivedCells = collectionView.visibleCells.compactMap({ $0 as? ReceivedMessageCell })
         let visibleSystemCells = collectionView.visibleCells.compactMap({ $0 as? SystemMessageCell })
 
@@ -1090,6 +1124,8 @@ extension NewSingleDiscussionViewController {
         let objectIDsOfNewVisibleSystemMessages = Set(visibleNewSystemMessages.map({ $0.typedObjectID.downcast }))
 
         let objectIDsOfNewVisibleMessages = objectIDsOfNewVisibleReceivedMessages.union(objectIDsOfNewVisibleSystemMessages)
+
+        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew for \(objectIDsOfNewVisibleMessages.count) messages")
 
         ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: objectIDsOfNewVisibleMessages)
             .postOnDispatchQueue(internalQueue)
@@ -1173,6 +1209,7 @@ extension NewSingleDiscussionViewController {
     private func processReceivedMessagesThatBecameNotNewDuringScrolling() {
         guard !messagesToMarkAsNotNewWhenScrollingEnds.isEmpty else { return }
         guard currentScrolling == .none else { return }
+        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in processReceivedMessagesThatBecameNotNewDuringScrolling for \(messagesToMarkAsNotNewWhenScrollingEnds.count) messages")
         ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: messagesToMarkAsNotNewWhenScrollingEnds)
             .postOnDispatchQueue(internalQueue)
         messagesToMarkAsNotNewWhenScrollingEnds.removeAll()
@@ -1192,6 +1229,10 @@ extension NewSingleDiscussionViewController {
         markAsNotNewTheMessageInCell(cell)
     }
 
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        markAsNotNewTheMessageInCell(cell)
+    }
+    
 }
 
 
@@ -1238,7 +1279,7 @@ extension NewSingleDiscussionViewController {
             }
             
             // Copy Text action
-            if let textToCopy = cell.textToCopy {
+            if let textToCopy = cell.textToCopy, cell.persistedMessage?.copyActionCanBeMadeAvailable == true {
                 let action = UIAction(title: CommonString.Title.copyText) { (_) in
                     UIPasteboard.general.string = textToCopy
                 }
@@ -1246,7 +1287,7 @@ extension NewSingleDiscussionViewController {
                 children.append(action)
             }
 
-            if cell.isSharingActionAvailable {
+            if cell.persistedMessage?.shareActionCanBeMadeAvailable == true {
 
                 // Share all photos at once
                 if let itemProvidersForImages = cell.itemProvidersForImages, itemProvidersForImages.count > 0 {
@@ -1684,7 +1725,9 @@ extension NewSingleDiscussionViewController {
         assert(Thread.isMainThread)
         guard let cell = findCellShowingHardlink(hardlinkTapped) else { assertionFailure(); return }
         let allHardLinkShownByCell = cell.getAllShownHardLink().map({ $0.hardlink })
-        filesViewer = FilesViewer(hardLinksToFyles: allHardLinkShownByCell, preventSharing: !cell.isSharingActionAvailable)
+        let alwaysPreventSharing = (cell as? CellWithMessage)?.persistedMessage?.shareActionCanBeMadeAvailable != true
+        debugPrint(alwaysPreventSharing)
+        filesViewer = FilesViewer(hardLinksToFyles: allHardLinkShownByCell, alwaysPreventSharing: alwaysPreventSharing)
         filesViewer?.delegate = self
         filesViewer?.cellIndexPath = collectionView.indexPath(for: cell)
         guard let index = allHardLinkShownByCell.firstIndex(of: hardlinkTapped) else { assertionFailure(); return }
@@ -1699,7 +1742,7 @@ extension NewSingleDiscussionViewController {
             let acceptableHardlinks = hardlinks.compactMap({ $0 })
             assert(acceptableHardlinks.count == hardlinks.count)
             DispatchQueue.main.async { [weak self] in
-                self?.filesViewer = FilesViewer(hardLinksToFyles: acceptableHardlinks, preventSharing: false)
+                self?.filesViewer = FilesViewer(hardLinksToFyles: acceptableHardlinks, alwaysPreventSharing: false)
                 self?.filesViewer?.delegate = self
                 self?.filesViewer?.cellIndexPath = nil
                 guard let index = acceptableHardlinks.firstIndex(of: hardlinkTapped) else { assertionFailure(); return }

@@ -48,7 +48,7 @@ final class ReceivedMessage: NSManagedObject, ObvManagedObject {
             return [ObvEncoded](rawValue)!
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue.encode(), forKey: ReceivedMessage.encodedEncodedInputsKey)
+            kvoSafeSetPrimitiveValue(newValue.obvEncode(), forKey: ReceivedMessage.encodedEncodedInputsKey)
         }
     }
     
@@ -77,7 +77,7 @@ final class ReceivedMessage: NSManagedObject, ObvManagedObject {
             return ObvProtocolReceptionChannelInfo(encoded)!
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue.encode().rawData, forKey: ReceivedMessage.receptionChannelInfoKey)
+            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: ReceivedMessage.receptionChannelInfoKey)
         }
     }
     

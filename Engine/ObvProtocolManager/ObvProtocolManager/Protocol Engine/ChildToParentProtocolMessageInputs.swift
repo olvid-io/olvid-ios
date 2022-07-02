@@ -31,14 +31,14 @@ struct ChildToParentProtocolMessageInputs {
     init(childProtocolInstanceUid: UID, childProtocolInstanceReachedState: ConcreteProtocolState) {
         self.childProtocolInstanceUid = childProtocolInstanceUid
         self.childProtocolInstanceReachedStateRawId = childProtocolInstanceReachedState.rawId
-        self.childProtocolInstanceEncodedReachedState = childProtocolInstanceReachedState.encode()
+        self.childProtocolInstanceEncodedReachedState = childProtocolInstanceReachedState.obvEncode()
     }
     
     init?(_ listOfEncoded: [ObvEncoded]) {
         guard listOfEncoded.count == 3 else { return nil }
         do {
-            self.childProtocolInstanceUid = try listOfEncoded[0].decode()
-            self.childProtocolInstanceReachedStateRawId = try listOfEncoded[1].decode()
+            self.childProtocolInstanceUid = try listOfEncoded[0].obvDecode()
+            self.childProtocolInstanceReachedStateRawId = try listOfEncoded[1].obvDecode()
             self.childProtocolInstanceEncodedReachedState = listOfEncoded[2]
         } catch {
             return nil
@@ -46,6 +46,6 @@ struct ChildToParentProtocolMessageInputs {
     }
     
     func toListOfEncoded() -> [ObvEncoded] {
-        return [childProtocolInstanceUid.encode(), childProtocolInstanceReachedStateRawId.encode(), childProtocolInstanceEncodedReachedState]
+        return [childProtocolInstanceUid.obvEncode(), childProtocolInstanceReachedStateRawId.obvEncode(), childProtocolInstanceEncodedReachedState]
     }
 }

@@ -91,7 +91,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             guard !rawServerSignatureKey.isEmpty else { return nil }
             let value: ObvJWK
             do {
-                value = try ObvJWK.decode(rawObvJWK: rawServerSignatureKey)
+                value = try ObvJWK.jsonDecode(rawObvJWK: rawServerSignatureKey)
             } catch {
                 assertionFailure(error.localizedDescription)
                 return nil
@@ -100,7 +100,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         }
         set {
             do {
-                self.rawServerSignatureKey = try newValue?.encode()
+                self.rawServerSignatureKey = try newValue?.jsonEncode()
             } catch {
                 assertionFailure(error.localizedDescription)
             }
@@ -221,7 +221,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             
             let keycloakRevocation: JsonKeycloakRevocation
             do {
-                keycloakRevocation = try JsonKeycloakRevocation.decode(data: signedRevocationPayload)
+                keycloakRevocation = try JsonKeycloakRevocation.jsonDecode(data: signedRevocationPayload)
             } catch {
                 os_log("The raw revocation could not be parsed. We ignore this revocation: %{public}@", log: log, type: .error, error.localizedDescription)
                 return
@@ -470,11 +470,11 @@ struct KeycloakServerBackupItem: Codable, Hashable {
         self.selfRevocationTestNonce = try values.decodeIfPresent(String.self, forKey: .selfRevocationTestNonce)
         if let rawServerSignatureKeyAsString = try values.decodeIfPresent(String.self, forKey: .rawServerSignatureKey), let rawServerSignatureKey = rawServerSignatureKeyAsString.data(using: .utf8) {
             // With make sure the serialized data can be deserialized
-            if let obvJWKLegacy = try? ObvJWKLegacy.decode(rawObvJWKLegacy: rawServerSignatureKey) {
+            if let obvJWKLegacy = try? ObvJWKLegacy.jsonDecode(rawObvJWKLegacy: rawServerSignatureKey) {
                 let obvJWK = obvJWKLegacy.updateToObvJWK()
-                self.rawServerSignatureKey = try obvJWK.encode()
+                self.rawServerSignatureKey = try obvJWK.jsonEncode()
             } else {
-                _ = try ObvJWK.decode(rawObvJWK: rawServerSignatureKey)
+                _ = try ObvJWK.jsonDecode(rawObvJWK: rawServerSignatureKey)
                 self.rawServerSignatureKey = rawServerSignatureKey
             }
         } else {

@@ -29,7 +29,7 @@ final class UserNotificationsBadgesCoordinator: NSObject {
     
     private var currentOwnedCryptoId: ObvCryptoId? = nil {
         didSet {
-            recomputeAllBadges()
+            recomputeAllBadges(completion: { _ in })
         }
     }
     
@@ -37,11 +37,7 @@ final class UserNotificationsBadgesCoordinator: NSObject {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationsBadgesCoordinator.self))
     private var notificationTokens = [NSObjectProtocol]()
-    private let queueForBadgesOperations: OperationQueue = {
-        let opQueue = OperationQueue()
-        opQueue.maxConcurrentOperationCount = 1
-        return opQueue
-    }()
+    private let queueForBadgesOperations = OperationQueue.createSerialQueue(name: "Queue for badges operations", qualityOfService: .background)
     
     /// List of tabs that may display a badge. We use this enum to keep track of the badges to update on the next ContextDidSaveNotification
     enum TabBadge {
@@ -80,8 +76,8 @@ final class UserNotificationsBadgesCoordinator: NSObject {
     }
     
     
-    private func recomputeAllBadges() {
-        guard let userDefaults = self.userDefaults else { return }
+    private func recomputeAllBadges(completion: (Bool) -> Void) {
+        guard let userDefaults = self.userDefaults else { completion(false); return }
         if let currentOwnedCryptoId = self.currentOwnedCryptoId {
             let refreshBadgeForNewMessagesOperation = RefreshBadgeForNewMessagesOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: log)
             let refreshBadgeForInvitationsOperation = RefreshBadgeForInvitationsOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: log)
@@ -90,6 +86,8 @@ final class UserNotificationsBadgesCoordinator: NSObject {
         }
         let refreshAppBadgeOperation = RefreshAppBadgeOperation(userDefaults: userDefaults, log: log)
         queueForBadgesOperations.addOperation(refreshAppBadgeOperation)
+        queueForBadgesOperations.waitUntilAllOperationsAreFinished()
+        completion(true)
     }
     
 }
@@ -110,22 +108,21 @@ extension UserNotificationsBadgesCoordinator {
     private func observeUIApplicationDidStartRunningNotifications() {
         notificationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged() { [weak self] _, currentState in
             guard currentState.isInitializedAndActive else { return }
-            self?.recomputeAllBadges()
+            self?.recomputeAllBadges(completion: { _ in })
         })
     }
 
     private func observeNeedToRecomputeAllBadges() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeNeedToRecomputeAllBadges { [weak self] in
-            self?.recomputeAllBadges()
+        notificationTokens.append(ObvMessengerInternalNotification.observeNeedToRecomputeAllBadges { [weak self] completion in
+            self?.recomputeAllBadges(completion: completion)
         })
 
     }
 
     private func observeUpdateBadgeBackgroundTaskWasLaunchedNotifications() {
         notificationTokens.append(ObvMessengerInternalNotification.observeUpdateBadgeBackgroundTaskWasLaunched() { (completion) in
-            self.recomputeAllBadges()
+            self.recomputeAllBadges(completion: completion)
             os_log("🤿 Update badge task has been done in background", log: self.log, type: .info)
-            completion(true)
         })
     }
 

@@ -30,30 +30,14 @@ final class ChannelCreationPingSignatureReceived: NSManagedObject, ObvManagedObj
     // MARK: Internal constants
 
     private static let entityName = "ChannelCreationPingSignatureReceived"
-    private static let rawContactDeviceUidKey = "rawContactDeviceUid"
-    private static let rawContactIdentityKey = "rawContactIdentity"
-    private static let rawOwnedIdentityKey = "rawOwnedIdentity"
-    private static let signatureKey = "signature"
 
     // MARK: Attributes
 
-    @NSManaged private var rawContactDeviceUid: Data
-    @NSManaged private var rawContactIdentity: Data
     @NSManaged private var rawOwnedIdentity: Data
     @NSManaged private var signature: Data
 
     // MARK: Variables
-    
-    private var contactDeviceUid: UID {
-        get { UID(uid: rawContactDeviceUid)! }
-        set { rawContactDeviceUid = newValue.raw }
-    }
-    
-    private var contactIdentity: ObvCryptoIdentity {
-        get { ObvCryptoIdentity(from: rawContactIdentity)! }
-        set { rawContactIdentity = newValue.getIdentity() }
-    }
-    
+            
     private var ownedIdentity: ObvCryptoIdentity {
         get { ObvCryptoIdentity(from: rawOwnedIdentity)! }
         set { rawOwnedIdentity = newValue.getIdentity() }
@@ -63,14 +47,11 @@ final class ChannelCreationPingSignatureReceived: NSManagedObject, ObvManagedObj
 
     // MARK: - Initializer
 
-    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, contactDeviceUID: UID, signature: Data, within obvContext: ObvContext) {
+    convenience init?(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) {
         
-        let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationPingSignatureReceived.entityName,
-                                                           in: obvContext)!
+        let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationPingSignatureReceived.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
 
-        self.contactDeviceUid = contactDeviceUID
-        self.contactIdentity = contactCryptoIdentity
         self.ownedIdentity = ownedCryptoIdentity
         self.signature = signature
         
@@ -88,33 +69,21 @@ extension ChannelCreationPingSignatureReceived {
     }
 
     private struct Predicate {
-        static func withContactDeviceUid(_ contactDeviceUid: UID) -> NSPredicate {
-            NSPredicate(format: "%K == %@",
-                        ChannelCreationPingSignatureReceived.rawContactDeviceUidKey,
-                        contactDeviceUid.raw as NSData)
-        }
-        static func withContactIdentityKey(_ contactIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@",
-                        ChannelCreationPingSignatureReceived.rawContactIdentityKey,
-                        contactIdentity.getIdentity() as NSData)
+        enum Key: String {
+            case rawOwnedIdentity = "rawOwnedIdentity"
+            case signature = "signature"
         }
         static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@",
-                        ChannelCreationPingSignatureReceived.rawOwnedIdentityKey,
-                        ownedCryptoIdentity.getIdentity() as NSData)
+            NSPredicate(Key.rawOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
         }
         static func withSignature(_ signature: Data) -> NSPredicate {
-            NSPredicate(format: "%K == %@",
-                        ChannelCreationPingSignatureReceived.signatureKey,
-                        signature as NSData)
+            NSPredicate(Key.signature, EqualToData: signature)
         }
     }
     
-    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, contactDeviceUID: UID, signature: Data, within obvContext: ObvContext) throws -> Bool {
+    static func exists(ownedCryptoIdentity: ObvCryptoIdentity, signature: Data, within obvContext: ObvContext) throws -> Bool {
         let request: NSFetchRequest<ChannelCreationPingSignatureReceived> = ChannelCreationPingSignatureReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withContactDeviceUid(contactDeviceUID),
-            Predicate.withContactIdentityKey(contactCryptoIdentity),
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
             Predicate.withSignature(signature),
         ])
@@ -133,18 +102,4 @@ extension ChannelCreationPingSignatureReceived {
         }
     }
     
-    static func deleteAllAssociatedWithContactIdentity(_ contactCryptoIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        let request: NSFetchRequest<ChannelCreationPingSignatureReceived> = ChannelCreationPingSignatureReceived.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withContactIdentityKey(contactCryptoIdentity),
-            Predicate.withOwnedCryptoIdentity(ownedIdentity),
-        ])
-        request.fetchBatchSize = 100
-        request.includesPropertyValues = false
-        let items = try obvContext.fetch(request)
-        for item in items {
-            obvContext.delete(item)
-        }
-    }
-
 }

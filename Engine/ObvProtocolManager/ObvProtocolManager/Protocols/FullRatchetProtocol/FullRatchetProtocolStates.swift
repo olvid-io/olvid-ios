@@ -58,17 +58,17 @@ extension FullRatchetProtocol {
         let ephemeralPrivateKey: PrivateKeyForPublicKeyEncryption
         let restartCounter: Int
 
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey, restartCounter].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey, restartCounter].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.contactDeviceUid = try encodedElements[1].decode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.decode(encodedElements[2]) else { throw NSError() }
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.contactDeviceUid = try encodedElements[1].obvDecode()
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
             self.ephemeralPrivateKey = ephemeralPrivateKey
-            self.restartCounter = try encodedElements[3].decode()
+            self.restartCounter = try encodedElements[3].obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, ephemeralPrivateKey: PrivateKeyForPublicKeyEncryption, restartCounter: Int) {
@@ -91,17 +91,17 @@ extension FullRatchetProtocol {
         let restartCounter: Int
         let k1: AuthenticatedEncryptionKey
 
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey, restartCounter, k1].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey, restartCounter, k1].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 5) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.contactDeviceUid = try encodedElements[1].decode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.decode(encodedElements[2]) else { throw NSError() }
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.contactDeviceUid = try encodedElements[1].obvDecode()
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
             self.ephemeralPrivateKey = ephemeralPrivateKey
-            self.restartCounter = try encodedElements[3].decode()
+            self.restartCounter = try encodedElements[3].obvDecode()
             self.k1 = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[4])
         }
         
@@ -125,16 +125,16 @@ extension FullRatchetProtocol {
         let seed: Seed
         let restartCounter: Int
 
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, seed, restartCounter].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, seed, restartCounter].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.contactDeviceUid = try encodedElements[1].decode()
-            self.seed = try encodedElements[2].decode()
-            self.restartCounter = try encodedElements[3].decode()
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.contactDeviceUid = try encodedElements[1].obvDecode()
+            self.seed = try encodedElements[2].obvDecode()
+            self.restartCounter = try encodedElements[3].obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, seed: Seed, restartCounter: Int) {
@@ -155,7 +155,7 @@ extension FullRatchetProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 
@@ -168,7 +168,7 @@ extension FullRatchetProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 

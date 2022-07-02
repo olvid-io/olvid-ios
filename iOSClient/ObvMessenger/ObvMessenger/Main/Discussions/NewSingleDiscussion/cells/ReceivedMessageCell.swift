@@ -43,7 +43,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         backgroundColor = AppTheme.shared.colorScheme.discussionScreenBackground
     }
     
-    
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "ReceivedMessageCell")
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -173,15 +174,27 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
             content.singleImageViewConfiguration = nil
             content.multipleImagesViewConfiguration.removeAll()
         case 1:
-            content.singleImageViewConfiguration = singleImageViewConfigurationForImageAttachment(imageAttachments.first!, message: message, requiresCellSizing: false)
+            let size = CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
+            content.singleImageViewConfiguration = singleImageViewConfigurationForImageAttachment(imageAttachments.first!, size: size, requiresCellSizing: false)
             content.multipleImagesViewConfiguration.removeAll()
         default:
             content.singleImageViewConfiguration = nil
-            content.multipleImagesViewConfiguration = imageAttachments.map({ singleImageViewConfigurationForImageAttachment($0, message: message, requiresCellSizing: false) })
+            let smallImageSize = CGSize(width: MultipleImagesView.smallImageSize, height: MultipleImagesView.smallImageSize)
+            let wideImageSize = CGSize(width: MultipleImagesView.wideImageWidth, height: MultipleImagesView.smallImageSize)
+            if imageAttachments.count.isMultiple(of: 2) {
+                content.multipleImagesViewConfiguration = imageAttachments.map({ singleImageViewConfigurationForImageAttachment($0, size: smallImageSize, requiresCellSizing: false) })
+            } else {
+                let smallImageAttachments = imageAttachments[0..<imageAttachments.count-1]
+                let wideImageAttachment = imageAttachments.last!
+                var configurations = smallImageAttachments.map({ singleImageViewConfigurationForImageAttachment($0, size: smallImageSize, requiresCellSizing: false) })
+                configurations.append(singleImageViewConfigurationForImageAttachment(wideImageAttachment, size: wideImageSize, requiresCellSizing: false))
+                content.multipleImagesViewConfiguration = configurations
+            }
         }
                 
         if let gifAttachment = gifAttachment {
-            content.singleGifViewConfiguration = singleImageViewConfigurationForImageAttachment(gifAttachment, message: message, requiresCellSizing: true)
+            let size = CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
+            content.singleGifViewConfiguration = singleImageViewConfigurationForImageAttachment(gifAttachment, size: size, requiresCellSizing: true)
         } else {
             content.singleGifViewConfiguration = nil
         }
@@ -192,7 +205,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
 
         var audioAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfAudioType
         if let firstAudioAttachment = audioAttachments.first {
-            content.audioPlayerConfiguration = attachmentViewConfigurationForAttachment(firstAudioAttachment, message: message)
+            content.audioPlayerConfiguration = attachmentViewConfigurationForAttachment(firstAudioAttachment)
             audioAttachments.removeAll(where: { $0 == firstAudioAttachment })
         } else {
             content.audioPlayerConfiguration = nil
@@ -201,7 +214,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         // We choose to show audioPlayer only for the first audio song.
         otherAttachments += audioAttachments
 
-        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0, message: message) })
+        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0) })
         
         // Configure the rest
         
@@ -277,11 +290,11 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
     }
 
     
-    private func singleImageViewConfigurationForImageAttachment(_ imageAttachment: ReceivedFyleMessageJoinWithStatus, message: PersistedMessageReceived, requiresCellSizing: Bool) -> SingleImageView.Configuration {
+    private func singleImageViewConfigurationForImageAttachment(_ imageAttachment: ReceivedFyleMessageJoinWithStatus, size: CGSize, requiresCellSizing: Bool) -> SingleImageView.Configuration {
         let imageAttachmentObjectID = (imageAttachment as FyleMessageJoinWithStatus).typedObjectID
         let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: imageAttachmentObjectID)
         let config: SingleImageView.Configuration
-        let size = CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
+        let message = imageAttachment.receivedMessage
         switch imageAttachment.status {
         case .downloadable, .downloading:
             if message.readingRequiresUserAction {
@@ -314,12 +327,16 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
                         cacheDelegate?.removeCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID)
                         config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: image)
                     } else {
-		        let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID)
+                        let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID)
                         config = .complete(downsizedThumbnail: downsizedThumbnail, hardlink: hardlink, thumbnail: nil)
-                        cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                            guard success else { return }
-                            self?.setNeedsUpdateConfiguration()
-                        })
+                        Task {
+                            do {
+                                try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                                setNeedsUpdateConfiguration()
+                            } catch {
+                                os_log("The request for an image for the hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
+                            }
+                        }
                     }
                 } else if let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID) {
                     config = .downloadableOrDownloading(progress: imageAttachment.progress, downsizedThumbnail: downsizedThumbnail)
@@ -344,7 +361,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
     }
     
 
-    private func attachmentViewConfigurationForAttachment(_ attachment: ReceivedFyleMessageJoinWithStatus, message: PersistedMessageReceived) -> AttachmentsView.Configuration {
+    private func attachmentViewConfigurationForAttachment(_ attachment: ReceivedFyleMessageJoinWithStatus) -> AttachmentsView.Configuration {
+        let message = attachment.receivedMessage
         let filename = message.readingRequiresUserAction ? nil : attachment.fileName
         let config: AttachmentsView.Configuration
         switch attachment.status {
@@ -366,10 +384,14 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
                             // This happens when the attachment was just downloaded and we need to "refresh" the cached hardlink
                             // We do nothing since the hardlink will soon be refreshed
                         } else {
-                            cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size, completionWhenImageCached: { [weak self] success in
-                                guard success else { return }
-                                self?.setNeedsUpdateConfiguration()
-                            })
+                            Task {
+                                do {
+                                    try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                                    setNeedsUpdateConfiguration()
+                                } catch {
+                                    os_log("The request for an image for the hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
+                                }
+                            }
                         }
                     }
                 } else {
@@ -809,6 +831,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             bottomHorizontalStack.bottomAnchor.constraint(equalTo: multipleReactionsView.bottomAnchor, constant: -2),
         ])
         
+        textBubble.linkTapGestureRequire(toFail: doubleTapGesture)
+
     }
 
     

@@ -91,7 +91,7 @@ extension PersistedPendingGroupMember {
         self.init(entity: entityDescription, insertInto: context)
 
         self.declined = false
-        self.serializedIdentityCoreDetails = try genericIdentity.currentIdentityDetails.coreDetails.encode()
+        self.serializedIdentityCoreDetails = try genericIdentity.currentIdentityDetails.coreDetails.jsonEncode()
         self.fullDisplayName = genericIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
         self.identity = genericIdentity.cryptoId.getIdentity()
         self.rawGroupOwnerIdentity = contactGroup.ownerIdentity

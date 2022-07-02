@@ -55,7 +55,7 @@ public final class ObvServerDeleteUserDataMethod: ObvServerDataMethod {
     lazy public var dataToSend: Data? = {
         // The given serverLabel is a base64 of the binary label (created in StartPhotoUploadStep), but the server expects a binary, so we decode the base64 here.
         guard let binaryServerLabel = Data(base64Encoded: self.serverLabel) else { return nil }
-        return [self.ownedIdentity, self.token, binaryServerLabel].encode().rawData
+        return [self.ownedIdentity, self.token, binaryServerLabel].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {

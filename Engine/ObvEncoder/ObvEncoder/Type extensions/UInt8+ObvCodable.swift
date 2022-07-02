@@ -21,8 +21,8 @@ import Foundation
 
 extension UInt8: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        return Data([self]).encode()
+    public func obvEncode() -> ObvEncoded {
+        return Data([self]).obvEncode()
     }
 
     public init?(_ obvEncoded: ObvEncoded) {

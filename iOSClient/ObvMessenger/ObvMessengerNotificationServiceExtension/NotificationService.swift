@@ -210,7 +210,7 @@ class NotificationService: UNNotificationServiceExtension {
         let messagePayload = obvMessage.messagePayload
         let persistedItemJSON: PersistedItemJSON
         do {
-            persistedItemJSON = try PersistedItemJSON.decode(messagePayload)
+            persistedItemJSON = try PersistedItemJSON.jsonDecode(messagePayload)
         } catch {
             os_log("Could not decode the message payload", log: log, type: .error)
             return false

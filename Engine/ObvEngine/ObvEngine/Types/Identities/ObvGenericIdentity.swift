@@ -69,15 +69,15 @@ extension ObvGenericIdentity: ObvCodable {
     public init?(_ obvEncoded: ObvEncoded) {
         let encodedIdentityDetails: Data
         let cryptoIdentity: ObvCryptoIdentity
-        do { (cryptoIdentity, encodedIdentityDetails) = try obvEncoded.decode() } catch { return nil }
+        do { (cryptoIdentity, encodedIdentityDetails) = try obvEncoded.obvDecode() } catch { return nil }
         let identityDetails: ObvIdentityDetails
         do { identityDetails = try ObvIdentityDetails(encodedIdentityDetails) } catch { return nil }
         self.init(cryptoIdentity: cryptoIdentity, currentIdentityDetails: identityDetails)
     }
     
-    public func encode() -> ObvEncoded {
-        let encodedIdentityDetails = try! currentIdentityDetails.encode()
-        return [self.cryptoId.cryptoIdentity, encodedIdentityDetails].encode()
+    public func obvEncode() -> ObvEncoded {
+        let encodedIdentityDetails = try! currentIdentityDetails.jsonEncode()
+        return [self.cryptoId.cryptoIdentity, encodedIdentityDetails].obvEncode()
     }
 }
 

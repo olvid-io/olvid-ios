@@ -75,7 +75,7 @@ enum ObvMessengerInternalNotification {
 	case useLoadBalancedTurnServersDidChange
 	case userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>)
 	case requestThumbnail(fyleElement: FyleElement, size: CGSize, thumbnailType: ThumbnailType, completionHandler: ((Thumbnail) -> Void))
-	case persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: NSManagedObjectID)
+	case persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
 	case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoId: ObvCryptoId)
 	case persistedDiscussionSharedConfigurationShouldBeSent(persistedDiscussionObjectID: NSManagedObjectID)
 	case userWantsToDeleteContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, viewController: UIViewController, completionHandler: ((Bool) -> Void))
@@ -104,7 +104,7 @@ enum ObvMessengerInternalNotification {
 	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, nicknameAndPicture: CustomNicknameAndPicture)
 	case userWantsToBindOwnedIdentityToKeycloak(ownedCryptoId: ObvCryptoId, obvKeycloakState: ObvKeycloakState, keycloakUserId: String, completionHandler: (Bool) -> Void)
 	case userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ObvCryptoId, completionHandler: (Bool) -> Void)
-	case requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: ((HardLinkToFyle) -> Void))
+	case requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: ((Result<HardLinkToFyle,Error>) -> Void))
 	case requestAllHardLinksToFyles(fyleElements: [FyleElement], completionHandler: (([HardLinkToFyle?]) -> Void))
 	case userWantsToRemoveDraftFyleJoin(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>)
 	case userWantsToChangeContactsSortOrder(ownedCryptoId: ObvCryptoId, sortOrder: ContactsSortOrder)
@@ -117,7 +117,7 @@ enum ObvMessengerInternalNotification {
 	case draftExpirationWasBeenUpdated(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case badgesNeedToBeUpdated(ownedCryptoId: ObvCryptoId)
 	case cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
-	case needToRecomputeAllBadges
+	case needToRecomputeAllBadges(completionHandler: (Bool) -> Void)
 	case userWantsToDisplayContactIntroductionScreen(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, viewController: UIViewController)
 	case userDidTapOnMissedMessageBubble
 	case olvidSnackBarShouldBeShown(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory)
@@ -144,6 +144,7 @@ enum ObvMessengerInternalNotification {
 	case userRepliedToReceivedMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, textBody: String, completionHandler: (Bool) -> Void)
 	case userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: (Bool) -> Void)
 	case userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: (Bool) -> Void)
+	case userWantsToWipeFyleMessageJoinWithStatus(objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -256,6 +257,7 @@ enum ObvMessengerInternalNotification {
 		case userRepliedToReceivedMessageWithinTheNotificationExtension
 		case userRepliedToMissedCallWithinTheNotificationExtension
 		case userWantsToMarkAsReadMessageWithinTheNotificationExtension
+		case userWantsToWipeFyleMessageJoinWithStatus
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -378,6 +380,7 @@ enum ObvMessengerInternalNotification {
 			case .userRepliedToReceivedMessageWithinTheNotificationExtension: return Name.userRepliedToReceivedMessageWithinTheNotificationExtension.name
 			case .userRepliedToMissedCallWithinTheNotificationExtension: return Name.userRepliedToMissedCallWithinTheNotificationExtension.name
 			case .userWantsToMarkAsReadMessageWithinTheNotificationExtension: return Name.userWantsToMarkAsReadMessageWithinTheNotificationExtension.name
+			case .userWantsToWipeFyleMessageJoinWithStatus: return Name.userWantsToWipeFyleMessageJoinWithStatus.name
 			}
 		}
 	}
@@ -746,8 +749,10 @@ enum ObvMessengerInternalNotification {
 			]
 		case .cleanExpiredMuteNotficationsThatExpiredEarlierThanNow:
 			info = nil
-		case .needToRecomputeAllBadges:
-			info = nil
+		case .needToRecomputeAllBadges(completionHandler: let completionHandler):
+			info = [
+				"completionHandler": completionHandler,
+			]
 		case .userWantsToDisplayContactIntroductionScreen(contactObjectID: let contactObjectID, viewController: let viewController):
 			info = [
 				"contactObjectID": contactObjectID,
@@ -863,6 +868,10 @@ enum ObvMessengerInternalNotification {
 				"persistedContactObjectID": persistedContactObjectID,
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
 				"completionHandler": completionHandler,
+			]
+		case .userWantsToWipeFyleMessageJoinWithStatus(objectIDs: let objectIDs):
+			info = [
+				"objectIDs": objectIDs,
 			]
 		}
 		return info
@@ -1240,10 +1249,10 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observePersistedMessageReceivedWasRead(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
+	static func observePersistedMessageReceivedWasRead(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedMessageReceived>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageReceivedWasRead.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageReceivedObjectID = notification.userInfo!["persistedMessageReceivedObjectID"] as! NSManagedObjectID
+			let persistedMessageReceivedObjectID = notification.userInfo!["persistedMessageReceivedObjectID"] as! TypeSafeManagedObjectID<PersistedMessageReceived>
 			block(persistedMessageReceivedObjectID)
 		}
 	}
@@ -1495,11 +1504,11 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeRequestHardLinkToFyle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (FyleElement, @escaping ((HardLinkToFyle) -> Void)) -> Void) -> NSObjectProtocol {
+	static func observeRequestHardLinkToFyle(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (FyleElement, @escaping ((Result<HardLinkToFyle,Error>) -> Void)) -> Void) -> NSObjectProtocol {
 		let name = Name.requestHardLinkToFyle.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let fyleElement = notification.userInfo!["fyleElement"] as! FyleElement
-			let completionHandler = notification.userInfo!["completionHandler"] as! ((HardLinkToFyle) -> Void)
+			let completionHandler = notification.userInfo!["completionHandler"] as! ((Result<HardLinkToFyle,Error>) -> Void)
 			block(fyleElement, completionHandler)
 		}
 	}
@@ -1607,10 +1616,11 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeNeedToRecomputeAllBadges(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+	static func observeNeedToRecomputeAllBadges(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (@escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.needToRecomputeAllBadges.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
+			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
+			block(completionHandler)
 		}
 	}
 
@@ -1837,6 +1847,14 @@ enum ObvMessengerInternalNotification {
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
 			block(persistedContactObjectID, messageIdentifierFromEngine, completionHandler)
+		}
+	}
+
+	static func observeUserWantsToWipeFyleMessageJoinWithStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToWipeFyleMessageJoinWithStatus.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let objectIDs = notification.userInfo!["objectIDs"] as! Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>
+			block(objectIDs)
 		}
 	}
 

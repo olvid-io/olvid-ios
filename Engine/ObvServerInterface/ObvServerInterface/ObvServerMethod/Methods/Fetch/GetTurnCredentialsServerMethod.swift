@@ -59,7 +59,7 @@ public final class GetTurnCredentialsServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(), token, username1, username2].encode().rawData
+        return [ownedIdentity.getIdentity(), token, username1, username2].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, output: TurnCredentials?)? {
@@ -112,10 +112,10 @@ fileprivate extension TurnCredentials {
     
     init?(listOfReturnedDatas: [ObvEncoded]) {
         guard listOfReturnedDatas.count == 4 else { return nil }
-        guard let expiringUsername1: String = try? listOfReturnedDatas[0].decode() else { return nil }
-        guard let password1: String = try? listOfReturnedDatas[1].decode() else { return nil }
-        guard let expiringUsername2: String = try? listOfReturnedDatas[2].decode() else { return nil }
-        guard let password2: String = try? listOfReturnedDatas[3].decode() else { return nil }
+        guard let expiringUsername1: String = try? listOfReturnedDatas[0].obvDecode() else { return nil }
+        guard let password1: String = try? listOfReturnedDatas[1].obvDecode() else { return nil }
+        guard let expiringUsername2: String = try? listOfReturnedDatas[2].obvDecode() else { return nil }
+        guard let password2: String = try? listOfReturnedDatas[3].obvDecode() else { return nil }
         self.init(expiringUsername1: expiringUsername1, password1: password1, expiringUsername2: expiringUsername2, password2: password2)
     }
     

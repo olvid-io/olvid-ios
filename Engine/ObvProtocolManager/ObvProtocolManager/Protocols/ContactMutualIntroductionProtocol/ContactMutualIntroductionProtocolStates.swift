@@ -67,7 +67,7 @@ extension ContactMutualIntroductionProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
     
@@ -85,7 +85,7 @@ extension ContactMutualIntroductionProtocol {
 
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityDetails: Data
-            (contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid) = try encoded.decode()
+            (contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid) = try encoded.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityDetails)
         }
         
@@ -96,9 +96,9 @@ extension ContactMutualIntroductionProtocol {
             self.dialogUuid = dialogUuid
         }
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid].obvEncode()
         }
 
     }
@@ -114,7 +114,7 @@ extension ContactMutualIntroductionProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
     
@@ -131,14 +131,14 @@ extension ContactMutualIntroductionProtocol {
         let dialogUuid: UUID
         let acceptType: Int // See the AcceptType structure within ContactMutualIntroductionProtocol
 
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityDetails: Data
-            (contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType) = try encoded.decode()
+            (contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType) = try encoded.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityDetails)
         }
         
@@ -166,14 +166,14 @@ extension ContactMutualIntroductionProtocol {
         let dialogUuid: UUID
         let acceptType: Int // See the AcceptType structure within ContactMutualIntroductionProtocol
 
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityDetails: Data
-            (contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType) = try encoded.decode()
+            (contactIdentity, encodedContactIdentityDetails, mediatorIdentity, dialogUuid, acceptType) = try encoded.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityDetails)
         }
         
@@ -199,7 +199,7 @@ extension ContactMutualIntroductionProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
     
@@ -214,7 +214,7 @@ extension ContactMutualIntroductionProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 

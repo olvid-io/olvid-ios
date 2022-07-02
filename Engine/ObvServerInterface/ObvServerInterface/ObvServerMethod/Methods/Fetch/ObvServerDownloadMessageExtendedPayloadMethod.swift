@@ -57,7 +57,7 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
     }
     
     lazy public var dataToSend: Data? = {
-        return [messageId.ownedCryptoIdentity.getIdentity(), token, messageId.uid].encode().rawData
+        return [messageId.ownedCryptoIdentity.getIdentity(), token, messageId.uid].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, encryptedExtendedMessagePayload: EncryptedData?)? {

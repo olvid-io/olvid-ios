@@ -372,7 +372,7 @@ extension CallCoordinator {
             switch messageType {
 
             case .startCall:
-                let startCallMessage = try StartCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let startCallMessage = try StartCallMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 guard let messageIdentifierFromEngine = messageIdentifierFromEngine else { assertionFailure(); return }
                 try await processStartCallMessage(startCallMessage,
                                                   uuidForWebRTC: callIdentifier,
@@ -381,48 +381,48 @@ extension CallCoordinator {
                                                   messageIdentifierFromEngine: messageIdentifierFromEngine)
 
             case .answerCall:
-                let answerCallMessage = try AnswerCallJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let answerCallMessage = try AnswerCallJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processAnswerCallMessage(answerCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .rejectCall:
-                let rejectCallMessage = try RejectCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let rejectCallMessage = try RejectCallMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processRejectCallMessage(rejectCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .hangedUp:
-                let hangedUpMessage = try HangedUpMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let hangedUpMessage = try HangedUpMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processHangedUpMessage(hangedUpMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .ringing:
-                _ = try RingingMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                _ = try RingingMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processRingingMessageJSON(uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .busy:
-                _ = try BusyMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                _ = try BusyMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processBusyMessageJSON(uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .reconnect:
-                let reconnectCallMessage = try ReconnectCallMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let reconnectCallMessage = try ReconnectCallMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processReconnectCallMessageJSON(reconnectCallMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .newParticipantAnswer:
-                let newParticipantAnswer = try NewParticipantAnswerMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let newParticipantAnswer = try NewParticipantAnswerMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processNewParticipantAnswerMessageJSON(newParticipantAnswer, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .newParticipantOffer:
-                let newParticipantOffer = try NewParticipantOfferMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let newParticipantOffer = try NewParticipantOfferMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processNewParticipantOfferMessageJSON(newParticipantOffer, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .kick:
-                let kickMessage = try KickMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let kickMessage = try KickMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processKickMessageJSON(kickMessage, uuidForWebRTC: callIdentifier, contact: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
             case .newIceCandidate:
                 os_log("☎️❄️ We received new ICE Candidate message: %{public}@", log: Self.log, type: .info, messageType.description)
-                let iceCandidate = try IceCandidateJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let iceCandidate = try IceCandidateJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processIceCandidateMessage(message: iceCandidate, uuidForWebRTC: callIdentifier, contact: contact)
 
             case .removeIceCandidates:
-                let removeIceCandidatesMessage = try RemoveIceCandidatesMessageJSON.decode(serializedMessagePayload: serializedMessagePayload)
+                let removeIceCandidatesMessage = try RemoveIceCandidatesMessageJSON.jsonDecode(serializedMessagePayload: serializedMessagePayload)
                 try await processRemoveIceCandidatesMessage(message: removeIceCandidatesMessage, uuidForWebRTC: callIdentifier, contact: contact)
 
             }

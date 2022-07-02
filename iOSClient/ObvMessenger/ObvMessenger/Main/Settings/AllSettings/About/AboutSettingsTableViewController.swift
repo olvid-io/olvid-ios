@@ -254,6 +254,28 @@ final class AboutSettingsTableViewController: UITableViewController {
         }
     }
     
+    
+    override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let section = Section(rawValue: indexPath.section) else { assertionFailure(); return nil }
+        switch section {
+        case .version:
+            
+            return UIContextMenuConfiguration.init(indexPath: indexPath, previewProvider: nil) { suggestedActions in
+                let copyAction = UIAction(title: CommonString.Word.Copy, image: UIImage(systemIcon: .docOnClipboardFill)) { _ in
+                    // Copy the version and build number in the pasteboard
+                    guard let cell = tableView.cellForRow(at: indexPath) else { return }
+                    guard let detailTextLabel = cell.detailTextLabel?.text else { return }
+                    UIPasteboard.general.string = detailTextLabel
+                }
+                let menuConfiguration = UIMenu(title: "", children: [copyAction])
+                return menuConfiguration
+            }
+
+        default:
+            return nil
+        }
+    }
+
 }
 
 

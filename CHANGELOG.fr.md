@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.2 (519)] - 2022-05-01
+
+- Pour profiter d'un aperçu de l'intégralité des photos et des vidéos reçues ou envoyées dans une discussion, rendez-vous dans la nouvelle galerie accessible via le bouton en haut à droite de votre discussion préférée !
+- Une réponse effectuée depuis une notification n'apparaît plus comme une réponse dans la discussion si le message concerné était le dernier.
+- Corrige un bug empêchant parfois de marquer les messages comme « lus ».
+- Corrige un bug empêchant la détection d'URLs, de numéros de téléphone, etc. dans les messages.
+- Corrige un bug empêchant la mise à jour du badge de l'app après avoir marqué un message comme « lu » depuis une notification.
+- Corrige un bug empêchant l'envoi d'accusé de lecture après avoir marqué un message comme « lu » depuis une notification.
+- Corrige un bug qui pouvait empêcher l'affichage d'une jolie vignette dans certains cas de partage de photo.
+- Autres corrections mineures
+
 ## [0.10.1 (501)] - 2022-03-24
 
 - Il est maintenant possible de répondre à un message, ou de le marquer comme lu, directement depuis la notification !

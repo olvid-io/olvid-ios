@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.2 (519)] - 2022-05-01
+
+- Want to see a nice view of all the photos and videos received in a discussion? Try the new gallery, available via the top right button of any discussion screen.
+- When replying from a notification to the last received message, the response does not appear as a "reply" anymore.
+- Fixes a bug preventing the detection of URLs, phone numbers, etc. within messages.
+- Fixes a bug preventing badge to be properly updated when marking a message as read from a notification.
+- Fixes a bug preventing read receipts to be sent when marking a message as read from a notification.
+- Fixes an issue sometimes preventing read messages to be marked as "read".
+- Fixes a bug where sharing an image as a file would not result in a nice preview in the discussion screen.
+- Other minor bug fixes.
+
 ## [0.10.1 (501)] - 2022-03-24
 
 - It is now possible to reply to a message or to mark it as read right from the notification!

@@ -1449,10 +1449,9 @@ extension SingleDiscussionViewController {
                 break
 
             case .complete:
-                let isSharingActionAvailable = (messageCell as? MessageReceivedCollectionViewCell)?.isSharingActionAvailable ?? false
                 let renderableFyleMessagesJoinWithStatus = fyleMessagesJoinWithStatus.filter({ !$0.isWiped })
                 guard let indexInListOfRenderableFyles = renderableFyleMessagesJoinWithStatus.firstIndex(where: { $0 == fyleMessageJoinWithStatus }) else { return }
-                self.filesViewer = try? FilesViewer(renderableFyleMessagesJoinWithStatus, preventSharing: !isSharingActionAvailable)
+                self.filesViewer = try? FilesViewer(renderableFyleMessagesJoinWithStatus)
                 self.filesViewer?.delegate = self
                 self.filesViewer?.cellIndexPath = collectionView.indexPath(for: messageCell)
                 dismissAccessoryView() // Shown back in func previewControllerDidDismiss(_ controller: QLPreviewController)
@@ -1472,10 +1471,9 @@ extension SingleDiscussionViewController {
             switch fyleMessageJoinWithStatus.status {
             case .uploadable, .uploading, .complete:
 
-                let isSharingActionAvailable = (messageCell as? MessageSentCollectionViewCell)?.isSharingActionAvailable ?? false
                 let renderableFyleMessagesJoinWithStatus = fyleMessagesJoinWithStatus.filter({ !$0.isWiped })
                 guard let indexInListOfRenderableFyles = renderableFyleMessagesJoinWithStatus.firstIndex(where: { $0 == fyleMessageJoinWithStatus }) else { return }
-                self.filesViewer = try? FilesViewer(renderableFyleMessagesJoinWithStatus, preventSharing: !isSharingActionAvailable)
+                self.filesViewer = try? FilesViewer(renderableFyleMessagesJoinWithStatus)
                 self.filesViewer?.delegate = self
                 self.filesViewer?.cellIndexPath = collectionView.indexPath(for: messageCell)
                 dismissAccessoryView() // Shown back in func previewControllerDidDismiss(_ controller: QLPreviewController)

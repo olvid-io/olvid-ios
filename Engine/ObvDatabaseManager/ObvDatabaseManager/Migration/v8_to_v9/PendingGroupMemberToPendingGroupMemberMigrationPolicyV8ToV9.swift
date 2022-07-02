@@ -82,7 +82,7 @@ final class PendingGroupMemberToPendingGroupMemberMigrationPolicyV8ToV9: NSEntit
             throw NSError(domain: errorDomain, code: 0, userInfo: userInfo)
         }
         let dObvIdentityCoreDetails = ObvIdentityCoreDetailsForMigrationV8ToV9(displayName: sDisplayName)
-        guard let dSerializedIdentityCoreDetails = try? dObvIdentityCoreDetails.encode() else {
+        guard let dSerializedIdentityCoreDetails = try? dObvIdentityCoreDetails.jsonEncode() else {
             let message = "Could not serialize ObvIdentityCoreDetailsForMigrationV8ToV9"
             let userInfo = [NSLocalizedFailureReasonErrorKey: message]
             throw NSError(domain: errorDomain, code: 0, userInfo: userInfo)

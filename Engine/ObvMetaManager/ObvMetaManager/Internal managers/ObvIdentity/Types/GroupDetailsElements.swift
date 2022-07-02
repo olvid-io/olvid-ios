@@ -50,7 +50,7 @@ extension GroupDetailsElements: Codable {
     }
 
     
-    public func encode() throws -> Data {
+    public func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
@@ -77,7 +77,7 @@ extension GroupDetailsElements: Codable {
     }
 
 
-    static func decode(_ data: Data) throws -> GroupDetailsElements {
+    static func jsonDecode(_ data: Data) throws -> GroupDetailsElements {
         let decoder = JSONDecoder()
         return try decoder.decode(GroupDetailsElements.self, from: data)
     }

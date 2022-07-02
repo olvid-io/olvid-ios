@@ -135,10 +135,10 @@ struct GenericProtocolMessageToSend {
     }
  
     private static func encode(cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID, protocolMessageRawId: Int, encodedInputs: [ObvEncoded]) -> ObvEncoded {
-        let encodedElements = [cryptoProtocolId.rawValue.encode(),
-                               protocolInstanceUid.encode(),
-                               protocolMessageRawId.encode(),
-                               encodedInputs.encode()].encode()
+        let encodedElements = [cryptoProtocolId.rawValue.obvEncode(),
+                               protocolInstanceUid.obvEncode(),
+                               protocolMessageRawId.obvEncode(),
+                               encodedInputs.obvEncode()].obvEncode()
         return encodedElements
     }
     

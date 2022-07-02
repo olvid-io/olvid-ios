@@ -425,7 +425,7 @@ fileprivate final class ReceivingMessageAndAttachmentsOperationHelper {
 
     fileprivate static func processFyleWithinDownloadingAttachment(_ obvAttachment: ObvAttachment, newProgress: Progress?, obvEngine: ObvEngine, log: OSLog, within obvContext: ObvContext) throws {
         
-        let metadata = try FyleMetadata.decode(obvAttachment.metadata)
+        let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
         
         // Get or create a ReceivedFyleMessageJoinWithStatus
         
@@ -521,7 +521,7 @@ fileprivate final class ReceivingMessageAndAttachmentsOperationHelper {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { assertionFailure(); return }
                     DispatchQueue.main.async {
-                        guard let join = FyleMessageJoinWithStatus.get(objectID: joinObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+                        guard let join = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
                         join.progress = newProgress
                     }
                 }

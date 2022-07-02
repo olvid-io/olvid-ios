@@ -71,12 +71,12 @@ extension TrustEstablishmentWithSASProtocol {
         let seedAliceForSas: Seed
         let dialogUuid: UUID
         
-        func encode() -> ObvEncoded {
-            return [contactIdentity, decommitment, seedAliceForSas, dialogUuid].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, decommitment, seedAliceForSas, dialogUuid].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
-            (contactIdentity, decommitment, seedAliceForSas, dialogUuid) = try encoded.decode()
+            (contactIdentity, decommitment, seedAliceForSas, dialogUuid) = try encoded.obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, decommitment: Data, seedAliceForSas: Seed, dialogUuid: UUID) {
@@ -102,12 +102,12 @@ extension TrustEstablishmentWithSASProtocol {
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 5) else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            encodedContactIdentityCoreDetails = try encodedElements[1].decode()
+            contactIdentity = try encodedElements[0].obvDecode()
+            encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[2])
-            commitment = try encodedElements[3].decode()
-            dialogUuid = try encodedElements[4].decode()
+            commitment = try encodedElements[3].obvDecode()
+            dialogUuid = try encodedElements[4].obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactIdentityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], commitment: Data, dialogUuid: UUID) {
@@ -118,13 +118,13 @@ extension TrustEstablishmentWithSASProtocol {
             self.dialogUuid = dialogUuid
         }
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
             return [contactIdentity,
                     encodedContactIdentityCoreDetails,
                     contactDeviceUids as [ObvEncodable],
                     commitment,
-                    dialogUuid].encode()
+                    dialogUuid].obvEncode()
         }
     }
     
@@ -144,13 +144,13 @@ extension TrustEstablishmentWithSASProtocol {
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 6) else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            encodedContactIdentityCoreDetails = try encodedElements[1].decode()
+            contactIdentity = try encodedElements[0].obvDecode()
+            encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[2])
-            commitment = try encodedElements[3].decode()
-            seedBobForSas = try encodedElements[4].decode()
-            dialogUuid = try encodedElements[5].decode()
+            commitment = try encodedElements[3].obvDecode()
+            seedBobForSas = try encodedElements[4].obvDecode()
+            dialogUuid = try encodedElements[5].obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactIdentityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], commitment: Data, seedBobForSas: Seed, dialogUuid: UUID) {
@@ -162,14 +162,14 @@ extension TrustEstablishmentWithSASProtocol {
             self.dialogUuid = dialogUuid
         }
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
             return [contactIdentity,
                     encodedContactIdentityCoreDetails,
                     contactDeviceUids as [ObvEncodable],
                     commitment,
                     seedBobForSas,
-                    dialogUuid].encode()
+                    dialogUuid].obvEncode()
         }
     }
     
@@ -187,23 +187,23 @@ extension TrustEstablishmentWithSASProtocol {
         let isAlice: Bool
         let numberOfBadEnteredSas: Int
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity, encodedContactIdentityCoreDetails, contactDeviceUids as [ObvEncodable], seedForSas, contactSeedForSas, dialogUuid, isAlice, numberOfBadEnteredSas].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedContactIdentityCoreDetails, contactDeviceUids as [ObvEncodable], seedForSas, contactSeedForSas, dialogUuid, isAlice, numberOfBadEnteredSas].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 8) else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            encodedContactIdentityCoreDetails = try encodedElements[1].decode()
+            contactIdentity = try encodedElements[0].obvDecode()
+            encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[2])
-            seedForSas = try encodedElements[3].decode()
-            contactSeedForSas = try encodedElements[4].decode()
-            dialogUuid = try encodedElements[5].decode()
-            isAlice = try encodedElements[6].decode()
-            numberOfBadEnteredSas = try encodedElements[7].decode()
+            seedForSas = try encodedElements[3].obvDecode()
+            contactSeedForSas = try encodedElements[4].obvDecode()
+            dialogUuid = try encodedElements[5].obvDecode()
+            isAlice = try encodedElements[6].obvDecode()
+            numberOfBadEnteredSas = try encodedElements[7].obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactIdentityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], seedForSas: Seed, contactSeedForSas: Seed, dialogUuid: UUID, isAlice: Bool, numberOfBadEnteredSas: Int) {
@@ -230,7 +230,7 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
-            (contactIdentity, encodedContactIdentityCoreDetails, dialogUuid) = try encoded.decode()
+            (contactIdentity, encodedContactIdentityCoreDetails, dialogUuid) = try encoded.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
         }
         
@@ -241,9 +241,9 @@ extension TrustEstablishmentWithSASProtocol {
             self.dialogUuid = dialogUuid
         }
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity, encodedContactIdentityCoreDetails, dialogUuid].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedContactIdentityCoreDetails, dialogUuid].obvEncode()
         }
 
     }
@@ -261,11 +261,11 @@ extension TrustEstablishmentWithSASProtocol {
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            encodedContactIdentityCoreDetails = try encodedElements[1].decode()
+            contactIdentity = try encodedElements[0].obvDecode()
+            encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[2])
-            dialogUuid = try encodedElements[3].decode()
+            dialogUuid = try encodedElements[3].obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactIdentityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], dialogUuid: UUID) {
@@ -275,9 +275,9 @@ extension TrustEstablishmentWithSASProtocol {
             self.contactDeviceUids = contactDeviceUids
         }
         
-        func encode() -> ObvEncoded {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity, encodedContactIdentityCoreDetails, contactDeviceUids as [ObvEncodable], dialogUuid].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity, encodedContactIdentityCoreDetails, contactDeviceUids as [ObvEncodable], dialogUuid].obvEncode()
         }
         
     }
@@ -291,7 +291,7 @@ extension TrustEstablishmentWithSASProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
     
@@ -304,7 +304,7 @@ extension TrustEstablishmentWithSASProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
     
 }

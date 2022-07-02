@@ -28,7 +28,7 @@ extension BigInt: ObvCodable {
         self.init([UInt8](obvEncoded.innerData))
     }
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         let length = self.byteSize()
         return encode(withInnerLength: length)!
     }

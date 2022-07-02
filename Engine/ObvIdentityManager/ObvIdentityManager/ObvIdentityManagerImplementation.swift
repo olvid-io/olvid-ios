@@ -1383,7 +1383,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
 extension ObvIdentityManagerImplementation: ObvKeyWrapperForIdentityDelegate {
     
     public func wrap(_ key: AuthenticatedEncryptionKey, for identity: ObvCryptoIdentity, randomizedWith prng: PRNGService) -> EncryptedData {
-        return PublicKeyEncryption.encrypt(key.encode().rawData, for: identity, randomizedWith: prng)
+        return PublicKeyEncryption.encrypt(key.obvEncode().rawData, for: identity, randomizedWith: prng)
     }
     
     public func unwrap(_ encryptedKey: EncryptedData, for identity: ObvCryptoIdentity, within obvContext: ObvContext) -> AuthenticatedEncryptionKey? {

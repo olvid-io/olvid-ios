@@ -21,8 +21,8 @@ import Foundation
 
 extension URL: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        return dataRepresentation.encode()
+    public func obvEncode() -> ObvEncoded {
+        return dataRepresentation.obvEncode()
     }
 
     public init?(_ obvEncoded: ObvEncoded) {

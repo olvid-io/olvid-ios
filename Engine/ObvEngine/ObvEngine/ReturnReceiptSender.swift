@@ -94,7 +94,7 @@ final class ReturnReceiptSender: NSObject {
     func generateReturnReceiptElements() -> (nonce: Data, key: Data) {
         let nonce = prng.genBytes(count: 16)
         let authenticatedEncryptionKey = ObvCryptoSuite.sharedInstance.authenticatedEncryption().generateKey(with: prng)
-        let key = authenticatedEncryptionKey.encode().rawData
+        let key = authenticatedEncryptionKey.obvEncode().rawData
         return (nonce, key)
     }
 
@@ -108,7 +108,7 @@ final class ReturnReceiptSender: NSObject {
         }
         
         let ownedIdentity = ownedCryptoId.cryptoIdentity.getIdentity()
-        let payload = [ownedIdentity, status].encode().rawData
+        let payload = [ownedIdentity, status].obvEncode().rawData
         guard let encodedKey = ObvEncoded(withRawData: elements.key) else {
             throw ReturnReceiptSender.makeError(message: "Could not decode key in elements")
         }
@@ -150,9 +150,9 @@ final class ReturnReceiptSender: NSObject {
         guard let listOfEncoded = [ObvEncoded].init(payloadAsEncoded, expectedCount: 2) else {
             throw ReturnReceiptSender.makeError(message: "Could not parse decrypted payload (2)")
         }
-        let contactIdentity: Data = try listOfEncoded[0].decode()
+        let contactIdentity: Data = try listOfEncoded[0].obvDecode()
         let contactCryptoId = try ObvCryptoId(identity: contactIdentity)
-        let status: Int = try listOfEncoded[1].decode()
+        let status: Int = try listOfEncoded[1].obvDecode()
         
         return (contactCryptoId, status)
     }

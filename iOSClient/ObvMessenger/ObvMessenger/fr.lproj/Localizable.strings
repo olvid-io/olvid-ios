@@ -2315,4 +2315,12 @@
 
 "HOW_TO_ADD_REACTION_TO_PREFFERED" = "Ajoutez une étoile à une réaction pour l'ajouter à vos réactions préférées.";
 
-"HOW_TO_REMOVE_OWN_REACTION" = "Tappez pour supprimer votre réaction.";
+"HOW_TO_REMOVE_OWN_REACTION" = "Tapez pour supprimer votre réaction.";
+
+"Gallery" = "Galerie";
+
+"Select" = "Choisir";
+
+"DELETE_ITEMS" = "Supprimer les éléments";
+
+"SHOW_IN_DISCUSSION" = "Afficher dans la discussion";

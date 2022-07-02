@@ -178,7 +178,7 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
                                                    cryptoProtocolId: self.protocolInstance.cryptoProtocolId,
                                                    protocolInstanceUid: self.protocolInstance.uid,
                                                    protocolMessageRawId: self.messageToSendRawId,
-                                                   encodedInputs: [contactCryptoIdentity.encode()])
+                                                   encodedInputs: [contactCryptoIdentity.obvEncode()])
         return message
     }
 }

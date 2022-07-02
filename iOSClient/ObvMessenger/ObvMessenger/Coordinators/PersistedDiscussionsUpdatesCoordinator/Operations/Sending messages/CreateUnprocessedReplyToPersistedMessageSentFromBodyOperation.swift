@@ -60,8 +60,14 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
                     return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
                 }
 
-                // Create replyTo message to send
-                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: messageToReply, fyleJoins: [], discussion: messageToReply.discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil)
+                let discussion = messageToReply.discussion
+                let lastMessage = try PersistedMessage.getLastMessage(in: discussion)
+
+                // Do not set replyTo if the message to reply to is the last message of the discussion.
+                let effectiveReplyTo = lastMessage == messageToReply ? nil : messageToReply
+
+                // Create message to send
+                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: effectiveReplyTo, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil)
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

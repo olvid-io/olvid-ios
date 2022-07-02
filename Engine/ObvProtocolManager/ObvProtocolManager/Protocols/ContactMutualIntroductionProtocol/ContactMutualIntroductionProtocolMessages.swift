@@ -68,9 +68,9 @@ extension ContactMutualIntroductionProtocol {
         let contactIdentityCoreDetailsB: ObvIdentityCoreDetails
 
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityCoreDetailsA = try! contactIdentityCoreDetailsA.encode()
-            let encodedContactIdentityCoreDetailsB = try! contactIdentityCoreDetailsB.encode()
-            return [contactIdentityA.encode(), encodedContactIdentityCoreDetailsA.encode(), contactIdentityB.encode(), encodedContactIdentityCoreDetailsB.encode()]
+            let encodedContactIdentityCoreDetailsA = try! contactIdentityCoreDetailsA.jsonEncode()
+            let encodedContactIdentityCoreDetailsB = try! contactIdentityCoreDetailsB.jsonEncode()
+            return [contactIdentityA.obvEncode(), encodedContactIdentityCoreDetailsA.obvEncode(), contactIdentityB.obvEncode(), encodedContactIdentityCoreDetailsB.obvEncode()]
         }
         
         // Initializers
@@ -79,7 +79,7 @@ extension ContactMutualIntroductionProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedContactIdentityCoreDetailsA: Data
             let encodedContactIdentityCoreDetailsB: Data
-            (contactIdentityA, encodedContactIdentityCoreDetailsA, contactIdentityB, encodedContactIdentityCoreDetailsB) = try message.encodedInputs.decode()
+            (contactIdentityA, encodedContactIdentityCoreDetailsA, contactIdentityB, encodedContactIdentityCoreDetailsB) = try message.encodedInputs.obvDecode()
             self.contactIdentityCoreDetailsA = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetailsA)
             self.contactIdentityCoreDetailsB = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetailsB)
         }
@@ -106,8 +106,8 @@ extension ContactMutualIntroductionProtocol {
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity.encode(), encodedContactIdentityDetails.encode()]
+            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity.obvEncode(), encodedContactIdentityDetails.obvEncode()]
         }
         
         // Initializers
@@ -115,7 +115,7 @@ extension ContactMutualIntroductionProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedContactIdentityCoreDetails: Data
-            (contactIdentity, encodedContactIdentityCoreDetails) = try message.encodedInputs.decode()
+            (contactIdentity, encodedContactIdentityCoreDetails) = try message.encodedInputs.obvDecode()
             self.contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
         }
         
@@ -138,14 +138,14 @@ extension ContactMutualIntroductionProtocol {
         let dialogUuid: UUID // Only used when this protocol receives this message
         let invitationAccepted: Bool // Only used when this protocol receives this message
 
-        var encodedInputs: [ObvEncoded] { return [invitationAccepted.encode()] }
+        var encodedInputs: [ObvEncoded] { return [invitationAccepted.obvEncode()] }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
-            invitationAccepted = try encodedUserDialogResponse.decode()
+            invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
             dialogUuid = userDialogUuid
         }
@@ -172,8 +172,8 @@ extension ContactMutualIntroductionProtocol {
         let mediatorIdentity: ObvCryptoIdentity
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.encode()
-            return [invitationAccepted.encode(), contactIdentity.encode(), encodedContactIdentityDetails.encode(), mediatorIdentity.encode()]
+            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [invitationAccepted.obvEncode(), contactIdentity.obvEncode(), encodedContactIdentityDetails.obvEncode(), mediatorIdentity.obvEncode()]
         }
 
         // Initializers
@@ -181,7 +181,7 @@ extension ContactMutualIntroductionProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedContactIdentityCoreDetails: Data
-            (invitationAccepted, contactIdentity, encodedContactIdentityCoreDetails, mediatorIdentity) = try message.encodedInputs.decode()
+            (invitationAccepted, contactIdentity, encodedContactIdentityCoreDetails, mediatorIdentity) = try message.encodedInputs.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
         }
         
@@ -207,8 +207,8 @@ extension ContactMutualIntroductionProtocol {
         let signature: Data
         
         var encodedInputs: [ObvEncoded] {
-            let listOfEncodedUids = contactDeviceUids.map { $0.encode() }
-            return [listOfEncodedUids.encode(), signature.encode()]
+            let listOfEncodedUids = contactDeviceUids.map { $0.obvEncode() }
+            return [listOfEncodedUids.obvEncode(), signature.obvEncode()]
             
         }
         
@@ -248,8 +248,8 @@ extension ContactMutualIntroductionProtocol {
         let contactDeviceUids: [UID]
         
         var encodedInputs: [ObvEncoded] {
-            let listOfEncodedUids = contactDeviceUids.map { $0.encode() }
-            return [listOfEncodedUids.encode()]
+            let listOfEncodedUids = contactDeviceUids.map { $0.obvEncode() }
+            return [listOfEncodedUids.obvEncode()]
             
         }
         
@@ -331,7 +331,7 @@ extension ContactMutualIntroductionProtocol {
         let contactIdentity: ObvCryptoIdentity
         
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode()]
+            return [contactIdentity.obvEncode()]
         }
         
         // Initializers
@@ -340,7 +340,7 @@ extension ContactMutualIntroductionProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 1 else { throw NSError() }
-            self.contactIdentity = try encodedElements.first!.decode()
+            self.contactIdentity = try encodedElements.first!.obvDecode()
         }
         
         // Not used

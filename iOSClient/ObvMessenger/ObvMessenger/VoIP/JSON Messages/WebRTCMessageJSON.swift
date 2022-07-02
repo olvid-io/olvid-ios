@@ -72,7 +72,7 @@ struct WebRTCMessageJSON: Codable {
         case serializedMessagePayload = "smp"
     }
 
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }

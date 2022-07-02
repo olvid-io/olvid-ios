@@ -28,7 +28,7 @@ extension UID: ObvCodable {
         self.init(uid: data)
     }
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         return ObvEncoded(byteId: .bytes, innerData: self.raw)
     }
 }

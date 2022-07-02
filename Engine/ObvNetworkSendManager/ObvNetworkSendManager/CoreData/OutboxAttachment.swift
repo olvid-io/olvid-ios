@@ -103,7 +103,7 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
     
     private(set) var key: AuthenticatedEncryptionKey {
         get { try! AuthenticatedEncryptionKeyDecoder.decode(ObvEncoded(withRawData: encodedAuthenticatedEncryptionKey)!) }
-        set { encodedAuthenticatedEncryptionKey = newValue.encode().rawData }
+        set { encodedAuthenticatedEncryptionKey = newValue.obvEncode().rawData }
     }
 
     var canBeSent: Bool {

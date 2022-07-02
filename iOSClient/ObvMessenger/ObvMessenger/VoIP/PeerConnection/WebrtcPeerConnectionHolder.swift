@@ -863,7 +863,9 @@ extension WebrtcPeerConnectionHolder {
         var processedAudioLines = [String]()
         do {
             let firstLine = try NSRegularExpression(pattern: "^(m=\\S+\\s+\\S+\\s+\\S+)\\s+(([0-9]+\\s*)+)$", options: .anchorsMatchLines)
-            guard let result = firstLine.firstMatch(in: audioLines[0], options: [], range: NSRange(location: 0, length: audioLines[0].count)) else { throw NSError() }
+            guard let result = firstLine.firstMatch(in: audioLines[0], options: [], range: NSRange(location: 0, length: audioLines[0].count)) else {
+                throw Self.makeError(message: "Could not find expected match")
+            }
             let processedFirstLine = (audioLines[0] as NSString)
                 .substring(with: result.range(at: 1))
                 .appending(" ")

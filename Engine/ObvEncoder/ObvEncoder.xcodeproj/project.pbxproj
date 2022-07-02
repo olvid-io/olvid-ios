@@ -130,20 +130,20 @@
 		C499100420723EEF006CD9CA /* Type extensions */ = {
 			isa = PBXGroup;
 			children = (
-				C499100520723F59006CD9CA /* IntAsObvCodable.swift */,
-				C499100A2072406F006CD9CA /* DataAsObvCodable.swift */,
-				C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */,
 				C4991022207242D5006CD9CA /* ArrayAsObvEncodable.swift */,
-				C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */,
+				C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */,
 				C499103320724D1E006CD9CA /* BoolAsObvCodable.swift */,
-				C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */,
+				C499100A2072406F006CD9CA /* DataAsObvCodable.swift */,
+				C410D1C3211133F300E77E59 /* Date+ObvCodable.swift */,
 				C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */,
+				C499100520723F59006CD9CA /* IntAsObvCodable.swift */,
+				C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */,
+				C4618B75215F79A100D4E13B /* Range+ObvCodable.swift */,
+				C40D966620AAE1B6000776E2 /* String+ObvCodable.swift */,
+				C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */,
 				C48A224B2080A59000353F8C /* UUID+ObvCodable.swift */,
 				C436172820936DAE00AFCAA9 /* URL+ObvCodable.swift */,
-				C40D966620AAE1B6000776E2 /* String+ObvCodable.swift */,
-				C410D1C3211133F300E77E59 /* Date+ObvCodable.swift */,
 				C410D1C5211135E300E77E59 /* UInt8+ObvCodable.swift */,
-				C4618B75215F79A100D4E13B /* Range+ObvCodable.swift */,
 			);
 			path = "Type extensions";
 			sourceTree = "<group>";

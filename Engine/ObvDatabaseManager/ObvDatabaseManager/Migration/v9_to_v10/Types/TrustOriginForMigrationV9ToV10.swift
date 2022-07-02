@@ -40,7 +40,7 @@ extension TrustOriginForMigrationV9ToV10: ObvCodable {
         }
     }
 
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         var values: [ObvCodable] = [self.byteId]
         switch self {
         case .direct(timestamp: let timestamp):
@@ -52,8 +52,8 @@ extension TrustOriginForMigrationV9ToV10: ObvCodable {
             values.append(timestamp)
             values.append(mediator)
         }
-        let arrayOfEncodedValues = values.map { $0.encode() }
-        return arrayOfEncodedValues.encode()
+        let arrayOfEncodedValues = values.map { $0.obvEncode() }
+        return arrayOfEncodedValues.obvEncode()
     }
 
 

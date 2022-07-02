@@ -30,7 +30,7 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
     let persistedContactObjectID: NSManagedObjectID
     let messageIdentifierFromEngine: Data
 
-    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private(set) var persistedMessageReceivedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>?
 
     init(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data) {
         self.persistedContactObjectID = persistedContactObjectID
@@ -58,6 +58,8 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
                 }
 
                 try message.markAsNotNew(now: Date())
+                
+                persistedMessageReceivedObjectID = message.typedObjectID
 
             } catch(let error) {
                 assertionFailure()

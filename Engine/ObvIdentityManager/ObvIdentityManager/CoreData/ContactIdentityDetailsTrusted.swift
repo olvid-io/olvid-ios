@@ -94,7 +94,7 @@ extension ContactIdentityDetailsTrusted {
 
     // This method assumes that the signature on the signed details is valid. It replace the values of the trusted details with that found in the signed details
     func update(with signedUserDetails: SignedUserDetails, delegateManager: ObvIdentityDelegateManager) throws {
-        self.serializedIdentityCoreDetails = try signedUserDetails.getObvIdentityCoreDetails().encode()
+        self.serializedIdentityCoreDetails = try signedUserDetails.getObvIdentityCoreDetails().jsonEncode()
     }
     
     func resetVersionNumber() {
@@ -204,7 +204,7 @@ struct ContactIdentityDetailsTrustedBackupItem: Codable, Hashable {
         try container.encode(serializedIdentityCoreDetailsAsString, forKey: .serializedIdentityCoreDetails)
         try container.encode(version, forKey: .version)
         // Local attributes
-        let photoServerKeyEncoded = photoServerKeyAndLabel?.key.encode().rawData
+        let photoServerKeyEncoded = photoServerKeyAndLabel?.key.obvEncode().rawData
         try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
         try container.encodeIfPresent(photoServerKeyAndLabel?.label, forKey: .photoServerLabel)
     }

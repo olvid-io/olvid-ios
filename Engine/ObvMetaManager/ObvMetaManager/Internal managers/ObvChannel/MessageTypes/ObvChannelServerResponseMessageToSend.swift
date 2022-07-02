@@ -56,14 +56,14 @@ extension ObvChannelServerResponseMessageToSend {
         public func getEncodedInputs() -> [ObvEncoded] {
             switch self {
             case .deviceDiscovery(of: _, deviceUids: let deviceUids):
-                let listOfEncodedUids = deviceUids.map { $0.encode() }
-                return [listOfEncodedUids.encode()]
+                let listOfEncodedUids = deviceUids.map { $0.obvEncode() }
+                return [listOfEncodedUids.obvEncode()]
             case .putUserData:
                 return []
             case .getUserData(of: _, userDataPath: let userDataPath):
-                return [userDataPath.encode()]
+                return [userDataPath.obvEncode()]
             case .checkKeycloakRevocation(verificationSuccessful: let verificationSuccessful):
-                return [verificationSuccessful.encode()]
+                return [verificationSuccessful.obvEncode()]
             }
         }
     }

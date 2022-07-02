@@ -39,17 +39,17 @@ public struct CryptoIdentityWithCoreDetails {
 
 extension CryptoIdentityWithCoreDetails: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        let encodedCoreDetails = try! coreDetails.encode()
-        return [cryptoIdentity, encodedCoreDetails].encode()
+    public func obvEncode() -> ObvEncoded {
+        let encodedCoreDetails = try! coreDetails.jsonEncode()
+        return [cryptoIdentity, encodedCoreDetails].obvEncode()
     }
 
     
     public init?(_ encoded: ObvEncoded) {
         guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { return nil }
         do {
-            self.cryptoIdentity = try encodedElements[0].decode()
-            let encodedCoreDetails: Data = try encodedElements[1].decode()
+            self.cryptoIdentity = try encodedElements[0].obvDecode()
+            let encodedCoreDetails: Data = try encodedElements[1].obvDecode()
             self.coreDetails = try ObvIdentityCoreDetails(encodedCoreDetails)
         } catch {
             return nil

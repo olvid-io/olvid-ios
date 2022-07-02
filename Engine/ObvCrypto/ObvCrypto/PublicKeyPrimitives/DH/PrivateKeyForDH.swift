@@ -35,9 +35,9 @@ extension PrivateKeyForDH {
 }
 
 final class PrivateKeyForDHDecoder: ObvDecoder {
-    static func decode(_ encodedKey: ObvEncoded) -> PrivateKeyForDH? {
+    static func obvDecode(_ encodedKey: ObvEncoded) -> PrivateKeyForDH? {
         guard encodedKey.byteId == .privateKey else { return nil }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else { return nil }
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedKey) else { return nil }
         guard algorithmClassByteId == .DH else { return nil }
         guard let implementationByteId = DHImplementationByteId(rawValue: implementationByteIdValue) else { return nil }
         switch implementationByteId {
@@ -73,7 +73,7 @@ struct PrivateKeyForDHOnEdwardsCurve: PrivateKeyForDH, PrivateKeyFromEdwardsCurv
 // Implementing ObvCodable
 extension PrivateKeyForDHOnEdwardsCurve {
     init?(_ obvEncoded: ObvEncoded) {
-        guard let privateKey = PrivateKeyForDHDecoder.decode(obvEncoded) as? PrivateKeyForDHOnEdwardsCurve else { return nil }
+        guard let privateKey = PrivateKeyForDHDecoder.obvDecode(obvEncoded) as? PrivateKeyForDHOnEdwardsCurve else { return nil }
         self = privateKey
     }
 }

@@ -175,7 +175,7 @@ extension PersistedObvContactIdentity {
             throw Self.makeError(message: "The full display name of the contact is empty")
         }
         self.fullDisplayName = contactIdentity.trustedIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-        self.serializedIdentityCoreDetails = try contactIdentity.trustedIdentityDetails.coreDetails.encode()
+        self.serializedIdentityCoreDetails = try contactIdentity.trustedIdentityDetails.coreDetails.jsonEncode()
         self.identity = contactIdentity.cryptoId.getIdentity()
         self.isActive = true
         self.isOneToOne = contactIdentity.isOneToOne
@@ -232,7 +232,7 @@ extension PersistedObvContactIdentity {
     
     func updateContact(with contactIdentity: ObvContactIdentity) throws {
         let coreDetails = contactIdentity.trustedIdentityDetails.coreDetails
-        self.serializedIdentityCoreDetails = try coreDetails.encode()
+        self.serializedIdentityCoreDetails = try coreDetails.jsonEncode()
         self.updatePhotoURL(with: contactIdentity.trustedIdentityDetails.photoURL)
         self.fullDisplayName = coreDetails.getDisplayNameWithStyle(.full)
         self.isCertifiedByOwnKeycloak = contactIdentity.isCertifiedByOwnKeycloak

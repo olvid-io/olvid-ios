@@ -133,8 +133,8 @@ extension ObvCryptoIdentity {
 // MARK: Implementing ObvEncodable
 extension ObvCryptoIdentity {
     
-    public func encode() -> ObvEncoded {
-        return self.getIdentity().encode()
+    public func obvEncode() -> ObvEncoded {
+        return self.getIdentity().obvEncode()
     }
 
 }

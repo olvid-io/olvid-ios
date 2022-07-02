@@ -111,3 +111,8 @@ notifications:
   - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
   - {name: draftUriRepresentation, type: TypeSafeURL<PersistedDraft>}
   - {name: draftFyleJoinUriRepresentation, type: TypeSafeURL<PersistedDraftFyleJoin>}
+- name: fyleMessageJoinWasWiped
+  params:
+  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+  - {name: messageUriRepresentation, type: TypeSafeURL<PersistedMessage>}
+  - {name: fyleMessageJoinUriRepresentation, type: TypeSafeURL<FyleMessageJoinWithStatus>}

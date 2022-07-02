@@ -2283,3 +2283,11 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "HOW_TO_ADD_REACTION_TO_PREFFERED" = "Add a star to a reaction to add it to your favorite reactions.";
 
 "HOW_TO_REMOVE_OWN_REACTION" = "Tap to remove your reaction.";
+
+"Gallery" = "Gallery";
+
+"Select" = "Select";
+
+"DELETE_ITEMS" = "Delete items";
+
+"SHOW_IN_DISCUSSION" = "Show in discussion";

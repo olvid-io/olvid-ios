@@ -22,7 +22,7 @@ import Foundation
 public typealias ObvCodable = ObvDecodable & ObvEncodable
 
 public protocol ObvEncodable {
-    func encode() -> ObvEncoded
+    func obvEncode() -> ObvEncoded
 }
 
 

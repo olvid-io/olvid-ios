@@ -21,8 +21,8 @@ import Foundation
 
 extension String: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        return self.data(using: .utf8)!.encode()
+    public func obvEncode() -> ObvEncoded {
+        return self.data(using: .utf8)!.obvEncode()
     }
 
     public init?(_ obvEncoded: ObvEncoded) {

@@ -70,9 +70,11 @@ extension MuteDiscussionCoordinator: ScheduleNextTimerOperationDelegate {
         let now = Date()
         ObvMessengerInternalNotification.cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
             .postOnDispatchQueue()
-        ObvMessengerInternalNotification.needToRecomputeAllBadges.postOnDispatchQueue()
-        let op = ScheduleNextTimerOperation(now: now, currentTimer: self.nextTimer, log: log, delegate: self)
-        internalQueue.addOperation(op)
+        ObvMessengerInternalNotification.needToRecomputeAllBadges(completionHandler: { [weak self] _ in
+            guard let _self = self else { return }
+            let op = ScheduleNextTimerOperation(now: now, currentTimer: _self.nextTimer, log: log, delegate: _self)
+            _self.internalQueue.addOperation(op)
+        }).postOnDispatchQueue()
     }
 
 }

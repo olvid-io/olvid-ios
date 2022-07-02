@@ -39,7 +39,7 @@ extension SymmetricEncryptionKey {
 final class SymmetricEncryptionKeyDecoder {
     static func decode(_ encodedKey: ObvEncoded) -> SymmetricEncryptionKey? {
         guard encodedKey.byteId == .symmetricKey else { return nil }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else { return nil }
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedKey) else { return nil }
         guard algorithmClassByteId == .symmetricEncryption else { return nil }
         guard let implementationByteId = SymmetricEncryptionByteId(rawValue: implementationByteIdValue) else { return nil }
         switch implementationByteId {

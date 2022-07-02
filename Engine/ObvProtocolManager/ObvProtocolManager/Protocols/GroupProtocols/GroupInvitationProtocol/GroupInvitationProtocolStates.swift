@@ -59,7 +59,7 @@ extension GroupInvitationProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 
@@ -74,19 +74,19 @@ extension GroupInvitationProtocol {
         let dialogUuid: UUID
         let pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>
 
-        func encode() -> ObvEncoded {
-            let encodedMembers = (pendingGroupMembers.map { $0.encode() }).encode()
-            return [groupInformation.encode(),
-                    dialogUuid.encode(),
-                    encodedMembers].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedMembers = (pendingGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformation.obvEncode(),
+                    dialogUuid.obvEncode(),
+                    encodedMembers].obvEncode()
         }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 3) else { throw NSError() }
-            self.groupInformation = try encodedElements[0].decode()
-            self.dialogUuid = try encodedElements[1].decode()
+            self.groupInformation = try encodedElements[0].obvDecode()
+            self.dialogUuid = try encodedElements[1].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](encodedElements[2]) else { throw NSError() }
-            self.pendingGroupMembers = Set(try listOfEncodedMembers.map { try $0.decode() })
+            self.pendingGroupMembers = Set(try listOfEncodedMembers.map { try $0.obvDecode() })
         }
 
         init(groupInformation: GroupInformation, dialogUuid: UUID, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>) {
@@ -108,7 +108,7 @@ extension GroupInvitationProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 
@@ -123,7 +123,7 @@ extension GroupInvitationProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
     
@@ -138,7 +138,7 @@ extension GroupInvitationProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 

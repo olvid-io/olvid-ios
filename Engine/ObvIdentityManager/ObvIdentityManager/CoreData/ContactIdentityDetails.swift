@@ -84,7 +84,7 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
         }
         set {
             if let photoServerKeyAndLabel = newValue {
-                self.photoServerKeyEncoded = photoServerKeyAndLabel.key.encode().rawData
+                self.photoServerKeyEncoded = photoServerKeyAndLabel.key.obvEncode().rawData
                 self.photoServerLabel = photoServerKeyAndLabel.label
             } else {
                 self.photoServerKeyEncoded = nil
@@ -109,7 +109,7 @@ extension ContactIdentityDetails {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         
-        do { self.serializedIdentityCoreDetails = try coreDetails.encode() } catch { return nil }
+        do { self.serializedIdentityCoreDetails = try coreDetails.jsonEncode() } catch { return nil }
         self.photoFilename = nil // When creating a contact, we don't have her photo. It will come later.
         self.version = version
         self.photoServerKeyAndLabel = photoServerKeyAndLabel

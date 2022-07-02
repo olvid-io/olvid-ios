@@ -59,7 +59,7 @@ extension KeycloakManager {
             try container.encode(latestLocalRevocationListTimestamp.epochInMs, forKey: .latestLocalRevocationListTimestamp)
         }
         
-        func encode() throws -> Data {
+        func jsonEncode() throws -> Data {
             let encoder = JSONEncoder()
             return try encoder.encode(self)
         }

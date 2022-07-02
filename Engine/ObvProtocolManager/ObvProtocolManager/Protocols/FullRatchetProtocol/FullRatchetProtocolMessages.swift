@@ -58,14 +58,14 @@ extension FullRatchetProtocol {
         let contactDeviceUid: UID
         
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode(), contactDeviceUid.encode()]
+            return [contactIdentity.obvEncode(), contactDeviceUid.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            (contactIdentity, contactDeviceUid) = try message.encodedInputs.decode()
+            (contactIdentity, contactDeviceUid) = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID) {
@@ -90,7 +90,7 @@ extension FullRatchetProtocol {
         let restartCounter: Int
         
         var encodedInputs: [ObvEncoded] {
-            return [contactEphemeralPublicKey.encode(), restartCounter.encode()]
+            return [contactEphemeralPublicKey.obvEncode(), restartCounter.obvEncode()]
         }
         
         // Initializers
@@ -99,9 +99,9 @@ extension FullRatchetProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 2 else { assertionFailure(); throw NSError() }
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.decode(encodedElements[0]) else { assertionFailure(); throw NSError() }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { assertionFailure(); throw NSError() }
             contactEphemeralPublicKey = pk
-            restartCounter = try encodedElements[1].decode()
+            restartCounter = try encodedElements[1].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactEphemeralPublicKey: PublicKeyForPublicKeyEncryption, restartCounter: Int) {
@@ -127,7 +127,7 @@ extension FullRatchetProtocol {
         let restartCounter: Int
 
         var encodedInputs: [ObvEncoded] {
-            return [contactEphemeralPublicKey.encode(), c1.encode(), restartCounter.encode()]
+            return [contactEphemeralPublicKey.obvEncode(), c1.obvEncode(), restartCounter.obvEncode()]
         }
         
         // Initializers
@@ -136,10 +136,10 @@ extension FullRatchetProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 3 else { assertionFailure(); throw NSError() }
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.decode(encodedElements[0]) else { assertionFailure(); throw NSError() }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { assertionFailure(); throw NSError() }
             contactEphemeralPublicKey = pk
-            c1 = try encodedElements[1].decode()
-            restartCounter = try encodedElements[2].decode()
+            c1 = try encodedElements[1].obvDecode()
+            restartCounter = try encodedElements[2].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactEphemeralPublicKey: PublicKeyForPublicKeyEncryption, c1: EncryptedData, restartCounter: Int) {
@@ -165,7 +165,7 @@ extension FullRatchetProtocol {
         let restartCounter: Int
 
         var encodedInputs: [ObvEncoded] {
-            return [c2.encode(), restartCounter.encode()]
+            return [c2.obvEncode(), restartCounter.obvEncode()]
         }
         
         // Initializers
@@ -174,8 +174,8 @@ extension FullRatchetProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 2 else { assertionFailure(); throw NSError() }
-            c2 = try encodedElements[0].decode()
-            restartCounter = try encodedElements[1].decode()
+            c2 = try encodedElements[0].obvDecode()
+            restartCounter = try encodedElements[1].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, c2: EncryptedData, restartCounter: Int) {
@@ -199,14 +199,14 @@ extension FullRatchetProtocol {
         let restartCounter: Int
 
         var encodedInputs: [ObvEncoded] {
-            return [restartCounter.encode()]
+            return [restartCounter.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            restartCounter = try message.encodedInputs.decode()
+            restartCounter = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, restartCounter: Int) {

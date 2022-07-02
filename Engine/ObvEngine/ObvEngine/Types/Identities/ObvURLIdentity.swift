@@ -59,12 +59,12 @@ extension ObvURLIdentity: ObvCodable {
     public init?(_ obvEncoded: ObvEncoded) {
         let cryptoIdentity: ObvCryptoIdentity
         let fullDisplayName: String
-        do { (cryptoIdentity, fullDisplayName) = try obvEncoded.decode() } catch { return nil }
+        do { (cryptoIdentity, fullDisplayName) = try obvEncoded.obvDecode() } catch { return nil }
         self.init(cryptoId: ObvCryptoId(cryptoIdentity: cryptoIdentity), fullDisplayName: fullDisplayName)
     }
     
-    public func encode() -> ObvEncoded {
-        return [self.cryptoId.cryptoIdentity, fullDisplayName].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [self.cryptoId.cryptoIdentity, fullDisplayName].obvEncode()
     }
 }
 
@@ -87,7 +87,7 @@ extension ObvURLIdentity {
         components.scheme = "https"
         components.host = "invitation.olvid.io"
         components.path = "/"
-        components.fragment = self.encode().rawData.base64EncodedString()
+        components.fragment = self.obvEncode().rawData.base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")
         return components.url!

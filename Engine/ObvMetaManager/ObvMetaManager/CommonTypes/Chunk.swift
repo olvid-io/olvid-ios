@@ -93,7 +93,7 @@ public struct Chunk {
     public func encrypt(with key: AuthenticatedEncryptionKey) -> EncryptedData {
         let prngService = ObvCryptoSuite.sharedInstance.prngService()
         let authEnc = key.algorithmImplementationByteId.algorithmImplementation
-        let encodedChunk = self.encode()
+        let encodedChunk = self.obvEncode()
         return try! authEnc.encrypt(encodedChunk.rawData, with: key, and: prngService) // Cannot throw in this case
     }
 
@@ -143,10 +143,10 @@ public struct Chunk {
 
 extension Chunk: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        let encodedIndex = self.index.encode()
-        let encodedData = self.data.encode()
-        return [encodedIndex, encodedData].encode()
+    public func obvEncode() -> ObvEncoded {
+        let encodedIndex = self.index.obvEncode()
+        let encodedData = self.data.obvEncode()
+        return [encodedIndex, encodedData].obvEncode()
     }
     
     public init?(_ obvEncoded: ObvEncoded) {

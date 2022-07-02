@@ -73,12 +73,12 @@ struct FyleMetadata: Codable {
         try container.encode(sha256, forKey: .sha256)
     }
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
     
-    static func decode(_ data: Data) throws -> FyleMetadata {
+    static func jsonDecode(_ data: Data) throws -> FyleMetadata {
         let decoder = JSONDecoder()
         return try decoder.decode(FyleMetadata.self, from: data)
     }

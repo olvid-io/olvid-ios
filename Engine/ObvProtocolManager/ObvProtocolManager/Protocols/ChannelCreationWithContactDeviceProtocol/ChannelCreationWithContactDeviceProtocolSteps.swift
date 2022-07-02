@@ -257,8 +257,6 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
-                                                                        contactCryptoIdentity: contactIdentity,
-                                                                        contactDeviceUID: contactDeviceUid,
                                                                         signature: signature,
                                                                         within: obvContext)) else {
                     os_log("The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
@@ -270,8 +268,6 @@ extension ChannelCreationWithContactDeviceProtocol {
             }
             
             guard ChannelCreationPingSignatureReceived(ownedCryptoIdentity: ownedIdentity,
-                                                       contactCryptoIdentity: contactIdentity,
-                                                       contactDeviceUID: contactDeviceUid,
                                                        signature: signature,
                                                        within: obvContext) != nil else {
                 os_log("We could not insert a new ChannelCreationPingSignatureReceived entry", log: log, type: .fault)

@@ -49,11 +49,11 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
         let bobIdentity: ObvCryptoIdentity
 
-        func encode() -> ObvEncoded { [bobIdentity].encode() }
+        func obvEncode() -> ObvEncoded { [bobIdentity].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 1) else { throw NSError() }
-            self.bobIdentity = try encodedElements[0].decode()
+            self.bobIdentity = try encodedElements[0].obvDecode()
         }
 
         init(bobIdentity: ObvCryptoIdentity) {
@@ -71,7 +71,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
         init() {}
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 
@@ -84,7 +84,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

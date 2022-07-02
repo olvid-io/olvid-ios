@@ -41,22 +41,22 @@ public struct CryptoIdentityWithCoreDetailsAndDevices {
 
 extension CryptoIdentityWithCoreDetailsAndDevices: ObvCodable {
     
-    public func encode() -> ObvEncoded {
-        let listOfEncodedDeviceUids = deviceUids.map { $0.encode() }
-        let encodedListOfDeviceUids = listOfEncodedDeviceUids.encode()
-        let encodedCoreDetails = try! coreDetails.encode()
-        return [cryptoIdentity.encode(), encodedCoreDetails.encode(), encodedListOfDeviceUids].encode()
+    public func obvEncode() -> ObvEncoded {
+        let listOfEncodedDeviceUids = deviceUids.map { $0.obvEncode() }
+        let encodedListOfDeviceUids = listOfEncodedDeviceUids.obvEncode()
+        let encodedCoreDetails = try! coreDetails.jsonEncode()
+        return [cryptoIdentity.obvEncode(), encodedCoreDetails.obvEncode(), encodedListOfDeviceUids].obvEncode()
     }
 
     
     public init?(_ encoded: ObvEncoded) {
         guard let encodedElements = [ObvEncoded](encoded, expectedCount: 3) else { return nil }
         do {
-            self.cryptoIdentity = try encodedElements[0].decode()
-            let encodedCoreDetails: Data = try encodedElements[1].decode()
+            self.cryptoIdentity = try encodedElements[0].obvDecode()
+            let encodedCoreDetails: Data = try encodedElements[1].obvDecode()
             self.coreDetails = try ObvIdentityCoreDetails(encodedCoreDetails)
             guard let encodedDeviceUids = [ObvEncoded](encodedElements[2]) else { return nil }
-            self.deviceUids = try Set(encodedDeviceUids.map { try $0.decode() })
+            self.deviceUids = try Set(encodedDeviceUids.map { try $0.obvDecode() })
         } catch {
             return nil
         }

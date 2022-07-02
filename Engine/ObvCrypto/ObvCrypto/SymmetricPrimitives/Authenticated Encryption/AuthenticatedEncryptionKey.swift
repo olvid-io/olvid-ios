@@ -57,7 +57,7 @@ public final class AuthenticatedEncryptionKeyDecoder {
         guard encodedKey.byteId == .symmetricKey else {
             throw Self.makeError(message: "encodedKey.byteId is not .symmetricKey")
         }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else {
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedKey) else {
             throw Self.makeError(message: "CryptographicKeyDecoder decoding failed")
         }
         guard algorithmClassByteId == .authenticatedEncryption else {

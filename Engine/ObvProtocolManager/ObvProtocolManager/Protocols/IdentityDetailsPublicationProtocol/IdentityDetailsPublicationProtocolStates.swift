@@ -55,14 +55,14 @@ extension IdentityDetailsPublicationProtocol {
         
         let ownedIdentityDetailsElements: IdentityDetailsElements
         
-        func encode() -> ObvEncoded {
-            let encodedOwnedIdentityDetailsElements = try! ownedIdentityDetailsElements.encode()
-            return [encodedOwnedIdentityDetailsElements].encode()
+        func obvEncode() -> ObvEncoded {
+            let encodedOwnedIdentityDetailsElements = try! ownedIdentityDetailsElements.jsonEncode()
+            return [encodedOwnedIdentityDetailsElements].obvEncode()
         }
         
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 1) else { throw NSError() }
-            let encodedOwnedIdentityDetailsElements: Data = try encodedElements[0].decode()
+            let encodedOwnedIdentityDetailsElements: Data = try encodedElements[0].obvDecode()
             self.ownedIdentityDetailsElements = try IdentityDetailsElements(encodedOwnedIdentityDetailsElements)
         }
         
@@ -79,7 +79,7 @@ extension IdentityDetailsPublicationProtocol {
         
         let id: ConcreteProtocolStateId = StateId.DetailsSent
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
         init(_ encoded: ObvEncoded) throws {}
         
@@ -94,7 +94,7 @@ extension IdentityDetailsPublicationProtocol {
         
         let id: ConcreteProtocolStateId = StateId.DetailsReceived
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
         init(_ encoded: ObvEncoded) throws {}
         
@@ -113,7 +113,7 @@ extension IdentityDetailsPublicationProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 

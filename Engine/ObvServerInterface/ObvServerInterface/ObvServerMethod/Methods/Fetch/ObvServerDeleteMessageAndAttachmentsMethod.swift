@@ -61,7 +61,7 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
         return [messageId.ownedCryptoIdentity.getIdentity(),
                 token,
                 messageId.uid.raw,
-                deviceUid].encode().rawData
+                deviceUid].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {

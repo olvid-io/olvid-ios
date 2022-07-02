@@ -19,6 +19,7 @@
 
 import UIKit
 import QuickLook
+import os.log
 
 
 @available(iOS 15.0, *)
@@ -34,8 +35,10 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         }
     }
 
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "DiscussionCacheManager")
+
     private var imageCache = [HardlinkAndSize: UIImage]()
-    private var imageCacheCompletions = [HardlinkAndSize: [(Bool) -> Void]]()
+    private var imageCacheContinuations = [HardlinkAndSize: [CheckedContinuation<UIImage, Error>]]()
     
     private var dataDetectedCache = [String: UIDataDetectorTypes]()
     private var dataDetectedCacheCompletions = [String: [(Bool) -> Void]]()
@@ -44,6 +47,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
 
     private var hardlinksCache = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: HardLinkToFyle]()
     private var hardlinksCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [(Bool) -> Void]]()
+    private var hardlinksCacheContinuations = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: [CheckedContinuation<Void, Error>]]()
     
     private var replyToCache = [TypeSafeManagedObjectID<PersistedMessage>: ReplyToBubbleView.Configuration]()
     private var replyToCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [() -> Void]]()
@@ -52,8 +56,12 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     private var downsizedThumbnailCacheCompletions = [TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>: [(Result<Void, Error>) -> Void]]()
 
     private let internalQueue = DispatchQueue(label: "DiscussionCacheManager internal queue")
+    private let queueForPostingNotifications = DispatchQueue(label: "DiscussionCacheManager internal queue for posting notifications")
     
     private let backgroundContext = ObvStack.shared.newBackgroundContext()
+    
+    private let dispatchGroup = DispatchGroup()
+    private let queueForLaunchingImageGeneration = DispatchQueue(label: "DiscussionCacheManager internal queue for launching image generations")
     
     private static func makeError(message: String) -> Error {
         NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
@@ -147,7 +155,85 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         }.postOnDispatchQueue()
         
     }
+    
+    
+    /// This method performs the request to make the hardlink available in cache.
+    @MainActor
+    private func requestHardlinkForFyleMessageJoinWithStatus(with objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) async throws {
+        
+        guard !hardlinksCache.keys.contains(objectID) else { return }
+        
+        guard let fyleElement = try? FyleMessageJoinWithStatus.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext)?.fyleElement else {
+            throw Self.makeError(message: "Could not get FyleMessageJoinWithStatus")
+        }
+        
+        if hardlinksCacheContinuations.keys.contains(objectID) {
+            
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                assert(Thread.isMainThread)
+                if hardlinksCache[objectID] != nil {
+                    continuation.resume()
+                } else {
+                    var continuations = hardlinksCacheContinuations[objectID, default: []]
+                    continuations.append(continuation)
+                    hardlinksCacheContinuations[objectID] = continuations
+                }
+            }
 
+        } else {
+            
+            hardlinksCacheContinuations[objectID] = [] // We are in charge -> this prevents another call to fall in this branch
+            
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { result in
+                    DispatchQueue.main.async { [weak self] in
+                        let error: Error?
+                        switch result {
+                        case .success(let hardlink):
+                            assert(self?.hardlinksCache[objectID] == nil)
+                            os_log("The request hardlink to fyle %{public}@ returned a hardlink", log: Self.log, type: .info, fyleElement.fyleURL.lastPathComponent)
+                            if let hardlinkURL = hardlink.hardlinkURL {
+                                if FileManager.default.fileExists(atPath: hardlinkURL.path) {
+                                    os_log("The hardlink to fyle %{public}@ has a hardlink URL that exists on disk. Good.", log: Self.log, type: .info, fyleElement.fyleURL.lastPathComponent)
+                                    self?.hardlinksCache[objectID] = hardlink
+                                    error = nil
+                                } else {
+                                    os_log("The hardlink to fyle %{public}@ has a hardlink URL but it does not exist on disk", log: Self.log, type: .fault, fyleElement.fyleURL.lastPathComponent)
+                                    assertionFailure()
+                                    error = Self.makeError(message: "The hardlink to fyle \(fyleElement.fyleURL.lastPathComponent) has a hardlink URL but it does not exist on disk")
+                                }
+                            } else {
+                                os_log("The hardlink to fyle %{public}@ has no hardlink URL", log: Self.log, type: .fault, fyleElement.fyleURL.lastPathComponent)
+                                assertionFailure()
+                                error = Self.makeError(message: "The hardlink to fyle \(fyleElement.fyleURL.lastPathComponent) has no hardlink URL")
+                            }
+                        case .failure(let _error):
+                            assertionFailure(_error.localizedDescription)
+                            error = _error
+                        }
+                        
+                        if let error = error {
+                            if let continuations = self?.hardlinksCacheContinuations.removeValue(forKey: objectID) {
+                                continuations.forEach({ $0.resume(throwing: error) })
+                            }
+                            continuation.resume(throwing: error)
+                        } else {
+                            if let continuations = self?.hardlinksCacheContinuations.removeValue(forKey: objectID) {
+                                continuations.forEach({ $0.resume() })
+                            }
+                            continuation.resume()
+                        }
+                        
+                    }
+                }.postOnDispatchQueue(queueForPostingNotifications)
+                
+            }
+
+        }
+        
+    }
+
+    
     func getCachedDataDetection(text: String) -> UIDataDetectorTypes? {
         return dataDetectedCache[text]
     }
@@ -197,52 +283,78 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
 
     
     func getCachedImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) -> UIImage? {
-        return imageCache[HardlinkAndSize(hardlink: hardlink, size: size)]
-    }
-    
-    
-    /// The completion handler returns `true` in case of success, `false` otherwise
-    func requestImageForHardlink(hardlink: HardLinkToFyle, size: CGSize, completionWhenImageCached: @escaping ((Bool) -> Void)) {
-        let hardlinkAndSize = HardlinkAndSize(hardlink: hardlink, size: size)
-        assert(imageCache[hardlinkAndSize] == nil)
-        guard let url = hardlink.hardlinkURL else { assertionFailure(); return }
-        assert(FileManager.default.fileExists(atPath: url.path))
-        let scale = UIScreen.main.scale
-        let request = QLThumbnailGenerator.Request(fileAt: url,
-                                                   size: size,
-                                                   scale: scale,
-                                                   representationTypes: .thumbnail)
-        let generator = QLThumbnailGenerator.shared
-        if var completions = imageCacheCompletions[hardlinkAndSize] {
-            completions.append(completionWhenImageCached)
-            imageCacheCompletions[hardlinkAndSize] = completions
+        if let image = imageCache[HardlinkAndSize(hardlink: hardlink, size: size)] {
+            return image
         } else {
-            imageCacheCompletions[hardlinkAndSize] = [completionWhenImageCached]
-            generator.generateRepresentations(for: request) { thumbnail, type, error in
-                if thumbnail == nil || error != nil {
-                    // This happens, e.g., when an attachment was cancelled by the server
-                    DispatchQueue.main.async { [weak self] in
-                        guard let _self = self else { return }
-                        guard let completions = _self.imageCacheCompletions.removeValue(forKey: hardlinkAndSize) else { assertionFailure(); return }
-                        for completion in completions {
-                            completion(false)
-                        }
-                    }
-                } else {
-                    DispatchQueue.main.async { [weak self] in
-                        guard let _self = self else { return }
-                        _self.imageCache[hardlinkAndSize] = thumbnail!.uiImage
-                        guard let completions = _self.imageCacheCompletions.removeValue(forKey: hardlinkAndSize) else { assertionFailure(); return }
-                        for completion in completions {
-                            completion(true)
-                        }
-                    }
-                }
-            }
+            let acceptableImages = imageCache
+                .filter({ $0.key.hardlink == hardlink })
+                .filter({ $0.key.size.width >= size.width })
+                .filter({ $0.key.size.height >= size.height })
+            return acceptableImages.first?.value
         }
     }
 
     
+    /// If this method returns without throwing, a prepared image has been cached for the hardlink at the requested size (or more).
+    @MainActor
+    @discardableResult func requestImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) async throws -> UIImage {
+        
+        let hardlinkAndSize = HardlinkAndSize(hardlink: hardlink, size: size)
+        if let image = imageCache[hardlinkAndSize] {
+            return image
+        }
+        guard let url = hardlink.hardlinkURL else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not find hardlink URL in hardlink \(hardlink.fyleURL.lastPathComponent)")
+        }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            assertionFailure()
+            throw Self.makeError(message: "There is no file at the URL indicated in the hardlink for the fyle \(hardlink.fyleURL.lastPathComponent)")
+        }
+
+        os_log("Dealing with an image request for a hardlink with a hardlink URL that exists on disk: %{public}@", log: Self.log, type: .info, url.path)
+
+        let thumbnail: UIImage
+        
+        if imageCacheContinuations.keys.contains(hardlinkAndSize) {
+        
+            os_log("Another task already deals with this hardlink URL: %{public}@", log: Self.log, type: .info, url.path)
+            thumbnail = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UIImage, Error>) in
+                if let image = imageCache[hardlinkAndSize] {
+                    continuation.resume(returning: image)
+                } else {
+                    var continuations = imageCacheContinuations[hardlinkAndSize, default: []]
+                    continuations.append(continuation)
+                    imageCacheContinuations[hardlinkAndSize] = continuations
+                }
+            }
+            
+        } else {
+            
+            os_log("We are in charge of the image creation for this hardlink URL: %{public}@", log: Self.log, type: .info, url.path)
+            
+            imageCacheContinuations[hardlinkAndSize] = [] // We are in charge -> this prevents another call to fall in this branch
+            
+            do {
+                thumbnail = try await url.byPreparingThumbnailPreparedForDisplay(ofSize: size)
+            } catch {
+                if let continuations = imageCacheContinuations.removeValue(forKey: hardlinkAndSize) {
+                    continuations.forEach({ $0.resume(throwing: error) })
+                }
+                throw error
+            }
+            imageCache[hardlinkAndSize] = thumbnail
+            if let continuations = imageCacheContinuations.removeValue(forKey: hardlinkAndSize) {
+                continuations.forEach({ $0.resume(returning: thumbnail) })
+            }
+            
+        }
+        
+        return thumbnail
+        
+    }
+    
+
     // MARK: - Reply-to
 
     
@@ -250,6 +362,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     /// a hardlink and a thumbnail allowing to "augment" the returned configuration. If found at least a hardlink can be found, the completion handler is called. The next time this method is called, the returned configuration
     /// will be an "augmented" version of the configuration with a hardlink and, possibly, a thumbnail.
     /// Note that the completion handler is *not* called if there is not hardlink to request.
+    @MainActor
     func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completionWhenCellNeedsUpdateConfiguration: @escaping () -> Void) -> ReplyToBubbleView.Configuration? {
         
         let messageObjectID = message.typedObjectID
@@ -343,32 +456,21 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                     
                     replyToCacheCompletions[messageObjectID] = [completionWhenCellNeedsUpdateConfiguration]
                     
-                    self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo) { [weak self] hardlink in
-                        
-                        guard let hardlink = hardlink else {
-                            // We could not find a hardlink, there is not much we can do
-                            return
+                    Task { [weak self] in
+                        let hardlink = try await getAppropriateHardlinkForJoinsOfReplyTo(replyTo)
+                        var augmentedConfig = configuration.replaceHardLink(with: hardlink)
+                        do {
+                            let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
+                            let thumbnail = try await requestImageForHardlink(hardlink: hardlink, size: size)
+                            augmentedConfig = augmentedConfig.replaceThumbnail(with: thumbnail)
+                        } catch {
+                            // We could not get an image corresponding to the hardlink. We return the current config.
+                            os_log("Failed to get appropriate thumbnail for hardlink for a replyTo Bubble: %{public}@. Augmenting the config with the hardlink only.", log: Self.log, type: .error, error.localizedDescription)
                         }
-                        
-                        let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
-                        self?.getAppropriateThumbnailForHardlink(hardlink: hardlink, size: size) { image in
-                            
-                            guard let image = image else {
-                                // We could not get an image corresponding to the hardlink. We return the current config.
-                                // We still have the hardlink allowing to augment the configuration
-                                let augmentedConfig = configuration.replaceHardLink(with: hardlink)
-                                self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
-                                return
-                            }
-                            
-                            // If we reach this point, we can augment the configuration using both the hardlink and the image found. We then return.
-                            let augmentedConfig = configuration.replaceHardLink(with: hardlink).replaceThumbnail(with: image)
-                            self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
-                            return
-                            
-                        }
-                        
+                        // If we reach this point, we can augment the configuration using both the hardlink and the image found. We then return.
+                        self?.requestReplyToBubbleViewConfigurationSucceeded(messageObjectID: messageObjectID, configToCache: augmentedConfig)
                     }
+                    
                 }
 
             }
@@ -394,51 +496,28 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     /// This method is used while computing the configuration of a reply to. When a reply to is found, we first look for an appropriate hardlink to augment its configuration (using this
     /// method). If one is found, we compute a thumbnail (using another method).
-    private func getAppropriateHardlinkForJoinsOfReplyTo(_ replyTo: PersistedMessage, completion: @escaping (HardLinkToFyle?) -> Void) {
-        assert(Thread.isMainThread)
-
+    @MainActor
+    private func getAppropriateHardlinkForJoinsOfReplyTo(_ replyTo: PersistedMessage) async throws -> HardLinkToFyle {
         let replyToObjectID = replyTo.typedObjectID
-
         guard let fyleMessageJoinWithStatus = replyTo.fyleMessageJoinWithStatus, !fyleMessageJoinWithStatus.isEmpty else {
-            completion(nil)
-            return
+            throw Self.makeError(message: "Failed to get appropriate hardlink for joins of replyTo (1)")
         }
-
         let joinObjectIDs = fyleMessageJoinWithStatus.map({ $0.typedObjectID })
         assert(!joinObjectIDs.isEmpty)
-
         for joinObjectID in joinObjectIDs {
             if let hardlink = self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
-                completion(hardlink)
-                return
+                return hardlink
             }
         }
         // If we reach this point, we could not find an appropriate cached hardlink. We request the first one.
-        self.requestAllHardlinksForMessage(with: replyToObjectID) { hardlinkFound in
-            assert(Thread.isMainThread)
-            if hardlinkFound, let joinObjectID = joinObjectIDs.first, let hardlink = self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
-                completion(hardlink)
-            } else {
-                completion(nil)
-            }
-        }
-    }
-
-
-    /// This method is used while computing the configuration of a reply to. When a reply to is found, we first look for an appropriate hardlink to augment its configuration (using
-    /// getAppropriateHardlinkForJoinsOfReplyTo(...), then look for an image using this method.
-    private func getAppropriateThumbnailForHardlink(hardlink: HardLinkToFyle, size: CGSize, completion: @escaping (UIImage?) -> Void) {
-        assert(Thread.isMainThread)
-        if let image = getCachedImageForHardlink(hardlink: hardlink, size: size) {
-            completion(image)
-            return
-        }
-        // If we reach this point, we must request an image
-        requestImageForHardlink(hardlink: hardlink, size: size) { [weak self] success in
-            if success {
-                self?.getAppropriateThumbnailForHardlink(hardlink: hardlink, size: size, completion: completion)
-            } else {
-                completion(nil)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HardLinkToFyle, Error>) in
+            self.requestAllHardlinksForMessage(with: replyToObjectID) { hardlinkFound in
+                assert(Thread.isMainThread)
+                if hardlinkFound, let joinObjectID = joinObjectIDs.first, let hardlink = self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
+                    continuation.resume(returning: hardlink)
+                } else {
+                    continuation.resume(throwing: Self.makeError(message: "Failed to get appropriate hardlink for joins of replyTo (2)"))
+                }
             }
         }
     }
@@ -506,6 +585,24 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     }
 
     
+    // MARK: - Images (and thumbnails) for FyleMessageJoinWithStatus
+
+    func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) -> UIImage? {
+        guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { return nil }
+        return getCachedImageForHardlink(hardlink: hardlink, size: size)
+    }
+
+    
+    @MainActor
+    func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) async throws {
+        try await requestHardlinkForFyleMessageJoinWithStatus(with: objectID)
+        guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { assertionFailure(); throw Self.makeError(message: "Internal error") }
+        try await requestImageForHardlink(hardlink: hardlink, size: size)
+        assert(getCachedImageForHardlink(hardlink: hardlink, size: size) != nil)
+        assert(getCachedPreparedImage(for: objectID, size: size) != nil)
+    }
+
+
 }
 
 

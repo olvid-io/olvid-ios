@@ -52,11 +52,11 @@ extension DownloadGroupPhotoChildProtocol {
 
         let groupInformation: GroupInformation
 
-        func encode() -> ObvEncoded { [ groupInformation.encode() ].encode() }
+        func obvEncode() -> ObvEncoded { [ groupInformation.obvEncode() ].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded](encoded, expectedCount: 1) else { throw NSError() }
-            self.groupInformation = try encodedElements[0].decode()
+            self.groupInformation = try encodedElements[0].obvDecode()
         }
 
         init(groupInformation: GroupInformation) {
@@ -72,7 +72,7 @@ extension DownloadGroupPhotoChildProtocol {
 
         let id: ConcreteProtocolStateId = StateId.PhotoDownloaded
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {}
 
@@ -91,7 +91,7 @@ extension DownloadGroupPhotoChildProtocol {
 
         init() {}
 
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
 

@@ -99,7 +99,7 @@ final class ContactGroupToContactGroupAndMoreMigrationPolicyV11ToV12: NSEntityMi
             throw NSError(domain: errorDomain, code: 0, userInfo: userInfo)
         }
         let coreDetails = ObvGroupCoreDetailsForMigrationTov12(name: groupName, description: nil)
-        let serializedCoreDetails = try coreDetails.encode()
+        let serializedCoreDetails = try coreDetails.jsonEncode()
         publishedDetails.setValue(serializedCoreDetails, forKey: "serializedCoreDetails")
         publishedDetails.setValue(0, forKey: "version")
         

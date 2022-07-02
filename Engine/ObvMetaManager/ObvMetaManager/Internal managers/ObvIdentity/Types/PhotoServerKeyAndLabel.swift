@@ -63,12 +63,12 @@ extension PhotoServerKeyAndLabel: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(key.encode().rawData, forKey: .key)
+        try container.encode(key.obvEncode().rawData, forKey: .key)
         try container.encode(label, forKey: .label)
     }
 
 
-    public func encode() throws -> Data {
+    public func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
@@ -84,7 +84,7 @@ extension PhotoServerKeyAndLabel: Codable {
     }
 
 
-    static func decode(_ data: Data) throws -> PhotoServerKeyAndLabel {
+    static func jsonDecode(_ data: Data) throws -> PhotoServerKeyAndLabel {
         let decoder = JSONDecoder()
         return try decoder.decode(PhotoServerKeyAndLabel.self, from: data)
     }

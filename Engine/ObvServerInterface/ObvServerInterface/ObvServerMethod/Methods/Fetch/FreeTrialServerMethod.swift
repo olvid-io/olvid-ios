@@ -55,7 +55,7 @@ public final class FreeTrialServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(), token, retrieveAPIKey].encode().rawData
+        return [ownedIdentity.getIdentity(), token, retrieveAPIKey].obvEncode().rawData
     }()
     
     public static func parseObvServerResponseWhenRetrievingFreeTrialAPIKey(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, apiKey: UUID?)? {

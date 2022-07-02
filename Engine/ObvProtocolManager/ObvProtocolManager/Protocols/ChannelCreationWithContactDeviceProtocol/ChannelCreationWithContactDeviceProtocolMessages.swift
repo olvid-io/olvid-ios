@@ -67,14 +67,14 @@ extension ChannelCreationWithContactDeviceProtocol {
         let contactDeviceUid: UID
         
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode(), contactDeviceUid.encode()]
+            return [contactIdentity.obvEncode(), contactDeviceUid.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            (contactIdentity, contactDeviceUid) = try message.encodedInputs.decode()
+            (contactIdentity, contactDeviceUid) = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID) {
@@ -98,14 +98,14 @@ extension ChannelCreationWithContactDeviceProtocol {
         let contactDeviceUid: UID
         let signature: Data
         
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode(), contactDeviceUid.encode(), signature.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode(), contactDeviceUid.obvEncode(), signature.obvEncode()] }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            (contactIdentity, contactDeviceUid, signature) = try encodedElements.decode()
+            (contactIdentity, contactDeviceUid, signature) = try encodedElements.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, signature: Data) {
@@ -132,7 +132,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         let contactEphemeralPublicKey: PublicKeyForPublicKeyEncryption
         
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode(), contactDeviceUid.encode(), signature.encode(), contactEphemeralPublicKey.encode()]
+            return [contactIdentity.obvEncode(), contactDeviceUid.obvEncode(), signature.obvEncode(), contactEphemeralPublicKey.obvEncode()]
         }
         
         // Initializers
@@ -141,10 +141,10 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 4 else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            contactDeviceUid = try encodedElements[1].decode()
-            signature = try encodedElements[2].decode()
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.decode(encodedElements[3]) else { throw NSError() }
+            contactIdentity = try encodedElements[0].obvDecode()
+            contactDeviceUid = try encodedElements[1].obvDecode()
+            signature = try encodedElements[2].obvDecode()
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[3]) else { throw NSError() }
             contactEphemeralPublicKey = pk
         }
         
@@ -171,7 +171,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         let c1: EncryptedData
         
         var encodedInputs: [ObvEncoded] {
-            return [contactEphemeralPublicKey.encode(), c1.encode()]
+            return [contactEphemeralPublicKey.obvEncode(), c1.obvEncode()]
         }
         
         // Initializers
@@ -180,9 +180,9 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 2 else { throw NSError() }
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.decode(encodedElements[0]) else { throw NSError() }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { throw NSError() }
             contactEphemeralPublicKey = pk
-            c1 = try encodedElements[1].decode()
+            c1 = try encodedElements[1].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactEphemeralPublicKey: PublicKeyForPublicKeyEncryption, c1: EncryptedData) {
@@ -205,14 +205,14 @@ extension ChannelCreationWithContactDeviceProtocol {
         let c2: EncryptedData
         
         var encodedInputs: [ObvEncoded] {
-            return [c2.encode()]
+            return [c2.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            c2 = try message.encodedInputs.decode()
+            c2 = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, c2: EncryptedData) {
@@ -234,15 +234,15 @@ extension ChannelCreationWithContactDeviceProtocol {
         let contactIdentityDetailsElements: IdentityDetailsElements
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.encode()
-            return [encodedContactIdentityDetailsElements.encode()]
+            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.jsonEncode()
+            return [encodedContactIdentityDetailsElements.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.decode()
+            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
         
@@ -265,15 +265,15 @@ extension ChannelCreationWithContactDeviceProtocol {
         let contactIdentityDetailsElements: IdentityDetailsElements
 
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.encode()
-            return [encodedContactIdentityDetailsElements.encode()]
+            let encodedContactIdentityDetailsElements = try! contactIdentityDetailsElements.jsonEncode()
+            return [encodedContactIdentityDetailsElements.obvEncode()]
         }
 
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.decode()
+            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
         }
         

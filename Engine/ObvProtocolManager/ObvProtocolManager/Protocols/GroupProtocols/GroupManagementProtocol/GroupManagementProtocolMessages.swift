@@ -76,8 +76,8 @@ extension GroupManagementProtocol {
         let pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (pendingGroupMembers.map { $0.encode() }).encode()
-            return [groupInformationWithPhoto.encode(), encodedMembers]
+            let encodedMembers = (pendingGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformationWithPhoto.obvEncode(), encodedMembers]
         }
         
         // Initializers
@@ -85,9 +85,9 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformationWithPhoto = try message.encodedInputs[0].decode()
+            self.groupInformationWithPhoto = try message.encodedInputs[0].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
-            self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformationWithPhoto: GroupInformationWithPhoto, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>) {
@@ -110,8 +110,8 @@ extension GroupManagementProtocol {
         let pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (pendingGroupMembers.map { $0.encode() }).encode()
-            return [groupInformation.encode(),
+            let encodedMembers = (pendingGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformation.obvEncode(),
                     encodedMembers]
         }
         
@@ -120,9 +120,9 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
-            self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             
         }
         
@@ -145,7 +145,7 @@ extension GroupManagementProtocol {
         let groupInformation: GroupInformation
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode()]
+            return [groupInformation.obvEncode()]
         }
         
         // Initializers
@@ -153,7 +153,7 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
             
         }
         
@@ -178,12 +178,12 @@ extension GroupManagementProtocol {
         let groupMembersVersion: Int
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (groupMembers.map { $0.encode() }).encode()
-            let encodedPendings = (pendingMembers.map { $0.encode() }).encode()
-            return [groupInformation.encode(),
+            let encodedMembers = (groupMembers.map { $0.obvEncode() }).obvEncode()
+            let encodedPendings = (pendingMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformation.obvEncode(),
                     encodedMembers,
                     encodedPendings,
-                    groupMembersVersion.encode()]
+                    groupMembersVersion.obvEncode()]
         }
         
         // Initializers
@@ -191,12 +191,12 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 4 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
-            self.groupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.groupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             guard let listOfEncodedPendingMembers = [ObvEncoded](message.encodedInputs[2]) else { throw NSError() }
-            self.pendingMembers = try Set(listOfEncodedPendingMembers.map { try $0.decode() })
-            self.groupMembersVersion = try message.encodedInputs[3].decode()
+            self.pendingMembers = try Set(listOfEncodedPendingMembers.map { try $0.obvDecode() })
+            self.groupMembersVersion = try message.encodedInputs[3].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, groupMembers: Set<CryptoIdentityWithCoreDetails>, pendingMembers: Set<CryptoIdentityWithCoreDetails>, groupMembersVersion: Int) {
@@ -221,8 +221,8 @@ extension GroupManagementProtocol {
         let newGroupMembers: Set<ObvCryptoIdentity>
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (newGroupMembers.map { $0.encode() }).encode()
-            return [groupInformation.encode(),
+            let encodedMembers = (newGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformation.obvEncode(),
                     encodedMembers]
         }
         
@@ -231,9 +231,9 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
-            self.newGroupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.newGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, newGroupMembers: Set<ObvCryptoIdentity>) {
@@ -256,8 +256,8 @@ extension GroupManagementProtocol {
         let removedGroupMembers: Set<ObvCryptoIdentity>
         
         var encodedInputs: [ObvEncoded] {
-            let encodedMembers = (removedGroupMembers.map { $0.encode() }).encode()
-            return [groupInformation.encode(),
+            let encodedMembers = (removedGroupMembers.map { $0.obvEncode() }).obvEncode()
+            return [groupInformation.obvEncode(),
                     encodedMembers]
         }
         
@@ -266,9 +266,9 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
             guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
-            self.removedGroupMembers = try Set(listOfEncodedMembers.map { try $0.decode() })
+            self.removedGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, removedGroupMembers: Set<ObvCryptoIdentity>) {
@@ -290,7 +290,7 @@ extension GroupManagementProtocol {
         let groupInformation: GroupInformation
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode()]
+            return [groupInformation.obvEncode()]
         }
         
         // Initializers
@@ -298,7 +298,7 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
@@ -319,7 +319,7 @@ extension GroupManagementProtocol {
         let groupInformation: GroupInformation
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode()]
+            return [groupInformation.obvEncode()]
         }
         
         // Initializers
@@ -327,7 +327,7 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
@@ -348,7 +348,7 @@ extension GroupManagementProtocol {
         let groupInformation: GroupInformation
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode()]
+            return [groupInformation.obvEncode()]
         }
         
         // Initializers
@@ -356,7 +356,7 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
@@ -377,7 +377,7 @@ extension GroupManagementProtocol {
         let groupInformation: GroupInformation
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode()]
+            return [groupInformation.obvEncode()]
         }
         
         // Initializers
@@ -385,7 +385,7 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
@@ -406,7 +406,7 @@ extension GroupManagementProtocol {
         let groupInformation: GroupInformation
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode()]
+            return [groupInformation.obvEncode()]
         }
         
         // Initializers
@@ -414,7 +414,7 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
@@ -436,7 +436,7 @@ extension GroupManagementProtocol {
         let memberIdentity: ObvCryptoIdentity
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode(), memberIdentity.encode()]
+            return [groupInformation.obvEncode(), memberIdentity.obvEncode()]
         }
         
         // Initializers
@@ -444,8 +444,8 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
-            self.memberIdentity = try message.encodedInputs[1].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
+            self.memberIdentity = try message.encodedInputs[1].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, memberIdentity: ObvCryptoIdentity) {
@@ -468,7 +468,7 @@ extension GroupManagementProtocol {
         let memberIdentity: ObvCryptoIdentity
         
         var encodedInputs: [ObvEncoded] {
-            return [groupInformation.encode(), memberIdentity.encode()]
+            return [groupInformation.obvEncode(), memberIdentity.obvEncode()]
         }
         
         // Initializers
@@ -476,8 +476,8 @@ extension GroupManagementProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 2 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
-            self.memberIdentity = try message.encodedInputs[1].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
+            self.memberIdentity = try message.encodedInputs[1].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, memberIdentity: ObvCryptoIdentity) {
@@ -497,14 +497,14 @@ extension GroupManagementProtocol {
 
         let groupInformation: GroupInformation
 
-        var encodedInputs: [ObvEncoded] { [groupInformation.encode()] }
+        var encodedInputs: [ObvEncoded] { [groupInformation.obvEncode()] }
 
         // Initializers
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard message.encodedInputs.count == 1 else { throw NSError() }
-            self.groupInformation = try message.encodedInputs[0].decode()
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
 
         init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {

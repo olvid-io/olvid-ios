@@ -45,9 +45,8 @@ class PersistedMessage: NSManagedObject {
     static let senderSequenceNumberKey = "senderSequenceNumber"
     static let sortIndexKey = "sortIndex"
     static let timestampKey = "timestamp"
-    static let discussionKey = "discussion"
     static let readOnceToBeDeletedKey = "readOnceToBeDeleted"
-    static let muteNotificationsEndDateKey = [discussionKey, PersistedDiscussion.localConfigurationKey, PersistedDiscussionLocalConfiguration.muteNotificationsEndDateKey].joined(separator: ".")
+    static let muteNotificationsEndDateKey = [Predicate.Key.discussion.rawValue, PersistedDiscussion.localConfigurationKey, PersistedDiscussionLocalConfiguration.muteNotificationsEndDateKey].joined(separator: ".")
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessage")
 
@@ -166,6 +165,7 @@ class PersistedMessage: NSManagedObject {
     func resetSortIndexOfNumberOfNewMessagesSystemMessage(to newSortIndex: Double) throws {
         guard isNumberOfNewMessagesMessageSystem else { throw makeError(message: "Cannot reset sort index of this message type") }
         self.sortIndex = newSortIndex
+        assert(fyleMessageJoinWithStatus == nil) // Otherwise we would need to update the sort index replicated within the joins
     }
     
     @available(iOS 14, *)
@@ -184,6 +184,17 @@ class PersistedMessage: NSManagedObject {
     var messageIdentifiersFromEngine: Set<Data> { Set() }
 
     var genericRepliesTo: RepliedMessage { .none }
+
+    
+    /// Returns `true` iff all the joins of this message are wiped and the body is nil or empty.
+    /// This is typically used after wiping an attachment (aka `FyleMessageJoinWithStatus`). In the case, we want to check whether the message still makes sense or if it should be deleted.
+    var shouldBeDeleted: Bool {
+        let nonWipedJoins = self.fyleMessageJoinWithStatus?.filter({ !$0.isWiped }) ?? []
+        guard body == nil || body?.isEmpty == true else { return false }
+        guard nonWipedJoins.isEmpty else { return false }
+        // If we reach this point, the message should be deleted
+        return true
+    }
 
 }
 
@@ -387,14 +398,17 @@ extension PersistedMessage {
 extension PersistedMessage {
 
     struct Predicate {
+        enum Key: String {
+            case discussion = "discussion"
+        }
         static var readOnceToBeDeleted: NSPredicate {
             NSPredicate(format: "\(PersistedMessage.readOnceToBeDeletedKey) == TRUE")
         }
         static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
-            NSPredicate(format: "%K == %@", discussionKey, discussion.objectID)
+            NSPredicate(format: "%K == %@", Key.discussion.rawValue, discussion.objectID)
         }
         static func withinDiscussion(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
-            NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID)
+            NSPredicate(format: "%K == %@", Key.discussion.rawValue, discussionObjectID.objectID)
         }
         static func objectsWithObjectId(in objectIDs: [NSManagedObjectID]) -> NSPredicate {
             NSPredicate(format: "self in %@", objectIDs)
@@ -414,7 +428,7 @@ extension PersistedMessage {
     static func getLastMessageValues(in discussion: PersistedDiscussion, propertiesToFetch: [String]) throws -> NSDictionary? {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", discussionKey, discussion)
+        request.predicate = NSPredicate(format: "%K == %@", Predicate.Key.discussion.rawValue, discussion)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
         request.propertiesToFetch = propertiesToFetch
         request.resultType = .dictionaryResultType
@@ -431,7 +445,7 @@ extension PersistedMessage {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
-                                        discussionKey, discussion,
+                                        Predicate.Key.discussion.rawValue, discussion,
                                         sortIndexKey, sortIndex)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
         request.resultType = .dictionaryResultType
@@ -443,7 +457,7 @@ extension PersistedMessage {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<NSDictionary> = PersistedMessage.dictionaryFetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K > %lf",
-                                        discussionKey, discussion,
+                                        Predicate.Key.discussion.rawValue, discussion,
                                         sortIndexKey, sortIndex)
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
         request.resultType = .dictionaryResultType

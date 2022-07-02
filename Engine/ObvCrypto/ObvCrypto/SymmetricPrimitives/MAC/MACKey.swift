@@ -39,7 +39,7 @@ extension MACKey {
 public final class MACKeyDecoder {
     public static func decode(_ encodedKey: ObvEncoded) -> MACKey? {
         guard encodedKey.byteId == .symmetricKey else { return nil }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else { return nil }
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedKey) else { return nil }
         guard algorithmClassByteId == .mac else { return nil }
         guard let implementationByteId = MACImplementationByteId(rawValue: implementationByteIdValue) else { return nil }
         switch implementationByteId {
@@ -54,7 +54,7 @@ struct HMACWithSHA256Key: MACKey, Equatable {
     private static let obvDictionaryKey = "mackey".data(using: .utf8)!
     
     var obvDictionaryOfInternalElements: ObvDictionary {
-        return [HMACWithSHA256Key.obvDictionaryKey: data.encode()]
+        return [HMACWithSHA256Key.obvDictionaryKey: data.obvEncode()]
     }
     
     init?(obvDictionaryOfInternalElements obvDict: ObvDictionary) {

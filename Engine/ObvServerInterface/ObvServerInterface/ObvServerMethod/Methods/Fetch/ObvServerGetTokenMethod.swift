@@ -56,7 +56,7 @@ public final class ObvServerGetTokenMethod: ObvServerDataMethod {
     }
     
     lazy public var dataToSend: Data? = {
-        return [toIdentity.getIdentity(), response, nonce].encode().rawData
+        return [toIdentity.getIdentity(), response, nonce].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, (token: Data, serverNonce: Data, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?)?)? {

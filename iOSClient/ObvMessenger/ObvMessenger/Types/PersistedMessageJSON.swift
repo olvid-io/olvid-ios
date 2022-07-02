@@ -145,12 +145,12 @@ struct PersistedItemJSON: Codable {
     }
 
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
 
-    static func decode(_ data: Data) throws -> PersistedItemJSON {
+    static func jsonDecode(_ data: Data) throws -> PersistedItemJSON {
         let decoder = JSONDecoder()
         return try decoder.decode(PersistedItemJSON.self, from: data)
     }
@@ -181,12 +181,12 @@ struct DiscussionSharedConfigurationJSON: Codable {
         self.groupId = groupId
     }
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
 
-    static func decode(_ data: Data) throws -> DiscussionSharedConfigurationJSON {
+    static func jsonDecode(_ data: Data) throws -> DiscussionSharedConfigurationJSON {
         let decoder = JSONDecoder()
         return try decoder.decode(DiscussionSharedConfigurationJSON.self, from: data)
     }
@@ -272,12 +272,12 @@ struct ReturnReceiptJSON: Codable {
         try container.encode(key, forKey: .key)
     }
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
     
-    static func decode(_ data: Data) throws -> ReturnReceiptJSON {
+    static func jsonDecode(_ data: Data) throws -> ReturnReceiptJSON {
         let decoder = JSONDecoder()
         return try decoder.decode(ReturnReceiptJSON.self, from: data)
     }
@@ -338,13 +338,13 @@ struct ExpirationJSON: Codable {
         }
     }
 
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         let data = try encoder.encode(self)
         return data
     }
 
-    static func decode(_ data: Data) throws -> ExpirationJSON {
+    static func jsonDecode(_ data: Data) throws -> ExpirationJSON {
         let decoder = JSONDecoder()
         return try decoder.decode(ExpirationJSON.self, from: data)
     }
@@ -426,12 +426,12 @@ struct MessageJSON: Codable {
         }
     }
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
     
-    static func decode(_ data: Data) throws -> MessageJSON {
+    static func jsonDecode(_ data: Data) throws -> MessageJSON {
         let decoder = JSONDecoder()
         return try decoder.decode(MessageJSON.self, from: data)
     }

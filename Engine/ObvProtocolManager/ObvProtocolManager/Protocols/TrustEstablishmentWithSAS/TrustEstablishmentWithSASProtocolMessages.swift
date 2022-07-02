@@ -80,8 +80,8 @@ extension TrustEstablishmentWithSASProtocol {
         let ownIdentityCoreDetails: ObvIdentityCoreDetails
         
         var encodedInputs: [ObvEncoded] {
-            let encodedOwnIdentityCoreDetails = try! ownIdentityCoreDetails.encode()
-            return [contactIdentity.encode(), contactIdentityFullDisplayName.encode(), encodedOwnIdentityCoreDetails.encode()]
+            let encodedOwnIdentityCoreDetails = try! ownIdentityCoreDetails.jsonEncode()
+            return [contactIdentity.obvEncode(), contactIdentityFullDisplayName.obvEncode(), encodedOwnIdentityCoreDetails.obvEncode()]
         }
         
         // Initializers
@@ -89,7 +89,7 @@ extension TrustEstablishmentWithSASProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedOwnIdentityCoreDetails: Data
-            (contactIdentity, contactIdentityFullDisplayName, encodedOwnIdentityCoreDetails) = try message.encodedInputs.decode()
+            (contactIdentity, contactIdentityFullDisplayName, encodedOwnIdentityCoreDetails) = try message.encodedInputs.obvDecode()
             ownIdentityCoreDetails = try ObvIdentityCoreDetails(encodedOwnIdentityCoreDetails)
         }
         
@@ -115,8 +115,8 @@ extension TrustEstablishmentWithSASProtocol {
         let commitment: Data
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity.encode(), encodedContactIdentityCoreDetails.encode(), (contactDeviceUids as [ObvEncodable]).encode(), commitment.encode()]
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity.obvEncode(), encodedContactIdentityCoreDetails.obvEncode(), (contactDeviceUids as [ObvEncodable]).obvEncode(), commitment.obvEncode()]
         }
         
         // Initializers
@@ -125,11 +125,11 @@ extension TrustEstablishmentWithSASProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 4 else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            let encodedContactIdentityCoreDetails: Data = try encodedElements[1].decode()
+            contactIdentity = try encodedElements[0].obvDecode()
+            let encodedContactIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[2])
-            commitment = try encodedElements[3].decode()
+            commitment = try encodedElements[3].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentityCoreDetails: ObvIdentityCoreDetails, contactIdentity: ObvCryptoIdentity, contactDeviceUids: [UID], commitment: Data) {
@@ -155,7 +155,7 @@ extension TrustEstablishmentWithSASProtocol {
         let seedAliceForSas: Seed
         
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode(), contactIdentityFullDisplayName.encode(), decommitment.encode(), seedAliceForSas.encode()]
+            return [contactIdentity.obvEncode(), contactIdentityFullDisplayName.obvEncode(), decommitment.obvEncode(), seedAliceForSas.obvEncode()]
         }
         
         // Initializers
@@ -163,7 +163,7 @@ extension TrustEstablishmentWithSASProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            (contactIdentity, contactIdentityFullDisplayName, decommitment, seedAliceForSas) = try encodedElements.decode()
+            (contactIdentity, contactIdentityFullDisplayName, decommitment, seedAliceForSas) = try encodedElements.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, contactIdentityFullDisplayName: String, decommitment: Data, seedAliceForSas: Seed) {
@@ -189,8 +189,8 @@ extension TrustEstablishmentWithSASProtocol {
         let commitment: Data
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [contactIdentity.encode(), encodedContactIdentityCoreDetails.encode(), (contactDeviceUids as [ObvEncodable]).encode(), commitment.encode()]
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [contactIdentity.obvEncode(), encodedContactIdentityCoreDetails.obvEncode(), (contactDeviceUids as [ObvEncodable]).obvEncode(), commitment.obvEncode()]
         }
         
         // Initializers
@@ -199,11 +199,11 @@ extension TrustEstablishmentWithSASProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 4 else { throw NSError() }
-            contactIdentity = try encodedElements[0].decode()
-            let encodedContactIdentityCoreDetails: Data = try encodedElements[1].decode()
+            contactIdentity = try encodedElements[0].obvDecode()
+            let encodedContactIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[2])
-            commitment = try encodedElements[3].decode()
+            commitment = try encodedElements[3].obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, contactIdentityCoreDetails: ObvIdentityCoreDetails, contactDeviceUids: [UID], commitment: Data) {
@@ -226,14 +226,14 @@ extension TrustEstablishmentWithSASProtocol {
         let dialogUuid: UUID // Only used when this protocol receives this message
         let invitationAccepted: Bool
         
-        var encodedInputs: [ObvEncoded] { return [invitationAccepted.encode()] }
+        var encodedInputs: [ObvEncoded] { return [invitationAccepted.obvEncode()] }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
-            invitationAccepted = try encodedUserDialogResponse.decode()
+            invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
             dialogUuid = userDialogUuid
         }
@@ -256,14 +256,14 @@ extension TrustEstablishmentWithSASProtocol {
         let invitationAccepted: Bool
         
         var encodedInputs: [ObvEncoded] {
-            return [invitationAccepted.encode()]
+            return [invitationAccepted.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            invitationAccepted = try message.encodedInputs.decode()
+            invitationAccepted = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, invitationAccepted: Bool) {
@@ -285,8 +285,8 @@ extension TrustEstablishmentWithSASProtocol {
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
 
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [seedBobForSas.encode(), (contactDeviceUids as [ObvEncodable]).encode(), encodedContactIdentityCoreDetails.encode()]
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [seedBobForSas.obvEncode(), (contactDeviceUids as [ObvEncodable]).obvEncode(), encodedContactIdentityCoreDetails.obvEncode()]
         }
         
         // Initializers
@@ -295,9 +295,9 @@ extension TrustEstablishmentWithSASProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 3 else { throw NSError() }
-            seedBobForSas = try encodedElements[0].decode()
+            seedBobForSas = try encodedElements[0].obvDecode()
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[1])
-            let encodedContactIdentityCoreDetails: Data = try encodedElements[2].decode()
+            let encodedContactIdentityCoreDetails: Data = try encodedElements[2].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
         }
         
@@ -320,14 +320,14 @@ extension TrustEstablishmentWithSASProtocol {
         let decommitment: Data
         
         var encodedInputs: [ObvEncoded] {
-            return [decommitment.encode()]
+            return [decommitment.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            decommitment = try message.encodedInputs.decode()
+            decommitment = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, decommitment: Data) {
@@ -354,7 +354,7 @@ extension TrustEstablishmentWithSASProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
-            sasEnteredByUser = try encodedUserDialogResponse.decode()
+            sasEnteredByUser = try encodedUserDialogResponse.obvDecode()
             guard let uuid = message.userDialogUuid else { throw NSError() }
             self.dialogUuid = uuid
         }
@@ -377,14 +377,14 @@ extension TrustEstablishmentWithSASProtocol {
         let contactSas: Data
         
         var encodedInputs: [ObvEncoded] {
-            return [contactSas.encode()]
+            return [contactSas.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactSas = try message.encodedInputs.decode()
+            contactSas = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactSas: Data) {
@@ -428,8 +428,8 @@ extension TrustEstablishmentWithSASProtocol {
         let dialogUuid: UUID? // Only set when the message is sent to this protocol, not when sending this message to the UI
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.encode()
-            return [encodedContactIdentityCoreDetails.encode(), contactIdentity.encode()]
+            let encodedContactIdentityCoreDetails = try! contactIdentityCoreDetails.jsonEncode()
+            return [encodedContactIdentityCoreDetails.obvEncode(), contactIdentity.obvEncode()]
         }
         
         // Initializers
@@ -438,7 +438,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
             let encodedContactIdentityCoreDetails: Data
-            (encodedContactIdentityCoreDetails, contactIdentity) = try encodedUserDialogResponse.decode()
+            (encodedContactIdentityCoreDetails, contactIdentity) = try encodedUserDialogResponse.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
             guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
             dialogUuid = userDialogUuid

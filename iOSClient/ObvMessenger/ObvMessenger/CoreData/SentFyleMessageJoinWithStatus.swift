@@ -34,7 +34,6 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     // MARK: - Properties
 
     @NSManaged var identifierForNotifications: UUID?
-    @NSManaged private(set) var index: Int
 
     // MARK: - Computed properties
     
@@ -50,7 +49,11 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
 
     override var message: PersistedMessage? { sentMessage }
 
-    override var fullFileIsAvailable: Bool { true }
+    override var fullFileIsAvailable: Bool { !isWiped }
+
+    var fyleElementOfSentJoin: FyleElement? {
+        try? FyleElementForFyleMessageJoinWithStatus(self)
+    }
 
     // MARK: - Relationships
     
@@ -59,16 +62,9 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     // MARK: - Internal constants
     
     private static let entityName = "SentFyleMessageJoinWithStatus"
-    private static let identifierForNotificationsKey = "identifierForNotifications"
-    private static let sentMessageKey = "sentMessage"
-    private static let indexKey = "index"
-
-}
 
 
-// MARK: - Getting FyleMetadata
-
-extension SentFyleMessageJoinWithStatus {
+    // MARK: - Getting FyleMetadata
     
     func getFyleMetadata() -> FyleMetadata? {
 
@@ -87,20 +83,18 @@ extension SentFyleMessageJoinWithStatus {
         
     }
     
+    
     func markAsComplete() {
-        self.status = .complete
+        tryToSetStatusTo(.complete)
         let objectID = self.objectID
         DispatchQueue.main.async {
             FyleMessageJoinWithStatus.progressesForAttachment.removeValue(forKey: objectID)
         }
     }
     
-}
 
-// MARK: - Initializer
+    // MARK: - Initializer
 
-extension SentFyleMessageJoinWithStatus {
-    
     convenience init?(fyleJoin: FyleJoin, persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, within context: NSManagedObjectContext) {
         
         guard let fyle = fyleJoin.fyle else { return nil }
@@ -115,6 +109,8 @@ extension SentFyleMessageJoinWithStatus {
                   fileName: fyleJoin.fileName,
                   uti: fyleJoin.uti,
                   rawStatus: FyleStatus.uploadable.rawValue,
+                  messageSortIndex: persistedMessageSent.sortIndex,
+                  index: fyleJoin.index,
                   fyle: fyle,
                   forEntityName: SentFyleMessageJoinWithStatus.entityName,
                   within: context)
@@ -122,11 +118,41 @@ extension SentFyleMessageJoinWithStatus {
         // Set the remaining properties and relationships
 
         self.identifierForNotifications = nil
-        self.index = fyleJoin.index
         self.sentMessage = persistedMessageSent
         
     }
     
+    
+    override func wipe() throws {
+        try super.wipe()
+        tryToSetStatusTo(.complete)
+    }
+    
+    
+    func tryToSetStatusTo(_ newStatus: FyleStatus) {
+        guard self.status != .complete else { return }
+        self.rawStatus = newStatus.rawValue
+    }
+
+}
+
+
+// MARK: - Determining actions availability
+
+extension SentFyleMessageJoinWithStatus {
+    
+    var copyActionCanBeMadeAvailableForSentJoin: Bool {
+        return shareActionCanBeMadeAvailableForSentJoin
+    }
+    
+    var shareActionCanBeMadeAvailableForSentJoin: Bool {
+        return sentMessage.shareActionCanBeMadeAvailableForSentMessage
+    }
+    
+    var forwardActionCanBeMadeAvailableForSentJoin: Bool {
+        return shareActionCanBeMadeAvailableForSentJoin
+    }
+
 }
 
 
@@ -134,13 +160,20 @@ extension SentFyleMessageJoinWithStatus {
 
 extension SentFyleMessageJoinWithStatus {
     
+    struct Predicate {
+        enum Key: String {
+            case identifierForNotifications = "identifierForNotifications"
+            case sentMessage = "sentMessage"
+        }
+    }
+
     @nonobjc static func fetchRequest() -> NSFetchRequest<SentFyleMessageJoinWithStatus> {
         return NSFetchRequest<SentFyleMessageJoinWithStatus>(entityName: SentFyleMessageJoinWithStatus.entityName)
     }
 
     static func getByIdentifierForNotifications(_ identifierForNotifications: UUID, within context: NSManagedObjectContext) -> SentFyleMessageJoinWithStatus? {
         let request: NSFetchRequest<SentFyleMessageJoinWithStatus> = SentFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", identifierForNotificationsKey, identifierForNotifications as NSUUID)
+        request.predicate = NSPredicate(format: "%K == %@", Predicate.Key.identifierForNotifications.rawValue, identifierForNotifications as NSUUID)
         request.fetchLimit = 1
         do { return try context.fetch(request).first } catch { return nil }
     }
@@ -159,33 +192,14 @@ extension SentFyleMessageJoinWithStatus {
     
     static func getAllIncomplete(within context: NSManagedObjectContext) throws -> [SentFyleMessageJoinWithStatus] {
         let request: NSFetchRequest<SentFyleMessageJoinWithStatus> = SentFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K != %d", rawStatusKey, FyleStatus.complete.rawValue)
+        request.predicate = NSPredicate(format: "%K != %d", FyleMessageJoinWithStatus.Predicate.Key.rawStatus.rawValue, FyleStatus.complete.rawValue)
         return try context.fetch(request)
     }
     
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = SentFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == NIL", sentMessageKey)
+        request.predicate = NSPredicate(format: "%K == NIL", Predicate.Key.sentMessage.rawValue)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         try context.execute(deleteRequest)
     }
-}
-
-
-// MARK: - Convenience NSFetchedResultsController creators
-
-extension SentFyleMessageJoinWithStatus {
-    
-    static func getFetchedResultsControllerForSentMessage(_ sentMessage: PersistedMessageSent) throws -> NSFetchedResultsController<SentFyleMessageJoinWithStatus> {
-        guard let context = sentMessage.managedObjectContext else { throw NSError() }
-        let fetchRequest: NSFetchRequest<SentFyleMessageJoinWithStatus> = SentFyleMessageJoinWithStatus.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", sentMessageKey, sentMessage)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: indexKey, ascending: true)]
-        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
-                                                                  managedObjectContext: context,
-                                                                  sectionNameKeyPath: nil,
-                                                                  cacheName: nil)
-        return fetchedResultsController
-    }
-    
 }

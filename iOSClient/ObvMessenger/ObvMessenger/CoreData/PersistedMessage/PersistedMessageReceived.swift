@@ -117,20 +117,21 @@ final class PersistedMessageReceived: PersistedMessage {
     }
 
     var fyleMessageJoinWithStatuses: [ReceivedFyleMessageJoinWithStatus] {
-        switch unsortedFyleMessageJoinWithStatus.count {
+        let nonWipedUnsortedFyleMessageJoinWithStatus = unsortedFyleMessageJoinWithStatus.filter({ !$0.isWiped })
+        switch nonWipedUnsortedFyleMessageJoinWithStatus.count {
         case 0:
             return []
         case 1:
-            return [unsortedFyleMessageJoinWithStatus.first!]
+            return [nonWipedUnsortedFyleMessageJoinWithStatus.first!]
         default:
-            return unsortedFyleMessageJoinWithStatus.sorted(by: { $0.numberFromEngine < $1.numberFromEngine })
+            return nonWipedUnsortedFyleMessageJoinWithStatus.sorted(by: { $0.index < $1.index })
         }
     }
 
     var returnReceipt: ReturnReceiptJSON? {
         guard let serializedReturnReceipt = self.serializedReturnReceipt else { return nil }
         do {
-            return try ReturnReceiptJSON.decode(serializedReturnReceipt)
+            return try ReturnReceiptJSON.jsonDecode(serializedReturnReceipt)
         } catch let error {
             os_log("Could not decode a return receipt of a received message: %{public}@", log: PersistedMessageReceived.log, type: .fault, error.localizedDescription)
             return nil
@@ -150,7 +151,7 @@ final class PersistedMessageReceived: PersistedMessage {
     func wipe(requester: PersistedObvContactIdentity) throws {
         guard !isRemoteWiped else { return }
         for join in fyleMessageJoinWithStatuses {
-            join.wipe()
+            try join.wipe()
         }
         self.deleteBody()
         try? self.reactions.forEach { try $0.delete() }
@@ -186,6 +187,10 @@ final class PersistedMessageReceived: PersistedMessage {
 
     override var genericRepliesTo: PersistedMessage.RepliedMessage {
         repliesTo
+    }
+
+    override var shouldBeDeleted: Bool {
+        return super.shouldBeDeleted
     }
 
 }
@@ -259,7 +264,7 @@ extension PersistedMessageReceived {
         self.contactIdentity = contactIdentity
         self.senderIdentifier = contactIdentity.cryptoId.getIdentity()
         self.senderThreadIdentifier = messageJSON.senderThreadIdentifier
-        self.serializedReturnReceipt = try returnReceiptJSON?.encode()
+        self.serializedReturnReceipt = try returnReceiptJSON?.jsonEncode()
         self.messageIdentifierFromEngine = messageIdentifierFromEngine
         self.unsortedFyleMessageJoinWithStatus = Set<ReceivedFyleMessageJoinWithStatus>()
         self.missedMessageCount = missedMessageCount
@@ -328,7 +333,7 @@ extension PersistedMessageReceived {
                         discussion: discussion)
         
         do {
-            self.serializedReturnReceipt = try returnReceiptJSON?.encode()
+            self.serializedReturnReceipt = try returnReceiptJSON?.jsonEncode()
         } catch let error {
             os_log("Could not encode a return receipt while create a persisted message received: %{public}@", log: PersistedMessageReceived.log, type: .fault, error.localizedDescription)
             assertionFailure()
@@ -412,6 +417,26 @@ extension PersistedMessageReceived {
 }
 
 
+// MARK: - Determining actions availability
+
+extension PersistedMessageReceived {
+    
+    var copyActionCanBeMadeAvailableForReceivedMessage: Bool {
+        return shareActionCanBeMadeAvailableForReceivedMessage
+    }
+
+    var shareActionCanBeMadeAvailableForReceivedMessage: Bool {
+        guard !readingRequiresUserAction else { return false }
+        return !isEphemeralMessageWithUserAction
+    }
+    
+    var forwardActionCanBeMadeAvailableForReceivedMessage: Bool {
+        return shareActionCanBeMadeAvailableForReceivedMessage
+    }
+
+}
+
+
 // MARK: - Reply-to
 
 extension PersistedMessageReceived {
@@ -485,8 +510,8 @@ extension PersistedMessageReceived {
         static var isUnread: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageReceived.rawStatusKey, MessageStatus.unread.rawValue) }
         static var isRead: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageReceived.rawStatusKey, MessageStatus.read.rawValue) }
         static var isNotNewAnymore: NSPredicate { NSPredicate(format: "%K > %d", PersistedMessageReceived.rawStatusKey, MessageStatus.new.rawValue) }
-        static func inDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessageReceived.discussionKey, discussion) }
-        static func inDiscussionWithObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessageReceived.discussionKey, discussionObjectID.objectID) }
+        static func inDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussion) }
+        static func inDiscussionWithObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID) }
         static var readOnce: NSPredicate { NSPredicate(format: "%K == TRUE", PersistedMessage.readOnceKey) }
         static func forOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessageReceived.ownedIdentityKey, ownedIdentity) }
         static var expiresForReceivedLimitedVisibility: NSPredicate {
@@ -541,7 +566,7 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@ AND %K > %d",
-                                        discussionKey, discussion,
+                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
                                         contactIdentityKey, contactIdentity,
                                         senderThreadIdentifierKey, senderThreadIdentifier as CVarArg,
                                         senderSequenceNumberKey, sequenceNumber)
@@ -555,7 +580,7 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@ AND %K < %d",
-                                        discussionKey, discussion,
+                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
                                         contactIdentityKey, contactIdentity,
                                         senderThreadIdentifierKey, senderThreadIdentifier as CVarArg,
                                         senderSequenceNumberKey, sequenceNumber)
@@ -876,7 +901,7 @@ extension PersistedMessageReceived {
                 .postOnDispatchQueue()
             
         } else if (self.changedKeys.contains(PersistedMessageReceived.rawStatusKey) || isInserted) && self.status == .read {
-            ObvMessengerInternalNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.objectID)
+            ObvMessengerInternalNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.typedObjectID)
                 .postOnDispatchQueue()
         }
         
@@ -946,7 +971,7 @@ fileprivate final class PendingRepliedTo: NSManagedObject {
             case message = "message"
         }
         static func with(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion) -> NSPredicate {
-            let discussionKey = [Key.message.rawValue, PersistedMessage.discussionKey].joined(separator: ".")
+            let discussionKey = [Key.message.rawValue, PersistedMessage.Predicate.Key.discussion.rawValue].joined(separator: ".")
             return NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(Key.senderIdentifier, EqualToData: senderIdentifier),
                 NSPredicate(Key.senderSequenceNumber, EqualToInt: senderSequenceNumber),

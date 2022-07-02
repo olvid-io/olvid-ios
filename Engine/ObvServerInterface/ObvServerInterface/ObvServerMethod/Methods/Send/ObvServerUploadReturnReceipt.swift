@@ -60,11 +60,11 @@ public final class ObvServerUploadReturnReceipt: ObvServerDataMethod {
 
     
     lazy public var dataToSend: Data? = {
-        let encodedDeviceUids = self.deviceUids.map({ $0.encode() })
-        return [toIdentity.encode(),
-                encodedDeviceUids.encode(),
-                nonce.encode(),
-                encryptedPayload.encode()].encode().rawData
+        let encodedDeviceUids = self.deviceUids.map({ $0.obvEncode() })
+        return [toIdentity.obvEncode(),
+                encodedDeviceUids.obvEncode(),
+                nonce.obvEncode(),
+                encryptedPayload.obvEncode()].obvEncode().rawData
     }()
     
     

@@ -89,9 +89,29 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         setupInternalViews()
     }
     
+    
+    func linkTapGestureRequire(toFail doubleTapGesture: UIGestureRecognizer) {
+        linkTapGestureOnTextView?.require(toFail: doubleTapGesture)
+    }
+    
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    
+    private var doubleTapGesturesOnTextView: [UITapGestureRecognizer] {
+        (label.gestureRecognizers ?? []).compactMap { $0 as? UITapGestureRecognizer }.filter({ $0.numberOfTapsRequired == 2 })
+    }
+
+    
+    private var singeTapGesturesOnTextView: [UITapGestureRecognizer] {
+        (label.gestureRecognizers ?? []).compactMap { $0 as? UITapGestureRecognizer }.filter({ $0.numberOfTapsRequired == 1 })
+    }
+    
+    
+    private var linkTapGestureOnTextView: UITapGestureRecognizer? {
+        singeTapGesturesOnTextView.first(where: { $0.name == "UITextInteractionNameLinkTap" })
     }
 
     
@@ -110,8 +130,12 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         label.backgroundColor = .clear
         label.textContainerInset = UIEdgeInsets.zero
         label.isEditable = false
-        label.isSelectable = false
-        
+        label.isSelectable = true // Must be set to `true` for the data detector to work
+        // Since we need to set isSelectable to true, and since we have a double tap on the cell for reactions, we disable tap gestures on the text, except the one for tapping links.
+        doubleTapGesturesOnTextView.forEach({ $0.isEnabled = false })
+        singeTapGesturesOnTextView.forEach({ $0.isEnabled = false })
+        linkTapGestureOnTextView?.isEnabled = true
+
         let verticalInset = MessageCellConstants.bubbleVerticalInset
         let horizontalInsets = MessageCellConstants.bubbleHorizontalInsets
         

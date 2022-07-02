@@ -63,6 +63,6 @@ extension PrivateKeyFromEdwardsCurveScalar {
 
 extension PrivateKeyFromEdwardsCurveScalar {
     var obvDictionaryOfInternalElements: ObvDictionary {
-        return [PointOnCurve.ObvDictionaryKey.forScalar.data: self.scalar.encode()]
+        return [PointOnCurve.ObvDictionaryKey.forScalar.data: self.scalar.obvEncode()]
     }
 }

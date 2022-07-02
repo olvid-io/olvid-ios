@@ -64,8 +64,8 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            let encodedOwnCapabilities = newOwnCapabilities.map({ $0.rawValue.encode() })
-            return [encodedOwnCapabilities.encode()]
+            let encodedOwnCapabilities = newOwnCapabilities.map({ $0.rawValue.obvEncode() })
+            return [encodedOwnCapabilities.obvEncode()]
         }
 
         // Init when receiving this message
@@ -110,7 +110,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            [contactIdentity.encode(), contactDeviceUid.encode(), isResponse.encode()]
+            [contactIdentity.obvEncode(), contactDeviceUid.obvEncode(), isResponse.obvEncode()]
         }
 
         // Init when receiving this message
@@ -121,9 +121,9 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            self.contactIdentity = try message.encodedInputs[0].decode()
-            self.contactDeviceUid = try message.encodedInputs[1].decode()
-            self.isResponse = try message.encodedInputs[2].decode()
+            self.contactIdentity = try message.encodedInputs[0].obvDecode()
+            self.contactDeviceUid = try message.encodedInputs[1].obvDecode()
+            self.isResponse = try message.encodedInputs[2].obvDecode()
         }
 
     }
@@ -150,7 +150,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            [otherOwnedDeviceUid.encode(), isResponse.encode()]
+            [otherOwnedDeviceUid.obvEncode(), isResponse.obvEncode()]
         }
 
         // Init when receiving this message
@@ -161,8 +161,8 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 assertionFailure()
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
-            self.otherOwnedDeviceUid = try message.encodedInputs[0].decode()
-            self.isResponse = try message.encodedInputs[1].decode()
+            self.otherOwnedDeviceUid = try message.encodedInputs[0].obvDecode()
+            self.isResponse = try message.encodedInputs[1].obvDecode()
         }
 
     }
@@ -189,8 +189,8 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            let encodedRawCapabilities = rawContactObvCapabilities.map({ $0.encode() })
-            return [encodedRawCapabilities.encode(), isResponse.encode()]
+            let encodedRawCapabilities = rawContactObvCapabilities.map({ $0.obvEncode() })
+            return [encodedRawCapabilities.obvEncode(), isResponse.obvEncode()]
         }
 
         // Init when receiving this message
@@ -202,7 +202,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
             self.rawContactObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(message.encodedInputs[0])
-            self.isResponse = try message.encodedInputs[1].decode()
+            self.isResponse = try message.encodedInputs[1].obvDecode()
         }
 
     }
@@ -229,8 +229,8 @@ extension DeviceCapabilitiesDiscoveryProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            let encodedRawCapabilities = rawOtherOwnDeviceObvCapabilities.map({ $0.encode() })
-            return [encodedRawCapabilities.encode(), isReponse.encode()]
+            let encodedRawCapabilities = rawOtherOwnDeviceObvCapabilities.map({ $0.obvEncode() })
+            return [encodedRawCapabilities.obvEncode(), isReponse.obvEncode()]
         }
 
         // Init when receiving this message
@@ -242,7 +242,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Unexpected number of encoded inputs")
             }
             self.rawOtherOwnDeviceObvCapabilities = try DeviceCapabilitiesDiscoveryProtocol.decodeRawContactObvCapabilities(message.encodedInputs[0])
-            self.isReponse = try message.encodedInputs[1].decode()
+            self.isReponse = try message.encodedInputs[1].obvDecode()
         }
 
     }

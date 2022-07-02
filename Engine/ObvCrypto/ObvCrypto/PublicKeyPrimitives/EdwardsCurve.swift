@@ -442,8 +442,8 @@ extension PointOnCurve {
     
     
     func getObvDictionaryOfCoordinates() -> ObvDictionary {
-        return [ObvDictionaryKey.forXCoordinate.data: self.x.encode(),
-                ObvDictionaryKey.forYCoordinate.data: self.y.encode()]
+        return [ObvDictionaryKey.forXCoordinate.data: self.x.obvEncode(),
+                ObvDictionaryKey.forYCoordinate.data: self.y.obvEncode()]
     }
 
 }

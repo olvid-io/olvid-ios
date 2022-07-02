@@ -83,7 +83,7 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
     convenience init?(ownedIdentity: ObvOwnedIdentity, within context: NSManagedObjectContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvOwnedIdentity.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
-        do { self.serializedIdentityCoreDetails = try ownedIdentity.currentIdentityDetails.coreDetails.encode() } catch { return nil }
+        do { self.serializedIdentityCoreDetails = try ownedIdentity.currentIdentityDetails.coreDetails.jsonEncode() } catch { return nil }
         self.fullDisplayName = ownedIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
         self.identity = ownedIdentity.cryptoId.getIdentity()
         self.isActive = true
@@ -102,7 +102,7 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
         guard self.identity == ownedIdentity.cryptoId.getIdentity() else {
             throw makeError(message: "Trying to update an owned identity with the data of another owned identity")
         }
-        self.serializedIdentityCoreDetails = try ownedIdentity.currentIdentityDetails.coreDetails.encode()
+        self.serializedIdentityCoreDetails = try ownedIdentity.currentIdentityDetails.coreDetails.jsonEncode()
         self.fullDisplayName = ownedIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
         self.isActive = ownedIdentity.isActive
         self.isKeycloakManaged = ownedIdentity.isKeycloakManaged

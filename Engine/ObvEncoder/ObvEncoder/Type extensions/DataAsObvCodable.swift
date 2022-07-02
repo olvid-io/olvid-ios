@@ -26,7 +26,7 @@ extension Data: ObvCodable {
         self = obvEncoded.innerData
     }
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         return ObvEncoded(byteId: .bytes, innerData: self)
     }
     

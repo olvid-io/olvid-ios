@@ -54,7 +54,7 @@ struct JsonKeycloakRevocation: Decodable {
         self.init(cryptoIdentity: cryptoIdentity, revocationTimestamp: revocationTimestamp, revocationType: revocationType)
     }
     
-    static func decode(data: Data) throws -> Self {
+    static func jsonDecode(data: Data) throws -> Self {
         let decoder = JSONDecoder()
         return try decoder.decode(Self.self, from: data)
     }

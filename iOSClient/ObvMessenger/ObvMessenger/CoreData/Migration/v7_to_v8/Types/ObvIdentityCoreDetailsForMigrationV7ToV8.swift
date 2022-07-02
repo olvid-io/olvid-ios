@@ -110,7 +110,7 @@ extension ObvIdentityCoreDetailsForMigrationV7ToV8: Codable {
     }
     
     
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
@@ -126,7 +126,7 @@ extension ObvIdentityCoreDetailsForMigrationV7ToV8: Codable {
     }
     
     
-    static func decode(_ data: Data) throws -> ObvIdentityCoreDetailsForMigrationV7ToV8 {
+    static func jsonDecode(_ data: Data) throws -> ObvIdentityCoreDetailsForMigrationV7ToV8 {
         let decoder = JSONDecoder()
         return try decoder.decode(ObvIdentityCoreDetailsForMigrationV7ToV8.self, from: data)
     }

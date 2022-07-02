@@ -41,7 +41,9 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
     var fetchedResultsController: NSFetchedResultsController<PersistedInvitation>! = nil
     
     var currentNumberOfInvitations: Int {
-        return fetchedResultsController.sections![0].numberOfObjects
+        guard let sections = fetchedResultsController.sections else { return 0 }
+        guard sections.count > 0 else { return 0 }
+        return sections[0].numberOfObjects
     }
     
     private var doDisplayHelpCell = false

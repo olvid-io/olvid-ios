@@ -107,53 +107,53 @@ final public class ObvEncoded: NSObject, Decodable {
 // MARK: Strongly type generic `decode` methods. These methods leverages the similar methods declared for the type `[ObvEncoded]` within the corresponding type extension.
 extension ObvEncoded {
     
-    public func decode<DecodedType: ObvDecodable>() throws -> DecodedType {
+    public func obvDecode<DecodedType: ObvDecodable>() throws -> DecodedType {
         guard let decodedValue: DecodedType = DecodedType(self) else {
             throw Self.makeError(message: "decode failed (1)")
         }
         return decodedValue
     }
     
-    public func decode<T0: ObvDecodable, T1: ObvDecodable>() throws -> (T0, T1) {
+    public func obvDecode<T0: ObvDecodable, T1: ObvDecodable>() throws -> (T0, T1) {
         guard let encodedElements = [ObvEncoded](self, expectedCount: 2) else {
             throw Self.makeError(message: "decode failed (2)")
         }
-        return try encodedElements.decode()
+        return try encodedElements.obvDecode()
     }
 
-    public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable>() throws -> (T0, T1, T2) {
+    public func obvDecode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable>() throws -> (T0, T1, T2) {
         guard let encodedElements = [ObvEncoded](self, expectedCount: 3) else {
             throw Self.makeError(message: "decode failed (3)")
         }
-        return try encodedElements.decode()
+        return try encodedElements.obvDecode()
     }
 
-    public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable>() throws -> (T0, T1, T2, T3) {
+    public func obvDecode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable>() throws -> (T0, T1, T2, T3) {
         guard let encodedElements = [ObvEncoded](self, expectedCount: 4) else {
             throw Self.makeError(message: "decode failed (4)")
         }
-        return try encodedElements.decode()
+        return try encodedElements.obvDecode()
     }
 
-    public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable>() throws -> (T0, T1, T2, T3, T4) {
+    public func obvDecode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable>() throws -> (T0, T1, T2, T3, T4) {
         guard let encodedElements = [ObvEncoded](self, expectedCount: 5) else {
             throw Self.makeError(message: "decode failed (5)")
         }
-        return try encodedElements.decode()
+        return try encodedElements.obvDecode()
     }
 
-    public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5) {
+    public func obvDecode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5) {
         guard let encodedElements = [ObvEncoded](self, expectedCount: 6) else {
             throw Self.makeError(message: "decode failed (6)")
         }
-        return try encodedElements.decode()
+        return try encodedElements.obvDecode()
     }
 
-    public func decode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable, T6: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5, T6) {
+    public func obvDecode<T0: ObvDecodable, T1: ObvDecodable, T2: ObvDecodable, T3: ObvDecodable, T4: ObvDecodable, T5: ObvDecodable, T6: ObvDecodable>() throws -> (T0, T1, T2, T3, T4, T5, T6) {
         guard let encodedElements = [ObvEncoded](self, expectedCount: 7) else {
             throw Self.makeError(message: "decode failed (7)")
         }
-        return try encodedElements.decode()
+        return try encodedElements.obvDecode()
     }
 
 }

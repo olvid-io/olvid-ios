@@ -103,7 +103,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
         }
         set {
             if newValue != nil {
-                let encodedKey = newValue!.encode()
+                let encodedKey = newValue!.obvEncode()
                 kvoSafeSetPrimitiveValue(encodedKey.rawData, forKey: InboxAttachment.encodedAuthenticatedEncryptionKeyKey)
             }
         }

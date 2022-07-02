@@ -382,7 +382,7 @@ extension OwnedIdentity {
             throw makeError(message: "The delegate manager is not set")
         }
         let identity = ownedCryptoIdentity.getObvCryptoIdentity().getIdentity()
-        let encodedOwnedCryptoIdentity = ownedCryptoIdentity.encode()
+        let encodedOwnedCryptoIdentity = ownedCryptoIdentity.obvEncode()
         let accessGroup = delegateManager.sharedContainerIdentifier
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,

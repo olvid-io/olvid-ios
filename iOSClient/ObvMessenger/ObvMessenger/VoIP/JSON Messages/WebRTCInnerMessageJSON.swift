@@ -35,12 +35,12 @@ extension WebRTCInnerMessageJSON {
         return NSError(domain: Self.errorDomain, code: 0, userInfo: userInfo)
     }
 
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }
 
-    static func decode(serializedMessagePayload: String) throws -> Self {
+    static func jsonDecode(serializedMessagePayload: String) throws -> Self {
         guard let data = serializedMessagePayload.data(using: .utf8) else {
             throw Self.makeError(message: "Could not turn serialized message payload into data")
         }
@@ -49,7 +49,7 @@ extension WebRTCInnerMessageJSON {
     }
 
     func embedInWebRTCMessageJSON(callIdentifier: UUID) throws -> WebRTCMessageJSON {
-        let serializedMessagePayloadAsData = try self.encode()
+        let serializedMessagePayloadAsData = try self.jsonEncode()
         guard let serializedMessagePayload = String(data: serializedMessagePayloadAsData, encoding: .utf8) else {
             throw Self.makeError(message: "Could not serialize message")
         }
@@ -85,7 +85,7 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         case rawGatheringPolicy = "gp"
     }
 
-    func encode() throws -> Data {
+    func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
     }

@@ -52,7 +52,7 @@ public final class QueryApiKeyStatusServerMethod: ObvServerDataMethod {
 
     lazy public var dataToSend: Data? = {
         return [ownedIdentity.getIdentity(),
-                apiKey].encode().rawData
+                apiKey].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, (apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?)?)? {

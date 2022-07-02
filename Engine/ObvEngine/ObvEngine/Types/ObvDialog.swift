@@ -52,7 +52,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func setResponseToAcceptInvite(acceptInvite: Bool) throws {
         switch category {
         case .acceptInvite:
-            encodedResponse = acceptInvite.encode()
+            encodedResponse = acceptInvite.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -61,7 +61,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func setResponseToSasExchange(otherSas: Data) throws {
         switch category {
         case .sasExchange:
-            encodedResponse = otherSas.encode()
+            encodedResponse = otherSas.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -70,7 +70,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func setResponseToAcceptMediatorInvite(acceptInvite: Bool) throws {
         switch category {
         case .acceptMediatorInvite:
-            encodedResponse = acceptInvite.encode()
+            encodedResponse = acceptInvite.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -80,7 +80,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func setResponseToAcceptGroupInvite(acceptInvite: Bool) throws {
         switch category {
         case .acceptGroupInvite:
-            encodedResponse = acceptInvite.encode()
+            encodedResponse = acceptInvite.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -90,7 +90,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func rejectIncreaseGroupOwnerTrustLevelRequired() throws {
         switch category {
         case .increaseGroupOwnerTrustLevelRequired:
-            encodedResponse = false.encode()
+            encodedResponse = false.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -100,7 +100,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func setResponseToOneToOneInvitationReceived(invitationAccepted: Bool) throws {
         switch category {
         case .oneToOneInvitationReceived:
-            encodedResponse = invitationAccepted.encode()
+            encodedResponse = invitationAccepted.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -110,7 +110,7 @@ public struct ObvDialog: ObvCodable, Equatable {
     public mutating func cancelOneToOneInvitationSent() throws {
         switch category {
         case .oneToOneInvitationSent:
-            encodedResponse = true.encode()
+            encodedResponse = true.obvEncode()
         default:
             throw Self.makeError(message: "Bad category")
         }
@@ -287,93 +287,93 @@ extension ObvDialog {
             }
         }
         
-        public func encode() -> ObvEncoded {
+        public func obvEncode() -> ObvEncoded {
             let encodedVars: ObvEncoded
             switch self {
             case .inviteSent(contactIdentity: let contactIdentity):
-                encodedVars = [contactIdentity].encode()
+                encodedVars = [contactIdentity].obvEncode()
             case .acceptInvite(contactIdentity: let contactIdentity):
-                encodedVars = [contactIdentity].encode()
+                encodedVars = [contactIdentity].obvEncode()
             case .invitationAccepted(contactIdentity: let contactIdentity):
-                encodedVars = [contactIdentity].encode()
+                encodedVars = [contactIdentity].obvEncode()
             case .sasExchange(contactIdentity: let contactIdentity, sasToDisplay: let sasToDisplay, numberOfBadEnteredSas: let numberOfBadEnteredSas):
-                encodedVars = [contactIdentity, sasToDisplay, numberOfBadEnteredSas].encode()
+                encodedVars = [contactIdentity, sasToDisplay, numberOfBadEnteredSas].obvEncode()
             case .sasConfirmed(contactIdentity: let contactIdentity, sasToDisplay: let sasToDisplay, sasEntered: let sasEntered):
-                encodedVars = [contactIdentity, sasToDisplay, sasEntered].encode()
+                encodedVars = [contactIdentity, sasToDisplay, sasEntered].obvEncode()
             case .mutualTrustConfirmed(contactIdentity: let contactIdentity):
-                encodedVars = [contactIdentity].encode()
+                encodedVars = [contactIdentity].obvEncode()
             case .acceptMediatorInvite(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
-                encodedVars = [contactIdentity, mediatorIdentity].encode()
+                encodedVars = [contactIdentity, mediatorIdentity].obvEncode()
             case .increaseMediatorTrustLevelRequired(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
-                encodedVars = [contactIdentity, mediatorIdentity].encode()
+                encodedVars = [contactIdentity, mediatorIdentity].obvEncode()
             case .mediatorInviteAccepted(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
-                encodedVars = [contactIdentity, mediatorIdentity].encode()
+                encodedVars = [contactIdentity, mediatorIdentity].obvEncode()
             case .autoconfirmedContactIntroduction(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
-                encodedVars = [contactIdentity, mediatorIdentity].encode()
+                encodedVars = [contactIdentity, mediatorIdentity].obvEncode()
             case .acceptGroupInvite(groupMembers: let groupMembers, groupOwner: let groupOwner):
-                let encodedGroupMembers = (groupMembers.map { $0.encode() }).encode()
-                let encodedGroupOwner = groupOwner.encode()
-                encodedVars = [encodedGroupMembers, encodedGroupOwner].encode()
+                let encodedGroupMembers = (groupMembers.map { $0.obvEncode() }).obvEncode()
+                let encodedGroupOwner = groupOwner.obvEncode()
+                encodedVars = [encodedGroupMembers, encodedGroupOwner].obvEncode()
             case .increaseGroupOwnerTrustLevelRequired(groupOwner: let groupOwner):
-                encodedVars = [groupOwner].encode()
+                encodedVars = [groupOwner].obvEncode()
             case .oneToOneInvitationSent(contactIdentity: let contactIdentity):
-                encodedVars = [contactIdentity].encode()
+                encodedVars = [contactIdentity].obvEncode()
             case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
-                encodedVars = [contactIdentity].encode()
+                encodedVars = [contactIdentity].obvEncode()
             }
-            let encodedObvDialog = [raw.encode(), encodedVars].encode()
+            let encodedObvDialog = [raw.obvEncode(), encodedVars].obvEncode()
             return encodedObvDialog
         }
         
         public init?(_ obvEncoded: ObvEncoded) {
             guard let listOfEncoded = [ObvEncoded](obvEncoded, expectedCount: 2) else { return nil }
-            guard let raw: Int = try? listOfEncoded[0].decode() else { return nil }
+            guard let raw: Int = try? listOfEncoded[0].obvDecode() else { return nil }
             switch raw {
             case 0:
                 /* inviteSent */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvURLIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvURLIdentity else { return nil }
                 self = .inviteSent(contactIdentity: contactIdentity)
             case 1:
                 /* acceptInvite */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .acceptInvite(contactIdentity: contactIdentity)
             case 2:
                 /* invitationAccepted */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .invitationAccepted(contactIdentity: contactIdentity)
             case 3:
                 /* sasExchange */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 3) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity  else { return nil }
-                guard let sasToDisplay = try? encodedVars[1].decode() as Data else { return nil }
-                guard let numberOfBadEnteredSas = try? encodedVars[2].decode() as Int else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity  else { return nil }
+                guard let sasToDisplay = try? encodedVars[1].obvDecode() as Data else { return nil }
+                guard let numberOfBadEnteredSas = try? encodedVars[2].obvDecode() as Int else { return nil }
                 self = .sasExchange(contactIdentity: contactIdentity, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: numberOfBadEnteredSas)
             case 4:
                 /* sasConfirmed */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 3) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity  else { return nil }
-                guard let sasToDisplay = try? encodedVars[1].decode() as Data else { return nil }
-                guard let sasEntered = try? encodedVars[2].decode() as Data else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity  else { return nil }
+                guard let sasToDisplay = try? encodedVars[1].obvDecode() as Data else { return nil }
+                guard let sasEntered = try? encodedVars[2].obvDecode() as Data else { return nil }
                 self = .sasConfirmed(contactIdentity: contactIdentity, sasToDisplay: sasToDisplay, sasEntered: sasEntered)
             case 5:
                 /* mutualTrustConfirmed */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .mutualTrustConfirmed(contactIdentity: contactIdentity)
             case 6:
                 /* acceptMediatorInvite */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity  else { return nil }
-                guard let mediatorIdentity = try? encodedVars[1].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity  else { return nil }
+                guard let mediatorIdentity = try? encodedVars[1].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .acceptMediatorInvite(contactIdentity: contactIdentity, mediatorIdentity: mediatorIdentity)
             case 7:
                 /* mediatorInviteAccepted */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity  else { return nil }
-                guard let mediatorIdentity = try? encodedVars[1].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity  else { return nil }
+                guard let mediatorIdentity = try? encodedVars[1].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .mediatorInviteAccepted(contactIdentity: contactIdentity, mediatorIdentity: mediatorIdentity)
             case 8:
                 /* acceptGroupInvite */
@@ -381,38 +381,38 @@ extension ObvDialog {
                 let groupMembers: Set<ObvGenericIdentity>
                 do {
                     guard let listOfEncoded = [ObvEncoded](encodedVars[0]) else { return nil }
-                    groupMembers = try Set(listOfEncoded.map { try $0.decode() as ObvGenericIdentity })
+                    groupMembers = try Set(listOfEncoded.map { try $0.obvDecode() as ObvGenericIdentity })
                 } catch {
                     return nil
                 }
-                guard let groupOwner = try? encodedVars[1].decode() as ObvGenericIdentity else { return nil }
+                guard let groupOwner = try? encodedVars[1].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .acceptGroupInvite(groupMembers: groupMembers, groupOwner: groupOwner)
             case 11:
                 /* increaseMediatorTrustLevelRequired */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity  else { return nil }
-                guard let mediatorIdentity = try? encodedVars[1].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity  else { return nil }
+                guard let mediatorIdentity = try? encodedVars[1].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .increaseMediatorTrustLevelRequired(contactIdentity: contactIdentity, mediatorIdentity: mediatorIdentity)
             case 12:
                 /* increaseGroupOwnerTrustLevelRequired */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let groupOwner = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                guard let groupOwner = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .increaseGroupOwnerTrustLevelRequired(groupOwner: groupOwner)
             case 13:
                 /* autoconfirmedContactIntroduction */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity  else { return nil }
-                guard let mediatorIdentity = try? encodedVars[1].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity  else { return nil }
+                guard let mediatorIdentity = try? encodedVars[1].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .autoconfirmedContactIntroduction(contactIdentity: contactIdentity, mediatorIdentity: mediatorIdentity)
             case 14:
                 /* oneToOneInvitationSent */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .oneToOneInvitationSent(contactIdentity: contactIdentity)
             case 15:
                 /* oneToOneInvitationReceived */
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
-                guard let contactIdentity = try? encodedVars[0].decode() as ObvGenericIdentity else { return nil }
+                guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .oneToOneInvitationReceived(contactIdentity: contactIdentity)
 
             default:
@@ -461,17 +461,17 @@ extension ObvDialog {
     
     public init?(_ obvEncoded: ObvEncoded) {
         guard let listOfEncoded = [ObvEncoded](obvEncoded, expectedCount: 4) else { return nil }
-        do { uuid = try listOfEncoded[0].decode() } catch { return nil }
+        do { uuid = try listOfEncoded[0].obvDecode() } catch { return nil }
         encodedElements = listOfEncoded[1]
         do {
-            let ownedCryptoIdentity: ObvCryptoIdentity = try listOfEncoded[2].decode()
+            let ownedCryptoIdentity: ObvCryptoIdentity = try listOfEncoded[2].obvDecode()
             self.ownedCryptoId = ObvCryptoId.init(cryptoIdentity: ownedCryptoIdentity)
         } catch { return nil }
-        do { category = try listOfEncoded[3].decode() } catch { return nil }
+        do { category = try listOfEncoded[3].obvDecode() } catch { return nil }
     }
     
-    public func encode() -> ObvEncoded {
-        return [uuid.encode(), encodedElements, ownedCryptoId.cryptoIdentity.encode(), category.encode()].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [uuid.obvEncode(), encodedElements, ownedCryptoId.cryptoIdentity.obvEncode(), category.obvEncode()].obvEncode()
     }
     
     public static func decode(_ rawData: Data) -> ObvDialog? {

@@ -415,7 +415,7 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                                 let serverQueryType: ServerQuery.QueryType = .putUserData(label: input.label, dataURL: dataURL, dataKey: dataKey)
                                 let noElements: [ObvEncoded] = []
 
-                                let serverQuery = ServerQuery(ownedIdentity: input.ownedIdentity, queryType: serverQueryType, encodedElements: noElements.encode())
+                                let serverQuery = ServerQuery(ownedIdentity: input.ownedIdentity, queryType: serverQueryType, encodedElements: noElements.obvEncode())
 
                                 networkFetchDelegate.post(serverQuery, within: obvContext)
 

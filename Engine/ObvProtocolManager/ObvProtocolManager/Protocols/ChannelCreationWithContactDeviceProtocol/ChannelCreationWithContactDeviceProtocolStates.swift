@@ -71,9 +71,9 @@ extension ChannelCreationWithContactDeviceProtocol {
         
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 3) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.contactDeviceUid = try encodedElements[1].decode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.decode(encodedElements[2]) else { throw NSError() }
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.contactDeviceUid = try encodedElements[1].obvDecode()
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
             self.ephemeralPrivateKey = ephemeralPrivateKey
         }
         
@@ -83,8 +83,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.ephemeralPrivateKey = ephemeralPrivateKey
         }
         
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey].obvEncode()
         }
     }
 
@@ -100,7 +100,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         let currentDeviceUid: UID
         
         init(_ encoded: ObvEncoded) throws {
-            (contactIdentity, contactDeviceUid, currentDeviceUid) = try encoded.decode()
+            (contactIdentity, contactDeviceUid, currentDeviceUid) = try encoded.obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, currentDeviceUid: UID) {
@@ -109,8 +109,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.currentDeviceUid = currentDeviceUid
         }
         
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, currentDeviceUid].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, currentDeviceUid].obvEncode()
         }
     }
 
@@ -128,9 +128,9 @@ extension ChannelCreationWithContactDeviceProtocol {
         
         init(_ encoded: ObvEncoded) throws {
             guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
-            self.contactIdentity = try encodedElements[0].decode()
-            self.contactDeviceUid = try encodedElements[1].decode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.decode(encodedElements[2]) else { throw NSError() }
+            self.contactIdentity = try encodedElements[0].obvDecode()
+            self.contactDeviceUid = try encodedElements[1].obvDecode()
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
             self.ephemeralPrivateKey = ephemeralPrivateKey
             k1 = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[3])
         }
@@ -142,8 +142,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.k1 = k1
         }
         
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey, k1].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, ephemeralPrivateKey, k1].obvEncode()
         }
     }
 
@@ -159,7 +159,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         let currentDeviceUid: UID
         
         init(_ encoded: ObvEncoded) throws {
-            (contactIdentity, contactDeviceUid, currentDeviceUid) = try encoded.decode()
+            (contactIdentity, contactDeviceUid, currentDeviceUid) = try encoded.obvDecode()
         }
         
         init(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, currentDeviceUid: UID) {
@@ -168,8 +168,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.currentDeviceUid = currentDeviceUid
         }
         
-        func encode() -> ObvEncoded {
-            return [contactIdentity, contactDeviceUid, currentDeviceUid].encode()
+        func obvEncode() -> ObvEncoded {
+            return [contactIdentity, contactDeviceUid, currentDeviceUid].obvEncode()
         }
 
     }
@@ -185,7 +185,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
     }
     
@@ -199,7 +199,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
     }
 
@@ -214,7 +214,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

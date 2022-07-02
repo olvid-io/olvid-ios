@@ -58,7 +58,7 @@ public final class ObvServerCancelAttachmentUpload: ObvServerDataMethod {
     lazy public var dataToSend: Data? = {
         return [self.messageUidFromServer,
                 self.attachmentNumber,
-                self.nonceFromServer].encode().rawData
+                self.nonceFromServer].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {

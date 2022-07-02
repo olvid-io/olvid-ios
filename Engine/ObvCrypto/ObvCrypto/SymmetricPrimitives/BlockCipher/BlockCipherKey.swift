@@ -40,7 +40,7 @@ extension BlockCipherKey {
 final class BlockCipherKeyDecoder {
     static func decode(_ encodedKey: ObvEncoded) -> BlockCipherKey? {
         guard encodedKey.byteId == .symmetricKey else { return nil }
-        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.decode(encodedKey) else { return nil }
+        guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedKey) else { return nil }
         guard algorithmClassByteId == .blockCipher else { return nil }
         guard let implementationByteId = BlockCipherImplementationByteId(rawValue: implementationByteIdValue) else { return nil }
         switch implementationByteId {
@@ -55,7 +55,7 @@ struct AES256Key: BlockCipherKey, Equatable {
     private static let obvDictionaryKey = "enckey".data(using: .utf8)!
     
     var obvDictionaryOfInternalElements: ObvDictionary {
-        return [AES256Key.obvDictionaryKey: data.encode()]
+        return [AES256Key.obvDictionaryKey: data.obvEncode()]
     }
     
     init?(obvDictionaryOfInternalElements obvDict: ObvDictionary) {

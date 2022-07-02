@@ -159,7 +159,7 @@ fileprivate protocol CodableOlvidURL: Decodable {}
 
 extension CodableOlvidURL {
     
-    static func decode(_ data: Data) throws -> Self {
+    static func jsonDecode(_ data: Data) throws -> Self {
         let decoder = JSONDecoder()
         return try decoder.decode(Self.self, from: data)
     }
@@ -181,7 +181,7 @@ extension CodableOlvidURL {
             .replacingOccurrences(of: "-", with: "+")
             .padding(toLength: ((rawBase64.count+3)/4)*4, withPad: "====", startingAt: 0)
         guard let raw = Data(base64Encoded: base64EncodedString) else { return nil }
-        guard let item = try? Self.decode(raw) else { return nil }
+        guard let item = try? Self.jsonDecode(raw) else { return nil }
         self = item
     }
     

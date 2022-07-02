@@ -22,18 +22,18 @@ import ObvTypes
 
 extension ObvPushNotificationType: ObvEncodable {
     
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         switch self {
         case .remote(pushToken: let pushToken, voipToken: let voipToken, maskingUID: let maskingUID, parameters: let parameters):
             if let _voipToken = voipToken {
-                return [Data([byteId]).encode(), pushToken.encode(), _voipToken.encode(), maskingUID.encode(), parameters.encode()].encode()
+                return [Data([byteId]).obvEncode(), pushToken.obvEncode(), _voipToken.obvEncode(), maskingUID.obvEncode(), parameters.obvEncode()].obvEncode()
             } else {
-                return [Data([byteId]).encode(), pushToken.encode(), maskingUID.encode(), parameters.encode()].encode()
+                return [Data([byteId]).obvEncode(), pushToken.obvEncode(), maskingUID.obvEncode(), parameters.obvEncode()].obvEncode()
             }
         case .polling(let pollingInterval):
-            return [Data([byteId]).encode(), Int(pollingInterval).encode()].encode()
+            return [Data([byteId]).obvEncode(), Int(pollingInterval).obvEncode()].obvEncode()
         case .registerDeviceUid(parameters: let parameters):
-            return [Data([byteId]).encode(), parameters.encode()].encode()
+            return [Data([byteId]).obvEncode(), parameters.obvEncode()].obvEncode()
         }
     }
     
@@ -91,8 +91,8 @@ extension ObvPushNotificationType: ObvEncodable {
 
 extension ObvPushNotificationParameters: ObvEncodable {
     
-    public func encode() -> ObvEncoded {
-        return [kickOtherDevices, useMultiDevice].encode()
+    public func obvEncode() -> ObvEncoded {
+        return [kickOtherDevices, useMultiDevice].obvEncode()
     }
     
     public static func decode(_ obvEncoded: ObvEncoded) -> ObvPushNotificationParameters? {

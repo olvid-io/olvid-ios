@@ -157,17 +157,23 @@ final class ThumbnailCoordinator {
                 
                 // If we reach this point, no previous thumbnail exists for the fyle. We create it.
                 
-                let completionHandlerForRequestHardLinkToFyle = { [weak self] (hardLinkToFyle: HardLinkToFyle) in
+                let completionHandlerForRequestHardLinkToFyle = { [weak self] (result: Result<HardLinkToFyle, Error>) in
                     guard let _self = self else { return }
-                    _self.createThumbnail(hardLinkToFyle: hardLinkToFyle, size: size, uti: hardLinkToFyle.uti) { (image, isSymbol) in
-                        let thumbnail = Thumbnail(fyleURL: hardLinkToFyle.fyleURL, fileName: hardLinkToFyle.fileName, size: size, image: image, isSymbol: isSymbol)
-                        if !isSymbol {
-                            self?.thumbnails.insert(thumbnail)
+                    switch result {
+                    case .success(let hardLinkToFyle):
+                        _self.createThumbnail(hardLinkToFyle: hardLinkToFyle, size: size, uti: hardLinkToFyle.uti) { (image, isSymbol) in
+                            let thumbnail = Thumbnail(fyleURL: hardLinkToFyle.fyleURL, fileName: hardLinkToFyle.fileName, size: size, image: image, isSymbol: isSymbol)
+                            if !isSymbol {
+                                self?.thumbnails.insert(thumbnail)
+                            }
+                            completionHandler(thumbnail)
                         }
-                        completionHandler(thumbnail)
+                    case .failure(let error):
+                        assertionFailure(error.localizedDescription)
                     }
                 }
-                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement, completionHandler: completionHandlerForRequestHardLinkToFyle).postOnDispatchQueue()
+                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement, completionHandler: completionHandlerForRequestHardLinkToFyle)
+                    .postOnDispatchQueue()
             }
             
         }))

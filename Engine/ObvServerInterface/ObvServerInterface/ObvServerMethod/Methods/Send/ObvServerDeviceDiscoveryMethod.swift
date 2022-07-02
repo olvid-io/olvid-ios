@@ -51,7 +51,7 @@ public final class ObvServerDeviceDiscoveryMethod: ObvServerDataMethod {
     }
     
     lazy public var dataToSend: Data? = {
-        return [self.toIdentity].encode().rawData
+        return [self.toIdentity].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, [UID]?)? {

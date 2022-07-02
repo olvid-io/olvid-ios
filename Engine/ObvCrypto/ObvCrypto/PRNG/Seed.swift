@@ -104,8 +104,8 @@ extension Seed {
         self.init(with: rawSeed)
     }
     
-    public func encode() -> ObvEncoded {
-        return self.raw.encode()
+    public func obvEncode() -> ObvEncoded {
+        return self.raw.obvEncode()
     }
 }
 

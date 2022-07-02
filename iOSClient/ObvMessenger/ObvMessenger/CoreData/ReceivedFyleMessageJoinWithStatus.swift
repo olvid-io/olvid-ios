@@ -40,13 +40,10 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
     private static let entityName = "ReceivedFyleMessageJoinWithStatus"
     private static let fyleKey = "fyle"
-    private static let receivedMessageKey = "receivedMessage"
-    private static let numberFromEngineKey = "numberFromEngine"
 
     // MARK: - Properties
     
     @NSManaged private(set) var downsizedThumbnail: Data?
-    @NSManaged private(set) var numberFromEngine: Int
 
     // MARK: - Computed properties
     
@@ -62,26 +59,33 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
 
     override var fullFileIsAvailable: Bool { status == .complete }
 
+    var fyleElementOfReceivedJoin: FyleElement? {
+        // If the associated received message requires a user interaction to be read, we do *not* return
+        // FyleElement as these are typically used to display the join content on screen.
+        guard !receivedMessage.readingRequiresUserAction else { return nil }
+        return try? FyleElementForFyleMessageJoinWithStatus(self)
+    }
 
     // MARK: - Relationships
     
     @NSManaged private(set) var receivedMessage: PersistedMessageReceived
 
-}
 
-// MARK: - Initializer
-
-extension ReceivedFyleMessageJoinWithStatus {
+    // MARK: - Initializer
     
     // Called when a fyle is already available
     convenience init(metadata: FyleMetadata, obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws {
+
+        guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier,
+                                                                     from: obvAttachment.fromContactIdentity,
+                                                                     within: context) else { throw Self.makeError(message: "Could not find PersistedMessageReceived") }
 
         // Pre-compute a few things
         
         let fyle: Fyle
         do {
             let _fyle = try Fyle.get(sha256: metadata.sha256, within: context)
-            guard _fyle != nil else { throw ReceivedFyleMessageJoinWithStatus.makeError(message: "Could not get Fyle (1)") }
+            guard _fyle != nil else { throw Self.makeError(message: "Could not get Fyle (1)") }
             fyle = _fyle!
         }
 
@@ -101,6 +105,8 @@ extension ReceivedFyleMessageJoinWithStatus {
                   fileName: metadata.fileName,
                   uti: metadata.uti,
                   rawStatus: rawStatus,
+                  messageSortIndex: receivedMessage.sortIndex,
+                  index: obvAttachment.number,
                   fyle: fyle,
                   forEntityName: ReceivedFyleMessageJoinWithStatus.entityName,
                   within: context)
@@ -108,15 +114,16 @@ extension ReceivedFyleMessageJoinWithStatus {
         // Set the remaining properties and relationships
         
         self.downsizedThumbnail = nil
-        self.numberFromEngine = obvAttachment.number
         
-        do {
-            guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier,
-                                                                         from: obvAttachment.fromContactIdentity,
-                                                                         within: context) else { throw makeError(message: "Could not find PersistedMessageReceived") }
-            self.receivedMessage = receivedMessage
-        }
+        self.receivedMessage = receivedMessage
 
+    }
+    
+    
+    override func wipe() throws {
+        try super.wipe()
+        tryToSetStatusTo(.complete)
+        deleteDownsizedThumbnail()
     }
     
 }
@@ -131,15 +138,19 @@ extension ReceivedFyleMessageJoinWithStatus {
         return self.status != .complete || fyle.getFileSize() != self.totalUnitCount
     }
     
+    
     func setDownsizedThumbnailIfRequired(data: Data) {
         assert(self.downsizedThumbnail == nil)
+        guard !isWiped else { assertionFailure(); return }
         guard requiresDownsizedThumbnail else { return }
         self.downsizedThumbnail = data
     }
     
+    
     func deleteDownsizedThumbnail() {
         self.downsizedThumbnail = nil
     }
+    
     
     func tryToSetStatusTo(_ newStatus: FyleStatus) {
         guard self.status != .complete else { return }
@@ -158,11 +169,34 @@ extension ReceivedFyleMessageJoinWithStatus {
 }
 
 
+// MARK: - Determining actions availability
+
+extension ReceivedFyleMessageJoinWithStatus {
+    
+    var copyActionCanBeMadeAvailableForReceivedJoin: Bool {
+        return shareActionCanBeMadeAvailableForReceivedJoin
+    }
+    
+    var shareActionCanBeMadeAvailableForReceivedJoin: Bool {
+        guard status == .complete else { return false }
+        return receivedMessage.shareActionCanBeMadeAvailableForReceivedMessage
+    }
+    
+    var forwardActionCanBeMadeAvailableForReceivedJoin: Bool {
+        return shareActionCanBeMadeAvailableForReceivedJoin
+    }
+    
+}
+
+
 // MARK: - Convenience DB getters
 
 extension ReceivedFyleMessageJoinWithStatus {
     
-    private struct Predicate {
+    struct Predicate {
+        enum Key: String {
+            case receivedMessage = "receivedMessage"
+        }
         static var FyleIsNonNil: NSPredicate {
             NSPredicate(format: "\(ReceivedFyleMessageJoinWithStatus.fyleKey) != NIL")
         }
@@ -174,7 +208,7 @@ extension ReceivedFyleMessageJoinWithStatus {
             ])
         }
         static func forReceivedMessage(_ receivedMessage: PersistedMessageReceived) -> NSPredicate {
-            NSPredicate(format: "\(ReceivedFyleMessageJoinWithStatus.receivedMessageKey) == %@", receivedMessage)
+            NSPredicate(format: "\(Key.receivedMessage.rawValue) == %@", receivedMessage)
         }
     }
 
@@ -204,30 +238,11 @@ extension ReceivedFyleMessageJoinWithStatus {
     
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == NIL", receivedMessageKey)
+        request.predicate = NSPredicate(format: "%K == NIL", Predicate.Key.receivedMessage.rawValue)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         try context.execute(deleteRequest)
     }
 
-}
-
-
-// MARK: - Convenience NSFetchedResultsController creators
-
-extension ReceivedFyleMessageJoinWithStatus {
-    
-    static func getFetchedResultsControllerForReceivedMessage(_ receivedMessage: PersistedMessageReceived) throws -> NSFetchedResultsController<ReceivedFyleMessageJoinWithStatus> {
-        guard let context = receivedMessage.managedObjectContext else { throw makeError(message: "Could not find managed object context") }
-        let fetchRequest: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", receivedMessageKey, receivedMessage)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: numberFromEngineKey, ascending: true)]
-        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
-                                                                  managedObjectContext: context,
-                                                                  sectionNameKeyPath: nil,
-                                                                  cacheName: nil)
-        return fetchedResultsController
-    }
-    
 }
 
 

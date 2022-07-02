@@ -68,8 +68,8 @@ protocol ConcreteProtocolStateId: ObvCodable {
 
 extension ConcreteProtocolStateId {
     
-    func encode() -> ObvEncoded {
-        return self.rawValue.encode()
+    func obvEncode() -> ObvEncoded {
+        return self.rawValue.obvEncode()
     }
     
     init?(_ encoded: ObvEncoded) {

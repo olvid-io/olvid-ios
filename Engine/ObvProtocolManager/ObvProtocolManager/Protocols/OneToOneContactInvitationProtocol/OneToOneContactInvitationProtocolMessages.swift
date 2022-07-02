@@ -79,13 +79,13 @@ extension OneToOneContactInvitationProtocol {
             self.contactIdentity = contactIdentity
         }
 
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
 
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
 
     }
@@ -109,7 +109,7 @@ extension OneToOneContactInvitationProtocol {
             self.cancelInvitation = false
         }
 
-        var encodedInputs: [ObvEncoded] { return [cancelInvitation.encode()] }
+        var encodedInputs: [ObvEncoded] { return [cancelInvitation.obvEncode()] }
 
         // Init when receiving this message
         
@@ -119,7 +119,7 @@ extension OneToOneContactInvitationProtocol {
                 assertionFailure()
                 throw Self.makeError(message: "Could not get encoded user dialog response")
             }
-            self.cancelInvitation = try encodedUserDialogResponse.decode()
+            self.cancelInvitation = try encodedUserDialogResponse.obvDecode()
             assert(self.cancelInvitation) // The only reason for this protocol to receive this message is to cancel an invitation sent.
         }
 
@@ -172,13 +172,13 @@ extension OneToOneContactInvitationProtocol {
             self.contactIdentity = contactIdentity
         }
 
-        var encodedInputs: [ObvEncoded] { return [contactIdentity.encode()] }
+        var encodedInputs: [ObvEncoded] { return [contactIdentity.obvEncode()] }
 
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
 
     }
@@ -204,7 +204,7 @@ extension OneToOneContactInvitationProtocol {
             dialogUuid = UUID() // Not used
         }
 
-        var encodedInputs: [ObvEncoded] { return [invitationAccepted.encode()] }
+        var encodedInputs: [ObvEncoded] { return [invitationAccepted.obvEncode()] }
 
         // Init when receiving this message
         
@@ -214,7 +214,7 @@ extension OneToOneContactInvitationProtocol {
                 assertionFailure()
                 throw Self.makeError(message: "Could not get encoded user dialog response")
             }
-            invitationAccepted = try encodedUserDialogResponse.decode()
+            invitationAccepted = try encodedUserDialogResponse.obvDecode()
             guard let userDialogUuid = message.userDialogUuid else {
                 assertionFailure()
                 throw Self.makeError(message: "Could not get dialog UUID")
@@ -245,14 +245,14 @@ extension OneToOneContactInvitationProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            return [invitationAccepted.encode()]
+            return [invitationAccepted.obvEncode()]
         }
 
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            self.invitationAccepted = try message.encodedInputs.decode()
+            self.invitationAccepted = try message.encodedInputs.obvDecode()
         }
         
     }
@@ -277,14 +277,14 @@ extension OneToOneContactInvitationProtocol {
         }
 
         var encodedInputs: [ObvEncoded] {
-            return [invitationAccepted.encode()]
+            return [invitationAccepted.obvEncode()]
         }
 
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            self.invitationAccepted = try message.encodedInputs.decode()
+            self.invitationAccepted = try message.encodedInputs.obvDecode()
         }
 
     }
@@ -409,7 +409,7 @@ extension OneToOneContactInvitationProtocol {
             self.contactsToSync = contactsToSync
         }
 
-        var encodedInputs: [ObvEncoded] { return contactsToSync.map({ $0.encode() }) }
+        var encodedInputs: [ObvEncoded] { return contactsToSync.map({ $0.obvEncode() }) }
 
         // Init when receiving this message
         
@@ -443,13 +443,13 @@ extension OneToOneContactInvitationProtocol {
             self.aliceConsidersBobAsOneToOne = aliceConsidersBobAsOneToOne
         }
 
-        var encodedInputs: [ObvEncoded] { return [aliceConsidersBobAsOneToOne.encode()] }
+        var encodedInputs: [ObvEncoded] { return [aliceConsidersBobAsOneToOne.obvEncode()] }
 
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            self.aliceConsidersBobAsOneToOne = try message.encodedInputs.decode()
+            self.aliceConsidersBobAsOneToOne = try message.encodedInputs.obvDecode()
         }
         
     }

@@ -39,10 +39,10 @@ extension Dictionary: ObvDecodable where Key == Data, Value == ObvEncoded {
 
 extension Dictionary where Key == Data, Value == ObvEncoded {
 
-    public func encode() -> ObvEncoded {
+    public func obvEncode() -> ObvEncoded {
         var listToPack = [ObvEncoded]()
         for (data, encodedValue) in self {
-            listToPack.append(data.encode())
+            listToPack.append(data.obvEncode())
             listToPack.append(encodedValue)
         }
         return ObvEncoded.pack(listToPack, usingByteId: .dictionary)
@@ -53,9 +53,9 @@ extension Dictionary where Key == Data, Value == ObvEncoded {
 // This extension leverages the previous one
 extension Dictionary: ObvEncodable where Key == Data, Value == ObvEncodable {
     
-    public func encode() -> ObvEncoded {
-        let obvDict = self.mapValues { $0.encode() }
-        return obvDict.encode()
+    public func obvEncode() -> ObvEncoded {
+        let obvDict = self.mapValues { $0.obvEncode() }
+        return obvDict.obvEncode()
     }
     
 }

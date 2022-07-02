@@ -43,7 +43,7 @@ class PersistedInvitation: NSManagedObject {
         }
         set {
             guard let newValue = newValue else { assertionFailure(); return }
-            kvoSafeSetPrimitiveValue(newValue.encode().rawData, forKey: Predicate.Key.encodedObvDialog.rawValue)
+            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: Predicate.Key.encodedObvDialog.rawValue)
         }
     }
     @NSManaged private var rawStatus: Int

@@ -259,14 +259,14 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         let contactIdentity: ObvCryptoIdentity
 
         var encodedInputs: [ObvEncoded] {
-            return [contactIdentity.encode()]
+            return [contactIdentity.obvEncode()]
         }
         
         // Initializers
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            contactIdentity = try message.encodedInputs.decode()
+            contactIdentity = try message.encodedInputs.obvDecode()
         }
         
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity) {
@@ -331,7 +331,7 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         
         init(_ obvEncoded: ObvEncoded) throws {
             do {
-                contactIdentity = try obvEncoded.decode()
+                contactIdentity = try obvEncoded.obvDecode()
             } catch let error {
                 throw error
             }
@@ -341,8 +341,8 @@ extension DeviceDiscoveryForContactIdentityProtocol {
             self.contactIdentity = contactIdentity
         }
         
-        func encode() -> ObvEncoded {
-            return contactIdentity.encode()
+        func obvEncode() -> ObvEncoded {
+            return contactIdentity.obvEncode()
         }
     }
 
@@ -354,7 +354,7 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
     
     struct CancelledState: TypeConcreteProtocolState {
@@ -365,7 +365,7 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         
         init() {}
         
-        func encode() -> ObvEncoded { return 0.encode() }
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

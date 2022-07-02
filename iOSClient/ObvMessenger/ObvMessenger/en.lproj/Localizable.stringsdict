@@ -282,5 +282,23 @@
             <string>%u selected</string>
         </dict>
     </dict>
+    <key>NUMBER_OF_ITEMS_SELECTED</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@Variable@</string>
+        <key>Variable</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>u</string>
+            <key>zero</key>
+            <string>Choose items</string>
+            <key>one</key>
+            <string>1 item selected</string>
+            <key>other</key>
+            <string>%u items selected</string>
+        </dict>
+    </dict>
 </dict>
 </plist>

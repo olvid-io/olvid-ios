@@ -92,7 +92,7 @@ class ProtocolInstance: NSManagedObject, ObvManagedObject {
         self.init(entity: entityDescription, insertInto: obvContext)
         self.cryptoProtocolId = cryptoProtocolId
         self.currentStateRawId = initialState.rawId
-        self.encodedCurrentState = initialState.encode()
+        self.encodedCurrentState = initialState.obvEncode()
         self.ownedCryptoIdentity = ownedCryptoIdentity
         self.uid = protocolInstanceUid
         self.delegateManager = delegateManager
@@ -107,7 +107,7 @@ extension ProtocolInstance {
     
     
     func updateCurrentState(with state: ConcreteProtocolState) {
-        self.encodedCurrentState = state.encode()
+        self.encodedCurrentState = state.obvEncode()
         self.currentStateRawId = state.rawId
     }
 }

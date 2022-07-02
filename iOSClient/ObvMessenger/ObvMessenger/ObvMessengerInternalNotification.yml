@@ -15,10 +15,6 @@ notifications:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: sortIndex, type: Double}
   - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-#- name: appDelegateLifecycleNotification
-#  params:
-#  - {name: previousStatus, type: AppDelegateLifecycle.AppDelegateStatus}
-#  - {name: currentStatus, type: AppDelegateLifecycle.AppDelegateStatus}
 - name: userWantsToRefreshContactGroupJoined
   params:
   - {name: obvContactGroup, type: ObvContactGroup}
@@ -138,7 +134,7 @@ notifications:
   - {name: completionHandler, type: ((Thumbnail) -> Void), escaping: true}
 - name: persistedMessageReceivedWasRead
   params:
-  - {name: persistedMessageReceivedObjectID, type: NSManagedObjectID}
+  - {name: persistedMessageReceivedObjectID, type: TypeSafeManagedObjectID<PersistedMessageReceived>}
 - name: userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration
   params:
   - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
@@ -246,7 +242,7 @@ notifications:
 - name: requestHardLinkToFyle
   params:
   - {name: fyleElement, type: FyleElement}
-  - {name: completionHandler, type: "((HardLinkToFyle) -> Void)", escaping: true}
+  - {name: completionHandler, type: "((Result<HardLinkToFyle,Error>) -> Void)", escaping: true}
 - name: requestAllHardLinksToFyles
   params:
   - {name: fyleElements, type: [FyleElement]}
@@ -289,6 +285,8 @@ notifications:
   - {name: ownedCryptoId, type: ObvCryptoId}
 - name: cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
 - name: needToRecomputeAllBadges
+  params:
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
 - name: userWantsToDisplayContactIntroductionScreen
   params:
   - {name: contactObjectID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
@@ -379,3 +377,6 @@ notifications:
   - {name: persistedContactObjectID, type: NSManagedObjectID}
   - {name: messageIdentifierFromEngine, type: Data}
   - {name: completionHandler, type: (Bool) -> Void, escaping: true}
+- name: userWantsToWipeFyleMessageJoinWithStatus
+  params:
+  - {name: objectIDs, type: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>}

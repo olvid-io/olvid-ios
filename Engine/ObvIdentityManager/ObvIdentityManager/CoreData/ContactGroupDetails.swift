@@ -58,7 +58,7 @@ class ContactGroupDetails: NSManagedObject, ObvManagedObject {
             return PhotoServerKeyAndLabel(key: key, label: label)
         }
         set {
-            self.photoServerKeyEncoded = newValue?.key.encode().rawData
+            self.photoServerKeyEncoded = newValue?.key.obvEncode().rawData
             self.photoServerLabel = newValue?.label
         }
     }
@@ -87,7 +87,7 @@ extension ContactGroupDetails {
         self.init(entity: entityDescription, insertInto: obvContext)
         self.photoServerKeyAndLabel = groupDetailsElementsWithPhoto.photoServerKeyAndLabel
         try setGroupPhoto(with: groupDetailsElementsWithPhoto.photoURL, delegateManager: delegateManager)
-        self.serializedCoreDetails = try groupDetailsElementsWithPhoto.coreDetails.encode()
+        self.serializedCoreDetails = try groupDetailsElementsWithPhoto.coreDetails.jsonEncode()
         self.version = groupDetailsElementsWithPhoto.version
         try notifyThatThePhotoURLDidChange(within: obvContext, notificationDelegate: notificationDelegate)
     }
