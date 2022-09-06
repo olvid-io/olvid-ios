@@ -77,8 +77,11 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 } catch {
                     return cancel(withReason: .coreDataError(error: error))
                 }
-                guard discussion is PersistedGroupDiscussion else {
+                switch try? discussion.kind {
+                case .oneToOne, .none:
                     return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                case .groupV1:
+                    break
                 }
                 do {
                     _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalCallLogItem: nil, discussion: discussion)
@@ -119,8 +122,17 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 assertionFailure("Not implemented")
             case .updatedDiscussionSharedSettings:
                 assertionFailure("Not implemented")
+            case .notPartOfTheGroupAnymore:
+                assertionFailure("Not implemented")
+            case .rejoinedGroup:
+                assertionFailure("Not implemented")
+            case .contactIsOneToOneAgain:
+                assertionFailure("Not implemented")
             case .discussionWasRemotelyWiped:
-                guard discussion is PersistedOneToOneDiscussion || discussion is PersistedGroupDiscussion else {
+                switch discussion.status {
+                case .active:
+                    break
+                case .preDiscussion, .locked:
                     return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
                 }
                 guard let contactIdentityObjectID = optionalContactIdentityObjectID else {

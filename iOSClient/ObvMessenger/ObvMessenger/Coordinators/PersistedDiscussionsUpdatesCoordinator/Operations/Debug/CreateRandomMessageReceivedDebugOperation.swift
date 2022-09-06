@@ -55,16 +55,17 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                 try? PersistedDiscussion.insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: discussion.objectID, markAsRead: true, within: obvContext.context)
 
                 let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
-                if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-                    guard let contactGroup = groupDiscussion.contactGroup else {
+                switch try discussion.kind {
+                case .oneToOne:
+                    groupId = nil
+                case .groupV1(withContactGroup: let contactGroup):
+                    guard let contactGroup = contactGroup else {
                         return cancel(withReason: .internalError)
                     }
                     guard let groupOwner = try? ObvCryptoId(identity: contactGroup.ownerIdentity) else {
                         return cancel(withReason: .internalError)
                     }
                     groupId = (contactGroup.groupUid, groupOwner)
-                } else {
-                    groupId = nil
                 }
                 
                 let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
@@ -75,7 +76,8 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                                               body: randomBody,
                                               groupId: groupId,
                                               replyTo: nil,
-                                              expiration: nil)
+                                              expiration: nil,
+                                              forwarded: false)
                 
                 let randomMessageIdentifierFromEngine = UID.gen(with: prng).raw
 
@@ -101,11 +103,12 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
     }
     
     private func chooseRandomContact(from discussion: PersistedDiscussion) -> PersistedObvContactIdentity? {
-        if let one2oneDiscussion = discussion as? PersistedOneToOneDiscussion {
-            return one2oneDiscussion.contactIdentity
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            return groupDiscussion.contactGroup?.contactIdentities.randomElement()
-        } else {
+        switch try? discussion.kind {
+        case .oneToOne(withContactIdentity: let contactIdentity):
+            return contactIdentity
+        case .groupV1(withContactGroup: let contactGroup):
+            return contactGroup?.contactIdentities.randomElement()
+        case .none:
             return nil
         }
     }

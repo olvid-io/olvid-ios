@@ -39,10 +39,6 @@ notifications:
 - name: outboxMessagesAndAllTheirAttachmentsWereAcknowledged
   params:
       - {name: messageIdsAndTimestampsFromServer, type: "[(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]"}
-- name: inboxAttachmentNewProgress
-  params:
-      - {name: obvAttachment, type: ObvAttachment}
-      - {name: newProgress, type: Progress}
 - name: callerTurnCredentialsReceived
   params:
       - {name: ownedIdentity, type: ObvCryptoId}
@@ -75,11 +71,6 @@ notifications:
   params:
       - {name: messageIdentifierFromEngine, type: Data}
       - {name: attachmentNumber, type: Int}
-- name: attachmentUploadNewProgress
-  params:
-      - {name: messageIdentifierFromEngine, type: Data}
-      - {name: attachmentNumber, type: Int}
-      - {name: newProgress, type: Progress}
 - name: attachmentDownloadCancelledByServer
   params:
       - {name: obvAttachment, type: ObvAttachment}
@@ -89,6 +80,16 @@ notifications:
 - name: attachmentDownloaded
   params:
       - {name: obvAttachment, type: ObvAttachment}
+- name: attachmentDownloadWasResumed
+  params:
+      - {name: ownCryptoId, type: ObvCryptoId}
+      - {name: messageIdentifierFromEngine, type: Data}
+      - {name: attachmentNumber, type: Int}
+- name: attachmentDownloadWasPaused
+  params:
+      - {name: ownCryptoId, type: ObvCryptoId}
+      - {name: messageIdentifierFromEngine, type: Data}
+      - {name: attachmentNumber, type: Int}
 - name: newObvReturnReceiptToProcess
   params:
       - {name: obvReturnReceipt, type: ObvReturnReceipt}

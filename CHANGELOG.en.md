@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.10.3 (533)] - 2022-06-29
+
+- It is now possible to customize the alert sound for message notifications. You should definitively try our very exclusive, never heard before, unprecedented polyphonic sounds :-)
+- You can now easily forward any message to one or more discussions!
+- Improves the reliability of the progress bars when sending and receiving attachments.
+- Improves the responsiveness of the download and pause buttons on received attachments.
+- While listening to a voice message, you can now switch between the internal or the external speaker.
+- In addition to the media gallery, you can now browse through all the documents of a discussion!
+- When leaving a group and joining it again later on, the "old" discussion is reactivated (instead of creating a new one), allowing to continue the discussion where you left it.
+- The former is also true for a one-to-one discussion with a contact that you remove from your contacts and add back later.
+- When sharing a screenshot using Olvid, the discussion screen would not always show a big preview of the image. This is fixed.
+- The file previewer would sometimes allow sharing of ephemeral attachments. This is fixed.
+- Fixes a few bugs where contact images would not always show properly.
+- Fixes occasional rotation issues when setting a profile picture.
+- Fixes an issue potentially preventing messages to be sent.
+- Fixes multiple issues with the "delete for all" functionality.
+- Fixes a bug where tapping an attachment in a discussion could show another attachment of the message.
+- Improves the efficiency of messages downloads.
+- The mute switch of the call screen is now clearer.
+
 ## [0.10.2 (519)] - 2022-05-01
 
 - Want to see a nice view of all the photos and videos received in a discussion? Try the new gallery, available via the top right button of any discussion screen.

@@ -72,7 +72,7 @@ final class ApplyPendingReactionsOperation: ContextualOperationWithSpecificReaso
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {
                     return cancel(withReason: .couldNotFindDiscussion)

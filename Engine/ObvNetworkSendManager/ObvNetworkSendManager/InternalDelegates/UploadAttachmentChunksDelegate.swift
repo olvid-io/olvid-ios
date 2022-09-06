@@ -30,7 +30,7 @@ protocol UploadAttachmentChunksDelegate {
     func resumeMissingAttachmentUploads(flowId: FlowIdentifier)
     func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier identifer: String, withinFlowId flowId: FlowIdentifier)
     func cleanExistingOutboxAttachmentSessionsCreatedBy(_ creatorAppType: AppType, flowId: FlowIdentifier)
-    func requestProgressOfAttachment(withIdentifier attachmentId: AttachmentIdentifier) -> Progress?
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float]
     func queryServerOnSessionsTasksCreatedByShareExtension(flowId: FlowIdentifier)
     func cancelAllAttachmentsUploadOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) throws
 

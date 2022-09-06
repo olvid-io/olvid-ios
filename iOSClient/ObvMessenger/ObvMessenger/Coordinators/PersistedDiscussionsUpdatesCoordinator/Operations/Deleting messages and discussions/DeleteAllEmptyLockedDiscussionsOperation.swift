@@ -35,14 +35,14 @@ final class DeleteAllEmptyLockedDiscussionsOperation: ContextualOperationWithSpe
         
         obvContext.performAndWait {
 
-            let persistedDiscussionGroupLockedWithNoMessage: [PersistedDiscussionGroupLocked]
+            let persistedDiscussionLockedWithNoMessage: [PersistedDiscussion]
             do {
-                persistedDiscussionGroupLockedWithNoMessage = try PersistedDiscussionGroupLocked.getAllWithNoMessage(within: obvContext.context)
+                persistedDiscussionLockedWithNoMessage = try PersistedDiscussion.getAllLockedWithNoMessage(within: obvContext.context)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
-            guard !persistedDiscussionGroupLockedWithNoMessage.isEmpty else { return }
-            for discussion in persistedDiscussionGroupLockedWithNoMessage {
+            guard !persistedDiscussionLockedWithNoMessage.isEmpty else { return }
+            for discussion in persistedDiscussionLockedWithNoMessage {
                 do {
                     try discussion.delete()
                 } catch {

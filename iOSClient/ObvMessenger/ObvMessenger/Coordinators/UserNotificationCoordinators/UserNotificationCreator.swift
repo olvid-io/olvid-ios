@@ -72,6 +72,8 @@ struct UserNotificationCreator {
             if #available(iOS 15.0, *) {
                 sendMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, showGroupName: true, urlForStoringPNGThumbnail: nil)
             }
+
+            setNotificationSound(discussion: discussion, notificationContent: notificationContent)
             
         case .partially:
 
@@ -158,8 +160,11 @@ struct UserNotificationCreator {
             }
 
             notificationContent.title = contact.customOrFullDisplayName
-            if discussion is PersistedGroupDiscussion {
+            switch try? discussion.kind {
+            case .groupV1:
                 notificationContent.subtitle = discussion.title
+            case .oneToOne, .none:
+                break
             }
             if body == nil || body!.isEmpty {
                 if attachmentsFileNames.count == 1 {
@@ -188,6 +193,8 @@ struct UserNotificationCreator {
             if #available(iOS 15.0, *) {
                 incomingMessageIntent = buildSendMessageIntent(notificationContent: notificationContent, contact: contact, discussion: discussion, showGroupName: true, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             }
+
+            setNotificationSound(discussion: discussion, notificationContent: notificationContent)
 
         case .partially:
 
@@ -230,12 +237,15 @@ struct UserNotificationCreator {
         guard let ownedIdentity = contact.ownedIdentity else { return nil }
         var recipients = [ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)]
         var speakableGroupName: INSpeakableString?
-        if showGroupName, let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            if let contactIdentities = groupDiscussion.contactGroup?.contactIdentities {
+        switch try? discussion.kind {
+        case .oneToOne, .none:
+            break
+        case .groupV1(withContactGroup: let contactGroup):
+            if let contactIdentities = contactGroup?.contactIdentities, showGroupName {
                 for contact in contactIdentities {
                     recipients += [contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)]
                 }
-                speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
+                speakableGroupName = INSpeakableString(spokenPhrase: discussion.title)
             }
         }
 
@@ -251,8 +261,13 @@ struct UserNotificationCreator {
             serviceName: nil,
             sender: person,
             attachments: nil)
-        if let contactGroup = (discussion as? PersistedGroupDiscussion)?.contactGroup {
-            intent.setImage(contactGroup.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide), forParameterNamed: \.speakableGroupName)
+        switch try? discussion.kind {
+        case .oneToOne, .none:
+            break
+        case .groupV1(withContactGroup: let contactGroup):
+            if let contactGroup = contactGroup {
+                intent.setImage(contactGroup.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide), forParameterNamed: \.speakableGroupName)
+            }
         }
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .incoming
@@ -487,6 +502,7 @@ struct UserNotificationCreator {
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = discussion.objectID.uriRepresentation().absoluteString
 
+            setNotificationSound(discussion: discussion, notificationContent: notificationContent)
 
         case .partially:
             notificationId = .newReactionNotificationWithHiddenContent
@@ -498,6 +514,7 @@ struct UserNotificationCreator {
             let deepLink = ObvDeepLink.message(messageObjectURI: message.objectID.uriRepresentation())
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
+
         case .completely:
 
             // In that case, we keep the "minimal" notification content created earlier.
@@ -525,6 +542,30 @@ struct UserNotificationCreator {
             notificationContent.categoryIdentifier = category.identifier
         }
         notificationContent.userInfo[UserNotificationKeys.id] = notificationId.id.rawValue
+    }
+
+    private static func setNotificationSound(discussion: PersistedDiscussion, notificationContent: UNMutableNotificationContent) {
+        discussion.managedObjectContext?.performAndWait {
+
+            if let notificationSound = discussion.localConfiguration.notificationSound ?? ObvMessengerSettings.Discussions.notificationSound {
+                switch notificationSound {
+                case .none:
+                    notificationContent.sound = nil
+                case .system:
+                    break
+                default:
+                    guard let filename = notificationSound.filename else {
+                        assertionFailure(); break
+                    }
+                    if notificationSound.isPolyphonic {
+                        let note = Note.generateNote(from: notificationContent.body)
+                        notificationContent.sound = UNNotificationSound(named: UNNotificationSoundName(rawValue: filename + note.index + ".caf"))
+                    } else {
+                        notificationContent.sound = UNNotificationSound(named: UNNotificationSoundName(rawValue: filename))
+                    }
+                }
+            }
+        }
     }
     
 }

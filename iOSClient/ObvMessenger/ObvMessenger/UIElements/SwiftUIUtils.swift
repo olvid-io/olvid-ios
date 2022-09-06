@@ -56,6 +56,24 @@ extension View {
             self
         }
     }
+
+    @ViewBuilder
+    public func bottomListRowSeparatorTint(_ condition: Bool, _ color: Color?) -> some View {
+        if #available(iOS 15.0, *), condition {
+            self.listRowSeparatorTint(color, edges: .bottom)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    public func obvNavigationTitle(_ title: Text) -> some View {
+        if #available(iOS 14.0, *) {
+            self.navigationTitle(title)
+        } else {
+            self
+        }
+    }
 }
 
 
@@ -79,7 +97,6 @@ struct DottedCircle: View {
     }
 }
 
-@available(iOS 13.0, *)
 struct Positions: PreferenceKey {
     static var defaultValue: [String: Anchor<CGPoint>] = [:]
     static func reduce(value: inout [String: Anchor<CGPoint>], nextValue: () -> [String: Anchor<CGPoint>]) {
@@ -88,7 +105,6 @@ struct Positions: PreferenceKey {
     }
 }
 
-@available(iOS 13.0, *)
 struct PositionReader: View {
     let tag: String
     var body: some View {
@@ -99,7 +115,6 @@ struct PositionReader: View {
     }
 }
 
-@available(iOS 13.0, *)
 extension Task where Success == Never, Failure == Never {
     static func sleep(seconds: Double) async throws {
         let duration = UInt64(seconds * 1_000_000_000)

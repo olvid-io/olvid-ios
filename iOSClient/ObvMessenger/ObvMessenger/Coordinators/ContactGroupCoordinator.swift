@@ -455,7 +455,9 @@ extension ContactGroupCoordinator {
             
             let persistedGroupDiscussion = group.discussion
             
-            guard PersistedDiscussionGroupLocked(persistedGroupDiscussionToLock: persistedGroupDiscussion) != nil else {
+            do {
+                try persistedGroupDiscussion.setStatus(to: .locked)
+            } catch {
                 os_log("Could not lock the persisted group discussion", log: log, type: .error)
                 return
             }

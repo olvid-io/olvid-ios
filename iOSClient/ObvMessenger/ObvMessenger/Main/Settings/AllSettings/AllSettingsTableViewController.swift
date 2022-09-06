@@ -69,7 +69,7 @@ class AllSettingsTableViewController: UITableViewController {
         var isAvailable: Bool {
             switch self {
             case .voip: return ObvMessengerConstants.developmentMode || ObvMessengerConstants.isTestFlight || ObvMessengerSettings.BetaConfiguration.showBetaSettings
-            case .advanced: if #available(iOS 13, *) { return true } else { return false }
+            case .advanced: return true
             default: return true
             }
         }

@@ -207,10 +207,8 @@ extension AdvancedSettingsViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         switch indexPath.section {
         case 0:
-            if #available(iOS 13, *) {
-                LPMetadataProvider.removeCachedURLMetadata(olderThan: Date())
-                tableView.deselectRow(at: indexPath, animated: true)
-            }
+            LPMetadataProvider.removeCachedURLMetadata(olderThan: Date())
+            tableView.deselectRow(at: indexPath, animated: true)
         case 1:
             break
         case 2:
@@ -245,11 +243,9 @@ extension AdvancedSettingsViewController {
                 return
             }
         case 4:
-            if #available(iOS 13, *) {
-                let vc = DisplayableLogsHostingViewController()
-                present(vc, animated: true) {
-                    tableView.deselectRow(at: indexPath, animated: true)
-                }
+            let vc = DisplayableLogsHostingViewController()
+            present(vc, animated: true) {
+                tableView.deselectRow(at: indexPath, animated: true)
             }
         default:
             return

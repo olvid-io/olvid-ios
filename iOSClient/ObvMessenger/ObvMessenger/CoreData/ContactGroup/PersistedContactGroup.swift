@@ -118,6 +118,17 @@ class PersistedContactGroup: NSManagedObject {
     var sortedContactIdentities: [PersistedObvContactIdentity] {
         contactIdentities.sorted(by: { $0.sortDisplayName < $1.sortDisplayName })
     }
+    
+    
+    func hasAtLeastOneRemoteContactDevice() -> Bool {
+        for contact in self.contactIdentities {
+            if !contact.devices.isEmpty {
+                return true
+            }
+        }
+        return false
+    }
+
 }
 
 
@@ -165,8 +176,19 @@ extension PersistedContactGroup {
 
         let _contactIdentities = try contactGroup.groupMembers.compactMap { try PersistedObvContactIdentity.get(persisted: $0, whereOneToOneStatusIs: .any, within: context) }
         self.contactIdentities = Set(_contactIdentities)
-        let discussion = try PersistedGroupDiscussion(contactGroup: self, groupName: groupName, ownedIdentity: ownedIdentity)
-        self.discussion = discussion
+        
+        if let discussion = try PersistedGroupDiscussion.getWithGroupUID(contactGroup.groupUid,
+                                                                         groupOwnerCryptoId: contactGroup.groupOwner.cryptoId,
+                                                                         ownedCryptoId: ownedIdentity.cryptoId,
+                                                                         within: context) {
+            try discussion.setStatus(to: .active)
+            self.discussion = discussion
+        } else {
+            self.discussion = try PersistedGroupDiscussion(contactGroup: self,
+                                                           groupName: groupName,
+                                                           ownedIdentity: ownedIdentity,
+                                                           status: .active)
+        }
         self.rawOwnedIdentityIdentity = ownedIdentity.cryptoId.getIdentity()
         self.ownedIdentity = ownedIdentity
         let _pendingMembers = try contactGroup.pendingGroupMembers.compactMap { try PersistedPendingGroupMember(genericIdentity: $0, contactGroup: self) }

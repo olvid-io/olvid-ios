@@ -86,10 +86,6 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
     func markAsComplete() {
         tryToSetStatusTo(.complete)
-        let objectID = self.objectID
-        DispatchQueue.main.async {
-            FyleMessageJoinWithStatus.progressesForAttachment.removeValue(forKey: objectID)
-        }
     }
     
 
@@ -105,7 +101,7 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
 
         // Call the superclass initializer
 
-        self.init(totalUnitCount: fyle.getFileSize() ?? 0,
+        self.init(totalByteCount: fyle.getFileSize() ?? 0,
                   fileName: fyleJoin.fileName,
                   uti: fyleJoin.uti,
                   rawStatus: FyleStatus.uploadable.rawValue,
@@ -132,6 +128,12 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     func tryToSetStatusTo(_ newStatus: FyleStatus) {
         guard self.status != .complete else { return }
         self.rawStatus = newStatus.rawValue
+        if self.status == .complete {
+            let joinObjectID = (self as FyleMessageJoinWithStatus).typedObjectID
+            Task {
+                await FyleMessageJoinWithStatus.removeProgressForJoinWithObjectID(joinObjectID)
+            }
+        }
     }
 
 }

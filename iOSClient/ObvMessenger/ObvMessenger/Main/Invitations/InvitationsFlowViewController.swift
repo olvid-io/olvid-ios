@@ -47,14 +47,9 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
         
         vc.title = CommonString.Word.Invitations
         
-        if #available(iOS 13, *) {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "tray.and.arrow.down", withConfiguration: symbolConfiguration)
-            vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-        } else {
-            let iconImage = UIImage(named: "tabbar_icon_invitations")
-            vc.tabBarItem = UITabBarItem(title: CommonString.Word.Invitations, image: iconImage, tag: 0)
-        }
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "tray.and.arrow.down", withConfiguration: symbolConfiguration)
+        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
         
         vc.delegate = ObvUserActivitySingleton.shared
 
@@ -76,10 +71,9 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
     
     override init(rootViewController: UIViewController) {
         super.init(rootViewController: rootViewController)
-
-        observePersistedDiscussionWasLockedNotifications()
     }
-        
+
+    
     // Required in order to prevent a crash under iOS 12
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -91,13 +85,6 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
-    func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
-            guard let _self = self else { return }
-            _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
-        })
-    }
-    
 }
 
 // MARK: - Lifecycle
@@ -107,11 +94,9 @@ extension InvitationsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            navigationBar.standardAppearance = appearance
-        }
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        navigationBar.standardAppearance = appearance
 
     }
     

@@ -162,6 +162,10 @@ fileprivate extension PersistedDiscussionLocalConfiguration {
 
     var _muteNotificationsDuration: MuteDurationOption? { nil }
 
+    var _notificationSound: OptionalNotificationSound {
+        OptionalNotificationSound(notificationSound)
+    }
+
 }
 
 extension PersistedDiscussionSharedConfiguration {
@@ -298,6 +302,9 @@ struct DiscussionExpirationSettingsWrapperView: View {
             defaultEmoji: ValueWithBinding(
                 localConfiguration, \.defaultEmoji) {
                     PersistedDiscussionLocalConfigurationValue.defaultEmoji(emoji: $0).sendUpdateRequestNotifications(with: $1) },
+            notificationSound: ValueWithBinding(
+                localConfiguration, \._notificationSound) {
+                    PersistedDiscussionLocalConfigurationValue.notificationSound($0.value).sendUpdateRequestNotifications(with: $1) },
             sharedConfigCanBeModified: model.sharedConfigCanBeModified,
             dismissAction: model.dismissAction)
     }
@@ -322,6 +329,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let muteNotificationsEndDate: Date?
     let muteNotificationsDuration: ValueWithBinding<PersistedDiscussionLocalConfiguration, MuteDurationOption?>
     let defaultEmoji: ValueWithBinding<PersistedDiscussionLocalConfiguration, String?>
+    let notificationSound: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalNotificationSound>
 
     let sharedConfigCanBeModified: Bool
     var dismissAction: (Bool?) -> Void
@@ -410,6 +418,25 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                     }
                     if #available(iOS 15.0, *) {
                         ChangeDefaultEmojiView(defaultEmoji: defaultEmoji.binding)
+                    }
+                    Section {
+                        NotificationSoundPicker(selection: notificationSound.binding, showDefault: true) { sound -> Text in
+                            switch sound {
+                            case .none:
+                                if let globalNotificationSound = ObvMessengerSettings.Discussions.notificationSound {
+                                    return Text("\(CommonString.Word.Default) (\(globalNotificationSound.description))")
+                                } else {
+                                    return Text("\(CommonString.Word.Default) (_\(CommonString.Title.systemSound)_)")
+                                }
+                            case .some(let sound):
+                                if sound == .system {
+                                    return Text(sound.description)
+                                        .italic()
+                                } else {
+                                    return Text(sound.description)
+                                }
+                            }
+                        }
                     }
                 }
                 /* RETENTION SETTINGS */
@@ -649,6 +676,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 muteNotificationsEndDate: nil,
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
                 defaultEmoji: ValueWithBinding(constant: nil),
+                notificationSound: ValueWithBinding(constant: .none),
                 sharedConfigCanBeModified: true,
                 dismissAction: { _ in })
             DiscussionExpirationSettingsView(
@@ -667,6 +695,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 muteNotificationsEndDate: Date.distantFuture,
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
                 defaultEmoji: ValueWithBinding(constant: nil),
+                notificationSound: ValueWithBinding(constant: .some(.busy)),
                 sharedConfigCanBeModified: false,
                 dismissAction: { _ in })
         }
@@ -682,6 +711,11 @@ struct ObvLabel: View {
     init(_ title: LocalizedStringKey, systemImage: String) {
         self.title = title
         self.systemImage = systemImage
+    }
+
+    init(_ title: LocalizedStringKey, systemIcon: ObvSystemIcon) {
+        self.title = title
+        self.systemImage = systemIcon.systemName
     }
 
     var body: some View {

@@ -86,7 +86,7 @@ class SingleOwnedIdentityFlowViewController: UIViewController {
     
     private func userWantsToEditOwnedIdentity() {
         assert(Thread.isMainThread)
-        editedOwnedIdentity = SingleIdentity(ownedIdentity: ownedIdentity, editionMode: .picture)
+        editedOwnedIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
         let view = EditSingleOwnedIdentityNavigationView(editionType: .edition, singleIdentity: editedOwnedIdentity!, userConfirmedPublishAction: userWantsToPublishEditedOwnedIdentity, dismissAction: userWantsToDismissEditSingleIdentityView)
         let vc = UIHostingController(rootView: view)
         present(vc, animated: true)

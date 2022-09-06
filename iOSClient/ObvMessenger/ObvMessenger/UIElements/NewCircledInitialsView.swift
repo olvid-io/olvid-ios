@@ -19,6 +19,76 @@
 
 import UIKit
 
+enum CircledInitialsIcon: Hashable {
+    case lockFill
+    case person
+    case person3Fill
+    case personFillXmark
+
+    var icon: ObvSystemIcon {
+        switch self {
+        case .lockFill: return .lockFill
+        case .person: return .person
+        case .person3Fill: return .person3Fill
+        case .personFillXmark: return .personFillXmark
+        }
+    }
+}
+
+enum CircledInitialsConfiguration: Hashable {
+    case contact(initial: String, photoURL: URL?, showGreenShield: Bool, showRedShield: Bool, colors: (background: UIColor, text: UIColor))
+    case group(photoURL: URL?, colors: (background: UIColor, text: UIColor))
+    case icon(_ icon: CircledInitialsIcon)
+
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .contact(initial: let initial, photoURL: let photoURL, showGreenShield: let showGreenShield, showRedShield: let showRedShield, colors: let colors):
+            hasher.combine(initial)
+            hasher.combine(photoURL)
+            hasher.combine(showGreenShield)
+            hasher.combine(showRedShield)
+            hasher.combine(colors.text)
+            hasher.combine(colors.background)
+        case .group(photoURL: let photoURL, colors: let colors):
+            hasher.combine(photoURL)
+            hasher.combine(colors.text)
+            hasher.combine(colors.background)
+        case .icon(icon: let icon):
+            hasher.combine(icon)
+        }
+    }
+
+    static func == (lhs: CircledInitialsConfiguration, rhs: CircledInitialsConfiguration) -> Bool {
+        lhs.hashValue == rhs.hashValue
+    }
+
+    func backgroundColor(appTheme: AppTheme) -> UIColor {
+        switch self {
+        case .contact(_, _, _, _, let colors), .group(_, let colors):
+            return colors.background
+        case .icon:
+            return appTheme.colorScheme.systemFill
+        }
+    }
+
+    func foregroundColor(appTheme: AppTheme) -> UIColor {
+        switch self {
+        case .contact(_, _, _, _, let colors), .group(_, let colors):
+            return colors.text
+        case .icon:
+            return appTheme.colorScheme.secondaryLabel
+        }
+    }
+
+    var icon: ObvSystemIcon? {
+        switch self {
+        case .contact: return nil
+        case .group: return .person3Fill
+        case .icon(let icon): return icon.icon
+        }
+    }
+
+}
 
 /// Square view, with a rounded clip view allowing to display either an icon, an initial (letter), or a photo.
 final class NewCircledInitialsView: UIView {
@@ -29,27 +99,40 @@ final class NewCircledInitialsView: UIView {
     private let pictureView = UIImageView()
     private let redShieldView = UIImageView()
     private let greenShieldView = UIImageView()
-    
-    func configureWith(foregroundColor: UIColor, backgroundColor: UIColor, icon: ObvSystemIcon?, stringForInitial: String?, photoURL: URL?, showGreenShield: Bool, showRedShield: Bool) {
+
+    private var currentConfiguration: CircledInitialsConfiguration?
+
+    func configureWith(_ configuration: CircledInitialsConfiguration) {
+        guard self.currentConfiguration != configuration else { return }
+        self.currentConfiguration = configuration
+
         prepareForReuse()
-        roundedClipView.backgroundColor = backgroundColor
-        setupIconView(icon: icon, tintColor: foregroundColor)
-        setupInitialView(string: stringForInitial, textColor: foregroundColor)
-        setupPictureView(imageURL: photoURL)
-        self.greenShieldView.isHidden = !showGreenShield
-        self.redShieldView.isHidden = !showRedShield
+        roundedClipView.backgroundColor = configuration.backgroundColor(appTheme: appTheme)
+        setupIconView(icon: configuration.icon, tintColor: configuration.foregroundColor(appTheme: appTheme))
+
+        switch configuration {
+        case .contact(let initial, let photoURL, let showGreenShield, let showRedShield, let colors):
+            setupInitialView(string: initial, textColor: colors.text)
+            setupPictureView(imageURL: photoURL)
+            greenShieldView.isHidden = !showGreenShield
+            redShieldView.isHidden = !showRedShield
+        case .group(let photoURL, _):
+            setupPictureView(imageURL: photoURL)
+            greenShieldView.isHidden = true
+            redShieldView.isHidden = true
+        case .icon:
+            greenShieldView.isHidden = true
+            redShieldView.isHidden = true
+        }
     }
-    
-    func configureWith(icon: ObvSystemIcon) {
-        prepareForReuse()
-        roundedClipView.backgroundColor = appTheme.colorScheme.systemFill
-        setupIconView(icon: icon, tintColor: appTheme.colorScheme.secondaryLabel)
-    }
-    
+
+
     private func prepareForReuse() {
         iconView.isHidden = true
         initialView.isHidden = true
         pictureView.isHidden = true
+        redShieldView.isHidden = true
+        greenShieldView.isHidden = true
         roundedClipView.backgroundColor = .clear
     }
     
@@ -113,6 +196,8 @@ final class NewCircledInitialsView: UIView {
         if !pictureView.isHidden {
             iconView.isHidden = true
             initialView.isHidden = true
+        } else if !initialView.isHidden {
+            iconView.isHidden = true
         } else if !iconView.isHidden {
             initialView.isHidden = true
         }
@@ -146,11 +231,7 @@ final class NewCircledInitialsView: UIView {
         
         roundedClipView.addSubview(initialView)
         initialView.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 13, *) {
-            initialView.font = UIFont.rounded(ofSize: 30, weight: .black)
-        } else {
-            initialView.font = UIFont.systemFont(ofSize: 30)
-        }
+        initialView.font = UIFont.rounded(ofSize: 30, weight: .black)
         initialView.textAlignment = .center
         initialView.isHidden = true
         
@@ -164,11 +245,7 @@ final class NewCircledInitialsView: UIView {
         greenShieldView.translatesAutoresizingMaskIntoConstraints = false
         greenShieldView.contentMode = .scaleAspectFill
         greenShieldView.backgroundColor = .clear
-        if #available(iOS 13, *) {
-            greenShieldView.image = UIImage(systemIcon: .checkmarkShieldFill, withConfiguration: nil)
-        } else {
-            // No green shield under iOS 12 or less...
-        }
+        greenShieldView.image = UIImage(systemIcon: .checkmarkShieldFill, withConfiguration: nil)
         greenShieldView.tintColor = appTheme.colorScheme.green
         greenShieldView.isHidden = true
 
@@ -176,11 +253,7 @@ final class NewCircledInitialsView: UIView {
         redShieldView.translatesAutoresizingMaskIntoConstraints = false
         redShieldView.contentMode = .scaleAspectFill
         redShieldView.backgroundColor = .clear
-        if #available(iOS 13, *) {
-            redShieldView.image = UIImage(systemIcon: .exclamationmarkShieldFill, withConfiguration: nil)
-        } else {
-            // No red shield under iOS 12 or less...
-        }
+        redShieldView.image = UIImage(systemIcon: .exclamationmarkShieldFill, withConfiguration: nil)
         redShieldView.tintColor = .red
         redShieldView.isHidden = true
         
@@ -234,10 +307,6 @@ final class NewCircledInitialsView: UIView {
     private func configureSizes() {
         let minSize = min(bounds.width, bounds.height)
         roundedClipView.layer.cornerRadius = minSize/2
-        if #available(iOS 13, *) {
-            initialView.font = UIFont.rounded(ofSize: minSize/2, weight: .black) // Heuristic
-        } else {
-            initialView.font = UIFont.systemFont(ofSize: minSize/2)
-        }
+        initialView.font = UIFont.rounded(ofSize: minSize/2, weight: .black) // Heuristic
     }
 }

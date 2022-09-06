@@ -25,7 +25,8 @@ struct OwnedIdentityHeaderView: View {
     @ObservedObject var singleIdentity: SingleIdentity
 
     var body: some View {
-        IdentityCardContentView(model: singleIdentity, displayMode: .header(tapToFullscreen: true))
+        IdentityCardContentView(model: singleIdentity,
+                                displayMode: .header)
     }
 
 }
@@ -35,10 +36,13 @@ struct ContactIdentityHeaderView: View {
 
     @ObservedObject var singleIdentity: SingleContactIdentity
     @State private var profilePictureFullScreenIsPresented = false
-    var forceEditionMode: CircleAndTitlesEditionMode? = nil
+    let editionMode: CircleAndTitlesEditionMode
 
     var body: some View {
-        ContactIdentityCardContentView(model: singleIdentity, preferredDetails: .customOrTrusted, forceEditionMode: forceEditionMode, displayMode: .header(tapToFullscreen: true))
+        ContactIdentityCardContentView(model: singleIdentity,
+                                       preferredDetails: .customOrTrusted,
+                                       displayMode: .header,
+                                       editionMode: editionMode)
     }
 }
 
@@ -62,7 +66,6 @@ struct IdentityHeaderView_Previews: PreviewProvider {
         position: "CEO",
         company: "Apple",
         customDisplayName: nil,
-        editionMode: .none,
         publishedContactDetails: nil,
         contactStatus: .noNewPublishedDetails,
         contactHasNoDevice: false,
@@ -72,8 +75,8 @@ struct IdentityHeaderView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
             OwnedIdentityHeaderView(singleIdentity: ownedIdentity)
-            ContactIdentityHeaderView(singleIdentity: contactIdentity)
-            ContactIdentityHeaderView(singleIdentity: contactIdentity, forceEditionMode: .nicknameAndPicture(action: {}))
+            ContactIdentityHeaderView(singleIdentity: contactIdentity, editionMode: .none)
+            ContactIdentityHeaderView(singleIdentity: contactIdentity, editionMode: .custom(icon: .pencil(), action: { }))
         }
     }
 }

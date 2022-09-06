@@ -25,10 +25,6 @@ import ObvEngine
 @objc(ReceivedFyleMessageJoinWithStatus)
 final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
-    private static let errorDomain = "ReceivedFyleMessageJoinWithStatus"
-    private static func makeError(message: String) -> Error { NSError(domain: ReceivedFyleMessageJoinWithStatus.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { ReceivedFyleMessageJoinWithStatus.makeError(message: message) }
-
     enum FyleStatus: Int {
         case downloadable = 0
         case downloading = 1
@@ -80,6 +76,10 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
                                                                      from: obvAttachment.fromContactIdentity,
                                                                      within: context) else { throw Self.makeError(message: "Could not find PersistedMessageReceived") }
 
+        guard !receivedMessage.isWiped else {
+            throw Self.makeError(message: "Trying to create a ReceivedFyleMessageJoinWithStatus for a wiped received message")
+        }
+        
         // Pre-compute a few things
         
         let fyle: Fyle
@@ -90,18 +90,18 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         }
 
         let rawStatus: Int
-        let totalUnitCount: Int64
+        let totalByteCount: Int64
         if let fileSize = fyle.getFileSize() {
             rawStatus = FyleStatus.complete.rawValue
-            totalUnitCount = fileSize
+            totalByteCount = fileSize
         } else {
             rawStatus = obvAttachment.downloadPaused ? FyleStatus.downloadable.rawValue : FyleStatus.downloading.rawValue
-            totalUnitCount = obvAttachment.totalUnitCount
+            totalByteCount = obvAttachment.totalUnitCount
         }
         
         // Call the superclass initializer
 
-        self.init(totalUnitCount: totalUnitCount,
+        self.init(totalByteCount: totalByteCount,
                   fileName: metadata.fileName,
                   uti: metadata.uti,
                   rawStatus: rawStatus,
@@ -135,7 +135,7 @@ extension ReceivedFyleMessageJoinWithStatus {
     // `true` if this join is not complete, or if the fyle is not completely available on disk
     var requiresDownsizedThumbnail: Bool {
         guard let fyle = self.fyle else { return true }
-        return self.status != .complete || fyle.getFileSize() != self.totalUnitCount
+        return self.status != .complete || fyle.getFileSize() != self.totalByteCount
     }
     
     
@@ -155,14 +155,11 @@ extension ReceivedFyleMessageJoinWithStatus {
     func tryToSetStatusTo(_ newStatus: FyleStatus) {
         guard self.status != .complete else { return }
         self.rawStatus = newStatus.rawValue
-        switch status {
-        case .cancelledByServer, .complete:
-            let objectID = self.objectID
-            DispatchQueue.main.async {
-                FyleMessageJoinWithStatus.progressesForAttachment.removeValue(forKey: objectID)
+        if self.status == .complete {
+            let joinObjectID = (self as FyleMessageJoinWithStatus).typedObjectID
+            Task {
+                await FyleMessageJoinWithStatus.removeProgressForJoinWithObjectID(joinObjectID)
             }
-        case .downloading, .downloadable:
-            break
         }
     }
 

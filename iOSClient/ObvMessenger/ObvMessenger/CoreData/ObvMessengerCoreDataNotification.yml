@@ -71,10 +71,6 @@ notifications:
   params:
   - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
   - {name: title, type: String}
-- name: newLockedPersistedDiscussion
-  params:
-  - {name: previousDiscussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: newLockedDiscussionId, type: TypeSafeManagedObjectID<PersistedDiscussion>}
 - name: persistedDiscussionWasDeleted
   params:
   - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
@@ -116,3 +112,6 @@ notifications:
   - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
   - {name: messageUriRepresentation, type: TypeSafeURL<PersistedMessage>}
   - {name: fyleMessageJoinUriRepresentation, type: TypeSafeURL<FyleMessageJoinWithStatus>}
+- name: persistedDiscussionStatusChanged
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}

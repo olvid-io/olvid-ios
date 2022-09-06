@@ -20,7 +20,7 @@
 import UIKit
 
 /// This view displays the count of missed message.
-final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners {
+final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners, UIViewWithTappableStuff {
 
     struct Configuration: Equatable, Hashable {
         let missedMessageCount: Int
@@ -61,7 +61,6 @@ final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners {
     init() {
         super.init(frame: .zero)
         setupInternalViews()
-        setupTapGesture()
     }
 
 
@@ -70,6 +69,13 @@ final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners {
     }
 
 
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard !self.isHidden && self.showInStack else { return nil }
+        return .missedMessageBubble
+    }
+    
+    
     private func setupInternalViews() {
 
         addSubview(bubble)
@@ -119,15 +125,6 @@ final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners {
         ]
         NSLayoutConstraint.activate(constraints)
 
-    }
-
-    private func setupTapGesture() {
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(bubbleWasTapped(sender:)))
-        bubble.addGestureRecognizer(tapGesture)
-    }
-
-    @objc private func bubbleWasTapped(sender: UIGestureRecognizer) {
-        ObvMessengerInternalNotification.userDidTapOnMissedMessageBubble.postOnDispatchQueue()
     }
 
 }

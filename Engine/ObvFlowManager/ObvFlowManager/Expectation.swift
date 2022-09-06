@@ -28,7 +28,7 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     case deletionOfOutboxMessage(withId: MessageIdentifier)
     
     // For inbox messages
-    case uidsOfMessagesThatWillBeDownloaded
+    case uidsOfMessagesToProcess
     case networkReceivedMessageWasProcessed(messageId: MessageIdentifier)
     case applicationMessageDecrypted(messageId: MessageIdentifier)
     case extendedMessagePayloadWasDownloaded(messageId: MessageIdentifier)
@@ -87,9 +87,9 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             default:
                 return false
             }
-        case .uidsOfMessagesThatWillBeDownloaded:
+        case .uidsOfMessagesToProcess:
             switch rhs {
-            case .uidsOfMessagesThatWillBeDownloaded:
+            case .uidsOfMessagesToProcess:
                 return true
             default:
                 return false
@@ -139,8 +139,8 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             return "protocolMessageToProcess"
         case .endOfProcessingOfProtocolMessage(withId: let uid):
             return "endOfProcessingOfProtocolMessage<\(uid.debugDescription)>"
-        case .uidsOfMessagesThatWillBeDownloaded:
-            return "uidsOfMessagesThatWillBeDownloaded"
+        case .uidsOfMessagesToProcess:
+            return "uidsOfMessagesToProcess"
         case .applicationMessageDecrypted(messageId: let uid):
             return "applicationMessageDecrypted<\(uid.debugDescription)>"
         case .deletionOfInboxMessage(withId: let uid):

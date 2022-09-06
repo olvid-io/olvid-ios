@@ -43,8 +43,6 @@ enum ObvMessengerInternalNotification {
 	case userWantsToPerfomBackupForExportNow(sourceView: UIView)
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case fyleMessageJoinWithStatusHasNewProgress(objectID: NSManagedObjectID, progress: Progress)
-	case aViewRequiresFyleMessageJoinWithStatusProgresses(objectIDs: [NSManagedObjectID])
 	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
 	case userWantsToSelectAndCallContacts(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
 	case userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
@@ -101,7 +99,7 @@ enum ObvMessengerInternalNotification {
 	case userWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case contactIdentityDetailsWereUpdated(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case userDidSeeNewDetailsOfContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
-	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, nicknameAndPicture: CustomNicknameAndPicture)
+	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhotoURL: URL?)
 	case userWantsToBindOwnedIdentityToKeycloak(ownedCryptoId: ObvCryptoId, obvKeycloakState: ObvKeycloakState, keycloakUserId: String, completionHandler: (Bool) -> Void)
 	case userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ObvCryptoId, completionHandler: (Bool) -> Void)
 	case requestHardLinkToFyle(fyleElement: FyleElement, completionHandler: ((Result<HardLinkToFyle,Error>) -> Void))
@@ -145,6 +143,7 @@ enum ObvMessengerInternalNotification {
 	case userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: (Bool) -> Void)
 	case userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: (Bool) -> Void)
 	case userWantsToWipeFyleMessageJoinWithStatus(objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>)
+	case userWantsToForwardMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, discussionObjectIDs: Set<TypeSafeManagedObjectID<PersistedDiscussion>>)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -156,8 +155,6 @@ enum ObvMessengerInternalNotification {
 		case userWantsToPerfomBackupForExportNow
 		case newMuteExpiration
 		case wipeAllMessagesThatExpiredEarlierThanNow
-		case fyleMessageJoinWithStatusHasNewProgress
-		case aViewRequiresFyleMessageJoinWithStatusProgresses
 		case userWantsToCallAndIsAllowedTo
 		case userWantsToSelectAndCallContacts
 		case userWantsToCallButWeShouldCheckSheIsAllowedTo
@@ -258,6 +255,7 @@ enum ObvMessengerInternalNotification {
 		case userRepliedToMissedCallWithinTheNotificationExtension
 		case userWantsToMarkAsReadMessageWithinTheNotificationExtension
 		case userWantsToWipeFyleMessageJoinWithStatus
+		case userWantsToForwardMessage
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -279,8 +277,6 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToPerfomBackupForExportNow: return Name.userWantsToPerfomBackupForExportNow.name
 			case .newMuteExpiration: return Name.newMuteExpiration.name
 			case .wipeAllMessagesThatExpiredEarlierThanNow: return Name.wipeAllMessagesThatExpiredEarlierThanNow.name
-			case .fyleMessageJoinWithStatusHasNewProgress: return Name.fyleMessageJoinWithStatusHasNewProgress.name
-			case .aViewRequiresFyleMessageJoinWithStatusProgresses: return Name.aViewRequiresFyleMessageJoinWithStatusProgresses.name
 			case .userWantsToCallAndIsAllowedTo: return Name.userWantsToCallAndIsAllowedTo.name
 			case .userWantsToSelectAndCallContacts: return Name.userWantsToSelectAndCallContacts.name
 			case .userWantsToCallButWeShouldCheckSheIsAllowedTo: return Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
@@ -381,6 +377,7 @@ enum ObvMessengerInternalNotification {
 			case .userRepliedToMissedCallWithinTheNotificationExtension: return Name.userRepliedToMissedCallWithinTheNotificationExtension.name
 			case .userWantsToMarkAsReadMessageWithinTheNotificationExtension: return Name.userWantsToMarkAsReadMessageWithinTheNotificationExtension.name
 			case .userWantsToWipeFyleMessageJoinWithStatus: return Name.userWantsToWipeFyleMessageJoinWithStatus.name
+			case .userWantsToForwardMessage: return Name.userWantsToForwardMessage.name
 			}
 		}
 	}
@@ -424,15 +421,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
-			]
-		case .fyleMessageJoinWithStatusHasNewProgress(objectID: let objectID, progress: let progress):
-			info = [
-				"objectID": objectID,
-				"progress": progress,
-			]
-		case .aViewRequiresFyleMessageJoinWithStatusProgresses(objectIDs: let objectIDs):
-			info = [
-				"objectIDs": objectIDs,
 			]
 		case .userWantsToCallAndIsAllowedTo(contactIds: let contactIds, groupId: let groupId):
 			info = [
@@ -674,10 +662,11 @@ enum ObvMessengerInternalNotification {
 				"contactCryptoId": contactCryptoId,
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .userWantsToEditContactNicknameAndPicture(persistedContactObjectID: let persistedContactObjectID, nicknameAndPicture: let nicknameAndPicture):
+		case .userWantsToEditContactNicknameAndPicture(persistedContactObjectID: let persistedContactObjectID, customDisplayName: let customDisplayName, customPhotoURL: let customPhotoURL):
 			info = [
 				"persistedContactObjectID": persistedContactObjectID,
-				"nicknameAndPicture": nicknameAndPicture,
+				"customDisplayName": OptionalWrapper(customDisplayName),
+				"customPhotoURL": OptionalWrapper(customPhotoURL),
 			]
 		case .userWantsToBindOwnedIdentityToKeycloak(ownedCryptoId: let ownedCryptoId, obvKeycloakState: let obvKeycloakState, keycloakUserId: let keycloakUserId, completionHandler: let completionHandler):
 			info = [
@@ -873,6 +862,11 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"objectIDs": objectIDs,
 			]
+		case .userWantsToForwardMessage(messageObjectID: let messageObjectID, discussionObjectIDs: let discussionObjectIDs):
+			info = [
+				"messageObjectID": messageObjectID,
+				"discussionObjectIDs": discussionObjectIDs,
+			]
 		}
 		return info
 	}
@@ -975,23 +969,6 @@ enum ObvMessengerInternalNotification {
 			let launchedByBackgroundTask = notification.userInfo!["launchedByBackgroundTask"] as! Bool
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
 			block(launchedByBackgroundTask, completionHandler)
-		}
-	}
-
-	static func observeFyleMessageJoinWithStatusHasNewProgress(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Progress) -> Void) -> NSObjectProtocol {
-		let name = Name.fyleMessageJoinWithStatusHasNewProgress.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let progress = notification.userInfo!["progress"] as! Progress
-			block(objectID, progress)
-		}
-	}
-
-	static func observeAViewRequiresFyleMessageJoinWithStatusProgresses(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([NSManagedObjectID]) -> Void) -> NSObjectProtocol {
-		let name = Name.aViewRequiresFyleMessageJoinWithStatusProgresses.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectIDs = notification.userInfo!["objectIDs"] as! [NSManagedObjectID]
-			block(objectIDs)
 		}
 	}
 
@@ -1475,12 +1452,15 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToEditContactNicknameAndPicture(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, CustomNicknameAndPicture) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToEditContactNicknameAndPicture(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, String?, URL?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToEditContactNicknameAndPicture.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedContactObjectID = notification.userInfo!["persistedContactObjectID"] as! NSManagedObjectID
-			let nicknameAndPicture = notification.userInfo!["nicknameAndPicture"] as! CustomNicknameAndPicture
-			block(persistedContactObjectID, nicknameAndPicture)
+			let customDisplayNameWrapper = notification.userInfo!["customDisplayName"] as! OptionalWrapper<String>
+			let customDisplayName = customDisplayNameWrapper.value
+			let customPhotoURLWrapper = notification.userInfo!["customPhotoURL"] as! OptionalWrapper<URL>
+			let customPhotoURL = customPhotoURLWrapper.value
+			block(persistedContactObjectID, customDisplayName, customPhotoURL)
 		}
 	}
 
@@ -1855,6 +1835,15 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectIDs = notification.userInfo!["objectIDs"] as! Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>
 			block(objectIDs)
+		}
+	}
+
+	static func observeUserWantsToForwardMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedMessage>, Set<TypeSafeManagedObjectID<PersistedDiscussion>>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToForwardMessage.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let messageObjectID = notification.userInfo!["messageObjectID"] as! TypeSafeManagedObjectID<PersistedMessage>
+			let discussionObjectIDs = notification.userInfo!["discussionObjectIDs"] as! Set<TypeSafeManagedObjectID<PersistedDiscussion>>
+			block(messageObjectID, discussionObjectIDs)
 		}
 	}
 

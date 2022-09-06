@@ -25,16 +25,15 @@ import os.log
 
 
 @available(iOS 14.0, *)
-final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingHardLinks {
+final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff {
         
     private(set) var message: PersistedMessageSent?
     private(set) var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
     private var indexPath: IndexPath?
 
-    weak var delegate: ViewShowingHardLinksDelegate?
     weak var cacheDelegate: DiscussionCacheDelegate?
-    weak var reactionsDelegate: ReactionsDelegate?
     weak var cellReconfigurator: CellReconfigurator?
+    weak var textBubbleDelegate: TextBubbleDelegate?
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SentMessageCell")
 
@@ -61,17 +60,15 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
         return newLayoutAttributes
     }
 
-    func updateWith(message: PersistedMessageSent, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, delegate: ViewShowingHardLinksDelegate?, cacheDelegate: DiscussionCacheDelegate?, reactionsDelegate: ReactionsDelegate?, cellReconfigurator: CellReconfigurator?) {
-        assert(delegate != nil)
+    func updateWith(message: PersistedMessageSent, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate?) {
         assert(cacheDelegate != nil)
         self.message = message
         self.indexPath = indexPath
         self.draftObjectID = draftObjectID
         self.setNeedsUpdateConfiguration()
-        self.delegate = delegate
         self.cacheDelegate = cacheDelegate
-        self.reactionsDelegate = reactionsDelegate
         self.cellReconfigurator = cellReconfigurator
+        self.textBubbleDelegate = textBubbleDelegate
     }
     
     
@@ -85,6 +82,12 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
     }
     
     override func updateConfiguration(using state: UICellConfigurationState) {
+        guard AppStateManager.shared.currentState.isInitializedAndActive else {
+            // This prevents a crash when the user hits the home button while in the discussion.
+            // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
+            // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
+            return
+        }
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
         var content = SentMessageCellCustomContentConfiguration().updated(for: state)
@@ -214,9 +217,12 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
             self?.setNeedsUpdateConfiguration()
         }
 
-        content.isReplyToActionAvailable = self.isReplyToActionAvailable
+        content.isReplyToActionAvailable = message.replyToActionCanBeMadeAvailable
+        content.forwarded = message.forwarded
         
-        self.contentConfiguration = content
+        if self.contentConfiguration as? SentMessageCellCustomContentConfiguration != content {
+            self.contentConfiguration = content
+        }
         registerDelegate()
         
     }
@@ -224,11 +230,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
     
     private func registerDelegate() {
         guard let contentView = self.contentView as? SentMessageCellContentView else { assertionFailure(); return }
-        contentView.singleImageView.delegate = delegate
-        contentView.multipleImagesView.delegate = delegate
-        contentView.attachmentsView.delegate = delegate
-        contentView.multipleReactionsView.delegate = reactionsDelegate
-        contentView.reactionsDelegate = reactionsDelegate
+        contentView.textBubble.delegate = textBubbleDelegate
     }
 
     
@@ -241,9 +243,9 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
             assert(cacheDelegate != nil)
             if let hardlink = hardlink {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
-                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, progress: imageAttachment.progress)
+                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, progress: imageAttachment.progressObject)
                 } else {
-                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, progress: imageAttachment.progress)
+                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, progress: imageAttachment.progressObject)
                     Task {
                         do {
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
@@ -258,7 +260,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     }
                 }
             } else {
-                config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, progress: imageAttachment.progress)
+                config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, progress: imageAttachment.progressObject)
             }
         case .complete:
             if let hardlink = hardlink {
@@ -296,9 +298,9 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
         case .uploading, .uploadable:
             if let hardlink = hardlink {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
-                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progress)
+                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
                 } else {
-                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progress)
+                    config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
                     Task {
                         do {
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
@@ -309,15 +311,15 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     }
                 }
             } else {
-                config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progress)
+                config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
             }
             
         case .complete:
             if let hardlink = hardlink {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
-                    config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName)
+                    config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
                 } else {
-                    config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName)
+                    config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
                     Task {
                         do {
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
@@ -328,7 +330,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
                     }
                 }
             } else {
-                config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: attachment.fileName)
+                config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
             }
         }
         return config
@@ -343,6 +345,12 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
     func refreshCellCountdown() {
         (contentView as? SentMessageCellContentView)?.refreshCellCountdown()
     }
+ 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard let contentViewWithTappableStuff = contentView as? UIViewWithTappableStuff else { assertionFailure(); return nil }
+        return contentViewWithTappableStuff.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
     
 }
 
@@ -353,8 +361,6 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, CellShowingH
 @available(iOS 14.0, *)
 extension SentMessageCell {
      
-    var isCallActionAvailable: Bool { false }
-    
     var persistedMessage: PersistedMessage? { message }
     
     var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
@@ -362,13 +368,6 @@ extension SentMessageCell {
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { draftObjectID }
 
     var viewForTargetedPreview: UIView { self.contentView }
-    
-    var isCopyActionAvailable: Bool {
-        guard let message = message else { assertionFailure(); return false }
-        return !message.readOnce
-    }
-    
-    var textViewToCopy: UITextView? { nil }
     
     var textToCopy: String? {
         guard let contentView = contentView as? SentMessageCellContentView else { assertionFailure(); return nil }
@@ -381,11 +380,6 @@ extension SentMessageCell {
             return nil
         }
         return text
-    }
-    
-    var isSharingActionAvailable: Bool {
-        guard let message = self.message else { return false }
-        return !message.readOnce
     }
     
     var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { nil }
@@ -404,37 +398,11 @@ extension SentMessageCell {
             .compactMap({ $0.activityItemProvider })
     }
     
-    var isReplyToActionAvailable: Bool {
-        guard let sentMessage = message else { return false }
-        let discussion = sentMessage.discussion
-        guard !(discussion is PersistedDiscussionOneToOneLocked || discussion is PersistedDiscussionGroupLocked) else { return false }
-        return true
-    }
-    
-    var isDeleteActionAvailable: Bool { true }
-    
-    var isEditBodyActionAvailable: Bool {
-        guard let sentMessage = message else { return false }
-        return sentMessage.textBodyCanBeEdited
-    }
-    
-    var isInfoActionAvailable: Bool {
-        guard let sentMessage = message else { return false }
-        if !sentMessage.unsortedRecipientsInfos.isEmpty { return true }
-        if !sentMessage.metadata.isEmpty { return true }
-        return false
-    }
-    
     var infoViewController: UIViewController? {
-        guard isInfoActionAvailable else { return nil }
+        guard message?.infoActionCanBeMadeAvailable == true else { return nil }
         let rcv = SentMessageInfosViewController()
         rcv.sentMessage = message
         return rcv
-    }
-
-    var isDeleteOwnReactionActionAvailable: Bool {
-        guard let message = message else { return false }
-        return message.reactions.contains { $0 is PersistedMessageReactionSent }
     }
 
 }
@@ -470,7 +438,8 @@ fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfigura
     var replyToBubbleViewConfiguration: ReplyToBubbleView.Configuration?
 
     var isReplyToActionAvailable = false
-    
+    var forwarded = false
+
     func makeContentView() -> UIView & UIContentView {
         return SentMessageCellContentView(configuration: self)
     }
@@ -483,7 +452,7 @@ fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfigura
 
 
 @available(iOS 14.0, *)
-fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGestureRecognizerDelegate {
+fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGestureRecognizerDelegate, UIViewWithTappableStuff {
     
     private let mainStack = OlvidVerticalStackView(gap: MessageCellConstants.mainStackGap,
                                                    side: .trailing,
@@ -502,16 +471,13 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
     private let wipedView = WipedView(expirationIndicatorSide: .leading)
     private let backgroundView = SentMessageCellBackgroundView()
     private let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .leading)
+    private let forwardView = ForwardView()
 
     private var appliedConfiguration: SentMessageCellCustomContentConfiguration!
 
     private var messageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
     private var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
 
-    fileprivate weak var reactionsDelegate: ReactionsDelegate?
-
-    private var doubleTapGesture: UITapGestureRecognizer!
-    
     // The following variables allow to handle the pan gesture allowing to answer a specific message
     private var frameBeforeDrag: CGRect?
     private var pan: UIPanGestureRecognizer!
@@ -629,11 +595,17 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             
         }
     }
+    
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        var subviewsWithTappableStuff = self.mainStack.arrangedSubviews.filter({ $0.showInStack }).compactMap({ $0 as? UIViewWithTappableStuff })
+        subviewsWithTappableStuff += [multipleReactionsView].filter({ !$0.isHidden })
+        let view = subviewsWithTappableStuff.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) != nil })
+        return view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
 
 
     private func setupInternalViews() {
-
-        self.addDoubleTapGestureRecognizer()
 
         addSubview(backgroundView)
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
@@ -642,6 +614,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
         addSubview(mainStack)
         mainStack.translatesAutoresizingMaskIntoConstraints = false
         
+        mainStack.addArrangedSubview(forwardView)
+
         mainStack.addArrangedSubview(replyToBubbleView)
 
         mainStack.addArrangedSubview(textBubble)
@@ -703,8 +677,6 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             statusAndDateView.bottomAnchor.constraint(equalTo: multipleReactionsView.bottomAnchor, constant: -2),
         ])
 
-        textBubble.linkTapGestureRequire(toFail: doubleTapGesture)
-
     }
 
     
@@ -712,23 +684,12 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
         singleLinkView.prepareForReuse()
     }
 
-    private func addDoubleTapGestureRecognizer() {
-        self.doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(userDoubleTappedOnThisCell))
-        self.doubleTapGesture!.numberOfTapsRequired = 2
-        self.addGestureRecognizer(self.doubleTapGesture!)
-    }
 
-
-    @objc private func userDoubleTappedOnThisCell(sender: UITapGestureRecognizer) {
-        guard let messageObjectID = messageObjectID else { return }
-        reactionsDelegate?.userDoubleTappedOnMessage(messageID: messageObjectID.downcast)
-    }
-
-    
     fileprivate func refreshCellCountdown() {
         let viewsThatCanShowExpirationIndicator = mainStack.shownArrangedSubviews.compactMap({ $0 as? ViewWithExpirationIndicator })
         viewsThatCanShowExpirationIndicator.forEach { $0.refreshCellCountdown() }
     }
+
 
     private func apply(currentConfig: SentMessageCellCustomContentConfiguration?, newConfig: SentMessageCellCustomContentConfiguration) {
         
@@ -796,7 +757,6 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             multipleImagesView.showInStack = false
         } else {
             multipleImagesView.setConfiguration(newConfig.multipleImagesViewConfiguration)
-            multipleImagesView.gestureRecognizersOnImageViewsRequire(toFail: doubleTapGesture)
             multipleImagesView.showInStack = true
         }
 
@@ -828,10 +788,10 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
         }
 
         if newConfig.reactionAndCounts.isEmpty {
-            multipleReactionsView.setReactions(to: [ReactionAndCount(emoji: "", count: 1)], messageID: messageObjectID?.downcast)
+            multipleReactionsView.setReactions(to: [ReactionAndCount(emoji: "", count: 1)], messageObjectID: messageObjectID?.downcast)
             multipleReactionsView.alpha = 0.0
         } else {
-            multipleReactionsView.setReactions(to: newConfig.reactionAndCounts, messageID: messageObjectID?.downcast)
+            multipleReactionsView.setReactions(to: newConfig.reactionAndCounts, messageObjectID: messageObjectID?.downcast)
             // If the multipleReactionsView is not already shown, we show it and animate its alpha and size with a nice pop effect
             if multipleReactionsView.alpha == 0.0 {
                 multipleReactionsView.transform = CGAffineTransform(scaleX: 0.0, y: 0.0)
@@ -894,6 +854,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             view.hideExpirationIndicator()
         }
 
+        // Forward
+        forwardView.showInStack = newConfig.forwarded
     }
 
 }

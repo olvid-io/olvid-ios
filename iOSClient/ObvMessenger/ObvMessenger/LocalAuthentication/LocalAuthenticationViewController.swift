@@ -124,13 +124,7 @@ class LocalAuthenticationViewController: UIViewController {
             completion?(true)
             return
         } else {
-            // We only check whether the window is key under iOS 13+.
-            // Under iOS 12 and less, we check that we are not running the share extension. Otherwise the test is always false.
-            if #available(iOS 13, *) {
-                guard self.view.window?.isKeyWindow == true else { assertionFailure(); return }
-            } else if !usedByShareExtension {
-                guard self.view.window?.isKeyWindow == true else { assertionFailure(); return }
-            }
+            guard self.view.window?.isKeyWindow == true else { assertionFailure(); return }
             let laContext = LAContext()
             var error: NSError?
             laContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)

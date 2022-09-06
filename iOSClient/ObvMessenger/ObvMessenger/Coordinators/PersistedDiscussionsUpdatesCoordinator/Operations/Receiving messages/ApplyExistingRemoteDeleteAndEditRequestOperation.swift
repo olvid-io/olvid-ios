@@ -73,7 +73,7 @@ final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperatio
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {
                     return cancel(withReason: .couldNotFindDiscussion)

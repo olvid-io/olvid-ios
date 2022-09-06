@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.10.3 (533)] - 2022-06-29
+
+- Vous pouvez maintenant choisir la sonnerie associée aux alertes des messages d'une discussion ! N'hésitez pas à essayer nos sons polyphoniques exclusifs, jamais entendus auparavant, absolument uniques :-)
+- Vous pouvez maintenant transférer n'importe quel message vers une ou plusieurs discussion facilement !
+- Améliore la fiabilité des barres de progression pour les pièces jointes, en envoi et en réception.
+- Améliore la réactivité des boutons de téléchargement manuel des pièces jointes en réception.
+- Pendant la lecture d'un message audio, vous pouvez choisir entre l'écouteur interne et le haut-parleur.
+- En plus de la gallerie de médias, vous pouvez maintenant accéder à une gallerie de tous les documents échangés dans une discussion !
+- Quitter un groupe et le rejoindre à nouveau ne crée plus de « nouvelle » discussion si l'ancienne est encore disponible. Dans ce cas, elle est « réactivée », de manière à pouvoir reprendre la discussion là où vous l'aviez laissée.
+- Ceci est aussi vrai lorsque l'on supprime un contact et qu'on l'ajoute à nouveau par la suite.
+- Corrige un bug qui empêchait parfois l'affichage d'une jolie vignette lorsque l'on partageait une capture d'écran.
+- Le visualisateur de fichier permettait parfois de partager une pièce jointe éphémère. C'est corrigé.
+- Corrige un bug qui provoquait parfois un affichage incohérent des vignettes pour les contacts.
+- Corrige un bug pouvant entraîner une étrange rotation d'une photo de profil.
+- Corrige un bug pouvant parfois empêcher l'envoi de message.
+- Corrige de multiples bugs liés à la suppression globale de message.
+- Corrige un bug entrainant, au touché d'une pièce jointe dans le message, l'affichage d'une autre pièce jointe du message.
+- Améliore l'efficacité des téléchargements de messages.
+- Le bouton « silence » de l'écran d'appel est plus clair.
+
 ## [0.10.2 (519)] - 2022-05-01
 
 - Pour profiter d'un aperçu de l'intégralité des photos et des vidéos reçues ou envoyées dans une discussion, rendez-vous dans la nouvelle galerie accessible via le bouton en haut à droite de votre discussion préférée !

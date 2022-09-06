@@ -84,7 +84,7 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
                         return cancel(withReason: .wipeRequestedByNonGroupMember)
                     }
                     discussion = group.discussion
-                } else if let oneToOneDiscussion = try contact.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = contact.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {
                     return cancel(withReason: .couldNotFindDiscussion)
@@ -133,14 +133,18 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             let discussionUriRepresentation = discussion.typedObjectID.uriRepresentation()
             var messageUriRepresentations = Set<TypeSafeURL<PersistedMessage>>()
 
+            var objectIDOfWipedMessages = Set<TypeSafeManagedObjectID<PersistedMessage>>()
+            
             for message in sentMessagesToWipe {
                 messageUriRepresentations.insert(message.typedObjectID.downcast.uriRepresentation())
                 try? message.wipe(requester: contact)
+                objectIDOfWipedMessages.insert(message.typedObjectID.downcast)
             }
             
             for message in receivedMessagesToWipe {
                 messageUriRepresentations.insert(message.typedObjectID.downcast.uriRepresentation())
                 try? message.wipe(requester: contact)
+                objectIDOfWipedMessages.insert(message.typedObjectID.downcast)
             }
             
             do {
@@ -148,6 +152,17 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
                     guard error == nil else { return }
                     ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
                         .postOnDispatchQueue()
+                    // The view context should refresh the wiped messages and the messages that are replies to these wiped messages
+                    DispatchQueue.main.async {
+                        let registeredMessages = ObvStack.shared.viewContext.registeredObjects.compactMap({ $0 as? PersistedMessage })
+                        for message in registeredMessages {
+                            if objectIDOfWipedMessages.contains(message.typedObjectID) {
+                                ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
+                            } else if let reply = message.rawMessageRepliedTo, objectIDOfWipedMessages.contains(reply.typedObjectID) {
+                                ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
+                            }
+                        }
+                    }
                 }
             } catch {
                 return cancel(withReason: .coreDataError(error: error))

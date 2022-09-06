@@ -20,6 +20,11 @@
 import UIKit
 
 
+protocol TextBubbleDelegate: AnyObject {
+    var gestureThatLinkTapShouldRequireToFail: UIGestureRecognizer? { get }
+}
+
+
 /// This view displays the `text` in a bubble. Both the text and bubble color can be specified.
 final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
         
@@ -38,6 +43,13 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         }
         if self.text != newConfiguration.text {
             self.text = newConfiguration.text
+        }
+        
+        // Make sure the tap on links do not interfere with the double tap in the discussion
+        // Note that the first time this code is executed, the delegate is nil.
+        // But this code will be called again before the cell is actually displayed.
+        if let gesture = delegate?.gestureThatLinkTapShouldRequireToFail {
+            linkTapGestureOnTextView?.require(toFail: gesture)
         }
     }
     
@@ -78,6 +90,8 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
     
+    weak var delegate: TextBubbleDelegate?
+    
     init(expirationIndicatorSide side: ExpirationIndicatorView.Side, bubbleColor: UIColor, textColor: UIColor) {
         self.expirationIndicatorSide = side
         super.init(frame: .zero)
@@ -90,11 +104,6 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
     }
     
     
-    func linkTapGestureRequire(toFail doubleTapGesture: UIGestureRecognizer) {
-        linkTapGestureOnTextView?.require(toFail: doubleTapGesture)
-    }
-    
-
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -131,6 +140,7 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         label.textContainerInset = UIEdgeInsets.zero
         label.isEditable = false
         label.isSelectable = true // Must be set to `true` for the data detector to work
+        label.adjustsFontForContentSizeCategory = true
         // Since we need to set isSelectable to true, and since we have a double tap on the cell for reactions, we disable tap gestures on the text, except the one for tapping links.
         doubleTapGesturesOnTextView.forEach({ $0.isEnabled = false })
         singeTapGesturesOnTextView.forEach({ $0.isEnabled = false })

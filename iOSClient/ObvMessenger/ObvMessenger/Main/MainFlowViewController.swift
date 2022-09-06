@@ -27,7 +27,7 @@ import LinkPresentation
 import SwiftUI
 
 
-class MainFlowViewController: UISplitViewController, OlvidURLHandler {
+final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     
     let ownedCryptoId: ObvCryptoId
     var anOwnedIdentityWasJustCreatedOrRestored = false
@@ -46,7 +46,6 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     private var shouldScrollToTop = false
     
     private var observationTokens = [NSObjectProtocol]()
-    private var transientTokens = [NSObjectProtocol]()
     
     private var ownedIdentityIsNotActiveViewControllerWasShowAtLeastOnce = false
     
@@ -108,11 +107,9 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         
         let navForDetailsView = UINavigationController()
         navForDetailsView.delegate = ObvUserActivitySingleton.shared
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            navForDetailsView.navigationBar.standardAppearance = appearance
-        }
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        navForDetailsView.navigationBar.standardAppearance = appearance
         self.viewControllers = [mainTabBarController, navForDetailsView]
         
         mainTabBarController.delegate = self
@@ -440,14 +437,10 @@ class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         // This shall be the last possible alert we check, since we can only do this asynchronously
         UNUserNotificationCenter.current().getNotificationSettings(completionHandler: { [weak self] (userNotificationSettings) in
             DispatchQueue.main.async {
-                if #available(iOS 13, *) {
-                    switch userNotificationSettings.authorizationStatus {
-                    case .notDetermined:
-                        self?.presentUserNotificationsSubscriberHostingController()
-                    default:
-                        self?.presentOneOfTheOtherModalViewControllersIfRequired()
-                    }
-                } else {
+                switch userNotificationSettings.authorizationStatus {
+                case .notDetermined:
+                    self?.presentUserNotificationsSubscriberHostingController()
+                default:
                     self?.presentOneOfTheOtherModalViewControllersIfRequired()
                 }
             }
@@ -608,67 +601,25 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         
         assert(Thread.isMainThread)
         
-        if #available(iOS 13, *) {
-            let obvOwnedIdentity: ObvOwnedIdentity
-            do {
-                obvOwnedIdentity = try obvEngine.getOwnedIdentity(with: ownedCryptoId)
-            } catch {
-                os_log("Could not get Owned Identity from Engine", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            guard let vc = AddContactHostingViewController(
-                    obvOwnedIdentity: obvOwnedIdentity,
-                    alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
-                    dismissAction: self.dismissPresentedViewController,
-                    checkSignatureMutualScanUrl: self.checkSignatureMutualScanUrl)
-            else {
-                assertionFailure()
-                return
-            }
-            dismiss(animated: true) {
-                self.present(vc, animated: true)
-            }
-        } else {
-            let alert = UIAlertController(title: Strings.AddInviteAlert.title, message: Strings.AddInviteAlert.message, preferredStyle: .actionSheet)
-            let actionShareOwnPublishedDetails = UIAlertAction(title: Strings.sendInvitation, style: .default) { [weak self] (_) in
-                self?.presentUIActivityViewControllerForSharingOwnPublishedDetails(sourceView: sourceView)
-            }
-            let actionShowQRCode = UIAlertAction(title: Strings.AddInviteAlert.actionShowMyQRCode, style: .default) { [weak self] (_) in
-                guard let ownedCryptoId = self?.ownedCryptoId else { return }
-                DispatchQueue(label: "ShowOwnQRCodeQueue").async {
-                    guard let _self = self else { return }
-                    let publishedDetails: ObvIdentityDetails
-                    let obvOwnedIdentity: ObvOwnedIdentity
-                    do {
-                        guard let _obvOwnedIdentity = try self?.obvEngine.getOwnedIdentity(with: ownedCryptoId) else { return }
-                        obvOwnedIdentity = _obvOwnedIdentity
-                        publishedDetails = obvOwnedIdentity.publishedIdentityDetails
-                    } catch {
-                        os_log("Could not get owned identity from engine", log: _self.log, type: .error)
-                        return
-                    }
-                    DispatchQueue.main.async { [weak self] in
-                        let largeOlvidCardVC = LargeOlvidCardViewController(publishedIdentityDetails: publishedDetails, genericIdentity: obvOwnedIdentity.getGenericIdentity())
-                        self?.present(largeOlvidCardVC, animated: true)
-                    }
-                }
-            }
-            let actionScanQRCode = UIAlertAction(title: Strings.AddInviteAlert.actionScanQRCode, style: .default) { [weak self] (_) in
-                self?.checkAuthorizationStatusThenSetupAndPresentQRCodeScanner()
-            }
-            let actionAdvancedOptions = UIAlertAction(title: Strings.moreAction, style: .default) { [weak self] (_) in
-                self?.userWantsToAddContactUsingAdvancedOptions(sourceView: sourceView)
-            }
-            let cancelAction = UIAlertAction.init(title: CommonString.Word.Cancel, style: .cancel)
-            alert.addAction(actionShareOwnPublishedDetails)
-            alert.addAction(actionScanQRCode)
-            alert.addAction(actionShowQRCode)
-            alert.addAction(actionAdvancedOptions)
-            alert.addAction(cancelAction)
-            
-            alert.popoverPresentationController?.sourceView = sourceView
-            self.present(alert, animated: true)
+        let obvOwnedIdentity: ObvOwnedIdentity
+        do {
+            obvOwnedIdentity = try obvEngine.getOwnedIdentity(with: ownedCryptoId)
+        } catch {
+            os_log("Could not get Owned Identity from Engine", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        guard let vc = AddContactHostingViewController(
+            obvOwnedIdentity: obvOwnedIdentity,
+            alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
+            dismissAction: self.dismissPresentedViewController,
+            checkSignatureMutualScanUrl: self.checkSignatureMutualScanUrl)
+        else {
+            assertionFailure()
+            return
+        }
+        dismiss(animated: true) {
+            self.present(vc, animated: true)
         }
         
     }
@@ -923,15 +874,9 @@ extension MainFlowViewController {
             ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIds: contactIds, groupId: groupId)
                 .postOnDispatchQueue()
         } else {
-            if #available(iOS 13, *) {
-                let vc = UserTriesToAccessPaidFeatureHostingController(requestedPermission: .canCall, ownedIdentityURI: ownedIdentity.objectID.uriRepresentation())
-                dismiss(animated: true) { [weak self] in
-                    self?.present(vc, animated: true)
-                }
-            } else {
-                // Under iOS 11 and 12, we send the user directely to the call view. The call will fail.
-                ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIds: contactIds, groupId: groupId)
-                    .postOnDispatchQueue()
+            let vc = UserTriesToAccessPaidFeatureHostingController(requestedPermission: .canCall, ownedIdentityURI: ownedIdentity.objectID.uriRepresentation())
+            dismiss(animated: true) { [weak self] in
+                self?.present(vc, animated: true)
             }
         }
     }
@@ -1041,13 +986,9 @@ extension MainFlowViewController {
             guard let ownedIdentityObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: ownedIdentityURI) else { assertionFailure(); return }
             guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(objectID: ownedIdentityObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             presentedViewController?.dismiss(animated: true)
-            if #available(iOS 13, *) {
-                let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity)
-                vc.delegate = self
-                present(vc, animated: true)
-            } else {
-                assertionFailure("Deeplink to the MyId screen is only supported on iOS13+")
-            }
+            let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity)
+            vc.delegate = self
+            present(vc, animated: true)
             
         case .latestDiscussions:
             mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
@@ -1302,106 +1243,13 @@ extension MainFlowViewController: QRCodeScannerViewControllerDelegate {
 
         os_log("Processing an externally scanned or tapped Olvid URL", log: log, type: .info)
 
-        if #available(iOS 13, *) {
-            
-            switch olvidURL.category {
-            case .openIdRedirect:
-                _ = KeycloakManager.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
-            case .configuration, .invitation, .mutualScan:
-                // Under iOS13+, we transfer the url to the "invitation flow"
-                // We know the sourceView is not used in that case.
-                userWantsToAddContact(sourceView: UIView(), alreadyScannedOrTappedURL: olvidURL)
-            }
-
-        } else {
-            
-            // Under iOS 12, we do not consider invitation link
-            let urlIdentity: ObvURLIdentity
-            switch olvidURL.category {
-            case .openIdRedirect, .mutualScan:
-                // No implemented under iOS12
-                return
-            case .invitation(urlIdentity: let _urlIdentity):
-                urlIdentity = _urlIdentity
-            case .configuration(serverAndAPIKey: let _serverAndAPIKey, betaConfiguration: _, keycloakConfig: _):
-                if let serverAndAPIKey = _serverAndAPIKey {
-                    if let presentedViewController = self.presentedViewController {
-                        let ownedCryptoId = self.ownedCryptoId
-                        presentedViewController.dismiss(animated: true) { [weak self] in
-                            self?.userRequestedNewAPIKeyActivationUnderiOS12OrLess(ownedCryptoId: ownedCryptoId, serverAndAPIKey: serverAndAPIKey)
-                        }
-                    } else {
-                        userRequestedNewAPIKeyActivationUnderiOS12OrLess(ownedCryptoId: ownedCryptoId, serverAndAPIKey: serverAndAPIKey)
-                    }
-                }
-                return
-            }
-            
-            guard let ownedIdentities = try? obvEngine.getOwnedIdentities() else {
-                os_log("Could not get owned identities", log: log, type: .fault)
-                presentedViewController?.dismiss(animated: true)
-                return
-            }
-
-            guard let contactIdentities = try? obvEngine.getContactsOfOwnedIdentity(with: ownedCryptoId) else {
-                os_log("Could not get contacts of owned identity", log: log, type: .fault)
-                presentedViewController?.dismiss(animated: true)
-                return
-            }
-            
-            let invitationAlert: UIAlertController
-            if (ownedIdentities.map { $0.cryptoId }).contains(urlIdentity.cryptoId) {
-                os_log("The scanned identity is owned", log: log, type: .info)
-                invitationAlert = UIAlertController(title: Strings.alertInvitationTitle, message: Strings.alertInvitationScanedIsOwnedMessage, preferredStyle: .alert)
-                invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil))
-            } else if (contactIdentities.map { $0.cryptoId }).contains(urlIdentity.cryptoId) {
-                // The contact is already trusted
-                os_log("The scanned identity is already trusted", log: log, type: .info)
-                if self.presentedViewController != nil {
-                    dismiss(animated: true) { [weak self] in
-                        guard let _self = self else { return }
-                        _self.rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: urlIdentity.cryptoId, contactFullDisplayName: urlIdentity.fullDisplayName, ownedCryptoId: _self.ownedCryptoId, confirmed: false)
-                        _self.mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.invitations
-                    }
-                } else {
-                    rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: urlIdentity.cryptoId, contactFullDisplayName: urlIdentity.fullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: false)
-                    mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.invitations
-                }
-                return
-            } else {
-                os_log("The scanned identity is not trusted already", log: log, type: .info)
-                if self.presentedViewController != nil {
-                    dismiss(animated: true) { [weak self] in
-                        guard let _self = self else { return }
-                        _self.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: urlIdentity.cryptoId, contactFullDisplayName: urlIdentity.fullDisplayName, ownedCryptoId: _self.ownedCryptoId, confirmed: false)
-                        _self.mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.invitations
-                    }
-                } else {
-                    performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: urlIdentity.cryptoId, contactFullDisplayName: urlIdentity.fullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: false)
-                    mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.invitations
-                }
-                return
-            }
-            
-            // If one of the child view controllers is a MainFlowViewController, switch to the invitations tab before presenting the dialog
-            mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.invitations
-
-            let log = self.log
-            
-            DispatchQueue.main.async { [weak self] in
-                os_log("Presenting the invitation alert dialog", log: log, type: .info)
-                if let presentedViewController = self?.presentedViewController {
-                    presentedViewController.dismiss(animated: true) {
-                        self?.present(invitationAlert, animated: true)
-                    }
-                } else {
-                    self?.present(invitationAlert, animated: true)
-                }
-                
-            }
-
+        switch olvidURL.category {
+        case .openIdRedirect:
+            _ = KeycloakManager.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
+        case .configuration, .invitation, .mutualScan:
+            userWantsToAddContact(sourceView: UIView(), alreadyScannedOrTappedURL: olvidURL)
         }
-        
+
     }
     
     
@@ -1542,11 +1390,9 @@ private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDe
         
         // We embedd the SingleDiscussionViewControllers in a new navigation stack
         let nav = UINavigationController(rootViewController: singleDiscussionViewControllers.first!)
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            nav.navigationBar.standardAppearance = appearance
-        }
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        nav.navigationBar.standardAppearance = appearance
         for (index, vc) in singleDiscussionViewControllers.enumerated() {
             guard index > 0 else { continue }
             nav.pushViewController(vc, animated: false)
@@ -1626,48 +1472,6 @@ private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDe
         // We return false since we manually did the job of collapsing the secondary view controller onto the primary view controller
         return false
     }
-    
-}
-
-
-// MARK: - Methods allowing to activate an API key under iOS 12 (or less)
-
-extension MainFlowViewController {
-    
-    /// This method is a patch providing a quick and dirty way to activate a license under iOS12 (and probably under iOS11).
-    func userRequestedNewAPIKeyActivationUnderiOS12OrLess(ownedCryptoId: ObvCryptoId, serverAndAPIKey: ServerAndAPIKey) {
-        assert(Thread.isMainThread)
-        if #available(iOS 13, *) {
-            assertionFailure()
-        } else {
-            guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-            guard ownedIdentity.cryptoId.belongsTo(serverURL: serverAndAPIKey.server) else { assertionFailure(); return }
-            
-            let alert = UIAlertController(title: NSLocalizedString("ACTIVATE_NEW_LICENSE_CONFIRMATION_TITLE", comment: ""),
-                                          message: NSLocalizedString("DO_YOU_WISH_TO_ACTIVATE_API_KEY", comment: ""),
-                                          preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel, handler: nil))
-            alert.addAction(UIAlertAction(title: CommonString.Word.Yes, style: .default, handler: { [weak self] (_) in
-                self?.showHUD(type: .spinner)
-                // Before sending the key to the engine, we listen to the appropriate notification so as to show a confirmation to the user
-                self?.transientTokens.append(ObvEngineNotificationNew.observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within: NotificationCenter.default, queue: OperationQueue.main, block: { (ownedIdentity, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
-                    guard let _self = self else { return }
-                    guard !_self.transientTokens.isEmpty else { return }
-                    _self.transientTokens.forEach { NotificationCenter.default.removeObserver($0) }
-                    self?.transientTokens.removeAll()
-                    self?.showHUD(type: .text(text: "✔"))
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
-                        self?.hideHUD()
-                    }
-                }))
-                // We send the api key to the engine
-                ObvMessengerInternalNotification.userRequestedNewAPIKeyActivation(ownedCryptoId: ownedIdentity.cryptoId, apiKey: serverAndAPIKey.apiKey)
-                    .postOnDispatchQueue()
-            }))
-            present(alert, animated: true)
-        }
-    }
-
     
 }
 

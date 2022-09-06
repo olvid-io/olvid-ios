@@ -75,7 +75,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
                     guard persistedContactIdentity.isOneToOne else {
                         return cancel(withReason: .cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact)
                     }
@@ -95,6 +95,11 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 if overridePreviousPersistedMessage {
                     
                     if let previousMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContactIdentity) {
+                        
+                        guard !previousMessage.isWiped else {
+                            os_log("Trying to update a wiped received message. We don't do that an return immediately.", log: log, type: .info)
+                            return
+                        }
                         
                         os_log("Updating a previous received message...", log: log, type: .info)
                         
@@ -342,11 +347,11 @@ enum CreatePersistedMessageReceivedFromReceivedObvMessageOperationReasonForCance
 final class ProcessFyleWithinDownloadingAttachmentOperation: ContextualOperationWithSpecificReasonForCancel<ProcessFyleWithinDownloadingAttachmentOperationReasonForCancel> {
     
     private let obvAttachment: ObvAttachment
-    private let newProgress: Progress?
+    private let newProgress: (totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)?
     private let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ProcessFyleWithinDownloadingAttachmentOperation.self))
 
-    init(obvAttachment: ObvAttachment, newProgress: Progress?, obvEngine: ObvEngine) {
+    init(obvAttachment: ObvAttachment, newProgress: (totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)?, obvEngine: ObvEngine) {
         self.obvAttachment = obvAttachment
         self.newProgress = newProgress
         self.obvEngine = obvEngine
@@ -366,10 +371,8 @@ final class ProcessFyleWithinDownloadingAttachmentOperation: ContextualOperation
              * So we check whether the PersistedMessageReceived exists before going any further
              */
             
-            guard (try? PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier, from: obvAttachment.fromContactIdentity, within: obvContext.context)) != nil else {
-                return
-            }
-
+            guard (try? PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier, from: obvAttachment.fromContactIdentity, within: obvContext.context)) != nil else { return }
+            
             // If we reach this point, we can safely process the fyle
             
             do {
@@ -423,7 +426,7 @@ fileprivate final class ReceivingMessageAndAttachmentsOperationHelper {
     
     private static func makeError(message: String) -> Error { NSError(domain: "ReceivingMessageAndAttachmentsOperationHelper", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    fileprivate static func processFyleWithinDownloadingAttachment(_ obvAttachment: ObvAttachment, newProgress: Progress?, obvEngine: ObvEngine, log: OSLog, within obvContext: ObvContext) throws {
+    fileprivate static func processFyleWithinDownloadingAttachment(_ obvAttachment: ObvAttachment, newProgress: (totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)?, obvEngine: ObvEngine, log: OSLog, within obvContext: ObvContext) throws {
         
         let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
         
@@ -465,13 +468,13 @@ fileprivate final class ReceivingMessageAndAttachmentsOperationHelper {
 
         // In the end, if the status is downloaded and the fyle is available, we can delete any existing downsized preview
         try? obvContext.addContextWillSaveCompletionHandler {
-            if join.status == .complete && fyle.getFileSize() == join.totalUnitCount {
+            if join.status == .complete && fyle.getFileSize() == join.totalByteCount {
                 join.deleteDownsizedThumbnail()
             }
         }
                 
         // If the ReceivedFyleMessageJoinWithStatus is completed, we ask the engine to delete the attachment
-        if join.status == .complete && join.fyle?.getFileSize() == join.totalUnitCount {
+        if join.status == .complete && join.fyle?.getFileSize() == join.totalByteCount {
             
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
@@ -503,33 +506,6 @@ fileprivate final class ReceivingMessageAndAttachmentsOperationHelper {
             join.tryToSetStatusTo(.cancelledByServer)
         case .markedForDeletion:
             break
-        }
-        
-        // Notify about the progress (only necessary when not using the new discussion scree)
-        
-        if let newProgress = newProgress {
-            ObvMessengerInternalNotification.fyleMessageJoinWithStatusHasNewProgress(objectID: join.objectID, progress: newProgress)
-                .postOnDispatchQueue()
-        }
-        
-        // Under iOS14+, when using the new discussion screen, we store the progress right within the fyle message join,
-        // Making it possible for the single discussion view to update its cells with this new progress.
-        
-        if #available(iOS 14.0, *), newProgress != nil, !join.isInserted {
-            let joinObjectID = join.objectID
-            do {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { assertionFailure(); return }
-                    DispatchQueue.main.async {
-                        guard let join = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-                        join.progress = newProgress
-                    }
-                }
-            } catch {
-                os_log("Could not add context did save completion handler for saving a progress within an attachment on the view context", log: log, type: .fault)
-                assertionFailure()
-            }
-            
         }
         
         // If the ReceivedFyleMessageJoinWithStatus is marked as completed, but the Fyle is not, we have work to do

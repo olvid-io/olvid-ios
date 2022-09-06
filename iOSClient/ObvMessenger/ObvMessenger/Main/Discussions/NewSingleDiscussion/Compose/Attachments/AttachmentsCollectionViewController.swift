@@ -23,10 +23,10 @@ import QuickLook
 
 
 @available(iOS 14.0, *)
-final class AttachmentsCollectionViewController: UIViewController, NSFetchedResultsControllerDelegate {
+final class AttachmentsCollectionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate {
     
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
-    private var frc: NSFetchedResultsController<PersistedDraftFyleJoin>!
+    private(set) var frc: NSFetchedResultsController<PersistedDraftFyleJoin>!
     private var dataSource: UICollectionViewDiffableDataSource<Section, NSManagedObjectID>!
     private var collectionView: UICollectionView!
     private let attachmentTrashView: AttachmentTrashView
@@ -82,6 +82,7 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: createLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .none
+        collectionView.delegate = self
         view.addSubview(collectionView)
         
         let heightConstraint = collectionView.heightAnchor.constraint(equalToConstant: AttachmentsCollectionViewController.cellSize)
@@ -147,6 +148,18 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
 }
 
 
+// MARK: - UICollectionViewDelegate
+
+@available(iOS 14.0, *)
+extension AttachmentsCollectionViewController {
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        delegate?.userDidTapOnDraftFyleJoinWithHardLink(at: indexPath)
+    }
+    
+}
+
+
 // MARK: - NSFetchedResultsControllerDelegate
 
 @available(iOS 14.0, *)
@@ -194,14 +207,9 @@ extension AttachmentsCollectionViewController {
         return hardlinks
     }
 
-    /// Request all the hardlinks to the `PersistedDraftFyleJoin` that a currently fetched
-    func requestAllHardLinksToFetchedDraftFyleJoins(completionHandler: @escaping ([HardLinkToFyle?]) -> Void) {
-        guard let draftFyleJoins = frc.fetchedObjects else { assertionFailure(); return }
-        let fyleElements = draftFyleJoins.compactMap({ $0.fyleElement })
-        guard fyleElements.count == draftFyleJoins.count else { assertionFailure(); return }
-        ObvMessengerInternalNotification.requestAllHardLinksToFyles(fyleElements: fyleElements) { hardlinks in
-            completionHandler(hardlinks)
-        }.postOnDispatchQueue()
+
+    func getView(at indexPath: IndexPath) -> UIView? {
+        return collectionView.cellForItem(at: indexPath)
     }
     
 }

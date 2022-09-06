@@ -31,7 +31,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
     private static let recipientIdentityKey = "recipientIdentity"
     private static let returnReceiptNonceKey = "returnReceiptNonce"
     private static let timestampDeliveredKey = "timestampDelivered"
-    private static let ownedIdentityKey = ["messageSent", PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.ownedIdentityKey, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+    private static let ownedIdentityKey = ["messageSent", PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSentRecipientInfos")
     
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }

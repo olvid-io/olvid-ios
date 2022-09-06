@@ -41,14 +41,10 @@ class ObvSubtitleTableViewCell: UITableViewCell, ObvTableViewCellWithActivityInd
     private let defaultCirclePlaceholderHeight: CGFloat = 56.0
     
     // Vars
-    
+
     var title: String = "" { didSet { setTitle(); refreshCircledInitials() } }
     var subtitle: String = "" { didSet { setSubtitle() } }
-    var identityColors: (background: UIColor, text: UIColor)? { didSet { refreshCircledInitials() } }
-    var circledIcon: ObvSystemIcon? = nil { didSet { refreshCircledInitials() } }
-    var circledImageURL: URL? = nil { didSet { refreshCircledInitials() } }
-    var showGreenShield: Bool = false { didSet { refreshCircledInitials() } }
-    var showRedShield: Bool = false { didSet { refreshCircledInitials() } }
+    var circledInitialsConfiguration: CircledInitialsConfiguration? { didSet { refreshCircledInitials() } }
     private var chipImageView: UIImageView?
     private var badgeView: DiscView?
 
@@ -76,14 +72,8 @@ extension ObvSubtitleTableViewCell {
         activityIndicatorPlaceholder.backgroundColor = .clear
         
         prepareForReuse()
-        
-        
     }
-    
-    func configureCircledInitialsWith(icon: ObvSystemIcon) {
-        circledInitials.configureWith(icon: icon)
-    }
-    
+
     override func prepareForReuse() {
         super.prepareForReuse()
         isHidden = false
@@ -111,14 +101,8 @@ extension ObvSubtitleTableViewCell {
     }
     
     private func refreshCircledInitials() {
-        circledInitials.configureWith(
-            foregroundColor: self.identityColors?.text ?? appTheme.colorScheme.secondaryLabel,
-            backgroundColor: self.identityColors?.background ?? appTheme.colorScheme.secondarySystemFill,
-            icon: circledIcon,
-            stringForInitial: title,
-            photoURL: circledImageURL,
-            showGreenShield: showGreenShield,
-            showRedShield: showRedShield)
+        guard let circledInitialsConfiguration = circledInitialsConfiguration else { return }
+        circledInitials.configureWith(circledInitialsConfiguration)
     }
 
     private func setSubtitle() {
@@ -167,33 +151,19 @@ extension ObvSubtitleTableViewCell {
     
     
     func setChipCheckmark() {
-        if #available(iOS 13, *) {
-            let checkmark = UIImage(systemName: "checkmark.circle.fill")!.withTintColor(.green, renderingMode: .alwaysOriginal)
-            setChipImage(to: checkmark, withBadge: false)
-        } else {
-            let checkmark = UIImage(named: "checkmark")!
-            setChipImage(to: checkmark, withBadge: false)
-            self.chipImageView?.tintColor = .green
-        }
+        let checkmark = UIImage(systemName: "checkmark.circle.fill")!.withTintColor(.green, renderingMode: .alwaysOriginal)
+        setChipImage(to: checkmark, withBadge: false)
     }
 
     func setChipMute() {
-        if #available(iOS 13, *) {
-            let checkmark = UIImage(systemName: ObvMessengerConstants.muteIcon.systemName)!.withTintColor(.gray, renderingMode: .alwaysOriginal)
-            setChipImage(to: checkmark, withBadge: false)
-        }
+        let checkmark = UIImage(systemName: ObvMessengerConstants.muteIcon.systemName)!.withTintColor(.gray, renderingMode: .alwaysOriginal)
+        setChipImage(to: checkmark, withBadge: false)
     }
 
     
     func setChipXmark() {
-        if #available(iOS 13, *) {
-            let checkmark = UIImage(systemName: "xmark.circle.fill")!.withTintColor(.systemRed, renderingMode: .alwaysOriginal)
-            setChipImage(to: checkmark, withBadge: false)
-        } else {
-            let checkmark = UIImage(named: "xmark")!
-            setChipImage(to: checkmark, withBadge: false)
-            self.chipImageView?.tintColor = .systemRed
-        }
+        let checkmark = UIImage(systemName: "xmark.circle.fill")!.withTintColor(.systemRed, renderingMode: .alwaysOriginal)
+        setChipImage(to: checkmark, withBadge: false)
     }
     
     func removeTitleChip() {

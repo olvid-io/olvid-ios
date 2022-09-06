@@ -237,10 +237,8 @@ extension AllContactsViewController: CanScrollToTop {
         if let vc = children.first as? ContactsTableViewController {
             guard vc.tableView.numberOfSections > 0 && vc.tableView.numberOfRows(inSection: 0) > 0 else { return }
             vc.tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: true)
-        } else if #available(iOS 13.0, *) {
-            if let vc = children.first as? MultipleContactsHostingViewController {
-                vc.scrollToTop()
-            }
+        } else if let vc = children.first as? MultipleContactsHostingViewController {
+            vc.scrollToTop()
         }
     }
     

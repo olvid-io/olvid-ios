@@ -26,7 +26,7 @@ import AVFoundation
 import Combine
 
 @available(iOS 15.0, *)
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, QLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, QLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate {
     
     static let sectionHeaderElementKind = UICollectionView.elementKindSectionHeader
     private var collectionView: DiscussionCollectionView!
@@ -57,6 +57,10 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
 
     @Published private var messagesToReconfigure = Set<TypeSafeManagedObjectID<PersistedMessage>>()
     private var cancellables = [AnyCancellable]()
+    
+    // Single and double tap gesture recognizers on cells
+    private var singleTapOnCell: UITapGestureRecognizer!
+    private var doubleTapOnCell: UITapGestureRecognizer!
     
     /// The following variables allow to simulate the keyboardLayoutGuide introduced by Apple in iOS 15. Since, for now in iOS 15.0.2, it does not work with the
     /// emoji keyboard, we simulate it.
@@ -202,10 +206,13 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         observeAppStateChanges()
         observePersistedDiscussionChanges()
         observePersistedObvContactIdentityChanges()
+        observeRouteChange()
         registerForKeyboardNotifications()
         
         observeMessagesToReconfigure()
+        observeDeletedFyleMessageJoinNotifications()
         
+        observeTapsOnCollectionView()
     }
     
     
@@ -308,12 +315,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         guard !isRegisteredToNotifications else { return }
         isRegisteredToNotifications = true
         observationTokens.append(contentsOf: [
-            NewSingleDiscussionNotification.observeUserDidTapOnReplyTo(queue: OperationQueue.main) { [weak self] replyToMessageObjectID in
-                guard let frc = self?.frc else { return }
-                guard let message = try? PersistedMessage.get(with: replyToMessageObjectID, within: frc.managedObjectContext) else { return }
-                guard let indexPath = frc.indexPath(forObject: message) else { return }
-                self?.scrollToItemAtIndexPath(indexPath)
-            },
             ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
                 guard let _self = self else { return }
                 guard case .muteNotificationsDuration = value else { return }
@@ -331,6 +332,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 _self.theUserLeftTheDiscussion()
             },
             ObvMessengerCoreDataNotification.observePersistedContactIsActiveChanged(queue: OperationQueue.main) { [weak self] _ in
+                self?.configureNewComposeMessageViewVisibility(animate: true)
+            },
+            ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged(queue: OperationQueue.main) { [weak self] _ in
                 self?.configureNewComposeMessageViewVisibility(animate: true)
             },
         ])
@@ -353,20 +357,29 @@ extension NewSingleDiscussionViewController {
     func configureNavigationTitle() {
         assert(Thread.isMainThread)
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        if let oneToOne = discussion as? PersistedOneToOneDiscussion, let contact = oneToOne.contactIdentity {
-            navigationItem.titleView = SingleDiscussionTitleView(objectID: contact.typedObjectID)
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion, let group = groupDiscussion.contactGroup {
-            navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
-        } else if let lockedDiscussion = discussion as? PersistedDiscussionOneToOneLocked {
-            navigationItem.titleView = SingleDiscussionTitleView(objectID: lockedDiscussion.typedObjectID)
-        } else if let lockedDiscussion = discussion as? PersistedDiscussionGroupLocked {
-            navigationItem.titleView = SingleDiscussionTitleView(objectID: lockedDiscussion.typedObjectID)
-        } else {
-            assertionFailure()
+        navigationItem.titleView = nil
+        switch discussion.status {
+        case .locked:
+            navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
+        case .preDiscussion, .active:
+            switch try? discussion.kind {
+            case .oneToOne(withContactIdentity: let contact):
+                if let contact = contact {
+                    navigationItem.titleView = SingleDiscussionTitleView(objectID: contact.typedObjectID)
+                }
+            case .groupV1(withContactGroup: let contactGroup):
+                if let group = contactGroup {
+                    navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
+                }
+            case .none:
+                break
+            }
+        }
+        if navigationItem.titleView == nil {
             navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
         }
         
-        if !(discussion is PersistedDiscussionGroupLocked) {
+        if discussion.status == .active {
             
             var items: [UIBarButtonItem] = []
             
@@ -570,23 +583,23 @@ extension NewSingleDiscussionViewController {
     
     
     private func updateSystemMessageCell(_ cell: SystemMessageCell, at indexPath: IndexPath, with message: PersistedMessageSystem) {
-        cell.updateWith(message: message, indexPath: indexPath, delegate: self)
+        cell.updateWith(message: message, indexPath: indexPath)
     }
     
     
     private func updateReceivedMessageCell(_ cell: ReceivedMessageCell, at indexPath: IndexPath, with message: PersistedMessageReceived) {
         var prvMessageIsFromSameContact = false
         if let discussionEntityName = discussionObjectID.entityName {
-            if discussionEntityName == PersistedGroupDiscussion.entityName || discussionEntityName == PersistedDiscussionGroupLocked.entityName {
+            if discussionEntityName == PersistedGroupDiscussion.entityName {
                 prvMessageIsFromSameContact = previousMessageIsFromSameContact(message: message)
             }
         }
-        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, previousMessageIsFromSameContact: prvMessageIsFromSameContact, viewShowingHardLinksDelegate: self, viewDisplayingContactImageDelegate: self, cacheDelegate: cacheDelegate, reactionsDelegate: self, cellReconfigurator: self)
+        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, previousMessageIsFromSameContact: prvMessageIsFromSameContact, cacheDelegate: cacheDelegate, cellReconfigurator: self, textBubbleDelegate: self)
     }
 
     
     private func updateSentMessageCell(_ cell: SentMessageCell, at indexPath: IndexPath, with message: PersistedMessageSent) {
-        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, delegate: self, cacheDelegate: cacheDelegate, reactionsDelegate: self, cellReconfigurator: self)
+        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, cacheDelegate: cacheDelegate, cellReconfigurator: self, textBubbleDelegate: self)
     }
     
         
@@ -651,18 +664,21 @@ extension NewSingleDiscussionViewController {
 
     
     @objc func callButtonTapped() {
-        
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
-            guard let contactID = oneToOneDiscussion.contactIdentity?.typedObjectID else { return }
+        switch try? discussion.kind {
+        case .oneToOne(withContactIdentity: let contactIdentity):
+            guard let contactID = contactIdentity?.typedObjectID else { return }
             ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [contactID], groupId: nil)
                 .postOnDispatchQueue(internalQueue)
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion,
-                  let contactGroup = groupDiscussion.contactGroup,
-                  let groupId = try? contactGroup.getGroupId() {
-            let contactIdentities = contactGroup.contactIdentities
-            ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId)
-                .postOnDispatchQueue(internalQueue)
+        case .groupV1(withContactGroup: let contactGroup):
+            if let contactGroup = contactGroup,
+               let groupId = try? contactGroup.getGroupId() {
+                let contactIdentities = contactGroup.contactIdentities
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId)
+                    .postOnDispatchQueue(internalQueue)
+            }
+        case .none:
+            assertionFailure()
         }
     }
 
@@ -718,22 +734,36 @@ extension NewSingleDiscussionViewController {
                 .compactMap({ $0 as? PersistedObvContactIdentity })
 
             /// Computes the set of contact groups where at least one contact has been refreshed and check whether the current discussion is one of the discussions associated to those group
-            let currentDiscussionDidChange = refreshedContactObject
+
+            if refreshedContactObject
                 .flatMap({ $0.contactGroups })
-                .contains(where: { $0.discussion.typedObjectID.downcast == _self.discussionObjectID })
+                .contains(where: { $0.discussion.typedObjectID.downcast == _self.discussionObjectID }) {
+                /// If the current discussion has changed, reconfigure the title
+                self?.configureNavigationTitle()
 
-            /// If the current discussion has changed, reconfigure the title
-            guard currentDiscussionDidChange else { return }
-            self?.configureNavigationTitle()
+                /// We know here that at least one contact of the group was refreshed.
+                ObvStack.shared.viewContext.registeredObjects
+                    .compactMap { $0 as? PersistedMessageReceived }
+                    .filter {
+                        guard let contact = $0.contactIdentity else { return false }
+                        return refreshedContactObject.contains(contact)
+                    }
+                    .forEach { ObvStack.shared.viewContext.refresh($0, mergeChanges: true) }
+            } else if refreshedContactObject
+                .compactMap({ $0.oneToOneDiscussion })
+                .contains(where: { $0.typedObjectID.downcast == _self.discussionObjectID }) {
+                /// If the current discussion has changed, reconfigure the title
+                self?.configureNavigationTitle()
+            }
+        })
+    }
 
-            /// We know here that at least one contact of the group was refreshed.
-            ObvStack.shared.viewContext.registeredObjects
-                .compactMap { $0 as? PersistedMessageReceived }
-                .filter {
-                    guard let contact = $0.contactIdentity else { return false }
-                    return refreshedContactObject.contains(contact)
-                }
-                .forEach { ObvStack.shared.viewContext.refresh($0, mergeChanges: true) }
+    private func observeRouteChange() {
+        observationTokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: OperationQueue.main) { [weak self] _ in
+            self?.collectionView?.visibleCells.forEach { cell in
+                guard let audioPlayerView = cell.deepSearchSubView(ofClass: AudioPlayerView.self) else { return }
+                audioPlayerView.configureSpeakerButton()
+            }
         })
     }
 
@@ -825,23 +855,32 @@ extension NewSingleDiscussionViewController {
         let shouldScrollToBottom = scrollToBottomAfterApplyingSnapshot(controller: controller)
         debugPrint("🦄 shouldScrollToBottom: \(shouldScrollToBottom)")
         
-        queueForApplyingSnapshots.async {
-            debugPrint("😤 Will call apply for the new snapshot")
-            dataSource.apply(newSnapshot, animatingDifferences: true) { [weak self] in
-                DispatchQueue.main.async {
-                    debugPrint("😤 Did call apply for the new snapshot")
-                    guard let _self = self else { return }
-                    _self.atLeastOneSnapshotWasApplied = true
-                    if _self.initialScrollWasPerformed {
-                        guard _self.viewDidAppearWasCalled else { return }
-                        if shouldScrollToBottom {
-                            _self.simpleScrollToBottom()
+        debugPrint("😤💿 Is initialized and active is \(AppStateManager.shared.currentState.isInitializedAndActive)")
+        
+        AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive { [weak self] in
+            
+            self?.queueForApplyingSnapshots.async {
+                
+                debugPrint("😤💿 Will call apply for the new snapshot")
+                
+                dataSource.apply(newSnapshot, animatingDifferences: true) { [weak self] in
+                    debugPrint("😤💿 Did call apply for the new snapshot")
+                    DispatchQueue.main.async {
+                        guard let _self = self else { return }
+                        _self.atLeastOneSnapshotWasApplied = true
+                        if _self.initialScrollWasPerformed {
+                            guard _self.viewDidAppearWasCalled else { return }
+                            if shouldScrollToBottom {
+                                _self.simpleScrollToBottom()
+                            }
+                        } else {
+                            _self.performInitialScrollIfAppropriateAndRemoveHidingView()
                         }
-                    } else {
-                        _self.performInitialScrollIfAppropriateAndRemoveHidingView()
                     }
                 }
+                
             }
+            
         }
         
     }
@@ -1245,8 +1284,6 @@ extension NewSingleDiscussionViewController {
 
         guard let cell = collectionView.cellForItem(at: indexPath) as? CellWithMessage else { return nil }
         
-        guard cell.isSomeActionAvailable else { return nil }
-        
         let actionProvider = makeActionProvider(for: cell)
         
         let menuConfiguration = UIContextMenuConfiguration(indexPath: indexPath,
@@ -1260,10 +1297,13 @@ extension NewSingleDiscussionViewController {
     private func makeActionProvider(for cell: CellWithMessage) -> (([UIMenuElement]) -> UIMenu?) {
         return { (suggestedActions) in
 
+            guard let persistedMessageObjectID = cell.persistedMessageObjectID else { assertionFailure(); return nil }
+            guard let persistedMessage = try? PersistedMessage.get(with: persistedMessageObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return nil }
+            
             var children = [UIMenuElement]()
             
             // Message infos action
-            if cell.isInfoActionAvailable {
+            if persistedMessage.infoActionCanBeMadeAvailable {
                 let action = UIAction(title: "Info") { [weak self] (_) in
                     if let vc = cell.infoViewController {
                         let nav = UINavigationController(rootViewController: vc)
@@ -1279,7 +1319,7 @@ extension NewSingleDiscussionViewController {
             }
             
             // Copy Text action
-            if let textToCopy = cell.textToCopy, cell.persistedMessage?.copyActionCanBeMadeAvailable == true {
+            if let textToCopy = cell.textToCopy, persistedMessage.copyActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Title.copyText) { (_) in
                     UIPasteboard.general.string = textToCopy
                 }
@@ -1287,7 +1327,8 @@ extension NewSingleDiscussionViewController {
                 children.append(action)
             }
 
-            if cell.persistedMessage?.shareActionCanBeMadeAvailable == true {
+            // Share action
+            if persistedMessage.shareActionCanBeMadeAvailable {
 
                 // Share all photos at once
                 if let itemProvidersForImages = cell.itemProvidersForImages, itemProvidersForImages.count > 0 {
@@ -1313,10 +1354,10 @@ extension NewSingleDiscussionViewController {
             }
             
             // Reply to message action
-            if let messageObjectID = cell.persistedMessageObjectID, let draftObjectID = cell.persistedDraftObjectID, cell.isReplyToActionAvailable {
+            if let draftObjectID = cell.persistedDraftObjectID, persistedMessage.replyToActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Reply) { [weak self] _ in
                     guard let _self = self else { return }
-                    NewSingleDiscussionNotification.userWantsToReplyToMessage(messageObjectID: messageObjectID, draftObjectID: draftObjectID)
+                    NewSingleDiscussionNotification.userWantsToReplyToMessage(messageObjectID: persistedMessageObjectID, draftObjectID: draftObjectID)
                         .postOnDispatchQueue(_self.internalQueue)
                 }
                 action.image = UIImage(systemIcon: .arrowshapeTurnUpLeft2)
@@ -1324,9 +1365,8 @@ extension NewSingleDiscussionViewController {
             }
 
             // Edit message action
-            if cell.isEditBodyActionAvailable {
+            if persistedMessage.editBodyActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Edit) { [weak self] (_) in
-                    guard let persistedMessage = cell.persistedMessage else { return }
                     let sentMessageObjectID = persistedMessage.objectID
                     let currentTextBody = persistedMessage.textBody
                     let vc = BodyEditViewController(currentBody: currentTextBody) { [weak self] in
@@ -1343,14 +1383,30 @@ extension NewSingleDiscussionViewController {
                     self?.present(vc, animated: true)
                     return
                 }
-                action.image = UIImage(systemIcon: .pencilCircle)
+                action.image = UIImage(systemIcon: .pencil(.circle))
                 children.append(action)
             }
 
-            if cell.isCallActionAvailable {
+            // Forward message action
+            if persistedMessage.forwardActionCanBeMadeAvailable {
+                let action = UIAction(title: CommonString.Word.Forward) { [weak self] (_) in
+                    guard let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId else { return }
+                    let vc = DiscussionsViewController(ownedCryptoId: ownedCryptoId) { discussionObjectIDs in
+                        ObvMessengerInternalNotification.userWantsToForwardMessage(messageObjectID: persistedMessage.typedObjectID, discussionObjectIDs: discussionObjectIDs).postOnDispatchQueue()
+                    }
+                    let nav = ObvNavigationController(rootViewController: vc)
+                    self?.present(nav, animated: true)
+                    return
+                }
+                action.image = UIImage(systemIcon: ObvMessengerConstants.forwardIcon)
+                children.append(action)
+            }
+
+            // Call action
+            if persistedMessage.callActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Call) { (_) in
-                    guard let persistedMessage = cell.persistedMessage as? PersistedMessageSystem else { return }
-                    guard let item = persistedMessage.optionalCallLogItem else { return }
+                    guard let systemMessage = persistedMessage as? PersistedMessageSystem else { return }
+                    guard let item = systemMessage.optionalCallLogItem else { return }
                     let groupId = try? item.getGroupId()
 
                     var contactsToCall = [TypeSafeManagedObjectID<PersistedObvContactIdentity>]()
@@ -1370,7 +1426,7 @@ extension NewSingleDiscussionViewController {
             }
 
             // Delete reaction action
-            if cell.isDeleteOwnReactionActionAvailable {
+            if persistedMessage.deleteOwnReactionActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Title.deleteOwnReaction) { (_) in
                     guard let messageID = cell.persistedMessageObjectID else { return }
                     ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: nil).postOnDispatchQueue()
@@ -1380,10 +1436,9 @@ extension NewSingleDiscussionViewController {
             }
 
             // Delete message action
-            if cell.isDeleteActionAvailable {
+            if persistedMessage.deleteMessageActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Delete) { [weak self] (_) in
-                    guard let persistedMessage = cell.persistedMessage else { return }
-                    self?.deletePersistedMessage(objectId: persistedMessage.objectID, confirmedDeletionType: nil, withinCell: cell)
+                    self?.deletePersistedMessage(objectId: persistedMessageObjectID.objectID, confirmedDeletionType: nil, withinCell: cell)
                 }
                 action.image = UIImage(systemIcon: .trash)
                 action.attributes = [.destructive]
@@ -1647,14 +1702,26 @@ extension NewSingleDiscussionViewController {
                 return true
             }
             // We do not show the compose view for locked discussions
-            guard !(discussion is PersistedDiscussionGroupLocked || discussion is PersistedDiscussionOneToOneLocked) else { return true }
-            // We do no not show the compose view if we have no one to write to in a group discussion
-            if let groupDiscussion = discussion as? PersistedGroupDiscussion, !groupDiscussion.hasAtLeastOneRemoteContactDevice() {
+            switch discussion.status {
+            case .preDiscussion, .locked:
                 return true
+            case .active:
+                break
             }
-            // We do not show the compose view for a one-to-one discussion with a contact s.t. isActive == false
-            if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion, oneToOneDiscussion.contactIdentity?.isActive != true {
-                return true
+            switch try? discussion.kind {
+            case .oneToOne(withContactIdentity: let contactIdentity):
+                // We do not show the compose view for a one-to-one discussion with a contact s.t. isActive == false
+                if contactIdentity?.isActive != true {
+                    return true
+                }
+            case .groupV1(withContactGroup: let contactGroup):
+                // We do no not show the compose view if we have no one to write to in a group discussion
+                guard let contactGroup = contactGroup else { assertionFailure(); return true }
+                if !contactGroup.hasAtLeastOneRemoteContactDevice() {
+                    return true
+                }
+            case .none:
+                assertionFailure()
             }
         } catch {
             assertionFailure(error.localizedDescription)
@@ -1712,102 +1779,126 @@ extension NewSingleDiscussionViewController {
 }
 
 
-
-// MARK: - ViewShowingHardLinksDelegate / CustomQLPreviewControllerDelegate / Previewing attachments
+// MARK: - Tapping on cells, UIGestureRecognizerDelegate and TextBubbleDelegate
 
 @available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
+    private func observeTapsOnCollectionView() {
+
+        self.singleTapOnCell = UITapGestureRecognizer(target: self, action: #selector(tapPerformed))
+        self.singleTapOnCell.delegate = self
+        self.collectionView.addGestureRecognizer(singleTapOnCell)
+        
+        self.doubleTapOnCell = UITapGestureRecognizer(target: self, action: #selector(doubleTapPerformed))
+        self.doubleTapOnCell.numberOfTapsRequired = 2
+        self.doubleTapOnCell.delegate = self
+        self.collectionView.addGestureRecognizer(doubleTapOnCell)
+        
+    }
+    
+    
+    /// Implementing `TextBubbleDelegate`, allowing the `TextBubble` to request the gesture that should fail befor accepting a tap, e.g., on links.
+    var gestureThatLinkTapShouldRequireToFail: UIGestureRecognizer? {
+        doubleTapOnCell
+    }
+
+    
+    @objc func tapPerformed(recognizer: UITapGestureRecognizer) {
+
+        guard recognizer.state == .ended else { return }
+        let location = recognizer.location(in: collectionView)
+        guard let indexPath = collectionView.indexPathForItem(at: location) else { return }
+        guard let cell = collectionView.cellForItem(at: indexPath) else { return }
+        guard let cellWithTappableStuff = cell as? UIViewWithTappableStuff else { return }
+        tapPerformedOn(cellWithTappableStuff, tapGestureRecognizer: recognizer)
+
+    }
+
+    
+    @objc func doubleTapPerformed(recognizer: UITapGestureRecognizer) {
+        
+        guard recognizer.state == .ended else { return }
+        let location = recognizer.location(in: collectionView)
+        guard let indexPath = collectionView.indexPathForItem(at: location) else { return }
+        guard let cell = collectionView.cellForItem(at: indexPath) else { return }
+        guard cell is ReceivedMessageCell || cell is SentMessageCell else { return }
+        guard let cellWithMessage = cell as? CellWithMessage else { return }
+        guard let messageID = cellWithMessage.persistedMessageObjectID else { return }
+        userDoubleTappedOnMessage(messageID: messageID)
+        
+    }
+    
+    
+    private func tapPerformedOn(_ viewWithTappableStuff: UIViewWithTappableStuff, tapGestureRecognizer: UITapGestureRecognizer) {
+        guard let tappedStuff = viewWithTappableStuff.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) else { return }
+        switch tappedStuff {
+            
+        case .hardlink(let hardLink):
+            userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardLink)
+            
+        case .messageThatRequiresUserAction(messageObjectID: let messageObjectID):
+            ObvMessengerInternalNotification.userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set([messageObjectID]))
+                .postOnDispatchQueue()
+            
+        case .receivedFyleMessageJoinWithStatusToResumeDownload(receivedJoinObjectID: let receivedJoinObjectID):
+            NewSingleDiscussionNotification.userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: receivedJoinObjectID).postOnDispatchQueue()
+            
+        case .receivedFyleMessageJoinWithStatusToPauseDownload(receivedJoinObjectID: let receivedJoinObjectID):
+            NewSingleDiscussionNotification.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: receivedJoinObjectID).postOnDispatchQueue()
+            
+        case .reaction(messageObjectID: let messageObjectID):
+            userTappedOnReactionView(messageObjectID: messageObjectID)
+            
+        case .missedMessageBubble:
+            ObvMessengerInternalNotification.userDidTapOnMissedMessageBubble
+                .postOnDispatchQueue()
+            
+        case .circledInitials(contactObjectID: let contactObjectID):
+            assert(delegate != nil)
+            delegate?.userDidTapOnContactImage(contactObjectID: contactObjectID)
+            
+        case .replyTo(replyToMessageObjectID: let replyToMessageObjectID):
+            userDidTapOnReplyTo(replyToMessageObjectID: replyToMessageObjectID)
+            
+        case .systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission:
+            systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionWasTapped()
+            
+        case .systemCellShowingUpdatedDiscussionSharedSettings:
+            settingsButtonTapped()
+            
+        }
+    }
+    
+    
     /// This gets called when a message attachment is tapped (either an image, a non-image file, ...). We receive the `HardLinkToFyle` that was used to display the preview.
     /// We use it to query each visible cell in order to first determine which cell is concerned. This is possible because a `HardLinkToFyle` uniquely determines
     /// a `SentFyleMessageJoinWithStatus` instance.
-    func userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: HardLinkToFyle) {
+    private func userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: HardLinkToFyle) {
         assert(Thread.isMainThread)
         guard let cell = findCellShowingHardlink(hardlinkTapped) else { assertionFailure(); return }
-        let allHardLinkShownByCell = cell.getAllShownHardLink().map({ $0.hardlink })
-        let alwaysPreventSharing = (cell as? CellWithMessage)?.persistedMessage?.shareActionCanBeMadeAvailable != true
-        debugPrint(alwaysPreventSharing)
-        filesViewer = FilesViewer(hardLinksToFyles: allHardLinkShownByCell, alwaysPreventSharing: alwaysPreventSharing)
-        filesViewer?.delegate = self
-        filesViewer?.cellIndexPath = collectionView.indexPath(for: cell)
-        guard let index = allHardLinkShownByCell.firstIndex(of: hardlinkTapped) else { assertionFailure(); return }
+        guard let message = cell.persistedMessage else { assertionFailure(); return }
+        guard let join = message.fyleMessageJoinWithStatus?.first(where: { $0.fyle?.url == hardlinkTapped.fyleURL }) else { assertionFailure(); return }
+        guard let frc = try? FyleMessageJoinWithStatus.getFetchedResultsControllerForAllJoinsWithinMessage(message) else { assertionFailure(); return }
+        do {
+            try frc.performFetch()
+        } catch {
+            os_log("Could not perform fetch %{public}@", log: log, type: .fault, error.localizedDescription)
+            return
+        }
+        filesViewer = FilesViewer(frc: frc, qlPreviewControllerDelegate: self)
         composeMessageView?.animatedEndEditing { [weak self] _ in
             guard let _self = self else { return }
-            _self.filesViewer?.tryToShowFile(atIndex: index, within: _self)
-        }
-    }
-    
-    func userDidTapOnDraftFyleJoinWithHardLink(hardlinkTapped: HardLinkToFyle) {
-        composeMessageView?.requestAllHardLinksToFylesWithinCurrentDraft { hardlinks in
-            let acceptableHardlinks = hardlinks.compactMap({ $0 })
-            assert(acceptableHardlinks.count == hardlinks.count)
-            DispatchQueue.main.async { [weak self] in
-                self?.filesViewer = FilesViewer(hardLinksToFyles: acceptableHardlinks, alwaysPreventSharing: false)
-                self?.filesViewer?.delegate = self
-                self?.filesViewer?.cellIndexPath = nil
-                guard let index = acceptableHardlinks.firstIndex(of: hardlinkTapped) else { assertionFailure(); return }
-                self?.composeMessageView?.animatedEndEditing { _ in
-                    assert(Thread.isMainThread)
-                    guard let _self = self else { return }
-                    self?.filesViewer?.tryToShowFile(atIndex: index, within: _self)
-                }
+            do {
+                try _self.filesViewer?.tryToShowFyleMessageJoinWithStatus(join, within: _self)
+            } catch {
+                os_log("Could not show join %{public}@", log: _self.log, type: .fault, error.localizedDescription)
             }
         }
     }
+
     
-    private func findCellShowingHardlink(_ hardlink: HardLinkToFyle) -> CellShowingHardLinks? {
-        let allVisibleCellsShowingHardlinks = collectionView.visibleCells.compactMap({ $0 as? CellShowingHardLinks })
-        for cell in allVisibleCellsShowingHardlinks {
-            let allHardlinkShownByCell = cell.getAllShownHardLink().map({ $0.hardlink })
-            if allHardlinkShownByCell.contains(hardlink) {
-                return cell
-            }
-        }
-        return nil
-    }
-
-
-    func previewController(_ controller: QLPreviewController, transitionViewFor item: QLPreviewItem) -> UIView? {
-        guard let filesViewer = self.filesViewer else { assertionFailure(); return nil }
-        guard let indexPath = filesViewer.cellIndexPath else { return nil } // Should only happen when showing a draft attachment
-        guard let cell = self.collectionView.cellForItem(at: indexPath) as? ViewShowingHardLinks else { return nil }
-        let attachmentIndex = controller.currentPreviewItemIndex
-        let allHardLinkShownByCell = cell.getAllShownHardLink()
-        guard attachmentIndex < allHardLinkShownByCell.count else { assertionFailure(); return nil }
-        return allHardLinkShownByCell[attachmentIndex].viewShowingHardLink
-    }
-    
-    
-    func previewControllerDidDismiss(_ controller: QLPreviewController) {
-        self.filesViewer = nil
-    }
-
-}
-
-
-// MARK: - ViewDisplayingContactImageDelegate
-
-@available(iOS 15.0, *)
-extension NewSingleDiscussionViewController: ViewDisplayingContactImageDelegate {
-    
-    func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) {
-        assert(delegate != nil)
-        delegate?.userDidTapOnContactImage(contactObjectID: contactObjectID)
-    }
-    
-}
-
-
-// MARK: - SystemMessageCellDelegate
-
-@available(iOS 15.0, *)
-extension NewSingleDiscussionViewController: SystemMessageCellDelegate {
-    
-    func systemCellShowingUpdatedDiscussionSharedSettingsWasTapped() {
-        settingsButtonTapped()
-    }
-
-    func systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionWasTapped() {
+    private func systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionWasTapped() {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .undetermined:
             AVAudioSession.sharedInstance().requestRecordPermission { [weak self] (granted) in
@@ -1826,7 +1917,159 @@ extension NewSingleDiscussionViewController: SystemMessageCellDelegate {
             assertionFailure()
         }
     }
+
     
+    private func userDidTapOnReplyTo(replyToMessageObjectID: NSManagedObjectID) {
+        guard let frc = self.frc else { return }
+        guard let message = try? PersistedMessage.get(with: replyToMessageObjectID, within: frc.managedObjectContext) else { return }
+        guard let indexPath = frc.indexPath(forObject: message) else { return }
+        self.scrollToItemAtIndexPath(indexPath)
+    }
+
+    
+    private func userDoubleTappedOnMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
+        guard let message = try? PersistedMessage.get(with: messageID, within: ObvStack.shared.viewContext) else { return }
+        guard !message.isWiped else { return }
+        var selectedEmoji: String?
+        if let ownReaction = message.reactionFromOwnedIdentity() {
+            selectedEmoji = ownReaction.emoji
+        }
+        let model = EmojiPickerViewModel(selectedEmoji: selectedEmoji) { emoji in
+            ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: emoji).postOnDispatchQueue()
+        }
+        let vc = EmojiPickerHostingViewController(model: model)
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [ .medium() ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 30.0
+        }
+        present(vc, animated: true)
+    }
+
+    
+    private func userTappedOnReactionView(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) {
+        guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { return }
+
+        guard let vc = MessageReactionsListHostingViewController(message: message) else {
+            assertionFailure()
+            return
+        }
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [ .medium(), .large() ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 30.0
+        }
+        present(vc, animated: true)
+    }
+
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Don't recognize the single tap on cell until the double-tap on cell fails
+        return gestureRecognizer == self.singleTapOnCell && otherGestureRecognizer == self.doubleTapOnCell
+    }
+
+}
+
+// MARK: - ViewShowingHardLinksDelegate / CustomQLPreviewControllerDelegate / Previewing attachments
+
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController {
+    
+    func userDidTapOnDraftFyleJoinWithHardLink(at indexPath: IndexPath) {
+        guard let frc = composeMessageView?.attachmentsCollectionViewController.frc else { assertionFailure(); return }
+        filesViewer = FilesViewer(frc: frc, qlPreviewControllerDelegate: self)
+        composeMessageView?.animatedEndEditing { [weak self] _ in
+            assert(Thread.isMainThread)
+            guard let _self = self else { return }
+            self?.filesViewer?.tryToShowFile(atIndexPath: indexPath, within: _self)
+        }
+    }
+
+    
+    private func findCellShowingHardlink(_ hardlink: HardLinkToFyle) -> MessageCellShowingHardLinks? {
+        let allVisibleCellsShowingHardlinks = collectionView.visibleCells.compactMap({ $0 as? MessageCellShowingHardLinks })
+        for cell in allVisibleCellsShowingHardlinks {
+            let allHardlinkShownByCell = cell.getAllShownHardLink().map({ $0.hardlink })
+            if allHardlinkShownByCell.contains(hardlink) {
+                return cell
+            }
+        }
+        return nil
+    }
+
+
+    func previewController(_ controller: QLPreviewController, transitionViewFor item: QLPreviewItem) -> UIView? {
+        guard let filesViewer = self.filesViewer else { assertionFailure(); return nil }
+        switch filesViewer.frcType {
+        case .fyleMessageJoinWithStatus(frc: let frc):
+            guard let currentPreviewJoin = filesViewer.currentPreviewFyleMessageJoinWithStatus else { assertionFailure(); return nil }
+            guard let message = frc.fetchedObjects?.first?.message else { return nil }
+            guard let cell = collectionView.visibleCells.compactMap({ $0 as? CellWithMessage }).first(where: { $0.persistedMessageObjectID == message.typedObjectID }) as? ViewShowingHardLinks else { return nil }
+            let allHardLinkShownByCell = cell.getAllShownHardLink()
+            let attachmentIndex = Int(allHardLinkShownByCell.firstIndex(where: { $0.hardlink.fyleURL == currentPreviewJoin.fyle?.url }) ?? 0)
+            return allHardLinkShownByCell[attachmentIndex].viewShowingHardLink
+        case .persistedDraftFyleJoin:
+            let attachmentIndex = controller.currentPreviewItemIndex
+            let indexPath = IndexPath(item: attachmentIndex, section: 0)
+            return composeMessageView?.attachmentsCollectionViewController.getView(at: indexPath)
+        }
+    }
+    
+    
+    func previewControllerDidDismiss(_ controller: QLPreviewController) {
+        self.filesViewer = nil
+    }
+
+    
+    /// We observe notifications of deleted fyle message joins (i.e., attachments) so as to be able to dismiss the File Viewer if:
+    /// - there is one presented ;-)
+    /// - it is currently configured to show one of the deleted attachments
+    /// This typically occurs for attachments with limited visibility. The first time we tap on such an attachment, the counter starts.  When it is over, we delete de whole message, including the attachments.
+    /// In that case, we do not allow the user to continue viewing any of those attachments so we dismiss the file viewer.
+    private func observeDeletedFyleMessageJoinNotifications() {
+        let NotificationName = NSNotification.Name.NSManagedObjectContextObjectsDidChange
+        let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { [weak self] (notification) in
+            
+            // Make sure we are considering changes made in the view context, i.e., posted on the main thread
+            
+            guard Thread.isMainThread else { return }
+            
+            // Construct a set of FyleMessageJoinWithStatus currently shown by the file viewer
+            
+            guard let filesViewer = self?.filesViewer else { return }
+            guard case .fyleMessageJoinWithStatus(frc: let frcOfFilesViewer) = filesViewer.frcType else { return }
+            guard let shownObjectIDs = frcOfFilesViewer.fetchedObjects?.map({ $0.objectID }) else { return }
+
+            // Construct a set of deleted/wiped FyleMessageJoinWithStatus
+            
+            var objectIDs = Set<NSManagedObjectID>()
+            do {
+                if let deletedObjects = notification.userInfo?[NSDeletedObjectsKey] as? Set<NSManagedObject>, !deletedObjects.isEmpty {
+                    let deletedFyleMessageJoinWithStatuses = deletedObjects.compactMap({ $0 as? FyleMessageJoinWithStatus })
+                    objectIDs.formUnion(Set(deletedFyleMessageJoinWithStatuses.map({ $0.objectID })))
+                }
+                if let updatedObjects = notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject>, !updatedObjects.isEmpty {
+                    let wipedFyleMessageJoinWithStatuses = updatedObjects
+                        .compactMap { $0 as? FyleMessageJoinWithStatus }
+                        .filter { $0.isWiped }
+                    objectIDs.formUnion(Set(wipedFyleMessageJoinWithStatuses.map({ $0.objectID })))
+                }
+            }
+            
+            guard !objectIDs.isEmpty else { return }
+            
+            // Construct a set of FyleMessageJoinWithStatus shown by the file viewer
+            
+            guard !objectIDs.isDisjoint(with: shownObjectIDs) else { return }
+            DispatchQueue.main.async {
+                (self?.presentedViewController as? QLPreviewController)?.dismiss(animated: true, completion: {
+                    self?.filesViewer = nil
+                })
+            }
+        }
+        observationTokens.append(token)
+    }
+
 }
 
 
@@ -1846,50 +2089,4 @@ extension NewSingleDiscussionViewController {
         }
     }
     
-}
-
-protocol ReactionsDelegate: AnyObject {
-    func userTappedOnReactionView(messageID: TypeSafeManagedObjectID<PersistedMessage>)
-    func userDoubleTappedOnMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>)
-}
-
-
-@available(iOS 15.0, *)
-extension NewSingleDiscussionViewController: ReactionsDelegate {
-
-    func userTappedOnReactionView(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
-        guard let message = try? PersistedMessage.get(with: messageID, within: ObvStack.shared.viewContext) else { return }
-
-        guard let vc = MessageReactionsListHostingViewController(message: message) else {
-            assertionFailure()
-            return
-        }
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [ .medium(), .large() ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 30.0
-        }
-        present(vc, animated: true)
-    }
-
-
-    func userDoubleTappedOnMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
-        guard let message = try? PersistedMessage.get(with: messageID, within: ObvStack.shared.viewContext) else { return }
-        guard !message.isWiped else { return }
-        var selectedEmoji: String?
-        if let ownReaction = message.reactionFromOwnedIdentity() {
-            selectedEmoji = ownReaction.emoji
-        }
-        let model = EmojiPickerViewModel(selectedEmoji: selectedEmoji) { emoji in
-            ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: emoji).postOnDispatchQueue()
-        }
-        let vc = EmojiPickerHostingViewController(model: model)
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [ .medium() ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 30.0
-        }
-        present(vc, animated: true)
-    }
-
 }

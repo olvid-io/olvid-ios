@@ -19,29 +19,15 @@
 
 import SwiftUI
 
-enum InitialCircleViewSystemImage {
-    case lockFill
-    case person3Fill
-    case person
-
-    var icon: ObvSystemIcon {
-        switch self {
-        case .lockFill: return .lockFill
-        case .person3Fill: return .person3Fill
-        case .person: return .person
-        }
-    }
-}
-
 struct InitialCircleView: View {
 
     let circledTextView: Text?
-    let systemImage: InitialCircleViewSystemImage
+    let systemImage: CircledInitialsIcon
     let circleBackgroundColor: UIColor?
     let circleTextColor: UIColor?
     let circleDiameter: CGFloat
 
-    init(circledTextView: Text?, systemImage: InitialCircleViewSystemImage, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circleDiameter: CGFloat = 70.0) {
+    init(circledTextView: Text?, systemImage: CircledInitialsIcon, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circleDiameter: CGFloat = 70.0) {
         self.circledTextView = circledTextView
         self.systemImage = systemImage
         self.circleBackgroundColor = circleBackgroundColor
@@ -53,6 +39,7 @@ struct InitialCircleView: View {
         switch systemImage {
         case .person: return 2
         case .person3Fill: return 3
+        case .personFillXmark: return 2
         case .lockFill: return 2
         }
     }
@@ -90,7 +77,7 @@ struct InitialCircleView_Previews: PreviewProvider {
     private struct TestData: Identifiable {
         let id = UUID()
         let circledTextView: Text?
-        let systemImage: InitialCircleViewSystemImage
+        let systemImage: CircledInitialsIcon
         let circleBackgroundColor: UIColor?
         let circleTextColor: UIColor?
         let circleDiameter: CGFloat

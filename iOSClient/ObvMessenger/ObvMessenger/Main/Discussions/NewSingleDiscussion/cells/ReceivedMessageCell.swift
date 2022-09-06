@@ -24,18 +24,16 @@ import os.log
 
 
 @available(iOS 14.0, *)
-final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShowingHardLinks {
+final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff {
     
     private(set) var message: PersistedMessageReceived?
     private var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
     private var indexPath = IndexPath(item: 0, section: 0)
     private var previousMessageIsFromSameContact = false
     
-    weak var viewShowingHardLinksDelegate: ViewShowingHardLinksDelegate?
-    weak var viewDisplayingContactImageDelegate: ViewDisplayingContactImageDelegate?
     weak var cacheDelegate: DiscussionCacheDelegate?
-    weak var reactionsDelegate: ReactionsDelegate?
     weak var cellReconfigurator: CellReconfigurator?
+    weak var textBubbleDelegate: TextBubbleDelegate?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -64,36 +62,18 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
     }
 
         
-    func updateWith(message: PersistedMessageReceived, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, previousMessageIsFromSameContact: Bool, viewShowingHardLinksDelegate: ViewShowingHardLinksDelegate?, viewDisplayingContactImageDelegate: ViewDisplayingContactImageDelegate?, cacheDelegate: DiscussionCacheDelegate?, reactionsDelegate: ReactionsDelegate?, cellReconfigurator: CellReconfigurator?) {
-        assert(viewShowingHardLinksDelegate != nil)
-        assert(viewDisplayingContactImageDelegate != nil)
+    func updateWith(message: PersistedMessageReceived, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, previousMessageIsFromSameContact: Bool, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate) {
         assert(cacheDelegate != nil)
         self.message = message
         self.indexPath = indexPath
         self.draftObjectID = draftObjectID
         self.previousMessageIsFromSameContact = previousMessageIsFromSameContact
         self.setNeedsUpdateConfiguration()
-        self.viewShowingHardLinksDelegate = viewShowingHardLinksDelegate
-        self.viewDisplayingContactImageDelegate = viewDisplayingContactImageDelegate
         self.cacheDelegate = cacheDelegate
-        self.reactionsDelegate = reactionsDelegate
         self.cellReconfigurator = cellReconfigurator
-        requestProgressesForAttachmentsOfMessage(message: message)
+        self.textBubbleDelegate = textBubbleDelegate
     }
     
-    
-    private static var objectIDsOfMessagesForWhichProgressesWereRequested = Set<NSManagedObjectID>()
-    
-    
-    private func requestProgressesForAttachmentsOfMessage(message: PersistedMessageReceived) {
-        guard !ReceivedMessageCell.objectIDsOfMessagesForWhichProgressesWereRequested.contains(message.objectID) else { return }
-        ReceivedMessageCell.objectIDsOfMessagesForWhichProgressesWereRequested.insert(message.objectID)
-        let joinObjectIDs = message.fyleMessageJoinWithStatuses.filter({ $0.status == .downloadable || $0.status == .downloading }).compactMap({ $0.objectID })
-        guard !joinObjectIDs.isEmpty else { return }
-        ObvMessengerInternalNotification.aViewRequiresFyleMessageJoinWithStatusProgresses(objectIDs: joinObjectIDs)
-            .postOnDispatchQueue()
-    }
-
     
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
         var hardlinks = [(HardLinkToFyle, UIView)]()
@@ -105,6 +85,12 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
     }
 
     override func updateConfiguration(using state: UICellConfigurationState) {
+        guard AppStateManager.shared.currentState.isInitializedAndActive else {
+            // This prevents a crash when the user hits the home button while in the discussion.
+            // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
+            // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
+            return
+        }
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
         var content = ReceivedMessageCellCustomContentConfiguration().updated(for: state)
@@ -120,7 +106,12 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
             }
         }
 
-        content.alwaysHideContactPictureAndNameView = message.discussion is PersistedOneToOneDiscussion || message.discussion is PersistedDiscussionOneToOneLocked
+        switch try? message.discussion.kind {
+        case .oneToOne:
+            content.alwaysHideContactPictureAndNameView = true
+        case .groupV1, .none:
+            content.alwaysHideContactPictureAndNameView = false
+        }
         content.previousMessageIsFromSameContact = previousMessageIsFromSameContact
         
         content.date = message.timestamp
@@ -134,25 +125,17 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         content.missedMessageConfiguration = message.missedMessageCount > 0 ? MissedMessageBubble.Configuration(missedMessageCount: message.missedMessageCount) : nil
 
         if let contact = message.contactIdentity {
-            content.contactPictureAndNameViewConfiguration = ContactPictureAndNameView.Configuration(foregroundColor: contact.cryptoId.textColor,
-                                                                                                     backgroundColor: contact.cryptoId.colors.background,
-                                                                                                     icon: .person,
-                                                                                                     contactName: contact.customOrFullDisplayName,
-                                                                                                     stringForInitial: contact.customOrFullDisplayName,
-                                                                                                     photoURL: contact.customPhotoURL ?? contact.photoURL,
-                                                                                                     contactObjectID: contact.typedObjectID,
-                                                                                                     showGreenShield: contact.isCertifiedByOwnKeycloak,
-                                                                                                     showRedShield: !contact.isActive)
+            content.contactPictureAndNameViewConfiguration =
+            ContactPictureAndNameView.Configuration(foregroundColor: contact.cryptoId.textColor,
+                                                    contactName: contact.customOrFullDisplayName,
+                                                    contactObjectID: contact.typedObjectID,
+                                                    circledInitialsConfiguration: contact.circledInitialsConfiguration)
         } else {
-            content.contactPictureAndNameViewConfiguration = ContactPictureAndNameView.Configuration(foregroundColor: AppTheme.shared.colorScheme.secondaryLabel,
-                                                                                                     backgroundColor: AppTheme.shared.colorScheme.secondarySystemFill,
-                                                                                                     icon: .personFillXmark,
-                                                                                                     contactName: CommonString.deletedContact,
-                                                                                                     stringForInitial: nil,
-                                                                                                     photoURL: nil,
-                                                                                                     contactObjectID: nil,
-                                                                                                     showGreenShield: false,
-                                                                                                     showRedShield: false)
+            content.contactPictureAndNameViewConfiguration =
+            ContactPictureAndNameView.Configuration(foregroundColor: AppTheme.shared.colorScheme.secondaryLabel,
+                                                    contactName: CommonString.deletedContact,
+                                                    contactObjectID: nil,
+                                                    circledInitialsConfiguration: .icon(.personFillXmark))
         }
         
         if message.isLocallyWiped {
@@ -162,6 +145,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         } else {
             content.wipedViewConfiguration = nil
         }
+        content.forwarded = message.forwarded
 
         // Configure images (single image, multiple image and/or gif)
         
@@ -272,21 +256,18 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
             
         }
         
-        content.isReplyToActionAvailable = self.isReplyToActionAvailable
+        content.isReplyToActionAvailable = message.replyToActionCanBeMadeAvailable
 
-        self.contentConfiguration = content
+        if self.contentConfiguration as? ReceivedMessageCellCustomContentConfiguration != content {
+            self.contentConfiguration = content
+        }
         registerDelegate()
     }
     
     
     private func registerDelegate() {
         guard let contentView = self.contentView as? ReceivedMessageCellContentView else { assertionFailure(); return }
-        contentView.singleImageView.delegate = viewShowingHardLinksDelegate
-        contentView.multipleImagesView.delegate = viewShowingHardLinksDelegate
-        contentView.attachmentsView.delegate = viewShowingHardLinksDelegate
-        contentView.contactPictureAndNameView.viewDisplayingContactImageDelegate = viewDisplayingContactImageDelegate
-        contentView.multipleReactionsView.delegate = reactionsDelegate
-        contentView.reactionsDelegate = reactionsDelegate
+        contentView.textBubble.delegate = textBubbleDelegate
     }
 
     
@@ -298,11 +279,35 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         switch imageAttachment.status {
         case .downloadable, .downloading:
             if message.readingRequiresUserAction {
-                config = .downloadableOrDownloading(progress: imageAttachment.progress, downsizedThumbnail: nil)
+                if imageAttachment.status == .downloadable {
+                    config = .downloadable(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                           progress: imageAttachment.progressObject,
+                                           downsizedThumbnail: nil)
+                } else {
+                    config = .downloading(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: nil)
+                }
             } else if let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID), !message.readingRequiresUserAction {
-                config = .downloadableOrDownloading(progress: imageAttachment.progress, downsizedThumbnail: downsizedThumbnail)
+                if imageAttachment.status == .downloadable {
+                    config = .downloadable(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                           progress: imageAttachment.progressObject,
+                                           downsizedThumbnail: downsizedThumbnail)
+                } else {
+                    config = .downloading(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: downsizedThumbnail)
+                }
             } else {
-                config = .downloadableOrDownloading(progress: imageAttachment.progress, downsizedThumbnail: nil)
+                if imageAttachment.status == .downloadable {
+                    config = .downloadable(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                           progress: imageAttachment.progressObject,
+                                           downsizedThumbnail: nil)
+                } else {
+                    config = .downloading(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: nil)
+                }
                 if let data = imageAttachment.downsizedThumbnail {
                     cacheDelegate?.requestDownsizedThumbnail(objectID: imageAttachment.typedObjectID, data: data, completionWhenImageCached: { [weak self] result in
                         switch result {
@@ -339,9 +344,13 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
                         }
                     }
                 } else if let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID) {
-                    config = .downloadableOrDownloading(progress: imageAttachment.progress, downsizedThumbnail: downsizedThumbnail)
+                    config = .downloading(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: downsizedThumbnail)
                 } else {
-                    config = .downloadableOrDownloading(progress: imageAttachment.progress, downsizedThumbnail: nil)
+                    config = .downloading(receivedJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: nil)
                     if let data = imageAttachment.downsizedThumbnail {
                         cacheDelegate?.requestDownsizedThumbnail(objectID: imageAttachment.typedObjectID, data: data, completionWhenImageCached: { [weak self] result in
                             switch result {
@@ -366,20 +375,30 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         let filename = message.readingRequiresUserAction ? nil : attachment.fileName
         let config: AttachmentsView.Configuration
         switch attachment.status {
-        case .downloadable, .downloading:
-            config = .downloadableOrDownloading(progress: attachment.progress, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: filename)
+        case .downloadable:
+            config = .downloadable(receivedJoinObjectID: attachment.typedObjectID,
+                                   progress: attachment.progressObject,
+                                   fileSize: Int(attachment.totalByteCount),
+                                   uti: attachment.uti,
+                                   filename: filename)
+        case .downloading:
+            config = .downloading(receivedJoinObjectID: attachment.typedObjectID,
+                                  progress: attachment.progressObject,
+                                  fileSize: Int(attachment.totalByteCount),
+                                  uti: attachment.uti,
+                                  filename: filename)
         case .complete:
             if message.readingRequiresUserAction {
-                config = .completeButReadRequiresUserInteraction(messageObjectID: message.typedObjectID, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti)
+                config = .completeButReadRequiresUserInteraction(messageObjectID: message.typedObjectID, fileSize: Int(attachment.totalByteCount), uti: attachment.uti)
             } else {
                 let attachmentObjectID = (attachment as FyleMessageJoinWithStatus).typedObjectID
                 let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: attachmentObjectID)
                 if let hardlink = hardlink {
                     let size = CGSize(width: MessageCellConstants.attachmentIconSize, height: MessageCellConstants.attachmentIconSize)
                     if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
-                        config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: filename)
+                        config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
                     } else {
-                        config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: filename)
+                        config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
                         if hardlink.hardlinkURL == nil {
                             // This happens when the attachment was just downloaded and we need to "refresh" the cached hardlink
                             // We do nothing since the hardlink will soon be refreshed
@@ -395,11 +414,15 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
                         }
                     }
                 } else {
-                    config = .downloadableOrDownloading(progress: attachment.progress, fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: filename)
+                    config = .downloading(receivedJoinObjectID: attachment.typedObjectID,
+                                          progress: attachment.progressObject,
+                                          fileSize: Int(attachment.totalByteCount),
+                                          uti: attachment.uti,
+                                          filename: filename)
                 }
             }
         case .cancelledByServer:
-            config = .cancelledByServer(fileSize: Int(attachment.totalUnitCount), uti: attachment.uti, filename: filename)
+            config = .cancelledByServer(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
         }
         return config
     }
@@ -425,6 +448,12 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
         (contentView as? ReceivedMessageCellContentView)?.refreshCellCountdown()
     }
 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard let contentViewWithTappableStuff = contentView as? UIViewWithTappableStuff else { assertionFailure(); return nil }
+        return contentViewWithTappableStuff.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
+
 }
 
 
@@ -433,8 +462,6 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, CellShow
 @available(iOS 14.0, *)
 extension ReceivedMessageCell {
      
-    var isCallActionAvailable: Bool { false }
-
     var persistedMessage: PersistedMessage? { message }
     
     var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
@@ -442,13 +469,6 @@ extension ReceivedMessageCell {
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { draftObjectID }
 
     var viewForTargetedPreview: UIView { self.contentView }
-    
-    var isCopyActionAvailable: Bool {
-        guard let message = message else { assertionFailure(); return false }
-        return !message.readOnce
-    }
-    
-    var textViewToCopy: UITextView? { nil }
     
     var textToCopy: String? {
         guard let contentView = contentView as? ReceivedMessageCellContentView else { assertionFailure(); return nil }
@@ -461,16 +481,6 @@ extension ReceivedMessageCell {
             return nil
         }
         return text
-    }
-    
-    var isSharingActionAvailable: Bool {
-        guard let receivedMessage = self.message else { return false }
-        guard !receivedMessage.readOnce else { return false }
-        if receivedMessage.isEphemeralMessage {
-            return receivedMessage.status == .read
-        } else {
-            return true
-        }
     }
     
     var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { nil }
@@ -489,37 +499,13 @@ extension ReceivedMessageCell {
             .compactMap({ $0.activityItemProvider })
     }
     
-    var isReplyToActionAvailable: Bool {
-        guard let receivedMessage = message else { return false }
-        let discussion = receivedMessage.discussion
-        guard !(discussion is PersistedDiscussionOneToOneLocked || discussion is PersistedDiscussionGroupLocked) else { return false }
-        guard !receivedMessage.readingRequiresUserAction else { return false }
-        if receivedMessage.readOnce {
-            return receivedMessage.status == .read
-        }
-        return true
-    }
-    
-    var isDeleteActionAvailable: Bool { true }
-    
-    var isEditBodyActionAvailable: Bool { false }
-    
-    var isInfoActionAvailable: Bool {
-        guard let receivedMessage = message else { return false }
-        return !receivedMessage.metadata.isEmpty
-    }
-    
     var infoViewController: UIViewController? {
-        guard isInfoActionAvailable else { return nil }
+        guard message?.infoActionCanBeMadeAvailable == true else { return nil }
         let rcv = ReceivedMessageInfosViewController()
         rcv.receivedMessage = message
         return rcv
     }
 
-    var isDeleteOwnReactionActionAvailable: Bool {
-        guard let message = message else { return false }
-        return message.reactions.contains { $0 is PersistedMessageReactionSent }
-    }
 }
 
 
@@ -556,6 +542,7 @@ fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfi
 
     var isReplyToActionAvailable = false
     var alwaysHideContactPictureAndNameView = true
+    var forwarded = false
 
     func makeContentView() -> UIView & UIContentView {
         return ReceivedMessageCellContentView(configuration: self)
@@ -569,7 +556,7 @@ fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfi
 
 
 @available(iOS 14.0, *)
-fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, UIGestureRecognizerDelegate {
+fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, UIGestureRecognizerDelegate, UIViewWithTappableStuff {
     
     private let mainStack = OlvidVerticalStackView(gap: MessageCellConstants.mainStackGap,
                                                    side: .leading,
@@ -594,15 +581,12 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
     private let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .trailing)
     private let bottomHorizontalStack = OlvidHorizontalStackView(gap: 4.0, side: .bothSides, debugName: "Date and reactions horizontal stack view", showInStack: true)
     fileprivate let missedMessageCountBubble = MissedMessageBubble()
+    private let forwardView = ForwardView()
 
     private var appliedConfiguration: ReceivedMessageCellCustomContentConfiguration!
 
     private var messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>?
     private var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
-
-    fileprivate weak var reactionsDelegate: ReactionsDelegate?
-    
-    private var doubleTapGesture: UITapGestureRecognizer!
 
     // The following variables allow to handle the pan gesture allowing to answer a specific message
     private var frameBeforeDrag: CGRect?
@@ -725,13 +709,27 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         }
     }
 
+
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        var subviewsWithTappableStuff = self.mainStack.arrangedSubviews.filter({ $0.showInStack }).compactMap({ $0 as? UIViewWithTappableStuff })
+        subviewsWithTappableStuff += [multipleReactionsView].filter({ !$0.isHidden })
+        if !missedMessageCountBubble.isHidden && missedMessageCountBubble.showInStack {
+            subviewsWithTappableStuff += [missedMessageCountBubble]
+        }
+        if !contactPictureAndNameView.isHidden {
+            subviewsWithTappableStuff += [contactPictureAndNameView]
+        }
+        let view = subviewsWithTappableStuff.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) != nil })
+        return view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
+
+    
     private var constraintsForAlwaysHidingContactPictureAndNameView = [NSLayoutConstraint]()
     private var constraintsForSometimesShowingContactPictureAndNameView = [NSLayoutConstraint]()
 
+    
     private func setupInternalViews() {
         
-        self.addDoubleTapGestureRecognizer()
-
         addSubview(backgroundView)
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         backgroundView.reset()
@@ -743,6 +741,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         mainStack.translatesAutoresizingMaskIntoConstraints = false
 
         mainStack.addArrangedSubview(missedMessageCountBubble)
+
+        mainStack.addArrangedSubview(forwardView)
         
         mainStack.addArrangedSubview(tapToReadBubble)
         tapToReadBubble.bubbleColor = appTheme.colorScheme.newReceivedCellBackground
@@ -831,8 +831,6 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             bottomHorizontalStack.bottomAnchor.constraint(equalTo: multipleReactionsView.bottomAnchor, constant: -2),
         ])
         
-        textBubble.linkTapGestureRequire(toFail: doubleTapGesture)
-
     }
 
     
@@ -840,20 +838,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         singleLinkView.prepareForReuse()
     }
     
-    
-    private func addDoubleTapGestureRecognizer() {
-        self.doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(userDoubleTappedOnThisCell))
-        self.doubleTapGesture!.numberOfTapsRequired = 2
-        self.addGestureRecognizer(self.doubleTapGesture!)
-    }
 
-
-    @objc private func userDoubleTappedOnThisCell(sender: UITapGestureRecognizer) {
-        guard let messageObjectID = messageObjectID else { return }
-        self.reactionsDelegate?.userDoubleTappedOnMessage(messageID: messageObjectID.downcast)
-    }
-    
-    
     override func updateConstraints() {
         contactPictureAndNameViewZeroHeightConstraint.isActive = contactPictureAndNameView.isHidden
         super.updateConstraints()
@@ -985,7 +970,6 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             multipleImagesView.showInStack = false
         } else {
             multipleImagesView.setConfiguration(newConfig.multipleImagesViewConfiguration)
-            multipleImagesView.gestureRecognizersOnImageViewsRequire(toFail: doubleTapGesture)
             multipleImagesView.showInStack = true
         }
         
@@ -1028,10 +1012,10 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         } else {
             multipleReactionsView.isHidden = false
             if newConfig.reactionAndCounts.isEmpty {
-                multipleReactionsView.setReactions(to: [ReactionAndCount(emoji: "", count: 1)], messageID: messageObjectID?.downcast)
+                multipleReactionsView.setReactions(to: [ReactionAndCount(emoji: "", count: 1)], messageObjectID: messageObjectID?.downcast)
                 multipleReactionsView.alpha = 0.0
             } else {
-                multipleReactionsView.setReactions(to: newConfig.reactionAndCounts, messageID: messageObjectID?.downcast)
+                multipleReactionsView.setReactions(to: newConfig.reactionAndCounts, messageObjectID: messageObjectID?.downcast)
                 // If the multipleReactionsView is not already shown, we show it and animate its alpha and size with a nice pop effect
                 if multipleReactionsView.alpha == 0.0 {
                     multipleReactionsView.transform = CGAffineTransform(scaleX: 0.0, y: 0.0)
@@ -1102,6 +1086,9 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         } else {
             ephemeralityInformationsView.hide()
         }
+
+        // Forward
+        forwardView.showInStack = newConfig.forwarded
         
     }
     
@@ -1162,7 +1149,7 @@ private class ReceivedMessageDateView: ViewForOlvidStack {
 
         stack.addArrangedSubview(editedStatusImageView)
         let config = UIImage.SymbolConfiguration(font: UIFont.preferredFont(forTextStyle: .caption1))
-        editedStatusImageView.image = UIImage(systemIcon: .pencilCircleFill, withConfiguration: config)
+        editedStatusImageView.image = UIImage(systemIcon: .pencil(.circleFill), withConfiguration: config)
         editedStatusImageView.contentMode = .scaleAspectFit
         editedStatusImageView.showInStack = false
         editedStatusImageView.tintColor = .secondaryLabel
@@ -1187,7 +1174,7 @@ private class ReceivedMessageDateView: ViewForOlvidStack {
 
 
 @available(iOS 14.0, *)
-fileprivate final class ContactPictureAndNameView: UIView {
+fileprivate final class ContactPictureAndNameView: UIView, UIViewWithTappableStuff {
     
     private let circledInitialsView = NewCircledInitialsView()
     private let contactNameView = ContactNameView()
@@ -1202,33 +1189,21 @@ fileprivate final class ContactPictureAndNameView: UIView {
         }
     }
     
-    struct Configuration: Equatable, Hashable {
+    struct Configuration: Hashable {
         let foregroundColor: UIColor
-        let backgroundColor: UIColor
-        let icon: ObvSystemIcon
         let contactName: String
-        let stringForInitial: String?
-        let photoURL: URL?
         let contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>?
-        let showGreenShield: Bool
-        let showRedShield: Bool
+        let circledInitialsConfiguration: CircledInitialsConfiguration
     }
     
     private var currentConfiguration: Configuration?
-    weak var viewDisplayingContactImageDelegate: ViewDisplayingContactImageDelegate?
     
     func setConfiguration(_ newConfiguration: Configuration) {
         guard newConfiguration != currentConfiguration else { return }
         currentConfiguration = newConfiguration
         contactNameView.name = newConfiguration.contactName
         contactNameView.color = newConfiguration.foregroundColor
-        circledInitialsView.configureWith(foregroundColor: newConfiguration.foregroundColor,
-                                          backgroundColor: newConfiguration.backgroundColor,
-                                          icon: newConfiguration.icon,
-                                          stringForInitial: newConfiguration.stringForInitial,
-                                          photoURL: newConfiguration.photoURL,
-                                          showGreenShield: newConfiguration.showGreenShield,
-                                          showRedShield: newConfiguration.showRedShield)
+        circledInitialsView.configureWith(newConfiguration.circledInitialsConfiguration)
     }
 
 
@@ -1242,6 +1217,12 @@ fileprivate final class ContactPictureAndNameView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard !self.isHidden else { return nil }
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard let contactObjectId = currentConfiguration?.contactObjectID else { assertionFailure(); return nil }
+        return .circledInitials(contactObjectID: contactObjectId)
+    }
     
     private func setupInternalViews() {
         
@@ -1263,15 +1244,6 @@ fileprivate final class ContactPictureAndNameView: UIView {
         constraints.forEach { $0.priority -= 1 }
         NSLayoutConstraint.activate(constraints)
 
-        circledInitialsView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(circledInitialsViewWasTapped)))
-        
-    }
-    
-    
-    @objc private func circledInitialsViewWasTapped() {
-        guard let contactObjectId = currentConfiguration?.contactObjectID else { return }
-        assert(viewDisplayingContactImageDelegate != nil)
-        viewDisplayingContactImageDelegate?.userDidTapOnContactImage(contactObjectID: contactObjectId)
     }
     
 }

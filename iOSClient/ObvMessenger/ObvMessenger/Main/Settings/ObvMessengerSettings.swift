@@ -137,15 +137,30 @@ struct ObvMessengerSettings {
     }
     
     struct Discussions {
+
+        private struct Keys {
+            static let doSendReadReceipt = "settings.discussions.doSendReadReceipt"
+            static let doFetchContentRichURLsMetadata = "settings.discussions.doFetchContentRichURLsMetadata"
+            static let visibilityDuration = "settings.discussions.visibilityDuration"
+            static let existenceDuration = "settings.discussions.existenceDuration"
+            static let countBasedRetentionPolicyIsActive = "settings.discussions.countBasedRetentionPolicyIsActive"
+            static let countBasedRetentionPolicy = "settings.discussions.countBasedRetentionPolicy"
+            static let timeBasedRetentionPolicy = "settings.discussions.timeBasedRetentionPolicy"
+            static let autoRead = "settings.discussions.autoRead"
+            static let readOnce = "settings.discussions.readOnce"
+            static let retainWipedOutboundMessages = "settings.discussions.retainWipedOutboundMessages"
+            static let notificationSound = "settings.discussions.notificationSound"
+        }
+
         
         // MARK: Read receipts
                 
         static var doSendReadReceipt: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.discussions.doSendReadReceipt") ?? false
+                return userDefaults.boolOrNil(forKey: Keys.doSendReadReceipt) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.discussions.doSendReadReceipt")
+                userDefaults.set(newValue, forKey: Keys.doSendReadReceipt)
             }
         }
         
@@ -161,11 +176,11 @@ struct ObvMessengerSettings {
         
         static var doFetchContentRichURLsMetadata: FetchContentRichURLsMetadataChoice {
             get {
-                let raw = userDefaults.integerOrNil(forKey: "settings.discussions.doFetchContentRichURLsMetadata") ?? FetchContentRichURLsMetadataChoice.always.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Keys.doFetchContentRichURLsMetadata) ?? FetchContentRichURLsMetadataChoice.always.rawValue
                 return FetchContentRichURLsMetadataChoice(rawValue: raw) ?? FetchContentRichURLsMetadataChoice.always
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: "settings.discussions.doFetchContentRichURLsMetadata")
+                userDefaults.set(newValue.rawValue, forKey: Keys.doFetchContentRichURLsMetadata)
             }
         }
 
@@ -173,10 +188,10 @@ struct ObvMessengerSettings {
         
         static var readOnce: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.discussions.readOnce") ?? false
+                return userDefaults.boolOrNil(forKey: Keys.readOnce) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.discussions.readOnce")
+                userDefaults.set(newValue, forKey: Keys.readOnce)
             }
         }
 
@@ -184,11 +199,11 @@ struct ObvMessengerSettings {
         
         static var visibilityDuration: DurationOption {
             get {
-                let raw = userDefaults.integerOrNil(forKey: "settings.discussions.visibilityDuration") ?? DurationOption.none.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Keys.visibilityDuration) ?? DurationOption.none.rawValue
                 return DurationOption(rawValue: raw) ?? .none
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: "settings.discussions.visibilityDuration")
+                userDefaults.set(newValue.rawValue, forKey: Keys.visibilityDuration)
             }
         }
 
@@ -197,11 +212,11 @@ struct ObvMessengerSettings {
         
         static var existenceDuration: DurationOption {
             get {
-                let raw = userDefaults.integerOrNil(forKey: "settings.discussions.existenceDuration") ?? DurationOption.none.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Keys.existenceDuration) ?? DurationOption.none.rawValue
                 return DurationOption(rawValue: raw) ?? .none
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: "settings.discussions.existenceDuration")
+                userDefaults.set(newValue.rawValue, forKey: Keys.existenceDuration)
             }
         }
 
@@ -209,20 +224,20 @@ struct ObvMessengerSettings {
         
         static var countBasedRetentionPolicyIsActive: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.discussions.countBasedRetentionPolicyIsActive") ?? false
+                return userDefaults.boolOrNil(forKey: Keys.countBasedRetentionPolicyIsActive) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.discussions.countBasedRetentionPolicyIsActive")
+                userDefaults.set(newValue, forKey: Keys.countBasedRetentionPolicyIsActive)
             }
         }
 
         static var countBasedRetentionPolicy: Int {
             get {
-                return userDefaults.integerOrNil(forKey: "settings.discussions.countBasedRetentionPolicy") ?? 100
+                return userDefaults.integerOrNil(forKey: Keys.countBasedRetentionPolicy) ?? 100
             }
             set {
                 guard newValue >= 0 else { return }
-                userDefaults.set(newValue, forKey: "settings.discussions.countBasedRetentionPolicy")
+                userDefaults.set(newValue, forKey: Keys.countBasedRetentionPolicy)
             }
         }
 
@@ -230,11 +245,11 @@ struct ObvMessengerSettings {
         
         static var timeBasedRetentionPolicy: DurationOptionAlt {
             get {
-                let raw = userDefaults.integerOrNil(forKey: "settings.discussions.timeBasedRetentionPolicy") ?? DurationOptionAlt.none.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Keys.timeBasedRetentionPolicy) ?? DurationOptionAlt.none.rawValue
                 return DurationOptionAlt(rawValue: raw) ?? .none
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: "settings.discussions.timeBasedRetentionPolicy")
+                userDefaults.set(newValue.rawValue, forKey: Keys.timeBasedRetentionPolicy)
             }
         }
 
@@ -242,10 +257,10 @@ struct ObvMessengerSettings {
 
         static var autoRead: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.discussions.autoRead") ?? false
+                return userDefaults.boolOrNil(forKey: Keys.autoRead) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.discussions.autoRead")
+                userDefaults.set(newValue, forKey: Keys.autoRead)
             }
         }
 
@@ -253,10 +268,29 @@ struct ObvMessengerSettings {
 
         static var retainWipedOutboundMessages: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.discussions.retainWipedOutboundMessages") ?? false
+                return userDefaults.boolOrNil(forKey: Keys.retainWipedOutboundMessages) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.discussions.retainWipedOutboundMessages")
+                userDefaults.set(newValue, forKey: Keys.retainWipedOutboundMessages)
+            }
+        }
+
+
+        // MARK: Notification Sounds
+
+        static var notificationSound: NotificationSound? {
+            get {
+                guard let soundName = userDefaults.stringOrNil(forKey: Keys.notificationSound) else {
+                    return nil
+                }
+                return NotificationSound.allCases.first { $0.identifier == soundName }
+            }
+            set {
+                if let value = newValue, value != .system {
+                    userDefaults.set(value.identifier, forKey: Keys.notificationSound)
+                } else {
+                    userDefaults.removeObject(forKey: Keys.notificationSound)
+                }
             }
         }
 
@@ -384,16 +418,16 @@ struct ObvMessengerSettings {
     // MARK: - Alerts
     
     struct Alert {
-        
+
         // Since this key is not used anymore, we only provide a way to remove it from the user defaults
         static func removeSecureCallsInBeta() {
             userDefaults.removeObject(forKey: "settings.alert.showSecureCallsInBeta")
         }
-        
+
         static func resetAllAlerts() {
             removeSecureCallsInBeta()
         }
-        
+
     }
     
     // MARK: - Subscriptions

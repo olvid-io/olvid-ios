@@ -124,7 +124,7 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
                             return cancel(withReason: .couldNotFindGroupDiscussion)
                         }
                         discussion = group.discussion
-                    } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                    } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
                         discussion = oneToOneDiscussion
                     } else {
                         return cancel(withReason: .couldNotFindDiscussion)

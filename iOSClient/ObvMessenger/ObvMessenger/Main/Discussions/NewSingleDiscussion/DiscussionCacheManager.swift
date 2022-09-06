@@ -204,7 +204,6 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                                 }
                             } else {
                                 os_log("The hardlink to fyle %{public}@ has no hardlink URL", log: Self.log, type: .fault, fyleElement.fyleURL.lastPathComponent)
-                                assertionFailure()
                                 error = Self.makeError(message: "The hardlink to fyle \(fyleElement.fyleURL.lastPathComponent) has no hardlink URL")
                             }
                         case .failure(let _error):

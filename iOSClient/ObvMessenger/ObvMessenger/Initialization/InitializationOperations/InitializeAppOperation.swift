@@ -86,7 +86,7 @@ final class InitializeAppOperation: OperationWithSpecificReasonForCancel<Initial
             obvEngine = try initializeObliviousEngine(runningLog: runningLog)
         } catch let error {
             runningLog.addEvent(message: "The Engine initialization failed: \(error.localizedDescription)")
-            assertionFailure()
+                assertionFailure()
             return cancel(withReason: .failedToInitializeObvEngine(error: error))
         }
         runningLog.addEvent(message: "The initialization of the Engine was successful")

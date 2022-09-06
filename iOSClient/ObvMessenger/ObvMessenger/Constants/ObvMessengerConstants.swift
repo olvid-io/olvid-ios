@@ -65,6 +65,7 @@ struct ObvMessengerConstants {
 
     static let muteIcon: ObvSystemIcon = .moonZzzFill
     static let defaultEmoji = "👍"
+    static let forwardIcon: ObvSystemIcon = .arrowshapeTurnUpForward
 
     static let iTunesOlvidIdentifier = NSNumber(value: 1414865219) // Found via https://tools.applemediaservices.com
     static let shortLinkToOlvidAppIniTunes = URL(string: "https://apple.co/3lrdOUV")!

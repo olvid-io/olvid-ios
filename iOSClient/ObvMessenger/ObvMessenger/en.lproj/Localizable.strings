@@ -38,9 +38,6 @@ On My iPhone > Olvid";
    Title of the AllContactsViewController */
 "Contacts" = "Contacts";
 
-/* No comment provided by engineer. */
-"Could not export file to the system's Files App" = "Could not export file to the system's Files App";
-
 /* Create word, capitalized */
 "Create" = "Create";
 
@@ -98,17 +95,8 @@ On My iPhone > Olvid";
 /* Invitation subtitle */
 "Exchange digits" = "Exchange your codes";
 
-/* Title of alert */
-"Export PDF file" = "Export PDF file";
-
 /* Action of alert */
 "Export to the system's File App" = "Export to the system's File App";
-
-/* Action of alert */
-"Export to the system's Files App" = "Export to the system's Files App";
-
-/* No comment provided by engineer. */
-"File exported to the File App" = "File exported to the File App";
 
 /* Title of alert */
 "File Management" = "File Management";
@@ -222,9 +210,6 @@ On My iPhone > Olvid";
 
 /* Message of alert */
 "What do you want to do with this file?" = "What do you want to do with this file?";
-
-/* Message of alert */
-"What do you want to do with this PDF?" = "What do you want to do with this PDF?";
 
 /* Action title */
 "Yes" = "Yes";
@@ -357,6 +342,8 @@ Please make sure that %1$@ is indeed the one giving you this code: prefer a face
 
 /* Title of the UIAlertAction allowing to add a document as an attachment within a message to send */
 "Document" = "Document";
+
+"Documents" = "Documents";
 
 /* Title of the UIAlertAction allowing to add a photo as an attachment within a message to send */
 "Photo & Video Library" = "Photo & Video Library";
@@ -952,10 +939,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "Export to File App" = "Export to File App";
 
 "Show Contact" = "Show Contact";
-
-"A file named %@ already exists within the following location:\nOn My iPhone > Olvid" = "A file named %@ already exists within the following location:\nOn My iPhone > Olvid";
-
-"The file %@ can now be found in the File App, within the following location:\nOn My iPhone > Olvid" = "The file %@ can now be found in the File App, within the following location:\nOn My iPhone > Olvid";
 
 "Open in Safari?" = "Open in Safari?";
 
@@ -1598,6 +1581,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "SEND_READ_RECEIPTS_LABEL" = "Send read receipts";
 
 "SHOW_RICH_LINK_PREVIEW_LABEL" = "Show rich link previews";
+
+"NOTIFICATION_SOUNDS_LABEL" = "Notification sound";
 
 "MODIFIED_SHARED_SETTINGS_CONFIRMATION_TITLE" = "Modified shared ephemeral message settings";
 
@@ -2291,3 +2276,121 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "DELETE_ITEMS" = "Delete items";
 
 "SHOW_IN_DISCUSSION" = "Show in discussion";
+
+"NOT_PART_OF_THE_GROUP_ANYMORE" = "You are not part of this group anymore, either because you left it, or because an administrator removed you.";
+
+"REJOINED_GROUP" = "You are again part of this group ✌️.";
+
+"CONTACT_%@_IS_ONE_TO_ONE_AGAIN" = "%@ is part of your contacts again, you can continue your discussion where you left off 🤗.";
+
+"Medias" = "Medias";
+
+"Forward" = "Forward";
+
+"Forwarded" = "Forwarded";
+
+"NO_SOUNDS" = "None";
+
+"NOTIFICATION_SOUNDS_TITLE_POLYPHONIC" = "Polyphonic tones";
+
+"NOTIFICATION_SOUNDS_TITLE_NEUTRAL" = "Neutral tones";
+
+"NOTIFICATION_SOUNDS_NEUTRAL_CATEGORY_TITLE" = "Neutral";
+"NOTIFICATION_SOUNDS_ALARM_CATEGORY_TITLE" = "Alarms";
+"NOTIFICATION_SOUNDS_ANIMAL_CATEGORY_TITLE" = "Animals";
+"NOTIFICATION_SOUNDS_TOY_CATEGORY_TITLE" = "Toys";
+
+"BUSY" = "Busy";
+"CHIME" = "Chime";
+"BRING_THE_DRAMA" = "Bring the drama";
+"FRENZY" = "Frenzy";
+"HORN_BOAT" = "Fog horn";
+"HORN_BUS" = "Bus Horn";
+"HORN_CAR" = "Car Horn";
+"HORN_DIXIE" = "1916 car horn";
+"HORN_TAXI" = "Taxi horn";
+"HORN_TRAIN_1" = "Train horn 1";
+"HORN_TRAIN_2" = "Train horn 2";
+"PARANOID" = "Paranoid";
+"WEIRD" = "Weird";
+
+"BIRD_CARDINAL" = "Cardinal";
+"BIRD_COQUI" = "Coqui";
+"BIRD_CROW" = "Crow";
+"BIRD_CUCKOO" = "Cuckoo";
+"BIRD_DUCK_QUACK" = "Duck";
+"BIRD_DUCK_QUACKS" = "Duck quacks";
+"BIRD_EAGLE" = "Eagle";
+"BIRD_IN_FOREST" = "Bird in the forest";
+"BIRD_MAGPIE" = "Magpie";
+"BIRD_OWL_HORNED" = "Horned owl";
+"BIRD_OWL_TAWNY" = "Tawny owl";
+"BIRD_TWEET" = "Bird Tweet";
+"BIRD_WARNING" = "Hawk";
+"CHICKEN_ROOSTER" = "Rooster 1";
+"CHICKEN_ROSTER" = "Rooster 2";
+"CHICKEN" = "Chicken";
+"CICADA" = "Cicada";
+"COW_MOO" = "Cow";
+"ELEPHANT" = "Elephant";
+"PANTHERA" = "Panthera";
+"TIGER" = "Tiger";
+"FROG" = "Frog";
+"GOAT" = "Goat";
+"HORSE_WHINNIES" = "Horse";
+"PUPPY" = "Puppy";
+"SHEEP" = "Sheep";
+"TURKEY_GOBBLE" = "Turkey";
+"TURKEY_NOISES" = "Turkeys";
+
+"BELL" = "Bell";
+"BLOCK" = "Block";
+"CALM" = "Clam";
+"CLOUD" = "Cloud";
+"HEY_CHAMP" = "Hey champ";
+"KOTO" = "Koto";
+"MODULAR" = "Modular";
+"ORINGZ" = "Oring";
+"POLITE" = "Polite";
+"SONAR" = "Sonar";
+"STRIKE" = "Strike";
+"UNPHASED" = "Unphased";
+"UNSTRUNG" = "Unstrung";
+"WOODBLOCK" = "Woodblock";
+
+"CIRCUS_CLOWN_HORN" = "Circus clown horn";
+"FUNNY_FANFARE" = "Funny fanfare";
+"ARE_YOU_KIDDING" = "Are you kidding?";
+"ENOUGH_WITH_THE_TALKING" = "Enough with the talking";
+"NESTLING" = "Nestling";
+"NICE_CUT" = "Nice cut";
+"OH_REALLY" = "Oh really";
+"SPRINGY" = "Springy";
+
+"BASSOON" = "Bassoon";
+"BRASS" = "Brass";
+"CLARINET" = "Clarinet";
+"CLAV_FLY" = "Kemence";
+"CLAV_GUITAR" = "Cura";
+"FLUTE" = "Flute";
+"GLOCKENSPIEL" = "Glockenspiel";
+"HARP" = "Harp";
+"KOTO" = "Koto";
+"OBOE" = "Oboe";
+"PIANO" = "Piano";
+"PIPA" = "Pipa";
+"SAXO" = "Saxo";
+"STRINGS" = "Strings";
+"SYNTH_AIRSHIP" = "Synth Airship";
+"SYNTH_CHORDAL" = "Synth Chordal";
+"SYNTH_COSMIC" = "Synth Cosmic";
+"SYNTH_DROPLETS" = "Synth Droplets";
+"SYNTH_EMOTIVE" = "Synth Emotive";
+"SYNTH_FM" = "Synth FM";
+"SYNTH_LUSHARP" = "Synth LushArp";
+"SYNTH_PECUSSIVE" = "Synth Percussive";
+"SYNTH_QUANTIZER" = "Synth Quantizer";
+
+"NOTIFICATION_SOUNDS_SUBTITLE_POLYPHONIC" = "When receiving a message, a random note of the selected instrument will be played. Give it a try by tapping your preferred choice several times 😉.";
+
+"SYSTEM_SOUND" = "System sound";

@@ -363,6 +363,7 @@ struct MessageJSON: Codable {
     let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
     let replyTo: MessageReferenceJSON?
     let expiration: ExpirationJSON?
+    let forwarded: Bool
 
     enum CodingKeys: String, CodingKey {
         case senderSequenceNumber = "ssn"
@@ -372,15 +373,17 @@ struct MessageJSON: Codable {
         case body = "body"
         case replyTo = "re"
         case expiration = "exp"
+        case forwarded = "fw"
     }
     
-    init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?) {
+    init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool) {
         self.senderSequenceNumber = senderSequenceNumber
         self.senderThreadIdentifier = senderThreadIdentifier
         self.body = body
         self.groupId = groupId
         self.replyTo = replyTo
         self.expiration = expiration
+        self.forwarded = forwarded
     }
         
     init(from decoder: Decoder) throws {
@@ -405,6 +408,7 @@ struct MessageJSON: Codable {
         }
         self.replyTo = try values.decodeIfPresent(MessageReferenceJSON.self, forKey: .replyTo)
         self.expiration = try values.decodeIfPresent(ExpirationJSON.self, forKey: .expiration)
+        self.forwarded = try values.decodeIfPresent(Bool.self, forKey: .forwarded) ?? false
     }
     
     func encode(to encoder: Encoder) throws {
@@ -424,6 +428,7 @@ struct MessageJSON: Codable {
         if let expiration = expiration {
             try container.encode(expiration, forKey: .expiration)
         }
+        try container.encode(forwarded, forKey: .forwarded)
     }
     
     func jsonEncode() throws -> Data {
@@ -505,15 +510,16 @@ struct DeleteMessagesJSON: Codable {
         }
 
         self.messagesToDelete = persistedMessagesToDelete.compactMap { $0.toMessageReferenceJSON() }
-        if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            guard let groupUid = groupDiscussion.contactGroup?.groupUid,
-                  let groupOwnerIdentity = groupDiscussion.contactGroup?.ownerIdentity,
+        switch try discussion.kind {
+        case .oneToOne:
+            self.groupId = nil
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let groupUid = contactGroup?.groupUid,
+                  let groupOwnerIdentity = contactGroup?.ownerIdentity,
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
-                throw DeleteMessagesJSON.makeError(message: "Could not determine group uid")
+                throw DeleteMessagesJSON.makeError(message: "Could not determine group id")
             }
             self.groupId = (groupUid, groupOwner)
-        } else {
-            self.groupId = nil
         }
         
     }
@@ -567,15 +573,16 @@ struct DeleteDiscussionJSON: Codable {
     }
     
     init(persistedDiscussionToDelete discussion: PersistedDiscussion) throws {
-        if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            guard let groupUid = groupDiscussion.contactGroup?.groupUid,
-                  let groupOwnerIdentity = groupDiscussion.contactGroup?.ownerIdentity,
+        switch try discussion.kind {
+        case .oneToOne:
+            self.groupId = nil
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let groupUid = contactGroup?.groupUid,
+                  let groupOwnerIdentity = contactGroup?.ownerIdentity,
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
-                throw DeleteDiscussionJSON.makeError(message: "Could not determine group uid")
+                throw DeleteDiscussionJSON.makeError(message: "Could not determine group id")
             }
             self.groupId = (groupUid, groupOwner)
-        } else {
-            self.groupId = nil
         }
     }
 
@@ -633,15 +640,16 @@ struct UpdateMessageJSON: Codable {
             throw UpdateMessageJSON.makeError(message: "Could not create MessageReferenceJSON")
         }
         self.messageToEdit = msgRef
-        if let groupDiscussion = msg.discussion as? PersistedGroupDiscussion {
-            guard let groupUid = groupDiscussion.contactGroup?.groupUid,
-                  let groupOwnerIdentity = groupDiscussion.contactGroup?.ownerIdentity,
+        switch try msg.discussion.kind {
+        case .oneToOne:
+            self.groupId = nil
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let groupUid = contactGroup?.groupUid,
+                  let groupOwnerIdentity = contactGroup?.ownerIdentity,
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                 throw UpdateMessageJSON.makeError(message: "Could not determine group uid")
             }
             self.groupId = (groupUid, groupOwner)
-        } else {
-            self.groupId = nil
         }
     }
 
@@ -704,15 +712,16 @@ struct ReactionJSON: Codable {
             throw ReactionJSON.makeError(message: "Could not create MessageReferenceJSON")
         }
         self.messageReference = msgRef
-        if let groupDiscussion = msg.discussion as? PersistedGroupDiscussion {
-            guard let groupUid = groupDiscussion.contactGroup?.groupUid,
-                  let groupOwnerIdentity = groupDiscussion.contactGroup?.ownerIdentity,
+        switch try msg.discussion.kind {
+        case .oneToOne:
+            self.groupId = nil
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let groupUid = contactGroup?.groupUid,
+                  let groupOwnerIdentity = contactGroup?.ownerIdentity,
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                       throw ReactionJSON.makeError(message: "Could not determine group uid")
                   }
             self.groupId = (groupUid, groupOwner)
-        } else {
-            self.groupId = nil
         }
     }
 

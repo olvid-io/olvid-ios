@@ -159,15 +159,11 @@ fileprivate final class ObvSubTabBar: UITabBar {
     }
     
     func configureAppearance() {
-        if #available(iOS 13, *) {
-            let tabBarAppearance = UITabBarAppearance()
-            tabBarAppearance.configureWithOpaqueBackground()
-            tabBarAppearance.backgroundEffect = UIBlurEffect(style: .prominent)
-            self.standardAppearance = tabBarAppearance
-            UITabBar.appearance().tintColor = appTheme.colorScheme.olvidDark
-        } else {
-            UITabBar.appearance().tintColor = appTheme.colorScheme.olvidLight
-        }
+        let tabBarAppearance = UITabBarAppearance()
+        tabBarAppearance.configureWithOpaqueBackground()
+        tabBarAppearance.backgroundEffect = UIBlurEffect(style: .prominent)
+        self.standardAppearance = tabBarAppearance
+        UITabBar.appearance().tintColor = appTheme.colorScheme.olvidDark
     }
 
     @objc func test() {
@@ -215,11 +211,7 @@ fileprivate final class BigTabbarButton: UIButton {
         self.layer.shadowOffset = CGSize(width: 0, height: 1)
         self.layer.shadowRadius = 4
         
-        if #available(iOS 13, *) {
-            self.setImage(UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24.0, weight: .bold)), for: .normal)
-        } else {
-            self.setImage(UIImage(named: "system-plus-scaled"), for: .normal)
-        }
+        self.setImage(UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24.0, weight: .bold)), for: .normal)
         self.tintColor = .white
 
     }

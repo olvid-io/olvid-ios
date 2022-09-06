@@ -83,45 +83,49 @@ struct ReorderableForEach<Content: View, Item: ReorderableItem>: View {
         return result
     }
 
+    func itemView(item: Item) -> some View {
+        ItemView(item: item,
+                 content: content,
+                 none: none,
+                 items: $items,
+                 currentDrop: $currentDrop
+        )
+        .if(item != none) { view in
+            /// Drag remove the item from the list
+            view.onDrag({
+                if draggedItem == nil {
+                    haptic()
+                }
+                withAnimation {
+                    draggedItem = item
+                    items.removeAll(where: { $0 == item })
+                }
+                return NSItemProvider(object: "\(item.id)" as NSString)
+            }, preview: {
+                content(item)
+                    .frame(width: 60.0, height: 60.0, alignment: .center)
+                    .scaleEffect(1.5)
+            })
+        }
+        .background(
+            /// Shows a circle to represent the none element at the end of the list.
+            DottedCircle(radius: 18.0)
+                .opacity(item == none ? 1.0 : 0.0), alignment: .center)
+        .onDrop(
+            of: [UTType.text],
+            delegate: DropRelocateDelegate(
+                item: item,
+                none: none,
+                haptic: haptic,
+                items: $items,
+                draggedItem: $draggedItem,
+                currentDrop: $currentDrop
+            ))
+    }
+
     var body: some View {
         ForEach(itemsWithAdditionalSpace) { item in
-            ItemView(item: item,
-                     content: content,
-                     none: none,
-                     items: $items,
-                     currentDrop: $currentDrop
-            )
-                .if(item != none) { view in
-                    /// Drag remove the item from the list
-                    view.onDrag({
-                        if draggedItem == nil {
-                            haptic()
-                        }
-                        withAnimation {
-                            draggedItem = item
-                            items.removeAll(where: { $0 == item })
-                        }
-                        return NSItemProvider(object: "\(item.id)" as NSString)
-                    }, preview: {
-                        content(item)
-                            .frame(width: 60.0, height: 60.0, alignment: .center)
-                            .scaleEffect(1.5)
-                    })
-                }
-                .background(
-                    /// Shows a circle to represent the none element at the end of the list.
-                    DottedCircle(radius: 18.0)
-                        .opacity(item == none ? 1.0 : 0.0), alignment: .center)
-                .onDrop(
-                    of: [UTType.text],
-                    delegate: DropRelocateDelegate(
-                        item: item,
-                        none: none,
-                        haptic: haptic,
-                        items: $items,
-                        draggedItem: $draggedItem,
-                        currentDrop: $currentDrop
-                    ))
+            itemView(item: item)
         }
     }
 }

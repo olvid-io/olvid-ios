@@ -39,13 +39,42 @@ extension FyleMessageJoinWithStatus.Predicate {
         ])
     }
 
+    
+    static func isReceivedFyleMessageJoinWithStatusOfReceivedMessage(_ receivedMessage: PersistedMessageReceived) -> NSPredicate {
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(withEntity: ReceivedFyleMessageJoinWithStatus.entity()),
+            NSPredicate.init(ReceivedFyleMessageJoinWithStatus.Predicate.Key.receivedMessage, equalTo: receivedMessage),
+        ])
+    }
+
+    
+    static func isSentFyleMessageJoinWithStatusOfSentMessage(_ sentMessage: PersistedMessageSent) -> NSPredicate {
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(withEntity: SentFyleMessageJoinWithStatus.entity()),
+            NSPredicate.init(SentFyleMessageJoinWithStatus.Predicate.Key.sentMessage, equalTo: sentMessage),
+        ])
+    }
+
+    
+    static func isFyleMessageJoinWithStatusOfMessage(_ message: PersistedMessage) -> NSPredicate {
+        if let receivedMessage = message as? PersistedMessageReceived {
+            return isReceivedFyleMessageJoinWithStatusOfReceivedMessage(receivedMessage)
+        } else if let sentMessage = message as? PersistedMessageSent {
+            return isSentFyleMessageJoinWithStatusOfSentMessage(sentMessage)
+        } else {
+            assertionFailure()
+            return NSPredicate(value: true)
+        }
+    }
+
+    
 }
 
 
 extension FyleMessageJoinWithStatus {
-    
-    static func getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, restrictToUTIs: [String], within context: NSManagedObjectContext) -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
-        
+
+    private static func getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, predicate: NSPredicate, within context: NSManagedObjectContext) -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
+
         let fetchRequest: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
         // To the contrary of what we do, e.g., with `isReceivedFyleMessageJoinWithStatusInDiscussion`, we cannot test whether a `FyleMessageJoinWithStatus` is received or sent.
         // For this reason, we had to replicate the message sort index since a FyleMessageJoinWithStatus has no associated message (only subclasses have).
@@ -54,9 +83,49 @@ extension FyleMessageJoinWithStatus {
             NSSortDescriptor(key: FyleMessageJoinWithStatus.Predicate.Key.index.rawValue, ascending: true),
         ]
         fetchRequest.fetchBatchSize = 500
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+        fetchRequest.predicate = predicate
+
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+
+        return fetchedResultsController
+    }
+
+    static func getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, restrictToUTIs: [String], within context: NSManagedObjectContext) -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
+
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isFyleMessageJoinWithStatusInDiscussion(discussionObjectID),
             NSCompoundPredicate(orPredicateWithSubpredicates: restrictToUTIs.map({ NSPredicate(Predicate.Key.uti, EqualToString: $0) })),
+            Predicate.isWiped(is: false),
+        ])
+        return getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: discussionObjectID, predicate: predicate, within: context)
+    }
+
+    static func getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, excludedUTIs: [String], within context: NSManagedObjectContext) -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
+
+        var predicates = [NSPredicate]()
+        predicates.append(Predicate.isFyleMessageJoinWithStatusInDiscussion(discussionObjectID))
+        predicates.append(Predicate.isWiped(is: false))
+        predicates.append(contentsOf: excludedUTIs.map({ NSPredicate(Predicate.Key.uti, NotEqualToString: $0) }))
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
+        return getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: discussionObjectID, predicate: predicate, within: context)
+    }
+
+
+    static func getFetchedResultsControllerForAllJoinsWithinMessage(_ message: PersistedMessage) throws -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
+        
+        guard let context = message.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        
+        let fetchRequest: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
+        fetchRequest.sortDescriptors = [
+            NSSortDescriptor(key: FyleMessageJoinWithStatus.Predicate.Key.index.rawValue, ascending: true),
+        ]
+        fetchRequest.fetchBatchSize = 500
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.isFyleMessageJoinWithStatusOfMessage(message),
             Predicate.isWiped(is: false),
         ])
         
@@ -67,6 +136,7 @@ extension FyleMessageJoinWithStatus {
         
         return fetchedResultsController
     }
+
     
     
     var fyleElement: FyleElement? {

@@ -114,7 +114,7 @@ extension GetSignedURLsSessionDelegate: URLSessionDataDelegate {
             
             obvContext.performAndWait {
                 
-                guard let attachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+                guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                     os_log("Could not find attachment %{public}@", log: log, type: .fault, attachmentId.debugDescription)
                     self.errorForTracker = .cannotFindAttachmentInDatabase
                     return
@@ -139,7 +139,7 @@ extension GetSignedURLsSessionDelegate: URLSessionDataDelegate {
 
             obvContext.performAndWait {
                 
-                guard let attachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+                guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                     os_log("Could not find attachment %{public}@", log: log, type: .fault, attachmentId.debugDescription)
                     self.errorForTracker = .cannotFindAttachmentInDatabase
                     return

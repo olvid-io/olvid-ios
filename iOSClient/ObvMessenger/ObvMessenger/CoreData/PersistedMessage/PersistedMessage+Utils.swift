@@ -24,13 +24,28 @@ import CoreData
 
 extension PersistedMessage.Predicate {
     static var isInboundMessage: NSPredicate {
-        NSPredicate(format: "entity == %@", PersistedMessageReceived.entity())
+        if Thread.isMainThread {
+            let entity = NSEntityDescription.entity(forEntityName: PersistedMessageReceived.entityName, in: ObvStack.shared.viewContext)!
+            return NSPredicate(withEntity: entity)
+        } else {
+            return NSPredicate(withEntity: PersistedMessageReceived.entity())
+        }
     }
     static var isNotInboundMessage: NSPredicate {
-        NSPredicate(format: "entity != %@", PersistedMessageReceived.entity())
+        if Thread.isMainThread {
+            let entity = NSEntityDescription.entity(forEntityName: PersistedMessageReceived.entityName, in: ObvStack.shared.viewContext)!
+            return NSPredicate(withEntityDistinctFrom: entity)
+        } else {
+            return NSPredicate(withEntityDistinctFrom: PersistedMessageReceived.entity())
+        }
     }
     static var isSystemMessage: NSPredicate {
-        NSPredicate(format: "entity == %@", PersistedMessageSystem.entity())
+        if Thread.isMainThread {
+            let entity = NSEntityDescription.entity(forEntityName: PersistedMessageSystem.entityName, in: ObvStack.shared.viewContext)!
+            return NSPredicate(withEntity: entity)
+        } else {
+            return NSPredicate(withEntity: PersistedMessageSystem.entity())
+        }
     }
     static var inboundMessageThatIsNotNewAnymore: NSPredicate {
         NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -45,7 +60,12 @@ extension PersistedMessage.Predicate {
         NSPredicate(format: "%K == %@", PersistedMessage.sectionIdentifierKey, sectionIdentifier)
     }
     static var isOutboundMessage: NSPredicate {
-        NSPredicate(format: "entity == %@", PersistedMessageSent.entity())
+        if Thread.isMainThread {
+            let entity = NSEntityDescription.entity(forEntityName: PersistedMessageSent.entityName, in: ObvStack.shared.viewContext)!
+            return NSPredicate(withEntity: entity)
+        } else {
+            return NSPredicate(withEntity: PersistedMessageSent.entity())
+        }
     }
     static var outboundMessageThatWasSent: NSPredicate {
         NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -304,6 +324,62 @@ extension PersistedMessage {
             return sentMessage.forwardActionCanBeMadeAvailableForSentMessage
         } else {
             return false
+        }
+    }
+    
+    var infoActionCanBeMadeAvailable: Bool {
+        if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.infoActionCanBeMadeAvailableForReceivedMessage
+        } else if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.infoActionCanBeMadeAvailableForSentMessage
+        } else if let systemMessage = self as? PersistedMessageSystem {
+            return systemMessage.infoActionCanBeMadeAvailableForSystemMessage
+        } else {
+            return false
+        }
+    }
+    
+    var replyToActionCanBeMadeAvailable: Bool {
+        if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.replyToActionCanBeMadeAvailableForReceivedMessage
+        } else if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.replyToActionCanBeMadeAvailableForSentMessage
+        } else {
+            return false
+        }
+    }
+
+    var editBodyActionCanBeMadeAvailable: Bool {
+        if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.editBodyActionCanBeMadeAvailableForSentMessage
+        } else {
+            return false
+        }
+    }
+    
+    var callActionCanBeMadeAvailable: Bool {
+        if let systemMessage = self as? PersistedMessageSystem {
+            return systemMessage.callActionCanBeMadeAvailableForSystemMessage
+        } else {
+            return false
+        }
+    }
+    
+    var deleteOwnReactionActionCanBeMadeAvailable: Bool {
+        if let receivedMessage = self as? PersistedMessageReceived {
+            return receivedMessage.deleteOwnReactionActionCanBeMadeAvailableForReceivedMessage
+        } else if let sentMessage = self as? PersistedMessageSent {
+            return sentMessage.deleteOwnReactionActionCanBeMadeAvailableForSentMessage
+        } else {
+            return false
+        }
+    }
+    
+    var deleteMessageActionCanBeMadeAvailable: Bool {
+        if let systemMessage = self as? PersistedMessageSystem {
+            return systemMessage.deleteMessageActionCanBeMadeAvailableForSystemMessage
+        } else {
+            return true
         }
     }
 

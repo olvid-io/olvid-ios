@@ -60,8 +60,6 @@ final class CollectionOfFylesView: ObvRoundedRectView {
             return ($0, worker, backgroundView)
         }
         super.init(frame: CGRect.zero)
-        observeAttachmentDownloadNewProgressNotifications()
-        requestProgressesForAttachments()
         setup()
     }
     
@@ -75,35 +73,12 @@ final class CollectionOfFylesView: ObvRoundedRectView {
         }
     }
     
+
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private func observeAttachmentDownloadNewProgressNotifications() {
-        let token = ObvMessengerInternalNotification.observeFyleMessageJoinWithStatusHasNewProgress(queue: OperationQueue.main) { [weak self] (objectID: NSManagedObjectID, progress: Progress) in
-            guard let _self = self else { return }
-            assert(_self.imageAttachments.isEmpty == false || _self.nonImageAttachments.isEmpty == false)
-            if let attachment = _self.imageAttachments.first(where: { $0.attachment.objectID == objectID }) {
-                _self.showThumbnailOrProgressForAttachment(attachment.attachment, in: attachment.imagePlaceholder, using: attachment.worker, progress: progress)
-            } else if let attachment = _self.nonImageAttachments.first(where: { $0.attachment.objectID == objectID }) {
-                guard let nonImageAttachmentStackView = attachment.backgroundView.subviews.first(where: { $0.accessibilityIdentifier == "nonImageAttachmentStackView" }) else {
-                    return
-                }
-                guard let square = nonImageAttachmentStackView.subviews.first(where: { $0.accessibilityIdentifier == "square" }) else {
-                    return
-                }
-                _self.showThumbnailOrProgressForAttachment(attachment.attachment, in: square, using: attachment.worker, progress: progress)
-            }
-        }
-        observationTokens.append(token)
-    }
-    
-    private func requestProgressesForAttachments() {
-        let objectIDs = fyleMessagesJoinWithStatus.map({ $0.objectID })
-        ObvMessengerInternalNotification.aViewRequiresFyleMessageJoinWithStatusProgresses(objectIDs: objectIDs)
-            .postOnDispatchQueue()
-    }
-    
+
     /// This is typically called when the user taps on a readOnce message. In that case, we want to refresh the thumbnails.
     func refresh() {
         for thing in imageAttachments {
@@ -176,7 +151,7 @@ final class CollectionOfFylesView: ObvRoundedRectView {
 
                 imageFyleStackView.addArrangedSubview(imageViewPlaceholder)
                                     
-                self.showThumbnailOrProgressForAttachment(attachment, in: imageViewPlaceholder, using: worker, progress: nil)
+                self.showThumbnailOrProgressForAttachment(attachment, in: imageViewPlaceholder, using: worker, progress: attachment.progressObject)
                                     
             }
             
@@ -232,7 +207,7 @@ final class CollectionOfFylesView: ObvRoundedRectView {
 
             let subtitle = UILabel()
             subtitle.translatesAutoresizingMaskIntoConstraints = false
-            let byteCountText = byteCountFormatter.string(fromByteCount: nonImageAttachment.fyle?.getFileSize() ?? nonImageAttachment.totalUnitCount)
+            let byteCountText = byteCountFormatter.string(fromByteCount: nonImageAttachment.fyle?.getFileSize() ?? nonImageAttachment.totalByteCount)
             if let mimeType = ObvUTIUtils.getHumanReadableType(forUTI: nonImageAttachment.uti) {
                 subtitle.text = "\(byteCountText) - \(mimeType)"
             } else {
@@ -255,14 +230,14 @@ final class CollectionOfFylesView: ObvRoundedRectView {
             _ = constraints.map { $0.priority = .defaultHigh }
             NSLayoutConstraint.activate(constraints)
             
-            self.showThumbnailOrProgressForAttachment(nonImageAttachment, in: square, using: worker, progress: nil)
+            self.showThumbnailOrProgressForAttachment(nonImageAttachment, in: square, using: worker, progress: nonImageAttachment.progressObject)
 
         }
 
     }
     
 
-    private func showThumbnailOrProgressForAttachment(_ attachment: FyleMessageJoinWithStatus, in imageViewPlaceholder: UIView, using worker: ThumbnailWorker, progress: Progress?) {
+    private func showThumbnailOrProgressForAttachment(_ attachment: FyleMessageJoinWithStatus, in imageViewPlaceholder: UIView, using worker: ThumbnailWorker, progress: Progress) {
 
         assert(Thread.isMainThread)
         
@@ -293,7 +268,7 @@ final class CollectionOfFylesView: ObvRoundedRectView {
             
             if let obvCircleProgressView = imageViewPlaceholder.subviews.first(where: { $0 is ObvCircledProgressView }) as? ObvCircledProgressView {
 
-                if let progress = progress {
+                if obvCircleProgressView.observedProgress != progress {
                     obvCircleProgressView.observedProgress = progress
                 }
                 
@@ -325,8 +300,22 @@ final class CollectionOfFylesView: ObvRoundedRectView {
                 obvCircleProgressView.setNeedsLayout()
                 obvCircleProgressView.layoutIfNeeded()
                 
-                progressObservationTokens.insert(attachment.observe(\.rawStatus) { [weak self] (attachment, change) in
+                progressObservationTokens.insert(attachment.observe(\.rawStatus, options: .initial) { [weak self] (attachment, change) in
                     assert(Thread.isMainThread)
+                    // For legacy reasons, we modify the progress here depending on the attachment status
+                    if let receivedAttachment = attachment as? ReceivedFyleMessageJoinWithStatus {
+                        progress.isPausable = true
+                        switch receivedAttachment.status {
+                        case .downloadable:
+                            progress.pause()
+                        case .downloading:
+                            progress.resume()
+                        case .complete:
+                            progress.resume()
+                        case .cancelledByServer:
+                            progress.isPausable = false
+                        }
+                    }
                     self?.showThumbnailOrProgressForAttachment(attachment, in: imageViewPlaceholder, using: worker, progress: progress)
                 })
                 

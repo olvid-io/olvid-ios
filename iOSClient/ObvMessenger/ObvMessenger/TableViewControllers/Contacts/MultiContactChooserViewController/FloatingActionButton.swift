@@ -78,10 +78,10 @@ struct FloatingButtonView: View {
 
 struct FloatingActionButton_Previews: PreviewProvider {
     static var enable: FloatingButtonModel {
-        FloatingButtonModel(title: "Title", systemIcon: .camera, isEnabled: true, action: {})
+        FloatingButtonModel(title: "Title", systemIcon: .camera(), isEnabled: true, action: {})
     }
     static var disable: FloatingButtonModel {
-        FloatingButtonModel(title: "Title", systemIcon: .camera, isEnabled: true, action: {})
+        FloatingButtonModel(title: "Title", systemIcon: .camera(), isEnabled: true, action: {})
     }
 
     static var previews: some View {

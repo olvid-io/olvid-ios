@@ -23,13 +23,14 @@ import CoreData
 
 
 @available(iOS 14.0, *)
-final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks, UIGestureRecognizerDelegate {
+final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
     enum Configuration: Equatable, Hashable {
         // For sent attachments
-        case uploadableOrUploading(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, progress: Progress?)
+        case uploadableOrUploading(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, progress: Progress)
         // For received attachments
-        case downloadableOrDownloading(progress: Progress?, fileSize: Int, uti: String, filename: String?)
+        case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
+        case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, fileSize: Int, uti: String)
         case cancelledByServer(fileSize: Int, uti: String, filename: String?)
         // For both
@@ -40,7 +41,7 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _),
                  .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, progress: _):
                 return hardlink
-            case .downloadableOrDownloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
                 return nil
             }
         }
@@ -57,9 +58,6 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
     
     
     private var currentRefreshId = UUID()
-    
-    
-    weak var delegate: ViewShowingHardLinksDelegate?
     
     
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
@@ -131,9 +129,16 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
                 setTitleOnSubtitleView(titleView, filename: filename)
                 setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
             }
-        case .downloadableOrDownloading(progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.pausedOrDownloading(progress: progress))
+            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(titleView, filename: filename)
+            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             imageView.reset()
             setTitleOnSubtitleView(titleView, filename: filename)
@@ -220,7 +225,6 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
     private let byteCountFormatter = ByteCountFormatter()
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
-    private var tapGestures = [UITapGestureRecognizer]()
 
     private var singleAttachmentViews: [SingleAttachmentView] {
         mainStack.arrangedSubviews.compactMap({ $0 as? SingleAttachmentView })
@@ -231,11 +235,6 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         let numberOfSingleAttachmentViewsToAdd = max(0, count - singleAttachmentViews.count)
         for _ in 0..<numberOfSingleAttachmentViewsToAdd {
             let view = SingleAttachmentView()
-            let tapGesture = UITapGestureRecognizer(target: self, action: #selector(singleAttachmentViewWasTapped(sender:)))
-            tapGesture.delegate = self
-            tapGestures += [tapGesture]
-            view.addGestureRecognizer(tapGesture)
-            view.isUserInteractionEnabled = true
             view.translatesAutoresizingMaskIntoConstraints = false
             mainStack.addArrangedSubview(view)
         }
@@ -244,25 +243,6 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             singleAttachmentViews[index].showInStack = (index < count)
             singleAttachmentViews[index].reset()
         }
-    }
-    
-    
-    @objc private func singleAttachmentViewWasTapped(sender: UITapGestureRecognizer) {
-        assert(delegate != nil)
-        guard let attachmentView = sender.view as? SingleAttachmentView else { assertionFailure(); return }
-        let imageView = attachmentView.imageView
-        guard let hardlink = imageView.hardlink else { return }
-        delegate?.userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardlink)
-    }
-
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                           shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if tapGestures.contains(where: { $0 == gestureRecognizer }),
-           let otherTapGestureRecognizer = otherGestureRecognizer as? UITapGestureRecognizer,
-           otherTapGestureRecognizer.numberOfTapsRequired == 2 {
-            return true
-        }
-        return false
     }
     
     
@@ -276,6 +256,14 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         fatalError("init(coder:) has not been implemented")
     }
 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        let subviewsWithTappableStuff = self.mainStack.arrangedSubviews.filter({ $0.showInStack }).compactMap({ $0 as? UIViewWithTappableStuff })
+        let view = subviewsWithTappableStuff.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) != nil })
+        return view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
+    
+    
     private func setupInternalViews() {
         
         addSubview(bubble)
@@ -313,7 +301,7 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
 
 
 @available(iOS 14.0, *)
-fileprivate final class SingleAttachmentView: ViewForOlvidStack {
+fileprivate final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff {
     
     fileprivate let imageView = UIImageViewForHardLink()
     fileprivate let title = UILabel()
@@ -342,6 +330,20 @@ fileprivate final class SingleAttachmentView: ViewForOlvidStack {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard acceptTapOutsideBounds || self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        if !tapToReadView.isHidden {
+            return tapToReadView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+        } else {
+            guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+            let views = [fyleProgressView, imageView] as [UIViewWithTappableStuff]
+            let view = views.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true) != nil })
+            return view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true)
+        }
+    }
+
 
     private func setupInternalViews() {
         

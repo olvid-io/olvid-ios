@@ -57,6 +57,11 @@ final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
         self.discussion = discussion
         self.contactIdentity = contactIdentity
     }
+    
+    private func delete() throws {
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Cannot find context") }
+        context.delete(self)
+    }
 
     func updateLatestSequenceNumber(with latestSequenceNumber: Int) {
         self.latestSequenceNumber = latestSequenceNumber
@@ -74,12 +79,14 @@ final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
         }
         static func withPrimaryKey(discussion: PersistedDiscussion, contactIdentity: PersistedObvContactIdentity, senderThreadIdentifier: UUID) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(format: "%K == %@", Key.discussion.rawValue, discussion),
+                withDiscussion(discussion),
                 NSPredicate(format: "%K == %@", Key.contactIdentity.rawValue, contactIdentity),
                 NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
             ])
         }
-
+        static func withDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
+            NSPredicate(Key.discussion, equalTo: discussion)
+        }
     }
 
     static func get(discussion: PersistedDiscussion, contactIdentity: PersistedObvContactIdentity, senderThreadIdentifier: UUID) throws -> PersistedLatestDiscussionSenderSequenceNumber? {
@@ -92,4 +99,16 @@ final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
         return try context.fetch(request).first
     }
 
+    
+    static func deleteAllForDiscussion(_ discussion: PersistedDiscussion) throws {
+        guard let context = discussion.managedObjectContext else { throw makeError(message: "Context is nil") }
+        let request: NSFetchRequest<PersistedLatestDiscussionSenderSequenceNumber> = PersistedLatestDiscussionSenderSequenceNumber.fetchRequest()
+        request.predicate = Predicate.withDiscussion(discussion)
+        request.fetchBatchSize = 200
+        let values = try context.fetch(request)
+        try values.forEach { value in
+            try value.delete()
+        }
+    }
+    
 }

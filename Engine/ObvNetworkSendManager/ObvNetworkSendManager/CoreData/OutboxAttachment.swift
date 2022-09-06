@@ -136,8 +136,8 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
     lazy var ciphertextLength: Int = { chunks.reduce(0, { $0 + $1.ciphertextChunkLength }) }()
     
     var obvContext: ObvContext?
-    
-    var currentChunkProgresses: [(completedUnitCount: Int64, totalUnitCount: Int64)] {
+
+    var currentChunkProgresses: [(totalBytesSent: Int64, totalBytesExpectedToSend: Int64)] {
         self.chunks.map {
             let completedUnitCount = $0.isAcknowledged ? $0.ciphertextChunkLength : 0
             return (Int64(completedUnitCount), Int64($0.ciphertextChunkLength))
@@ -146,9 +146,13 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
     
     // MARK: - Initializer
     
-    convenience init?(message: OutboxMessage, attachmentNumber: Int, fileURL: URL, deleteAfterSend: Bool, byteSize: Int, key: AuthenticatedEncryptionKey) {
-        guard let obvContext = message.obvContext else { return nil }
-        guard OutboxAttachment.get(attachmentId: AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber), within: obvContext) == nil else { return nil }
+    convenience init(message: OutboxMessage, attachmentNumber: Int, fileURL: URL, deleteAfterSend: Bool, byteSize: Int, key: AuthenticatedEncryptionKey) throws {
+        guard let obvContext = message.obvContext else {
+            throw Self.makeError(message: "Cannot find obvContext")
+        }
+        guard try OutboxAttachment.get(attachmentId: AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber), within: obvContext) == nil else {
+            throw Self.makeError(message: "An OutboxAttachment with the same primary key already exists")
+        }
         let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachment.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         let chunksValues = OutboxAttachment.computeChunksValues(fromAttachmentLength: byteSize, whenUsingEncryptionKey: key)
@@ -284,14 +288,14 @@ extension OutboxAttachment {
     }
 
     
-    static func get(attachmentId: AttachmentIdentifier, within obvContext: ObvContext) -> OutboxAttachment? {
+    static func get(attachmentId: AttachmentIdentifier, within obvContext: ObvContext) throws -> OutboxAttachment? {
         let request: NSFetchRequest<OutboxAttachment> = OutboxAttachment.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d",
                                         rawMessageIdOwnedIdentityKey, attachmentId.messageId.ownedCryptoIdentity.getIdentity() as NSData,
                                         rawMessageIdUidKey, attachmentId.messageId.uid.raw as NSData,
                                         attachmentNumberKey, attachmentId.attachmentNumber)
         request.propertiesToFetch = [cancelExternallyRequestedKey]
-        let item = (try? obvContext.fetch(request))?.first
+        let item = try obvContext.fetch(request).first
         return item
     }
     

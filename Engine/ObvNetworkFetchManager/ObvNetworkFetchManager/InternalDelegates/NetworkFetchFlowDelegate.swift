@@ -66,9 +66,10 @@ protocol NetworkFetchFlowDelegate {
     // MARK: - Attachment's related methods
     
     func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
     func downloadedAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
     func attachmentWasCancelledByServer(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
 
     // MARK: - Deletion related methods
     

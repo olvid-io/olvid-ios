@@ -64,28 +64,6 @@ struct MessengerInternalNotification {
     }
     
     
-    // MARK: - EditOwnedGroupDetails
-    
-    struct EditOwnedGroupDetails {
-        static let name = NSNotification.Name("MessengerInternalNotification.EditOwnedGroupDetails")
-        struct Key {
-            static let groupUid = "groupUid"
-            static let ownedCryptoId = "ownedCryptoId"
-            static let groupName = "groupName"
-            static let groupDescription = "groupDescription"
-        }
-        static func parse(_ notification: Notification) -> (groupUid: UID, ownedCryptoId: ObvCryptoId, groupName: String, groupDescription: String?)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let groupUid = userInfo[Key.groupUid] as? UID else { return nil }
-            guard let ownedCryptoId = userInfo[Key.ownedCryptoId] as? ObvCryptoId else { return nil }
-            guard let groupName = userInfo[Key.groupName] as? String else { return nil }
-            guard let groupDescription = userInfo[Key.groupDescription] as? String? else { return nil }
-            return (groupUid, ownedCryptoId, groupName, groupDescription)
-        }
-    }
-
-    
     // MARK: - InviteContactsToGroupOwned
     
     struct InviteContactsToGroupOwned {

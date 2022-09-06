@@ -37,12 +37,11 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
         case cannotFindInboxAttachmentInDatabase
         case couldNotResumeOrPauseDownload
         case attachmentIsMarkedForDeletion
-        case attachmentWasAlreadyMarkedWithTargetStatus
         case coreDataError(error: Error)
         
         var logType: OSLogType {
             switch self {
-            case .attachmentWasAlreadyMarkedWithTargetStatus, .attachmentIsMarkedForDeletion:
+            case .attachmentIsMarkedForDeletion:
                 return .info
             case .cannotFindInboxAttachmentInDatabase, .couldNotResumeOrPauseDownload:
                 return .error
@@ -53,7 +52,6 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
         
         var errorDescription: String? {
             switch self {
-            case .attachmentWasAlreadyMarkedWithTargetStatus: return "Attachment was already in the appropriate paused/resume status. This operation does nothing in this case."
             case .attachmentIsMarkedForDeletion: return "Attachment is marked for deletion"
             case .contextCreatorIsNotSet: return "Context creator is not set"
             case .cannotFindInboxAttachmentInDatabase: return "Could not find inbox attachment in database"
@@ -137,14 +135,8 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
             do {
                 switch targetStatus {
                 case .paused:
-                    guard attachment.status != .paused else {
-                        return cancel(withReason: .attachmentWasAlreadyMarkedWithTargetStatus)
-                    }
                     try attachment.pauseDownload()
                 case .resumed:
-                    guard attachment.status != .resumeRequested else {
-                        return cancel(withReason: .attachmentWasAlreadyMarkedWithTargetStatus)
-                    }
                     try attachment.resumeDownload()
                 }
             } catch {

@@ -111,7 +111,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         observeUserTriedToAccessCameraButAccessIsDeniedNotifications()
         observeUserWantsToReCreateChannelEstablishmentProtocolNotifications()
         observeCreateNewGroupNotifications()
-        observeEditOwnedGroupDetailsNotifications()
         observeUserWantsToDeleteOwnedContactGroupNotifications()
         observeUserWantsToLeaveJoinedContactGroupNotifications()
         observeUserWantsToIntroduceContactToAnotherContactNotifications()
@@ -595,30 +594,6 @@ extension MetaFlowController {
             
         }
         observationTokens.append(token)
-    }
-    
-    
-    private func observeEditOwnedGroupDetailsNotifications() {
-        let NotificationType = MessengerInternalNotification.EditOwnedGroupDetails.self
-        let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let (groupUid, ownedCryptoId, groupName, groupDescription) = NotificationType.parse(notification) else { return }
-            
-            do {
-                let obvGroupCoreDetails = ObvGroupCoreDetails(name: groupName, description: groupDescription)
-                // This is only exectued before ios13 where the publication is done in two parts. The photo is nil here, because ios12 UI does not allow to selection a photo.
-                let obvGroupDetails = ObvGroupDetails(coreDetails: obvGroupCoreDetails, photoURL: nil)
-                try _self.obvEngine.updateLatestDetailsOfOwnedContactGroup(using: obvGroupDetails,
-                                                                           ownedCryptoId: ownedCryptoId,
-                                                                           groupUid: groupUid)
-            } catch {
-                os_log("Could not start protocol for editing owned group details", log: _self.log, type: .fault)
-                return
-            }
-            
-        }
-        observationTokens.append(token)
-
     }
     
     

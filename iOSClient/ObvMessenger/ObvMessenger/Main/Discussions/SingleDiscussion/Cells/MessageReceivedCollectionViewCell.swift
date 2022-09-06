@@ -72,11 +72,7 @@ final class MessageReceivedCollectionViewCell: MessageCollectionViewCell {
         countdownStack.alignment = .leading
 
         bottomStackView.addArrangedSubview(dateLabel)
-        if #available(iOS 13, *) {
-            bottomStackView.addArrangedSubview(messageEditedStatusImageView)
-        } else {
-            bottomStackView.addArrangedSubview(messageEditedStatusLabel)
-        }
+        bottomStackView.addArrangedSubview(messageEditedStatusImageView)
 
         setupConstraints()
         prepareForReuse()
@@ -108,13 +104,13 @@ final class MessageReceivedCollectionViewCell: MessageCollectionViewCell {
     
     
     func prepare(with message: PersistedMessageReceived, withDateFormatter dateFormatter: DateFormatter) {
-        let displayAuthor = message.discussion is PersistedGroupDiscussion || message.discussion is PersistedDiscussionGroupLocked
-        if displayAuthor {
+        switch try? message.discussion.kind {
+        case .oneToOne, .none:
+            authorNameLabel.isHidden = true
+        case .groupV1:
             authorNameLabelPaddingView.isHidden = false
             authorNameLabel.text = message.contactIdentity?.customDisplayName ?? message.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
             authorNameLabel.textColor = message.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel
-        } else {
-            authorNameLabel.isHidden = true
         }
         super.prepare(with: message, attachments: message.fyleMessageJoinWithStatuses, withDateFormatter: dateFormatter, hideProgresses: false)
         refreshMessageReceivedCellCountdown()
@@ -135,7 +131,7 @@ final class MessageReceivedCollectionViewCell: MessageCollectionViewCell {
     }
 
     private func refreshBodyTextViewColor() {
-        if let message = message,
+        if let message = message, !message.isWiped, !message.isDeleted,
            case .tapToRead = MessageCollectionViewCell.extractMessageElements(from: message) {
             bodyTextView.textColor = AppTheme.shared.colorScheme.tapToRead
         } else {
@@ -224,59 +220,18 @@ extension MessageReceivedCollectionViewCell: CellWithMessage {
     
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { nil } // Not used within the old discussion screen
 
-    var textViewToCopy: UITextView? {
-        guard isCopyActionAvailable else { return nil }
-        return bodyTextView
-    }
-    
     var textToCopy: String? {
         guard let text = bodyTextView.text else { return nil }
         guard !text.isEmpty else { return nil }
         return text
     }
 
-    var isSharingActionAvailable: Bool {
-        guard let receivedMessage = self.message as? PersistedMessageReceived else { return false }
-        guard !receivedMessage.readOnce else { return false }
-        if receivedMessage.isEphemeralMessage {
-            return receivedMessage.status == .read
-        } else {
-            return true
-        }
-    }
-
-    var isCopyActionAvailable: Bool {
-        guard let message = persistedMessage else { return false }
-        return message.textBody != nil && !message.readOnce
-    }
-
-    var isReplyToActionAvailable: Bool {
-        guard let receivedMessage = message as? PersistedMessageReceived else { return false }
-        let discussion = receivedMessage.discussion
-        guard !(discussion is PersistedDiscussionOneToOneLocked || discussion is PersistedDiscussionGroupLocked) else { return false }
-        if receivedMessage.readOnce {
-            return receivedMessage.status == .read
-        }
-        return true
-    }
-
-    var isInfoActionAvailable: Bool {
-        guard let receivedMessage = message as? PersistedMessageReceived else { return false }
-        if !receivedMessage.metadata.isEmpty { return true }
-        return false
-    }
     var infoViewController: UIViewController? {
-        guard isInfoActionAvailable else { return nil }
+        guard let receivedMessage =  message as? PersistedMessageReceived else { assertionFailure(); return nil }
+        guard receivedMessage.infoActionCanBeMadeAvailable else { return nil }
         let rcv = ReceivedMessageInfosViewController()
-        rcv.receivedMessage = (message as! PersistedMessageReceived)
+        rcv.receivedMessage = receivedMessage
         return rcv
     }
     
-    var isEditBodyActionAvailable: Bool { false }
-    
-    var isDeleteActionAvailable: Bool { true }
-
-    var isCallActionAvailable: Bool { false }
-
-    var isDeleteOwnReactionActionAvailable: Bool { false }
 }

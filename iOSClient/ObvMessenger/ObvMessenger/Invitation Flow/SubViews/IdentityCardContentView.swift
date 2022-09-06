@@ -31,22 +31,19 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
     @Published var lastName: String
     @Published var position: String
     @Published var company: String
-    fileprivate(set) var photoURL: URL?
     @Published var isKeycloakManaged: Bool
     @Published var showGreenShield: Bool
     @Published var showRedShield: Bool
+    @Published fileprivate(set) var photoURL: URL?
+
     fileprivate var initialHash: Int
     let identityColors: (background: UIColor, text: UIColor)?
-    let editionMode: CircleAndTitlesEditionMode
 
     /// If set, the configuration will be shown on screen
     let serverAndAPIKeyToShow: ServerAndAPIKey?
 
     /// This is set when, and only when, using an identity server during onboarding.
     let keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)?
-    
-    var profilePicture: Binding<UIImage?>!
-    @Published var changed: Bool // This allows to "force" the refresh of the view
 
     fileprivate var observationTokens = [NSObjectProtocol]()
     fileprivate var keyValueObservations = [NSKeyValueObservation]()
@@ -93,7 +90,7 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
     
-    init(firstName: String?, lastName: String?, position: String?, company: String?, isKeycloakManaged: Bool, showGreenShield: Bool, showRedShield: Bool, identityColors: (background: UIColor, text: UIColor)?, photoURL: URL?, editionMode: CircleAndTitlesEditionMode = .none, serverAndAPIKeyToShow: ServerAndAPIKey? = nil, keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)? = nil) {
+    init(firstName: String?, lastName: String?, position: String?, company: String?, isKeycloakManaged: Bool, showGreenShield: Bool, showRedShield: Bool, identityColors: (background: UIColor, text: UIColor)?, photoURL: URL?, ownedIdentity: PersistedObvOwnedIdentity? = nil, serverAndAPIKeyToShow: ServerAndAPIKey? = nil, keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)? = nil) {
         self.firstName = firstName ?? ""
         self.lastName = lastName ?? ""
         self.position = position ?? ""
@@ -102,14 +99,12 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
         self.isKeycloakManaged = isKeycloakManaged
         self.showGreenShield = showGreenShield
         self.showRedShield = showRedShield
-        self.initialHash = 0
         self.identityColors = identityColors
-        self.ownedIdentity = nil
+        self.ownedIdentity = ownedIdentity
         self.serverAndAPIKeyToShow = serverAndAPIKeyToShow
         self.keycloakDetails = keycloakDetails
-        self.changed = false
-        self.editionMode = editionMode
-        self.profilePicture = Binding<UIImage?>(get: { [weak self] in self?.getProfilePicture() } , set: { [weak self] newValue in self?.setProfilePicture(newValue) })
+
+        self.initialHash = 0
         self.initialHash = hashValue
     }
     
@@ -126,32 +121,25 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
                   photoURL: genericIdentity.currentIdentityDetails.photoURL)
     }
     
-    init(ownedIdentity: PersistedObvOwnedIdentity, editionMode: CircleAndTitlesEditionMode = .none) {
+    convenience init(ownedIdentity: PersistedObvOwnedIdentity) {
         assert(Thread.isMainThread)
-        self.firstName = ""
-        self.lastName = ""
-        self.position = ""
-        self.company = ""
-        self.isKeycloakManaged = ownedIdentity.isKeycloakManaged
-        self.showGreenShield = ownedIdentity.isKeycloakManaged
-        self.showRedShield = false
-        self.identityColors = ownedIdentity.cryptoId.colors
-        self.ownedIdentity = ownedIdentity
-        self.initialHash = 0
-        self.changed = false
-        self.editionMode = editionMode
-        self.serverAndAPIKeyToShow = nil
-        self.keycloakDetails = nil
-        setPublishedVariables(with: ownedIdentity)
-        self.profilePicture = Binding<UIImage?>(get: { [weak self] in self?.getProfilePicture() } , set: { [weak self] newValue in self?.setProfilePicture(newValue) })
+        let coreDetails = ownedIdentity.identityCoreDetails
+        self.init(firstName: coreDetails.firstName ?? "",
+                  lastName: coreDetails.lastName ?? "",
+                  position: coreDetails.position ?? "",
+                  company: coreDetails.company ?? "",
+                  isKeycloakManaged: ownedIdentity.isKeycloakManaged,
+                  showGreenShield: ownedIdentity.isKeycloakManaged,
+                  showRedShield: false,
+                  identityColors: ownedIdentity.cryptoId.colors,
+                  photoURL: ownedIdentity.photoURL,
+                  ownedIdentity: ownedIdentity)
         observeViewContextDidChange()
         observeNewCachedProfilePictureCandidateNotifications()
-        self.initialHash = hashValue
     }
 
     /// This initializer is used during the standard onboarding procedure, when *no* identity server is used
     convenience init(serverAndAPIKeyToShow: ServerAndAPIKey?, identityDetails: ObvIdentityCoreDetails?) {
-        assert(Thread.isMainThread)
         self.init(firstName: identityDetails?.firstName ?? "",
                   lastName: identityDetails?.lastName ?? "",
                   position: identityDetails?.position ?? "",
@@ -161,7 +149,6 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
                   showRedShield: false,
                   identityColors: nil,
                   photoURL: nil,
-                  editionMode: .picture,
                   serverAndAPIKeyToShow: serverAndAPIKeyToShow)
         observeNewCachedProfilePictureCandidateNotifications()
     }
@@ -181,30 +168,31 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
                   showRedShield: false,
                   identityColors: nil,
                   photoURL: nil,
-                  editionMode: .picture,
                   serverAndAPIKeyToShow: serverAndAPIKeyToShow,
                   keycloakDetails: keycloakDetails)
         observeNewCachedProfilePictureCandidateNotifications()
     }
 
-    fileprivate func getProfilePicture() -> UIImage? {
+    var profilePicture: UIImage? {
         guard let photoURL = self.photoURL else { return nil }
         return UIImage(contentsOfFile: photoURL.path)
     }
-    
+
+    var editPictureMode: CircleAndTitlesEditionMode {
+        .picture { [weak self] image in self?.setProfilePicture(image) }
+    }
+
     fileprivate func setProfilePicture(_ newValue: UIImage?) {
         assert(Thread.isMainThread)
         guard let value = newValue else {
-            self.photoURL = nil
             withAnimation {
-                self.changed.toggle()
+                self.photoURL = nil
             }
             return
         }
         ObvMessengerInternalNotification.newProfilePictureCandidateToCache(requestUUID: id, profilePicture: value)
             .postOnDispatchQueue()
     }
-    
 
     private func setPublishedVariables(with ownedIdentity: PersistedObvOwnedIdentity) {
         let coreDetails = ownedIdentity.identityCoreDetails
@@ -298,9 +286,8 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
         observationTokens.append(ObvMessengerInternalNotification.observeNewCachedProfilePictureCandidate() { [weak self] (requestUUID, url) in
             guard self?.id == requestUUID else { return }
             DispatchQueue.main.async {
-                self?.photoURL = url
                 withAnimation {
-                    self?.changed.toggle()
+                    self?.photoURL = url
                 }
             }
         })
@@ -341,8 +328,6 @@ final class SingleContactIdentity: SingleIdentity {
     @Published var oneToOneInvitationSentFetchRequest: NSFetchRequest<PersistedInvitationOneToOneInvitationSent>
 
     let trustOrigins: [ObvTrustOrigin]
-    var publishedProfilePicture: Binding<UIImage?>!
-    var customOrTrustedProfilePicture: Binding<UIImage?>!
 
     private var publishedPhotoURL: URL?
     var customPhotoURL: URL? {
@@ -358,7 +343,7 @@ final class SingleContactIdentity: SingleIdentity {
     private let observeChangesMadeToContact: Bool
 
     /// For previews only
-    init(firstName: String?, lastName: String?, position: String?, company: String?, customDisplayName: String? = nil, editionMode: CircleAndTitlesEditionMode = .none, publishedContactDetails: ObvIdentityDetails?, contactStatus: PersistedObvContactIdentity.Status, contactHasNoDevice: Bool, contactIsOneToOne: Bool, isActive: Bool, trustOrigins: [ObvTrustOrigin] = []) {
+    init(firstName: String?, lastName: String?, position: String?, company: String?, customDisplayName: String? = nil, publishedContactDetails: ObvIdentityDetails?, contactStatus: PersistedObvContactIdentity.Status, contactHasNoDevice: Bool, contactIsOneToOne: Bool, isActive: Bool, trustOrigins: [ObvTrustOrigin] = []) {
         self.publishedContactDetails = publishedContactDetails
         self.contactStatus = contactStatus
         self.persistedContact = nil
@@ -379,13 +364,10 @@ final class SingleContactIdentity: SingleIdentity {
                    showGreenShield: false,
                    showRedShield: false,
                    identityColors: nil,
-                   photoURL: nil,
-                   editionMode: editionMode)
-        self.publishedProfilePicture = Binding<UIImage?>(get: { [weak self] in self?.getPublishedProfilePicture() } , set: { [weak self] newValue in self?.setPublishedProfilePicture(newValue) })
-        self.customOrTrustedProfilePicture = Binding<UIImage?>(get: { [weak self] in self?.getCustomOrTrustedProfilePicture() } , set: { [weak self] newValue in self?.setCustomProfilePicture(newValue) })
+                   photoURL: nil)
     }
     
-    init(persistedContact: PersistedObvContactIdentity, observeChangesMadeToContact: Bool, editionMode: CircleAndTitlesEditionMode = .none, trustOrigins: [ObvTrustOrigin] = [], fetchGroups: Bool = false, delegate: SingleContactIdentityDelegate? = nil) {
+    init(persistedContact: PersistedObvContactIdentity, observeChangesMadeToContact: Bool, trustOrigins: [ObvTrustOrigin] = [], fetchGroups: Bool = false, delegate: SingleContactIdentityDelegate? = nil) {
         assert(Thread.isMainThread)
         self.persistedContact = persistedContact
         self.delegate = delegate
@@ -417,10 +399,7 @@ final class SingleContactIdentity: SingleIdentity {
                    showGreenShield: persistedContact.isCertifiedByOwnKeycloak,
                    showRedShield: !persistedContact.isActive,
                    identityColors: persistedContact.cryptoId.colors,
-                   photoURL: persistedContact.photoURL,
-                   editionMode: editionMode)
-        self.publishedProfilePicture = Binding<UIImage?>(get: { [weak self] in self?.getPublishedProfilePicture() }, set: { [weak self] newValue in self?.setPublishedProfilePicture(newValue) })
-        self.customOrTrustedProfilePicture = Binding<UIImage?>(get: { [weak self] in self?.getCustomOrTrustedProfilePicture() }, set: { [weak self] newValue in self?.setCustomProfilePicture(newValue) })
+                   photoURL: persistedContact.photoURL)
         observeUpdateMadesToContactDevices()
         observeChangesOfCustomDisplayName()
         observeChangesOfCustomPhotoURL()
@@ -436,28 +415,24 @@ final class SingleContactIdentity: SingleIdentity {
         }
     }
 
-    private func getPublishedProfilePicture() -> UIImage? {
+    var publishedProfilePicture: UIImage? {
         guard let publishedPhotoURL = self.publishedPhotoURL else { return nil }
         return UIImage(contentsOfFile: publishedPhotoURL.path)
     }
 
-    private func setPublishedProfilePicture(_ newValue: UIImage?) {
-        // This should never be called. publishedProfilePicture is a binding because this makes is easier in the views
-        assertionFailure()
-    }
-
-    private func getCustomOrTrustedProfilePicture() -> UIImage? {
+    var customOrTrustedProfilePicture: UIImage? {
         guard let url = self.customPhotoURL ?? self.photoURL else { return nil }
         return UIImage(contentsOfFile: url.path)
+    }
+
+    var editCustomPictureMode: CircleAndTitlesEditionMode {
+        .picture { [weak self] image in self?.setCustomProfilePicture(image) }
     }
 
     private func setCustomProfilePicture(_ newValue: UIImage?) {
         assert(Thread.isMainThread)
         guard let value = newValue else {
             self.customPhotoURL = nil
-            withAnimation {
-                self.changed.toggle()
-            }
             return
         }
         ObvMessengerInternalNotification.newCustomContactPictureCandidateToSave(requestUUID: id, profilePicture: value)
@@ -520,7 +495,7 @@ final class SingleContactIdentity: SingleIdentity {
         }
     }
 
-    func getProfilPicture(for details: PreferredDetails) -> Binding<UIImage?> {
+    func getProfilPicture(for details: PreferredDetails) -> UIImage? {
         switch details {
         case .trusted:
             return profilePicture
@@ -554,8 +529,9 @@ final class SingleContactIdentity: SingleIdentity {
         keyValueObservations.append(persistedContact.observe(\.customDisplayName) { [weak self] (_,_)  in
             assert(Thread.isMainThread)
             guard let _self = self else { return }
-            _self.customDisplayName = persistedContact.customDisplayName
-            _self.changed.toggle()
+            withAnimation {
+                _self.customDisplayName = persistedContact.customDisplayName
+            }
             _self.initialHash = _self.hashValue
         })
     }
@@ -565,8 +541,9 @@ final class SingleContactIdentity: SingleIdentity {
         keyValueObservations.append(persistedContact.observe(\.customPhotoFilename) { [weak self] (_,_)  in
             assert(Thread.isMainThread)
             guard let _self = self else { return }
-            _self.customPhotoURL = persistedContact.customPhotoURL
-            _self.changed.toggle()
+            withAnimation {
+                _self.customPhotoURL = persistedContact.customPhotoURL
+            }
             _self.initialHash = _self.hashValue
         })
     }
@@ -604,7 +581,6 @@ final class SingleContactIdentity: SingleIdentity {
                 self?.isActive = persistedContact.isActive
                 self?.showReblockView = obvContact.isActive && obvContact.isRevokedAsCompromised
                 self?.showRedShield = !obvContact.isActive
-                self?.changed.toggle()
             }
         })
     }
@@ -642,9 +618,8 @@ final class SingleContactIdentity: SingleIdentity {
         observationTokens.append(ObvMessengerInternalNotification.observeNewSavedCustomContactPictureCandidate() { [weak self] (requestUUID, url) in
             guard self?.id == requestUUID else { return }
             DispatchQueue.main.async {
-                self?.customPhotoURL = url
                 withAnimation {
-                    self?.changed.toggle()
+                    self?.customPhotoURL = url
                 }
             }
         })
@@ -660,7 +635,6 @@ final class SingleContactIdentity: SingleIdentity {
             self.contactStatus = contact.status
             self.customDisplayName = contact.customDisplayName
             self.contactIsOneToOne = contact.isOneToOne
-            self.changed.toggle()
         }
     }
 
@@ -702,7 +676,7 @@ final class SingleContactIdentity: SingleIdentity {
         guard contactIsOneToOne else { assertionFailure(); return }
         guard let persistedContact = self.persistedContact else { assertionFailure(); return }
         guard persistedContact.isOneToOne else { assertionFailure("Trying to have a one-to-one discussion with a contact that is not OneToOne"); return }
-        guard let discussion = try? persistedContact.oneToOneDiscussion else { assertionFailure(); return }
+        guard let discussion = persistedContact.oneToOneDiscussion else { assertionFailure(); return }
         delegate?.userWantsToDisplay(persistedDiscussion: discussion)
     }
     
@@ -757,11 +731,7 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
     @Published var photoURL: URL?
     @Published var groupColors: (background: UIColor, text: UIColor)?
     private var initialHash: Int
-    let editionMode: CircleAndTitlesEditionMode
     var hasChanged: Bool { initialHash != hashValue }
-
-    var profilePicture: Binding<UIImage?>!
-    @Published var changed: Bool // This allows to "force" the refresh of the view
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -772,9 +742,6 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
         self.groupColors = groupColors
         self.photoURL = photoURL
         self.initialHash = 0
-        self.changed = false
-        self.editionMode = editionMode
-        self.profilePicture = Binding<UIImage?>(get: { [weak self] in self?.getProfilePicture() } , set: { [weak self] newValue in self?.setProfilePicture(newValue) })
         self.initialHash = hashValue
         observeNewCachedProfilePictureCandidateNotifications()
     }
@@ -801,28 +768,22 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
                   description: coreDetails.description ?? "",
                   members: Array(groupMembersAndPendingMembers),
                   photoURL: photoURL,
-                  groupColors: nil,
-                  editionMode: .picture)
+                  groupColors: nil)
     }
 
-    init(persistedContactGroup: PersistedContactGroup) {
+    convenience init(persistedContactGroup: PersistedContactGroup) {
         assert(Thread.isMainThread)
-        self.name = persistedContactGroup.displayName
-        self.description = ""
-        self.members = persistedContactGroup.contactIdentities.map({ SingleContactIdentity(persistedContact: $0, observeChangesMadeToContact: false) })
-        self.photoURL = persistedContactGroup.displayPhotoURL
-        self.groupColors = AppTheme.shared.groupColors(forGroupUid: persistedContactGroup.groupUid)
-        self.initialHash = 0
-        self.editionMode = .none
-        self.changed = false
-        self.profilePicture = Binding<UIImage?>(get: { [weak self] in self?.getProfilePicture() } , set: { [weak self] newValue in self?.setProfilePicture(newValue) })
-        self.initialHash = hashValue
+        let members = persistedContactGroup.contactIdentities.map({ SingleContactIdentity(persistedContact: $0, observeChangesMadeToContact: false) })
+        self.init(name: persistedContactGroup.displayName,
+                  description: "",
+                  members: members,
+                  photoURL: persistedContactGroup.displayPhotoURL,
+                  groupColors: AppTheme.shared.groupColors(forGroupUid: persistedContactGroup.groupUid))
     }
 
     convenience init() {
         assert(Thread.isMainThread)
-        self.init(name: "", description: "", members: [], photoURL: nil, groupColors: nil, editionMode: .picture)
-        observeNewCachedProfilePictureCandidateNotifications()
+        self.init(name: "", description: "", members: [], photoURL: nil, groupColors: nil)
     }
     
     fileprivate var imageSystemName: String { "person.3" }
@@ -840,18 +801,21 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
         hasher.combine(self.members)
         hasher.combine(self.photoURL)
     }
-    
-    private func getProfilePicture() -> UIImage? {
+
+    var profilePicture: UIImage? {
         guard let photoURL = self.photoURL else { return nil }
         return UIImage(contentsOfFile: photoURL.path)
     }
-    
+
+    var editPictureMode: CircleAndTitlesEditionMode {
+        .picture { [weak self] image in self?.setProfilePicture(image) }
+    }
+
     private func setProfilePicture(_ newValue: UIImage?) {
         assert(Thread.isMainThread)
         guard let value = newValue else {
-            self.photoURL = nil
             withAnimation {
-                self.changed.toggle()
+                self.photoURL = nil
             }
             return
         }
@@ -863,9 +827,8 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
         observationTokens.append(ObvMessengerInternalNotification.observeNewCachedProfilePictureCandidate() { [weak self] (requestUUID, url) in
             guard self?.id == requestUUID else { return }
             DispatchQueue.main.async {
-                self?.photoURL = url
                 withAnimation {
-                    self?.changed.toggle()
+                    self?.photoURL = url
                 }
             }
         })
@@ -887,6 +850,7 @@ struct IdentityCardContentView: View {
     
     @ObservedObject var model: SingleIdentity
     var displayMode: CircleAndTitlesDisplayMode = .normal
+    var editionMode: CircleAndTitlesEditionMode = .none
 
     var body: some View {
         CircleAndTitlesView(titlePart1: model.firstName,
@@ -898,10 +862,9 @@ struct IdentityCardContentView: View {
                             circledTextView: model.circledTextView([model.firstName, model.lastName]),
                             systemImage: .person,
                             profilePicture: model.profilePicture,
-                            changed: $model.changed,
                             showGreenShield: model.showGreenShield,
                             showRedShield: model.showRedShield,
-                            editionMode: model.editionMode,
+                            editionMode: editionMode,
                             displayMode: displayMode)
     }
 
@@ -914,11 +877,11 @@ enum PreferredDetails {
 }
 
 struct ContactIdentityCardContentView: View {
-    
+
     @ObservedObject var model: SingleContactIdentity
     let preferredDetails: PreferredDetails
-    var forceEditionMode: CircleAndTitlesEditionMode? = nil
     var displayMode: CircleAndTitlesDisplayMode = .normal
+    var editionMode: CircleAndTitlesEditionMode = .none
 
     private var firstName: String {
         model.getFirstName(for: preferredDetails)
@@ -936,7 +899,7 @@ struct ContactIdentityCardContentView: View {
         model.getCompagny(for: preferredDetails)
     }
     
-    private var profilePicture: Binding<UIImage?> {
+    private var profilePicture: UIImage? {
         model.getProfilPicture(for: preferredDetails)
     }
 
@@ -954,10 +917,9 @@ struct ContactIdentityCardContentView: View {
                             circledTextView: model.circledTextView([titlePart1, titlePart2]),
                             systemImage: .person,
                             profilePicture: profilePicture,
-                            changed: $model.changed,
                             showGreenShield: model.showGreenShield,
                             showRedShield: model.showRedShield,
-                            editionMode: forceEditionMode ?? model.editionMode,
+                            editionMode: editionMode,
                             displayMode: displayMode)
     }
 
@@ -966,6 +928,8 @@ struct ContactIdentityCardContentView: View {
 struct GroupCardContentView: View {
     
     @ObservedObject var model: ContactGroup
+    var displayMode: CircleAndTitlesDisplayMode = .normal
+    var editionMode: CircleAndTitlesEditionMode = .none
 
     private var circledTextView: Text? {
         let components = [model.name]
@@ -989,11 +953,10 @@ struct GroupCardContentView: View {
                             circledTextView: circledTextView,
                             systemImage: .person3Fill,
                             profilePicture: model.profilePicture,
-                            changed: $model.changed,
                             showGreenShield: false,
                             showRedShield: false,
-                            editionMode: model.editionMode,
-                            displayMode: .normal)
+                            editionMode: editionMode,
+                            displayMode: displayMode)
     }
 
 }
@@ -1068,38 +1031,38 @@ struct IdentityCardContentView_Previews: PreviewProvider {
         Group {
             Group {
                 ForEach(contacts) {
-                    IdentityCardContentView(model: $0)
+                    IdentityCardContentView(model: $0, displayMode: .normal, editionMode: .none)
                 }
                 .padding()
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .light)
                 ForEach(contacts) {
-                    IdentityCardContentView(model: $0)
+                    IdentityCardContentView(model: $0, displayMode: .normal, editionMode: .none)
                 }
                 .padding()
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .light)
                 ForEach(contacts) {
-                    IdentityCardContentView(model: $0)
+                    IdentityCardContentView(model: $0, displayMode: .normal, editionMode: .none)
                 }
                 .padding()
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .dark)
                 ForEach(groups) {
-                    GroupCardContentView(model: $0)
+                    GroupCardContentView(model: $0, displayMode: .normal, editionMode: .none)
                 }
                 .padding()
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .light)
                 ForEach(groups) {
-                    GroupCardContentView(model: $0)
+                    GroupCardContentView(model: $0, displayMode: .normal, editionMode: .none)
                 }
                 .padding()
                 .background(Color(.systemBackground))
                 .environment(\.colorScheme, .dark)
             }
             .previewLayout(.sizeThatFits)
-            IdentityCardContentView(model: contactsWithSpecialName[0])
+            IdentityCardContentView(model: contactsWithSpecialName[0], displayMode: .normal, editionMode: .none)
                 .previewLayout(.fixed(width: 300, height: 100))
         }
     }

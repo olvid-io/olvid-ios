@@ -34,13 +34,6 @@ notifications:
   params:
   - {name: launchedByBackgroundTask, type: Bool}
   - {name: completionHandler, type: (Bool) -> Void}
-- name: fyleMessageJoinWithStatusHasNewProgress
-  params:
-  - {name: objectID, type: NSManagedObjectID}
-  - {name: progress, type: Progress}
-- name: aViewRequiresFyleMessageJoinWithStatusProgresses
-  params:
-  - {name: objectIDs, type: [NSManagedObjectID]}
 - name: userWantsToCallAndIsAllowedTo
   params:
   - {name: contactIds, type: [OlvidUserId]}
@@ -228,7 +221,8 @@ notifications:
 - name: userWantsToEditContactNicknameAndPicture
   params:
   - {name: persistedContactObjectID, type: NSManagedObjectID}
-  - {name: nicknameAndPicture, type: CustomNicknameAndPicture}
+  - {name: customDisplayName, type: "String?"}
+  - {name: customPhotoURL, type: "URL?"}
 - name: userWantsToBindOwnedIdentityToKeycloak
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
@@ -380,3 +374,7 @@ notifications:
 - name: userWantsToWipeFyleMessageJoinWithStatus
   params:
   - {name: objectIDs, type: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>}
+- name: userWantsToForwardMessage
+  params:
+  - {name: messageObjectID, type: TypeSafeManagedObjectID<PersistedMessage>}
+  - {name: discussionObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedDiscussion>>}

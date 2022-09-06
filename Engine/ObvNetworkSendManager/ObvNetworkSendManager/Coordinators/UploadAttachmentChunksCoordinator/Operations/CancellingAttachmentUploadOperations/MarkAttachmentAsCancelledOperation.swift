@@ -74,7 +74,7 @@ final class MarkAttachmentAsCancelledOperation: Operation {
 
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let outboxAttachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let outboxAttachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                 // Nothing to cancel
                 return
             }

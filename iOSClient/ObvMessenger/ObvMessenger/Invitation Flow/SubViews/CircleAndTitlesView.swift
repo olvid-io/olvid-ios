@@ -23,13 +23,13 @@ import SwiftUI
 enum CircleAndTitlesDisplayMode {
     case normal
     case small
-    case header(tapToFullscreen: Bool)
+    case header
 }
 
 enum CircleAndTitlesEditionMode {
     case none
-    case picture
-    case nicknameAndPicture(action: () -> Void)
+    case picture(update: (UIImage?) -> Void)
+    case custom(icon: ObvSystemIcon, action: () -> Void)
 }
 
 struct CircleAndTitlesView: View {
@@ -41,9 +41,8 @@ struct CircleAndTitlesView: View {
     private let circleBackgroundColor: UIColor?
     private let circleTextColor: UIColor?
     private let circledTextView: Text?
-    private let systemImage: InitialCircleViewSystemImage
-    @Binding var profilePicture: UIImage?
-    @Binding var changed: Bool
+    private let systemImage: CircledInitialsIcon
+    private let profilePicture: UIImage?
     private let alignment: VerticalAlignment
     private let showGreenShield: Bool
     private let showRedShield: Bool
@@ -52,7 +51,7 @@ struct CircleAndTitlesView: View {
 
     @State private var profilePictureFullScreenIsPresented = false
 
-    init(titlePart1: String?, titlePart2: String?, subtitle: String?, subsubtitle: String?, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circledTextView: Text?, systemImage: InitialCircleViewSystemImage, profilePicture: Binding<UIImage?>, changed: Binding<Bool>, alignment: VerticalAlignment = .center, showGreenShield: Bool, showRedShield: Bool, editionMode: CircleAndTitlesEditionMode, displayMode: CircleAndTitlesDisplayMode) {
+    init(titlePart1: String?, titlePart2: String?, subtitle: String?, subsubtitle: String?, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circledTextView: Text?, systemImage: CircledInitialsIcon, profilePicture: UIImage?, alignment: VerticalAlignment = .center, showGreenShield: Bool, showRedShield: Bool, editionMode: CircleAndTitlesEditionMode, displayMode: CircleAndTitlesDisplayMode) {
         self.titlePart1 = titlePart1
         self.titlePart2 = titlePart2
         self.subtitle = subtitle
@@ -61,8 +60,7 @@ struct CircleAndTitlesView: View {
         self.circleTextColor = circleTextColor
         self.circledTextView = circledTextView
         self.systemImage = systemImage
-        self._profilePicture = profilePicture
-        self._changed = changed
+        self.profilePicture = profilePicture
         self.alignment = alignment
         self.editionMode = editionMode
         self.displayMode = displayMode
@@ -85,13 +83,20 @@ struct CircleAndTitlesView: View {
         ProfilePictureView(profilePicture: profilePicture, circleBackgroundColor: circleBackgroundColor, circleTextColor: circleTextColor, circledTextView: circledTextView, systemImage: systemImage, showGreenShield: showGreenShield, showRedShield: showRedShield, customCircleDiameter: circleDiameter)
     }
 
+    private func profilePictureBinding(update: @escaping (UIImage?) -> Void) -> Binding<UIImage?> {
+        .init {
+            profilePicture
+        } set: { image in
+            update(image)
+        }
+    }
+
     private var pictureView: some View {
         ZStack {
             if #available(iOS 14.0, *) {
                 pictureViewInner
                     .onTapGesture {
-                        guard case .header(let tapToFullscreen) = displayMode else { return }
-                        guard tapToFullscreen else { return }
+                        guard case .header = displayMode else { return }
                         guard profilePicture != nil else {
                             profilePictureFullScreenIsPresented = false
                             return
@@ -109,12 +114,12 @@ struct CircleAndTitlesView: View {
             switch editionMode {
             case .none:
                 EmptyView()
-            case .picture:
-                CircledCameraButtonView(profilePicture: $profilePicture)
+            case .picture(let update):
+                CircledCameraButtonView(profilePicture: profilePictureBinding(update: update))
                     .offset(CGSize(width: ProfilePictureView.circleDiameter/3, height: ProfilePictureView.circleDiameter/3))
-            case .nicknameAndPicture(let action):
+            case .custom(let icon, let action):
                 Button(action: action) {
-                    CircledPencilView()
+                    CircledSymbolView(systemIcon: icon)
                 }
                 .offset(CGSize(width: circleDiameter/3, height: circleDiameter/3))
             }

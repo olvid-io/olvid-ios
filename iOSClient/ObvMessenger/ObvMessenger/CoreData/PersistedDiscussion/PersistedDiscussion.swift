@@ -22,32 +22,29 @@ import CoreData
 import os.log
 import ObvEngine
 
+
 @objc(PersistedDiscussion)
 class PersistedDiscussion: NSManagedObject {
 
     private static let entityName = "PersistedDiscussion"
-    static let timestampOfLastMessageKey = "timestampOfLastMessage"
-    static let titleKey = "title"
-    static let messagesKey = "messages"
-    static let ownedIdentityKey = "ownedIdentity"
-    internal static let ownedIdentityIdentityKey = [ownedIdentityKey, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
-    static let senderThreadIdentifierKey = "senderThreadIdentifier"
-    static let localConfigurationKey = "localConfiguration"
     private static let errorDomain = "PersistedDiscussion"
     
-    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { Self.makeError(message: message) }
+    private static func makeError(message: String, code: Int = 0) -> Error {
+        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
+        return NSError(domain: Self.errorDomain, code: code, userInfo: userInfo)
+    }
 
-    // MARK: - Attributes
+    // Attributes
     
     @NSManaged var lastOutboundMessageSequenceNumber: Int
     @NSManaged var lastSystemMessageSequenceNumber: Int
     @NSManaged private var onChangeFlag: Int // Only used internally to trigger UI updates, transient
+    @NSManaged private var rawStatus: Int
     @NSManaged private(set) var senderThreadIdentifier: UUID
     @NSManaged var timestampOfLastMessage: Date
     @NSManaged private(set) var title: String
 
-    // MARK: - Relationships
+    // Relationships
 
     @NSManaged private(set) var sharedConfiguration: PersistedDiscussionSharedConfiguration
     @NSManaged private(set) var localConfiguration: PersistedDiscussionLocalConfiguration
@@ -56,19 +53,51 @@ class PersistedDiscussion: NSManagedObject {
     @NSManaged private(set) var ownedIdentity: PersistedObvOwnedIdentity? // If nil, this entity is eventually cascade-deleted
     @NSManaged private(set) var remoteDeleteAndEditRequests: Set<RemoteDeleteAndEditRequest>
     
-    // MARK: - Other variables
+    // Other variables
     
     private var changedKeys = Set<String>()
-    private var discussionThatWasLocked: TypeSafeURL<PersistedDiscussion>? = nil
 
-}
+    private(set) var status: Status {
+        get {
+            guard let status = Status(rawValue: rawStatus) else { assertionFailure(); return .active }
+            return status
+        }
+        set {
+            self.rawStatus = newValue.rawValue
+        }
+    }
 
-
-// MARK: - Initializer
-
-extension PersistedDiscussion {
     
-    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+    enum Status: Int {
+        case preDiscussion = 0
+        case active = 1
+        case locked = 2
+    }
+    
+    
+    enum Kind {
+        case oneToOne(withContactIdentity: PersistedObvContactIdentity?)
+        case groupV1(withContactGroup: PersistedContactGroup?)
+    }
+    
+    
+    var kind: Kind {
+        get throws {
+            if let discussionOneToOne = self as? PersistedOneToOneDiscussion {
+                return .oneToOne(withContactIdentity: discussionOneToOne.contactIdentity)
+            } else if let discussionGroupV1 = self as? PersistedGroupDiscussion {
+                return .groupV1(withContactGroup: discussionGroupV1.contactGroup)
+            } else {
+                assertionFailure()
+                throw Self.makeError(message: "Unknown discussion type")
+            }
+        }
+    }
+    
+    
+    // MARK: - Initializer
+
+    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, status: Status, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
         
         guard let context = ownedIdentity.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -83,15 +112,19 @@ extension PersistedDiscussion {
         self.senderThreadIdentifier = UUID()
         self.timestampOfLastMessage = Date()
         self.title = title
+        self.status = status
         
         if sharedConfigurationToKeep != nil {
             self.sharedConfiguration = sharedConfigurationToKeep!
         } else {
             let sharedConfiguration = try PersistedDiscussionSharedConfiguration(discussion: self)
-            if let groupDiscussion = self as? PersistedGroupDiscussion, let contactGroup = groupDiscussion.contactGroup, contactGroup.category == .owned {
+            switch try self.kind {
+            case .oneToOne:
                 sharedConfiguration.setValuesUsingSettings()
-            } else if self is PersistedOneToOneDiscussion {
-                sharedConfiguration.setValuesUsingSettings()
+            case .groupV1(withContactGroup: let contactGroup):
+                if let contactGroup = contactGroup, contactGroup.category == .owned {
+                    sharedConfiguration.setValuesUsingSettings()
+                }
             }
             self.sharedConfiguration = sharedConfiguration
         }
@@ -112,65 +145,21 @@ extension PersistedDiscussion {
         self.onChangeFlag += 1
     }
 
-    convenience init(persistedGroupDiscussionToLock: PersistedGroupDiscussion, forEntityName entityName: String) throws {
-        
-        guard let context = persistedGroupDiscussionToLock.managedObjectContext else { throw PersistedDiscussion.makeError(message: "Cannot find context") }
-        
-        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
-        self.init(entity: entityDescription, insertInto: context)
-
-        self.lastOutboundMessageSequenceNumber = persistedGroupDiscussionToLock.lastOutboundMessageSequenceNumber
-        self.lastSystemMessageSequenceNumber = persistedGroupDiscussionToLock.lastSystemMessageSequenceNumber
-        self.senderThreadIdentifier = persistedGroupDiscussionToLock.senderThreadIdentifier
-        self.timestampOfLastMessage = persistedGroupDiscussionToLock.timestampOfLastMessage
-        self.title = persistedGroupDiscussionToLock.title
-        
-        self.sharedConfiguration = persistedGroupDiscussionToLock.sharedConfiguration
-        self.localConfiguration = persistedGroupDiscussionToLock.localConfiguration
-        self.draft = persistedGroupDiscussionToLock.draft
-        self.messages = persistedGroupDiscussionToLock.messages
-        self.ownedIdentity = persistedGroupDiscussionToLock.ownedIdentity
-        self.remoteDeleteAndEditRequests = Set<RemoteDeleteAndEditRequest>()
-        self.discussionThatWasLocked = persistedGroupDiscussionToLock.typedObjectID.downcast.uriRepresentation()
-
-        for remoteDeleteAndEditRequests in persistedGroupDiscussionToLock.remoteDeleteAndEditRequests {
-            try remoteDeleteAndEditRequests.delete()
-        }
-    }
-    
-    convenience init(persistedOneToOneDiscussionToLock: PersistedOneToOneDiscussion, forEntityName entityName: String) throws {
-        
-        guard let context = persistedOneToOneDiscussionToLock.managedObjectContext else { throw PersistedDiscussion.makeError(message: "Cannot find context") }
-        
-        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
-        self.init(entity: entityDescription, insertInto: context)
-        
-        self.lastOutboundMessageSequenceNumber = persistedOneToOneDiscussionToLock.lastOutboundMessageSequenceNumber
-        self.lastSystemMessageSequenceNumber = persistedOneToOneDiscussionToLock.lastSystemMessageSequenceNumber
-        self.senderThreadIdentifier = persistedOneToOneDiscussionToLock.senderThreadIdentifier
-        self.timestampOfLastMessage = persistedOneToOneDiscussionToLock.timestampOfLastMessage
-        self.title = persistedOneToOneDiscussionToLock.title
-        
-        self.sharedConfiguration = persistedOneToOneDiscussionToLock.sharedConfiguration
-        self.localConfiguration = persistedOneToOneDiscussionToLock.localConfiguration
-        self.draft = persistedOneToOneDiscussionToLock.draft
-        self.messages = persistedOneToOneDiscussionToLock.messages
-        self.ownedIdentity = persistedOneToOneDiscussionToLock.ownedIdentity
-        self.remoteDeleteAndEditRequests = Set<RemoteDeleteAndEditRequest>()
-        self.discussionThatWasLocked = persistedOneToOneDiscussionToLock.typedObjectID.downcast.uriRepresentation()
-
-        for remoteDeleteAndEditRequests in persistedOneToOneDiscussionToLock.remoteDeleteAndEditRequests {
-            try remoteDeleteAndEditRequests.delete()
-        }
-
-    }
-
     
     func delete() throws {
-        guard let context = self.managedObjectContext else { throw makeError(message: "Could not find context") }
+        guard let context = self.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         context.delete(self)
     }
     
+    
+    // MARK: - Status management
+
+    func setStatus(to newStatus: Status) throws {
+        self.status = newStatus
+    }
+
 }
 
 
@@ -179,7 +168,7 @@ extension PersistedDiscussion {
 extension PersistedDiscussion {
     
     func resetTitle(to newTitle: String) throws {
-        guard !newTitle.isEmpty else { throw makeError(message: "The new title is empty") }
+        guard !newTitle.isEmpty else { throw Self.makeError(message: "The new title is empty") }
         if self.title != newTitle {
             self.title = newTitle
         }
@@ -210,19 +199,19 @@ extension PersistedDiscussion {
         let ownCryptoId: ObvCryptoId
         if let oneToOneDiscussion = self as? PersistedOneToOneDiscussion {
             guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
-                throw makeError(message: "Could not find contact identity")
+                throw Self.makeError(message: "Could not find contact identity")
             }
             contactCryptoIds = contactIdentity.isActive ? Set([contactIdentity.cryptoId]) : Set([])
             guard let _ownCryptoId = oneToOneDiscussion.ownedIdentity?.cryptoId else {
-                throw makeError(message: "Could not determine owned cryptoId (1)")
+                throw Self.makeError(message: "Could not determine owned cryptoId (1)")
             }
             ownCryptoId = _ownCryptoId
         } else if let groupDiscussion = self as? PersistedGroupDiscussion {
             guard let contactGroup = groupDiscussion.contactGroup else {
-                throw makeError(message: "Could not find contact group")
+                throw Self.makeError(message: "Could not find contact group")
             }
             guard let _ownCryptoId = groupDiscussion.ownedIdentity?.cryptoId else {
-                throw makeError(message: "Could not determine owned cryptoId (2)")
+                throw Self.makeError(message: "Could not determine owned cryptoId (2)")
             }
             ownCryptoId = _ownCryptoId
             switch contactGroup.category {
@@ -230,7 +219,7 @@ extension PersistedDiscussion {
                 contactCryptoIds = Set(contactGroup.contactIdentities.filter({ $0.isActive }).map({ $0.cryptoId }))
             case .joined:
                 guard let groupOwner = try? ObvCryptoId(identity: contactGroup.ownerIdentity) else {
-                    throw makeError(message: "Could not determine group owner")
+                    throw Self.makeError(message: "Could not determine group owner")
                 }
                 assert(groupOwner != ownCryptoId)
                 var cryptoIds = Set(contactGroup.contactIdentities.filter({ $0.isActive }).compactMap({ $0.cryptoId == ownCryptoId ? nil : $0.cryptoId }))
@@ -241,16 +230,31 @@ extension PersistedDiscussion {
                 contactCryptoIds = cryptoIds
             }
         } else {
-            throw makeError(message: "Unexpected discussion type: \(type(of: self))")
+            throw Self.makeError(message: "Unexpected discussion type: \(type(of: self))")
         }
         return (ownCryptoId, contactCryptoIds)
     }
     
 
     var isCallAvailable: Bool {
-        if self is PersistedOneToOneDiscussion { return true }
-        if let groupDiscussion = self as? PersistedGroupDiscussion, let contactGroup = groupDiscussion.contactGroup, !contactGroup.contactIdentities.isEmpty { return true }
-        return false
+        switch self.status {
+        case .preDiscussion, .locked:
+            return false
+        case .active:
+            switch try? self.kind {
+            case .oneToOne:
+                return true
+            case .groupV1(withContactGroup: let contactGroup):
+                if let contactGroup = contactGroup {
+                    return !contactGroup.contactIdentities.isEmpty
+                } else {
+                    return false
+                }
+            case .none:
+                assertionFailure()
+                return false
+            }
+        }
     }
     
     var subtitle: String {
@@ -258,10 +262,6 @@ extension PersistedDiscussion {
             return oneToOne.contactIdentity?.identityCoreDetails.positionAtCompany() ?? ""
         } else if let groupDiscussion = self as? PersistedGroupDiscussion {
             return groupDiscussion.contactGroup?.sortedContactIdentities.map({ $0.customOrFullDisplayName }).joined(separator: ", ") ?? ""
-        } else if self is PersistedDiscussionOneToOneLocked {
-            return ""
-        } else if self is PersistedDiscussionGroupLocked {
-            return ""
         } else {
             assertionFailure()
             return ""
@@ -334,9 +334,36 @@ extension PersistedDiscussion {
 
 extension PersistedDiscussion {
 
-    private struct Predicate {
+    struct Predicate {
+        enum Key: String {
+            case lastOutboundMessageSequenceNumber = "lastOutboundMessageSequenceNumber"
+            case lastSystemMessageSequenceNumber = "lastSystemMessageSequenceNumber"
+            case onChangeFlag = "onChangeFlag"
+            case rawStatus = "rawStatus"
+            case senderThreadIdentifier = "senderThreadIdentifier"
+            case timestampOfLastMessage = "timestampOfLastMessage"
+            case title = "title"
+            case sharedConfiguration = "sharedConfiguration"
+            case localConfiguration = "localConfiguration"
+            case draft = "draft"
+            case messages = "messages"
+            case ownedIdentity = "ownedIdentity"
+            case remoteDeleteAndEditRequests = "remoteDeleteAndEditRequests"
+            static var ownedIdentityIdentity: String {
+                [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+            }
+        }
         static func persistedDiscussion(withObjectID objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(format: "SELF == %@", objectID)
+        }
+        static func withStatus(_ status: Status) -> NSPredicate {
+            NSPredicate(Key.rawStatus, EqualToInt: status.rawValue)
+        }
+        static var withNoMessage: NSPredicate {
+            NSPredicate(format: "%K.@count == 0", PersistedDiscussion.Predicate.Key.messages.rawValue)
+        }
+        static var withMessages: NSPredicate {
+            NSPredicate(format: "%K.@count > 0", PersistedDiscussion.Predicate.Key.messages.rawValue)
         }
     }
     
@@ -358,7 +385,7 @@ extension PersistedDiscussion {
 
     static func getAllSortedByTimestampOfLastMessage(within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
         let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: timestampOfLastMessageKey, ascending: false)]
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)]
         return try context.fetch(request)
     }
     
@@ -381,15 +408,29 @@ extension PersistedDiscussion {
         let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
         
         fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "%K == %@", ownedIdentityIdentityKey, ownedCryptoId.getIdentity() as NSData),
-            NSPredicate(format: "%K.@count > 0", PersistedDiscussion.messagesKey),
+            NSPredicate(format: "%K == %@", Predicate.Key.ownedIdentityIdentity, ownedCryptoId.getIdentity() as NSData),
+            Predicate.withMessages,
         ])
         
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.timestampOfLastMessageKey, ascending: false)]
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)]
 
         return fetchRequest
     }
 
+    /// Returns a `NSFetchRequest` for the non-empty and active discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
+    static func getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
+
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "%K == %@", Predicate.Key.ownedIdentityIdentity, ownedCryptoId.getIdentity() as NSData),
+            Predicate.withStatus(.active)
+        ])
+
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestampOfLastMessage.rawValue, ascending: false)]
+
+        return fetchRequest
+    }
     
     static func getFetchedResultsController(fetchRequest: NSFetchRequest<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDiscussion> {
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
@@ -399,6 +440,17 @@ extension PersistedDiscussion {
         return fetchedResultsController
     }
         
+    
+    static func getAllLockedWithNoMessage(within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withStatus(.locked),
+            Predicate.withNoMessage,
+        ])
+        return try context.fetch(request)
+    }
+
+
 }
 
 // MARK: - Sending notifications on changes
@@ -418,13 +470,14 @@ extension PersistedDiscussion {
     override func didSave() {
         super.didSave()
         
-        if changedKeys.contains(PersistedDiscussion.titleKey) {
+        if changedKeys.contains(Predicate.Key.title.rawValue) {
             ObvMessengerCoreDataNotification.persistedDiscussionHasNewTitle(objectID: typedObjectID, title: title)
                 .postOnDispatchQueue()
         }
-
-        if isInserted, let discussionThatWasLocked = discussionThatWasLocked {
-            ObvMessengerCoreDataNotification.newLockedPersistedDiscussion(previousDiscussionUriRepresentation: discussionThatWasLocked, newLockedDiscussionId: typedObjectID).postOnDispatchQueue()
+        
+        if changedKeys.contains(Predicate.Key.rawStatus.rawValue), !isDeleted {
+            ObvMessengerCoreDataNotification.persistedDiscussionStatusChanged(objectID: typedObjectID)
+                .postOnDispatchQueue()
         }
 
         if isDeleted {

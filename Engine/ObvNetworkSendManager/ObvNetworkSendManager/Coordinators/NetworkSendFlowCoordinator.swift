@@ -98,17 +98,12 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         if let attachments = message.attachments {
             var attachmentNumber = 0
             for attachment in attachments {
-                guard OutboxAttachment(message: outboxMessage,
-                                       attachmentNumber: attachmentNumber,
-                                       fileURL: attachment.fileURL,
-                                       deleteAfterSend: attachment.deleteAfterSend,
-                                       byteSize: attachment.byteSize,
-                                       key: attachment.key) != nil
-                else {
-                    os_log("Could not create outboxAttachment in database", log: log, type: .error)
-                    throw Self.makeError(message: "Could not create outboxAttachment in database")
-                }
-                
+                _ = try OutboxAttachment(message: outboxMessage,
+                                         attachmentNumber: attachmentNumber,
+                                         fileURL: attachment.fileURL,
+                                         deleteAfterSend: attachment.deleteAfterSend,
+                                         byteSize: attachment.byteSize,
+                                         key: attachment.key)
                 let attachmentId = AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
                 attachmentIds.append(attachmentId)
                 
@@ -226,28 +221,19 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     
     
-    func newProgressForAttachment(attachmentId: AttachmentIdentifier, newProgress: Progress, flowId: FlowIdentifier) {
-        
+    func newProgressForAttachment(attachmentId: AttachmentIdentifier) {
+        failedFetchAttemptsCounterManager.reset(counter: .uploadAttachment(attachmentId: attachmentId))
+    }
+
+    
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
+            throw Self.makeError(message: "The Delegate Manager is not set")
         }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set (3)", log: log, type: .fault)
-            return
-        }
-        
-        failedFetchAttemptsCounterManager.reset(counter: .uploadAttachment(attachmentId: attachmentId))
-        
-        ObvNetworkPostNotification.outboxAttachmentHasNewProgress(attachmentId: attachmentId, newProgress: newProgress, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-
+        return await delegateManager.uploadAttachmentChunksDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
     }
-
     
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool {
         
@@ -367,68 +353,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
         
     }
-    
-    func requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) throws {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The contextCreator is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
-            
-            guard let _self = self else { return }
-
-            do {
-                if let sentMessage = (try DeletedOutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)).first(where: { $0.messageId == messageIdentifier }) {
-                    let messageIdsAndTimestampsFromServer = (sentMessage.messageId, sentMessage.timestampFromServer)
-                    ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [messageIdsAndTimestampsFromServer], flowId: flowId)
-                        .postOnBackgroundQueue(_self.queueForPostingNotifications, within: notificationDelegate)
-                    return
-                }
-            } catch {
-                assertionFailure()
-                return
-            }
-            
-            // If we reach this point, we could not find the message in the database
-            
-            do {
-                if let message = try OutboxMessage.get(messageId: messageIdentifier, delegateManager: delegateManager, within: obvContext) {
-                    let attachmentsIds = message.attachments.map({ $0.attachmentId })
-                    for attachmentId in attachmentsIds {
-                        guard let progress = delegateManager.uploadAttachmentChunksDelegate.requestProgressOfAttachment(withIdentifier: attachmentId) else { continue }
-                        ObvNetworkPostNotification.outboxAttachmentHasNewProgress(attachmentId: attachmentId, newProgress: progress, flowId: flowId)
-                            .postOnBackgroundQueue(_self.queueForPostingNotifications, within: notificationDelegate)
-                    }
-                    return
-                }
-            } catch {
-                assertionFailure()
-                return
-            }
-
-            // We should not reach this point. If this happens, we should consider send a notification saying that the message and its attachments were acknowledged.
-            // Yet, we do no have access to the timestampFromServer...
-            /* assertionFailure() */
-        }
-        
-    }
-    
     // MARK: - Monitor Network Path Status
     
     private func monitorNetworkChanges() {

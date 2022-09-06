@@ -28,7 +28,7 @@ import MobileCoreServices
 @objc(PersistedMessageReceived)
 final class PersistedMessageReceived: PersistedMessage {
     
-    private static let entityName = "PersistedMessageReceived"
+    static let entityName = "PersistedMessageReceived"
 
     private static let contactIdentityKey = "contactIdentity"
     private static let contactIdentityIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
@@ -36,7 +36,7 @@ final class PersistedMessageReceived: PersistedMessage {
     private static let senderThreadIdentifierKey = "senderThreadIdentifier"
     private static let expirationForReceivedLimitedVisibilityKey = "expirationForReceivedLimitedVisibility"
     private static let expirationForReceivedLimitedExistenceKey = "expirationForReceivedLimitedExistence"
-    private static let ownedIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.Predicate.Key.rawOwnedIdentity.rawValue].joined(separator: ".")
+    private static let ownedIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageReceived")
     
@@ -170,10 +170,14 @@ final class PersistedMessageReceived: PersistedMessage {
     
     /// `true` when this instance can be edited after being received
     override var textBodyCanBeEdited: Bool {
-        guard self.discussion is PersistedOneToOneDiscussion || self.discussion is PersistedGroupDiscussion else { return false }
-        guard !self.isLocallyWiped else { return false }
-        guard !self.isRemoteWiped else { return false }
-        return true
+        switch discussion.status {
+        case .active:
+            guard !self.isLocallyWiped else { return false }
+            guard !self.isRemoteWiped else { return false }
+            return true
+        case .preDiscussion, .locked:
+            return false
+        }
     }
 
     
@@ -204,9 +208,24 @@ extension PersistedMessageReceived {
         
         guard let context = discussion.managedObjectContext else { throw PersistedMessageReceived.makeError(message: "Could not find context") }
         
-        if let discussion = discussion as? PersistedGroupDiscussion {
+        // Received messages can only be created when the discussion status is 'active'
+        
+        switch discussion.status {
+        case .locked, .preDiscussion:
+            throw Self.makeError(message: "Cannot create PersistedMessageReceived, the discussion is not active")
+        case .active:
+            break
+        }
+        
+        switch try discussion.kind {
+        case .oneToOne(withContactIdentity: let contactIdentityOfDiscussion):
+            guard contactIdentityOfDiscussion == contactIdentity else {
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "The referenced one2one discussion corresponds to a different contact than the one that sent the message.")
+            }
+        case .groupV1(withContactGroup: let contactGroup):
             // We check that the received message comes from a member (likely) or a pending member (unlikely, but still)
-            guard let contactGroup = discussion.contactGroup else {
+            guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: PersistedMessageReceived.log, type: .error)
                 assertionFailure()
                 throw PersistedMessageReceived.makeError(message: "Could find contact group (this is ok if it was just deleted)")
@@ -216,11 +235,6 @@ extension PersistedMessageReceived {
                 os_log("The PersistedGroupDiscussion list of contacts does not contain the contact that sent a message within this discussion", log: PersistedMessageReceived.log, type: .error)
                 assertionFailure()
                 throw PersistedMessageReceived.makeError(message: "The PersistedGroupDiscussion list of contacts does not contain the contact that sent a message within this discussion")
-            }
-        } else if let discussion = discussion as? PersistedOneToOneDiscussion {
-            guard discussion.contactIdentity == contactIdentity else {
-                assertionFailure()
-                throw PersistedMessageReceived.makeError(message: "The referenced one2one discussion corresponds to a different contact than the one that sent the message.")
             }
         }
         
@@ -258,6 +272,7 @@ extension PersistedMessageReceived {
                       discussion: discussion,
                       readOnce: messageJSON.expiration?.readOnce ?? false,
                       visibilityDuration: messageJSON.expiration?.visibilityDuration,
+                      forwarded: messageJSON.forwarded,
                       forEntityName: PersistedMessageReceived.entityName)
 
         self.messageRepliedToIdentifier = messageRepliedToIdentifier
@@ -318,6 +333,10 @@ extension PersistedMessageReceived {
     func update(withMessageJSON json: MessageJSON, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, discussion: PersistedDiscussion) throws {
         guard self.messageIdentifierFromEngine == messageIdentifierFromEngine else {
             throw makeError(message: "Invalid message identifier from engine")
+        }
+        
+        guard !isWiped else {
+            return
         }
         
         let replyTo: PersistedMessage?
@@ -433,7 +452,23 @@ extension PersistedMessageReceived {
     var forwardActionCanBeMadeAvailableForReceivedMessage: Bool {
         return shareActionCanBeMadeAvailableForReceivedMessage
     }
+    
+    var infoActionCanBeMadeAvailableForReceivedMessage: Bool {
+        return !metadata.isEmpty
+    }
 
+    var replyToActionCanBeMadeAvailableForReceivedMessage: Bool {
+        guard discussion.status == .active else { return false }
+        if readOnce {
+            return status == .read
+        }
+        return true
+    }
+    
+    var deleteOwnReactionActionCanBeMadeAvailableForReceivedMessage: Bool {
+        return reactions.contains { $0 is PersistedMessageReactionSent }
+    }
+    
 }
 
 
@@ -514,6 +549,9 @@ extension PersistedMessageReceived {
         static func inDiscussionWithObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID) }
         static var readOnce: NSPredicate { NSPredicate(format: "%K == TRUE", PersistedMessage.readOnceKey) }
         static func forOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessageReceived.ownedIdentityKey, ownedIdentity) }
+        static func forOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(PersistedMessageReceived.ownedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
+        }
         static var expiresForReceivedLimitedVisibility: NSPredicate {
             NSPredicate(format: "\(PersistedMessageReceived.expirationForReceivedLimitedVisibilityKey) != NIL")
         }
@@ -546,6 +584,9 @@ extension PersistedMessageReceived {
         }
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(format: "self == %@", objectID)
+        }
+        static func withMessageIdentifierFromEngine(_ messageIdentifierFromEngine: Data) -> NSPredicate {
+            NSPredicate(PersistedMessageReceived.messageIdentifierFromEngineKey, EqualToData: messageIdentifierFromEngine)
         }
     }
     
@@ -656,6 +697,17 @@ extension PersistedMessageReceived {
         request.predicate = NSPredicate(format: "%K == %@", messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg)
         request.fetchBatchSize = 10
         return try context.fetch(request)
+    }
+
+    
+    static func get(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forOwnedCryptoId(ownedCryptoId),
+            Predicate.withMessageIdentifierFromEngine(messageIdentifierFromEngine),
+        ])
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
 
     

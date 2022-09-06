@@ -25,7 +25,7 @@ import ObvTypes
 import OlvidUtils
 
 
-public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDelegate {
+public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDelegate, ObvErrorMaker {
     
     static let defaultLogSubsystem = "io.olvid.network.send.dummy"
     lazy public var logSubsystem: String = {
@@ -40,6 +40,8 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
     public func applicationDidStartRunning(flowId: FlowIdentifier) {}
     public func applicationDidEnterBackground() {}
 
+    public static let errorDomain = "ObvNetworkSendManagerImplementationDummy"
+    
     // MARK: Instance variables
     
     private var log: OSLog
@@ -67,6 +69,11 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
         os_log("backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) does nothing in this dummy implementation", log: log, type: .error)
         return false
     }
+    
+    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+        os_log("requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
+    }
         
     // MARK: - Implementing ObvManager
 
@@ -80,6 +87,4 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
     
     public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: [MessageIdentifier], flowId: FlowIdentifier) {}
     
-    public func requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) throws {}
-
 }

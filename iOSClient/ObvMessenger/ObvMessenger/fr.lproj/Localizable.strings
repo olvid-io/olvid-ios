@@ -32,9 +32,6 @@
 /* Can serve as a name in the sentence \"%@ accepted to join this group\" */
 "A (now deleted) contact" = "Contact supprimé";
 
-/* No comment provided by engineer. */
-"A file named %@ already exists within the following location:\nOn My iPhone > Olvid" = "Un fichier %@ existe déjà à cet emplacement:\nSur mon iPhone > Olvid";
-
 /* Abort word, capitalized */
 "Abort" = "Abandonner";
 
@@ -146,9 +143,6 @@
 /* Alert title */
 "Could not delete group" = "Le groupe n'a pas pu être supprimé";
 
-/* No comment provided by engineer. */
-"Could not export file to the system's Files App" = "Impossible d'exporter le fichier vers l'application Fichiers";
-
 /* Create word, capitalized */
 "Create" = "Créer";
 
@@ -242,6 +236,8 @@
 /* Title of the UIAlertAction allowing to add a document as an attachment within a message to send */
 "Document" = "Document";
 
+"Documents" = "Documents";
+
 /* Downloads word, capitalized */
 "Downloads" = "Téléchargements";
 
@@ -260,9 +256,6 @@
 /* Button title */
 "Exchange digits with %@" = "Échanger chiffres avec %@";
 
-/* Title of alert */
-"Export PDF file" = "Exporter le PDF";
-
 /* Alert title */
 "Export Picture" = "Exporter l'image";
 
@@ -272,14 +265,8 @@
 /* Action of alert */
 "Export to the system's File App" = "Exporter le fichier vers l'application Fichiers";
 
-/* Action of alert */
-"Export to the system's Files App" = "Exporter le fichier vers l'application Fichiers";
-
 /* Alert title */
 "File exported to Files App" = "Fichier exporté vers l'App Fichiers";
-
-/* No comment provided by engineer. */
-"File exported to the File App" = "Le fichier a été exporté vers File App";
 
 /* Title of alert */
 "File Management" = "Gestion du fichier";
@@ -682,9 +669,6 @@
 /* Message of an alert */
 "The core you entered is incorrect. The code you need to enter is the one displayed on your contact's device." = "Le code que vous avez entré est incorrect. Celui que vous devez entrer est affiché sur l'écran de votre contact.";
 
-/* No comment provided by engineer. */
-"The file %@ can now be found in the File App, within the following location:\nOn My iPhone > Olvid" = "Le fichier %@ peut maintenant être trouvé dans l'App Fichiers, à cet emplacement:\nSur Mon iPhone > Olvid";
-
 /* Body */
 "The group owner published a new version of Group Card. Both the old and new versions are shown below.\n\nClick to update the group informations with the new version." = "Le propriétaire du groupe a publié une nouvelle version de la Group Card. L'ancienne et la nouvelle version se trouvent ci-dessous.\n\nCliquez pour mettre à jour les informations du groupe en utilisant la nouvelle version.";
 
@@ -749,9 +733,6 @@
 
 /* Message of alert */
 "What do you want to do with this file?" = "Que voulez-vous faire de ce fichier ?";
-
-/* Message of alert */
-"What do you want to do with this PDF?" = "Que voulez-vous faire de ce PDF ?";
 
 /* Alert message */
 "Where do you wish to export this picture?" = "Où voulez-vous exporter cette photo ?";
@@ -879,7 +860,7 @@
 
 "No read receipt will be sent within this discussion." = "Vos correspondants ne recevront pas de confirmation lorsque vous lirez leurs messages dans le cadre de cette discussion.";
 
-"Default" = "Défaut";
+"Default" = "Par défaut";
 
 "DISCUSSION_SETTINGS" = "Paramètres de la discussion";
 
@@ -1545,7 +1526,7 @@
 
 "AUTO_READ_LABEL" = "Ouverture automatique";
 
-"EPHEMERAL_MESSAGE" = "Message ephémère";
+"EPHEMERAL_MESSAGE" = "Message éphémère";
 
 "DEFAULT_DISCUSSION_SETTINGS" = "Paramètres par défaut pour cette discussion";
 
@@ -1629,9 +1610,11 @@
 
 "SHOW_RICH_LINK_PREVIEW_LABEL" = "Prévisualiser";
 
+"NOTIFICATION_SOUNDS_LABEL" = "Son de notification";
+
 "DISCUSSION_SHARED_SETTINGS_WERE_UPDATED" = "Les paramètres partagés de la discussion ont été mis à jour";
 
-"NON_EPHEMERAL_MESSAGES_LABEL" = "Message non-ephémères";
+"NON_EPHEMERAL_MESSAGES_LABEL" = "Message non-éphémère";
 
 "GLOBAL_EXPIRATION_SETTINGS_EXPLANATION" = "Les paramètres ci-dessous seront appliqués à toute nouvelle discussion « one-to-one » ainsi qu'à toute nouvelle discussion de groupe que vous créerez. Veuillez noter que ces paramètres de discussion seront partagés avec tous les participants.";
 
@@ -2324,3 +2307,121 @@
 "DELETE_ITEMS" = "Supprimer les éléments";
 
 "SHOW_IN_DISCUSSION" = "Afficher dans la discussion";
+
+"NOT_PART_OF_THE_GROUP_ANYMORE" = "Vous ne faites plus partie de ce groupe, soit parce que vous l'avez quitté, soit parce qu'un administrateur vous a retiré du groupe.";
+
+"REJOINED_GROUP" = "Vous faites à nouveau partie du groupe ✌️";
+
+"CONTACT_%@_IS_ONE_TO_ONE_AGAIN" = "%@ fait à nouveau partie de vos contacts, vous pouvez reprendre la discussion là où vous l'aviez laissée 🤗.";
+
+"Medias" = "Médias";
+
+"Forward" = "Transférer";
+
+"Forwarded" = "Transféré";
+
+"NO_SOUNDS" = "Aucun";
+
+"NOTIFICATION_SOUNDS_TITLE_POLYPHONIC" = "Sons polyphoniques";
+
+"NOTIFICATION_SOUNDS_TITLE_NEUTRAL" = "Sons neutres";
+
+"NOTIFICATION_SOUNDS_NEUTRAL_CATEGORY_TITLE" = "Neutre";
+"NOTIFICATION_SOUNDS_ALARM_CATEGORY_TITLE" = "Alarmes";
+"NOTIFICATION_SOUNDS_ANIMAL_CATEGORY_TITLE" = "Animaux";
+"NOTIFICATION_SOUNDS_TOY_CATEGORY_TITLE" = "Jouets";
+
+"BUSY" = "Occupé";
+"CHIME" = "Carillon";
+"BRING_THE_DRAMA" = "Feu aux poudres";
+"FRENZY" = "Frénésie";
+"HORN_BOAT" = "Corne de brume";
+"HORN_BUS" = "Klaxon de bus";
+"HORN_CAR" = "Klaxon automobile";
+"HORN_DIXIE" = "Klaxon 1916";
+"HORN_TAXI" = "Klaxon de taxi";
+"HORN_TRAIN_1" = "Train 1";
+"HORN_TRAIN_2" = "Train 2";
+"PARANOID" = "Paranoïaque";
+"WEIRD" = "Bizarre";
+
+"BIRD_CARDINAL" = "Cardinal";
+"BIRD_COQUI" = "Francolin coqui";
+"BIRD_CROW" = "Corbeau";
+"BIRD_CUCKOO" = "Coucou";
+"BIRD_DUCK_QUACK" = "Canard";
+"BIRD_DUCK_QUACKS" = "Coin-coin";
+"BIRD_EAGLE" = "Aigle";
+"BIRD_IN_FOREST" = "Oiseau dans la forêt";
+"BIRD_MAGPIE" = "Pie";
+"BIRD_OWL_HORNED" = "Hibou à cornes";
+"BIRD_OWL_TAWNY" = "Chouette hulotte";
+"BIRD_TWEET" = "Cui-cui";
+"BIRD_WARNING" = "Buse";
+"CHICKEN_ROOSTER" = "Coq 1";
+"CHICKEN_ROSTER" = "Coq 2";
+"CHICKEN" = "Poulet";
+"CICADA" = "Cigale";
+"COW_MOO" = "Vache";
+"ELEPHANT" = "Éléphant";
+"PANTHERA" = "Panthère";
+"TIGER" = "Tigre";
+"FROG" = "Grenouille";
+"GOAT" = "Chèvre";
+"HORSE_WHINNIES" = "Cheval";
+"PUPPY" = "Chiot";
+"SHEEP" = "Mouton";
+"TURKEY_GOBBLE" = "Dinde";
+"TURKEY_NOISES" = "Dindes";
+
+"BELL" = "Cloche";
+"BLOCK" = "Bloquer";
+"CALM" = "Calme";
+"CLOUD" = "Nuage";
+"HEY_CHAMP" = "Hé, champion !";
+"KOTO" = "Koto";
+"MODULAR" = "Modulaire";
+"ORINGZ" = "Anneau";
+"POLITE" = "Poli";
+"SONAR" = "Sonar";
+"STRIKE" = "Frappe";
+"UNPHASED" = "Déphasé";
+"UNSTRUNG" = "Décordé";
+"WOODBLOCK" = "Woodblock";
+
+"CIRCUS_CLOWN_HORN" = "Corne de clown";
+"FUNNY_FANFARE" = "Drôle de fanfare";
+"ARE_YOU_KIDDING" = "Vous plaisantez ?";
+"ENOUGH_WITH_THE_TALKING" = "Assez parlé";
+"NESTLING" = "Nid d'abeilles";
+"NICE_CUT" = "Jolie coupe";
+"OH_REALLY" = "Oh vraiment";
+"SPRINGY" = "Ressort";
+
+"BASSOON" = "Basson";
+"BRASS" = "Cuivres";
+"CLARINET" = "Clarinette";
+"CLAV_FLY" = "Guitare";
+"CLAV_GUITAR" = "Cura";
+"FLUTE" = "Flûte";
+"GLOCKENSPIEL" = "Carillon";
+"HARP" = "Harpe";
+"KOTO" = "Koto";
+"OBOE" = "Hautbois";
+"PIANO" = "Piano";
+"PIPA" = "Pipa";
+"SAXO" = "Saxo";
+"STRINGS" = "Cordes";
+"SYNTH_AIRSHIP" = "Synthé airship";
+"SYNTH_CHORDAL" = "Synthé cordes";
+"SYNTH_COSMIC" = "Synthé cosmique";
+"SYNTH_DROPLETS" = "Synthé gouttelettes";
+"SYNTH_EMOTIVE" = "Synthé émotif";
+"SYNTH_FM" = "Synthé FM";
+"SYNTH_LUSHARP" = "Synthé luxuriant";
+"SYNTH_PECUSSIVE" = "Synthé percussif";
+"SYNTH_QUANTIZER" = "Synthé quantizer";
+
+"NOTIFICATION_SOUNDS_SUBTITLE_POLYPHONIC" = "Lorsque vous recevrez un message, vous entendrez une note aléatoire de l'instrument choisi. N'hésitez pas à essayer en appuyant plusieurs fois sur votre instrument préféré 😉.";
+
+"SYSTEM_SOUND" = "Son système";

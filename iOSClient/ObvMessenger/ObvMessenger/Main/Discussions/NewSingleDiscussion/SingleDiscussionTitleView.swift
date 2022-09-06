@@ -37,39 +37,7 @@ final class SingleDiscussionTitleView: UIView {
         self.subtitle = subtitle
         super.init(frame: .zero)
         setupInternalViews()
-    }
-    
-
-    convenience init(objectID: TypeSafeManagedObjectID<PersistedDiscussionGroupLocked>) {
-        assert(Thread.isMainThread)
-        self.init(lockedDiscussionObjectID: objectID.downcast)
-    }
-    
-    
-    convenience init(objectID: TypeSafeManagedObjectID<PersistedDiscussionOneToOneLocked>) {
-        assert(Thread.isMainThread)
-        self.init(lockedDiscussionObjectID: objectID.downcast)
-    }
-
-    
-    /// Used exclusively for locked discussions
-    private convenience init(lockedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        assert(Thread.isMainThread)
-        guard let discussion = try? PersistedDiscussion.get(objectID: lockedDiscussionObjectID, within: ObvStack.shared.viewContext) else {
-            assertionFailure()
-            self.init(title: "", subtitle: "")
-            circledInitialsView.configureWith(icon: .person)
-            return
-        }
-        self.init(title: discussion.title,
-                  subtitle: discussion.subtitle)
-        circledInitialsView.configureWith(foregroundColor: AppTheme.shared.colorScheme.secondaryLabel,
-                                          backgroundColor: AppTheme.shared.colorScheme.secondarySystemFill,
-                                          icon: .lockFill,
-                                          stringForInitial: nil,
-                                          photoURL: nil,
-                                          showGreenShield: false,
-                                          showRedShield: false)
+        circledInitialsView.configureWith(.icon(.lockFill))
     }
 
     
@@ -78,18 +46,12 @@ final class SingleDiscussionTitleView: UIView {
         guard let contact = try? PersistedObvContactIdentity.get(objectID: objectID, within: ObvStack.shared.viewContext) else {
             assertionFailure()
             self.init(title: "", subtitle: "")
-            circledInitialsView.configureWith(icon: .person)
+            circledInitialsView.configureWith(.icon(.person))
             return
         }
         self.init(title: contact.customOrNormalDisplayName,
                   subtitle: contact.identityCoreDetails.positionAtCompany())
-        circledInitialsView.configureWith(foregroundColor: contact.cryptoId.textColor,
-                                          backgroundColor: contact.cryptoId.colors.background,
-                                          icon: .person,
-                                          stringForInitial: contact.customOrFullDisplayName,
-                                          photoURL: contact.customPhotoURL ?? contact.photoURL,
-                                          showGreenShield: contact.isCertifiedByOwnKeycloak,
-                                          showRedShield: !contact.isActive)
+        circledInitialsView.configureWith(contact.circledInitialsConfiguration)
     }
     
     convenience init(objectID: TypeSafeManagedObjectID<PersistedContactGroup>) {
@@ -97,21 +59,14 @@ final class SingleDiscussionTitleView: UIView {
         guard let group = try? PersistedContactGroup.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext) else {
             assertionFailure()
             self.init(title: "", subtitle: "")
-            circledInitialsView.configureWith(icon: .person3Fill)
+            circledInitialsView.configureWith(.icon(.person3Fill))
             return
         }
         let title = group.discussion.title
         let subtitle = group.contactIdentities.compactMap({ $0.customOrNormalDisplayName }).joined(separator: ", ")
         self.init(title: title,
                   subtitle: subtitle)
-        let colors = AppTheme.shared.groupColors(forGroupUid: group.groupUid)
-        circledInitialsView.configureWith(foregroundColor: colors.text,
-                                          backgroundColor: colors.background,
-                                          icon: .person3Fill,
-                                          stringForInitial: nil,
-                                          photoURL: group.displayPhotoURL,
-                                          showGreenShield: false,
-                                          showRedShield: false)
+        circledInitialsView.configureWith(group.circledInitialsConfiguration)
     }
     
     required init?(coder: NSCoder) {

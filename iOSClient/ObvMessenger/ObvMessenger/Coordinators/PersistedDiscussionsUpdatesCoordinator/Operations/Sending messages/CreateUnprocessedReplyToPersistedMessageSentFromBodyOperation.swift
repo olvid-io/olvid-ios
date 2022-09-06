@@ -67,7 +67,7 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
                 let effectiveReplyTo = lastMessage == messageToReply ? nil : messageToReply
 
                 // Create message to send
-                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: effectiveReplyTo, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil)
+                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: effectiveReplyTo, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false)
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

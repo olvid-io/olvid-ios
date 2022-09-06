@@ -48,7 +48,7 @@ extension NewComposeMessageViewAction {
         case .scanDocument:
             return .scanner
         case .shootPhotoOrMovie:
-            return .camera
+            return .camera()
         case .chooseImageFromLibrary:
             return .photo
         case .choseFile:

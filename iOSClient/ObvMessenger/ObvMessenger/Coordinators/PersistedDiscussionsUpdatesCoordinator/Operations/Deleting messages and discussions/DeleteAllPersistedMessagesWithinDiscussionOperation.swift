@@ -48,36 +48,50 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
         obvContext.performAndWait {
         
             do {
-                guard let discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: obvContext.context) else { return }
-                let sharedConfigurationToKeep = discussion.sharedConfiguration
-                let localConfigurationToKeep = discussion.localConfiguration
-                if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
-                    if let contactIdentity = oneToOneDiscussion.contactIdentity {
-                        let newDiscussion = try PersistedOneToOneDiscussion(contactIdentity: contactIdentity,
-                                                                            insertDiscussionIsEndToEndEncryptedSystemMessage: false,
-                                                                            sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                                                            localConfigurationToKeep: localConfigurationToKeep)
-                        try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
-                        assert(newDiscussionObjectID == nil)
-                        newDiscussionObjectID = newDiscussion.objectID
+                guard let discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID,
+                                                                   within: obvContext.context) else { return }
+                // Deleting all messages is implemented as a deletion of a discussion.
+                // If the deleted discussion is active, it is replaced by a new one with the same configuration.
+                // In practice, this behavior allows to efficiently delete all messages.
+                switch discussion.status {
+                case .preDiscussion, .locked:
+                    break
+                case .active:
+                    let sharedConfigurationToKeep = discussion.sharedConfiguration
+                    let localConfigurationToKeep = discussion.localConfiguration
+                    do {
+                        switch try discussion.kind {
+                        case .oneToOne(withContactIdentity: let contactIdentity):
+                            if let contactIdentity = contactIdentity {
+                                let newDiscussion = try PersistedOneToOneDiscussion(
+                                    contactIdentity: contactIdentity,
+                                    status: .active,
+                                    insertDiscussionIsEndToEndEncryptedSystemMessage: false,
+                                    sharedConfigurationToKeep: sharedConfigurationToKeep,
+                                    localConfigurationToKeep: localConfigurationToKeep)
+                                try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
+                                assert(newDiscussionObjectID == nil)
+                                newDiscussionObjectID = newDiscussion.objectID
+                            }
+                        case .groupV1(withContactGroup: let contactGroup):
+                            if let contactGroup = contactGroup, let ownedIdentity = discussion.ownedIdentity {
+                                let groupName = discussion.title
+                                let newDiscussion = try PersistedGroupDiscussion(
+                                    contactGroup: contactGroup,
+                                    groupName: groupName,
+                                    ownedIdentity: ownedIdentity,
+                                    status: .active,
+                                    insertDiscussionIsEndToEndEncryptedSystemMessage: false,
+                                    sharedConfigurationToKeep: sharedConfigurationToKeep,
+                                    localConfigurationToKeep: localConfigurationToKeep)
+                                try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
+                                assert(newDiscussionObjectID == nil)
+                                newDiscussionObjectID = newDiscussion.objectID
+                            }
+                        }
+                    } catch {
+                        return cancel(withReason: .unknownDiscussionType)
                     }
-                } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-                    if let contactGroup = groupDiscussion.contactGroup, let ownedIdentity = groupDiscussion.ownedIdentity {
-                        let groupName = groupDiscussion.title
-                        let newDiscussion = try PersistedGroupDiscussion(contactGroup: contactGroup,
-                                                                         groupName: groupName,
-                                                                         ownedIdentity: ownedIdentity,
-                                                                         insertDiscussionIsEndToEndEncryptedSystemMessage: false,
-                                                                         sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                                                         localConfigurationToKeep: localConfigurationToKeep)
-                        try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
-                        assert(newDiscussionObjectID == nil)
-                        newDiscussionObjectID = newDiscussion.objectID
-                    }
-                } else if discussion is PersistedDiscussionOneToOneLocked || discussion is PersistedDiscussionGroupLocked {
-                    // This is ok
-                } else {
-                    return cancel(withReason: .unknownDiscussionType)
                 }
                 atLeastOneMessageWasDeleted = !discussion.messages.isEmpty
                 try discussion.delete()

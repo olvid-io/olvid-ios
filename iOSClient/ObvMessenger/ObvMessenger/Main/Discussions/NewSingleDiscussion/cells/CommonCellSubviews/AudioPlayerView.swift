@@ -27,7 +27,7 @@ fileprivate extension AudioPlayerView.Configuration {
     var canReadAudio: Bool {
         switch self {
         case .complete: return true
-        case .uploadableOrUploading, .downloadableOrDownloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
             return false
         }
     }
@@ -35,14 +35,14 @@ fileprivate extension AudioPlayerView.Configuration {
     var tapToReadViewIsHidden: Bool {
         switch self {
         case .completeButReadRequiresUserInteraction: return false
-        case .uploadableOrUploading, .downloadableOrDownloading, .cancelledByServer, .complete: return true
+        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete: return true
         }
     }
 
     var messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>? {
         switch self {
         case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: _, uti: _): return messageObjectID
-        case .uploadableOrUploading, .downloadableOrDownloading, .cancelledByServer, .complete: return nil
+        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete: return nil
         }
     }
 
@@ -51,7 +51,7 @@ fileprivate extension AudioPlayerView.Configuration {
         case .complete(hardlink: let hardlink, _, _, _, _):
             guard let url = hardlink?.hardlinkURL else { return nil }
             return ObvAudioPlayer.duration(of: url)
-        case .uploadableOrUploading, .downloadableOrDownloading, .completeButReadRequiresUserInteraction, .cancelledByServer: return nil
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer: return nil
         }
     }
 }
@@ -78,6 +78,10 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
     private let subtitle = UILabel()
     private let durationLabel = UILabel()
     private let byteCountFormatter = ByteCountFormatter()
+    private let speakerButton = UIButton(type: .custom)
+    private var speakerButtonState: Bool = false
+
+    private let internalQueue = DispatchQueue(label: "Sleeping queue", qos: .userInitiated)
 
     var bubbleColor: UIColor? {
         get { bubble.backgroundColor }
@@ -130,8 +134,12 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
                 setTitle(filename: filename)
                 setSubtitle(fileSize: fileSize, uti: uti)
             }
-        case .downloadableOrDownloading(progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
-            fyleProgressView.setConfiguration(.pausedOrDownloading(progress: progress))
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            setTitle(filename: filename)
+            setSubtitle(fileSize: fileSize, uti: uti)
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
             setTitle(filename: filename)
             setSubtitle(fileSize: fileSize, uti: uti)
         case .completeButReadRequiresUserInteraction(messageObjectID: _, fileSize: let fileSize, uti: let uti):
@@ -158,6 +166,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             ObvAudioPlayer.shared.delegate = self
             refreshPlayPause()
         }
+        configureSpeakerButton()
     }
 
     private func setDefaultValues() {
@@ -202,6 +211,17 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             image = UIImage(systemIcon: .playCircle, withConfiguration: largeConfig)
         }
         playPauseButton.setImage(image, for: .normal)
+    }
+
+    private func setSpeakerButtonImage(isSpeakerEnable: Bool) {
+        let largeConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .regular, scale: .large)
+        let image: UIImage?
+        if isSpeakerEnable {
+            image = UIImage(systemIcon: .speakerWave3Fill, withConfiguration: largeConfig)
+        } else {
+            image = UIImage(systemIcon: .speakerSlashFill, withConfiguration: largeConfig)?.withTintColor(.secondaryLabel, renderingMode: .alwaysOriginal)
+        }
+        speakerButton.setImage(image, for: .normal)
     }
 
     private func refreshPlayPause() {
@@ -250,6 +270,10 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
         subtitle.font = UIFont.preferredFont(forTextStyle: .caption2)
         subtitle.textColor = .secondaryLabel
 
+        bubble.addSubview(speakerButton)
+        speakerButton.translatesAutoresizingMaskIntoConstraints = false
+        speakerButton.addTarget(self, action: #selector(speakerButtonPress), for: .touchUpInside)
+
         addSubview(fyleProgressView)
         fyleProgressView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -286,6 +310,11 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             subtitle.topAnchor.constraint(equalTo: durationLabel.topAnchor),
             subtitle.bottomAnchor.constraint(equalTo: durationLabel.bottomAnchor),
 
+            speakerButton.centerXAnchor.constraint(equalTo: slider.centerXAnchor),
+            speakerButton.topAnchor.constraint(equalTo: durationLabel.topAnchor),
+            speakerButton.bottomAnchor.constraint(equalTo: durationLabel.bottomAnchor),
+            speakerButton.widthAnchor.constraint(equalToConstant: 44.0),
+
             fyleProgressView.centerXAnchor.constraint(equalTo: playPauseButton.centerXAnchor),
             fyleProgressView.centerYAnchor.constraint(equalTo: playPauseButton.centerYAnchor),
 
@@ -315,27 +344,57 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
         NSLayoutConstraint.activate(sizeConstraints)
     }
 
+    var isConfiguredWithCurrentAudio: Bool {
+        guard let hardlink = currentConfiguration?.hardlink else { return false }
+        guard let current = ObvAudioPlayer.shared.current else { return false }
+        return current == hardlink
+    }
+
     @objc private func playPausePress() {
         defer {
             refreshPlayPause()
         }
         guard let hardlink = currentConfiguration?.hardlink else { return }
-        let current = ObvAudioPlayer.shared.current
-
 
         let time = TimeInterval(self.slider.value)
-        guard current == hardlink else {
+        guard isConfiguredWithCurrentAudio else {
             ObvAudioPlayer.shared.stop()
             ObvAudioPlayer.shared.delegate = self
-            _ = ObvAudioPlayer.shared.play(hardlink, at: time)
+            _ = ObvAudioPlayer.shared.play(hardlink, enableSpeaker: speakerButtonState, at: time)
             return
         }
 
         if ObvAudioPlayer.shared.isPlaying {
             ObvAudioPlayer.shared.pause()
         } else {
-            ObvAudioPlayer.shared.resume(at: time)
+            ObvAudioPlayer.shared.resume(enableSpeaker: speakerButtonState, at: time)
         }
+    }
+
+    @objc private func speakerButtonPress() {
+        self.speakerButtonState.toggle()
+        setSpeakerButtonImage(isSpeakerEnable: self.speakerButtonState)
+        internalQueue.async {
+            if self.isConfiguredWithCurrentAudio, ObvAudioPlayer.shared.isPlaying {
+                let newSpeakerValue = !ObvAudioPlayer.shared.isSpeakerEnable
+                ObvAudioPlayer.shared.setSpeaker(to: newSpeakerValue)
+                DispatchQueue.main.async {
+                    self.speakerButtonState = ObvAudioPlayer.shared.isSpeakerEnable
+                }
+            }
+        }
+    }
+
+    var isSpeakerEnableForCurrentPlayer: Bool {
+        if isConfiguredWithCurrentAudio, ObvAudioPlayer.shared.isPlaying {
+            return ObvAudioPlayer.shared.isSpeakerEnable
+        } else {
+            return speakerButtonState
+        }
+    }
+
+    func configureSpeakerButton() {
+        setSpeakerButtonImage(isSpeakerEnable: isSpeakerEnableForCurrentPlayer)
     }
 
     func audioPlayerDidStopPlaying() {
@@ -347,6 +406,8 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
         assert(Thread.isMainThread)
         self.slider.setValue(0.0, animated: true)
         self.refreshPlayPause()
+        self.speakerButtonState = false
+        setSpeakerButtonImage(isSpeakerEnable: speakerButtonState)
     }
 
     func audioIsPlaying(currentTime: TimeInterval) {
@@ -366,7 +427,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
         let time = TimeInterval(slider.value)
         self.subtitle.text = self.formatter.string(from: time)
         if shouldResume || ObvAudioPlayer.shared.isPlaying {
-            ObvAudioPlayer.shared.resume(at: time)
+            ObvAudioPlayer.shared.resume(enableSpeaker: speakerButtonState, at: time)
             refreshPlayPause()
         }
     }

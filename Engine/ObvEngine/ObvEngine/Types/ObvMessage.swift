@@ -78,7 +78,7 @@ public struct ObvMessage {
         self.localDownloadTimestamp = networkReceivedMessage.localDownloadTimestamp
         
         self.attachments = try networkReceivedMessage.attachmentIds.map {
-            return try ObvAttachment(attachmentId: $0, fromContactIdentity: obvContact, networkFetchDelegate: networkFetchDelegate, flowId: obvContext.flowId)
+            return try ObvAttachment(attachmentId: $0, fromContactIdentity: obvContact, networkFetchDelegate: networkFetchDelegate, within: obvContext)
         }
     }
 }

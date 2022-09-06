@@ -39,20 +39,17 @@ class ObvHUDView: UIView {
 
         backgroundColor = appTheme.colorScheme.secondarySystemFill
         
-        if #available(iOS 13, *) {
-            
-            let blurEffect = UIBlurEffect(style: .systemThinMaterial)
-            let blurEffectView = UIVisualEffectView(effect: blurEffect)
-            blurEffectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            blurEffectView.accessibilityIdentifier = "blurEffectView"
-            self.addSubview(blurEffectView)
-            
-            let vibrancyEffect = UIVibrancyEffect(blurEffect: blurEffect, style: .fill)
-            let vibrancyView = UIVisualEffectView(effect: vibrancyEffect)
-            vibrancyView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            vibrancyView.accessibilityIdentifier = "vibrancyView"
-            blurEffectView.contentView.addSubview(vibrancyView)
-        }
+        let blurEffect = UIBlurEffect(style: .systemThinMaterial)
+        let blurEffectView = UIVisualEffectView(effect: blurEffect)
+        blurEffectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        blurEffectView.accessibilityIdentifier = "blurEffectView"
+        self.addSubview(blurEffectView)
+        
+        let vibrancyEffect = UIVibrancyEffect(blurEffect: blurEffect, style: .fill)
+        let vibrancyView = UIVisualEffectView(effect: vibrancyEffect)
+        vibrancyView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        vibrancyView.accessibilityIdentifier = "vibrancyView"
+        blurEffectView.contentView.addSubview(vibrancyView)
         
     }
     

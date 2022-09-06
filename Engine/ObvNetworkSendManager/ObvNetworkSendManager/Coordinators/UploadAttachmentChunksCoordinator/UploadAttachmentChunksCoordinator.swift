@@ -81,8 +81,10 @@ final class UploadAttachmentChunksCoordinator: NSObject {
     
     // Dealing with attachment upload progress
     
-    private var _attachmentsProgresses = [AttachmentIdentifier: AttachmentProgress]()
-    private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", qos: .utility)
+    // Maps an attachment identifier to its (exact) completed unit count
+    typealias ChunkProgress = (totalBytesSent: Int64, totalBytesExpectedToSend: Int64)
+    private var _chunksProgressesForAttachment = [AttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
+    private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", attributes: .concurrent)
 
     
     private let queueForCurrentURLSessions = DispatchQueue(label: "Internal queue for _currentURLSessions", qos: .utility)
@@ -453,14 +455,25 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
     }
     
     
-    func requestProgressOfAttachment(withIdentifier attachmentId: AttachmentIdentifier) -> Progress? {
-        var attachmentProgress: Progress?
-        queueForAttachmentsProgresses.sync {
-            attachmentProgress = _attachmentsProgresses[attachmentId]
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float] {
+        
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[AttachmentIdentifier: Float], Never>) in
+            queueForAttachmentsProgresses.async { [weak self] in
+                guard let _self = self else { continuation.resume(returning: [:]); return }
+                var progressesToReturn = [AttachmentIdentifier: Float]()
+                let appropriateChunksProgressesForAttachment = _self._chunksProgressesForAttachment.filter({ $0.value.dateOfLastUpdate > date })
+                for (attachmentId, value) in appropriateChunksProgressesForAttachment {
+                    let totalBytesSent = value.chunkProgresses.map({ $0.totalBytesSent }).reduce(0, +)
+                    let totalBytesExpectedToSend = value.chunkProgresses.map({ $0.totalBytesExpectedToSend }).reduce(0, +)
+                    let progress = Float(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
+                    progressesToReturn[attachmentId] = progress
+                }
+                continuation.resume(returning: progressesToReturn)
+            }
         }
-        return attachmentProgress
+                
     }
-    
+
     
     func queryServerOnSessionsTasksCreatedByShareExtension(flowId: FlowIdentifier) {
 
@@ -684,52 +697,47 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunksSignedURLsTracker {
 
 extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracker {
 
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunksProgresses: [(chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64)], flowId: FlowIdentifier) {
+    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier) {
         
         guard currentAppType == .mainApp else { return }
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        queueForAttachmentsProgresses.async { [weak self] in
-            
+        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
             guard let _self = self else { return }
             
-            let attachmentProgress: AttachmentProgress
-            let newAttachmentProgress: Bool
-            if let _progress = _self._attachmentsProgresses[attachmentId] {
-                attachmentProgress = _progress
-                newAttachmentProgress = false
+            if var (chunksProgresses, _) = _self._chunksProgressesForAttachment[attachmentId] {
+                
+                guard chunkProgress.chunkNumber < chunksProgresses.count else { assertionFailure(); return }
+                chunksProgresses[chunkProgress.chunkNumber] = (chunkProgress.totalBytesSent, chunkProgress.totalBytesExpectedToSend)
+                _self._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
+                
             } else {
-                guard let _progress = _self.createAttachmentProgress(attachmentId: attachmentId, contextCreator: contextCreator, flowId: flowId) else { return }
-                _self._attachmentsProgresses[attachmentId] = _progress
-                attachmentProgress = _progress
-                newAttachmentProgress = true
+                
+                guard let delegateManager = _self.delegateManager else {
+                    let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: _self.logCategory)
+                    os_log("The Delegate Manager is not set", log: log, type: .fault)
+                    assertionFailure()
+                    return
+                }
+
+                let log = OSLog(subsystem: delegateManager.logSubsystem, category: _self.logCategory)
+
+                guard let contextCreator = delegateManager.contextCreator else {
+                    os_log("The context creator manager is not set", log: log, type: .fault)
+                    assertionFailure()
+                    return
+                }
+
+                guard let chunksProgresses = _self.createChunksProgressesForAttachment(attachmentId: attachmentId,
+                                                                                       contextCreator: contextCreator,
+                                                                                       flowId: flowId)
+                else {
+                    return
+                }
+                _self._chunksProgressesForAttachment[attachmentId] = chunksProgresses
+
             }
 
-            for chunkProgress in chunksProgresses {
-                attachmentProgress.set(totalBytesSent: chunkProgress.totalBytesSent, forChunkNumber: chunkProgress.chunkNumber)
-            }
-            
-            
-            if newAttachmentProgress {
-                delegateManager.networkSendFlowDelegate.newProgressForAttachment(attachmentId: attachmentId, newProgress: attachmentProgress, flowId: flowId)
-            }
-            
         }
-        
         
     }
     
@@ -744,55 +752,31 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
             assertionFailure()
             return
         }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
 
-        queueForAttachmentsProgresses.async { [weak self] in
-            
-            guard let _self = self else { return }
-            
-            let attachmentProgress: AttachmentProgress
-            let newAttachmentProgress: Bool
-            if let _progress = _self._attachmentsProgresses[attachmentId] {
-                attachmentProgress = _progress
-                newAttachmentProgress = false
-            } else {
-                guard let _progress = _self.createAttachmentProgress(attachmentId: attachmentId, contextCreator: contextCreator, flowId: flowId) else { return }
-                _self._attachmentsProgresses[attachmentId] = _progress
-                attachmentProgress = _progress
-                newAttachmentProgress = true
-            }
+        delegateManager.networkSendFlowDelegate.newProgressForAttachment(attachmentId: attachmentId)
 
+        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
+            guard var (chunksProgresses, _) = self?._chunksProgressesForAttachment[attachmentId] else { return }
             for chunkNumber in chunkNumbers {
-                attachmentProgress.acknowledgeChunk(number: chunkNumber)
+                guard chunkNumber < chunksProgresses.count else { assertionFailure(); continue }
+                let totalBytesExpectedToSend = chunksProgresses[chunkNumber].totalBytesExpectedToSend
+                chunksProgresses[chunkNumber] = (totalBytesExpectedToSend, totalBytesExpectedToSend)
             }
-            
-            if newAttachmentProgress {
-                delegateManager.networkSendFlowDelegate.newProgressForAttachment(attachmentId: attachmentId, newProgress: attachmentProgress, flowId: flowId)
-            }
-            
+            self?._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
         }
-
+        
     }
     
     
-    
-    private func createAttachmentProgress(attachmentId: AttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> AttachmentProgress? {
+    private func createChunksProgressesForAttachment(attachmentId: AttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> ([ChunkProgress], Date)? {
         /// Must be executed on queueForAttachmentsProgresses
         assert(currentAppType == .mainApp)
-        var attachmentProgress: AttachmentProgress?
+        var chunksProgressess: ([ChunkProgress], Date)?
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let attachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
-            let currentChunkProgresses = attachment.currentChunkProgresses
-            attachmentProgress = AttachmentProgress(currentChunkProgresses: currentChunkProgresses)
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+            chunksProgressess = (attachment.currentChunkProgresses, Date())
         }
-        return attachmentProgress
+        return chunksProgressess
     }
     
     
@@ -818,7 +802,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
         var attachmentIsAcknowledged = false
         var attachmentCancelExternallyRequested = false
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let attachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                 os_log("Could not find attachment in database. We assume it was acknowledged (this sometimes happens when calling the completion handler received from UIKit)", log: log, type: .info)
                 attachmentIsAcknowledged = true
                 return
@@ -1027,42 +1011,6 @@ extension UploadAttachmentChunksCoordinator: FinalizePostAttachmentUploadRequest
         
     }
     
-}
-
-
-// MARK: - Creating a Progress subclass for attachments composed of many chunks
-
-final class AttachmentProgress: Progress {
-    
-    private let chunkTotalUnitCount: [Int64]
-    private var chunkCompletedUnitCount: [Int64]
-    
-    init(currentChunkProgresses: [(completedUnitCount: Int64, totalUnitCount: Int64)]) {
-        self.chunkTotalUnitCount = currentChunkProgresses.map { $0.totalUnitCount }
-        self.chunkCompletedUnitCount = currentChunkProgresses.map { $0.completedUnitCount }
-        super.init(parent: nil, userInfo: nil)
-        self.totalUnitCount = chunkTotalUnitCount.reduce(0, +)
-        self.completedUnitCount = chunkCompletedUnitCount.reduce(0, +)
-    }
-
-    fileprivate func set(totalBytesSent: Int64, forChunkNumber number: Int) {
-        guard chunkIsNotAcknowledged(chunkNumber: number) else { return }
-        let difference = totalBytesSent - chunkCompletedUnitCount[number]
-        chunkCompletedUnitCount[number] = totalBytesSent
-        self.completedUnitCount += difference
-    }
-    
-    fileprivate func acknowledgeChunk(number: Int) {
-        guard chunkIsNotAcknowledged(chunkNumber: number) else { return }
-        let difference = chunkTotalUnitCount[number] - chunkCompletedUnitCount[number]
-        chunkCompletedUnitCount[number] = chunkTotalUnitCount[number]
-        assert(difference >= 0)
-        self.completedUnitCount += difference
-    }
-    
-    private func chunkIsNotAcknowledged(chunkNumber: Int) -> Bool {
-        chunkCompletedUnitCount[chunkNumber] != chunkTotalUnitCount[chunkNumber]
-    }
 }
 
 

@@ -57,7 +57,7 @@ final class PersistedObvContactIdentity: NSManagedObject {
 
     @NSManaged private(set) var contactGroups: Set<PersistedContactGroup>
     @NSManaged private(set) var devices: Set<PersistedObvContactDevice>
-    @NSManaged private var rawOneToOneDiscussion: PersistedOneToOneDiscussion? // Nil when isOneToOne is false
+    @NSManaged private var rawOneToOneDiscussion: PersistedOneToOneDiscussion?
     @NSManaged private var rawOwnedIdentity: PersistedObvOwnedIdentity? // If nil, this entity is eventually cascade-deleted
     
     // MARK: - Variables
@@ -123,9 +123,7 @@ final class PersistedObvContactIdentity: NSManagedObject {
     }
     
     var customOrNormalDisplayName: String {
-        let formatter = PersonNameComponentsFormatter()
-        formatter.style = .medium
-        return customDisplayName ?? formatter.string(from: personNameComponents)
+        return customDisplayName ?? mediumOriginalName
     }
 
     var customPhotoURL: URL? {
@@ -139,24 +137,33 @@ final class PersistedObvContactIdentity: NSManagedObject {
         return formatter.string(from: personNameComponents)
     }
 
+    var mediumOriginalName: String {
+        let formatter = PersonNameComponentsFormatter()
+        formatter.style = .medium
+        return formatter.string(from: personNameComponents)
+    }
+
     /// Returns `nil` iff `isOneToOne` is `false`.
     var oneToOneDiscussion: PersistedOneToOneDiscussion? {
-        get throws {
-            if isOneToOne {
-                // In case the contact is OneToOne, we expect the discussion to be non-nil.
-                // If it is, we make sure the discussion we create is not on the view context.
-                if rawOneToOneDiscussion == nil {
-                    assert(managedObjectContext != nil)
-                    assert(managedObjectContext != ObvStack.shared.viewContext)
-                    assertionFailure()
-                }
-                return try rawOneToOneDiscussion ?? PersistedOneToOneDiscussion(contactIdentity: self)
-            } else {
-                return nil
+        if isOneToOne {
+            // In case the contact is OneToOne, we expect the discussion to be non-nil and active.
+            assert(rawOneToOneDiscussion != nil && rawOneToOneDiscussion?.status == .active)
+            return rawOneToOneDiscussion
+        } else {
+            // In case the contact is not OneToOne, the discussion is likely to be nil.
+            // It can be non-nil if the contact was demoted from OneToOne to "other user".
+            // In that case, we expect it to be locked or preDiscussion
+            if let discussion = rawOneToOneDiscussion {
+                assert(discussion.status == .locked || discussion.status == .preDiscussion)
             }
+            return rawOneToOneDiscussion
         }
     }
     
+    
+    func hasAtLeastOneRemoteContactDevice() -> Bool {
+        return !self.devices.isEmpty
+    }
 }
 
 
@@ -188,7 +195,21 @@ extension PersistedObvContactIdentity {
         self.contactGroups = Set<PersistedContactGroup>()
         self.rawOwnedIdentityIdentity = persistedObvOwnedIdentity.cryptoId.getIdentity()
         self.ownedIdentity = persistedObvOwnedIdentity
-        self.rawOneToOneDiscussion = contactIdentity.isOneToOne ? try PersistedOneToOneDiscussion(contactIdentity: self) : nil
+        if contactIdentity.isOneToOne {
+            if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
+                try discussion.setStatus(to: .active)
+                self.rawOneToOneDiscussion = discussion
+            } else {
+                self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion(contactIdentity: self, status: .active)
+            }
+        } else {
+            if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
+                try discussion.setStatus(to: .locked)
+                self.rawOneToOneDiscussion = discussion
+            } else {
+                self.rawOneToOneDiscussion = nil
+            }
+        }
     }
     
     
@@ -197,7 +218,7 @@ extension PersistedObvContactIdentity {
         
         // When deleting a contact, we lock the one to one discussion we have with her
         do {
-            try self.rawOneToOneDiscussion?.delete(doCreateLockedDiscussion: true)
+            try self.rawOneToOneDiscussion?.setStatus(to: .locked)
         } catch {
             os_log("Could not lock the persisted oneToOne discussion", log: log, type: .fault)
             throw Self.makeError(message: "Could not lock the persisted oneToOne discussion")
@@ -231,6 +252,7 @@ extension PersistedObvContactIdentity {
 
     
     func updateContact(with contactIdentity: ObvContactIdentity) throws {
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let coreDetails = contactIdentity.trustedIdentityDetails.coreDetails
         self.serializedIdentityCoreDetails = try coreDetails.jsonEncode()
         self.updatePhotoURL(with: contactIdentity.trustedIdentityDetails.photoURL)
@@ -239,10 +261,17 @@ extension PersistedObvContactIdentity {
         self.updateSortOrder(with: ObvMessengerSettings.Interface.contactsSortOrder)
         self.isActive = contactIdentity.isActive
         self.isOneToOne = contactIdentity.isOneToOne
-        if self.isOneToOne && self.rawOneToOneDiscussion == nil {
-            self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion(contactIdentity: self)
-        } else if !self.isOneToOne {
-            try self.rawOneToOneDiscussion?.delete(doCreateLockedDiscussion: true)
+        if self.isOneToOne {
+            if let discussion = self.rawOneToOneDiscussion {
+                try discussion.setStatus(to: .active)
+            } else if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
+                try discussion.setStatus(to: .active)
+                self.rawOneToOneDiscussion = discussion
+            } else {
+                self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion(contactIdentity: self, status: .active)
+            }
+        } else {
+            try self.rawOneToOneDiscussion?.setStatus(to: .locked)
         }
         // Note that we do not reset the discussion title.
         // Instead, we send a notification in the didSave method that will be catched by the appropriate coordinator, allowing to properly synchronize the title change.
@@ -773,8 +802,10 @@ extension PersistedObvContactIdentity {
             // Last but not least, if the one2one discussion with this contact is loaded in the view context, we refresh it.
             // This what makes it possible, e.g., to see the contact profile picture in the discussion list as soon as possible
             do {
-                if let oneToOneDiscussionObjectID = try? self.oneToOneDiscussion?.typedObjectID {
+                if let oneToOneDiscussionObjectID = self.oneToOneDiscussion?.typedObjectID {
                     DispatchQueue.main.async {
+                        guard let contact = ObvStack.shared.viewContext.registeredObject(for: self.objectID) as? PersistedObvContactIdentity else { return }
+                        ObvStack.shared.viewContext.refresh(contact, mergeChanges: true)
                         guard let oneToOneDiscussion = ObvStack.shared.viewContext.registeredObject(for: oneToOneDiscussionObjectID.objectID) as? PersistedOneToOneDiscussion else { return }
                         ObvStack.shared.viewContext.refresh(oneToOneDiscussion, mergeChanges: true)
                     }

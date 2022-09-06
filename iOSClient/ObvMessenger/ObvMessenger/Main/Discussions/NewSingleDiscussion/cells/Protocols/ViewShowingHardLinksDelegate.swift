@@ -20,6 +20,5 @@
 import Foundation
 
 protocol ViewShowingHardLinksDelegate: AnyObject {
-    func userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: HardLinkToFyle)
-    func userDidTapOnDraftFyleJoinWithHardLink(hardlinkTapped: HardLinkToFyle)
+    func userDidTapOnDraftFyleJoinWithHardLink(at indexPath: IndexPath)
 }

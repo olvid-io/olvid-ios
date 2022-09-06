@@ -84,7 +84,7 @@ final class EncryptAttachmentChunkOperation: Operation {
 
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let attachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+            guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
             

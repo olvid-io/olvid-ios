@@ -33,53 +33,7 @@ extension ObvEngine {
     func registerToInternalNotifications() throws {
         
         guard let notificationDelegate = notificationDelegate else { throw Self.makeError(message: "The notification delegate is not set") }
-        
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeAppStoreReceiptVerificationSucceededButSubscriptionIsExpired(within: notificationDelegate) { [weak self] (ownedIdentity, transactionIdentifier, flowId) in
-            guard let _self = self else { return }
-            ObvEngineNotificationNew.appStoreReceiptVerificationSucceededButSubscriptionIsExpired(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), transactionIdentifier: transactionIdentifier)
-                .postOnBackgroundQueue(within: _self.appNotificationCenter)
-        })
-
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeAppStoreReceiptVerificationFailed(within: notificationDelegate) { [weak self] (ownedIdentity, transactionIdentifier, flowId) in
-            guard let _self = self else { return }
-            ObvEngineNotificationNew.appStoreReceiptVerificationFailed(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), transactionIdentifier: transactionIdentifier)
-                .postOnBackgroundQueue(within: _self.appNotificationCenter)
-        })
-        
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeFreeTrialIsStillAvailableForOwnedIdentity(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
-            self?.processFreeTrialIsStillAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
-        })
-        
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeNoMoreFreeTrialAPIKeyAvailableForOwnedIdentity(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
-            self?.processNoMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
-        })
-                        
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeNewAPIKeyElementsForAPIKey(within: notificationDelegate) { [weak self] (serverURL, apiKey, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
-            self?.processNewAPIKeyElementsForAPIKeyNotification(serverURL: serverURL, apiKey: apiKey, apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
-        })
-
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within: notificationDelegate) { [weak self] (ownedIdentity, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
-            self?.processNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentityNotification(ownedIdentity: ownedIdentity, apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
-        })
-        
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeCannotReturnAnyProgressForMessageAttachments(within: notificationDelegate, block: { [weak self] (messageId, flowId) in
-            self?.processCannotReturnAnyProgressForMessageAttachmentsNotification(messageId: messageId, flowId: flowId)
-        }))
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeTurnCredentialsReceptionPermissionDenied(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, flowId) in
-            self?.processTurnCredentialsReceptionPermissionDeniedNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-        })
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeTurnCredentialServerDoesNotSupportCalls(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, flowId) in
-            self?.processTurnCredentialServerDoesNotSupportCalls(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-        })
-
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeTurnCredentialsReceptionFailure(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, flowId) in
-            self?.processTurnCredentialsReceptionFailureNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
-        })
-        
-        notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeTurnCredentialsReceived(within: notificationDelegate, queue: nil, block: { [weak self] (ownedIdentity, callUuid, turnCredentialsWithTurnServers, flowId) in
-            self?.processTurnCredentialsReceivedNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, turnCredentialsWithTurnServers: turnCredentialsWithTurnServers, flowId: flowId)
-        }))
-        
+                
         notificationCenterTokens.append(ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: nil) { [weak self] (messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId) in
             self?.processOutboxMessageWasUploadedNotification(messageId: messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage, flowId: flowId)
         })
@@ -111,34 +65,7 @@ extension ObvEngine {
             }
             notificationCenterTokens.append(token)
         }
-        
-        do {
-            notificationCenterTokens.append(ObvNetworkFetchNotificationNew.observeApplicationMessageDecrypted(within: notificationDelegate) { [weak self] (messageId, attachmentIds, hasEncryptedExtendedMessagePayload, flowId) in
-                self?.processMessageDecryptedNotification(messageId: messageId, flowId: flowId)
-            })
-        }
-        
-        do {
-            let token = ObvNetworkFetchNotificationNew.observeInboxAttachmentHasNewProgress(within: notificationDelegate) { [weak self] (attachmentId, progress, flowId) in
-                self?.processAttachmentDownloadNewProgressNotification(attachmentId: attachmentId, progress: progress, flowId: flowId)
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        do {
-            let token = ObvNetworkPostNotification.observeOutboxAttachmentHasNewProgress(within: notificationDelegate) { [weak self] (attachmentId, newProgress, flowId) in
-                self?.processOutboxAttachmentHasNewProgressNotification(attachmentId: attachmentId, newProgress: newProgress, flowId: flowId)
-            }
-            notificationCenterTokens.append(token)
-        }
-
-        do {
-            let token = ObvNetworkFetchNotificationNew.observeInboxAttachmentWasDownloaded(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
-                self?.processAttachmentDownloadedNotification(attachmentId: attachmentId, flowId: flowId)
-            }
-            notificationCenterTokens.append(token)
-        }
-        
+                
         registerToContactWasDeletedNotifications(notificationDelegate: notificationDelegate)
 
         do {
@@ -350,14 +277,8 @@ extension ObvEngine {
             ObvIdentityNotificationNew.observeLatestPhotoOfContactGroupOwnedHasBeenUpdated(within: notificationDelegate) { [weak self] (groupUid, ownedIdentity) in
                 self?.processLatestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: groupUid, ownedIdentity: ownedIdentity)
             },
-            ObvNetworkFetchNotificationNew.observeApiKeyStatusQueryFailed(within: notificationDelegate) { [weak self] (ownedIdentity, apiKey) in
-                self?.processApiKeyStatusQueryFailed(ownedIdentity: ownedIdentity, apiKey: apiKey)
-            },
             ObvProtocolNotification.observeMutualScanContactAdded(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, signature in
                 self?.processMutualScanContactAdded(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, signature: signature)
-            },
-            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, extendedMessagePayload, flowId) in
-                self?.processDownloadingMessageExtendedPayloadWasPerformed(messageId: messageId, extendedMessagePayload: extendedMessagePayload, flowId: flowId)
             },
             ObvIdentityNotificationNew.observeOwnedIdentityKeycloakServerChanged(within: notificationDelegate) { [weak self] ownedCryptoIdentity, flowId in
                 self?.processOwnedIdentityKeycloakServerChanged(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
@@ -389,33 +310,6 @@ extension ObvEngine {
         }
 
         do {
-            let token = ObvNetworkFetchNotificationNew.observeWellKnownHasBeenUpdated(within: notificationDelegate) { [weak self] (serverURL, appInfo, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.wellKnownUpdatedSuccess(serverURL: serverURL, appInfo: appInfo)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            }
-            notificationCenterTokens.append(token)
-        }
-
-        do {
-            let token = ObvNetworkFetchNotificationNew.observeWellKnownHasBeenDownloaded(within: notificationDelegate) { [weak self] (serverURL, appInfo, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.wellKnownDownloadedSuccess(serverURL: serverURL, appInfo: appInfo)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            }
-            notificationCenterTokens.append(token)
-        }
-
-        do {
-            let token = ObvNetworkFetchNotificationNew.observeWellKnownDownloadFailure(within: notificationDelegate) { [weak self] (serverURL, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.wellKnownDownloadedFailure(serverURL: serverURL)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            }
-            notificationCenterTokens.append(token)
-        }
-
-        do {
             let token = ObvChannelNotification.observeDeletedConfirmedObliviousChannel(within: notificationDelegate) { [weak self] (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) in
                 self?.processDeletedConfirmedObliviousChannelNotifications(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
             }
@@ -425,9 +319,85 @@ extension ObvEngine {
         observeNewPublishedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
         observeOwnedIdentityDetailsPublicationInProgressNotifications(notificationDelegate: notificationDelegate)
         observeNewTrustedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
-        observeAttachmentDownloadCancelledByServerNotifications(notificationDelegate: notificationDelegate)
         observeNewReturnReceiptToProcessNotifications(notificationDelegate: notificationDelegate)
         
+        // Notification received from the network fetch manager
+        
+        notificationCenterTokens.append(contentsOf: [
+            ObvNetworkFetchNotificationNew.observeAppStoreReceiptVerificationSucceededButSubscriptionIsExpired(within: notificationDelegate) { [weak self] (ownedIdentity, transactionIdentifier, flowId) in
+                guard let _self = self else { return }
+                ObvEngineNotificationNew.appStoreReceiptVerificationSucceededButSubscriptionIsExpired(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), transactionIdentifier: transactionIdentifier)
+                    .postOnBackgroundQueue(within: _self.appNotificationCenter)
+            },
+            ObvNetworkFetchNotificationNew.observeAppStoreReceiptVerificationFailed(within: notificationDelegate) { [weak self] (ownedIdentity, transactionIdentifier, flowId) in
+                guard let _self = self else { return }
+                ObvEngineNotificationNew.appStoreReceiptVerificationFailed(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), transactionIdentifier: transactionIdentifier)
+                    .postOnBackgroundQueue(within: _self.appNotificationCenter)
+            },
+            ObvNetworkFetchNotificationNew.observeFreeTrialIsStillAvailableForOwnedIdentity(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
+                self?.processFreeTrialIsStillAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeNoMoreFreeTrialAPIKeyAvailableForOwnedIdentity(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
+                self?.processNoMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeNewAPIKeyElementsForAPIKey(within: notificationDelegate) { [weak self] (serverURL, apiKey, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
+                self?.processNewAPIKeyElementsForAPIKeyNotification(serverURL: serverURL, apiKey: apiKey, apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
+            },
+            ObvNetworkFetchNotificationNew.observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within: notificationDelegate) { [weak self] (ownedIdentity, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
+                self?.processNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentityNotification(ownedIdentity: ownedIdentity, apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
+            },
+            ObvNetworkFetchNotificationNew.observeTurnCredentialsReceptionPermissionDenied(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, flowId) in
+                self?.processTurnCredentialsReceptionPermissionDeniedNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeTurnCredentialServerDoesNotSupportCalls(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, flowId) in
+                self?.processTurnCredentialServerDoesNotSupportCalls(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeTurnCredentialsReceptionFailure(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, flowId) in
+                self?.processTurnCredentialsReceptionFailureNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeTurnCredentialsReceived(within: notificationDelegate) { [weak self] (ownedIdentity, callUuid, turnCredentialsWithTurnServers, flowId) in
+                self?.processTurnCredentialsReceivedNotification(ownedIdentity: ownedIdentity, callUuid: callUuid, turnCredentialsWithTurnServers: turnCredentialsWithTurnServers, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeApiKeyStatusQueryFailed(within: notificationDelegate) { [weak self] (ownedIdentity, apiKey) in
+                self?.processApiKeyStatusQueryFailed(ownedIdentity: ownedIdentity, apiKey: apiKey)
+            },
+            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, extendedMessagePayload, flowId) in
+                self?.processDownloadingMessageExtendedPayloadWasPerformed(messageId: messageId, extendedMessagePayload: extendedMessagePayload, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeWellKnownHasBeenUpdated(within: notificationDelegate) { [weak self] (serverURL, appInfo, flowId) in
+                guard let appNotificationCenter = self?.appNotificationCenter else { return }
+                let notification = ObvEngineNotificationNew.wellKnownUpdatedSuccess(serverURL: serverURL, appInfo: appInfo)
+                notification.postOnBackgroundQueue(within: appNotificationCenter)
+            },
+            ObvNetworkFetchNotificationNew.observeWellKnownHasBeenDownloaded(within: notificationDelegate) { [weak self] (serverURL, appInfo, flowId) in
+                guard let appNotificationCenter = self?.appNotificationCenter else { return }
+                let notification = ObvEngineNotificationNew.wellKnownDownloadedSuccess(serverURL: serverURL, appInfo: appInfo)
+                notification.postOnBackgroundQueue(within: appNotificationCenter)
+            },
+            ObvNetworkFetchNotificationNew.observeWellKnownDownloadFailure(within: notificationDelegate) { [weak self] (serverURL, flowId) in
+                guard let appNotificationCenter = self?.appNotificationCenter else { return }
+                let notification = ObvEngineNotificationNew.wellKnownDownloadedFailure(serverURL: serverURL)
+                notification.postOnBackgroundQueue(within: appNotificationCenter)
+            },
+            ObvNetworkFetchNotificationNew.observeCannotReturnAnyProgressForMessageAttachments(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                self?.processCannotReturnAnyProgressForMessageAttachmentsNotification(messageId: messageId, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeInboxAttachmentDownloadCancelledByServer(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                self?.processInboxAttachmentDownloadCancelledByServer(attachmentId: attachmentId, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeApplicationMessageDecrypted(within: notificationDelegate) { [weak self] (messageId, attachmentIds, hasEncryptedExtendedMessagePayload, flowId) in
+                self?.processMessageDecryptedNotification(messageId: messageId, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeInboxAttachmentWasDownloaded(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                self?.processAttachmentDownloadedNotification(attachmentId: attachmentId, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeInboxAttachmentDownloadWasResumed(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                self?.processInboxAttachmentDownloadWasResumed(attachmentId: attachmentId, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observeInboxAttachmentDownloadWasPaused(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                self?.processInboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
+            },
+        ])
     }
     
     
@@ -519,51 +489,44 @@ extension ObvEngine {
     }
     
 
-    private func observeAttachmentDownloadCancelledByServerNotifications(notificationDelegate: ObvNotificationDelegate) {
+    private func processInboxAttachmentDownloadCancelledByServer(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         
-        let token = ObvNetworkFetchNotificationNew.observeInboxAttachmentDownloadCancelledByServer(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+        os_log("We received an AttachmentDownloadCancelledByServer notification for the attachment %{public}@.", log: log, type: .debug, attachmentId.debugDescription)
+        
+        guard let createContextDelegate = createContextDelegate else {
+            os_log("The create context delegate is not set", log: log, type: .fault)
+            return
+        }
+        
+        guard let networkFetchDelegate = networkFetchDelegate else {
+            os_log("The network fetch delegate is not set", log: log, type: .fault)
+            return
+        }
+        
+        guard let identityDelegate = identityDelegate else {
+            os_log("The identity delegate is not set", log: log, type: .fault)
+            return
+        }
+        
+        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+            
             guard let _self = self else { return }
             
-            os_log("We received an AttachmentDownloadCancelledByServer notification for the attachment %{public}@.", log: _self.log, type: .debug, attachmentId.debugDescription)
-            
-            guard let createContextDelegate = _self.createContextDelegate else {
-                os_log("The create context delegate is not set", log: _self.log, type: .fault)
+            let obvAttachment: ObvAttachment
+            do {
+                try obvAttachment = ObvAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, identityDelegate: identityDelegate, within: obvContext)
+            } catch {
+                os_log("Could not construct an ObvAttachment of attachment %{public}@", log: _self.log, type: .fault, attachmentId.debugDescription)
                 return
             }
             
-            guard let networkFetchDelegate = _self.networkFetchDelegate else {
-                os_log("The network fetch delegate is not set", log: _self.log, type: .fault)
-                return
-            }
+            // We notify the app
             
-            guard let identityDelegate = _self.identityDelegate else {
-                os_log("The identity delegate is not set", log: _self.log, type: .fault)
-                return
-            }
-            
-            createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
-                
-                guard let _self = self else { return }
-                
-                let obvAttachment: ObvAttachment
-                do {
-                    try obvAttachment = ObvAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, identityDelegate: identityDelegate, within: obvContext)
-                } catch {
-                    os_log("Could not construct an ObvAttachment of attachment %{public}@", log: _self.log, type: .fault, attachmentId.debugDescription)
-                    return
-                }
-                
-                // We notify the app
-                
-                ObvEngineNotificationNew.attachmentDownloadCancelledByServer(obvAttachment: obvAttachment)
-                    .postOnBackgroundQueue(within: _self.appNotificationCenter)
-
-            }
-
+            ObvEngineNotificationNew.attachmentDownloadCancelledByServer(obvAttachment: obvAttachment)
+                .postOnBackgroundQueue(within: _self.appNotificationCenter)
             
         }
-        notificationCenterTokens.append(token)
-        
+
     }
     
     
@@ -960,58 +923,6 @@ extension ObvEngine {
 
         }        
         notificationCenterTokens.append(token)
-    }
-    
-    
-    private func processOutboxAttachmentHasNewProgressNotification(attachmentId: AttachmentIdentifier, newProgress: Progress, flowId: FlowIdentifier) {
-
-        ObvEngineNotificationNew.attachmentUploadNewProgress(messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber, newProgress: newProgress)
-            .postOnBackgroundQueue(within: appNotificationCenter)
-
-    }
-    
-    private func processAttachmentDownloadNewProgressNotification(attachmentId: AttachmentIdentifier, progress: Progress, flowId: FlowIdentifier) {
-
-        os_log("🌊 We received an AttachmentDownloadNewProgress notification within flow %{public}@.", log: log, type: .debug, flowId.debugDescription)
-        os_log("We received an AttachmentDownloadNewProgress notification for the attachment %{public}@. Progress is %{public}@.", log: log, type: .debug, attachmentId.debugDescription, progress.localizedDescription)
-        
-        let log = self.log
-        
-        guard let createContextDelegate = createContextDelegate else {
-            os_log("The create context delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        guard let networkFetchDelegate = networkFetchDelegate else {
-            os_log("The network fetch delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        guard let identityDelegate = identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        let appNotificationCenter = self.appNotificationCenter
-        let queueForPostingNotificationsToTheApp = self.queueForPostingNotificationsToTheApp
-        
-        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
-            guard let _self = self else { return }
-            let obvAttachment: ObvAttachment
-            do {
-                obvAttachment = try ObvAttachment(attachmentId: attachmentId, networkFetchDelegate: networkFetchDelegate, identityDelegate: identityDelegate, within: obvContext)
-            } catch {
-                os_log("Could not construct an ObvAttachment of message %{public}@ (1)", log: _self.log, type: .fault, attachmentId.messageId.debugDescription)
-                return
-            }
-            
-            // We notify the app
-            
-            ObvEngineNotificationNew.inboxAttachmentNewProgress(obvAttachment: obvAttachment, newProgress: progress)
-                .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
-
-        }
-        
     }
     
     
@@ -1681,6 +1592,22 @@ extension ObvEngine {
             ObvEngineNotificationNew.attachmentDownloaded(obvAttachment: obvAttachment)
                 .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
         }
+    }
+    
+    
+    func processInboxAttachmentDownloadWasResumed(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+        os_log("We received an InboxAttachmentDownloadWasResumed notification for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
+        let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
+        ObvEngineNotificationNew.attachmentDownloadWasResumed(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
+    func processInboxAttachmentDownloadWasPaused(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+        os_log("We received an InboxAttachmentDownloadWasResumed notification for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
+        let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
+        ObvEngineNotificationNew.attachmentDownloadWasPaused(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }
 
     

@@ -35,18 +35,10 @@ class TextFieldBackgroundView: UIView {
         shapeLayer.fillColor = self.fillColor.cgColor
         shapeLayer.strokeColor = self.strokeColor.cgColor
         shapeLayer.lineWidth = 1.0
-        if #available(iOS 12, *) {
-            shapeLayer.path = CGPath(roundedRect: self.bounds,
-                                     cornerWidth: 2*cornerRadius,
-                                     cornerHeight: 2*cornerRadius,
-                                     transform: nil)
-        } else {
-            // Prevent a crash due to an assertion in CoreGraphics/Paths/CGPath.cc that checks that (corner_height >= 0 && 2 * corner_height <= CGRectGetHeight(rect))
-            shapeLayer.path = CGPath(roundedRect: self.bounds,
-                                     cornerWidth: min(2*cornerRadius, self.bounds.width),
-                                     cornerHeight: min(2*cornerRadius, self.bounds.height),
-                                     transform: nil)
-        }
+        shapeLayer.path = CGPath(roundedRect: self.bounds,
+                                 cornerWidth: 2*cornerRadius,
+                                 cornerHeight: 2*cornerRadius,
+                                 transform: nil)
         self.layer.addSublayer(shapeLayer)
         
     }

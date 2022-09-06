@@ -37,6 +37,7 @@ struct GenericReceivedProtocolMessage {
     let encodedInputs: [ObvEncoded]
     let encodedUserDialogResponse: ObvEncoded? // Only set when the message is the response to a UI dialog
     let userDialogUuid: UUID? // Only set when the message is the response to a UI dialog
+    let receivedMessageUID: UID? // When instantiated with an ObvProtocolReceivedMessage, this is the UID of its MessageIdentifier. Otherwise it's nil
     
     // Instantiating a `GenericProtocolMessage` when receiving an `ObvProtocolReceivedMessage`
 
@@ -53,6 +54,7 @@ struct GenericReceivedProtocolMessage {
         self.encodedUserDialogResponse = nil
         self.userDialogUuid = nil
         self.timestamp = obvProtocolReceivedMessage.timestamp
+        self.receivedMessageUID = obvProtocolReceivedMessage.messageId.uid
     }
     
     init?(with obvProtocolReceivedDialogResponse: ObvProtocolReceivedDialogResponse) {
@@ -68,6 +70,7 @@ struct GenericReceivedProtocolMessage {
         self.encodedUserDialogResponse = obvProtocolReceivedDialogResponse.encodedUserDialogResponse
         self.userDialogUuid = obvProtocolReceivedDialogResponse.dialogUuid
         self.timestamp = obvProtocolReceivedDialogResponse.timestamp
+        self.receivedMessageUID = nil
     }
     
     init?(with obvProtocolReceivedServerResponse: ObvProtocolReceivedServerResponse) {
@@ -83,6 +86,7 @@ struct GenericReceivedProtocolMessage {
         self.encodedUserDialogResponse = nil
         self.userDialogUuid = nil
         self.timestamp = obvProtocolReceivedServerResponse.serverTimestamp
+        self.receivedMessageUID = nil
     }
 
     
@@ -108,6 +112,7 @@ struct GenericReceivedProtocolMessage {
         self.encodedInputs = message.encodedInputs
         self.encodedUserDialogResponse = nil
         self.userDialogUuid = nil
+        self.receivedMessageUID = nil
     }
     
 }

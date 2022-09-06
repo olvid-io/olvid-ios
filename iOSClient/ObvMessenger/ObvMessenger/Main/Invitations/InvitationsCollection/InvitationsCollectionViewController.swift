@@ -41,6 +41,7 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
     var fetchedResultsController: NSFetchedResultsController<PersistedInvitation>! = nil
     
     var currentNumberOfInvitations: Int {
+        guard let fetchedResultsController = self.fetchedResultsController else { return 0 }
         guard let sections = fetchedResultsController.sections else { return 0 }
         guard sections.count > 0 else { return 0 }
         return sections[0].numberOfObjects
@@ -131,7 +132,7 @@ extension InvitationsCollectionViewController {
         
         if #available(iOS 14, *) {
             navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem()
-        } else if #available(iOS 13.0, *) {
+        } else {
             navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
         }
 
@@ -604,8 +605,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 }
             }
             // Button for aborting
-            cell.addButton(title: CommonString.Word.Abort, style: .obvButtonBorderless) {
-                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
+            cell.addButton(title: CommonString.Word.Abort, style: .obvButtonBorderless) { [weak self] in
+                self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
 
         case .mediatorInviteAccepted(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):

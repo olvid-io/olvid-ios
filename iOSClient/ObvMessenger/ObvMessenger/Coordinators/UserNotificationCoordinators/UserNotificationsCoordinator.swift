@@ -96,9 +96,9 @@ extension UserNotificationsCoordinator {
                         guard let contactGroup = try? PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else { return }
                         discussion = contactGroup.discussion
                     } else {
-                        discussion = try? PersistedOneToOneDiscussion.get(with: contactIdentity)
+                        discussion = try? PersistedOneToOneDiscussion.get(with: contactIdentity, status: .active)
                     }
-                    guard let discussion = discussion else { return }
+                    guard let discussion = discussion, discussion.status == .active else { return }
 
                     var contactIdentityDisplayName = contactIdentity.customDisplayName ?? contactIdentity.identityCoreDetails.getDisplayNameWithStyle(.full)
                     if let participantCount = participantCount, participantCount > 1 {

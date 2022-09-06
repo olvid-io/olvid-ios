@@ -25,7 +25,6 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
     
     static let identifier = "MessageSentCollectionViewCell"
     
-    let sentStatusLabel = UILabel()
     let sentStatusImageView = UIImageView()
     private var hideProgresses = false
     
@@ -61,21 +60,11 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
                                            NSAttributedString.Key.underlineColor: AppTheme.shared.colorScheme.sentCellLink]
 
         
-        sentStatusLabel.accessibilityIdentifier = "sentStatusLabel"
-        sentStatusLabel.font = UIFont.preferredFont(forTextStyle: UIFont.TextStyle.caption1)
-        sentStatusLabel.textColor = dateLabel.textColor
-        bottomStackView.insertArrangedSubview(sentStatusLabel, at: 0)
-
-
         sentStatusImageView.accessibilityIdentifier = "sentStatusImageView"
-        sentStatusImageView.tintColor = sentStatusLabel.textColor
+        sentStatusImageView.tintColor = dateLabel.textColor
         bottomStackView.insertArrangedSubview(sentStatusImageView, at: 0)
         
-        if #available(iOS 13, *) {
-            bottomStackView.insertArrangedSubview(messageEditedStatusImageView, at: 0)
-        } else {
-            bottomStackView.insertArrangedSubview(messageEditedStatusLabel, at: 0)
-        }
+        bottomStackView.insertArrangedSubview(messageEditedStatusImageView, at: 0)
         bottomStackView.addArrangedSubview(dateLabel)
 
         countdownStack.alignment = .trailing
@@ -96,7 +85,6 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
     
     override func prepareForReuse() {
         super.prepareForReuse()
-        sentStatusLabel.text = nil
         hideProgresses = false
     }
 
@@ -105,7 +93,6 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
         self.hideProgresses = hideProgresses
         if hideProgresses {
             sentStatusImageView.isHidden = true
-            sentStatusLabel.isHidden = true
         } else {
             refreshSentStatus(with: message)
         }
@@ -124,11 +111,7 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
     
     
     private func refreshSentStatus(with message: PersistedMessageSent) {
-        if #available(iOS 13, *) {
-            sentStatusImageView.image = imageForMessageStatus(message.status)
-        } else {
-            sentStatusLabel.text = characterForMessageStatus(message.status)
-        }
+        sentStatusImageView.image = imageForMessageStatus(message.status)
     }
     
     
@@ -237,57 +220,18 @@ extension MessageSentCollectionViewCell: CellWithMessage {
     
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { nil } // Not used within the old discussion screen
 
-    var textViewToCopy: UITextView? {
-        guard isCopyActionAvailable else { return nil }
-        return bodyTextView
-    }
-
     var textToCopy: String? {
         guard let text = bodyTextView.text else { return nil }
         guard !text.isEmpty else { return nil }
         return text
     }
 
-    var isSharingActionAvailable: Bool {
-        guard let message = self.message else { return false }
-        return !message.readOnce
-    }
-
-    var isCopyActionAvailable: Bool {
-        guard let message = persistedMessage else { return false }
-        return message.textBody != nil && !message.readOnce
-    }
-
-    var isReplyToActionAvailable: Bool {
-        guard let sentMessage = message as? PersistedMessageSent else { return false }
-        let discussion = sentMessage.discussion
-        guard !(discussion is PersistedDiscussionOneToOneLocked || discussion is PersistedDiscussionGroupLocked) else { return false }
-        if sentMessage.readOnce {
-            return sentMessage.status == .read
-        }
-        return true
-    }
-
-    var isInfoActionAvailable: Bool {
-        guard let sentMessage = message as? PersistedMessageSent else { return false }
-        if !sentMessage.unsortedRecipientsInfos.isEmpty { return true }
-        if !sentMessage.metadata.isEmpty { return true }
-        return false
-    }
     var infoViewController: UIViewController? {
-        guard isInfoActionAvailable else { return nil }
+        guard let sentMessage = message as? PersistedMessageSent else { assertionFailure(); return nil }
+        guard sentMessage.infoActionCanBeMadeAvailable == true else { return nil }
         let rcv = SentMessageInfosViewController()
-        rcv.sentMessage = (message as! PersistedMessageSent)
+        rcv.sentMessage = sentMessage
         return rcv
     }
     
-    var isDeleteActionAvailable: Bool { true }
-    
-    var isEditBodyActionAvailable: Bool {
-        guard let sentMessage = message as? PersistedMessageSent else { return false }
-        return sentMessage.textBodyCanBeEdited
-    }
-
-    var isCallActionAvailable: Bool { false }
-    var isDeleteOwnReactionActionAvailable: Bool { false }
 }

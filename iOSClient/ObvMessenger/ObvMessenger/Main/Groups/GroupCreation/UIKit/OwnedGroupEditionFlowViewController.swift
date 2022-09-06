@@ -217,19 +217,10 @@ extension OwnedGroupEditionFlowViewController {
                             NotificationType.Key.removedContacts: removedContacts] as [String: Any]
             NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
             
-        case .editGroupDetails(obvContactGroup: let obvContactGroup):
+        case .editGroupDetails:
 
-            guard let groupName = self.groupName else { return }
-            guard !groupName.isEmpty else { return }
-            
-            flowNavigationController.dismiss(animated: true)
-            
-            let NotificationType = MessengerInternalNotification.EditOwnedGroupDetails.self
-            let userInfo = [NotificationType.Key.ownedCryptoId: ownedCryptoId,
-                            NotificationType.Key.groupUid: obvContactGroup.groupUid,
-                            NotificationType.Key.groupName: groupName,
-                            NotificationType.Key.groupDescription: groupDescription as Any] as [String: Any]
-            NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
+            assertionFailure()
+            return
             
         }
 

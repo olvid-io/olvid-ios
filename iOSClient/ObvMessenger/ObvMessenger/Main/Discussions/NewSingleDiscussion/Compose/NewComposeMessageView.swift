@@ -75,7 +75,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     private let buttonsAnimationValues: (duration: Double, options: UIView.AnimationOptions) = (0.25, UIView.AnimationOptions([.curveEaseInOut]))
     
     let draft: PersistedDraft
-    private let attachmentsCollectionViewController: AttachmentsCollectionViewController
+    let attachmentsCollectionViewController: AttachmentsCollectionViewController
     
     private var textFieldBubbleWasJustTapped = false
     
@@ -150,12 +150,19 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     }
     
     private func actionTitle(for action: NewComposeMessageViewAction) -> String {
-        if case .introduceThisContact = action,
-           let discussion = draft.discussion as? PersistedOneToOneDiscussion,
-           let contact = discussion.contactIdentity {
-            /// Override action.title to show the name of contact
-            let contactName = contact.shortOriginalName
-            return String.localizedStringWithFormat(NSLocalizedString("INTRODUCE_CONTACT_%@_TO", comment: ""), contactName)
+        if case .introduceThisContact = action {
+            switch try? draft.discussion.kind {
+            case .oneToOne(withContactIdentity: let contact):
+                if let contact = contact {
+                    /// Override action.title to show the name of contact
+                    let contactName = contact.shortOriginalName
+                    return String.localizedStringWithFormat(NSLocalizedString("INTRODUCE_CONTACT_%@_TO", comment: ""), contactName)
+                } else {
+                    return action.title
+                }
+            case .groupV1, .none:
+                return action.title
+            }
         } else {
             return action.title
         }
@@ -171,11 +178,12 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
                 .composeMessageSettings:
             return true
         case .introduceThisContact:
-            guard let discussion = draft.discussion as? PersistedOneToOneDiscussion,
-                  let _ = discussion.contactIdentity else {
-                      return false
-                  }
-            return true
+            switch try? draft.discussion.kind {
+            case .oneToOne(withContactIdentity: let contactIdentity):
+                return contactIdentity != nil
+            case .groupV1, .none:
+                return false
+            }
         }
     }
 
@@ -815,11 +823,15 @@ extension NewComposeMessageView {
     
     
     private func introduceButtonTapped() {
-        guard let discussion = draft.discussion as? PersistedOneToOneDiscussion else { assertionFailure(); return }
-        guard let contactObjectID = discussion.contactIdentity?.typedObjectID else { return }
-        guard let viewController = self.delegate else { return }
-        ObvMessengerInternalNotification.userWantsToDisplayContactIntroductionScreen(contactObjectID: contactObjectID, viewController: viewController)
-            .postOnDispatchQueue()
+        switch try? draft.discussion.kind {
+        case .oneToOne(withContactIdentity: let contactIdentity):
+            guard let contactObjectID = contactIdentity?.typedObjectID else { return }
+            guard let viewController = self.delegate else { return }
+            ObvMessengerInternalNotification.userWantsToDisplayContactIntroductionScreen(contactObjectID: contactObjectID, viewController: viewController)
+                .postOnDispatchQueue()
+        case .groupV1, .none:
+            assertionFailure()
+        }
     }
     
     
@@ -1839,8 +1851,5 @@ extension NewComposeMessageView {
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
         attachmentsCollectionViewController.getAllShownHardLink()
     }
-    
-    func requestAllHardLinksToFylesWithinCurrentDraft(completionHandler: @escaping ([HardLinkToFyle?]) -> Void) {
-        attachmentsCollectionViewController.requestAllHardLinksToFetchedDraftFyleJoins(completionHandler: completionHandler)
-    }
+
 }

@@ -209,7 +209,7 @@ struct ImageEditor: View {
 
         guard let makeImage = context?.makeImage() else { assertionFailure(); return image }
 
-        return UIImage(cgImage: makeImage)
+        return UIImage(cgImage: makeImage, scale: image.scale, orientation: image.imageOrientation)
     }
 
     static func resize(image: UIImage, size newSize: CGFloat) -> UIImage {

@@ -86,10 +86,8 @@ final class BackupKeyViewerViewController: UIViewController {
         
         // In dev mode, allow to copy the key
         if ObvMessengerConstants.developmentMode {
-            if #available(iOS 13, *) {
-                let copyButton = UIBarButtonItem(image: UIImage(systemName: "doc.on.doc"), style: .plain, target: self, action: #selector(copyToKeyToClipboardButtonTapped))
-                self.navigationItem.setRightBarButton(copyButton, animated: false)
-            }
+            let copyButton = UIBarButtonItem(image: UIImage(systemName: "doc.on.doc"), style: .plain, target: self, action: #selector(copyToKeyToClipboardButtonTapped))
+            self.navigationItem.setRightBarButton(copyButton, animated: false)
         }
         
     }

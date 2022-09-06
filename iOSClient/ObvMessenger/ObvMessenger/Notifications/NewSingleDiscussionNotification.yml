@@ -26,9 +26,6 @@ notifications:
 - name: userWantsToRemoveReplyToMessage
   params:
   - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
-- name: userDidTapOnReplyTo
-  params:
-  - {name: replyToMessageObjectID, type: NSManagedObjectID}
 - name: userWantsToSendDraft
   params:
   - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
@@ -52,3 +49,9 @@ notifications:
 - name: draftCouldNotBeSent
   params:
   - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus
+  params:
+  - {name: receivedJoinObjectID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
+- name: userWantsToDownloadReceivedFyleMessageJoinWithStatus
+  params:
+  - {name: receivedJoinObjectID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}

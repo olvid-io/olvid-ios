@@ -114,11 +114,11 @@ extension UserNotificationCenterDelegate {
             case .newReactionNotificationWithHiddenContent, .newReaction:
                 // Always show reaction notification even if it is a reaction for the current discussion.
                 completionHandler(.alert)
-            case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls:
+            case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall:
                 // The current activity type is `continueDiscussion`. We check whether the notification concerns the "single discussion". If this is the case, we do not display the notification, otherwise, we do.
                 guard let notificationPersistedDiscussionObjectURI = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
                       let notificationPersistedDiscussionObjectURI = URL(string: notificationPersistedDiscussionObjectURI),
-                      let notificationPersistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: notificationPersistedDiscussionObjectURI)else {
+                      let notificationPersistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: notificationPersistedDiscussionObjectURI) else {
                           assertionFailure()
                           completionHandler(.alert)
                           return
@@ -131,7 +131,7 @@ extension UserNotificationCenterDelegate {
                     completionHandler(.alert)
                     return
                 }
-            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .oneToOneInvitationReceived:
+            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .oneToOneInvitationReceived, .shouldGrantRecordPermissionToReceiveIncomingCalls:
                 completionHandler(.alert)
                 return
             case .staticIdentifier:

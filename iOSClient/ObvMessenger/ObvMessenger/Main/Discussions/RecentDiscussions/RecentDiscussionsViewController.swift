@@ -80,8 +80,8 @@ extension RecentDiscussionsViewController {
                                                         withRefreshControl: true)
         discussionsTVC.setFetchRequestsAndImages([
             (PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "clock")!),
-            (PersistedOneToOneDiscussion.getFetchRequestForAllOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person")!),
-            (PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
+            (PersistedOneToOneDiscussion.getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person")!),
+            (PersistedGroupDiscussion.getFetchRequestForAllActiveGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
         ])
 
         discussionsTVC.view.translatesAutoresizingMaskIntoConstraints = false

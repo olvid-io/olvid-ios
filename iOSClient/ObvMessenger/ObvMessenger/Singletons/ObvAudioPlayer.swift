@@ -50,7 +50,7 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
 
     var isPlaying: Bool { audioPlayer?.isPlaying ?? false }
 
-    func play(_ hardLink: HardLinkToFyle, at time: TimeInterval? = 0) -> Bool {
+    func play(_ hardLink: HardLinkToFyle, enableSpeaker speaker: Bool, at time: TimeInterval? = 0) -> Bool {
         guard let url = hardLink.hardlinkURL else { return false }
         current = hardLink
         do {
@@ -67,14 +67,15 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
             }
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playback)
+                try session.setCategory(.playAndRecord, options: [.allowBluetooth, .allowBluetoothA2DP])
             } catch {
                 return false
             }
             if let time = time {
                 audioPlayer.currentTime = time
             }
-            os_log("🎵 Start playing %{public}@", log: self.log, type: .info, url.lastPathComponent)
+            setSpeaker(to: speaker)
+            os_log("🎵 Start playing %{public}@ with speaker %{public}@", log: self.log, type: .info, url.lastPathComponent, speaker ? "enable" : "disable")
             let success = audioPlayer.play()
             if success {
                 setupNowPlaying()
@@ -104,12 +105,13 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
         self.setupNowPlaying()
     }
 
-    func resume(at time: TimeInterval? = 0) {
+    func resume(enableSpeaker speaker: Bool, at time: TimeInterval? = 0) {
         guard let audioPlayer = audioPlayer else { return }
         if let time = time {
             audioPlayer.currentTime = time
         }
-        os_log("🎵 Resume %{public}@", log: self.log, type: .info, audioPlayer.url?.lastPathComponent ?? "nil")
+        setSpeaker(to: speaker)
+        os_log("🎵 Resume %{public}@ with speaker %{public}@", log: self.log, type: .info, audioPlayer.url?.lastPathComponent ?? "nil", speaker ? "enable" : "disable")
         audioPlayer.play()
         self.delegate?.audioIsPlaying(currentTime: audioPlayer.currentTime)
         self.setupNowPlaying()
@@ -127,6 +129,26 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
         let duration = audioAsset.duration
         let durationInSeconds = CMTimeGetSeconds(duration)
         return durationInSeconds
+    }
+
+    var isSpeakerEnable: Bool {
+        let session = AVAudioSession.sharedInstance()
+        return session.currentRoute.outputs.contains(where: { $0.isSpeaker })
+    }
+
+    func setSpeaker(to value: Bool) {
+        guard value != isSpeakerEnable else { return }
+        let session = AVAudioSession.sharedInstance()
+        do {
+            if value {
+                try session.overrideOutputAudioPort(.speaker)
+            } else {
+                try session.overrideOutputAudioPort(.none)
+            }
+            os_log("🎵 Speaker was %{public}@", log: log, type: .info, value ? "enable" : "disable")
+        } catch {
+            os_log("🎵 Could not %{public}@ speaker: %{public}@", log: log, type: .info, value ? "enable" : "disable", error.localizedDescription)
+        }
     }
 
 }

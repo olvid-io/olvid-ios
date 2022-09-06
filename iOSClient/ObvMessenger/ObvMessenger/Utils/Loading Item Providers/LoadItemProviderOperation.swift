@@ -241,12 +241,15 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                 }
                 let filename: String
                 let data: Data
+                let utiForFile: String
                 if let pngData = image.pngData() {
                     filename = "image.png"
                     data = pngData
+                    utiForFile = kUTTypePNG as String
                 } else if let jpegData = image.jpegData(compressionQuality: 1.0) {
                     filename = "image.jpeg"
                     data = jpegData
+                    utiForFile = kUTTypeJPEG as String
                 } else {
                     self?.cancel(withReason: .noneOfTheItemTypeIdentifiersCouldBeLoaded(itemTypeIdentifiers: availableTypeIdentifiers))
                     return
@@ -260,7 +263,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .couldNotCopyItem(error: error))
                     return
                 }
-                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiToLoad, filename: filename)
+                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiForFile, filename: filename)
                 self?._isFinished = true
                 return
 

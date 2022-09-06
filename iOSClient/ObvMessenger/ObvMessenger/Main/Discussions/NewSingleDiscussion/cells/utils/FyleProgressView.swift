@@ -21,16 +21,31 @@ import UIKit
 import CoreData
 
 
-final class FyleProgressView: UIView {
+final class FyleProgressView: UIView, UIViewWithTappableStuff {
     
-    enum FyleProgressViewConfiguration: Equatable {
+    enum FyleProgressViewConfiguration: Equatable, CustomDebugStringConvertible {
         // For sent attachments
-        case uploadableOrUploading(progress: Progress?)
+        case uploadableOrUploading(progress: Progress)
         // For received attachments
-        case pausedOrDownloading(progress: Progress?)
+        case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress)
+        case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress)
         case cancelled
         // For both
         case complete
+        var debugDescription: String {
+            switch self {
+            case .uploadableOrUploading(progress: let progress):
+                return "FyleProgressViewConfiguration.uploadableOrUploading<progress: \(progress.debugDescription)>"
+            case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress):
+                return "FyleProgressViewConfiguration.downloadable<receivedJoinObjectID: \(receivedJoinObjectID.debugDescription), progress: \(progress.debugDescription)>"
+            case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress):
+                return "FyleProgressViewConfiguration.downloading<receivedJoinObjectID: \(receivedJoinObjectID.debugDescription), progress: \(progress.debugDescription)>"
+            case .cancelled:
+                return "FyleProgressViewConfiguration.cancelled"
+            case .complete:
+                return "FyleProgressViewConfiguration.complete"
+            }
+        }
     }
     
     
@@ -43,8 +58,6 @@ final class FyleProgressView: UIView {
         refresh()
     }
     
-    private static var progressObservations = [(progress: Progress, token: NSKeyValueObservation)]()
-    
     private func refresh() {
         switch currentConfiguration {
         case .uploadableOrUploading(progress: let progress):
@@ -53,32 +66,22 @@ final class FyleProgressView: UIView {
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = false
             progressView.isHidden = false
-            progressView.progress = 0
             progressView.observedProgress = progress
             isUserInteractionEnabled = false
-        case .pausedOrDownloading(progress: let progress):
-            if let progress = progress {
-                imageViewWhenPaused.isHidden = !progress.isPaused
-                imageViewWhenDownloading.isHidden = progress.isPaused
-            } else {
-                imageViewWhenPaused.isHidden = false
-                imageViewWhenDownloading.isHidden = true
-            }
+        case .downloadable(_, progress: let progress):
+            imageViewWhenPaused.isHidden = false
+            imageViewWhenDownloading.isHidden = true
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = true
-            progressView.isHidden = progress?.isPaused ?? true
-            if let progress = progress, !FyleProgressView.progressObservations.map({ $0.progress }).contains(progress) {
-                // We observe this new progress
-                let token = progress.observe(\.isPaused, changeHandler: { [weak self] progress, _ in
-                    DispatchQueue.main.async {
-                        guard self?.progressView.observedProgress == progress else { return }
-                        self?.progressView.isHidden = progress.isPaused
-                        self?.imageViewWhenPaused.isHidden = !progress.isPaused
-                        self?.imageViewWhenDownloading.isHidden = progress.isPaused
-                    }
-                })
-                FyleProgressView.progressObservations.append((progress, token))
-            }
+            progressView.isHidden = (progress.completedUnitCount == 0)
+            progressView.observedProgress = progress
+            isUserInteractionEnabled = true
+        case .downloading(_, progress: let progress):
+            imageViewWhenPaused.isHidden = true
+            imageViewWhenDownloading.isHidden = false
+            imageViewWhenCancelled.isHidden = true
+            imageViewWhenUploading.isHidden = true
+            progressView.isHidden = false
             progressView.observedProgress = progress
             isUserInteractionEnabled = true
         case .cancelled:
@@ -87,8 +90,6 @@ final class FyleProgressView: UIView {
             imageViewWhenCancelled.isHidden = false
             imageViewWhenUploading.isHidden = true
             progressView.isHidden = true
-            progressView.observedProgress = nil
-            progressView.progress = 0
             isUserInteractionEnabled = false
         case .complete:
             imageViewWhenPaused.isHidden = true
@@ -96,8 +97,6 @@ final class FyleProgressView: UIView {
             imageViewWhenCancelled.isHidden = true
             imageViewWhenUploading.isHidden = true
             progressView.isHidden = true
-            progressView.observedProgress = nil
-            progressView.progress = 0
             isUserInteractionEnabled = false
         case .none:
             assertionFailure()
@@ -105,21 +104,22 @@ final class FyleProgressView: UIView {
     }
     
     
-    @objc private func userDidTap() {
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard acceptTapOutsideBounds || self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard !self.isHidden else { return nil }
         switch currentConfiguration {
-        case .pausedOrDownloading(progress: let progress):
-            guard let progress = progress else { assertionFailure(); return }
-            if progress.isPaused {
-                progress.resume()
-            } else {
-                progress.pause()
-            }
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: _):
+            debugPrint("☸️ Tap received to pause")
+            return .receivedFyleMessageJoinWithStatusToPauseDownload(receivedJoinObjectID: receivedJoinObjectID)
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: _):
+            debugPrint("☸️ Tap received to download")
+            return .receivedFyleMessageJoinWithStatusToResumeDownload(receivedJoinObjectID: receivedJoinObjectID)
         default:
-            return
+            return nil
         }
     }
 
-
+    
     private let imageViewWhenPaused = UIImageView()
     private let imageViewWhenDownloading = UIImageView()
     private let imageViewWhenUploading = UIImageView()
@@ -130,7 +130,6 @@ final class FyleProgressView: UIView {
     init() {
         super.init(frame: .zero)
         setupInternalViews()
-        self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(userDidTap)))
     }
     
     required init?(coder: NSCoder) {

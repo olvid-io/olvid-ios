@@ -24,7 +24,7 @@ import CoreData
 extension NSManagedObject {
 
     /// This method allows to force the persistent store backing the shared ObvStack to refresh a specific persisted object.
-    /// In prtactice, this is used when the share extension modifies the database while the main app is in the background. In that case,
+    /// In practice, this is used when the share extension modifies the database while the main app is in the background. In that case,
     /// we want to make the app persistent store aware of these new objects. This methods allows to do just that, by forcing a "deep" refresh
     /// of the object into the view context.
     static func refreshObjectInPersistentStore(for objectID: NSManagedObjectID, with entityName: String) throws {

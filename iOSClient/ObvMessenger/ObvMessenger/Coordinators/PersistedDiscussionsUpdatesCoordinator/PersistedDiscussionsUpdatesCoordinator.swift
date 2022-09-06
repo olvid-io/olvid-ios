@@ -33,6 +33,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
     private var observationTokens = [NSObjectProtocol]()
     private var kvoTokens = [NSKeyValueObservation]()
     private let internalQueue: OperationQueue
+    private let internalQueueForAttachmentsProgresses = OperationQueue.createSerialQueue(name: "Internal queue for progresses", qualityOfService: .default)
     private let queueForLongRunningConcurrentOperations: OperationQueue = {
         let queue = OperationQueue()
         queue.qualityOfService = .userInitiated
@@ -46,6 +47,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
         self.obvEngine = obvEngine
         self.internalQueue = operationQueue
         listenToNotifications()
+        periodicallyRefreshReceivedAttachmentProgress()
     }
     
     private static let errorDomain = "PersistedDiscussionsUpdatesCoordinator"
@@ -56,6 +58,58 @@ final class PersistedDiscussionsUpdatesCoordinator {
     /// This completion handler is called when the engine reports that the message has been sent (i.e., received by the server).
     /// This is essentially used for WebRTC messages.
     @Atomic() private var completionWhenMessageIsSent = [Data: () -> Void]()
+    
+    // Variables used to refresh the attachment downloads progresses
+    private var timerForRefreshingAttachmentDownloadProgresses: Timer?
+    private static let timeIntervalForRefreshingAttachmentDownloadProgresses: TimeInterval = 0.3
+    private var dateOfLastReceivedAttachmentProgressRefreshQuery = Date.distantPast
+    
+    private func periodicallyRefreshReceivedAttachmentProgress() {
+        DispatchQueue.main.async { [weak self] in
+            guard let _self = self else { return }
+            _self.timerForRefreshingAttachmentDownloadProgresses = Timer.scheduledTimer(
+                timeInterval: PersistedDiscussionsUpdatesCoordinator.timeIntervalForRefreshingAttachmentDownloadProgresses,
+                target: _self,
+                selector: #selector(_self.requestAttachmentDownloadProgressesIfAppropriate),
+                userInfo: nil,
+                repeats: true)
+        }
+    }
+    
+    
+    /// This method is periodically called. It asks the engine to send fresh progresses for downloading attachments, when appropriate.
+    @objc private func requestAttachmentDownloadProgressesIfAppropriate() {
+        guard ObvUserActivitySingleton.shared.currentUserActivity.isContinueDiscussion else { return }
+        
+        let date = dateOfLastReceivedAttachmentProgressRefreshQuery
+        dateOfLastReceivedAttachmentProgressRefreshQuery = Date()
+        
+        // Progresses for downloaded attachments
+        Task {
+            do {
+                let progresses = try await obvEngine.requestDownloadAttachmentProgressesUpdatedSince(date: date)
+                guard !progresses.isEmpty else { return }
+                let op = ProcessNewReceivedJoinProgressesReceivedFromEngineOperation(progresses: progresses)
+                internalQueueForAttachmentsProgresses.addOperation(op)
+            } catch {
+                os_log("Could not obtain download progresses from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
+        }
+        
+        // Progresses for uploaded attachments
+        Task {
+            do {
+                let progresses = try await obvEngine.requestUploadAttachmentProgressesUpdatedSince(date: date)
+                guard !progresses.isEmpty else { return }
+                let op = ProcessNewSentJoinProgressesReceivedFromEngineOperation(progresses: progresses)
+                internalQueueForAttachmentsProgresses.addOperation(op)
+            } catch {
+                os_log("Could not obtain download progresses from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
+
+        }
+        
+    }
     
 
     private func listenToNotifications() {
@@ -87,9 +141,6 @@ final class PersistedDiscussionsUpdatesCoordinator {
             },
             ObvMessengerInternalNotification.observeMessagesAreNotNewAnymore() { [weak self] persistedMessageObjectIDs in
                 self?.processMessagesAreNotNewAnymore(persistedMessageObjectIDs: persistedMessageObjectIDs)
-            },
-            ObvMessengerInternalNotification.observeAViewRequiresFyleMessageJoinWithStatusProgresses() { [weak self] (objectIDs) in
-                self?.processAViewRequiresFyleMessageJoinWithStatusProgressesNotification(objectIDs: objectIDs)
             },
             ObvMessengerInternalNotification.observeNewObvMessageWasReceivedViaPushKitNotification { [weak self] (obvMessage) in
                 self?.processNewObvMessageWasReceivedViaPushKitNotification(obvMessage: obvMessage)
@@ -177,6 +228,15 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToWipeFyleMessageJoinWithStatus { [weak self] objectIDs in
                 self?.processUserWantsToWipeFyleMessageJoinWithStatus(objectIDs: objectIDs)
             },
+            ObvMessengerInternalNotification.observeUserWantsToForwardMessage { [weak self] messageID, discussionIDs in
+                self?.processUserWantsToForwardMessage(messageObjectID: messageID, discussionObjectIDs: discussionIDs)
+            },
+            NewSingleDiscussionNotification.observeUserWantsToDownloadReceivedFyleMessageJoinWithStatus { [weak self] joinObjectID in
+                self?.processUserWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: joinObjectID)
+            },
+            NewSingleDiscussionNotification.observeUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus { [weak self] joinObjectID in
+                self?.processUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: joinObjectID)
+            },
         ])
         
         // Internal VoIP notifications
@@ -234,12 +294,6 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvEngineNotificationNew.observeAttachmentWasAcknowledgedByServer(within: NotificationCenter.default) { [weak self] (messageIdentifierFromEngine, attachmentNumber) in
                 self?.processAttachmentWasAcknowledgedByServerNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
             },
-            ObvEngineNotificationNew.observeAttachmentUploadNewProgress(within: NotificationCenter.default) { [weak self] (messageIdentifierFromEngine, attachmentNumber, newProgress) in
-                self?.processAttachmentUploadNewProgressNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, newProgress: newProgress)
-            },
-            ObvEngineNotificationNew.observeInboxAttachmentNewProgress(within: NotificationCenter.default) { [weak self] (obvAttachment, newProgress) in
-                self?.processInboxAttachmentNewProgressNotification(obvAttachment: obvAttachment, newProgress: newProgress)
-            },
             ObvEngineNotificationNew.observeAttachmentDownloadCancelledByServer(within: NotificationCenter.default) { [weak self] (obvAttachment) in
                 self?.processAttachmentDownloadCancelledByServerNotification(obvAttachment: obvAttachment)
             },
@@ -248,6 +302,12 @@ final class PersistedDiscussionsUpdatesCoordinator {
             },
             ObvEngineNotificationNew.observeAttachmentDownloaded(within: NotificationCenter.default) { [weak self] (obvAttachment) in
                 self?.processAttachmentDownloadedNotification(obvAttachment: obvAttachment)
+            },
+            ObvEngineNotificationNew.observeAttachmentDownloadWasResumed(within: NotificationCenter.default) { [weak self] ownCryptoId, messageIdentifierFromEngine, attachmentNumber in
+                self?.processAttachmentDownloadWasResumed(ownedCryptoId: ownCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
+            },
+            ObvEngineNotificationNew.observeAttachmentDownloadWasPaused(within: NotificationCenter.default) { [weak self] ownCryptoId, messageIdentifierFromEngine, attachmentNumber in
+                self?.processAttachmentDownloadWasPaused(ownedCryptoId: ownCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
             },
             ObvEngineNotificationNew.observeNewObvReturnReceiptToProcess(within: NotificationCenter.default) { [weak self] (obvReturnReceipt) in
                 self?.processNewObvReturnReceiptToProcessNotification(obvReturnReceipt: obvReturnReceipt)
@@ -670,7 +730,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             
             // Send all the unprocessed messages waiting in the one2one discussion with the contact.
             // The discussion does not exist if the contact is not oneToOne
-            if let oneToOneDiscussion = try? contactIdentity.oneToOneDiscussion {
+            if let oneToOneDiscussion = contactIdentity.oneToOneDiscussion {
                 self?.sendUnprocessedMessages(within: oneToOneDiscussion)
             }
             
@@ -696,7 +756,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
             let groupDiscussion = contactGroup.discussion
             persistedDiscussionObjectID = groupDiscussion.objectID
-            guard groupDiscussion.hasAtLeastOneRemoteContactDevice() else {
+            guard contactGroup.hasAtLeastOneRemoteContactDevice() else {
                 return
             }
             sendUnprocessedMessages(within: groupDiscussion)
@@ -892,48 +952,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processAViewRequiresFyleMessageJoinWithStatusProgressesNotification(objectIDs: [NSManagedObjectID]) {
-        
-        var outboxMessageIdentifiers = Set<MessageIdentifierFromEngineAndOwnedCryptoId>()
-        var inboxMessageIdentifiers = Set<MessageIdentifierFromEngineAndOwnedCryptoId>()
-
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-
-            let sentFyleMessageJoinWithStatuses = objectIDs.compactMap({ context.object(with: $0) as? SentFyleMessageJoinWithStatus })
-            outboxMessageIdentifiers = Set(sentFyleMessageJoinWithStatuses.compactMap({
-                guard let messageIdentifierFromEngine = $0.message?.messageIdentifiersFromEngine.first else { return nil }
-                guard let ownedCryptId = $0.message?.discussion.ownedIdentity?.cryptoId else { return nil }
-                return MessageIdentifierFromEngineAndOwnedCryptoId(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptId)
-            }))
-                            
-            let receivedFyleMessageJoinWithStatuses = objectIDs.compactMap({ context.object(with: $0) as? ReceivedFyleMessageJoinWithStatus })
-            inboxMessageIdentifiers = Set(receivedFyleMessageJoinWithStatuses.compactMap({
-                guard let messageIdentifierFromEngine = $0.message?.messageIdentifiersFromEngine.first else { return nil }
-                guard let ownedCryptId = $0.message?.discussion.ownedIdentity?.cryptoId else { return nil }
-                return MessageIdentifierFromEngineAndOwnedCryptoId(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptId)
-            }))
-            
-        }
-        
-        for msgId in outboxMessageIdentifiers {
-            do {
-                try obvEngine.requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier: msgId.messageIdentifierFromEngine, ownedCryptoId: msgId.ownedCryptoId)
-            } catch {
-                assertionFailure()
-            }
-        }
-
-        for msgId in inboxMessageIdentifiers {
-            do {
-                try obvEngine.requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier: msgId.messageIdentifierFromEngine, ownedCryptoId: msgId.ownedCryptoId)
-            } catch {
-                assertionFailure()
-            }
-        }
-
-    }
-
-    
     private func processNewObvMessageWasReceivedViaPushKitNotification(obvMessage: ObvMessage) {
         processReceivedObvMessage(obvMessage, overridePreviousPersistedMessage: false, completionHandler: nil)
     }
@@ -998,7 +1016,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                               let callerIdentity = caller.contactIdentity else {
                             throw _self.makeError(message: "Could not find caller for incoming call")
                         }
-                        if let oneToOneDiscussion = try callerIdentity.oneToOneDiscussion {
+                        if let oneToOneDiscussion = callerIdentity.oneToOneDiscussion {
                             discussion = oneToOneDiscussion
                         } else {
                             // Do not report this call.
@@ -1007,7 +1025,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     } else if item.logContacts.count == 1,
                               let contact = item.logContacts.first,
                               let contactIdentity = contact.contactIdentity,
-                              let oneToOneDiscussion = try contactIdentity.oneToOneDiscussion {
+                              let oneToOneDiscussion = contactIdentity.oneToOneDiscussion {
                         discussion = oneToOneDiscussion
                     } else {
                         // Do not report this call.
@@ -1466,69 +1484,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processAttachmentUploadNewProgressNotification(messageIdentifierFromEngine: Data, attachmentNumber: Int, newProgress: Progress) {
-        
-        let log = self.log
-        
-        ObvStack.shared.performBackgroundTask { (context) in
-
-            let persistedMessageSent: PersistedMessageSent
-            do {
-                os_log("🆗 Looking for PersistedMessageSentRecipientInfos having messageIdentifierFromEngine %{public}@", log: log, type: .info, messageIdentifierFromEngine.hexString())
-                let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, within: context)
-                guard let _persistedMessageSent = infos.first?.messageSent else {
-                    os_log("🆗 Could not find PersistedMessageSent from db (3)", log: log, type: .error)
-                    return
-                }
-                persistedMessageSent = _persistedMessageSent
-            } catch {
-                os_log("PersistedMessageSent fetch failed", log: log, type: .fault)
-                return
-            }
-
-            guard attachmentNumber < persistedMessageSent.fyleMessageJoinWithStatuses.count else {
-                os_log("There is no SentFyleMessageJoinWithStatus corresponding to the received engine attachment number", log: log, type: .error)
-                return
-            }
-
-            let fyleMessageJoinWithStatus = persistedMessageSent.fyleMessageJoinWithStatuses[attachmentNumber]
-            
-            ObvMessengerInternalNotification.fyleMessageJoinWithStatusHasNewProgress(objectID: fyleMessageJoinWithStatus.objectID, progress: newProgress)
-                .postOnDispatchQueue()
-            
-            // Under iOS14+, when using the new discussion screen, we store the progress right within the fyle message join,
-            // Making it possible for the single discussion view to update its cells with this new progress.
-
-            if #available(iOS 14.0, *) {
-                let joinObjectID = fyleMessageJoinWithStatus.objectID
-                if let messageObjectID = fyleMessageJoinWithStatus.message?.objectID {
-                    DispatchQueue.main.async {
-                        guard let join = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-                        join.progress = newProgress
-                        if let message = ObvStack.shared.viewContext.registeredObject(for: messageObjectID) {
-                            ObvStack.shared.viewContext.refresh(message, mergeChanges: true)
-                        }
-                    }
-                }
-            }
-            
-        }
-
-    }
-
-    
-    private func processInboxAttachmentNewProgressNotification(obvAttachment: ObvAttachment, newProgress: Progress) {
-        
-        os_log("We received an AttachmentDownloadNewProgress notification", log: log, type: .debug)
-
-        let op = ProcessFyleWithinDownloadingAttachmentOperation(obvAttachment: obvAttachment, newProgress: newProgress, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        
-    }
-
-    
     private func processAttachmentDownloadCancelledByServerNotification(obvAttachment: ObvAttachment) {
         
         os_log("We received an AttachmentDownloadCancelledByServer notification", log: log, type: .debug)
@@ -1582,6 +1537,22 @@ extension PersistedDiscussionsUpdatesCoordinator {
             assertionFailure()
         }
 
+    }
+
+    
+    private func processAttachmentDownloadWasResumed(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int) {
+        let op = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .resume)
+        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
+
+    
+    private func processAttachmentDownloadWasPaused(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int) {
+        let op = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .pause)
+        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
     }
 
     
@@ -1698,7 +1669,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 assertionFailure()
                 return
             }
-            if let oneToOneDiscussionObjectID = try? contact.oneToOneDiscussion?.objectID {
+            if let oneToOneDiscussionObjectID = contact.oneToOneDiscussion?.objectID {
                 let op = InsertPersistedMessageSystemIntoDiscussionOperation(
                     persistedMessageSystemCategory: .contactRevokedByIdentityProvider,
                     persistedDiscussionObjectID: oneToOneDiscussionObjectID,
@@ -1841,6 +1812,33 @@ extension PersistedDiscussionsUpdatesCoordinator {
             .postOnDispatchQueue()
     }
 
+    private func processUserWantsToForwardMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, discussionObjectIDs: Set<TypeSafeManagedObjectID<PersistedDiscussion>>) {
+        for discussionID in discussionObjectIDs {
+            let op1 = CreateUnprocessedForwardPersistedMessageSentFromMessageOperation(messageObjectID: messageObjectID, discussionObjectID: discussionID)
+            let op2 = ComputeExtendedPayloadOperation(provider: op1)
+            let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: op2, obvEngine: obvEngine)
+            let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            composedOp.logReasonIfCancelled(log: log)
+        }
+    }
+
+    
+    private func processUserWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+        let op1 = ResumeOrPauseAttachmentDownloadOperation(receivedJoinObjectID: receivedJoinObjectID, resumeOrPause: .resume, obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
+
+    
+    private func processUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+        let op1 = ResumeOrPauseAttachmentDownloadOperation(receivedJoinObjectID: receivedJoinObjectID, resumeOrPause: .pause, obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
+
 }
 
 
@@ -1970,7 +1968,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
             os_log("The message is a delete discussion JSON", log: log, type: .debug)
-            let op = GetAppropriateDiscussionOperation(contact: obvMessage.fromContactIdentity, groupId: deleteDiscussionJSON.groupId)
+            let op = GetAppropriateActiveDiscussionOperation(contact: obvMessage.fromContactIdentity, groupId: deleteDiscussionJSON.groupId)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
             assert(op.discussionObjectID != nil || op.isCancelled)

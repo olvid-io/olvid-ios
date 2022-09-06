@@ -91,16 +91,14 @@ class MessageSystemCollectionViewCell: UICollectionViewCell {
             readOnceStack.alignment = .firstBaseline
             readOnceStack.spacing = 4.0
             
-            if #available(iOS 13, *) {
-                let imageViewReadOnce = UIImageView()
-                imageViewReadOnce.translatesAutoresizingMaskIntoConstraints = false
-                imageViewReadOnce.accessibilityIdentifier = "imageViewReadOnce"
-                let configuration = UIImage.SymbolConfiguration(textStyle: expirationFontTextStyle)
-                let image = UIImage(systemName: "flame.fill", withConfiguration: configuration)
-                imageViewReadOnce.image = image
-                imageViewReadOnce.tintColor = .red
-                readOnceStack.addArrangedSubview(imageViewReadOnce)
-            }
+            let imageViewReadOnce = UIImageView()
+            imageViewReadOnce.translatesAutoresizingMaskIntoConstraints = false
+            imageViewReadOnce.accessibilityIdentifier = "imageViewReadOnce"
+            let configuration = UIImage.SymbolConfiguration(textStyle: expirationFontTextStyle)
+            let image = UIImage(systemName: "flame.fill", withConfiguration: configuration)
+            imageViewReadOnce.image = image
+            imageViewReadOnce.tintColor = .red
+            readOnceStack.addArrangedSubview(imageViewReadOnce)
             
             let labelReadOnce = UILabel()
             labelReadOnce.translatesAutoresizingMaskIntoConstraints = false
@@ -120,16 +118,14 @@ class MessageSystemCollectionViewCell: UICollectionViewCell {
             limitedVisibilityStack.alignment = .firstBaseline
             limitedVisibilityStack.spacing = 4.0
             
-            if #available(iOS 13, *) {
-                let imageLimitedVisibility = UIImageView()
-                imageLimitedVisibility.translatesAutoresizingMaskIntoConstraints = false
-                imageLimitedVisibility.accessibilityIdentifier = "imageLimitedVisibility"
-                let configuration = UIImage.SymbolConfiguration(textStyle: expirationFontTextStyle)
-                let image = UIImage(systemName: "eyes", withConfiguration: configuration)
-                imageLimitedVisibility.image = image
-                imageLimitedVisibility.tintColor = .orange
-                limitedVisibilityStack.addArrangedSubview(imageLimitedVisibility)
-            }
+            let imageLimitedVisibility = UIImageView()
+            imageLimitedVisibility.translatesAutoresizingMaskIntoConstraints = false
+            imageLimitedVisibility.accessibilityIdentifier = "imageLimitedVisibility"
+            let configuration = UIImage.SymbolConfiguration(textStyle: expirationFontTextStyle)
+            let image = UIImage(systemName: "eyes", withConfiguration: configuration)
+            imageLimitedVisibility.image = image
+            imageLimitedVisibility.tintColor = .orange
+            limitedVisibilityStack.addArrangedSubview(imageLimitedVisibility)
             
             let labelLimitedVisibility = UILabel()
             labelLimitedVisibility.translatesAutoresizingMaskIntoConstraints = false
@@ -148,16 +144,14 @@ class MessageSystemCollectionViewCell: UICollectionViewCell {
             limitedExistenceStack.alignment = .firstBaseline
             limitedExistenceStack.spacing = 4.0
             
-            if #available(iOS 13, *) {
-                let imageLimitedExistence = UIImageView()
-                imageLimitedExistence.translatesAutoresizingMaskIntoConstraints = false
-                imageLimitedExistence.accessibilityIdentifier = "imageLimitedExistence"
-                let configuration = UIImage.SymbolConfiguration(textStyle: expirationFontTextStyle)
-                let image = UIImage(systemName: "timer", withConfiguration: configuration)
-                imageLimitedExistence.image = image
-                imageLimitedExistence.tintColor = .systemGray
-                limitedExistenceStack.addArrangedSubview(imageLimitedExistence)
-            }
+            let imageLimitedExistence = UIImageView()
+            imageLimitedExistence.translatesAutoresizingMaskIntoConstraints = false
+            imageLimitedExistence.accessibilityIdentifier = "imageLimitedExistence"
+            let configuration = UIImage.SymbolConfiguration(textStyle: expirationFontTextStyle)
+            let image = UIImage(systemName: "timer", withConfiguration: configuration)
+            imageLimitedExistence.image = image
+            imageLimitedExistence.tintColor = .systemGray
+            limitedExistenceStack.addArrangedSubview(imageLimitedExistence)
             
             let labelLimitedExistence = UILabel()
             labelLimitedExistence.translatesAutoresizingMaskIntoConstraints = false
@@ -220,7 +214,7 @@ class MessageSystemCollectionViewCell: UICollectionViewCell {
         messageSystem = message
         
         switch message.category {
-        case .contactJoinedGroup, .contactLeftGroup, .contactWasDeleted, .contactRevokedByIdentityProvider:
+        case .contactJoinedGroup, .contactLeftGroup, .contactWasDeleted, .contactRevokedByIdentityProvider, .notPartOfTheGroupAnymore, .rejoinedGroup, .contactIsOneToOneAgain:
             self.label.text = message.textBody?.localizedUppercase
         case .discussionIsEndToEndEncrypted:
             self.label.text = message.textBody
@@ -300,19 +294,14 @@ extension MessageSystemCollectionViewCell: CellWithMessage {
 
     var viewForTargetedPreview: UIView { self.roundedView }
     
-    var isCopyActionAvailable: Bool { false }
-    var textViewToCopy: UITextView? { nil }
     var textToCopy: String? { nil }
-    var isSharingActionAvailable: Bool { false }
     var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { nil }
     var imageAttachments: [FyleMessageJoinWithStatus]? { nil }
     var itemProvidersForImages: [UIActivityItemProvider]? { nil }
     var itemProvidersForAllAttachments: [UIActivityItemProvider]? { nil }
-    var isReplyToActionAvailable: Bool { false }
 
-    var isInfoActionAvailable: Bool { ObvMessengerConstants.developmentMode && self.messageSystemCategory == .callLogItem }
     var infoViewController: UIViewController? {
-        guard isInfoActionAvailable else { return nil }
+        guard messageSystem?.infoActionCanBeMadeAvailable == true else { return nil }
         if let item = messageSystem?.optionalCallLogItem {
             print("item.callReportKind = \(item.callReportKind.debugDescription)")
             print("item.unknownContactsCount = \(item.unknownContactsCount)")
@@ -329,33 +318,5 @@ extension MessageSystemCollectionViewCell: CellWithMessage {
 
         return nil
     }
-
-    var isDeleteActionAvailable: Bool {
-        switch self.messageSystemCategory {
-            
-        case .contactJoinedGroup,
-                .contactLeftGroup,
-                .contactWasDeleted,
-                .callLogItem,
-                .updatedDiscussionSharedSettings,
-                .contactRevokedByIdentityProvider,
-                .discussionWasRemotelyWiped:
-            return true
-        case .numberOfNewMessages,
-                .discussionIsEndToEndEncrypted,
-                .none:
-            return false
-        }
-    }
-
-    var isEditBodyActionAvailable: Bool { false }
-
-    var isCallActionAvailable: Bool {
-        guard self.messageSystemCategory == .callLogItem else { return false }
-        guard let discussion = messageSystem?.discussion else { return false }
-        return discussion.isCallAvailable
-    }
-
-    var isDeleteOwnReactionActionAvailable: Bool { false }
 
 }

@@ -149,6 +149,10 @@ extension ObvNetworkSendManagerImplementation {
         return delegateManager.networkSendFlowDelegate.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: backgroundURLSessionIdentifier)
     }
 
+    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+        return try await delegateManager.networkSendFlowDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
+    }
+
     public func replayTransactionsHistory(transactions: [NSPersistentHistoryTransaction], within obvContext: ObvContext) {
         bootstrapWorker.replayTransactionsHistory(transactions: transactions, within: obvContext)
     }
@@ -157,7 +161,4 @@ extension ObvNetworkSendManagerImplementation {
         bootstrapWorker.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: messageIdentifiers, flowId: flowId)
     }
     
-    public func requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) throws {
-        try delegateManager.networkSendFlowDelegate.requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier: messageIdentifier, flowId: flowId)
-    }
 }

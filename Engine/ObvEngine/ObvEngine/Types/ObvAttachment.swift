@@ -78,14 +78,14 @@ public struct ObvAttachment: Hashable {
 
 
     init(attachmentId: AttachmentIdentifier, networkFetchDelegate: ObvNetworkFetchDelegate, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws {
-        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, flowId: obvContext.flowId) else {
+        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
             throw Self.makeError(message: "Coult not get attachment")
         }
         try self.init(networkReceivedAttachment: networkReceivedAttachment, identityDelegate: identityDelegate, within: obvContext)
     }
     
-    init(attachmentId: AttachmentIdentifier, fromContactIdentity: ObvContactIdentity, networkFetchDelegate: ObvNetworkFetchDelegate, flowId: FlowIdentifier) throws {
-        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, flowId: flowId) else {
+    init(attachmentId: AttachmentIdentifier, fromContactIdentity: ObvContactIdentity, networkFetchDelegate: ObvNetworkFetchDelegate, within obvContext: ObvContext) throws {
+        guard let networkReceivedAttachment = networkFetchDelegate.getAttachment(withId: attachmentId, within: obvContext) else {
             throw Self.makeError(message: "Coult not get attachment")
         }
         self.fromContactIdentity = fromContactIdentity

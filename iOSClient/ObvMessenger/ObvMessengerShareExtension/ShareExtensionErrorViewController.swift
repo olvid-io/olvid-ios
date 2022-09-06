@@ -48,9 +48,7 @@ final class ShareExtensionErrorViewController: UIViewController {
         label.font = UIFont.preferredFont(forTextStyle: .headline)
         label.numberOfLines = 0
         label.textAlignment = .center
-        if #available(iOS 13, *) {
-            label.textColor = .label
-        }
+        label.textColor = .label
 
         view.addSubview(okButton)
         okButton.translatesAutoresizingMaskIntoConstraints = false

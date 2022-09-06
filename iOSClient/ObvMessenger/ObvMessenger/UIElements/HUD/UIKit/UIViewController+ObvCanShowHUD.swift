@@ -30,11 +30,7 @@ extension UIViewController: ObvCanShowHUD {
         let hudView: ObvHUDView
         switch type {
         case .checkmark:
-            if #available(iOS 13, *) {
-                hudView = ObvCheckmarkHUD()
-            } else {
-                hudView = ObvLoadingHUD()
-            }
+            hudView = ObvCheckmarkHUD()
         case .spinner:
             hudView = ObvLoadingHUD()
         case .progress(progress: let progress):

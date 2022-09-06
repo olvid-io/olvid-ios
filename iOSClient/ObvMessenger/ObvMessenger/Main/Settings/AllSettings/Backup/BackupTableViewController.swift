@@ -547,12 +547,7 @@ extension BackupTableViewController {
         guard let cell = cell else { return }
         cell.isUserInteractionEnabled = false
         cell.textLabel?.isEnabled = false
-        let spinner: UIActivityIndicatorView
-        if #available(iOS 13, *) {
-            spinner = UIActivityIndicatorView(style: .medium)
-        } else {
-            spinner = UIActivityIndicatorView(style: .gray)
-        }
+        let spinner = UIActivityIndicatorView(style: .medium)
         cell.accessoryView = spinner
         spinner.startAnimating()
     }

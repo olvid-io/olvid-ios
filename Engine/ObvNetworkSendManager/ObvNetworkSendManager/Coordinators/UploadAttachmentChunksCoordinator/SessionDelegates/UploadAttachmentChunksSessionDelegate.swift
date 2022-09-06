@@ -83,7 +83,7 @@ final class UploadAttachmentChunksSessionDelegate: NSObject {
 protocol AttachmentChunkUploadProgressTracker: AnyObject {
     func uploadAttachmentChunksSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: UploadAttachmentChunksSessionDelegate.ErrorForTracker?)
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String)
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunksProgresses: [(chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64)], flowId: FlowIdentifier)
+    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier)
     func attachmentChunksAreAcknowledged(attachmentId: AttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier)
 }
 
@@ -157,7 +157,7 @@ extension UploadAttachmentChunksSessionDelegate: URLSessionTaskDelegate {
         let attachmentId = self.attachmentId
         let flowId = self.flowId
         queueSynchronizingCallsToTracker.async {
-            tracker?.attachmentChunkDidProgress(attachmentId: attachmentId, chunksProgresses: [chunkProgress], flowId: flowId)
+            tracker?.attachmentChunkDidProgress(attachmentId: attachmentId, chunkProgress: chunkProgress, flowId: flowId)
         }
     }
 
@@ -219,7 +219,7 @@ extension UploadAttachmentChunksSessionDelegate: URLSessionTaskDelegate {
         queueSynchronizingCallsToTracker.async {
             obvContext.performAndWait {
                 
-                guard let attachment = OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
+                guard let attachment = try? OutboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                     os_log("Could not retrieve attachment %{public}@ in DB", log: log, type: .fault, attachmentId.debugDescription)
                     self.errorForTracker = .cannotFindAttachmentInDatabase
                     return

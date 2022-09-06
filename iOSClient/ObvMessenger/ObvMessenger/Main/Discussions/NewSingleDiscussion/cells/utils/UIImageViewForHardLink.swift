@@ -24,7 +24,7 @@ import MobileCoreServices
 
 
 @available(iOS 14.0, *)
-final class UIImageViewForHardLink: UIImageView {
+final class UIImageViewForHardLink: UIImageView, UIViewWithTappableStuff {
     
     private(set) var hardlink: HardLinkToFyle?
     
@@ -70,20 +70,8 @@ final class UIImageViewForHardLink: UIImageView {
             setImageAndHardlink(newImage: image, newHardlink: newHardlink, contentMode: .center)
         } else {
             let configuration = UIImage.SymbolConfiguration(pointSize: 20)
-            let image: UIImage
-            if let utType = UTType(uti) {
-                if utType.conforms(to: .image) {
-                    image = UIImage(systemIcon: .photoOnRectangleAngled, withConfiguration: configuration)!
-                } else if utType.conforms(to: .pdf) {
-                    image = UIImage(systemIcon: .docRichtext, withConfiguration: configuration)!
-                } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeAudio) {
-                    image = UIImage(systemIcon: .musicNote, withConfiguration: configuration)!
-                } else {
-                    image = UIImage(systemIcon: .paperclip, withConfiguration: configuration)!
-                }
-            } else {
-                image = UIImage(systemIcon: .paperclip, withConfiguration: configuration)!
-            }
+            let icon = ObvUTIUtils.getIcon(forUTI: uti)
+            let image = UIImage(systemIcon: icon, withConfiguration: configuration)!
             imageForUTI[uti] = image
             setImageAndHardlink(newImage: image, newHardlink: newHardlink, contentMode: .center)
         }
@@ -98,12 +86,20 @@ final class UIImageViewForHardLink: UIImageView {
         super.image = newImage
         self.contentMode = contentMode
     }
+    
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard acceptTapOutsideBounds || self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard !self.isHidden else { return nil }
+        guard let hardlink = self.hardlink else { assertionFailure(); return nil }
+        return .hardlink(hardLink: hardlink)
+    }
 }
 
 
 
 @available(iOS 14.0, *)
-final class UIImageViewForHardLinkForOlvidStack: ViewForOlvidStack {
+final class UIImageViewForHardLinkForOlvidStack: ViewForOlvidStack, UIViewWithTappableStuff {
  
     var hardlink: HardLinkToFyle? {
         imageViewForHardLink.hardlink
@@ -145,4 +141,12 @@ final class UIImageViewForHardLinkForOlvidStack: ViewForOlvidStack {
         ])
         
     }
+    
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard acceptTapOutsideBounds || self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard let hardlink = self.hardlink else { assertionFailure(); return nil }
+        return .hardlink(hardLink: hardlink)
+    }
+
 }

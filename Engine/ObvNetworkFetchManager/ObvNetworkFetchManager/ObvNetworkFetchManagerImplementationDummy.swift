@@ -129,16 +129,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         throw Self.makeError(message: "set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation")
     }
     
-    public func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) throws {
-        os_log("pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
-        throw Self.makeError(message: "pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) does nothing in this dummy implementation")
-    }
-    
-    public func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) {
-        os_log("requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
-    }
-    
-    public func getAttachment(withId: AttachmentIdentifier, flowId: FlowIdentifier) -> ObvNetworkFetchReceivedAttachment? {
+    public func getAttachment(withId attachmentId: AttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment? {
         os_log("getAttachment(withId: AttachmentIdentifier) does nothing in this dummy implementation", log: log, type: .error)
         return nil
     }
@@ -166,6 +157,15 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     
     public func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         os_log("resumeDownloadOfAttachment does nothing in this dummy implementation", log: log, type: .error)
+    }
+    
+    public func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+        os_log("pauseDownloadOfAttachment does nothing in this dummy implementation", log: log, type: .error)
+    }
+    
+    public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+        os_log("requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
     }
     
     public func register(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext) {

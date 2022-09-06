@@ -66,11 +66,16 @@ final class UILabelForOlvidStack: ViewForOlvidStack {
         fatalError("init(coder:) has not been implemented")
     }
 
+    var adjustsFontForContentSizeCategory: Bool {
+        get { label.adjustsFontForContentSizeCategory }
+        set { label.adjustsFontForContentSizeCategory = newValue }
+    }
     
     func setupInternalViews() {
         
         addSubview(label)
         label.translatesAutoresizingMaskIntoConstraints = false
+        label.adjustsFontForContentSizeCategory = true
         
         NSLayoutConstraint.activate([
             label.topAnchor.constraint(equalTo: topAnchor),

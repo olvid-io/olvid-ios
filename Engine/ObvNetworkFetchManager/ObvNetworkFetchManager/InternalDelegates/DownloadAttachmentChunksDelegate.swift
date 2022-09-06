@@ -29,8 +29,9 @@ protocol DownloadAttachmentChunksDelegate {
     func resumeMissingAttachmentDownloads(flowId: FlowIdentifier)
     func resumeAttachmentDownloadIfResumeIsRequested(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
     func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float]
     func processCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier)
     func cleanExistingOutboxAttachmentSessions(flowId: FlowIdentifier)
-    func requestProgressOfAttachment(withIdentifier attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) -> Progress?
 
 }

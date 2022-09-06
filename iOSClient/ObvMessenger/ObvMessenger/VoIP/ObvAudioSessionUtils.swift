@@ -168,7 +168,7 @@ final class ObvAudioSessionUtils {
 }
 
 
-fileprivate extension AVAudioSessionPortDescription {
+extension AVAudioSessionPortDescription {
     var isSpeaker: Bool {
         return portType == AVAudioSession.Port.builtInSpeaker
     }

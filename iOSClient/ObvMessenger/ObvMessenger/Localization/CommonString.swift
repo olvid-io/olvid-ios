@@ -58,6 +58,7 @@ struct CommonString {
         static let Discard = NSLocalizedString("Discard", comment: "Discard word, capitalized")
         static let Discussion = NSLocalizedString("Discussion", comment: "Discussion word, capitalized")
         static let Discussions = NSLocalizedString("Discussions", comment: "Discussions word, capitalized")
+        static let Documents = NSLocalizedString("Documents", comment: "Documents word, capitalized")
         static let Downloads = NSLocalizedString("Downloads", comment: "Downloads word, capitalized")
         static let Edit = NSLocalizedString("Edit", comment: "Edit word, capitalized")
         static let Edited = NSLocalizedString("Edited", comment: "Edited word, capitalized")
@@ -66,6 +67,8 @@ struct CommonString {
         static let Exclude = NSLocalizedString("Exclude", comment: "Exclude word, capitalized")
         static let Expiration = NSLocalizedString("Expiration", comment: "Expiration word, capitalized")
         static let Expired = NSLocalizedString("Expired", comment: "Expired word, capitalized")
+        static let Forward = NSLocalizedString("Forward", comment: "Forward word, capitalized")
+        static let Forwarded = NSLocalizedString("Forwarded", comment: "Forward word, capitalized")
         static let Gallery = NSLocalizedString("Gallery", comment: "Gallery word, capitalized")
         static let Groups = NSLocalizedString("Groups", comment: "Groups word, capitalized")
         static let Identity = NSLocalizedString("Identity", comment: "Identity word, capitalized")
@@ -76,6 +79,7 @@ struct CommonString {
         static let Invite = NSLocalizedString("Invite", comment: "Invite word, capitalized")
         static let Later = NSLocalizedString("Later", comment: "Later word, capitalized")
         static let Loading = NSLocalizedString("Loading", comment: "Loading word, capitalized")
+        static let Medias = NSLocalizedString("Medias", comment: "Medias word, capitalized")
         static let Metadata = NSLocalizedString("Metadata", comment: "Metadata word, capitalized")
         static let Mute = NSLocalizedString("Mute", comment: "Metadata word, capitalized")
         static let Never = NSLocalizedString("Never", comment: "Never word, capitalized")
@@ -152,6 +156,8 @@ struct CommonString {
         static let contactsSortOrder = NSLocalizedString("CONTACTS_SORT_ORDER", comment: "Title")
         static let sendMessage = NSLocalizedString("SEND_MESSAGE", comment: "Title")
         static let markAsRead = NSLocalizedString("MARK_AS_READ", comment: "Title")
+        static let noNotificationSounds = NSLocalizedString("NO_SOUNDS", comment: "Title")
+        static let systemSound = NSLocalizedString("SYSTEM_SOUND", comment: "Title")
     }
     
     static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")

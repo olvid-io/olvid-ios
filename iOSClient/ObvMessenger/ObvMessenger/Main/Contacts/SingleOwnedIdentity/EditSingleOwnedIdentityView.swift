@@ -105,7 +105,8 @@ struct EditSingleOwnedIdentityView: View {
                     ObvCardView(padding: 0) {
                         VStack(spacing: 0) {
                             HStack {
-                                IdentityCardContentView(model: singleIdentity)
+                                IdentityCardContentView(model: singleIdentity,
+                                                        editionMode: singleIdentity.editPictureMode)
                                     .padding(.horizontal, typicalPadding(for: geometry))
                                     .padding(.top, typicalPadding(for: geometry))
                                     .padding(.bottom, typicalPadding(for: geometry))

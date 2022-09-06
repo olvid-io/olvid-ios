@@ -80,6 +80,7 @@ final class ShareViewController: UIViewController, ShareViewHostingControllerDel
                 vc.delegate = self
                 vc.reason = .shouldLaunchTheApp
                 displayContentController(content: vc)
+                return
             }
         }
 

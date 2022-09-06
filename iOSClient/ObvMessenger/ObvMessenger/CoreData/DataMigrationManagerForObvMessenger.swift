@@ -72,9 +72,13 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case version42 = "ObvMessengerModel-v42"
         case version43 = "ObvMessengerModel-v43"
         case version44 = "ObvMessengerModel-v44"
+        case version45 = "ObvMessengerModel-v45"
+        case version46 = "ObvMessengerModel-v46"
+        case version47 = "ObvMessengerModel-v47"
+        case version48 = "ObvMessengerModel-v48"
 
         static var latest: ObvMessengerModelVersion {
-            return .version44
+            return .version48
         }
 
         var identifier: String {
@@ -155,7 +159,11 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case .version41: migrationType = .lightweight; destinationVersion = .version42
         case .version42: migrationType = .heavyweight; destinationVersion = .version43
         case .version43: migrationType = .heavyweight; destinationVersion = .version44
-        case .version44: migrationType = .heavyweight; destinationVersion = .version44
+        case .version44: migrationType = .heavyweight; destinationVersion = .version45
+        case .version45: migrationType = .lightweight; destinationVersion = .version46
+        case .version46: migrationType = .lightweight; destinationVersion = .version47
+        case .version47: migrationType = .lightweight; destinationVersion = .version48
+        case .version48: migrationType = .heavyweight; destinationVersion = .version48
         }
 
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

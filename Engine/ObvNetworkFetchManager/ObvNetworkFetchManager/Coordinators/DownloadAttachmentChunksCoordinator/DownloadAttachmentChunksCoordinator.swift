@@ -64,8 +64,10 @@ final class DownloadAttachmentChunksCoordinator {
 
     // Dealing with attachment upload progress
     
-    private var _attachmentsProgresses = [AttachmentIdentifier: AttachmentProgress]()
-    private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", qos: .userInitiated)
+    // Maps an attachment identifier to its (exact) completed unit count
+    typealias ChunkProgress = (totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)
+    private var _chunksProgressesForAttachment = [AttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
+    private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", attributes: .concurrent)
     
     private var _currentURLSessions = [WeakRef<URLSession>]()
     private func cleanCurrentURLSessions() {
@@ -330,37 +332,23 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
     }
     
     
-    func requestProgressOfAttachment(withIdentifier attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) -> Progress? {
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float] {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return nil
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return nil
-        }
-
-        
-        var attachmentProgress: Progress?
-        
-        queueForAttachmentsProgresses.sync {
-            if let _progress = _attachmentsProgresses[attachmentId] {
-                attachmentProgress = _progress
-            } else {
-                guard let _progress = createAttachmentProgress(attachmentId: attachmentId, contextCreator: contextCreator, flowId: flowId) else { return }
-                attachmentProgress = _progress
-                _attachmentsProgresses[attachmentId] = _progress
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[AttachmentIdentifier: Float], Never>) in
+            queueForAttachmentsProgresses.async { [weak self] in
+                guard let _self = self else { continuation.resume(returning: [:]); return }
+                var progressesToReturn = [AttachmentIdentifier: Float]()
+                let appropriateChunksProgressesForAttachment = _self._chunksProgressesForAttachment.filter({ $0.value.dateOfLastUpdate > date })
+                for (attachmentId, value) in appropriateChunksProgressesForAttachment {
+                    let totalBytesWritten = value.chunkProgresses.map({ $0.totalBytesWritten }).reduce(0, +)
+                    let totalBytesExpectedToWrite = value.chunkProgresses.map({ $0.totalBytesExpectedToWrite }).reduce(0, +)
+                    let progress = Float(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+                    progressesToReturn[attachmentId] = progress
+                }
+                continuation.resume(returning: progressesToReturn)
             }
         }
-        
-        return attachmentProgress
+                
     }
     
     
@@ -485,7 +473,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
                 do {
                     guard let _attachmentToResume = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
                     guard !_attachmentToResume.isDownloaded else { return }
-                    guard _attachmentToResume.session == nil else { assertionFailure(); return }
+                    guard _attachmentToResume.session == nil else { return }
                     guard _attachmentToResume.status == .resumeRequested else { return }
                     attachmentToResume = _attachmentToResume
                 } catch {
@@ -581,7 +569,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             return
         }
         
-        // If we reach this point, some error occured while uploading the attachment's chunks.
+        // If we reach this point, some error occured while downloading the attachment's chunks.
         
         switch error {
         case .couldNotRecoverAttachmentIdFromTask,
@@ -613,20 +601,18 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         }
     }
     
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunksProgresses: [(chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)], flowId: FlowIdentifier) {
+    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier) {
         
-        queueForAttachmentsProgresses.async { [weak self] in
+        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
+            guard let _self = self else { return }
             
-            // Since we always create progresses for resuming an upload, we expect to have a progress at this point.
-            // Yet, we might have to create a progress, in case, e.g., the app crashes then is restarted. In that case, the upload might resume without the need for the app to request a resume.
-            let attachmentProgress: AttachmentProgress
-            if let _attachmentProgress = self?._attachmentsProgresses[attachmentId] {
+            if var (chunksProgresses, _) = _self._chunksProgressesForAttachment[attachmentId] {
                 
-                attachmentProgress = _attachmentProgress
+                guard chunkProgress.chunkNumber < chunksProgresses.count else { assertionFailure(); return }
+                chunksProgresses[chunkProgress.chunkNumber] = (chunkProgress.totalBytesWritten, chunkProgress.totalBytesExpectedToWrite)
+                _self._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
                 
             } else {
-                
-                guard let _self = self else { return }
                 
                 guard let delegateManager = _self.delegateManager else {
                     let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: _self.logCategory)
@@ -634,134 +620,68 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
                     assertionFailure()
                     return
                 }
-                
+
                 let log = OSLog(subsystem: delegateManager.logSubsystem, category: _self.logCategory)
-                
+
                 guard let contextCreator = delegateManager.contextCreator else {
                     os_log("The context creator manager is not set", log: log, type: .fault)
                     assertionFailure()
                     return
                 }
 
-                guard let _progress = _self.createAttachmentProgress(attachmentId: attachmentId, contextCreator: contextCreator, flowId: flowId) else { return }
-                attachmentProgress = _progress
-                _self._attachmentsProgresses[attachmentId] = _progress
-            }
-            
-            for chunkProgress in chunksProgresses {
-                attachmentProgress.set(totalBytesWritten: chunkProgress.totalBytesWritten, forChunkNumber: chunkProgress.chunkNumber)
-            }
-            
-        }
-                
-    }
-    
-    /// This method is called by the delegate of the session managing the chunks download tasks. It is called as soon as an encrypted chunk was downloaded, decrypted then written to the appropriate location in the attachment file.
-    func attachmentChunksWereDecryptedAndWrittenToAttachmentFile(attachmentId: AttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier) {
-
-        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
-
-        queueForAttachmentsProgresses.async { [weak self] in
-            
-            // Since we always create progresses for resumin an upload, we expect to have a progress at this point
-            guard let attachmentProgress = self?._attachmentsProgresses[attachmentId] else { assertionFailure(); return }
-
-            for chunkNumber in chunkNumbers {
-                attachmentProgress.acknowledgeChunk(number: chunkNumber)
-            }
-            
-        }
-
-    }
-
-    private func createAttachmentProgress(attachmentId: AttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> AttachmentProgress? {
-        /// Must be executed on queueForAttachmentsProgresses
-        var attachmentProgress: AttachmentProgress?
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let attachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
-            let currentChunkProgresses = attachment.currentChunkProgresses
-            attachmentProgress = AttachmentProgress(currentChunkProgresses: currentChunkProgresses)
-            attachmentProgress?.isPausable = true
-            attachmentProgress?.isCancellable = true
-            attachmentProgress?.pausingHandler = { [weak self] in
-                assert(!Thread.isMainThread)
-                guard !attachmentProgress!.isCancelled else { return }
-                self?.progressWasPausedForAttachment(attachmentId: attachmentId, attachmentProgress: attachmentProgress!, flowId: flowId)
-            }
-            attachmentProgress?.resumingHandler = { [weak self] in
-                assert(!Thread.isMainThread)
-                guard !attachmentProgress!.isCancelled else { return }
-                self?.progressWasResumedForAttachment(attachmentId: attachmentId, attachmentProgress: attachmentProgress!, flowId: flowId)
-            }
-            switch attachment.status {
-            case .paused:
-                attachmentProgress?.pause()
-            case .resumeRequested:
-                attachmentProgress?.resume()
-            case .downloaded:
-                attachmentProgress?.completedUnitCount = attachmentProgress!.totalUnitCount
-            case .cancelledByServer,
-                 .markedForDeletion:
-                attachmentProgress?.cancel()
-            }
-        }
-        return attachmentProgress
-    }
-
-    
-    private func progressWasPausedForAttachment(attachmentId: AttachmentIdentifier, attachmentProgress: AttachmentProgress, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        os_log("Progress was paused for attachment %{public}@. Current fractionCompleted: %{public}f", log: log, type: .info, attachmentId.debugDescription, attachmentProgress.fractionCompleted)
-
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-                
-        localQueue.async { [weak self] in
-            
-            // We prevent any interference with previous operations
-            self?.internalOperationQueue.addBarrierBlock({})
-
-            let op = MarkInboxAttachmentAsPausedOrResumedOperation(attachmentId: attachmentId, targetStatus: .paused, logSubsystem: delegateManager.logSubsystem, flowId: flowId, contextCreator: contextCreator, delegate: self)
-            self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-            guard !op.isCancelled else {
-                guard let reasonForCancel = op.reasonForCancel else {
-                    assertionFailure()
-                    attachmentProgress.cancel()
+                guard let chunksProgresses = _self.createChunksProgressesForAttachment(attachmentId: attachmentId,
+                                                                                       contextCreator: contextCreator,
+                                                                                       flowId: flowId)
+                else {
                     return
                 }
-                switch reasonForCancel {
-                case .attachmentWasAlreadyMarkedWithTargetStatus:
-                    break
-                case .contextCreatorIsNotSet, .couldNotResumeOrPauseDownload, .coreDataError:
-                    attachmentProgress.resume()
-                case .cannotFindInboxAttachmentInDatabase, .attachmentIsMarkedForDeletion:
-                    attachmentProgress.cancel()
-                }
-                return
+                _self._chunksProgressesForAttachment[attachmentId] = chunksProgresses
+
             }
-                        
+
+        }
+                
+    }
+    
+    
+    /// This method is called by the delegate of the session managing a chunk download task. It is called as soon as an encrypted chunk was downloaded, decrypted then written to the appropriate location in the attachment file.
+    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: AttachmentIdentifier, chunkNumber: Int, flowId: FlowIdentifier) {
+        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+
+        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
+            
+            guard var (chunksProgresses, _) = self?._chunksProgressesForAttachment[attachmentId] else { return }
+            guard chunkNumber < chunksProgresses.count else { assertionFailure(); return }
+            let totalBytesExpectedToWrite = chunksProgresses[chunkNumber].totalBytesExpectedToWrite
+            chunksProgresses[chunkNumber] = (totalBytesExpectedToWrite, totalBytesExpectedToWrite)
+            self?._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
+
         }
 
     }
     
     
-    /// This is method is one of the two ways to resume the download of an attachment. It is typically used when automatically downloading an attachment.
-    /// The other way is to request a progress and resuming the progress.
+    /// When an attachment is downloaded, we remove the progresses we stored in memory for its chunks
+    func attachmentDownloadIsComplete(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
+            self?._chunksProgressesForAttachment.removeValue(forKey: attachmentId)
+        }
+    }
+
+
+    private func createChunksProgressesForAttachment(attachmentId: AttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> ([ChunkProgress], Date)? {
+        /// Must be executed on queueForAttachmentsProgresses
+        var chunksProgressess: ([ChunkProgress], Date)?
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            guard let attachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+            chunksProgressess = (attachment.currentChunkProgresses, Date())
+        }
+        return chunksProgressess
+    }
+
+    
     func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
-        
+
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
@@ -771,34 +691,12 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         
-        os_log("Download was resumed for attachment %{public}@.", log: log, type: .info, attachmentId.debugDescription)
-
-        if let progress = requestProgressOfAttachment(withIdentifier: attachmentId, flowId: flowId) {
-            progress.resume()
-        }
-
-    }
-
-    
-    private func progressWasResumedForAttachment(attachmentId: AttachmentIdentifier, attachmentProgress: AttachmentProgress, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        os_log("Progress was resumed for attachment %{public}@. Current fractionCompleted: %{public}f", log: log, type: .info, attachmentId.debugDescription, attachmentProgress.fractionCompleted)
-
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator manager is not set", log: log, type: .fault)
             assertionFailure()
             return
         }
-                
+
         localQueue.async { [weak self] in
             
             // We prevent any interference with previous operations
@@ -807,27 +705,69 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             let op = MarkInboxAttachmentAsPausedOrResumedOperation(attachmentId: attachmentId, targetStatus: .resumed, logSubsystem: delegateManager.logSubsystem, flowId: flowId, contextCreator: contextCreator, delegate: self)
             self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
-            guard !op.isCancelled else {
+            if op.isCancelled {
                 guard let reasonForCancel = op.reasonForCancel else {
                     assertionFailure()
-                    attachmentProgress.cancel()
                     return
                 }
                 switch reasonForCancel {
-                case .attachmentWasAlreadyMarkedWithTargetStatus:
-                    break
                 case .contextCreatorIsNotSet, .couldNotResumeOrPauseDownload, .coreDataError:
-                    attachmentProgress.pause()
+                    assertionFailure()
+                    return
                 case .cannotFindInboxAttachmentInDatabase, .attachmentIsMarkedForDeletion:
-                    attachmentProgress.cancel()
+                    return
                 }
-                return
             }
-                        
+            
         }
         
     }
+
     
+    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+        
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        localQueue.async { [weak self] in
+            
+            // We prevent any interference with previous operations
+            self?.internalOperationQueue.addBarrierBlock({})
+
+            let op = MarkInboxAttachmentAsPausedOrResumedOperation(attachmentId: attachmentId, targetStatus: .paused, logSubsystem: delegateManager.logSubsystem, flowId: flowId, contextCreator: contextCreator, delegate: self)
+            self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)
+            op.logReasonIfCancelled(log: log)
+            if op.isCancelled {
+                guard let reasonForCancel = op.reasonForCancel else {
+                    assertionFailure()
+                    return
+                }
+                switch reasonForCancel {
+                case .contextCreatorIsNotSet, .couldNotResumeOrPauseDownload, .coreDataError:
+                    assertionFailure()
+                    return
+                case .cannotFindInboxAttachmentInDatabase, .attachmentIsMarkedForDeletion:
+                    assertionFailure()
+                    return
+                }
+            }
+            
+        }
+        
+    }
+
 }
 
 // MARK: - Implementing MarkInboxAttachmentAsPausedOrResumedOperationDelegate
@@ -837,7 +777,6 @@ extension DownloadAttachmentChunksCoordinator: MarkInboxAttachmentAsPausedOrResu
     func inboxAttachmentWasJustMarkedAsPausedOrResumed(attachmentId: AttachmentIdentifier, pausedOrResumed: MarkInboxAttachmentAsPausedOrResumedOperation.PausedOrResumed, flowId: FlowIdentifier) {
         
         // If we reach this point, the attachment was just marked as "resumed" or as "paused".
-        // We can now try to resume or pause the tasks of an existing session, or creation a new session.
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -853,6 +792,25 @@ extension DownloadAttachmentChunksCoordinator: MarkInboxAttachmentAsPausedOrResu
             assertionFailure()
             return
         }
+        
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        // We first notify
+        
+        switch pausedOrResumed {
+        case .paused:
+            ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
+        case .resumed:
+            ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasResumed(attachmentId: attachmentId, flowId: flowId)
+                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
+        }
+
+        // We can now try to resume or pause the tasks of an existing session, or creation a new session.
 
         localQueue.async { [weak self] in
 
@@ -1121,44 +1079,6 @@ extension DownloadAttachmentChunksCoordinator {
 
         return operations
         
-    }
-    
-}
-
-
-// MARK: - Creating a Progress subclass for attachments composed of many chunks
-
-final class AttachmentProgress: Progress {
-    
-    private let chunkTotalUnitCount: [Int64]
-    private var chunkCompletedUnitCount: [Int64]
-    
-    init(currentChunkProgresses: [(completedUnitCount: Int64, totalUnitCount: Int64)]) {
-        self.chunkTotalUnitCount = currentChunkProgresses.map { $0.totalUnitCount }
-        self.chunkCompletedUnitCount = currentChunkProgresses.map { $0.completedUnitCount }
-        super.init(parent: nil, userInfo: nil)
-        self.totalUnitCount = chunkTotalUnitCount.reduce(0, +)
-        self.completedUnitCount = chunkCompletedUnitCount.reduce(0, +)
-    }
-
-    fileprivate func set(totalBytesWritten: Int64, forChunkNumber number: Int) {
-        guard chunkIsNotAcknowledged(chunkNumber: number) else { return }
-        let difference = totalBytesWritten - chunkCompletedUnitCount[number]
-        chunkCompletedUnitCount[number] = totalBytesWritten
-        assert(difference >= 0)
-        self.completedUnitCount += difference
-    }
-    
-    fileprivate func acknowledgeChunk(number: Int) {
-        guard chunkIsNotAcknowledged(chunkNumber: number) else { return }
-        let difference = chunkTotalUnitCount[number] - chunkCompletedUnitCount[number]
-        chunkCompletedUnitCount[number] = chunkTotalUnitCount[number]
-        assert(difference >= 0)
-        self.completedUnitCount += difference
-    }
-    
-    private func chunkIsNotAcknowledged(chunkNumber: Int) -> Bool {
-        chunkCompletedUnitCount[chunkNumber] != chunkTotalUnitCount[chunkNumber]
     }
     
 }

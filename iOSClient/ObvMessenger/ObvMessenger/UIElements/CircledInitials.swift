@@ -147,9 +147,7 @@ extension CircledInitials {
     
     func showImage(fromImage _image: UIImage?) {
         guard let image = _image else { return }
-        if #available(iOS 13, *) {
-            imageView.contentMode = .scaleAspectFit
-        }
+        imageView.contentMode = .scaleAspectFit
         imageView.image = image
         hideEverythinExcept(elementShown: .image)
     }

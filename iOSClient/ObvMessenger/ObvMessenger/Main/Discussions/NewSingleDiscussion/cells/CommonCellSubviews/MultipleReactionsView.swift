@@ -48,15 +48,15 @@ struct ReactionAndCount: Equatable, Hashable, Comparable, Identifiable {
 }
 
 
-final class MultipleReactionsView: UIView {
+final class MultipleReactionsView: UIView, UIViewWithTappableStuff {
     
     
     func setReactions(to reactions: [ReactionAndCount],
-                      messageID: TypeSafeManagedObjectID<PersistedMessage>?) {
+                      messageObjectID: TypeSafeManagedObjectID<PersistedMessage>?) {
         assert(!reactions.isEmpty)
         guard currentReactions != reactions else { return }
         currentReactions = reactions
-        self.messageID = messageID
+        self.messageObjectID = messageObjectID
         prepareReactionViews(count: reactions.count)
         for index in 0..<reactions.count {
             let reaction = reactions[index]
@@ -85,7 +85,6 @@ final class MultipleReactionsView: UIView {
     init() {
         super.init(frame: .zero)
         setupInternalViews()
-        setupTapGesture()
     }
     
     
@@ -98,13 +97,11 @@ final class MultipleReactionsView: UIView {
     private let bubble = UIView()
     private let stack = OlvidHorizontalStackView(gap: 8, side: .bothSides, debugName: "Stack of reactions", showInStack: true)
     private var currentReactions = [ReactionAndCount]()
-    private var messageID: TypeSafeManagedObjectID<PersistedMessage>?
+    private var messageObjectID: TypeSafeManagedObjectID<PersistedMessage>?
 
     private var reactionViews: [ReactionView] {
         stack.arrangedSubviews.compactMap({ $0 as? ReactionView })
     }
-
-    weak var delegate: ReactionsDelegate?
 
     private func setupInternalViews() {
         
@@ -146,15 +143,13 @@ final class MultipleReactionsView: UIView {
         self.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
 
     }
-
-    private func setupTapGesture() {
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(reactionViewWasTapped(sender:)))
-        bubble.addGestureRecognizer(tapGesture)
-    }
-
-    @objc private func reactionViewWasTapped(sender: UIGestureRecognizer) {
-        guard let messageID = self.messageID else { return }
-        delegate?.userTappedOnReactionView(messageID: messageID)
+    
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard !self.isHidden else { return nil }
+        guard let messageObjectID = self.messageObjectID else { assertionFailure(); return nil }
+        return .reaction(messageObjectID: messageObjectID)
     }
 
 }

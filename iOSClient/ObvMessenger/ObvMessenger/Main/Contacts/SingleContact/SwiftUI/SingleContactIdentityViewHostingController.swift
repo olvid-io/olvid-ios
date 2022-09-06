@@ -165,12 +165,10 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
                                                     fetchGroups: true)
         let view = EditSingleContactIdentityNicknameNavigationView(singleIdentity: editedSingleContact!, saveAction: {
             self.dismiss(animated: true)
-            let nicknameAndPicture = CustomNicknameAndPicture(
-                customDisplayName: self.editedSingleContact!.customDisplayName,
-                customPhotoURL: self.editedSingleContact!.customPhotoURL)
             ObvMessengerInternalNotification.userWantsToEditContactNicknameAndPicture(
                 persistedContactObjectID: persistedContact.objectID,
-                nicknameAndPicture: nicknameAndPicture).postOnDispatchQueue()
+                customDisplayName: self.editedSingleContact?.customDisplayName,
+                customPhotoURL: self.editedSingleContact?.customPhotoURL).postOnDispatchQueue()
         }, dismissAction: {
             self.editedSingleContact = nil
             self.dismiss(animated: true)

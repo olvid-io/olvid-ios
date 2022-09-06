@@ -73,7 +73,7 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: OperationWith
                         return
                     }
                     self.updatedDiscussionObjectID = contactGroup.discussion.objectID
-                } else if let oneToOneDiscussion = try persistedContact.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = persistedContact.oneToOneDiscussion {
                     // The configuration concerns the one2one discussion we have with the contact
                     let sharedConfiguration = oneToOneDiscussion.sharedConfiguration
                     guard try sharedConfiguration.merge(with: discussionSharedConfiguration, initiator: fromContactIdentity.cryptoId) else {

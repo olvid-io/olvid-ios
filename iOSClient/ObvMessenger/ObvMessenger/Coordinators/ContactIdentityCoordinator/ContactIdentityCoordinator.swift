@@ -61,8 +61,8 @@ final class ContactIdentityCoordinator {
             ObvMessengerInternalNotification.observeUserDidSeeNewDetailsOfContact(queue: internalQueue) { [weak self] (contactCryptoId, ownedCryptoId) in
                 self?.processUserDidSeeNewDetailsOfContactNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observeUserWantsToEditContactNicknameAndPicture(queue: internalQueue) { [weak self] (persistedContactObjectID, nicknameAndPicture) in
-                self?.updateCustomNicknameAndPictureForContact(persistedContactObjectID: persistedContactObjectID, nicknameAndPicture: nicknameAndPicture)
+            ObvMessengerInternalNotification.observeUserWantsToEditContactNicknameAndPicture(queue: internalQueue) { [weak self] (persistedContactObjectID, customDisplayName, customPhotoURL) in
+                self?.updateCustomNicknameAndPictureForContact(persistedContactObjectID: persistedContactObjectID, customDisplayName: customDisplayName, customPhotoURL: customPhotoURL)
             },
             ObvMessengerInternalNotification.observeUserWantsToChangeContactsSortOrder() { [weak self] (ownedCryptoId, sortOrder) in
                 self?.processUserWantToChangeContactsSortOrderNotification(ownedCryptoId: ownedCryptoId, sortOrder: sortOrder)
@@ -221,12 +221,12 @@ extension ContactIdentityCoordinator {
     }
 
     
-    private func updateCustomNicknameAndPictureForContact(persistedContactObjectID: NSManagedObjectID, nicknameAndPicture: CustomNicknameAndPicture) {
+    private func updateCustomNicknameAndPictureForContact(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhotoURL: URL?) {
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             do {
                 guard let writableContact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: context) else { assertionFailure(); return }
-                try writableContact.setCustomDisplayName(to: nicknameAndPicture.customDisplayName)
-                writableContact.setCustomPhotoURL(with: nicknameAndPicture.customPhotoURL)
+                try writableContact.setCustomDisplayName(to: customDisplayName)
+                writableContact.setCustomPhotoURL(with: customPhotoURL)
                 try context.save(logOnFailure: self.log)
             } catch {
                 os_log("Could not remove contact custom display name", log: self.log, type: .error)
@@ -620,7 +620,7 @@ extension ContactIdentityCoordinator {
                     return
                 }
                 
-                discussionObjectID = try? contact.oneToOneDiscussion?.objectID // The discussion is nil if contact is not one2one
+                discussionObjectID = contact.oneToOneDiscussion?.objectID // The discussion is nil if contact is not one2one
                 
                 do {
                     try context.save(logOnFailure: log)

@@ -124,9 +124,7 @@ extension ComposeMessageView {
     
     private func configureViews() {
         
-        if #available(iOS 13, *) {
-            visualEffectView.effect = UIBlurEffect(style: .regular)
-        }
+        visualEffectView.effect = UIBlurEffect(style: .regular)
         
         plusButton.isHidden = true
         plusButton.tintColor = AppTheme.shared.colorScheme.obvYellow
@@ -154,14 +152,10 @@ extension ComposeMessageView {
         sendButton.isHidden = true
         sendButton.isEnabled = false
         sendButton.setTitle(nil, for: .normal)
-        if #available(iOS 13, *) {
-            sendButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-            let configuration = UIImage.SymbolConfiguration(scale: .large)
-            let image = UIImage(systemName: "paperplane.fill", withConfiguration: configuration)
-            sendButton.setImage(image, for: .normal)
-        } else {
-            sendButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-        }
+        sendButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        let configuration = UIImage.SymbolConfiguration(scale: .large)
+        let image = UIImage(systemName: "paperplane.fill", withConfiguration: configuration)
+        sendButton.setImage(image, for: .normal)
         
         replyToStackView.isHidden = true
 

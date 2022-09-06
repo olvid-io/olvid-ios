@@ -21,8 +21,8 @@ import SwiftUI
 
 struct CircledSymbolView: View {
 
-    let systemName: String
-    let radius: CGFloat
+    let systemIcon: ObvSystemIcon
+    var radius: CGFloat = 28
 
     var body: some View {
         ZStack {
@@ -34,7 +34,7 @@ struct CircledSymbolView: View {
             Circle()
                 .foregroundColor(.blue)
                 .frame(width: radius*0.9, height: radius*0.9)
-            Image(systemName: systemName)
+            Image(systemIcon: systemIcon)
                 .foregroundColor(.white)
                 .font(.system(size: 12))
                 .offset(CGSize(width: 0.0, height: -0.5))
@@ -44,20 +44,9 @@ struct CircledSymbolView: View {
 
 
 struct CircledCameraView: View {
-    
-    let radius: CGFloat = 28
-    
-    var body: some View {
-        CircledSymbolView(systemName: "camera.fill", radius: radius)
-    }
-}
-
-struct CircledPencilView: View {
-
-    let radius: CGFloat = 28
 
     var body: some View {
-        CircledSymbolView(systemName: "pencil", radius: radius)
+        CircledSymbolView(systemIcon: .camera(.fill))
     }
 }
 
@@ -68,10 +57,6 @@ struct CircledCameraView_Previews: PreviewProvider {
             CircledCameraView()
                 .background(Color.red)
                 .previewLayout(.sizeThatFits)
-            CircledPencilView()
-                .background(Color.red)
-                .previewLayout(.sizeThatFits)
-
         }
     }
 }

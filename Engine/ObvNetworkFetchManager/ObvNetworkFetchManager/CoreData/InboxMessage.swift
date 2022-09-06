@@ -275,6 +275,7 @@ extension InboxMessage {
             case messagePayloadKey = "messagePayload"
             case rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
             case rawMessageIdUidKey = "rawMessageIdUid"
+            case downloadTimestampFromServer = "downloadTimestampFromServer"
         }
         static func withMessageIdOwnedCryptoId(_ ownedCryptoId: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(Key.rawMessageIdOwnedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
@@ -311,7 +312,16 @@ extension InboxMessage {
         request.predicate = Predicate.isUnprocessed
         return try obvContext.fetch(request)
     }
+
     
+    static func getBatchOfUnprocessedMessages(batchSize: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.isUnprocessed
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.downloadTimestampFromServer.rawValue, ascending: true)]
+        request.fetchLimit = batchSize
+        return try obvContext.fetch(request)
+    }
+
     
     static func get(messageId: MessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()

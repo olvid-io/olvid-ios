@@ -40,7 +40,8 @@ final class PersistedDiscussionLocalConfiguration: NSManagedObject {
     @NSManaged private var rawTimeBasedRetention: NSNumber?
     @NSManaged var rawRetainWipedOutboundMessages: NSNumber?
     @NSManaged private(set) var defaultEmoji: String?
-    @NSManaged fileprivate var muteNotificationsEndDate: Date?
+    @NSManaged private var muteNotificationsEndDate: Date?
+    @NSManaged private var rawNotificationSound: String?
 
     // MARK: - Relationships
 
@@ -123,6 +124,21 @@ final class PersistedDiscussionLocalConfiguration: NSManagedObject {
         }
     }
 
+    var notificationSound: NotificationSound? {
+        get {
+            guard let soundIdentifier = rawNotificationSound else { return nil }
+            return NotificationSound.allCases.first { $0.identifier == soundIdentifier }
+        }
+        set {
+            if let value = newValue {
+                guard value.identifier != rawNotificationSound else { return }
+                rawNotificationSound = value.identifier
+            } else {
+                rawNotificationSound = nil
+            }
+        }
+    }
+
 }
 
 enum PersistedDiscussionLocalConfigurationValue {
@@ -135,6 +151,7 @@ enum PersistedDiscussionLocalConfigurationValue {
     case timeBasedRetention(timeBasedRetention: DurationOptionAltOverride)
     case muteNotificationsDuration(muteNotificationsDuration: MuteDurationOption?)
     case defaultEmoji(emoji: String?)
+    case notificationSound(_: NotificationSound?)
 }
 
 extension PersistedDiscussionLocalConfigurationValue {
@@ -214,6 +231,8 @@ extension PersistedDiscussionLocalConfiguration {
             }
         case .defaultEmoji(emoji: let emoji):
             self.defaultEmoji = emoji
+        case .notificationSound(let notificationSound):
+            self.notificationSound = notificationSound
         }
     }
 

@@ -209,7 +209,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
         return "InboxAttachment(messageId: \(messageId.debugDescription), attachmentNumber: \(attachmentNumber))"
     }
     
-    var currentChunkProgresses: [(completedUnitCount: Int64, totalUnitCount: Int64)] {
+    var currentChunkProgresses: [(totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)] {
         self.chunks.map {
             let completedUnitCount = $0.cleartextChunkWasWrittenToAttachmentFile ? $0.ciphertextChunkLength : 0
             return (Int64(completedUnitCount), Int64($0.ciphertextChunkLength))
@@ -253,7 +253,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
 }
 
 
-// MARK: - Setters and other methods
+// MARK: - Status management
 
 extension InboxAttachment {
 

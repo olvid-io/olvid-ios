@@ -69,7 +69,7 @@ class BigIntTests: XCTestCase {
         for _ in 0..<numberOfConversions {
             var stringValue1 = ""
             for _ in 0..<64 {
-                let r = arc4random()
+                let r = UInt32.random(in: UInt32.min...UInt32.max)
                 stringValue1 += "\(r)"
             }
             let val = try! BigInt(stringValue1)
@@ -82,7 +82,7 @@ class BigIntTests: XCTestCase {
         let numberOfConversions = 10000
         let op = BigInt()
         for _ in 0..<numberOfConversions {
-            let r = UInt(arc4random())
+            let r = UInt.random(in: UInt.min...UInt.max)
             op.set(r)
             XCTAssertEqual(r, try! UInt(op))
         }
@@ -106,8 +106,8 @@ class BigIntTests: XCTestCase {
         let rop = BigInt()
         let numberOfSimpleTests = 10000
         for _ in 0..<numberOfSimpleTests {
-            let r1 = UInt(arc4random())
-            let r2 = UInt(arc4random())
+            let r1 = UInt.random(in: UInt.min...UInt.max)/2
+            let r2 = UInt.random(in: UInt.min...UInt.max)/2
             op1.set(r1)
             op2.set(r2)
             BigInt.add(rop: rop, op1: op1, op2: op2)
@@ -115,8 +115,8 @@ class BigIntTests: XCTestCase {
         }
         // We test that op1 can be both a destination and source
         for _ in 0..<numberOfSimpleTests {
-            let r1 = UInt(arc4random())
-            let r2 = UInt(arc4random())
+            let r1 = UInt.random(in: UInt.min...UInt.max)/2
+            let r2 = UInt.random(in: UInt.min...UInt.max)/2
             op1.set(r1)
             op2.set(r2)
             BigInt.add(rop: op1, op1: op1, op2: op2)
@@ -124,8 +124,8 @@ class BigIntTests: XCTestCase {
         }
         // We test that op2 can be both a destination and source
         for _ in 0..<numberOfSimpleTests {
-            let r1 = UInt(arc4random())
-            let r2 = UInt(arc4random())
+            let r1 = UInt.random(in: UInt.min...UInt.max)/2
+            let r2 = UInt.random(in: UInt.min...UInt.max)/2
             op1.set(r1)
             op2.set(r2)
             BigInt.add(rop: op2, op1: op1, op2: op2)
@@ -133,8 +133,8 @@ class BigIntTests: XCTestCase {
         }
         // We test the addition of an UInt
         for _ in 0..<numberOfSimpleTests {
-            let r1 = UInt(arc4random())
-            let r2 = UInt(arc4random())
+            let r1 = UInt.random(in: UInt.min...UInt.max)/2
+            let r2 = UInt.random(in: UInt.min...UInt.max)/2
             op1.set(r1)
             BigInt.add(rop: rop, op1: op1, op2: r2)
             XCTAssertEqual(try! UInt(rop), r1+r2)
@@ -158,7 +158,7 @@ class BigIntTests: XCTestCase {
         let rop = BigInt()
         let numberOfSimpleTests = 10000
         for _ in 0..<numberOfSimpleTests {
-            let r = UInt(arc4random())
+            let r = UInt.random(in: UInt.min...UInt.max)
             op1.set(r)
             BigInt.neg(rop: op2, op: op1)
             BigInt.add(rop: rop, op1: op1, op2: op2)
@@ -177,8 +177,8 @@ class BigIntTests: XCTestCase {
         XCTAssertEqual(try! Int(rop), 6)
         let numberOfSimpleTests = 10000
         for _ in 0..<numberOfSimpleTests {
-            let _op = UInt(arc4random())
-            let _n = UInt(arc4random())/100
+            let _op = UInt.random(in: UInt.min...UInt.max)
+            let _n = UInt.random(in: UInt.min...UInt.max)/100
             op.set(_op)
             n.set(_n)
             BigInt.mod(rop: rop, op: op, modulo: n)
@@ -429,8 +429,8 @@ class BigIntTests: XCTestCase {
         let op2 = BigInt()
         let numberOfSimpleTests = 10000
         for _ in 0..<numberOfSimpleTests {
-            let r1 = UInt(arc4random())
-            let r2 = UInt(arc4random())
+            let r1 = UInt.random(in: UInt.min...UInt.max)
+            let r2 = UInt.random(in: UInt.min...UInt.max)
             op1.set(r1)
             op2.set(r2)
             if r1 < r2 {
@@ -451,8 +451,9 @@ class BigIntTests: XCTestCase {
         let rop = BigInt()
         let numberOfTests = 1000
         for _ in 0..<numberOfTests {
-            let r1 = Int(arc4random())/2
-            let r2 = Int(arc4random())/2
+            let range: Range<Int> = -2^(Int.bitWidth/3)..<2^(Int.bitWidth/3)
+            let r1 = Int.random(in: range)
+            let r2 = Int.random(in: range)
             op1.set(r1)
             op2.set(r2)
             BigInt.mul(rop: rop, op1: op1, op2: op2)
@@ -543,16 +544,21 @@ class BigIntTests: XCTestCase {
         let op2 = BigInt()
         let rop = BigInt()
         let n = BigInt()
-        let numberOfTests = 1000
+        let numberOfTests = 10_000
         for _ in 0..<numberOfTests {
-            let r1 = Int(arc4random())/2
-            let r2 = Int(arc4random())/2
-            let r3 = Int(arc4random())
+            let range: Range<Int> = -2^(Int.bitWidth/3)..<2^(Int.bitWidth/3)
+            let r1 = Int.random(in: range)
+            let r2 = Int.random(in: range)
+            let r3 = Int.random(in: 0...Int.max)
             op1.set(r1)
             op2.set(r2)
             n.set(r3)
             BigInt.mul(rop: rop, op1: op1, op2: op2, modulo: n)
-            XCTAssertEqual(try! Int(rop), (r1*r2) % r3)
+            var expectedResult = (r1*r2) % r3
+            while expectedResult < 0 {
+                expectedResult += r3
+            }
+            XCTAssertEqual(try! Int(rop), expectedResult)
         }
     }
 

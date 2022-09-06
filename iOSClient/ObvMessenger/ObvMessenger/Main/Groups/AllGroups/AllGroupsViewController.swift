@@ -48,31 +48,25 @@ extension AllGroupsViewController {
         super.viewDidLoad()
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         addAndConfigureContactGroupsTableViewController()
-        if #available(iOS 13, *) {
 
-            var rightBarButtonItems = [UIBarButtonItem]()
-
-            if #available(iOS 14, *) {
-                let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
-                rightBarButtonItems.append(ellipsisButton)
-            } else {
-                let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
-                rightBarButtonItems.append(ellipsisButton)
-            }
-
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemIcon: .plusCircle, withConfiguration: symbolConfiguration)
-            let buttonItem = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(addContactGroupButtonItemTapped))
-            buttonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
-            rightBarButtonItems.append(buttonItem)
-            
-            navigationItem.rightBarButtonItems = rightBarButtonItems
-
+        var rightBarButtonItems = [UIBarButtonItem]()
+        
+        if #available(iOS 14, *) {
+            let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
+            rightBarButtonItems.append(ellipsisButton)
         } else {
-            
-            navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addContactGroupButtonItemTapped))
-            
+            let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
+            rightBarButtonItems.append(ellipsisButton)
         }
+        
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemIcon: .plusCircle, withConfiguration: symbolConfiguration)
+        let buttonItem = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(addContactGroupButtonItemTapped))
+        buttonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+        rightBarButtonItems.append(buttonItem)
+        
+        navigationItem.rightBarButtonItems = rightBarButtonItems
+
     }
     
     

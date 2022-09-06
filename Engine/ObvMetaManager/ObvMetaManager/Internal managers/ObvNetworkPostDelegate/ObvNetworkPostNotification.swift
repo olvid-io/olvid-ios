@@ -38,7 +38,6 @@ public enum ObvNetworkPostNotification {
 	case attachmentUploadRequestIsTakenCareOf(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case postNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case outboxMessageWasUploaded(messageId: MessageIdentifier, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, flowId: FlowIdentifier)
-	case outboxAttachmentHasNewProgress(attachmentId: AttachmentIdentifier, newProgress: Progress, flowId: FlowIdentifier)
 	case outboxAttachmentWasAcknowledged(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId: MessageIdentifier, timestampFromServer: Date)], flowId: FlowIdentifier)
 
@@ -48,7 +47,6 @@ public enum ObvNetworkPostNotification {
 		case attachmentUploadRequestIsTakenCareOf
 		case postNetworkOperationFailedSinceOwnedIdentityIsNotActive
 		case outboxMessageWasUploaded
-		case outboxAttachmentHasNewProgress
 		case outboxAttachmentWasAcknowledged
 		case outboxMessagesAndAllTheirAttachmentsWereAcknowledged
 
@@ -68,7 +66,6 @@ public enum ObvNetworkPostNotification {
 			case .attachmentUploadRequestIsTakenCareOf: return Name.attachmentUploadRequestIsTakenCareOf.name
 			case .postNetworkOperationFailedSinceOwnedIdentityIsNotActive: return Name.postNetworkOperationFailedSinceOwnedIdentityIsNotActive.name
 			case .outboxMessageWasUploaded: return Name.outboxMessageWasUploaded.name
-			case .outboxAttachmentHasNewProgress: return Name.outboxAttachmentHasNewProgress.name
 			case .outboxAttachmentWasAcknowledged: return Name.outboxAttachmentWasAcknowledged.name
 			case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged: return Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
 			}
@@ -104,12 +101,6 @@ public enum ObvNetworkPostNotification {
 				"timestampFromServer": timestampFromServer,
 				"isAppMessageWithUserContent": isAppMessageWithUserContent,
 				"isVoipMessage": isVoipMessage,
-				"flowId": flowId,
-			]
-		case .outboxAttachmentHasNewProgress(attachmentId: let attachmentId, newProgress: let newProgress, flowId: let flowId):
-			info = [
-				"attachmentId": attachmentId,
-				"newProgress": newProgress,
 				"flowId": flowId,
 			]
 		case .outboxAttachmentWasAcknowledged(attachmentId: let attachmentId, flowId: let flowId):
@@ -181,16 +172,6 @@ public enum ObvNetworkPostNotification {
 			let isVoipMessage = notification.userInfo!["isVoipMessage"] as! Bool
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId)
-		}
-	}
-
-	public static func observeOutboxAttachmentHasNewProgress(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, Progress, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.outboxAttachmentHasNewProgress.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
-			let newProgress = notification.userInfo!["newProgress"] as! Progress
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(attachmentId, newProgress, flowId)
 		}
 	}
 

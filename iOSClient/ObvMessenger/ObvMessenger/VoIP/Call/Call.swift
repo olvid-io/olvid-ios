@@ -192,19 +192,19 @@ actor Call: GenericCall, ObvErrorMaker {
         switch self.direction {
         case .outgoing:
             if internalState == .ringing {
-                await CallSounds.shared.play(sound: .ringing)
+                await CallSounds.shared.play(sound: .ringing, category: nil)
             } else if internalState == .callInProgress && previousState != .callInProgress {
-                await CallSounds.shared.play(sound: .connect)
+                await CallSounds.shared.play(sound: .connect, category: nil)
             } else if internalState.isFinalState && previousState == .callInProgress {
-                await CallSounds.shared.play(sound: .disconnect)
+                await CallSounds.shared.play(sound: .disconnect, category: nil)
             } else {
                 await CallSounds.shared.stopCurrentSound()
             }
         case .incoming:
             if internalState == .callInProgress && previousState != .callInProgress {
-                await CallSounds.shared.play(sound: .connect)
+                await CallSounds.shared.play(sound: .connect, category: nil)
             } else if internalState.isFinalState && previousState == .callInProgress {
-                await CallSounds.shared.play(sound: .disconnect)
+                await CallSounds.shared.play(sound: .disconnect, category: nil)
             } else {
                 await CallSounds.shared.stopCurrentSound()
             }

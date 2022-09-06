@@ -144,6 +144,14 @@ extension PersistedMessageSystem {
         }
         
         static let contactRevokedByIdentityProvider = NSLocalizedString("CONTACT_REVOKED_BY_COMPANY_IDENTITY_PROVIDER", comment: "")
+        
+        static let notPartOfTheGroupAnymore = NSLocalizedString("NOT_PART_OF_THE_GROUP_ANYMORE", comment: "")
+        
+        static let rejoinedGroup = NSLocalizedString("REJOINED_GROUP", comment: "")
+        
+        static func contactIsOneToOneAgain(contactName: String) -> String {
+            return String.localizedStringWithFormat(NSLocalizedString("CONTACT_%@_IS_ONE_TO_ONE_AGAIN", comment: ""), contactName)
+        }
 
         static let rejectedIncomingCallBecauseOfDeniedRecordPermission = { (content: CallMessageContent) -> String in
             let title: String

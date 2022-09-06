@@ -67,12 +67,8 @@ class FyleCollectionViewCell: UICollectionViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         self.contentView.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 13, *) {
-            deleteImageView.image = UIImage.init(systemName: "xmark.circle.fill")!
-            deleteImageView.tintColor = .red
-        } else {
-            deleteImageView.image = UIImage(named: "circled_cross")
-        }
+        deleteImageView.image = UIImage.init(systemName: "xmark.circle.fill")!
+        deleteImageView.tintColor = .red
         deleteImageView.tintColor = AppTheme.appleBadgeRedColor
     }
     

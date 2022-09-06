@@ -92,7 +92,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         
         stack.addArrangedSubview(editedStatusImageView)
         let config = UIImage.SymbolConfiguration(font: UIFont.preferredFont(forTextStyle: SentMessageStatusAndDateView.textStyleForStatusImage))
-        editedStatusImageView.image = UIImage(systemIcon: .pencilCircleFill, withConfiguration: config)
+        editedStatusImageView.image = UIImage(systemIcon: .pencil(.circleFill), withConfiguration: config)
         editedStatusImageView.contentMode = .scaleAspectFit
         editedStatusImageView.showInStack = false
         editedStatusImageView.tintColor = .secondaryLabel
@@ -111,6 +111,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         label.textColor = .secondaryLabel
         label.font = UIFont.preferredFont(forTextStyle: .caption1)
         label.numberOfLines = 0
+        label.adjustsFontForContentSizeCategory = true
         
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: self.topAnchor),

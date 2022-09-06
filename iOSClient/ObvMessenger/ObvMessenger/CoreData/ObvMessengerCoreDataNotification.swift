@@ -51,7 +51,6 @@ enum ObvMessengerCoreDataNotification {
 	case newPersistedObvContactDevice(contactDeviceObjectID: NSManagedObjectID, contactCryptoId: ObvCryptoId)
 	case deletedPersistedObvContactDevice(contactCryptoId: ObvCryptoId)
 	case persistedDiscussionHasNewTitle(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, title: String)
-	case newLockedPersistedDiscussion(previousDiscussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, newLockedDiscussionId: TypeSafeManagedObjectID<PersistedDiscussion>)
 	case persistedDiscussionWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>)
 	case newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case ownedIdentityWasReactivated(ownedIdentityObjectID: NSManagedObjectID)
@@ -63,6 +62,7 @@ enum ObvMessengerCoreDataNotification {
 	case draftToSendWasReset(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case draftFyleJoinWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>)
 	case fyleMessageJoinWasWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinUriRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>)
+	case persistedDiscussionStatusChanged(objectID: TypeSafeManagedObjectID<PersistedDiscussion>)
 
 	private enum Name {
 		case newDraftToSend
@@ -84,7 +84,6 @@ enum ObvMessengerCoreDataNotification {
 		case newPersistedObvContactDevice
 		case deletedPersistedObvContactDevice
 		case persistedDiscussionHasNewTitle
-		case newLockedPersistedDiscussion
 		case persistedDiscussionWasDeleted
 		case newPersistedObvOwnedIdentity
 		case ownedIdentityWasReactivated
@@ -96,6 +95,7 @@ enum ObvMessengerCoreDataNotification {
 		case draftToSendWasReset
 		case draftFyleJoinWasDeleted
 		case fyleMessageJoinWasWiped
+		case persistedDiscussionStatusChanged
 
 		private var namePrefix: String { String(describing: ObvMessengerCoreDataNotification.self) }
 
@@ -127,7 +127,6 @@ enum ObvMessengerCoreDataNotification {
 			case .newPersistedObvContactDevice: return Name.newPersistedObvContactDevice.name
 			case .deletedPersistedObvContactDevice: return Name.deletedPersistedObvContactDevice.name
 			case .persistedDiscussionHasNewTitle: return Name.persistedDiscussionHasNewTitle.name
-			case .newLockedPersistedDiscussion: return Name.newLockedPersistedDiscussion.name
 			case .persistedDiscussionWasDeleted: return Name.persistedDiscussionWasDeleted.name
 			case .newPersistedObvOwnedIdentity: return Name.newPersistedObvOwnedIdentity.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
@@ -139,6 +138,7 @@ enum ObvMessengerCoreDataNotification {
 			case .draftToSendWasReset: return Name.draftToSendWasReset.name
 			case .draftFyleJoinWasDeleted: return Name.draftFyleJoinWasDeleted.name
 			case .fyleMessageJoinWasWiped: return Name.fyleMessageJoinWasWiped.name
+			case .persistedDiscussionStatusChanged: return Name.persistedDiscussionStatusChanged.name
 			}
 		}
 	}
@@ -232,11 +232,6 @@ enum ObvMessengerCoreDataNotification {
 				"objectID": objectID,
 				"title": title,
 			]
-		case .newLockedPersistedDiscussion(previousDiscussionUriRepresentation: let previousDiscussionUriRepresentation, newLockedDiscussionId: let newLockedDiscussionId):
-			info = [
-				"previousDiscussionUriRepresentation": previousDiscussionUriRepresentation,
-				"newLockedDiscussionId": newLockedDiscussionId,
-			]
 		case .persistedDiscussionWasDeleted(discussionUriRepresentation: let discussionUriRepresentation):
 			info = [
 				"discussionUriRepresentation": discussionUriRepresentation,
@@ -288,6 +283,10 @@ enum ObvMessengerCoreDataNotification {
 				"discussionUriRepresentation": discussionUriRepresentation,
 				"messageUriRepresentation": messageUriRepresentation,
 				"fyleMessageJoinUriRepresentation": fyleMessageJoinUriRepresentation,
+			]
+		case .persistedDiscussionStatusChanged(objectID: let objectID):
+			info = [
+				"objectID": objectID,
 			]
 		}
 		return info
@@ -481,15 +480,6 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observeNewLockedPersistedDiscussion(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
-		let name = Name.newLockedPersistedDiscussion.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let previousDiscussionUriRepresentation = notification.userInfo!["previousDiscussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let newLockedDiscussionId = notification.userInfo!["newLockedDiscussionId"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(previousDiscussionUriRepresentation, newLockedDiscussionId)
-		}
-	}
-
 	static func observePersistedDiscussionWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionWasDeleted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -583,6 +573,14 @@ enum ObvMessengerCoreDataNotification {
 			let messageUriRepresentation = notification.userInfo!["messageUriRepresentation"] as! TypeSafeURL<PersistedMessage>
 			let fyleMessageJoinUriRepresentation = notification.userInfo!["fyleMessageJoinUriRepresentation"] as! TypeSafeURL<FyleMessageJoinWithStatus>
 			block(discussionUriRepresentation, messageUriRepresentation, fyleMessageJoinUriRepresentation)
+		}
+	}
+
+	static func observePersistedDiscussionStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
+		let name = Name.persistedDiscussionStatusChanged.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
+			block(objectID)
 		}
 	}
 

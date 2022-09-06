@@ -164,7 +164,7 @@ extension ObvChannelManagerImplementation {
     
     public func processNetworkReceivedEncryptedMessages(_ networkReceivedMessages: Set<ObvNetworkReceivedMessageEncrypted>, within obvContext: ObvContext) {
 
-        os_log("🌊 Processing a network received encrypted message within flow %{public}@", log: log, type: .info, obvContext.flowId.debugDescription)
+        os_log("🌊 Processing %d network received encrypted messages within flow %{public}@", log: log, type: .info, networkReceivedMessages.count, obvContext.flowId.debugDescription)
         do {
             try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         } catch let error {

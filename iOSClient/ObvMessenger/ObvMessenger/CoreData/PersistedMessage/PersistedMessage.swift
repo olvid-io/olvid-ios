@@ -46,7 +46,7 @@ class PersistedMessage: NSManagedObject {
     static let sortIndexKey = "sortIndex"
     static let timestampKey = "timestamp"
     static let readOnceToBeDeletedKey = "readOnceToBeDeleted"
-    static let muteNotificationsEndDateKey = [Predicate.Key.discussion.rawValue, PersistedDiscussion.localConfigurationKey, PersistedDiscussionLocalConfiguration.muteNotificationsEndDateKey].joined(separator: ".")
+    static let muteNotificationsEndDateKey = [Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.localConfiguration.rawValue, PersistedDiscussionLocalConfiguration.muteNotificationsEndDateKey].joined(separator: ".")
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessage")
 
@@ -64,6 +64,7 @@ class PersistedMessage: NSManagedObject {
     @NSManaged private(set) var senderSequenceNumber: Int
     @NSManaged private(set) var sortIndex: Double
     @NSManaged private(set) var timestamp: Date
+    @NSManaged private(set) var forwarded: Bool
 
     // MARK: - Relationships
 
@@ -226,7 +227,7 @@ extension PersistedMessage {
 
 extension PersistedMessage {
     
-    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, isReplyToAnotherMessage: Bool, replyTo: PersistedMessage?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forEntityName entityName: String) throws {
+    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, isReplyToAnotherMessage: Bool, replyTo: PersistedMessage?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forwarded: Bool, forEntityName entityName: String) throws {
         
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw PersistedMessage.makeError(message: "Could not find context") }
         
@@ -244,6 +245,7 @@ extension PersistedMessage {
         self.timestamp = timestamp
         self.readOnce = readOnce
         self.visibilityDuration = visibilityDuration
+        self.forwarded = forwarded
 
         discussion.timestampOfLastMessage = max(self.timestamp, discussion.timestampOfLastMessage)
         

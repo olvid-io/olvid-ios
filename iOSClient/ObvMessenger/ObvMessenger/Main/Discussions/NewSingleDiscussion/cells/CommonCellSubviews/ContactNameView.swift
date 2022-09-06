@@ -62,6 +62,7 @@ final class ContactNameView: ViewForOlvidStack {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = MessageCellConstants.fontForContactName
         label.numberOfLines = 1
+        label.adjustsFontForContentSizeCategory = true
 
         let leadingPadding = CGFloat(4)
         NSLayoutConstraint.activate([

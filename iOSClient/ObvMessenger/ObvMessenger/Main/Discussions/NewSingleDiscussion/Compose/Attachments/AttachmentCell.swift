@@ -24,7 +24,7 @@ import os.log
 
 
 @available(iOS 14.0, *)
-final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
+final class AttachmentCell: UICollectionViewCell {
     
     private var fyleJoin: FyleJoin?
  
@@ -39,8 +39,6 @@ final class AttachmentCell: UICollectionViewCell, CellShowingHardLinks {
         fatalError("init(coder:) has not been implemented")
     }
 
-    var isSharingActionAvailable: Bool { true }
-    
     func updateWith(fyleJoin: FyleJoin, indexPath: IndexPath, delegate: ViewShowingHardLinksDelegate?, cacheDelegate: DiscussionCacheDelegate?) {
         assert(delegate != nil)
         assert(cacheDelegate != nil)
@@ -142,7 +140,6 @@ fileprivate final class AttachmentCellContentView: UIView, UIContentView, ViewSh
         super.init(frame: .zero)
         setupInternalViews()
         self.configuration = configuration
-        setupTapGestureOnImageView()
     }
     
     required init?(coder: NSCoder) {
@@ -193,22 +190,6 @@ fileprivate final class AttachmentCellContentView: UIView, UIContentView, ViewSh
         imageView.setHardlink(newHardlink: localHardlink, withImage: newConfig.thumbnail)
     }
     
-    
-    private func setupTapGestureOnImageView() {
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(imageViewWasTapped(sender:)))
-        imageView.addGestureRecognizer(tapGesture)
-        imageView.isUserInteractionEnabled = true
-    }
-
-    
-    @objc private func imageViewWasTapped(sender: UIGestureRecognizer) {
-        guard let imageViewForHardLink = sender.view as? UIImageViewForHardLink else { assertionFailure(); return }
-        guard imageViewForHardLink == self.imageView else { assertionFailure(); return }
-        guard let hardlink = imageViewForHardLink.hardlink else { return }
-        assert(delegate != nil)
-        delegate?.userDidTapOnDraftFyleJoinWithHardLink(hardlinkTapped: hardlink)
-    }
-
     
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
         var hardlinks = [(HardLinkToFyle, UIView)]()

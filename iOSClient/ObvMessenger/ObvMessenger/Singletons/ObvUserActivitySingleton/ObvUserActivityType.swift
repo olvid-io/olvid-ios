@@ -147,4 +147,13 @@ enum ObvUserActivityType: CustomDebugStringConvertible, Equatable {
         }
     }
     
+    var isContinueDiscussion: Bool {
+        switch self {
+        case .continueDiscussion:
+            return true
+        default:
+            return false
+        }
+    }
+
 }

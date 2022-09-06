@@ -363,14 +363,9 @@ extension ObvNetworkFetchManagerImplementation {
     }
     
     
-    public func getAttachment(withId attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) -> ObvNetworkFetchReceivedAttachment? {
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: log, type: .fault)
-            return nil
-        }
-
+    public func getAttachment(withId attachmentId: AttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment? {
         var receivedAttachment: ObvNetworkFetchReceivedAttachment? = nil
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+        obvContext.performAndWait {
             guard let inboxAttachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
                 os_log("Attachment does not exist in InboxAttachment (3)", log: log, type: .error)
                 return
@@ -423,12 +418,7 @@ extension ObvNetworkFetchManagerImplementation {
     public func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier sessionIdentifier: String, withinFlowId flowId: FlowIdentifier) {
         delegateManager.downloadAttachmentChunksDelegate.processCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: sessionIdentifier, withinFlowId: flowId)
     }
-    
-    
-    public func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) {
-        delegateManager.networkFetchFlowDelegate.requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier: messageIdentifier, flowId: flowId)
-    }
-
+        
 }
 
 
@@ -498,10 +488,17 @@ extension ObvNetworkFetchManagerImplementation {
     }
     
     
-    /// This method is one of the two ways allowing to request the download of an attachment. It is typically used to "automatically" download attachments
-    /// that are small. The other method is to request a progress for a specific attachment, then to resume the progress.
     public func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         self.delegateManager.networkFetchFlowDelegate.resumeDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+    }
+
+
+    public func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+        self.delegateManager.networkFetchFlowDelegate.pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+    }
+
+    public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+        return try await self.delegateManager.networkFetchFlowDelegate.requestDownloadAttachmentProgressesUpdatedSince(date: date)
     }
 }
 

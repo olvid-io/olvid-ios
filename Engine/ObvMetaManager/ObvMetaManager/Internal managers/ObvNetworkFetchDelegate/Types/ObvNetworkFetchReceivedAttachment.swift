@@ -46,7 +46,7 @@ public struct ObvNetworkFetchReceivedAttachment {
     public let fromCryptoIdentity: ObvCryptoIdentity
     public let attachmentId: AttachmentIdentifier
     public let metadata: Data
-    public let totalUnitCount: Int64
+    public let totalUnitCount: Int64 // Bytes of the plaintext
     public let url: URL
     public let status: Status
     public let messageUploadTimestampFromServer: Date

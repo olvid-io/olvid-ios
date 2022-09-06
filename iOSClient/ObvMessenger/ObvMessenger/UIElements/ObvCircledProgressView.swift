@@ -206,6 +206,8 @@ class ObvCircledProgressView: UIView {
     
     override func draw(_ rect: CGRect) {
         
+        isUserInteractionEnabled = false
+        
         guard observedProgress != nil else { return }
         guard !lastAnimationIsFinished else { return }
         guard observedProgress?.isCancelled == false else { return }
@@ -281,26 +283,4 @@ class ObvCircledProgressView: UIView {
         
         return shape
     }
-}
-
-
-// MARK: - Responding to tap
-
-extension ObvCircledProgressView {
-    
-    @IBAction func tapPerformed(_ sender: UITapGestureRecognizer) {
-        guard let progress = self.observedProgress else { return }
-        guard progress.isPausable else { return }
-        switch (progress.isPaused, progress.isCancelled) {
-        case (false, false):
-            progress.pause()
-        case (false, true):
-            progress.pause()
-        case (true, false):
-            progress.resume()
-        case (true, true):
-            progress.pause()
-        }
-    }
-    
 }

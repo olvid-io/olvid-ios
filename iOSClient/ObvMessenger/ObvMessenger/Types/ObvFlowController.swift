@@ -32,8 +32,6 @@ protocol ObvFlowController: UINavigationController, SingleDiscussionViewControll
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToDisplay(persistedMessage message: PersistedMessage)
     
-    /// The implementation of this method shoud observe NewLockedPersistedDiscussion and call replaceDiscussionViewController
-    func observePersistedDiscussionWasLockedNotifications()
 }
 
 
@@ -173,24 +171,6 @@ extension ObvFlowController {
 
     }
 
-    func replaceDiscussionViewController(discussionToReplace: TypeSafeURL<PersistedDiscussion>, newDiscussionId: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        assert(Thread.isMainThread)
-        var newViewController = [UIViewController]()
-        for currentVC in viewControllers {
-            
-            let newVC: UIViewController
-            if let discussionVC = currentVC as? DiscussionViewController,
-                discussionVC.discussionObjectID.uriRepresentation() == discussionToReplace,
-                let discussion = try? PersistedDiscussion.get(objectID: newDiscussionId, within: ObvStack.shared.viewContext) {
-                newVC = buildSingleDiscussionVC(discussion: discussion, messageToShow: nil)
-            } else {
-                newVC = currentVC
-            }
-            newViewController += [newVC]
-
-        }
-        setViewControllers(newViewController, animated: true)
-    }
 
     func removeGroupViewController(groupUid: UID) {
         var newViewController = [UIViewController]()
@@ -199,7 +179,7 @@ extension ObvFlowController {
                 newViewController += [vc]
                 continue
             }
-            /// Skip the view controller
+            // Skip the view controller
         }
         setViewControllers(newViewController, animated: true)
     }
@@ -214,32 +194,27 @@ extension ObvFlowController {
     func userTappedTitleOfDiscussion(_ discussion: PersistedDiscussion) {
         
         let vcToPresent: UIViewController
-        if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
-            
+        
+        switch try? discussion.kind {
+        case .oneToOne(withContactIdentity: let contactIdentity):
             // In case the title tapped is the one of a one2one discussion, we display the contact sheet of the contact
-            
-            guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
+            guard let contactIdentity = contactIdentity else {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
                 return
             }
-
             vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
             (vcToPresent as? SingleContactIdentityViewHostingController)?.delegate = self
-
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            
-            guard let contactGroup = groupDiscussion.contactGroup else {
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 return
             }
             guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup) else { return }
             singleGroupVC.delegate = self
             vcToPresent = singleGroupVC
-            
-        } else {
-            
+        case .none:
+            assertionFailure()
             return
-            
         }
         
         let closeButton = BlockBarButtonItem.forClosing { [weak self] in self?.presentedViewController?.dismiss(animated: true) }

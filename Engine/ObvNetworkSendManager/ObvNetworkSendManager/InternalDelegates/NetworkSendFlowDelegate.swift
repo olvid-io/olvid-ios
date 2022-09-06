@@ -33,18 +33,18 @@ protocol NetworkSendFlowDelegate {
     func successfulUploadOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
     func messageAndAttachmentsWereExternallyCancelledAndCanSafelyBeDeletedNow(messageId: MessageIdentifier, flowId: FlowIdentifier)
 
-    func newProgressForAttachment(attachmentId: AttachmentIdentifier, newProgress: Progress, flowId: FlowIdentifier)
+    func newProgressForAttachment(attachmentId: AttachmentIdentifier)
     func storeCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier)
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool
     func signedURLsDownloadFailedForAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
     func acknowledgedAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
     func attachmentFailedToUpload(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
+
     func messageAndAttachmentsWereDeletedFromTheirOutboxes(messageId: MessageIdentifier, flowId: FlowIdentifier)
     
     func sendNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-
-    func requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) throws
 
     // MARK: - Finalizing the initialization and handling lifecycle events
     

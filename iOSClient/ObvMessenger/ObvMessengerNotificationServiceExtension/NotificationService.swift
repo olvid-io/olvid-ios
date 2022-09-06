@@ -256,7 +256,7 @@ class NotificationService: UNNotificationServiceExtension {
                         throw Self.makeError(message: "Could not find contact group")
                     }
                     discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = try persistedContactIdentity.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {
                     os_log("Could not find an appropriate discussion where the received message could go.", log: log, type: .error)

@@ -46,8 +46,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
     let collectionOfFylesViewTopPadding = UIView()
     var linkView: UIView?
     let linkViewConstant: CGFloat = 250
-    let messageEditedStatusImageView = UIImageView() // For iOS 13+
-    let messageEditedStatusLabel = UILabel() // For iOS 12
+    let messageEditedStatusImageView = UIImageView()
     let bottomStackView = UIStackView()
 
     // For ephemeral message, displays an image and a countdown in the top left or right corner
@@ -143,15 +142,8 @@ class MessageCollectionViewCell: UICollectionViewCell {
         messageEditedStatusImageView.accessibilityIdentifier = "messageEditedStatusImageView"
         messageEditedStatusImageView.tintColor = dateLabel.textColor
         
-        if #available(iOS 13, *) {
-            let configuration = UIImage.SymbolConfiguration(textStyle: UIFont.TextStyle.footnote, scale: .small)
-            messageEditedStatusImageView.image = UIImage(systemName: "pencil.circle.fill", withConfiguration: configuration)
-        } else {
-            messageEditedStatusLabel.accessibilityIdentifier = "messageEditedStatusLabel"
-            messageEditedStatusLabel.font = UIFont.preferredFont(forTextStyle: UIFont.TextStyle.caption1)
-            messageEditedStatusLabel.textColor = dateLabel.textColor
-            messageEditedStatusLabel.text = "✎"
-        }
+        let configuration = UIImage.SymbolConfiguration(textStyle: UIFont.TextStyle.footnote, scale: .small)
+        messageEditedStatusImageView.image = UIImage(systemName: "pencil.circle.fill", withConfiguration: configuration)
         
         roundedRectStackView.accessibilityIdentifier = "roundedRectStackView"
         roundedRectStackView.translatesAutoresizingMaskIntoConstraints = false
@@ -262,7 +254,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
         
         // Configure the image view that can be inserted in the hStackForEphemeralConfig in case the message is read once
         
-        if #available(iOS 13, *) {
+        do {
             countdownImageViewReadOnce.translatesAutoresizingMaskIntoConstraints = false
             countdownImageViewReadOnce.accessibilityIdentifier = "countdownImageViewReadOnce"
             let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
@@ -273,7 +265,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
             countdownImageViewReadOnce.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         }
         
-        if #available(iOS 13, *) {
+        do {
             countdownImageViewExpiration.translatesAutoresizingMaskIntoConstraints = false
             countdownImageViewExpiration.accessibilityIdentifier = "countdownImageViewExpiration"
             let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
@@ -284,7 +276,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
             countdownImageViewExpiration.setContentHuggingPriority(.defaultHigh, for: .horizontal)
         }
 
-        if #available(iOS 13, *) {
+        do {
             countdownImageViewVisibility.translatesAutoresizingMaskIntoConstraints = false
             countdownImageViewVisibility.accessibilityIdentifier = "countdownImageViewVisibility"
             let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
@@ -312,17 +304,15 @@ class MessageCollectionViewCell: UICollectionViewCell {
             limitedVisibilityStack.alignment = .firstBaseline
             limitedVisibilityStack.spacing = 4.0
 
-            if #available(iOS 13, *) {
-                let imageLimitedVisibility = UIImageView()
-                imageLimitedVisibility.translatesAutoresizingMaskIntoConstraints = false
-                imageLimitedVisibility.accessibilityIdentifier = "imageLimitedVisibility"
-                let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
-                let image = UIImage(systemName: "eyes", withConfiguration: configuration)
-                imageLimitedVisibility.image = image
-                imageLimitedVisibility.tintColor = .orange
-                imageLimitedVisibility.contentMode = .scaleAspectFit
-                limitedVisibilityStack.addArrangedSubview(imageLimitedVisibility)
-            }
+            let imageLimitedVisibility = UIImageView()
+            imageLimitedVisibility.translatesAutoresizingMaskIntoConstraints = false
+            imageLimitedVisibility.accessibilityIdentifier = "imageLimitedVisibility"
+            let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
+            let image = UIImage(systemName: "eyes", withConfiguration: configuration)
+            imageLimitedVisibility.image = image
+            imageLimitedVisibility.tintColor = .orange
+            imageLimitedVisibility.contentMode = .scaleAspectFit
+            limitedVisibilityStack.addArrangedSubview(imageLimitedVisibility)
             
             let labelLimitedVisibility = UILabel()
             labelLimitedVisibility.translatesAutoresizingMaskIntoConstraints = false
@@ -339,17 +329,15 @@ class MessageCollectionViewCell: UICollectionViewCell {
             limitedExistenceStack.alignment = .firstBaseline
             limitedExistenceStack.spacing = 4.0
             
-            if #available(iOS 13, *) {
-                let imageLimitedExistence = UIImageView()
-                imageLimitedExistence.translatesAutoresizingMaskIntoConstraints = false
-                imageLimitedExistence.accessibilityIdentifier = "imageLimitedExistence"
-                let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
-                let image = UIImage(systemName: "timer", withConfiguration: configuration)
-                imageLimitedExistence.image = image
-                imageLimitedExistence.tintColor = .systemGray
-                imageLimitedExistence.contentMode = .scaleAspectFit
-                limitedExistenceStack.addArrangedSubview(imageLimitedExistence)
-            }
+            let imageLimitedExistence = UIImageView()
+            imageLimitedExistence.translatesAutoresizingMaskIntoConstraints = false
+            imageLimitedExistence.accessibilityIdentifier = "imageLimitedExistence"
+            let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
+            let image = UIImage(systemName: "timer", withConfiguration: configuration)
+            imageLimitedExistence.image = image
+            imageLimitedExistence.tintColor = .systemGray
+            imageLimitedExistence.contentMode = .scaleAspectFit
+            limitedExistenceStack.addArrangedSubview(imageLimitedExistence)
 
             let labelLimitedExistence = UILabel()
             labelLimitedExistence.translatesAutoresizingMaskIntoConstraints = false
@@ -366,17 +354,15 @@ class MessageCollectionViewCell: UICollectionViewCell {
             readOnceStack.alignment = .firstBaseline
             readOnceStack.spacing = 4.0
 
-            if #available(iOS 13, *) {
-                let imageReadOnce = UIImageView()
-                imageReadOnce.translatesAutoresizingMaskIntoConstraints = false
-                imageReadOnce.accessibilityIdentifier = "imageReadOnce"
-                let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
-                let image = UIImage(systemName: "flame.fill", withConfiguration: configuration)
-                imageReadOnce.image = image
-                imageReadOnce.tintColor = .red
-                imageReadOnce.contentMode = .scaleAspectFit
-                readOnceStack.addArrangedSubview(imageReadOnce)
-            }
+            let imageReadOnce = UIImageView()
+            imageReadOnce.translatesAutoresizingMaskIntoConstraints = false
+            imageReadOnce.accessibilityIdentifier = "imageReadOnce"
+            let configuration = UIImage.SymbolConfiguration(textStyle: MessageCollectionViewCell.expirationFontTextStyle)
+            let image = UIImage(systemName: "flame.fill", withConfiguration: configuration)
+            imageReadOnce.image = image
+            imageReadOnce.tintColor = .red
+            imageReadOnce.contentMode = .scaleAspectFit
+            readOnceStack.addArrangedSubview(imageReadOnce)
 
             let labelReadOnce = UILabel()
             labelReadOnce.translatesAutoresizingMaskIntoConstraints = false
@@ -473,7 +459,6 @@ class MessageCollectionViewCell: UICollectionViewCell {
         containerViewForEphemeralInfos.removeFromSuperview()
         removeCountdownStack()
         messageEditedStatusImageView.isHidden = true
-        messageEditedStatusLabel.isHidden = true
         counterOfLayoutIfNeededCalls = MessageCollectionViewCell.counterOfLayoutIfNeededCallsInitialValue
         resetCounterOfLayoutIfNeededCalls()
     }
@@ -552,7 +537,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
                 return .onlyAttachments(count: fyleMessageJoinWithStatus.count)
             } else {
                 /// No text, no attachements -> should not happend
-                assertionFailure(); return nil
+                return nil
             }
         }
     }
@@ -590,32 +575,30 @@ class MessageCollectionViewCell: UICollectionViewCell {
         }
         
         // Display any preview link
-        if #available(iOS 13, *) {
-            let doFetchContentRichURLsMetadataSetting = message.discussion.localConfiguration.doFetchContentRichURLsMetadata ?? ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
-            let doFetchContentRichURLsMetadata: Bool
-            switch doFetchContentRichURLsMetadataSetting {
-            case .never: doFetchContentRichURLsMetadata = false
-            case .withinSentMessagesOnly: doFetchContentRichURLsMetadata = message is PersistedMessageSent
-            case .always: doFetchContentRichURLsMetadata = true
-            }
-            if doFetchContentRichURLsMetadata {
-                if let urls = message.textBody?.extractURLs(),
-                    !urls.isEmpty {
-                    // Fetch the metadata
-                    let firstURL = urls.first!
-                    let metadadataProvider = LPMetadataProvider()
-                    metadadataProvider.getCachedOrStartFetchingMetadata(for: firstURL, cacheHit: { (metadata) in
-                        assert(Thread.current == Thread.main)
-                        guard let metadata = metadata else { return }
-                        displayLinkMetadata(metadata, for: message, animate: false)
-                    }) { (metadata, error) in
-                        guard error == nil else { return }
-                        guard metadata != nil else { return }
-                        DispatchQueue.main.async { [weak self] in
-                            guard let _self = self else { return }
-                            guard self?.message == message else { return }
-                            self?.delegate?.reloadCell(_self)
-                        }
+        let doFetchContentRichURLsMetadataSetting = message.discussion.localConfiguration.doFetchContentRichURLsMetadata ?? ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
+        let doFetchContentRichURLsMetadata: Bool
+        switch doFetchContentRichURLsMetadataSetting {
+        case .never: doFetchContentRichURLsMetadata = false
+        case .withinSentMessagesOnly: doFetchContentRichURLsMetadata = message is PersistedMessageSent
+        case .always: doFetchContentRichURLsMetadata = true
+        }
+        if doFetchContentRichURLsMetadata {
+            if let urls = message.textBody?.extractURLs(),
+               !urls.isEmpty {
+                // Fetch the metadata
+                let firstURL = urls.first!
+                let metadadataProvider = LPMetadataProvider()
+                metadadataProvider.getCachedOrStartFetchingMetadata(for: firstURL, cacheHit: { (metadata) in
+                    assert(Thread.current == Thread.main)
+                    guard let metadata = metadata else { return }
+                    displayLinkMetadata(metadata, for: message, animate: false)
+                }) { (metadata, error) in
+                    guard error == nil else { return }
+                    guard metadata != nil else { return }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let _self = self else { return }
+                        guard self?.message == message else { return }
+                        self?.delegate?.reloadCell(_self)
                     }
                 }
             }
@@ -636,11 +619,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
     
     private func refreshEditedStatus() {
         guard let message = self.message else { return }
-        if #available(iOS 13, *) {
-            messageEditedStatusImageView.isHidden = !message.isEdited
-        } else {
-            messageEditedStatusLabel.isHidden = !message.isEdited
-        }
+        messageEditedStatusImageView.isHidden = !message.isEdited
     }
     
     
@@ -715,6 +694,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
     
     
     private func refreshBody(with message: PersistedMessage) {
+        guard !message.isWiped && !message.isDeleted else { return }
         if let messageElement = MessageCollectionViewCell.extractMessageElements(from: message),
            let text = messageElement.text {
             bodyTextView.text = text
@@ -734,6 +714,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
 
     private func refreshEphemeralInformation(with message: PersistedMessage) {
         var addContainerViewForEphemeralInfos = false
+        guard !message.isWiped && !message.isDeleted else { return }
         if case .tapToRead = MessageCollectionViewCell.extractMessageElements(from: message) {
             if message.readOnce {
                 hStackForEphemeralConfig.addArrangedSubview(readOnceStack)

@@ -19,7 +19,7 @@
 
 import UIKit
 
-class DiscussionsSettingsTableViewController: UITableViewController {
+final class DiscussionsSettingsTableViewController: UITableViewController {
 
     init() {
         super.init(style: Self.settingsTableStyle)
@@ -47,12 +47,7 @@ class DiscussionsSettingsTableViewController: UITableViewController {
 extension DiscussionsSettingsTableViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
-        if #available(iOS 13, *) {
-            // Include the section for rich link previews
-            return 2
-        } else {
-            return 1
-        }
+        return 2
     }
     
     

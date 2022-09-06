@@ -57,7 +57,7 @@ struct EditSingleContactIdentityNicknameView: View {
                             ContactIdentityCardContentView(
                                 model: singleIdentity,
                                 preferredDetails: .customOrTrusted,
-                                forceEditionMode: .picture)
+                                editionMode: singleIdentity.editCustomPictureMode)
                             Spacer()
                         }
                     }
@@ -77,7 +77,6 @@ struct EditSingleContactIdentityNicknameView: View {
                                 withAnimation {
                                     singleIdentity.customDisplayName = nil
                                     singleIdentity.customPhotoURL = nil
-                                    singleIdentity.changed.toggle()
                                 }
                             })
                                 .disabled(disableResetButton)
@@ -95,7 +94,6 @@ struct EditSingleContactIdentityNicknameView: View {
                             get: { singleIdentity.customDisplayName ?? "" },
                             set: {
                                 singleIdentity.customDisplayName = $0.isEmpty ? nil : $0
-                                singleIdentity.changed.toggle()
                             }))
                             .disableAutocorrection(true)
                     }
@@ -114,7 +112,6 @@ struct EditSingleContactIdentityNicknameView_Previews: PreviewProvider {
             lastName: "Polo",
             position: "Traveler",
             company: "Venezia",
-            editionMode: .nicknameAndPicture(action: {}),
             publishedContactDetails: nil,
             contactStatus: .seenPublishedDetails,
             contactHasNoDevice: false,
@@ -125,7 +122,6 @@ struct EditSingleContactIdentityNicknameView_Previews: PreviewProvider {
                               position: "Traveler",
                               company: "Venezia",
                               customDisplayName: "Il Milione",
-                              editionMode: .nicknameAndPicture(action: {}),
                               publishedContactDetails: nil,
                               contactStatus: .seenPublishedDetails,
                               contactHasNoDevice: false,

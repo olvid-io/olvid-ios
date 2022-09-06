@@ -22,7 +22,6 @@ import SwiftUI
 import Combine
 
 
-
 final class DiscussionsDefaultSettingsHostingViewController: UIHostingController<DiscussionsDefaultSettingsWrapperView> {
 
     fileprivate let model: DiscussionsDefaultSettingsViewModel
@@ -60,6 +59,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     var timeBasedRetention: Binding<DurationOptionAlt>!
     var autoRead: Binding<Bool>!
     var retainWipedOutboundMessages: Binding<Bool>!
+    var notificationSound: Binding<OptionalNotificationSound>!
 
     @Published var changed: Bool // This allows to "force" the refresh of the view
 
@@ -75,6 +75,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         self.timeBasedRetention = Binding<DurationOptionAlt>(get: getTimeBasedRetention, set: setTimeBasedRetention)
         self.autoRead = Binding<Bool>(get: getAutoRead, set: setAutoRead)
         self.retainWipedOutboundMessages = Binding<Bool>(get: getRetainWipedOutboundMessages, set: setRetainWipedOutboundMessages)
+        self.notificationSound = Binding<OptionalNotificationSound>(get: getNotificationSound, set: setNotificationSound)
     }
     
     private func getTimeBasedRetention() -> DurationOptionAlt {
@@ -184,6 +185,21 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
             self.changed.toggle()
         }
     }
+
+    private func getNotificationSound() -> OptionalNotificationSound {
+        if let notificationSound = ObvMessengerSettings.Discussions.notificationSound {
+            return OptionalNotificationSound.some(notificationSound)
+        } else {
+            return OptionalNotificationSound.some(.system)
+        }
+    }
+
+    private func setNotificationSound(_ newValue: OptionalNotificationSound) {
+        ObvMessengerSettings.Discussions.notificationSound = newValue.value
+        withAnimation {
+            self.changed.toggle()
+        }
+    }
 }
 
 
@@ -204,12 +220,11 @@ struct DiscussionsDefaultSettingsWrapperView: View {
                                        timeBasedRetention: model.timeBasedRetention,
                                        autoRead: model.autoRead,
                                        retainWipedOutboundMessages: model.retainWipedOutboundMessages,
+                                       notificationSound: model.notificationSound,
                                        changed: $model.changed)
     }
     
 }
-
-
 
 fileprivate struct DiscussionsDefaultSettingsView: View {
     
@@ -223,21 +238,15 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     @Binding var timeBasedRetention: DurationOptionAlt
     @Binding var autoRead: Bool
     @Binding var retainWipedOutboundMessages: Bool
+    @Binding var notificationSound: OptionalNotificationSound
     @Binding var changed: Bool
+
+    @State private var presentChooseNotificationSoundSheet: Bool = false
 
     private var sendReadReceiptSectionFooter: Text {
         Text(doSendReadReceipt ? DiscussionsSettingsTableViewController.Strings.SendReadRecceipts.explanationWhenYes : DiscussionsSettingsTableViewController.Strings.SendReadRecceipts.explanationWhenNo)
     }
-    
-    
-    private var labelForFetchContentRichURLsMetadataPicker: some View {
-        if #available(iOS 14, *) {
-            return AnyView(Label("SHOW_RICH_LINK_PREVIEW_LABEL", systemImage: "text.below.photo.fill"))
-        } else {
-            return AnyView(Text("SHOW_RICH_LINK_PREVIEW_LABEL"))
-        }
-    }
-    
+
     private func countBasedRetentionIncrement() {
         countBasedRetention += 10
     }
@@ -250,15 +259,12 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
         Form {
             Section(footer: sendReadReceiptSectionFooter) {
                 Toggle(isOn: $doSendReadReceipt) {
-                    if #available(iOS 14, *) {
-                        Image(systemName: "eye.fill")
-                            .foregroundColor(.blue)
-                    }
-                    Text("SEND_READ_RECEIPTS_LABEL")
+                    ObvLabel("SEND_READ_RECEIPTS_LABEL", systemImage: "eye.fill")
                 }
             }
             Section {
-                Picker(selection: $doFetchContentRichURLsMetadata, label: labelForFetchContentRichURLsMetadataPicker) {
+                Picker(selection: $doFetchContentRichURLsMetadata, label:
+                        ObvLabel("SHOW_RICH_LINK_PREVIEW_LABEL", systemImage: "text.below.photo.fill")) {
                     ForEach(ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice.allCases) { value in
                         switch value {
                         case .never:
@@ -267,6 +273,22 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                             Text("Sent messages only").tag(value)
                         case .always:
                             Text(CommonString.Word.Always).tag(value)
+                        }
+                    }
+                }
+            }
+            Section {
+                NotificationSoundPicker(selection: $notificationSound, showDefault: false) { sound -> Text in
+                    switch sound {
+                    case .none:
+                        return Text(CommonString.Title.systemSound)
+                            .italic()
+                    case .some(let sound):
+                        if sound == .system {
+                            return Text(sound.description)
+                                .italic()
+                        } else {
+                            return Text(sound.description)
                         }
                     }
                 }
@@ -280,11 +302,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                 }
                 Section(footer: Text("COUNT_BASED_SECTION_FOOTER")) {
                     Toggle(isOn: $countBasedRetentionIsActive) {
-                        if #available(iOS 14, *) {
-                            Image(systemName: "number")
-                                .foregroundColor(.blue)
-                        }
-                        Text("COUNT_BASED_LABEL")
+                        ObvLabel("COUNT_BASED_LABEL", systemImage: "number")
                     }
                     if countBasedRetentionIsActive {
                         Stepper(onIncrement: countBasedRetentionIncrement,
@@ -293,20 +311,10 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                         }
                     }
                 }
-                if #available(iOS 14, *) {
-                    Section(footer: Text("TIME_BASED_SECTION_FOOTER")) {
-                        Picker(selection: $timeBasedRetention, label: Label("TIME_BASED_LABEL", systemImage: "calendar.badge.clock")) {
-                            ForEach(DurationOptionAlt.allCases) { duration in
-                                Text(duration.description).tag(duration)
-                            }
-                        }
-                    }
-                } else {
-                    Section(footer: Text("TIME_BASED_SECTION_FOOTER")) {
-                        Picker(selection: $timeBasedRetention, label: Text("TIME_BASED_LABEL")) {
-                            ForEach(DurationOptionAlt.allCases) { duration in
-                                Text(duration.description).tag(duration)
-                            }
+                Section(footer: Text("TIME_BASED_SECTION_FOOTER")) {
+                    Picker(selection: $timeBasedRetention, label: ObvLabel("TIME_BASED_LABEL", systemIcon: .calendarBadgeClock)) {
+                        ForEach(DurationOptionAlt.allCases) { duration in
+                            Text(duration.description).tag(duration)
                         }
                     }
                 }
@@ -348,44 +356,20 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                 }
                 Section(footer: Text("READ_ONCE_SECTION_FOOTER")) {
                     Toggle(isOn: $readOnce) {
-                        if #available(iOS 14, *) {
-                            Label("READ_ONCE_LABEL", systemImage: "flame.fill")
-                        } else {
-                            Text("READ_ONCE_LABEL")
+                        ObvLabel("READ_ONCE_LABEL", systemImage: "flame.fill")
+                    }
+                }
+                Section(footer: Text("LIMITED_VISIBILITY_SECTION_FOOTER")) {
+                    Picker(selection: $visibilityDuration, label: ObvLabel("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)) {
+                        ForEach(DurationOption.allCases) { duration in
+                            Text(duration.description).tag(duration)
                         }
                     }
                 }
-                if #available(iOS 14, *) {
-                    Section(footer: Text("LIMITED_VISIBILITY_SECTION_FOOTER")) {
-                        Picker(selection: $visibilityDuration, label: Label("LIMITED_VISIBILITY_LABEL", systemImage: "eyes")) {
-                            ForEach(DurationOption.allCases) { duration in
-                                Text(duration.description).tag(duration)
-                            }
-                        }
-                    }
-                } else {
-                    Section(footer: Text("LIMITED_VISIBILITY_SECTION_FOOTER")) {
-                        Picker(selection: $visibilityDuration, label: Text("LIMITED_VISIBILITY_LABEL")) {
-                            ForEach(DurationOption.allCases) { duration in
-                                Text(duration.description).tag(duration)
-                            }
-                        }
-                    }
-                }
-                if #available(iOS 14, *) {
-                    Section(footer: Text("LIMITED_EXISTENCE_SECTION_FOOTER")) {
-                        Picker(selection: $existenceDuration, label: Label("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
-                            ForEach(DurationOption.allCases) { duration in
-                                Text(duration.description).tag(duration)
-                            }
-                        }
-                    }
-                } else {
-                    Section(footer: Text("LIMITED_EXISTENCE_SECTION_FOOTER")) {
-                        Picker(selection: $existenceDuration, label: Text("LIMITED_EXISTENCE_SECTION_LABEL")) {
-                            ForEach(DurationOption.allCases) { duration in
-                                Text(duration.description).tag(duration)
-                            }
+                Section(footer: Text("LIMITED_EXISTENCE_SECTION_FOOTER")) {
+                    Picker(selection: $existenceDuration, label: ObvLabel("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
+                        ForEach(DurationOption.allCases) { duration in
+                            Text(duration.description).tag(duration)
                         }
                     }
                 }
@@ -413,6 +397,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            timeBasedRetention: .constant(.none),
                                            autoRead: .constant(false),
                                            retainWipedOutboundMessages: .constant(false),
+                                           notificationSound: .constant(.none),
                                            changed: .constant(false))
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(true),
                                            doFetchContentRichURLsMetadata: .constant(.always),
@@ -424,6 +409,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            timeBasedRetention: .constant(.sevenDays),
                                            autoRead: .constant(false),
                                            retainWipedOutboundMessages: .constant(false),
+                                           notificationSound: .constant(.some(.bell)),
                                            changed: .constant(false))
                 .environment(\.locale, .init(identifier: "fr"))
         }

@@ -19,6 +19,7 @@
 
 import Foundation
 import MobileCoreServices
+import UniformTypeIdentifiers
 
 
 final class ObvUTIUtils {
@@ -137,6 +138,46 @@ final class ObvUTIUtils {
         case String(kUTTypeZipArchive): return "Zip"
         case "org.openxmlformats.wordprocessingml.document": return "Word"
         default: return nil
+        }
+    }
+
+    @available(iOS 14.0, *)
+    static func getIcon(forUTI uti: String) -> ObvSystemIcon {
+        if let utType = UTType(uti) {
+            if utType.conforms(to: .image) {
+                return .photoOnRectangleAngled
+            } else if utType.conforms(to: .pdf) {
+                return .docRichtext
+            } else if utType.conforms(to: .audio) {
+                return .musicNote
+            } else if utType.conforms(to: .vCard) {
+                return .personTextRectangle
+            } else if utType.conforms(to: .calendarEvent) {
+                return .calendar
+            } else if utType.conforms(to: .font) {
+                return .textformat
+            } else if utType.conforms(to: .spreadsheet) {
+                return .rectangleSplit3x3
+            } else if utType.conforms(to: .presentation) {
+                return .display
+            } else if utType.conforms(to: .bookmark) {
+                return .bookmark
+            } else if utType.conforms(to: .archive) {
+                return .rectangleCompressVertical
+            } else if utType.conforms(to: .webArchive) {
+                return .archiveboxFill
+            } else if utType.conforms(to: .xml) || utType.conforms(to: .html) {
+                return .chevronLeftForwardslashChevronRight
+            } else if utType.conforms(to: .executable) {
+                return .docBadgeGearshape
+            } else if ObvUTIUtils.uti(uti, conformsTo: "org.openxmlformats.wordprocessingml.document" as CFString) || ObvUTIUtils.uti(uti, conformsTo: "com.microsoft.word.doc" as CFString) {
+                    // Word (docx) document
+                return .docFill
+            } else {
+                return .paperclip
+            }
+        } else {
+            return .paperclip
         }
     }
 

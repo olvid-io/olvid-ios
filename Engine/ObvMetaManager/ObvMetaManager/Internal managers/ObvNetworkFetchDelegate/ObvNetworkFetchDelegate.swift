@@ -38,8 +38,8 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
 
     func set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: MessageIdentifier, within obvContext: ObvContext) throws
     
-    func getAttachment(withId: AttachmentIdentifier, flowId: FlowIdentifier) -> ObvNetworkFetchReceivedAttachment?
-    func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier)
+    func getAttachment(withId attachmentId: AttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment?
+    // func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdentifier: MessageIdentifier, flowId: FlowIdentifier)
     
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool
     func processCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier)
@@ -48,6 +48,8 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
     func markMessageForDeletion(messageId: MessageIdentifier, within: ObvContext)
     func markAttachmentForDeletion(attachmentId: AttachmentIdentifier, within: ObvContext)
     func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
 
     func register(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext)
     func registerIfRequired(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext)

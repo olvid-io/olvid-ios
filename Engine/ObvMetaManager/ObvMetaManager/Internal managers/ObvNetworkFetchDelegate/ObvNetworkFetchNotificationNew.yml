@@ -26,16 +26,19 @@ notifications:
   params:
     - {name: ownedIdentity, type: ObvCryptoIdentity}
     - {name: flowId, type: FlowIdentifier}
-- name: inboxAttachmentHasNewProgress
-  params:
-  - {name: attachmentId, type: AttachmentIdentifier}
-  - {name: progress, type: Progress}
-  - {name: flowId, type: FlowIdentifier}
 - name: inboxAttachmentWasDownloaded
   params:
   - {name: attachmentId, type: AttachmentIdentifier}
   - {name: flowId, type: FlowIdentifier}
 - name: inboxAttachmentDownloadCancelledByServer
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: inboxAttachmentDownloadWasResumed
+  params:
+  - {name: attachmentId, type: AttachmentIdentifier}
+  - {name: flowId, type: FlowIdentifier}
+- name: inboxAttachmentDownloadWasPaused
   params:
   - {name: attachmentId, type: AttachmentIdentifier}
   - {name: flowId, type: FlowIdentifier}

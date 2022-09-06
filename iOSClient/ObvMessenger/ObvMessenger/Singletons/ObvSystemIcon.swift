@@ -21,9 +21,40 @@ import Foundation
 import SwiftUI
 import CryptoKit
 
+enum CircleCircleFillOption {
+    case circle
+    case circleFill
 
-enum ObvSystemIcon {
+    var complement: String {
+        switch self {
+        case .circle:
+            return ".circle"
+        case .circleFill:
+            return ".circle.fill"
+        }
+    }
+}
 
+enum FillCircleCircleFillOption {
+    case fill
+    case circle
+    case circleFill
+
+    var complement: String {
+        switch self {
+        case .fill:
+            return ".fill"
+        case .circle:
+            return ".circle"
+        case .circleFill:
+            return ".circle.fill"
+        }
+    }
+}
+
+enum ObvSystemIcon: Hashable {
+
+    case alarm
     case archiveboxFill
     case arrowClockwise
     case arrowCounterclockwiseCircleFill
@@ -34,14 +65,18 @@ enum ObvSystemIcon {
     case arrowUpCircle
     case arrowUturnForwardCircleFill
     case arrowshapeTurnUpBackwardFill
+    case arrowshapeTurnUpForward
     case arrowshapeTurnUpForwardCircleFill
     case arrowshapeTurnUpForwardFill
     case arrowshapeTurnUpLeft2
     case arrowshapeTurnUpLeftCircleFill
     case arrowTriangle2CirclepathCircle
     case book
+    case bookmark
     case bubbleLeftAndBubbleRight
-    case camera
+    case calendar
+    case calendarBadgeClock
+    case camera(_: FillCircleCircleFillOption? = nil)
     case cartFill
     case checkmark
     case checkmarkCircle
@@ -49,14 +84,18 @@ enum ObvSystemIcon {
     case checkmarkSealFill
     case checkmarkShieldFill
     case checkmarkSquareFill
+    case chevronLeftForwardslashChevronRight
+    case chevronDown
     case chevronRight
     case chevronRightCircle
     case chevronRightCircleFill
     case circle
     case circleFill
     case creditcardFill
-    case docOnClipboardFill
+    case display
+    case docBadgeGearshape
     case docFill
+    case docOnClipboardFill
     case docOnDoc
     case docRichtext
     case earBadgeCheckmark
@@ -94,12 +133,13 @@ enum ObvSystemIcon {
     case moonZzzFill
     case multiply
     case muliplyCircleFill
+    case musicQuarterNote3
     case musicNote
+    case musicNoteList
     case paperclip
     case paperplaneFill
     case pauseCircle
-    case pencilCircle
-    case pencilCircleFill
+    case pencil(_: CircleCircleFillOption? = nil)
     case pencilSlash
     case person
     case person2Circle
@@ -111,6 +151,7 @@ enum ObvSystemIcon {
     case personCropCircleFillBadgeCheckmark
     case personCropCircleFillBadgeMinus
     case personCropCircleFillBadgeXmark
+    case personTextRectangle
     case personFillQuestionmark
     case personFillViewfinder
     case personFillXmark
@@ -128,19 +169,24 @@ enum ObvSystemIcon {
     case questionmarkCircleFill
     case rectangleAndPencilAndEllipsis
     case rectangleCompressVertical
+    case rectangleSplit3x3
     case restartCircle
     case scanner
     case serverRack
     case shieldFill
+    case speakerWave3Fill
     case speakerSlashFill
     case squareAndArrowUp
     case squareAndPencil
     case star
     case starFill
+    case textformat
     case textBubbleFill
     case timer
+    case tortoise
     case trash
     case trashCircle
+    case umbrella
     case xmark
     case xmarkCircle
     case xmarkCircleFill
@@ -187,8 +233,8 @@ enum ObvSystemIcon {
             } else {
                 return "viewfinder.circle"
             }
-        case .camera:
-            return "camera"
+        case .camera(let option):
+            return "camera" + (option?.complement ?? "")
         case .photo:
             return "photo"
         case .paperclip:
@@ -231,6 +277,12 @@ enum ObvSystemIcon {
             return "hourglass"
         case .folderCircle:
             return "folder.circle"
+        case .arrowshapeTurnUpForward:
+            if #available(iOS 14, *) {
+                return "arrowshape.turn.up.forward"
+            } else {
+                return "arrowshape.turn.up.right"
+            }
         case .arrowshapeTurnUpForwardCircleFill:
             if #available(iOS 14, *) {
                 return "arrowshape.turn.up.forward.circle.fill"
@@ -317,6 +369,8 @@ enum ObvSystemIcon {
             }
         case .person3Fill:
             return "person.3.fill"
+        case .chevronDown:
+            return "chevron.down"
         case .chevronRight:
             return "chevron.right"
         case .chevronRightCircle:
@@ -333,10 +387,8 @@ enum ObvSystemIcon {
             return "ellipsis.circle.fill"
         case .ellipsisCircle:
             return "ellipsis.circle"
-        case .pencilCircle:
-            return "pencil.circle"
-        case .pencilCircleFill:
-            return "pencil.circle.fill"
+        case .pencil(let option):
+            return "pencil" + (option?.complement ?? "")
         case .restartCircle:
             if #available(iOS 14, *) {
                 return "restart.circle"
@@ -485,6 +537,61 @@ enum ObvSystemIcon {
             return "rectangle.compress.vertical"
         case .envelopeOpenFill:
             return "envelope.open.fill"
+        case .speakerWave3Fill:
+            if #available(iOS 14.0, *) {
+                return "speaker.wave.3.fill"
+            } else {
+                return "speaker.3.fill"
+            }
+        case .calendarBadgeClock:
+            if #available(iOS 14.0, *) {
+                return "calendar.badge.clock"
+            } else {
+                return "calendar"
+            }
+        case .musicNoteList:
+            return "music.note.list"
+        case .personTextRectangle:
+            if #available(iOS 15.0, *) {
+                return "person.text.rectangle"
+            } else {
+                return "person.crop.circle"
+            }
+        case .calendar:
+            return "calendar"
+        case .bookmark:
+            return "bookmark"
+        case .display:
+            if #available(iOS 14.0, *) {
+                return "display"
+            } else {
+                return "desktopcomputer"
+            }
+        case .rectangleSplit3x3:
+            return "rectangle.split.3x3"
+        case .textformat:
+            return "textformat"
+        case .docBadgeGearshape:
+            if #available(iOS 14.0, *) {
+                return "doc.badge.gearshape"
+            } else {
+                return "gear"
+            }
+        case .chevronLeftForwardslashChevronRight:
+            if #available(iOS 15.0, *) {
+                return "chevron.left.forwardslash.chevron.right"
+            } else {
+                return "chevron.left.slash.chevron.right"
+            }
+        case .alarm: return "alarm"
+        case .tortoise: return "tortoise"
+        case .umbrella: return "umbrella"
+        case .musicQuarterNote3:
+            if #available(iOS 14.0, *) {
+                return "music.quarternote.3"
+            } else {
+                return ObvSystemIcon.musicNoteList.systemName
+            }
         }
     }
 }

@@ -53,7 +53,7 @@ final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOp
                     return cancel(withReason: .couldNotFindDiscussionInDatabase)
                 }
 
-                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: nil, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil)
+                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: nil, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false)
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

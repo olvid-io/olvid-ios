@@ -34,11 +34,6 @@ notifications:
   - {name: isAppMessageWithUserContent, type: Bool}
   - {name: isVoipMessage, type: Bool}
   - {name: flowId, type: FlowIdentifier}
-- name: outboxAttachmentHasNewProgress
-  params:
-  - {name: attachmentId, type: AttachmentIdentifier}
-  - {name: newProgress, type: Progress}
-  - {name: flowId, type: FlowIdentifier}
 - name: outboxAttachmentWasAcknowledged
   params:
   - {name: attachmentId, type: AttachmentIdentifier}

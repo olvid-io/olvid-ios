@@ -125,7 +125,8 @@ struct OwnedGroupEditionFlowView: View {
                     ObvCardView(padding: 0) {
                         VStack(spacing: 0) {
                             HStack {
-                                GroupCardContentView(model: contactGroup)
+                                GroupCardContentView(model: contactGroup,
+                                                     editionMode: contactGroup.editPictureMode)
                                     .padding(.horizontal, typicalPadding(for: geometry))
                                     .padding(.top, typicalPadding(for: geometry))
                                     .padding(.bottom, typicalPadding(for: geometry))

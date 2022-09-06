@@ -84,7 +84,7 @@ final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpeci
                         return cancel(withReason: .couldNotFindGroupDiscussion)
                     }
                     discussion = group.discussion
-                } else if let oneToOneDiscussion = try contact.oneToOneDiscussion {
+                } else if let oneToOneDiscussion = contact.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {
                     return cancel(withReason: .couldNotFindAnyDiscussion)

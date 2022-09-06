@@ -26,7 +26,7 @@ struct ProfilePictureView: View {
     let circleBackgroundColor: UIColor?
     let circleTextColor: UIColor?
     let circledTextView: Text?
-    let systemImage: InitialCircleViewSystemImage
+    let systemImage: CircledInitialsIcon
     let customCircleDiameter: CGFloat?
     let showGreenShield: Bool
     let showRedShield: Bool
@@ -35,7 +35,7 @@ struct ProfilePictureView: View {
          circleBackgroundColor: UIColor?,
          circleTextColor: UIColor?,
          circledTextView: Text?,
-         systemImage: InitialCircleViewSystemImage,
+         systemImage: CircledInitialsIcon,
          showGreenShield: Bool,
          showRedShield: Bool,
          customCircleDiameter: CGFloat? = ProfilePictureView.circleDiameter) {

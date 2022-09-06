@@ -21,14 +21,16 @@ import Foundation
 import CoreData
 import os.log
 import UIKit
+import OlvidUtils
 
 
 @objc(FyleMessageJoinWithStatus)
-class FyleMessageJoinWithStatus: NSManagedObject {
+class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
     
     // MARK: - Internal constants
 
     private static let entityName = "FyleMessageJoinWithStatus"
+    static let errorDomain = "FyleMessageJoinWithStatus"
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: FyleMessageJoinWithStatus.self))
     private static func makeError(message: String) -> Error {
@@ -45,7 +47,7 @@ class FyleMessageJoinWithStatus: NSManagedObject {
     @NSManaged private(set) var isWiped: Bool
     @NSManaged private(set) var messageSortIndex: Double // Equal to the message sortIndex, used to sort FyleMessageJoinWithStatus instances in the gallery
     @NSManaged internal var rawStatus: Int
-    @NSManaged private(set) var totalUnitCount: Int64
+    @NSManaged private(set) var totalByteCount: Int64 // Was totalUnitCount
     @NSManaged private(set) var uti: String
 
     // MARK: - Relationships
@@ -67,26 +69,10 @@ class FyleMessageJoinWithStatus: NSManagedObject {
         assertionFailure("Must be overriden by subclasses")
         return false
     }
-
-    /// Helper methods allowing to "store" a progress in an attachment loaded in the view context. This is used to in conjonction with
-    /// the (new) view controller showing a single discussion, allowing e.g. the user to initiate, pause, and follow the download of an attachment.
-    /// For now, this is only used for displaying progresses within the new discussion view designed for iOS14+.
-    static var progressesForAttachment = [NSManagedObjectID: Progress]()
-    var progress: Progress? {
-        get {
-            assert(Thread.isMainThread)
-            return FyleMessageJoinWithStatus.progressesForAttachment[self.objectID]
-        }
-        set {
-            assert(Thread.isMainThread)
-            FyleMessageJoinWithStatus.progressesForAttachment[self.objectID] = newValue
-        }
-    }
     
-
     // MARK: - Initializer
 
-    convenience init(totalUnitCount: Int64, fileName: String, uti: String, rawStatus: Int, messageSortIndex: Double, index: Int, fyle: Fyle, forEntityName entityName: String, within context: NSManagedObjectContext) {
+    convenience init(totalByteCount: Int64, fileName: String, uti: String, rawStatus: Int, messageSortIndex: Double, index: Int, fyle: Fyle, forEntityName entityName: String, within context: NSManagedObjectContext) {
 
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
@@ -97,7 +83,7 @@ class FyleMessageJoinWithStatus: NSManagedObject {
         self.rawStatus = rawStatus
         self.messageSortIndex = messageSortIndex
         self.isWiped = false
-        self.totalUnitCount = totalUnitCount
+        self.totalByteCount = totalByteCount
         
         self.fyle = fyle
     }
@@ -107,8 +93,48 @@ class FyleMessageJoinWithStatus: NSManagedObject {
         self.isWiped = true
         self.fyle = nil
         self.fileName = ""
-        self.totalUnitCount = 0
+        self.totalByteCount = 0
         self.uti = ""
+    }
+
+
+    // MARK: - Managing a progress object in the view context
+    
+    @MainActor
+    static func setProgressTo(_ newProgress: Float, forJoinWithObjectID joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) {
+        if let progressObject = progressForJoinWithObjectID[joinObjectID] {
+            let newCompletedUnitCount = Int64(Double(newProgress) * Double(progressObject.totalUnitCount))
+            guard newCompletedUnitCount > progressObject.completedUnitCount else { return }
+            progressObject.completedUnitCount = newCompletedUnitCount
+        } else {
+            guard let joinObject = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
+            let progressObject = Progress(totalUnitCount: joinObject.totalByteCount)
+            let newCompletedUnitCount = Int64(Double(newProgress) * Double(progressObject.totalUnitCount))
+            progressObject.completedUnitCount = newCompletedUnitCount
+            progressForJoinWithObjectID[joinObjectID] = progressObject
+        }
+    }
+
+
+    private static var progressForJoinWithObjectID = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: Progress]()
+
+
+    @MainActor
+    var progressObject: Progress {
+        assert(self.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
+        if let progress = FyleMessageJoinWithStatus.progressForJoinWithObjectID[self.typedObjectID] {
+            return progress
+        } else {
+            let progress = Progress(totalUnitCount: self.totalByteCount)
+            FyleMessageJoinWithStatus.progressForJoinWithObjectID[self.typedObjectID] = progress
+            return progress
+        }
+    }
+    
+
+    @MainActor
+    static func removeProgressForJoinWithObjectID(_ joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) {
+        _ = progressForJoinWithObjectID.removeValue(forKey: joinObjectID)
     }
 
 }

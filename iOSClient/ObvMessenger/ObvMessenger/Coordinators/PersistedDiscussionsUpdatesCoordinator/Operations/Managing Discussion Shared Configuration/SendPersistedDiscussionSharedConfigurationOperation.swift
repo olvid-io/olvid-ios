@@ -60,37 +60,43 @@ final class SendPersistedDiscussionSharedConfigurationOperation: OperationWithSp
             }
             let itemJSON = PersistedItemJSON(discussionSharedConfiguration: sharedConfigJSON)
             
+            guard let discussion = sharedConfig.discussion else {
+                return cancel(withReason: .couldNotFindDiscussion)
+            }
+            
             // Find all the contacts to which this item should be sent.
             // If the discussion is a group discussion, we make sure we are the owner of the group.
             
             let contactCryptoIds: Set<ObvCryptoId>
             let ownCryptoId: ObvCryptoId
-            if let oneToOneDiscussion = sharedConfig.discussion as? PersistedOneToOneDiscussion {
-                guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
-                    os_log("Could not find contact identity", log: log, type: .fault)
-                    return cancel(withReason: .couldNotFindContactIdentity)
+            do {
+                switch try discussion.kind {
+                case .oneToOne(withContactIdentity: let contactIdentity):
+                    guard let contactIdentity = contactIdentity else {
+                        os_log("Could not find contact identity", log: log, type: .fault)
+                        return cancel(withReason: .couldNotFindContactIdentity)
+                    }
+                    contactCryptoIds = Set([contactIdentity.cryptoId])
+                    guard let _ownCryptoId = discussion.ownedIdentity?.cryptoId else {
+                        return cancel(withReason: .couldNotDetermineOwnedCryptoId)
+                    }
+                    ownCryptoId = _ownCryptoId
+                case .groupV1(withContactGroup: let contactGroup):
+                    guard let contactGroup = contactGroup else {
+                        return cancel(withReason: .couldNotFindContactGroup)
+                    }
+                    guard contactGroup.category == .owned else {
+                        // When the group is not owned, we do not send the configuration.
+                        // Only the group owner can do that.
+                        return
+                    }
+                    contactCryptoIds = Set(contactGroup.contactIdentities.map({ $0.cryptoId }))
+                    guard let _ownCryptoId = discussion.ownedIdentity?.cryptoId else {
+                        return cancel(withReason: .couldNotDetermineOwnedCryptoId)
+                    }
+                    ownCryptoId = _ownCryptoId
                 }
-                contactCryptoIds = Set([contactIdentity.cryptoId])
-                guard let _ownCryptoId = oneToOneDiscussion.ownedIdentity?.cryptoId else {
-                    return cancel(withReason: .couldNotDetermineOwnedCryptoId)
-                }
-                ownCryptoId = _ownCryptoId
-            } else if let groupDiscussion = sharedConfig.discussion as? PersistedGroupDiscussion {
-                guard let contactGroup = groupDiscussion.contactGroup else {
-                    return cancel(withReason: .couldNotFindContactGroup)
-                }
-                guard contactGroup.category == .owned else {
-                    // When the group is not owned, we do not send the configuration.
-                    // Only the group owner can do that.
-                    return
-                }
-                contactCryptoIds = Set(contactGroup.contactIdentities.map({ $0.cryptoId }))
-                guard let _ownCryptoId = groupDiscussion.ownedIdentity?.cryptoId else {
-                    return cancel(withReason: .couldNotDetermineOwnedCryptoId)
-                }
-                ownCryptoId = _ownCryptoId
-            } else {
-                assertionFailure()
+            } catch {
                 return cancel(withReason: .unexpectedDiscussionType)
             }
 
@@ -137,6 +143,7 @@ enum SendPersistedDiscussionSharedConfigurationOperationReasonForCancel: Localiz
     case couldNotDetermineOwnedCryptoId
     case couldNotPostMessageWithinEngine
     case couldNotComputeJSON
+    case couldNotFindDiscussion
     
     var logType: OSLogType {
         switch self {
@@ -146,7 +153,8 @@ enum SendPersistedDiscussionSharedConfigurationOperationReasonForCancel: Localiz
              .couldNotFindContactGroup,
              .couldNotDetermineOwnedCryptoId,
              .couldNotPostMessageWithinEngine,
-             .couldNotComputeJSON:
+             .couldNotComputeJSON,
+             .couldNotFindDiscussion:
             return .fault
         case .configCannotBeFound,
              .unexpectedDiscussionType:
@@ -156,6 +164,8 @@ enum SendPersistedDiscussionSharedConfigurationOperationReasonForCancel: Localiz
     
     var errorDescription: String? {
         switch self {
+        case .couldNotFindDiscussion:
+            return "Could not find discussion"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
         case .configCannotBeFound:

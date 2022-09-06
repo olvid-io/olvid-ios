@@ -2597,19 +2597,6 @@ extension ObvEngine {
         try networkPostDelegate.cancelPostOfMessage(messageId: messageId, flowId: randomFlowId)
     }
     
-    
-    public func requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) throws {
-        
-        guard let networkPostDelegate = networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
-
-        guard let uid = UID(uid: messageIdRaw) else { throw ObvEngine.makeError(message: "Could not parse message identifier") }
-        let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
-        
-        let randomFlowId = FlowIdentifier()
-        try networkPostDelegate.requestProgressesOfAllOutboxAttachmentsOfMessage(withIdentifier: messageId, flowId: randomFlowId)
-        
-    }
-    
 }
 
 
@@ -2751,17 +2738,54 @@ extension ObvEngine {
     }
     
     
-    public func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) throws {
+    public func resumeDownloadOfAttachment(_ attachmentNumber: Int, ofMessageWithIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) throws {
         
         guard let networkFetchDelegate = networkFetchDelegate else { throw makeError(message: "The network fetch delegate is not set") }
-        
+
         guard let uid = UID(uid: messageIdRaw) else { throw ObvEngine.makeError(message: "Could not parse message identifier") }
         let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
+        let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
         
         let randomFlowId = FlowIdentifier()
-        networkFetchDelegate.requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier: messageId, flowId: randomFlowId)
+        networkFetchDelegate.resumeDownloadOfAttachment(attachmentId: attachmentId, flowId: randomFlowId)
         
     }
+
+    
+    public func pauseDownloadOfAttachment(_ attachmentNumber: Int, ofMessageWithIdentifier messageIdRaw: Data, ownedCryptoId: ObvCryptoId) throws {
+        
+        guard let networkFetchDelegate = networkFetchDelegate else { throw makeError(message: "The network fetch delegate is not set") }
+
+        guard let uid = UID(uid: messageIdRaw) else { throw ObvEngine.makeError(message: "Could not parse message identifier") }
+        let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
+        let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+        
+        let randomFlowId = FlowIdentifier()
+        networkFetchDelegate.pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: randomFlowId)
+        
+    }
+    
+    
+    public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int, progress: Float)] {
+        guard let networkFetchDelegate = networkFetchDelegate else { throw makeError(message: "The network fetch delegate is not set") }
+        let progresses = try await networkFetchDelegate.requestDownloadAttachmentProgressesUpdatedSince(date: date)
+        let progressesToReturn = progresses.map { (attachmentId: AttachmentIdentifier, progress: Float) in
+            (ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity), attachmentId.messageId.uid.raw, attachmentId.attachmentNumber, progress)
+        }
+        return progressesToReturn
+    }
+    
+    
+    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int, progress: Float)] {
+        guard let networkPostDelegate = networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
+        let progresses = try await networkPostDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
+        let progressesToReturn = progresses.map { (attachmentId: AttachmentIdentifier, progress: Float) in
+            (ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity), attachmentId.messageId.uid.raw, attachmentId.attachmentNumber, progress)
+        }
+        return progressesToReturn
+    }
+
+
 }
 
 // MARK: - Public API for Downloading Files in the Background, remote notifications, and background fetches

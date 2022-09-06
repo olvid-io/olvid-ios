@@ -198,7 +198,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: ComposeMessageViewDo
             }))
         }
         
-        if #available(iOS 13, *), UIImagePickerController.isSourceTypeAvailable(.camera), VNDocumentCameraViewController.isSupported {
+        if UIImagePickerController.isSourceTypeAvailable(.camera), VNDocumentCameraViewController.isSupported {
             alert.addAction(UIAlertAction(title: CommonString.Title.scanDocument, style: .default, handler: { [weak self] (action) in
                 switch AVCaptureDevice.authorizationStatus(for: AVMediaType.video) {
                 case .authorized:

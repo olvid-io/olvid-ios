@@ -302,7 +302,7 @@ fileprivate struct MessageReactionView: View {
         HStack {
             switch reaction.sender {
             case .owned(let ownedIdentity):
-                let singleIdentity = SingleIdentity(ownedIdentity: ownedIdentity, editionMode: .none)
+                let singleIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
                 OwnedMessageSender(model: singleIdentity, date: reaction.date)
             case .contact(let contactIdentity):
                 let singleContactIdentity = SingleContactIdentity(persistedContact: contactIdentity, observeChangesMadeToContact: true)
@@ -370,7 +370,6 @@ fileprivate struct ContactMessageSender: View {
                             circledTextView: model.circledTextView([firstName, lastName]),
                             systemImage: .person,
                             profilePicture: model.getProfilPicture(for: .customOrTrusted),
-                            changed: $model.changed,
                             showGreenShield: model.showGreenShield,
                             showRedShield: model.showRedShield,
                             editionMode: .none,
@@ -392,7 +391,6 @@ fileprivate struct OwnedMessageSender: View {
                             circledTextView: model.circledTextView([model.firstName, model.lastName]),
                             systemImage: .person,
                             profilePicture: model.profilePicture,
-                            changed: $model.changed,
                             showGreenShield: model.showGreenShield,
                             showRedShield: model.showRedShield,
                             editionMode: .none,

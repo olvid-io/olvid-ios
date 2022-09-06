@@ -21,7 +21,7 @@ import UIKit
 import QuickLookThumbnailing
 
 @available(iOS 14.0, *)
-final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks {
+final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks, UIViewWithTappableStuff {
     
     private var currentConfigurations = [SingleImageView.Configuration]()
     
@@ -32,11 +32,8 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
         refresh()
     }
 
-    
     private var currentRefreshId = UUID()
     
-    weak var delegate: ViewShowingHardLinksDelegate?
-
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
         guard showInStack else { return [] }
         var hardlinks = [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)]()
@@ -127,9 +124,18 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
             } else {
                 imageView.reset()
             }
-        case .downloadableOrDownloading(progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
             tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.pausedOrDownloading(progress: progress))
+            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let downsizedThumbnail = downsizedThumbnail {
+                imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
+            } else {
+                imageView.reset()
+            }
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             if let downsizedThumbnail = downsizedThumbnail {
                 imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
@@ -170,8 +176,6 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
         let numberOfHorizontalPairOfImagesViewToAdd = max(0, count - horizontalPairOfImagesViews.count)
         for _ in 0..<numberOfHorizontalPairOfImagesViewToAdd {
             let view = HorizontalPairOfImagesView()
-            view.lImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageViewWasTapped(sender:))))
-            view.rImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageViewWasTapped(sender:))))
             view.lImageView.isUserInteractionEnabled = true
             view.rImageView.isUserInteractionEnabled = true
             mainStackView.insertArrangedSubview(view, at: 0)
@@ -189,31 +193,6 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
     }
     
 
-    /// This method is used to make the cell's double tap gesture recognizer more important than the single tap gestures set on the images.
-    func gestureRecognizersOnImageViewsRequire(toFail gesture: UIGestureRecognizer) {
-        for view in mainStackView.arrangedSubviews {
-            if let horizontalPairOfImagesView = view as? HorizontalPairOfImagesView {
-                horizontalPairOfImagesView.lImageView.gestureRecognizers?.forEach { $0.require(toFail: gesture) }
-                horizontalPairOfImagesView.rImageView.gestureRecognizers?.forEach { $0.require(toFail: gesture) }
-            } else if let imageViewForHardLink = view as? UIImageViewForHardLinkForOlvidStack {
-                imageViewForHardLink.gestureRecognizers?.forEach { $0.require(toFail: gesture) }
-            }
-        }
-    }
-    
-    
-    @objc private func imageViewWasTapped(sender: UITapGestureRecognizer) {
-        assert(delegate != nil)
-        if let view = sender.view as? UIImageViewForHardLink, let hardlink = view.hardlink {
-            delegate?.userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardlink)
-        } else if let view = sender.view as? UIImageViewForHardLinkForOlvidStack, let hardlink = view.hardlink {
-            delegate?.userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardlink)
-        } else {
-            // This happens in case of a readonce message
-        }
-    }
-    
-    
     private let bubble = BubbleView()
     static var smallImageSize: CGFloat { HorizontalPairOfImagesView.smallImageSize }
     static var wideImageWidth: CGFloat { 2*smallImageSize + spacing } // 2*120+1
@@ -240,6 +219,17 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
     }
 
     
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        var viewsWithTappableStuff = [UIViewWithTappableStuff]()
+        if wideImageView.showInStack {
+            viewsWithTappableStuff += [wideFyleProgressView, wideTapToReadView, wideImageView].filter({ $0.isHidden == false })
+        }
+        viewsWithTappableStuff += horizontalPairOfImagesViews.filter({ $0.isHidden == false && $0.showInStack })
+        let view = viewsWithTappableStuff.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) != nil })
+        return view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
+
+    
     private func setupInternalViews() {
                         
         addSubview(bubble)
@@ -260,7 +250,6 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
 
         wideImageView.addSubview(wideTapToReadView)
         wideTapToReadView.translatesAutoresizingMaskIntoConstraints = false
-        wideImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageViewWasTapped(sender:))))
         wideImageView.isUserInteractionEnabled = true
         wideTapToReadView.tapToReadLabelTextColor = .label
 
@@ -313,7 +302,7 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
 
 
 @available(iOS 14.0, *)
-fileprivate class HorizontalPairOfImagesView: ViewForOlvidStack {
+fileprivate class HorizontalPairOfImagesView: ViewForOlvidStack, UIViewWithTappableStuff {
     
     fileprivate let lTapToReadView = TapToReadView(showText: false)
     fileprivate let rTapToReadView = TapToReadView(showText: false)
@@ -334,6 +323,15 @@ fileprivate class HorizontalPairOfImagesView: ViewForOlvidStack {
         fatalError("init(coder:) has not been implemented")
     }
 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        let viewsWithTappableStuff = [lFyleProgressView, rFyleProgressView, lTapToReadView, rTapToReadView, lImageView, rImageView].filter({ $0.isHidden == false }) as [UIViewWithTappableStuff]
+        let view = viewsWithTappableStuff.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) != nil })
+        let tappedStuff = view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+        return tappedStuff
+    }
+
+    
     private func setupInternalViews() {
         
         addSubview(lImageView)

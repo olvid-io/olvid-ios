@@ -39,14 +39,9 @@ final class SettingsFlowViewController: UINavigationController {
 
         vc.title = CommonString.Word.Settings
 
-        if #available(iOS 13, *) {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "gear", withConfiguration: symbolConfiguration)
-            vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-        } else {
-            let iconImage = UIImage(named: "tabbar_icon_settings")
-            vc.tabBarItem = UITabBarItem(title: CommonString.Word.Settings, image: iconImage, tag: 0)
-        }
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "gear", withConfiguration: symbolConfiguration)
+        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
 
         return vc
     }
@@ -72,11 +67,9 @@ extension SettingsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            navigationBar.standardAppearance = appearance
-        }
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        navigationBar.standardAppearance = appearance
 
     }
     
@@ -97,11 +90,7 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         case .interface:
             settingViewController = InterfaceSettingsTableViewController(ownedCryptoId: ownedCryptoId)
         case .discussions:
-            if #available(iOS 13, *) {
-                settingViewController = DiscussionsDefaultSettingsHostingViewController()
-            } else {
-                settingViewController = DiscussionsSettingsTableViewController()
-            }
+            settingViewController = DiscussionsDefaultSettingsHostingViewController()
         case .privacy:
             settingViewController = PrivacyTableViewController(ownedCryptoId: ownedCryptoId)
         case .backup:

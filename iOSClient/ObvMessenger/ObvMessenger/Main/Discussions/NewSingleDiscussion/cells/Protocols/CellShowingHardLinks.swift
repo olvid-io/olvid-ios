@@ -26,8 +26,9 @@ protocol ViewShowingHardLinks: UIView {
     
 }
 
-protocol CellShowingHardLinks: UICollectionViewCell, ViewShowingHardLinks {
+
+protocol MessageCellShowingHardLinks: UICollectionViewCell, ViewShowingHardLinks {
     
-    var isSharingActionAvailable: Bool { get }
+    var persistedMessage: PersistedMessage? { get }
     
 }

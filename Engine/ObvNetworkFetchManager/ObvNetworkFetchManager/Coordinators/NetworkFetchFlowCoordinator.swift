@@ -28,7 +28,7 @@ import Network
 import OlvidUtils
 
 
-final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate {
+final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker {
 
     fileprivate let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     fileprivate let logCategory = "NetworkFetchFlowCoordinator"
@@ -41,6 +41,8 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate {
             pollingWorker.delegateManager = delegateManager
         }
     }
+    
+    static let errorDomain = "NetworkFetchFlowCoordinator"
 
     let pollingWorker = PollingWorker()
     
@@ -386,13 +388,10 @@ extension NetworkFetchFlowCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+        // Although we did not find any new message on the server, we might still have unprocessed messages to process.
+
+        os_log("Downloading messages was not needed. We still try to process (old) unprocessed messages", log: log, type: .info)
+        processUnprocessedMessages(flowId: flowId)
 
     }
     
@@ -436,19 +435,30 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         
-        let op1 = ProcessAllUnprocessedMessagesOperation(queueForPostingNotifications: queueForPostingNotifications,
-                                                         notificationDelegate: notificationDelegate,
-                                                         processDownloadedMessageDelegate: processDownloadedMessageDelegate,
-                                                         log: log)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
-        os_log("🔑 Will start a CompositionOfOneContextualOperation", log: log, type: .info)
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        os_log("🔑 Did end a CompositionOfOneContextualOperation", log: log, type: .info)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure(composedOp.reasonForCancel.debugDescription)
+        var moreUnprocessedMessagesRemain = true
+        var maxNumberOfOperations = 1_000
+        
+        while moreUnprocessedMessagesRemain && maxNumberOfOperations > 0 {
+            
+            maxNumberOfOperations -= 1
+            assert(maxNumberOfOperations > 0, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
+            
+            let op1 = ProcessBatchOfUnprocessedMessagesOperation(queueForPostingNotifications: queueForPostingNotifications,
+                                                                 notificationDelegate: notificationDelegate,
+                                                                 processDownloadedMessageDelegate: processDownloadedMessageDelegate,
+                                                                 log: log)
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            composedOp.logReasonIfCancelled(log: log)
+            if composedOp.isCancelled {
+                assertionFailure(composedOp.reasonForCancel.debugDescription)
+                moreUnprocessedMessagesRemain = false
+            } else {
+                moreUnprocessedMessagesRemain = op1.moreUnprocessedMessagesRemain ?? false
+            }
+            
         }
-
+        
     }
     
 
@@ -533,6 +543,31 @@ extension NetworkFetchFlowCoordinator {
         
     }
 
+    
+    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            return
+        }
+        
+        delegateManager.downloadAttachmentChunksDelegate.pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+        
+    }
+    
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            throw Self.makeError(message: "The Delegate Manager is not set")
+        }
+        
+        return await delegateManager.downloadAttachmentChunksDelegate.requestDownloadAttachmentProgressesUpdatedSince(date: date)
+        
+    }
+
     func attachmentWasCancelledByServer(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
@@ -569,74 +604,7 @@ extension NetworkFetchFlowCoordinator {
 
     }
         
-    func requestProgressesOfAllInboxAttachmentsOfMessage(withIdentifier messageId: MessageIdentifier, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The contextCreator is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        let queueForPostingNotifications = self.queueForPostingNotifications
-        
-        contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-            
-            let message: InboxMessage
-            do {
-                let _message = try InboxMessage.get(messageId: messageId, within: obvContext)
-                guard _message != nil else {
-                    // We assume that if the app requests a progress for a message that cannot be found, then it must have been cancelled by server (and thus deleted from the inbox)
-                    ObvNetworkFetchNotificationNew.cannotReturnAnyProgressForMessageAttachments(messageId: messageId, flowId: flowId)
-                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                    return
-                }
-                message = _message!
-            } catch {
-                os_log("Could get message", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                ObvNetworkFetchNotificationNew.cannotReturnAnyProgressForMessageAttachments(messageId: messageId, flowId: flowId)
-                    .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                return
-            }
-            
-            for attachment in message.attachments {
-                
-                switch attachment.status {
-                case .paused,
-                     .resumeRequested:
-                    guard let progress = delegateManager.downloadAttachmentChunksDelegate.requestProgressOfAttachment(withIdentifier: attachment.attachmentId, flowId: flowId) else { assertionFailure(); return }
-                    ObvNetworkFetchNotificationNew.inboxAttachmentHasNewProgress(attachmentId: attachment.attachmentId, progress: progress, flowId: flowId)
-                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                case .downloaded:
-                    ObvNetworkFetchNotificationNew.inboxAttachmentWasDownloaded(attachmentId: attachment.attachmentId, flowId: flowId)
-                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                case .cancelledByServer:
-                    ObvNetworkFetchNotificationNew.inboxAttachmentDownloadCancelledByServer(attachmentId: attachment.attachmentId, flowId: flowId)
-                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                case .markedForDeletion:
-                    continue
-                }
-                
-            }
-            
-        }
-        
-    }
-
-    
     // MARK: - Deletion related methods
 
     /// Called when a `PendingDeleteFromServer` was just created in DB. This also means that the message and its attachments have been deleted

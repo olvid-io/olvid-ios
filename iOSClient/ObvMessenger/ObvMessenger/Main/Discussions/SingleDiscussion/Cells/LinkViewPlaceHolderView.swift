@@ -40,11 +40,7 @@ final class LinkViewPlaceHolderView: UIView {
     
     override init(frame: CGRect) {
         
-        if #available(iOS 13, *) {
-            spinner = UIActivityIndicatorView(style: .medium)
-        } else {
-            spinner = UIActivityIndicatorView(style: .gray)
-        }
+        spinner = UIActivityIndicatorView(style: .medium)
         
         super.init(frame: frame)
         

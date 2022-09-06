@@ -399,30 +399,23 @@ extension OnboardingFlowViewController {
         if let flowNavigationController = self.flowNavigationController {
             
             // If we are not currently showing the appropriate VC to display the new external keycloak config, we reset the navigation stack
-            if #available(iOS 13, *) {
-                let identityProviderValidationHostingViewController = IdentityProviderValidationHostingViewController(keycloakConfig: externalKeycloakConfig, isConfiguredFromMDM: false, delegate: self)
-                if flowNavigationController.viewControllers.first(where: { $0 is IdentityProviderValidationHostingViewController }) != nil {
-                    guard let welcomeScreenVC = flowNavigationController.viewControllers.first as? WelcomeScreenHostingController else { assertionFailure(); return }
-                    flowNavigationController.setViewControllers([welcomeScreenVC, identityProviderValidationHostingViewController], animated: true)
-                } else {
-                    flowNavigationController.pushViewController(identityProviderValidationHostingViewController, animated: true)
-                }
+            let identityProviderValidationHostingViewController = IdentityProviderValidationHostingViewController(keycloakConfig: externalKeycloakConfig, isConfiguredFromMDM: false, delegate: self)
+            if flowNavigationController.viewControllers.first(where: { $0 is IdentityProviderValidationHostingViewController }) != nil {
+                guard let welcomeScreenVC = flowNavigationController.viewControllers.first as? WelcomeScreenHostingController else { assertionFailure(); return }
+                flowNavigationController.setViewControllers([welcomeScreenVC, identityProviderValidationHostingViewController], animated: true)
+            } else {
+                flowNavigationController.pushViewController(identityProviderValidationHostingViewController, animated: true)
             }
             
         } else {
             
             // This happens when the Keycloak configuration comes from an MDM. In that case, the flow is no set yet. We set is now.
-            
-            if #available(iOS 13, *) {
                 let identityProviderValidationHostingViewController = IdentityProviderValidationHostingViewController(keycloakConfig: externalKeycloakConfig, isConfiguredFromMDM: true, delegate: self)
                 flowNavigationController = ObvNavigationController(rootViewController: identityProviderValidationHostingViewController)
                 flowNavigationController!.setNavigationBarHidden(false, animated: false)
                 flowNavigationController!.navigationBar.prefersLargeTitles = true
                 displayContentController(content: flowNavigationController!)
-            } else {
-                assertionFailure("No need to support iOS < 13")
-                return
-            }
+            
         }
 
     }

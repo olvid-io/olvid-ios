@@ -21,35 +21,43 @@ import Foundation
 import CoreData
 import os.log
 import ObvEngine
+import OlvidUtils
+
 
 @objc(PersistedOneToOneDiscussion)
-final class PersistedOneToOneDiscussion: PersistedDiscussion {
+final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
     
     private static let entityName = "PersistedOneToOneDiscussion"
-    private static let contactIdentityKey = "contactIdentity"
-    private static let errorDomain = "PersistedOneToOneDiscussion"
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedOneToOneDiscussion")
+    static let errorDomain = "PersistedOneToOneDiscussion"
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedOneToOneDiscussion")
 
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
+    // Attributes
+    
+    @NSManaged private var rawContactIdentityIdentity: Data? // Keeps track of the bytes of the contact, making it possible to unlock a discussion
+
+    // Relationships
+
+    @NSManaged private var rawContactIdentity: PersistedObvContactIdentity? // If nil, this entity is eventually cascade-deleted
+    
+    // Accessors
+    
+    private(set) var contactIdentity: PersistedObvContactIdentity? {
+        get {
+            return rawContactIdentity
+        }
+        set {
+            if let newValue = newValue {
+                assert(self.rawContactIdentityIdentity == nil || self.rawContactIdentityIdentity == newValue.identity)
+                self.rawContactIdentityIdentity = newValue.identity
+            }
+            self.rawContactIdentity = newValue
+        }
     }
 
-    // MARK: - Attributes
-
-    // MARK: - Relationships
-
-    @NSManaged private(set) var contactIdentity: PersistedObvContactIdentity? // If nil, this entity is eventually cascade-deleted
     
-}
-
-
-// MARK: - Initializer
-
-extension PersistedOneToOneDiscussion {
+    // MARK: - Initializer
     
-    convenience init(contactIdentity: PersistedObvContactIdentity, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+    convenience init(contactIdentity: PersistedObvContactIdentity, status: Status, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
         guard let ownedIdentity = contactIdentity.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it was just deleted.", log: PersistedOneToOneDiscussion.log, type: .error)
             throw Self.makeError(message: "Could not find owned identity. This is ok if it was just deleted.")
@@ -57,6 +65,7 @@ extension PersistedOneToOneDiscussion {
         try self.init(title: contactIdentity.nameForSettingOneToOneDiscussionTitle,
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedOneToOneDiscussion.entityName,
+                      status: status,
                       sharedConfigurationToKeep: sharedConfigurationToKeep,
                       localConfigurationToKeep: localConfigurationToKeep)
 
@@ -68,66 +77,96 @@ extension PersistedOneToOneDiscussion {
 
     }
     
-    /// Should only be called from PersistedObvContactIdentity
-    func delete(doCreateLockedDiscussion: Bool) throws {
-        if doCreateLockedDiscussion {
-            guard let persistedDiscussionOneToOneLocked = PersistedDiscussionOneToOneLocked(persistedOneToOneDiscussionToLock: self) else {
-                os_log("Could not lock the persisted oneToOne discussion", log: log, type: .error)
-                throw Self.makeError(message: "Could not lock the persisted oneToOne discussion")
-            }
-            _ = try PersistedMessageSystem(.contactWasDeleted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: persistedDiscussionOneToOneLocked)
+    
+    // MARK: - Status management
+    
+    override func setStatus(to newStatus: PersistedDiscussion.Status) throws {
+        guard self.status != newStatus else { return }
+        // Insert the appropriate system message in the group discussion
+        switch (self.status, newStatus) {
+        case (.locked, .active):
+            try PersistedMessageSystem.insertContactIsOneToOneAgainSystemMessage(within: self)
+        default:
+            break
         }
-        try self.delete()
-    }
-    
-}
-
-// MARK: - Other methods
-
-extension PersistedOneToOneDiscussion {
-    
-    func hasAtLeastOneRemoteContactDevice() -> Bool {
-        guard let contactIdentity = self.contactIdentity else {
-            os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
-            return false
+        try super.setStatus(to: newStatus)
+        if newStatus == .locked {
+            _ = try PersistedMessageSystem(.contactWasDeleted,
+                                           optionalContactIdentity: nil,
+                                           optionalCallLogItem: nil,
+                                           discussion: self)
         }
-        return !contactIdentity.devices.isEmpty
     }
-    
+        
 }
 
 // MARK: - NSFetchRequest
 
 extension PersistedOneToOneDiscussion {
     
+    struct Predicate {
+        enum Key: String {
+            case rawContactIdentityIdentity = "rawContactIdentityIdentity"
+            case rawContactIdentity = "rawContactIdentity"
+            static var ownedIdentityIdentity: String {
+                [PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+            }
+        }
+        static func withContactCryptoId(_ cryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.rawContactIdentityIdentity, EqualToData: cryptoId.getIdentity())
+        }
+        static func withContactIdentity(_ contact: PersistedObvContactIdentity) -> NSPredicate {
+            NSPredicate(Key.rawContactIdentity, equalTo: contact)
+        }
+        static func withOwnedCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownCryptoId.getIdentity())
+        }
+    }
+    
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedOneToOneDiscussion> {
         return NSFetchRequest<PersistedOneToOneDiscussion>(entityName: PersistedOneToOneDiscussion.entityName)
     }
-
-
+    
+    
     /// Returns a `NSFetchRequest` for all the one-tone discussions of the owned identity, sorted by the discussion title.
-    static func getFetchRequestForAllOneToOneDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
-        
-        let fetchRequest: NSFetchRequest<PersistedDiscussion> = NSFetchRequest<PersistedDiscussion>(entityName: PersistedOneToOneDiscussion.entityName)
-        
-        fetchRequest.predicate = NSPredicate(format: "%K == %@",
-                                             ownedIdentityIdentityKey, ownedCryptoId.getIdentity() as NSData)
-        
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.titleKey, ascending: true)]
-
-        return fetchRequest
+    static func getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
+        let request: NSFetchRequest<PersistedDiscussion> = NSFetchRequest<PersistedDiscussion>(entityName: PersistedOneToOneDiscussion.entityName)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+            PersistedDiscussion.Predicate.withStatus(.active),
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.Predicate.Key.title.rawValue, ascending: true)]
+        return request
     }
 
 
-    /// This method returs a `PersistedOneToOneDiscussion` if it can be found, and `nil` otherwise.
-    static func get(with contact: PersistedObvContactIdentity) throws -> PersistedOneToOneDiscussion? {
-        guard let context = contact.managedObjectContext else { throw NSError() }
+    /// This method returns a `PersistedOneToOneDiscussion` if one can be found and `nil` otherwise.
+    /// If `status` is non-nil, the returned discussion will have this specific status.
+    static func get(with contact: PersistedObvContactIdentity, status: Status?) throws -> PersistedOneToOneDiscussion? {
+        guard let context = contact.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", PersistedOneToOneDiscussion.contactIdentityKey, contact)
+        var predicates = [Predicate.withContactIdentity(contact)]
+        if let status = status {
+            predicates.append(PersistedDiscussion.Predicate.withStatus(status))
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         request.fetchLimit = 1
         return (try context.fetch(request)).first
     }
     
+    
+    /// This method returns a `PersistedOneToOneDiscussion` if one can be found and `nil` otherwise.
+    static func getWithContactCryptoId(_ contact: ObvCryptoId, ofOwnedCryptoId ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedOneToOneDiscussion? {
+        let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withContactCryptoId(contact),
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+        ])
+        request.fetchLimit = 1
+        return (try context.fetch(request)).first
+    }
+
 }
 
 extension TypeSafeManagedObjectID where T == PersistedOneToOneDiscussion {

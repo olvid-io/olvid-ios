@@ -71,7 +71,7 @@ extension RemoteNotificationCoordinator {
         
         let flowId = FlowIdentifier()
         
-        let initalExpectations = Set([Expectation.uidsOfMessagesThatWillBeDownloaded])
+        let initalExpectations = Set([Expectation.uidsOfMessagesToProcess])
         
         backgroundActivitiesQueue.sync {
             
@@ -243,7 +243,7 @@ extension RemoteNotificationCoordinator {
             // NoInboxMessageToProcess
             ObvNetworkFetchNotificationNew.observeNoInboxMessageToProcess(within: notificationDelegate) { [weak self] (flowId) in
                 self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
+                                               expectationsToRemove: [.uidsOfMessagesToProcess],
                                                expectationsToAdd: [])
 
             },
@@ -251,7 +251,7 @@ extension RemoteNotificationCoordinator {
             // NewInboxMessageToProcess
             ObvNetworkFetchNotificationNew.observeNewInboxMessageToProcess(within: notificationDelegate) { [weak self] (messageId, _, flowId) in
                 self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.uidsOfMessagesThatWillBeDownloaded],
+                                               expectationsToRemove: [],
                                                expectationsToAdd: [.networkReceivedMessageWasProcessed(messageId: messageId)])
             },
 
@@ -336,7 +336,7 @@ extension RemoteNotificationCoordinator {
             ObvProtocolNotification.observeProtocolMessageToProcess(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
                 self?.updateExpectationsOfFlow(withId: flowId,
                                                expectationsToRemove: [],
-                                               expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
+                                               expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId), .deletionOfInboxMessage(withId: protocolMessageId)])
             },
             
             // ProtocolMessageProcessed

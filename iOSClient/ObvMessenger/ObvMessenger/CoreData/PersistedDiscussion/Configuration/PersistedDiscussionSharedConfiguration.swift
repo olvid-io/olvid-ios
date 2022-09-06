@@ -188,30 +188,49 @@ extension PersistedDiscussionSharedConfiguration {
  
     
     private func ensureInitiatorIsAllowedToModifyThisSharedConfiguration(initiator: ObvCryptoId) throws {
-        if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
-            guard [oneToOneDiscussion.contactIdentity?.cryptoId, oneToOneDiscussion.ownedIdentity?.cryptoId].contains(initiator) else {
-                throw makeError(message: "The initiator is neither the contact or the owned identity of the one-to-one discussion")
-            }
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            guard let contactGroup = groupDiscussion.contactGroup else {
-                throw makeError(message: "Cannot find contact group")
-            }
-            guard contactGroup.ownerIdentity == initiator.getIdentity() else {
-                throw makeError(message: "The initiator of the change is not the group owner")
+        guard let discussion = self.discussion else { assertionFailure(); return }
+        switch discussion.status {
+        case .locked:
+            throw makeError(message: "The discussion is locked")
+        case .preDiscussion:
+            throw makeError(message: "The discussion is a pre-discussion")
+        case .active:
+            switch try? discussion.kind {
+            case .oneToOne(withContactIdentity: let contactIdentity):
+                guard [contactIdentity?.cryptoId, discussion.ownedIdentity?.cryptoId].contains(initiator) else {
+                    throw makeError(message: "The initiator is neither the contact or the owned identity of the one-to-one discussion")
+                }
+            case .groupV1(withContactGroup: let contactGroup):
+                guard let contactGroup = contactGroup else {
+                    throw makeError(message: "Cannot find contact group")
+                }
+                guard contactGroup.ownerIdentity == initiator.getIdentity() else {
+                    throw makeError(message: "The initiator of the change is not the group owner")
+                }
+            case .none:
+                assertionFailure()
+                throw makeError(message: "Unknown discussion type")
             }
         }
     }
 
     
     var canBeModifiedAndSharedByOwnedIdentity: Bool {
-        if discussion is PersistedOneToOneDiscussion {
-            return true
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            guard let contactGroup = groupDiscussion.contactGroup else { assertionFailure(); return false }
-            return contactGroup.category == .owned
-        } else {
-            assertionFailure()
+        guard let discussion = self.discussion else { return false }
+        switch discussion.status {
+        case .preDiscussion, .locked:
             return false
+        case .active:
+            switch try? discussion.kind {
+            case .oneToOne:
+                return true
+            case .groupV1(withContactGroup: let contactGroup):
+                guard let contactGroup = contactGroup else { assertionFailure(); return false }
+                return contactGroup.category == .owned
+            case .none:
+                assertionFailure()
+                return false
+            }
         }
     }
  
@@ -259,11 +278,12 @@ extension PersistedDiscussionSharedConfiguration {
     func toJSON() throws -> DiscussionSharedConfigurationJSON {
         let expiration = self.toExpirationJSON()
         let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
-        if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            guard let contactGroup = groupDiscussion.contactGroup else { throw makeError(message: "Could not find contact group of group discussion") }
-            groupId = try contactGroup.getGroupId()
-        } else {
+        switch try discussion?.kind {
+        case .oneToOne, .none:
             groupId = nil
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let contactGroup = contactGroup else { throw makeError(message: "Could not find contact group of group discussion") }
+            groupId = try contactGroup.getGroupId()
         }
         return DiscussionSharedConfigurationJSON(version: self.version,
                                                  expiration: expiration,

@@ -24,7 +24,7 @@ import ObvTypes
 
 public final class Seed: NSObject, NSCopying, ObvCodable {
     
-    static let minLength = 32 // Changing this requires thorough testing
+    public static let minLength = 32 // Changing this requires thorough testing
     public let raw: Data
     
     var length: Int {

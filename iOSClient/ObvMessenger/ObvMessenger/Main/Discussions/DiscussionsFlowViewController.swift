@@ -41,14 +41,9 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
         
         vc.title = CommonString.Word.Discussions
 
-        if #available(iOS 13, *) {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "bubble.left.and.bubble.right", withConfiguration: symbolConfiguration)
-            vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-        } else {
-            let iconImage = UIImage(named: "tabbar_icon_chat")
-            vc.tabBarItem = UITabBarItem(title: vc.title, image: iconImage, tag: 0)
-        }
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "bubble.left.and.bubble.right", withConfiguration: symbolConfiguration)
+        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
 
         vc.delegate = ObvUserActivitySingleton.shared
         
@@ -66,12 +61,12 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
         }
     }
     
+    
     override init(rootViewController: UIViewController) {
         super.init(rootViewController: rootViewController)
-
-        observePersistedDiscussionWasLockedNotifications()
     }
-        
+
+    
     // Required in order to prevent a crash under iOS 12
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -91,11 +86,9 @@ extension DiscussionsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            navigationBar.standardAppearance = appearance
-        }
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        navigationBar.standardAppearance = appearance
         
     }
     
@@ -112,12 +105,15 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         let alert = UIAlertController(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.title,
                                       message: Strings.AlertConfirmAllDiscussionMessagesDeletion.message,
                                       preferredStyleForTraitCollection: self.traitCollection)
-        if persistedDiscussion is PersistedOneToOneDiscussion || persistedDiscussion is PersistedGroupDiscussion {
+        switch persistedDiscussion.status {
+        case .active:
             alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAllGlobally, style: .destructive, handler: { [weak self] (action) in
                 alert.dismiss(animated: true) {
                     self?.ensureUserWantsToGloballyDeleteDiscussion(persistedDiscussion, completionHandler: completionHandler)
                 }
             }))
+        case .preDiscussion, .locked:
+            break
         }
         alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAll, style: .destructive, handler: { (action) in
             ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: persistedDiscussion.objectID, deletionType: .local, completionHandler: completionHandler)
@@ -157,10 +153,4 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         flowDelegate?.userAskedToRefreshDiscussions(completionHandler: completionHandler)
     }
 
-    func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
-            guard let _self = self else { return }
-            _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
-        })
-    }
 }

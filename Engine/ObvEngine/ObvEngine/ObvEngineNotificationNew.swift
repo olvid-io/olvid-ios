@@ -40,7 +40,6 @@ public enum ObvEngineNotificationNew {
 	case backupForUploadWasUploaded(backupRequestUuid: UUID, backupKeyUid: UID, version: Int)
 	case backupForExportWasExported(backupRequestUuid: UUID, backupKeyUid: UID, version: Int)
 	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)])
-	case inboxAttachmentNewProgress(obvAttachment: ObvAttachment, newProgress: Progress)
 	case callerTurnCredentialsReceived(ownedIdentity: ObvCryptoId, callUuid: UUID, turnCredentials: ObvTurnCredentials)
 	case callerTurnCredentialsReceptionFailure(ownedIdentity: ObvCryptoId, callUuid: UUID)
 	case callerTurnCredentialsReceptionPermissionDenied(ownedIdentity: ObvCryptoId, callUuid: UUID)
@@ -48,10 +47,11 @@ public enum ObvEngineNotificationNew {
 	case messageWasAcknowledged(ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool)
 	case newMessageReceived(obvMessage: ObvMessage, completionHandler: (Set<ObvAttachment>) -> Void)
 	case attachmentWasAcknowledgedByServer(messageIdentifierFromEngine: Data, attachmentNumber: Int)
-	case attachmentUploadNewProgress(messageIdentifierFromEngine: Data, attachmentNumber: Int, newProgress: Progress)
 	case attachmentDownloadCancelledByServer(obvAttachment: ObvAttachment)
 	case cannotReturnAnyProgressForMessageAttachments(messageIdentifierFromEngine: Data)
 	case attachmentDownloaded(obvAttachment: ObvAttachment)
+	case attachmentDownloadWasResumed(ownCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
+	case attachmentDownloadWasPaused(ownCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
 	case newObvReturnReceiptToProcess(obvReturnReceipt: ObvReturnReceipt)
 	case contactWasDeleted(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(ownedIdentity: ObvCryptoId, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: EngineOptionalWrapper<Date>)
@@ -95,7 +95,6 @@ public enum ObvEngineNotificationNew {
 		case backupForUploadWasUploaded
 		case backupForExportWasExported
 		case outboxMessagesAndAllTheirAttachmentsWereAcknowledged
-		case inboxAttachmentNewProgress
 		case callerTurnCredentialsReceived
 		case callerTurnCredentialsReceptionFailure
 		case callerTurnCredentialsReceptionPermissionDenied
@@ -103,10 +102,11 @@ public enum ObvEngineNotificationNew {
 		case messageWasAcknowledged
 		case newMessageReceived
 		case attachmentWasAcknowledgedByServer
-		case attachmentUploadNewProgress
 		case attachmentDownloadCancelledByServer
 		case cannotReturnAnyProgressForMessageAttachments
 		case attachmentDownloaded
+		case attachmentDownloadWasResumed
+		case attachmentDownloadWasPaused
 		case newObvReturnReceiptToProcess
 		case contactWasDeleted
 		case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity
@@ -160,7 +160,6 @@ public enum ObvEngineNotificationNew {
 			case .backupForUploadWasUploaded: return Name.backupForUploadWasUploaded.name
 			case .backupForExportWasExported: return Name.backupForExportWasExported.name
 			case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged: return Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
-			case .inboxAttachmentNewProgress: return Name.inboxAttachmentNewProgress.name
 			case .callerTurnCredentialsReceived: return Name.callerTurnCredentialsReceived.name
 			case .callerTurnCredentialsReceptionFailure: return Name.callerTurnCredentialsReceptionFailure.name
 			case .callerTurnCredentialsReceptionPermissionDenied: return Name.callerTurnCredentialsReceptionPermissionDenied.name
@@ -168,10 +167,11 @@ public enum ObvEngineNotificationNew {
 			case .messageWasAcknowledged: return Name.messageWasAcknowledged.name
 			case .newMessageReceived: return Name.newMessageReceived.name
 			case .attachmentWasAcknowledgedByServer: return Name.attachmentWasAcknowledgedByServer.name
-			case .attachmentUploadNewProgress: return Name.attachmentUploadNewProgress.name
 			case .attachmentDownloadCancelledByServer: return Name.attachmentDownloadCancelledByServer.name
 			case .cannotReturnAnyProgressForMessageAttachments: return Name.cannotReturnAnyProgressForMessageAttachments.name
 			case .attachmentDownloaded: return Name.attachmentDownloaded.name
+			case .attachmentDownloadWasResumed: return Name.attachmentDownloadWasResumed.name
+			case .attachmentDownloadWasPaused: return Name.attachmentDownloadWasPaused.name
 			case .newObvReturnReceiptToProcess: return Name.newObvReturnReceiptToProcess.name
 			case .contactWasDeleted: return Name.contactWasDeleted.name
 			case .newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity: return Name.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity.name
@@ -248,11 +248,6 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"messageIdsAndTimestampsFromServer": messageIdsAndTimestampsFromServer,
 			]
-		case .inboxAttachmentNewProgress(obvAttachment: let obvAttachment, newProgress: let newProgress):
-			info = [
-				"obvAttachment": obvAttachment,
-				"newProgress": newProgress,
-			]
 		case .callerTurnCredentialsReceived(ownedIdentity: let ownedIdentity, callUuid: let callUuid, turnCredentials: let turnCredentials):
 			info = [
 				"ownedIdentity": ownedIdentity,
@@ -292,12 +287,6 @@ public enum ObvEngineNotificationNew {
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
 				"attachmentNumber": attachmentNumber,
 			]
-		case .attachmentUploadNewProgress(messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber, newProgress: let newProgress):
-			info = [
-				"messageIdentifierFromEngine": messageIdentifierFromEngine,
-				"attachmentNumber": attachmentNumber,
-				"newProgress": newProgress,
-			]
 		case .attachmentDownloadCancelledByServer(obvAttachment: let obvAttachment):
 			info = [
 				"obvAttachment": obvAttachment,
@@ -309,6 +298,18 @@ public enum ObvEngineNotificationNew {
 		case .attachmentDownloaded(obvAttachment: let obvAttachment):
 			info = [
 				"obvAttachment": obvAttachment,
+			]
+		case .attachmentDownloadWasResumed(ownCryptoId: let ownCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
+			info = [
+				"ownCryptoId": ownCryptoId,
+				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"attachmentNumber": attachmentNumber,
+			]
+		case .attachmentDownloadWasPaused(ownCryptoId: let ownCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
+			info = [
+				"ownCryptoId": ownCryptoId,
+				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"attachmentNumber": attachmentNumber,
 			]
 		case .newObvReturnReceiptToProcess(obvReturnReceipt: let obvReturnReceipt):
 			info = [
@@ -544,15 +545,6 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeInboxAttachmentNewProgress(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvAttachment, Progress) -> Void) -> NSObjectProtocol {
-		let name = Name.inboxAttachmentNewProgress.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let obvAttachment = notification.userInfo!["obvAttachment"] as! ObvAttachment
-			let newProgress = notification.userInfo!["newProgress"] as! Progress
-			block(obvAttachment, newProgress)
-		}
-	}
-
 	public static func observeCallerTurnCredentialsReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID, ObvTurnCredentials) -> Void) -> NSObjectProtocol {
 		let name = Name.callerTurnCredentialsReceived.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
@@ -620,16 +612,6 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeAttachmentUploadNewProgress(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (Data, Int, Progress) -> Void) -> NSObjectProtocol {
-		let name = Name.attachmentUploadNewProgress.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
-			let attachmentNumber = notification.userInfo!["attachmentNumber"] as! Int
-			let newProgress = notification.userInfo!["newProgress"] as! Progress
-			block(messageIdentifierFromEngine, attachmentNumber, newProgress)
-		}
-	}
-
 	public static func observeAttachmentDownloadCancelledByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvAttachment) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentDownloadCancelledByServer.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
@@ -651,6 +633,26 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvAttachment = notification.userInfo!["obvAttachment"] as! ObvAttachment
 			block(obvAttachment)
+		}
+	}
+
+	public static func observeAttachmentDownloadWasResumed(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
+		let name = Name.attachmentDownloadWasResumed.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
+			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
+			let attachmentNumber = notification.userInfo!["attachmentNumber"] as! Int
+			block(ownCryptoId, messageIdentifierFromEngine, attachmentNumber)
+		}
+	}
+
+	public static func observeAttachmentDownloadWasPaused(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
+		let name = Name.attachmentDownloadWasPaused.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownCryptoId = notification.userInfo!["ownCryptoId"] as! ObvCryptoId
+			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
+			let attachmentNumber = notification.userInfo!["attachmentNumber"] as! Int
+			block(ownCryptoId, messageIdentifierFromEngine, attachmentNumber)
 		}
 	}
 

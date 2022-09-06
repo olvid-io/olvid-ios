@@ -38,13 +38,14 @@ enum NewSingleDiscussionNotification {
 	case userWantsToDeleteAllAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToReplyToMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToRemoveReplyToMessage(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case userDidTapOnReplyTo(replyToMessageObjectID: NSManagedObjectID)
 	case userWantsToSendDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String)
 	case userWantsToSendDraftWithOneAttachement(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, attachementsURL: [URL])
 	case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool)
 	case userWantsToUpdateDraftExpiration(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?)
 	case userWantsToUpdateDraftBody(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String)
 	case draftCouldNotBeSent(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
+	case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
+	case userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 
 	private enum Name {
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
@@ -53,13 +54,14 @@ enum NewSingleDiscussionNotification {
 		case userWantsToDeleteAllAttachmentsToDraft
 		case userWantsToReplyToMessage
 		case userWantsToRemoveReplyToMessage
-		case userDidTapOnReplyTo
 		case userWantsToSendDraft
 		case userWantsToSendDraftWithOneAttachement
 		case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty
 		case userWantsToUpdateDraftExpiration
 		case userWantsToUpdateDraftBody
 		case draftCouldNotBeSent
+		case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus
+		case userWantsToDownloadReceivedFyleMessageJoinWithStatus
 
 		private var namePrefix: String { String(describing: NewSingleDiscussionNotification.self) }
 
@@ -78,13 +80,14 @@ enum NewSingleDiscussionNotification {
 			case .userWantsToDeleteAllAttachmentsToDraft: return Name.userWantsToDeleteAllAttachmentsToDraft.name
 			case .userWantsToReplyToMessage: return Name.userWantsToReplyToMessage.name
 			case .userWantsToRemoveReplyToMessage: return Name.userWantsToRemoveReplyToMessage.name
-			case .userDidTapOnReplyTo: return Name.userDidTapOnReplyTo.name
 			case .userWantsToSendDraft: return Name.userWantsToSendDraft.name
 			case .userWantsToSendDraftWithOneAttachement: return Name.userWantsToSendDraftWithOneAttachement.name
 			case .insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty: return Name.insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty.name
 			case .userWantsToUpdateDraftExpiration: return Name.userWantsToUpdateDraftExpiration.name
 			case .userWantsToUpdateDraftBody: return Name.userWantsToUpdateDraftBody.name
 			case .draftCouldNotBeSent: return Name.draftCouldNotBeSent.name
+			case .userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus.name
+			case .userWantsToDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToDownloadReceivedFyleMessageJoinWithStatus.name
 			}
 		}
 	}
@@ -120,10 +123,6 @@ enum NewSingleDiscussionNotification {
 			info = [
 				"draftObjectID": draftObjectID,
 			]
-		case .userDidTapOnReplyTo(replyToMessageObjectID: let replyToMessageObjectID):
-			info = [
-				"replyToMessageObjectID": replyToMessageObjectID,
-			]
 		case .userWantsToSendDraft(draftObjectID: let draftObjectID, textBody: let textBody):
 			info = [
 				"draftObjectID": draftObjectID,
@@ -152,6 +151,14 @@ enum NewSingleDiscussionNotification {
 		case .draftCouldNotBeSent(persistedDraftObjectID: let persistedDraftObjectID):
 			info = [
 				"persistedDraftObjectID": persistedDraftObjectID,
+			]
+		case .userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: let receivedJoinObjectID):
+			info = [
+				"receivedJoinObjectID": receivedJoinObjectID,
+			]
+		case .userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: let receivedJoinObjectID):
+			info = [
+				"receivedJoinObjectID": receivedJoinObjectID,
 			]
 		}
 		return info
@@ -235,14 +242,6 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUserDidTapOnReplyTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.userDidTapOnReplyTo.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let replyToMessageObjectID = notification.userInfo!["replyToMessageObjectID"] as! NSManagedObjectID
-			block(replyToMessageObjectID)
-		}
-	}
-
 	static func observeUserWantsToSendDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, String) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSendDraft.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -294,6 +293,22 @@ enum NewSingleDiscussionNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedDraftObjectID = notification.userInfo!["persistedDraftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
 			block(persistedDraftObjectID)
+		}
+	}
+
+	static func observeUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let receivedJoinObjectID = notification.userInfo!["receivedJoinObjectID"] as! TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>
+			block(receivedJoinObjectID)
+		}
+	}
+
+	static func observeUserWantsToDownloadReceivedFyleMessageJoinWithStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDownloadReceivedFyleMessageJoinWithStatus.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let receivedJoinObjectID = notification.userInfo!["receivedJoinObjectID"] as! TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>
+			block(receivedJoinObjectID)
 		}
 	}
 

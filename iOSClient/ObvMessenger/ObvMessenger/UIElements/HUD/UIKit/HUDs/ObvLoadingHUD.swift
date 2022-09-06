@@ -72,9 +72,7 @@ final class ObvLoadingHUD: ObvHUDView {
             tapToCancelLabel.font = UIFont.preferredFont(forTextStyle: .footnote)
             tapToCancelLabel.numberOfLines = 2
             tapToCancelLabel.textAlignment = .center
-            if #available(iOS 13, *) {
-                tapToCancelLabel.textColor = .secondaryLabel
-            }
+            tapToCancelLabel.textColor = .secondaryLabel
             
             addSubview(tapToCancelLabel)
 

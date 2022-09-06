@@ -105,7 +105,7 @@ final class ReceivedMessage: NSManagedObject, ObvManagedObject {
         self.protocolMessageRawId = message.protocolMessageRawId
         self.cryptoProtocolId = message.cryptoProtocolId
         self.receptionChannelInfo = message.receptionChannelInfo
-        self.messageId = MessageIdentifier(ownedCryptoIdentity: message.toOwnedIdentity, uid: UID.gen(with: prng))
+        self.messageId = MessageIdentifier(ownedCryptoIdentity: message.toOwnedIdentity, uid: message.receivedMessageUID ?? UID.gen(with: prng))
         self.delegateManager = delegateManager
         self.timestamp = message.timestamp
     }

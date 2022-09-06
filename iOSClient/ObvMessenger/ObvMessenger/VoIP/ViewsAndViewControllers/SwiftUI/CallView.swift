@@ -605,7 +605,7 @@ struct ParticipantView: View {
                     guard let contactObjectID = callParticipantData.callParticipant?.userId.contactObjectID else { return }
                     ObvStack.shared.viewContext.perform {
                         guard let persistedContact = try? PersistedObvContactIdentity.get(objectID: contactObjectID, within: ObvStack.shared.viewContext) else { return }
-                        guard let discussionObjectURI = try? persistedContact.oneToOneDiscussion?.objectID.uriRepresentation() else { assertionFailure(); return }
+                        guard let discussionObjectURI = persistedContact.oneToOneDiscussion?.objectID.uriRepresentation() else { assertionFailure(); return }
                         let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussionObjectURI)
                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                             .postOnDispatchQueue()

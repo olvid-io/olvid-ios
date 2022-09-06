@@ -26,7 +26,7 @@ extension PersistedObvContactIdentity {
 
     var backupItem: PersistedObvContactIdentityBackupItem {
         var conf: PersistedDiscussionConfigurationBackupItem? = nil
-        if let oneToOneDiscussion = try? self.oneToOneDiscussion {
+        if let oneToOneDiscussion = self.oneToOneDiscussion {
             conf = PersistedDiscussionConfigurationBackupItem(
                 local: oneToOneDiscussion.localConfiguration,
                 shared: oneToOneDiscussion.sharedConfiguration)
@@ -51,7 +51,7 @@ extension PersistedObvContactIdentityBackupItem {
         try? contact.setCustomDisplayName(to: self.customDisplayName)
         contact.setNote(to: self.note)
 
-        if let oneToOneDiscussion = try? contact.oneToOneDiscussion {
+        if let oneToOneDiscussion = contact.oneToOneDiscussion {
             self.discussionConfigurationBackupItem?.updateExistingInstance(oneToOneDiscussion.localConfiguration)
             self.discussionConfigurationBackupItem?.updateExistingInstance(oneToOneDiscussion.sharedConfiguration)
         }

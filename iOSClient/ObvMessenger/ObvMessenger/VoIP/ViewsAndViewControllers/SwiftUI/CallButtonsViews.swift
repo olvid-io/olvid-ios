@@ -25,10 +25,10 @@ struct MuteButtonView: View {
     var isMuted: Bool
 
     var body: some View {
-        RoundedButtonView(icon: .sf("mic.slash.fill"),
+        RoundedButtonView(icon: isMuted ? .sf("mic.slash.fill") : .sf("mic.fill"),
                           text: nil, // "mute",
                           backgroundColor: Color(.systemFill),
-                          backgroundColorWhenOn: Color(AppTheme.shared.colorScheme.olvidLight),
+                          backgroundColorWhenOn: Color.red,
                           isOn: isMuted,
                           action: actionToggleAudio)
             .buttonStyle(CallSettingButtonStyle())

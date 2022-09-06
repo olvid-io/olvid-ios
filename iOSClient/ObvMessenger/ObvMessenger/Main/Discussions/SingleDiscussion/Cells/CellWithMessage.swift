@@ -22,37 +22,17 @@ import CoreData
 
 protocol CellWithMessage: UICollectionViewCell {
 
-    var persistedMessage: PersistedMessage? { get } // Legacy ?
     var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { get }
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { get }
     var viewForTargetedPreview: UIView { get }
 
-    var isCopyActionAvailable: Bool { get }
-    var textViewToCopy: UITextView? { get } // Legacy, replaced by textToCopy
     var textToCopy: String? { get }
 
-    var isSharingActionAvailable: Bool { get }
-    var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { get } // Legacy, replaced by itemProvidersForAllAttachments
-    var imageAttachments: [FyleMessageJoinWithStatus]? { get } // Legacy, replaced by itemProvidersForImages
+    var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { get } // Legacy, used within the old discussion screen, replaced by itemProvidersForAllAttachments
+    var imageAttachments: [FyleMessageJoinWithStatus]? { get } // Legacy, used within the old discussion screen, replaced by itemProvidersForImages
     var itemProvidersForImages: [UIActivityItemProvider]? { get }
     var itemProvidersForAllAttachments: [UIActivityItemProvider]? { get }
 
-    var isReplyToActionAvailable: Bool { get }
-
-    var isDeleteActionAvailable: Bool { get }
-    var isEditBodyActionAvailable: Bool { get }
-    var isDeleteOwnReactionActionAvailable: Bool { get }
-
-    var isInfoActionAvailable: Bool { get }
     var infoViewController: UIViewController? { get }
 
-    var isCallActionAvailable: Bool { get }
-}
-
-extension CellWithMessage {
-    
-    var isSomeActionAvailable: Bool {
-        isCopyActionAvailable || isSharingActionAvailable || isReplyToActionAvailable || isDeleteActionAvailable || isInfoActionAvailable || isEditBodyActionAvailable || isCallActionAvailable
-    }
-    
 }

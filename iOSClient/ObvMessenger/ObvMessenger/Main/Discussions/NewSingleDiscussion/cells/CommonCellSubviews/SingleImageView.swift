@@ -23,13 +23,14 @@ import CoreData
 
 
 @available(iOS 14.0, *)
-final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks, UIGestureRecognizerDelegate {
+final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, ViewShowingHardLinks, UIViewWithTappableStuff {
 
     enum Configuration: Equatable, Hashable {
         // For sent attachments
-        case uploadableOrUploading(hardlink: HardLinkToFyle?, thumbnail: UIImage?, progress: Progress?)
+        case uploadableOrUploading(hardlink: HardLinkToFyle?, thumbnail: UIImage?, progress: Progress)
         // For received attachments
-        case downloadableOrDownloading(progress: Progress?, downsizedThumbnail: UIImage?)
+        case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
+        case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
         case cancelledByServer // Also used when there is an error with the Fyle URL
         // For both (downsizedThumbnail always nil for sent attachments)
@@ -39,14 +40,12 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             switch self {
             case .complete(downsizedThumbnail: _, hardlink: let hardlink, thumbnail: _), .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, progress: _):
                 return hardlink
-            case .downloadableOrDownloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
                 return nil
             }
         }
     }
     
-    weak var delegate: ViewShowingHardLinksDelegate?
-
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
         guard self.showInStack else { return [] }
         if let hardlink = imageView.hardlink {
@@ -77,9 +76,21 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
                 imageView.reset()
             }
             bubble.backgroundColor = .clear
-        case .downloadableOrDownloading(progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
             tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.pausedOrDownloading(progress: progress))
+            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let downsizedThumbnail = downsizedThumbnail {
+                hidingView.isHidden = true
+                imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
+            } else {
+                hidingView.isHidden = false
+                imageView.reset()
+            }
+            bubble.backgroundColor = .systemFill
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             if let downsizedThumbnail = downsizedThumbnail {
                 hidingView.isHidden = true
@@ -134,14 +145,12 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
     private var readingRequiresUserAction = false
-    private var tapGesture: UITapGestureRecognizer?
 
 
     init(expirationIndicatorSide side: ExpirationIndicatorView.Side) {
         self.expirationIndicatorSide = side
         super.init(frame: .zero)
         setupInternalViews()
-        setupTapGestureOnImageView()
     }
     
 
@@ -149,6 +158,17 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         fatalError("init(coder:) has not been implemented")
     }
 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        if !fyleProgressView.isHidden && fyleProgressView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true) != nil {
+            return fyleProgressView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true)
+        } else if !tapToReadView.isHidden && tapToReadView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true) != nil {
+            return tapToReadView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true)
+        } else {
+            return imageView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+        }
+    }
+    
 
     private func setupInternalViews() {
                         
@@ -210,34 +230,4 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
 
     }
  
-    
-    private func setupTapGestureOnImageView() {
-        tapGesture = UITapGestureRecognizer(target: self, action: #selector(imageViewWasTapped(sender:)))
-        guard let tapGesture = tapGesture else {
-            assertionFailure()
-            return
-        }
-        tapGesture.delegate = self
-        imageView.addGestureRecognizer(tapGesture)
-        imageView.isUserInteractionEnabled = true
-    }
-    
-    
-    @objc private func imageViewWasTapped(sender: UIGestureRecognizer) {
-        guard let imageViewForHardLink = sender.view as? UIImageViewForHardLink else { assertionFailure(); return }
-        guard imageViewForHardLink == self.imageView else { assertionFailure(); return }
-        guard let hardlink = imageViewForHardLink.hardlink else { return }
-        assert(delegate != nil)
-        delegate?.userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardlink)
-    }
-
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                           shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if tapGesture == gestureRecognizer,
-           let otherTapGestureRecognizer = otherGestureRecognizer as? UITapGestureRecognizer,
-           otherTapGestureRecognizer.numberOfTapsRequired == 2 {
-            return true
-        }
-        return false
-    }
 }

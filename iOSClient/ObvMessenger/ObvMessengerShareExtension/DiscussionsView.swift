@@ -25,22 +25,6 @@ protocol DiscussionsHostingViewControllerDelegate: AnyObject {
     func setSelectedDiscussions(to: [PersistedDiscussion])
 }
 
-extension PersistedDiscussion {
-
-    static func getFetchRequestForAllSortedByTimestampOfLastMessage(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
-        let fetchRequest = PersistedDiscussion.fetchRequest()
-
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "%K == %@", ownedIdentityIdentityKey, ownedCryptoId.getIdentity() as NSData)
-        ])
-
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: timestampOfLastMessageKey, ascending: false)]
-
-        return fetchRequest
-    }
-
-}
-
 final class DiscussionsHostingViewController: UIHostingController<DiscussionsView> {
 
     private let model: DiscussionsViewModel
@@ -106,15 +90,13 @@ class DiscussionsViewModel: NSObject, ObservableObject {
     weak var delegate: DiscussionsHostingViewControllerDelegate?
 
     init(ownedIdentity: PersistedObvOwnedIdentity, selectedDiscussions: [PersistedDiscussion]) {
-        let fetchRequest = PersistedDiscussion.getFetchRequestForAllSortedByTimestampOfLastMessage(with: ownedIdentity.cryptoId)
+        let fetchRequest = PersistedDiscussion.getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with: ownedIdentity.cryptoId)
         self.ownedIdentityContext = ownedIdentity.managedObjectContext
         super.init()
         let discussions = (try? context.fetch(fetchRequest)) ?? []
         for discussion in discussions {
-            guard discussion is PersistedOneToOneDiscussion || discussion is PersistedGroupDiscussion else {
-                // We do not want to select locked discussions
-                continue
-            }
+            assert(discussion.status == .active)
+            guard discussion.status == .active else { continue }
             guard let discussionUI = discussion as? PersistedDiscussionUI else {
                 assertionFailure(); continue
             }
@@ -168,7 +150,7 @@ fileprivate struct DiscussionCellView: View {
         return model.discussionUI.identityColors
     }
 
-    private var systemImage: InitialCircleViewSystemImage {
+    private var systemImage: CircledInitialsIcon {
         if model.discussionUI.isLocked {
             return .lockFill
         } else {

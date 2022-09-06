@@ -27,8 +27,8 @@ import os.log
 final class PersistedMessageSystem: PersistedMessage {
 
     private static let optionalCallLogItemKey = "optionalCallLogItem"
-    private static let entityName = "PersistedMessageSystem"
-    private static let ownedIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.ownedIdentityKey].joined(separator: ".")
+    static let entityName = "PersistedMessageSystem"
+    private static let ownedIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue].joined(separator: ".")
     private static let callReportKindKey = [optionalCallLogItemKey, PersistedCallLogContact.rawReportKindKey].joined(separator: ".")
     private static let rawCategoryKey = "rawCategory"
     
@@ -53,6 +53,9 @@ final class PersistedMessageSystem: PersistedMessage {
         case updatedDiscussionSharedSettings = 6
         case discussionWasRemotelyWiped = 7
         case contactRevokedByIdentityProvider = 8
+        case notPartOfTheGroupAnymore = 9
+        case rejoinedGroup = 10
+        case contactIsOneToOneAgain = 11
 
         var description: String {
             switch self {
@@ -65,6 +68,9 @@ final class PersistedMessageSystem: PersistedMessage {
             case .updatedDiscussionSharedSettings: return "updatedDiscussionSharedSettings"
             case .discussionWasRemotelyWiped: return "discussionWasRemotelyWiped"
             case .contactRevokedByIdentityProvider: return "contactRevokedByIdentityProvider"
+            case .notPartOfTheGroupAnymore: return "notPartOfTheGroupAnymore"
+            case .rejoinedGroup: return "rejoinedGroup"
+            case .contactIsOneToOneAgain: return "contactIsOneToOneAgain"
             }
         }
 
@@ -80,7 +86,10 @@ final class PersistedMessageSystem: PersistedMessage {
                     .contactWasDeleted,
                     .discussionWasRemotelyWiped,
                     .updatedDiscussionSharedSettings,
-                    .contactRevokedByIdentityProvider:
+                    .contactRevokedByIdentityProvider,
+                    .notPartOfTheGroupAnymore,
+                    .rejoinedGroup,
+                    .contactIsOneToOneAgain:
                 return false
             }
         }
@@ -93,7 +102,10 @@ final class PersistedMessageSystem: PersistedMessage {
                     .callLogItem,
                     .updatedDiscussionSharedSettings,
                     .discussionWasRemotelyWiped,
-                    .contactRevokedByIdentityProvider:
+                    .contactRevokedByIdentityProvider,
+                    .notPartOfTheGroupAnymore,
+                    .rejoinedGroup,
+                    .contactIsOneToOneAgain:
                 return true
                 
             case .numberOfNewMessages,
@@ -111,6 +123,9 @@ final class PersistedMessageSystem: PersistedMessage {
             case .updatedDiscussionSharedSettings: return true
             case .discussionWasRemotelyWiped: return true
             case .contactRevokedByIdentityProvider: return true
+            case .notPartOfTheGroupAnymore: return true
+            case .rejoinedGroup: return true
+            case .contactIsOneToOneAgain: return true
                 
             case .numberOfNewMessages: return false
             case .discussionIsEndToEndEncrypted: return false
@@ -197,6 +212,25 @@ final class PersistedMessageSystem: PersistedMessage {
             return Strings.updatedDiscussionSettings
         case .contactRevokedByIdentityProvider:
             return Strings.contactRevokedByIdentityProvider
+        case .notPartOfTheGroupAnymore:
+            return Strings.notPartOfTheGroupAnymore
+        case .rejoinedGroup:
+            return Strings.rejoinedGroup
+        case .contactIsOneToOneAgain:
+            switch try? discussion.kind {
+            case .oneToOne(withContactIdentity: let contactIdentity):
+                if let contactIdentity = contactIdentity {
+                    return Strings.contactIsOneToOneAgain(contactName: contactIdentity.customOrNormalDisplayName)
+                } else if let associatedData = associatedData, let contactName = String(data: associatedData, encoding: .utf8)?.trimmingWhitespacesAndNewlines() {
+                    return Strings.contactIsOneToOneAgain(contactName: contactName)
+                } else {
+                    assertionFailure()
+                    return nil
+                }
+            case .groupV1, .none:
+                assertionFailure()
+                return nil
+            }
         case .discussionWasRemotelyWiped:
             let df = DateFormatter()
             df.doesRelativeDateFormatting = false
@@ -285,6 +319,12 @@ final class PersistedMessageSystem: PersistedMessage {
             return Strings.discussionWasRemotelyWiped(contactDisplayName, nil)
         case .contactRevokedByIdentityProvider:
             return Strings.contactRevokedByIdentityProvider
+        case .notPartOfTheGroupAnymore:
+            return Strings.notPartOfTheGroupAnymore
+        case .rejoinedGroup:
+            return Strings.rejoinedGroup
+        case .contactIsOneToOneAgain:
+            return self.textBody
         case .callLogItem:
             guard let item = optionalCallLogItem,
                   let callLogReport = item.callReportKind else {
@@ -385,6 +425,7 @@ extension PersistedMessageSystem {
                       discussion: discussion,
                       readOnce: false,
                       visibilityDuration: nil,
+                      forwarded: false,
                       forEntityName: PersistedMessageSystem.entityName)
      
         self.rawCategory = category.rawValue
@@ -423,6 +464,7 @@ extension PersistedMessageSystem {
                       discussion: discussion,
                       readOnce: false,
                       visibilityDuration: nil,
+                      forwarded: false,
                       forEntityName: PersistedMessageSystem.entityName)
         
         self.rawCategory = Category.numberOfNewMessages.rawValue
@@ -476,6 +518,32 @@ extension PersistedMessageSystem {
                           messageUploadTimestampFromServer: messageUploadTimestampFromServer)
     }
     
+    
+    static func insertNotPartOfTheGroupAnymoreSystemMessage(within discussion: PersistedGroupDiscussion) throws {
+        _ = try self.init(.notPartOfTheGroupAnymore,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+    
+    
+    static func insertRejoinedGroupSystemMessage(within discussion: PersistedGroupDiscussion) throws {
+        _ = try self.init(.rejoinedGroup,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+
+    
+    static func insertContactIsOneToOneAgainSystemMessage(within discussion: PersistedOneToOneDiscussion) throws {
+        let message = try self.init(.contactIsOneToOneAgain,
+                                    optionalContactIdentity: discussion.contactIdentity,
+                                    optionalCallLogItem: nil,
+                                    discussion: discussion)
+        message.associatedData = discussion.contactIdentity?.mediumOriginalName.data(using: .utf8)
+    }
+
+    
 }
 
 
@@ -502,6 +570,43 @@ extension PersistedMessageSystem {
     }
     
 }
+
+
+// MARK: - Determining actions availability
+
+extension PersistedMessageSystem {
+    
+    var infoActionCanBeMadeAvailableForSystemMessage: Bool {
+        return ObvMessengerConstants.developmentMode && category == .callLogItem
+    }
+    
+    var callActionCanBeMadeAvailableForSystemMessage: Bool {
+        guard category == .callLogItem else { return false }
+        guard optionalCallLogItem != nil else { return false }
+        return discussion.isCallAvailable
+    }
+    
+    var deleteMessageActionCanBeMadeAvailableForSystemMessage: Bool {
+        switch category {
+        case .contactJoinedGroup,
+                .contactLeftGroup,
+                .contactWasDeleted,
+                .callLogItem,
+                .updatedDiscussionSharedSettings,
+                .contactRevokedByIdentityProvider,
+                .discussionWasRemotelyWiped,
+                .notPartOfTheGroupAnymore,
+                .rejoinedGroup,
+                .contactIsOneToOneAgain:
+            return true
+        case .numberOfNewMessages,
+                .discussionIsEndToEndEncrypted:
+            return false
+        }
+    }
+}
+
+
 
 // MARK: - Convenience DB getters
 

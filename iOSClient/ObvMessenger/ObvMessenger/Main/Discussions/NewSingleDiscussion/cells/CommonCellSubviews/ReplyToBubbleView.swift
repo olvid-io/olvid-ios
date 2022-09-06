@@ -23,7 +23,7 @@ import QuickLookThumbnailing
 
 
 @available(iOS 14.0, *)
-final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
+final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
     enum Configuration: Equatable, Hashable {
         case loading
@@ -201,6 +201,15 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         fatalError("init(coder:) has not been implemented")
     }
     
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard !self.isHidden && self.showInStack else { return nil }
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard let replyToMessageObjectID = replyToMessageObjectID else { assertionFailure(); return nil }
+        return .replyTo(replyToMessageObjectID: replyToMessageObjectID)
+    }
+    
+    
     private func setupInternalViews() {
         
         addSubview(bubble)
@@ -233,6 +242,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         horizontalStack.addArrangedSubview(bodyLabel)
         bodyLabel.translatesAutoresizingMaskIntoConstraints = false
         bodyLabel.numberOfLines = 2
+        bodyLabel.adjustsFontForContentSizeCategory = true
 
         let verticalInset = MessageCellConstants.bubbleVerticalInset
         let horizontalInsets = MessageCellConstants.bubbleHorizontalInsets
@@ -287,14 +297,8 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
 
         nameLabel.isUserInteractionEnabled = false
         mainStack.isUserInteractionEnabled = false
-        self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(userDidTap)))
     }
-    
-    @objc private func userDidTap() {
-        guard let replyToMessageObjectID = replyToMessageObjectID else { return }
-        NewSingleDiscussionNotification.userDidTapOnReplyTo(replyToMessageObjectID: replyToMessageObjectID)
-            .postOnDispatchQueue()
-    }
+  
 }
 
 

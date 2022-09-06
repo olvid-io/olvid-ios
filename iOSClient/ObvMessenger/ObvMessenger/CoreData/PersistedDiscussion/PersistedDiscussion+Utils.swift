@@ -29,6 +29,23 @@ extension PersistedDiscussion {
         numberOfNewMessages += (try? PersistedMessageSystem.countNew(within: self)) ?? 0
         return numberOfNewMessages
     }
+
+    var circledInitialsConfiguration: CircledInitialsConfiguration? {
+        switch status {
+        case .locked:
+            return .icon(.lockFill)
+        case .preDiscussion, .active:
+            switch try? kind {
+            case .oneToOne(withContactIdentity: let contactIdentity):
+                return contactIdentity?.circledInitialsConfiguration
+            case .groupV1(withContactGroup: let contactGroup):
+                return contactGroup?.circledInitialsConfiguration
+            case .none:
+                assertionFailure()
+                return .icon(.lockFill)
+            }
+        }
+    }
 }
 
 

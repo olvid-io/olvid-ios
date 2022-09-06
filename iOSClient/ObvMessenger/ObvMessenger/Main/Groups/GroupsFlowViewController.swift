@@ -53,14 +53,9 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
 
         vc.title = CommonString.Word.Groups
         
-        if #available(iOS 13, *) {
-            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-            let image = UIImage(systemName: "person.3", withConfiguration: symbolConfiguration)
-            vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-        } else {
-            let iconImage = UIImage(named: "tabbar_icon_groups")
-            vc.tabBarItem = UITabBarItem(title: CommonString.Word.Groups, image: iconImage, tag: 0)
-        }
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "person.3", withConfiguration: symbolConfiguration)
+        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
         
         vc.delegate = ObvUserActivitySingleton.shared
 
@@ -83,7 +78,6 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     override init(rootViewController: UIViewController) {
         super.init(rootViewController: rootViewController)
 
-        observePersistedDiscussionWasLockedNotifications()
         observeContactGroupDeletedNotifications()
     }
         
@@ -93,13 +87,6 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     }
     
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
-
-    func observePersistedDiscussionWasLockedNotifications() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observeNewLockedPersistedDiscussion(queue: OperationQueue.main) { [weak self] (previousDiscussionUriRepresentation, newLockedDiscussionId) in
-            guard let _self = self else { return }
-            _self.replaceDiscussionViewController(discussionToReplace: previousDiscussionUriRepresentation, newDiscussionId: newLockedDiscussionId)
-        })
-    }
 
     private func observeContactGroupDeletedNotifications() {
         do {
@@ -122,11 +109,9 @@ extension GroupsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if #available(iOS 13, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            navigationBar.standardAppearance = appearance
-        }
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        navigationBar.standardAppearance = appearance
 
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
     }

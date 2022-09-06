@@ -22,7 +22,7 @@ import LinkPresentation
 
 
 @available(iOS 14.0, *)
-final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
+final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
     private var currentConfiguration: SingleImageView.Configuration?
     private var currentSetImageURL: URL?
@@ -47,9 +47,15 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
             tapToReadView.messageObjectID = nil
             setGifURL(hardlink?.hardlinkURL)
             bubble.backgroundColor = .clear
-        case .downloadableOrDownloading(progress: let progress, downsizedThumbnail: _):
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: _):
             tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.pausedOrDownloading(progress: progress))
+            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            removeImageURL()
+            bubble.backgroundColor = .systemFill
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: _):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             removeImageURL()
             bubble.backgroundColor = .systemFill
@@ -135,7 +141,7 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
     private let bubble = BubbleView()
     private let imageMaxSize = CGFloat(241)
     private let imageView = UIImageView()
-    private let tapToReadView = TapToReadView()
+    private let tapToReadView = TapToReadView(showText: false)
     private let fyleProgressView = FyleProgressView()
 
     private var gifWidthConstraint: NSLayoutConstraint?
@@ -145,6 +151,14 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        let viewsWithTappableStuff = [tapToReadView, fyleProgressView].filter({ $0.isHidden == false }) as [UIViewWithTappableStuff]
+        let view = viewsWithTappableStuff.first(where: { $0.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) != nil })
+        return view?.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
+    }
+
+    
     private func setupInternalViews() {
                         
         addSubview(bubble)

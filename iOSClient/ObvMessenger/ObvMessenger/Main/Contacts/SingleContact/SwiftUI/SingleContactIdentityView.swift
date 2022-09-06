@@ -30,7 +30,6 @@ struct SingleContactIdentityView: View {
 
     var body: some View {
         SingleContactIdentityInnerView(contact: contact,
-                                       changed: $contact.changed,
                                        contactStatus: $contact.contactStatus,
                                        tappedGroup: $contact.tappedGroup)
             .environment(\.managedObjectContext, ObvStack.shared.viewContext)
@@ -43,7 +42,6 @@ struct SingleContactIdentityView: View {
 struct SingleContactIdentityInnerView: View {
     
     @ObservedObject var contact: SingleContactIdentity
-    @Binding var changed: Bool
     @Binding var contactStatus: PersistedObvContactIdentity.Status
     @Binding var tappedGroup: PersistedContactGroup?
     
@@ -59,7 +57,7 @@ struct SingleContactIdentityInnerView: View {
             ScrollView {
                 VStack {
                     ContactIdentityHeaderView(singleIdentity: contact,
-                                              forceEditionMode: .nicknameAndPicture(action: { contact.userWantsToEditContactNickname() }))
+                                              editionMode: .custom(icon: .pencil(), action: { contact.userWantsToEditContactNickname() }))
                         .padding(.top, 16)
                     
                     
@@ -96,14 +94,12 @@ struct SingleContactIdentityInnerView: View {
                     }
                     
                     ContactIdentityCardViews(contact: contact,
-                                             changed: $contact.changed,
                                              contactStatus: $contact.contactStatus)
                         .padding(.top, 16)
                         .padding(.bottom, 16)
 
                     if let groupFetchRequest = contact.groupFetchRequest {
                         GroupsCardView(groupFetchRequest: groupFetchRequest,
-                                       changed: $changed,
                                        userWantsToNavigateToSingleGroupView: contact.userWantsToNavigateToSingleGroupView,
                                        tappedGroup: $tappedGroup)
                             .padding(.top, 16)
@@ -141,14 +137,13 @@ fileprivate struct GroupsCardView: View {
     
     private var fetchRequest: FetchRequest<PersistedContactGroup>
     let groupFetchRequest: NSFetchRequest<PersistedContactGroup>
-    @Binding var changed: Bool
     let userWantsToNavigateToSingleGroupView: (PersistedContactGroup) -> Void
     @Binding var tappedGroup: PersistedContactGroup?
 
-    init(groupFetchRequest: NSFetchRequest<PersistedContactGroup>, changed: Binding<Bool>, userWantsToNavigateToSingleGroupView: @escaping (PersistedContactGroup) -> Void, tappedGroup: Binding<PersistedContactGroup?>) {
+    init(groupFetchRequest: NSFetchRequest<PersistedContactGroup>,
+         userWantsToNavigateToSingleGroupView: @escaping (PersistedContactGroup) -> Void, tappedGroup: Binding<PersistedContactGroup?>) {
         self.fetchRequest = FetchRequest(fetchRequest: groupFetchRequest)
         self.groupFetchRequest = groupFetchRequest
-        self._changed = changed
         self.userWantsToNavigateToSingleGroupView = userWantsToNavigateToSingleGroupView
         self._tappedGroup = tappedGroup
     }
@@ -165,7 +160,6 @@ fileprivate struct GroupsCardView: View {
                 }
                 ObvCardView {
                     GroupCellsStackView(groupFetchRequest: groupFetchRequest,
-                                        changed: $changed,
                                         userWantsToNavigateToSingleGroupView: userWantsToNavigateToSingleGroupView,
                                         tappedGroup: $tappedGroup)
                 }
@@ -180,14 +174,13 @@ fileprivate struct GroupsCardView: View {
 fileprivate struct GroupCellsStackView: View {
     
     private var fetchRequest: FetchRequest<PersistedContactGroup>
-    @Binding var changed: Bool
     let userWantsToNavigateToSingleGroupView: (PersistedContactGroup) -> Void
     @Binding var tappedGroup: PersistedContactGroup?
     @State private var forceUpdate: Bool = false // Dirty bugfix
 
-    init(groupFetchRequest: NSFetchRequest<PersistedContactGroup>, changed: Binding<Bool>, userWantsToNavigateToSingleGroupView: @escaping (PersistedContactGroup) -> Void, tappedGroup: Binding<PersistedContactGroup?>) {
+    init(groupFetchRequest: NSFetchRequest<PersistedContactGroup>,
+         userWantsToNavigateToSingleGroupView: @escaping (PersistedContactGroup) -> Void, tappedGroup: Binding<PersistedContactGroup?>) {
         self.fetchRequest = FetchRequest(fetchRequest: groupFetchRequest)
-        self._changed = changed
         self.userWantsToNavigateToSingleGroupView = userWantsToNavigateToSingleGroupView
         self._tappedGroup = tappedGroup
     }
@@ -257,7 +250,6 @@ fileprivate struct TrustOriginsCardView: View {
 fileprivate struct ContactIdentityCardViews: View {
     
     @ObservedObject var contact: SingleContactIdentity
-    @Binding var changed: Bool
     @Binding var contactStatus: PersistedObvContactIdentity.Status
     
     private var OneToOneInvitationSentFetchRequest: FetchRequest<PersistedInvitationOneToOneInvitationSent>
@@ -271,9 +263,9 @@ fileprivate struct ContactIdentityCardViews: View {
     private let abortInviteToOneToOneAction: OlvidButtonAction
     private let updateDetailsAction: OlvidButtonAction
 
-    init(contact: SingleContactIdentity, changed: Binding<Bool>, contactStatus: Binding<PersistedObvContactIdentity.Status>) {
+    init(contact: SingleContactIdentity,
+         contactStatus: Binding<PersistedObvContactIdentity.Status>) {
         self.contact = contact
-        self._changed = changed
         self._contactStatus = contactStatus
         self.OneToOneInvitationSentFetchRequest = FetchRequest(fetchRequest: contact.oneToOneInvitationSentFetchRequest)
         self.introduceAction = OlvidButtonAction(action: contact.introduceToAnotherContact,
@@ -598,7 +590,6 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                lastName: "Cooks",
                                                position: "CEO",
                                                company: "Apple",
-                                               editionMode: .none,
                                                publishedContactDetails: nil,
                                                contactStatus: .noNewPublishedDetails,
                                                contactHasNoDevice: false,
@@ -610,7 +601,6 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                                lastName: "Jobs",
                                                                position: "CEO",
                                                                company: "NeXT",
-                                                               editionMode: .none,
                                                                publishedContactDetails: otherIdentityDetails,
                                                                contactStatus: .seenPublishedDetails,
                                                                contactHasNoDevice: false,
@@ -622,7 +612,6 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                             lastName: "User",
                                                             position: "Without Device",
                                                             company: "Olvid",
-                                                            editionMode: .none,
                                                             publishedContactDetails: nil,
                                                             contactStatus: .noNewPublishedDetails,
                                                             contactHasNoDevice: true,
@@ -641,12 +630,20 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
     
     static var previews: some View {
         Group {
-            SingleContactIdentityInnerView(contact: contact, changed: .constant(false), contactStatus: .constant(contact.contactStatus), tappedGroup: .constant(nil))
-            SingleContactIdentityInnerView(contact: contactWithOtherDetails, changed: .constant(false), contactStatus: .constant(contact.contactStatus), tappedGroup: .constant(nil))
-            SingleContactIdentityInnerView(contact: contactWithOtherDetails, changed: .constant(false), contactStatus: .constant(contact.contactStatus), tappedGroup: .constant(nil))
+            SingleContactIdentityInnerView(contact: contact,
+                                           contactStatus: .constant(contact.contactStatus),
+                                           tappedGroup: .constant(nil))
+            SingleContactIdentityInnerView(contact: contactWithOtherDetails,
+                                           contactStatus: .constant(contact.contactStatus),
+                                           tappedGroup: .constant(nil))
+            SingleContactIdentityInnerView(contact: contactWithOtherDetails,
+                                           contactStatus: .constant(contact.contactStatus),
+                                           tappedGroup: .constant(nil))
                 .environment(\.colorScheme, .dark)
                 .environment(\.locale, .init(identifier: "fr"))
-            SingleContactIdentityInnerView(contact: contactWithoutDevice, changed: .constant(false), contactStatus: .constant(contact.contactStatus), tappedGroup: .constant(nil))
+            SingleContactIdentityInnerView(contact: contactWithoutDevice,
+                                           contactStatus: .constant(contact.contactStatus),
+                                           tappedGroup: .constant(nil))
         }
     }
 }

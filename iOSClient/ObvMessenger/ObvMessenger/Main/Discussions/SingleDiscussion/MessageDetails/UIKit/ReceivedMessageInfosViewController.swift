@@ -32,18 +32,9 @@ final class ReceivedMessageInfosViewController: UIViewController {
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         self.navigationItem.setLeftBarButton(closeButton, animated: false)
 
-        
-        let infoVC: UIViewController
-        if #available(iOS 13, *) {
-            guard let vc = ReceivedMessageInfosHostingViewController(messageReceived: receivedMessage) else {
-                assertionFailure()
-                return
-            }
-            infoVC = vc
-        } else {
-            let infosOfReceivedMessageTVC = InfosOfReceivedMessageTableViewController()
-            infosOfReceivedMessageTVC.persistedMessageReceived = receivedMessage
-            infoVC = infosOfReceivedMessageTVC
+        guard let infoVC = ReceivedMessageInfosHostingViewController(messageReceived: receivedMessage) else {
+            assertionFailure()
+            return
         }
         
         // Configure subviews
@@ -71,16 +62,11 @@ final class ReceivedMessageInfosViewController: UIViewController {
 
     @objc
     private func dismissPresentedViewController() {
-
-        if #available(iOS 13, *) {
-            if let presentationController = self.navigationController?.presentationController,
-                let presentationControllerDelegate = presentationController.delegate {
-                presentationControllerDelegate.presentationControllerWillDismiss?(presentationController)
-                self.dismiss(animated: true) {
-                    presentationControllerDelegate.presentationControllerDidDismiss?(presentationController)
-                }
-            } else {
-                self.dismiss(animated: true)
+        if let presentationController = self.navigationController?.presentationController,
+           let presentationControllerDelegate = presentationController.delegate {
+            presentationControllerDelegate.presentationControllerWillDismiss?(presentationController)
+            self.dismiss(animated: true) {
+                presentationControllerDelegate.presentationControllerDidDismiss?(presentationController)
             }
         } else {
             self.dismiss(animated: true)

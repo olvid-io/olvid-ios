@@ -21,7 +21,7 @@ import UIKit
 import CoreData
 
 @available(iOS 14.0, *)
-final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
+final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
     var tapToReadLabelTextColor: UIColor? {
         get { tapToReadLabel.textColor }
@@ -58,7 +58,6 @@ final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         self.expirationIndicatorSide = side
         super.init(frame: .zero)
         setupInternalViews()
-        observeUserTaps()
     }
 
     required init?(coder: NSCoder) {
@@ -95,6 +94,7 @@ final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             tapToReadLabel.font = systemFont
         }
         tapToReadLabel.text = NSLocalizedString("Tap to see the message", comment: "")
+        tapToReadLabel.adjustsFontForContentSizeCategory = true
 
         let verticalInset = CGFloat(10)
         let horizontalInsets = CGFloat(16)
@@ -129,22 +129,20 @@ final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         
     }
     
-    private func observeUserTaps() {
-        let tap = UITapGestureRecognizer(target: self, action: #selector(userDidTap))
-        self.addGestureRecognizer(tap)
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard !self.isHidden && self.showInStack else { return nil }
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard let messageObjectID = self.messageObjectID else { assertionFailure(); return nil }
+        return .messageThatRequiresUserAction(messageObjectID: messageObjectID)
     }
     
-    @objc func userDidTap() {
-        guard let messageObjectID = self.messageObjectID else { assertionFailure(); return }
-        ObvMessengerInternalNotification.userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set([messageObjectID]))
-            .postOnDispatchQueue()
-    }
 }
 
 
 
 @available(iOS 14.0, *)
-final class TapToReadView: UIView {
+final class TapToReadView: UIView, UIViewWithTappableStuff {
     
     var tapToReadLabelTextColor: UIColor? {
         get { tapToReadLabel.textColor }
@@ -167,7 +165,6 @@ final class TapToReadView: UIView {
         self.showText = showText
         super.init(frame: .zero)
         setupInternalViews()
-        observeUserTaps()
     }
 
     required init?(coder: NSCoder) {
@@ -209,15 +206,12 @@ final class TapToReadView: UIView {
         
     }
     
-    private func observeUserTaps() {
-        let tap = UITapGestureRecognizer(target: self, action: #selector(userDidTap))
-        self.addGestureRecognizer(tap)
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard !isHidden else { return nil }
+        guard acceptTapOutsideBounds || self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard let messageObjectID = self.messageObjectID else { assertionFailure(); return nil }
+        return .messageThatRequiresUserAction(messageObjectID: messageObjectID)
     }
     
-    @objc func userDidTap() {
-        guard let messageObjectID = self.messageObjectID else { assertionFailure(); return }
-        ObvMessengerInternalNotification.userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set([messageObjectID]))
-            .postOnDispatchQueue()
-    }
-
 }

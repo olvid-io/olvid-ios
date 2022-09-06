@@ -76,7 +76,7 @@ final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: Contextual
                     return cancel(withReason: .couldNotFindDiscussion)
                 }
 
-                let persistedMessageSent = try PersistedMessageSent(body: body, replyTo: nil, fyleJoins: fyleJoins, discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil)
+                let persistedMessageSent = try PersistedMessageSent(body: body, replyTo: nil, fyleJoins: fyleJoins, discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false)
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

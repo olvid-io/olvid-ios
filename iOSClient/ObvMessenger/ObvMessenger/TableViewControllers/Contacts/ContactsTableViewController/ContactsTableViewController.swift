@@ -301,10 +301,7 @@ extension ContactsTableViewController {
             cell.title = contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
             cell.subtitle = contact.identityCoreDetails.getDisplayNameWithStyle(.positionAtCompany)
         }
-        cell.circledImageURL = contact.customPhotoURL ?? contact.photoURL
-        cell.identityColors = contact.cryptoId.colors
-        cell.showRedShield = !contact.isActive
-        cell.showGreenShield = contact.isCertifiedByOwnKeycloak
+        cell.circledInitialsConfiguration = contact.circledInitialsConfiguration
         switch contact.status {
         case .noNewPublishedDetails:
             cell.removeChipLabelAndChipImageView()
@@ -337,16 +334,7 @@ extension ContactsTableViewController {
         }
 
     }
-    
-    
-    private func configure(_ cell: ObvSubtitleTableViewCell, with ownedIdentity: PersistedObvOwnedIdentity) {
-        cell.title = ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
-        cell.subtitle = ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.positionAtCompany)
-        cell.identityColors = ownedIdentity.cryptoId.colors
-        cell.setCircleDiameter(to: 80.0)
-        cell.stopSpinner() // In case the cell was reused
-    }
-        
+
 }
 
 

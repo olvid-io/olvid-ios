@@ -23,7 +23,7 @@ import os.log
 
 
 @available(iOS 14.0, *)
-final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMessageCellContentViewDelegate {
+final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWithTappableStuff {
     
     private(set) var message: PersistedMessageSystem?
     private var indexPath = IndexPath(item: 0, section: 0)
@@ -32,8 +32,6 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
         super.init(frame: frame)
         self.automaticallyUpdatesContentConfiguration = false
     }
-    
-    weak var delegate: SystemMessageCellDelegate?
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -54,10 +52,9 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
 
     private let durationFormatter = DurationFormatter()
         
-    func updateWith(message: PersistedMessageSystem, indexPath: IndexPath, delegate: SystemMessageCellDelegate?) {
+    func updateWith(message: PersistedMessageSystem, indexPath: IndexPath) {
         self.message = message
         self.indexPath = indexPath
-        self.delegate = delegate
         self.setNeedsUpdateConfiguration()
     }
 
@@ -65,6 +62,7 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
         guard AppStateManager.shared.currentState.isInitializedAndActive else {
             // This prevents a crash when the user hits the home button while in the discussion.
             // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
+            // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
             return
         }
         guard let message = self.message else { assertionFailure(); return }
@@ -77,7 +75,7 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
         switch message.category {
         case .contactRevokedByIdentityProvider:
             content.backgroundColor = appTheme.colorScheme.red
-        case .contactJoinedGroup:
+        case .contactJoinedGroup, .notPartOfTheGroupAnymore, .rejoinedGroup:
             content.backgroundColor = appTheme.colorScheme.green
         case .contactLeftGroup:
             content.backgroundColor = appTheme.colorScheme.green
@@ -88,6 +86,8 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
             content.backgroundColor = appTheme.colorScheme.green
             content.date = nil
         case .contactWasDeleted:
+            content.backgroundColor = appTheme.colorScheme.green
+        case .contactIsOneToOneAgain:
             content.backgroundColor = appTheme.colorScheme.green
         case .callLogItem:
             content.backgroundColor = appTheme.colorScheme.purple
@@ -126,40 +126,24 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
             content.backgroundColor = appTheme.colorScheme.orange
         }
         self.contentConfiguration = content
-        registerDelegate()
     }
     
-    private func registerDelegate() {
-        guard let contentView = self.contentView as? SystemMessageCellContentView else { assertionFailure(); return }
-        contentView.delegate = self
-    }
 
-    
-    func bubbleViewWasTapped() {
-        guard let category = message?.category else { return }
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard !self.isHidden else { return nil }
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        guard let category = message?.category else { assertionFailure(); return nil }
         switch category {
         case .updatedDiscussionSharedSettings:
-            delegate?.systemCellShowingUpdatedDiscussionSharedSettingsWasTapped()
+            return .systemCellShowingUpdatedDiscussionSharedSettings
         case .callLogItem:
-            guard let callLogItem = message?.optionalCallLogItem else { assertionFailure(); return }
-            guard let callReportKind = callLogItem.callReportKind else { assertionFailure(); return }
+            guard let callLogItem = message?.optionalCallLogItem else { assertionFailure(); return nil }
+            guard let callReportKind = callLogItem.callReportKind else { assertionFailure(); return nil }
             switch callReportKind {
             case .rejectedIncomingCallBecauseOfDeniedRecordPermission:
-                delegate?.systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionWasTapped()
-            case .missedIncomingCall,
-                    .rejectedIncomingCall,
-                    .acceptedIncomingCall,
-                    .acceptedOutgoingCall,
-                    .rejectedOutgoingCall,
-                    .busyOutgoingCall,
-                    .unansweredOutgoingCall,
-                    .uncompletedOutgoingCall,
-                    .newParticipantInIncomingCall,
-                    .newParticipantInOutgoingCall,
-                    .anyIncomingCall,
-                    .anyOutgoingCall,
-                    .filteredIncomingCall:
-                break
+                return .systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission
+            default:
+                return nil
             }
         case .contactJoinedGroup,
                 .contactLeftGroup,
@@ -167,10 +151,14 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, SystemMess
                 .discussionIsEndToEndEncrypted,
                 .contactWasDeleted,
                 .discussionWasRemotelyWiped,
-                .contactRevokedByIdentityProvider:
-            break
+                .contactRevokedByIdentityProvider,
+                .notPartOfTheGroupAnymore,
+                .rejoinedGroup,
+                .contactIsOneToOneAgain:
+            return nil
         }
     }
+    
 }
 
 
@@ -185,42 +173,15 @@ extension SystemMessageCell {
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { nil }
     var viewForTargetedPreview: UIView { self.contentView }
 
-    var isCopyActionAvailable: Bool { false }
-    var textViewToCopy: UITextView? { nil } // Legacy, replaced by textToCopy
     var textToCopy: String? { nil }
 
-    var isSharingActionAvailable: Bool { false }
     var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { nil }
     var imageAttachments: [FyleMessageJoinWithStatus]? { nil } // Legacy, replaced by itemProvidersForImages
     var itemProvidersForImages: [UIActivityItemProvider]? { nil }
     var itemProvidersForAllAttachments: [UIActivityItemProvider]? { nil }
 
-    var isReplyToActionAvailable: Bool { false }
-    var isDeleteOwnReactionActionAvailable: Bool { false }
-
-    var isDeleteActionAvailable: Bool {
-        switch self.message?.category {
-        case .contactJoinedGroup,
-                .contactLeftGroup,
-                .contactWasDeleted,
-                .callLogItem,
-                .updatedDiscussionSharedSettings,
-                .discussionWasRemotelyWiped,
-                .contactRevokedByIdentityProvider:
-            return true
-        case .numberOfNewMessages,
-                .discussionIsEndToEndEncrypted,
-                .none:
-            return false
-        }
-    }
-    var isEditBodyActionAvailable: Bool { false }
-
-    var isInfoActionAvailable: Bool {
-        return false
-    }
     var infoViewController: UIViewController? {
-        guard isInfoActionAvailable else { return nil }
+        guard message?.infoActionCanBeMadeAvailable == true else { return nil }
         if let item = message?.optionalCallLogItem {
             print("item.callReportKind = \(item.callReportKind.debugDescription)")
             print("item.unknownContactsCount = \(item.unknownContactsCount)")
@@ -237,11 +198,6 @@ extension SystemMessageCell {
         return nil
     }
 
-    var isCallActionAvailable: Bool {
-        guard message?.optionalCallLogItem != nil else { return false }
-        return true
-    }
-    
 }
 
 
@@ -269,11 +225,6 @@ fileprivate struct SystemMessageCellCustomContentConfiguration: UIContentConfigu
 }
 
 
-protocol SystemMessageCellContentViewDelegate: AnyObject {
-    func bubbleViewWasTapped()
-}
-
-
 @available(iOS 14.0, *)
 private final class SystemMessageCellContentView: UIView, UIContentView {
     
@@ -291,7 +242,6 @@ private final class SystemMessageCellContentView: UIView, UIContentView {
     private let dateView = SystemMessageDateView()
 
     private var appliedConfiguration: SystemMessageCellCustomContentConfiguration!
-    weak var delegate: SystemMessageCellContentViewDelegate?
 
     init(configuration: SystemMessageCellCustomContentConfiguration) {
         super.init(frame: .zero)
@@ -332,11 +282,13 @@ private final class SystemMessageCellContentView: UIView, UIContentView {
         firstlabel.textAlignment = .center
         firstlabel.numberOfLines = 0
         firstlabel.font = UIFont.preferredFont(forTextStyle: .body)
+        firstlabel.adjustsFontForContentSizeCategory = true
 
         subStack.addArrangedSubview(secondLabel)
         secondLabel.textAlignment = .center
         secondLabel.numberOfLines = 0
         secondLabel.font = UIFont.preferredFont(forTextStyle: SystemMessageCellContentView.secondLabelTextStyle)
+        secondLabel.adjustsFontForContentSizeCategory = true
         
         let verticalInset = MessageCellConstants.bubbleVerticalInset
         let horizontalInsets = MessageCellConstants.bubbleHorizontalInsets
@@ -354,8 +306,6 @@ private final class SystemMessageCellContentView: UIView, UIContentView {
         ]
         NSLayoutConstraint.activate(constraints)
         
-        bubbleView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(bubbleViewWasTapped)))
-        
         // This constraint prevents the app from crashing in case there is nothing to display within the cell
         do {
             let safeHeightConstraint = self.heightAnchor.constraint(equalToConstant: 0)
@@ -372,11 +322,6 @@ private final class SystemMessageCellContentView: UIView, UIContentView {
             widthConstraints.forEach({ $0.priority = .defaultLow })
             NSLayoutConstraint.activate(widthConstraints)
         }
-    }
-    
-    
-    @objc private func bubbleViewWasTapped() {
-        delegate?.bubbleViewWasTapped()
     }
     
     

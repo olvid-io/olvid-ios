@@ -27,11 +27,11 @@ import MobileCoreServices
 @objc(PersistedMessageSent)
 final class PersistedMessageSent: PersistedMessage {
     
-    private static let entityName = "PersistedMessageSent"
+    static let entityName = "PersistedMessageSent"
     private static let expirationForSentLimitedExistenceKey = "expirationForSentLimitedExistence"
     private static let expirationForSentLimitedVisibilityKey = "expirationForSentLimitedVisibility"
-    private static let discussionSenderThreadIdentifierKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.senderThreadIdentifierKey].joined(separator: ".")
-    private static let discussionOwnedIdentityIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.ownedIdentityKey, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+    private static let discussionSenderThreadIdentifierKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.senderThreadIdentifier.rawValue].joined(separator: ".")
+    private static let discussionOwnedIdentityIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSent")
     
@@ -51,7 +51,7 @@ final class PersistedMessageSent: PersistedMessage {
 
     }
 
-    // MARK: - Attributes
+    // MARK: - Attributesb
 
     @NSManaged private var rawExistenceDuration: NSNumber?
 
@@ -176,10 +176,14 @@ final class PersistedMessageSent: PersistedMessage {
     
     /// `true` when this instance can be edited after being sent
     override var textBodyCanBeEdited: Bool {
-        guard self.discussion is PersistedOneToOneDiscussion || self.discussion is PersistedGroupDiscussion else { return false }
-        guard !self.isLocallyWiped else { return false }
-        guard !self.isRemoteWiped else { return false }
-        return true
+        switch discussion.status {
+        case .active:
+            guard !self.isLocallyWiped else { return false }
+            guard !self.isRemoteWiped else { return false }
+            return true
+        case .preDiscussion, .locked:
+            return false
+        }
     }
     
     @objc override func editTextBody(newTextBody: String?) throws {
@@ -251,9 +255,18 @@ extension PersistedMessageSent {
 
 extension PersistedMessageSent {
 
-    convenience init(body: String?, replyTo: PersistedMessage?, fyleJoins: [FyleJoin], discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, existenceDuration: TimeInterval?) throws {
+    convenience init(body: String?, replyTo: PersistedMessage?, fyleJoins: [FyleJoin], discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, existenceDuration: TimeInterval?, forwarded: Bool) throws {
 
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw PersistedMessageSent.makeError(message: "Could not find context") }
+
+        // Received messages can only be created when the discussion status is 'active'
+        
+        switch discussion.status {
+        case .locked, .preDiscussion:
+            throw Self.makeError(message: "Cannot create PersistedMessageSent, the discussion is not active")
+        case .active:
+            break
+        }
 
         let timestamp = Date()
 
@@ -275,6 +288,7 @@ extension PersistedMessageSent {
                       discussion: discussion,
                       readOnce: readOnce,
                       visibilityDuration: visibilityDuration,
+                      forwarded: forwarded,
                       forEntityName: PersistedMessageSent.entityName)
 
         self.existenceDuration = existenceDuration
@@ -289,8 +303,9 @@ extension PersistedMessageSent {
 
         // Create the recipient infos entries for the contact(s) that are part of the discussion
         self.unsortedRecipientsInfos = Set<PersistedMessageSentRecipientInfos>()
-        if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
-            guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
+        switch try? discussion.kind {
+        case .oneToOne(withContactIdentity: let contactIdentity):
+            guard let contactIdentity = contactIdentity else {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
                 throw makeError(message: "Could not find contact identity. This is ok if it has just been deleted.")
             }
@@ -304,8 +319,8 @@ extension PersistedMessageSent {
                 throw makeError(message: "Could not find PersistedMessageSentRecipientInfos")
             }
             self.unsortedRecipientsInfos.insert(infos)
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            guard let contactGroup = groupDiscussion.contactGroup else {
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 throw makeError(message: "Could find contact group (this is ok if it was just deleted)")
             }
@@ -324,7 +339,7 @@ extension PersistedMessageSent {
                 os_log("We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case", log: log, type: .error)
                 throw makeError(message: "We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case")
             }
-        } else {
+        case .none:
             throw makeError(message: "Unexpected discussion type.")
         }
 
@@ -334,12 +349,13 @@ extension PersistedMessageSent {
 
     convenience init(draft: Draft) throws {
         try self.init(body: draft.body,
-                  replyTo: draft.replyTo,
+                      replyTo: draft.replyTo,
                       fyleJoins: draft.fyleJoins,
-                  discussion: draft.discussion,
-                  readOnce: draft.readOnce,
-                  visibilityDuration: draft.visibilityDuration,
-                  existenceDuration: draft.existenceDuration)
+                      discussion: draft.discussion,
+                      readOnce: draft.readOnce,
+                      visibilityDuration: draft.visibilityDuration,
+                      existenceDuration: draft.existenceDuration,
+                      forwarded: false)
     }
     
     
@@ -381,20 +397,23 @@ extension PersistedMessageSent {
     
     func toJSON() -> MessageJSON? {
         let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
-        if let discussion = self.discussion as? PersistedGroupDiscussion {
-            guard let contactGroup = discussion.contactGroup else {
+        switch try? discussion.kind {
+        case .oneToOne, .none:
+            groupId = nil
+        case .groupV1(withContactGroup: let contactGroup):
+            guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 return nil
             }
             let groupUid = contactGroup.groupUid
             let groupOwner: ObvCryptoId
-            if let groupJoined = discussion.contactGroup as? PersistedContactGroupJoined {
+            if let groupJoined = contactGroup as? PersistedContactGroupJoined {
                 guard let owner = groupJoined.owner else {
                     os_log("The owner is nil. This is ok if it was just deleted.", log: log, type: .error)
                     return nil
                 }
                 groupOwner = owner.cryptoId
-            } else  if let groupOwned = discussion.contactGroup as? PersistedContactGroupOwned {
+            } else  if let groupOwned = contactGroup as? PersistedContactGroupOwned {
                 guard let owner = groupOwned.owner else {
                     os_log("The owner is nil. This is ok if it was just deleted.", log: log, type: .error)
                     return nil
@@ -404,10 +423,7 @@ extension PersistedMessageSent {
                 return nil
             }
             groupId = (groupUid, groupOwner)
-        } else {
-            groupId = nil
         }
-        
 
         let replyToJSON: MessageReferenceJSON?
         switch self.repliesTo {
@@ -422,7 +438,8 @@ extension PersistedMessageSent {
                            body: self.textBodyToSend,
                            groupId: groupId,
                            replyTo: replyToJSON,
-                           expiration: self.expirationJSON)
+                           expiration: self.expirationJSON,
+                           forwarded: self.forwarded)
     }
     
     
@@ -449,6 +466,26 @@ extension PersistedMessageSent {
     
     var forwardActionCanBeMadeAvailableForSentMessage: Bool {
         return shareActionCanBeMadeAvailableForSentMessage
+    }
+
+    var infoActionCanBeMadeAvailableForSentMessage: Bool {
+        return !unsortedRecipientsInfos.isEmpty || !metadata.isEmpty
+    }
+    
+    var replyToActionCanBeMadeAvailableForSentMessage: Bool {
+        guard discussion.status == .active else { return false }
+        if readOnce {
+            return status == .read
+        }
+        return true
+    }
+    
+    var editBodyActionCanBeMadeAvailableForSentMessage: Bool {
+        return textBodyCanBeEdited
+    }
+    
+    var deleteOwnReactionActionCanBeMadeAvailableForSentMessage: Bool {
+        return reactions.contains { $0 is PersistedMessageReactionSent }
     }
 
 }

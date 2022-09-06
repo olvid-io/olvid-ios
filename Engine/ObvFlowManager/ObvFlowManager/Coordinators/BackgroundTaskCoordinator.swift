@@ -245,7 +245,7 @@ extension BackgroundTaskCoordinator {
             ObvProtocolNotification.observeProtocolMessageToProcess(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
                 os_log("ProtocolMessageToProcess notification received within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
                 self?.updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId,
-                                                                               expectationsToRemove: [.protocolMessageToProcess, .uidsOfMessagesThatWillBeDownloaded],
+                                                                               expectationsToRemove: [.protocolMessageToProcess, .uidsOfMessagesToProcess],
                                                                                expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
             },
             

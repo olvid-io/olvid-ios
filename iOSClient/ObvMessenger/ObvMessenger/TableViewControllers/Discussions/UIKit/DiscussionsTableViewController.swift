@@ -309,6 +309,7 @@ extension DiscussionsTableViewController {
         let frcIndexPath = frcIndexPathFromTvIndexPath(tvIndexPath)
         let cell = tableView.dequeueReusableCell(withIdentifier: ObvSubtitleTableViewCell.identifier) as! ObvSubtitleTableViewCell
         cell.selectionStyle = .none
+        assert(AppStateManager.shared.currentState.isInitializedAndActive)
         configure(cell, withObjectAtIndexPath: frcIndexPath)
         switch self.cellSelectionStyle {
         case .none: cell.selectionStyle = .none
@@ -339,22 +340,7 @@ extension DiscussionsTableViewController {
     
     private func configure(_ cell: ObvSubtitleTableViewCell, with discussion: PersistedDiscussion) {
         cell.title = discussion.title
-        if let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion {
-            cell.identityColors = oneToOneDiscussion.contactIdentity?.cryptoId.colors
-            cell.circledImageURL = oneToOneDiscussion.contactIdentity?.customPhotoURL ?? oneToOneDiscussion.contactIdentity?.photoURL
-            cell.showRedShield = (oneToOneDiscussion.contactIdentity?.isActive == false)
-            cell.showGreenShield = (oneToOneDiscussion.contactIdentity?.isCertifiedByOwnKeycloak == true)
-        } else if let groupDiscussion = discussion as? PersistedGroupDiscussion {
-            cell.identityColors = AppTheme.shared.groupColors(forGroupUid: groupDiscussion.contactGroup?.groupUid ?? UID.zero)
-            cell.circledIcon = .person3Fill
-            cell.circledImageURL = groupDiscussion.contactGroup?.displayPhotoURL
-            cell.showRedShield = false
-            cell.showGreenShield = false
-        } else {
-            cell.showRedShield = false
-            cell.showGreenShield = false
-            cell.configureCircledInitialsWith(icon: .lockFill)
-        }
+        cell.circledInitialsConfiguration = discussion.circledInitialsConfiguration
 
         do {
             cell.setDefaultSubtitleFont()

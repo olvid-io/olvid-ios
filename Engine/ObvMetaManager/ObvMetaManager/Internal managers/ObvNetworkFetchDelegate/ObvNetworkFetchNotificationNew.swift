@@ -37,9 +37,10 @@ public enum ObvNetworkFetchNotificationNew {
 	case serverReportedThatThisDeviceWasSuccessfullyRegistered(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case serverRequiresThisDeviceToRegisterToPushNotifications(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case inboxAttachmentHasNewProgress(attachmentId: AttachmentIdentifier, progress: Progress, flowId: FlowIdentifier)
 	case inboxAttachmentWasDownloaded(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case inboxAttachmentDownloadCancelledByServer(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+	case inboxAttachmentDownloadWasResumed(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+	case inboxAttachmentDownloadWasPaused(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case inboxAttachmentWasTakenCareOf(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case noInboxMessageToProcess(flowId: FlowIdentifier)
 	case newInboxMessageToProcess(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], flowId: FlowIdentifier)
@@ -69,9 +70,10 @@ public enum ObvNetworkFetchNotificationNew {
 		case serverReportedThatThisDeviceWasSuccessfullyRegistered
 		case fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive
 		case serverRequiresThisDeviceToRegisterToPushNotifications
-		case inboxAttachmentHasNewProgress
 		case inboxAttachmentWasDownloaded
 		case inboxAttachmentDownloadCancelledByServer
+		case inboxAttachmentDownloadWasResumed
+		case inboxAttachmentDownloadWasPaused
 		case inboxAttachmentWasTakenCareOf
 		case noInboxMessageToProcess
 		case newInboxMessageToProcess
@@ -111,9 +113,10 @@ public enum ObvNetworkFetchNotificationNew {
 			case .serverReportedThatThisDeviceWasSuccessfullyRegistered: return Name.serverReportedThatThisDeviceWasSuccessfullyRegistered.name
 			case .fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive: return Name.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive.name
 			case .serverRequiresThisDeviceToRegisterToPushNotifications: return Name.serverRequiresThisDeviceToRegisterToPushNotifications.name
-			case .inboxAttachmentHasNewProgress: return Name.inboxAttachmentHasNewProgress.name
 			case .inboxAttachmentWasDownloaded: return Name.inboxAttachmentWasDownloaded.name
 			case .inboxAttachmentDownloadCancelledByServer: return Name.inboxAttachmentDownloadCancelledByServer.name
+			case .inboxAttachmentDownloadWasResumed: return Name.inboxAttachmentDownloadWasResumed.name
+			case .inboxAttachmentDownloadWasPaused: return Name.inboxAttachmentDownloadWasPaused.name
 			case .inboxAttachmentWasTakenCareOf: return Name.inboxAttachmentWasTakenCareOf.name
 			case .noInboxMessageToProcess: return Name.noInboxMessageToProcess.name
 			case .newInboxMessageToProcess: return Name.newInboxMessageToProcess.name
@@ -163,18 +166,22 @@ public enum ObvNetworkFetchNotificationNew {
 				"ownedIdentity": ownedIdentity,
 				"flowId": flowId,
 			]
-		case .inboxAttachmentHasNewProgress(attachmentId: let attachmentId, progress: let progress, flowId: let flowId):
-			info = [
-				"attachmentId": attachmentId,
-				"progress": progress,
-				"flowId": flowId,
-			]
 		case .inboxAttachmentWasDownloaded(attachmentId: let attachmentId, flowId: let flowId):
 			info = [
 				"attachmentId": attachmentId,
 				"flowId": flowId,
 			]
 		case .inboxAttachmentDownloadCancelledByServer(attachmentId: let attachmentId, flowId: let flowId):
+			info = [
+				"attachmentId": attachmentId,
+				"flowId": flowId,
+			]
+		case .inboxAttachmentDownloadWasResumed(attachmentId: let attachmentId, flowId: let flowId):
+			info = [
+				"attachmentId": attachmentId,
+				"flowId": flowId,
+			]
+		case .inboxAttachmentDownloadWasPaused(attachmentId: let attachmentId, flowId: let flowId):
 			info = [
 				"attachmentId": attachmentId,
 				"flowId": flowId,
@@ -363,16 +370,6 @@ public enum ObvNetworkFetchNotificationNew {
 		}
 	}
 
-	public static func observeInboxAttachmentHasNewProgress(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, Progress, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.inboxAttachmentHasNewProgress.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
-			let progress = notification.userInfo!["progress"] as! Progress
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(attachmentId, progress, flowId)
-		}
-	}
-
 	public static func observeInboxAttachmentWasDownloaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.inboxAttachmentWasDownloaded.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
@@ -384,6 +381,24 @@ public enum ObvNetworkFetchNotificationNew {
 
 	public static func observeInboxAttachmentDownloadCancelledByServer(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.inboxAttachmentDownloadCancelledByServer.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(attachmentId, flowId)
+		}
+	}
+
+	public static func observeInboxAttachmentDownloadWasResumed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.inboxAttachmentDownloadWasResumed.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(attachmentId, flowId)
+		}
+	}
+
+	public static func observeInboxAttachmentDownloadWasPaused(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.inboxAttachmentDownloadWasPaused.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier

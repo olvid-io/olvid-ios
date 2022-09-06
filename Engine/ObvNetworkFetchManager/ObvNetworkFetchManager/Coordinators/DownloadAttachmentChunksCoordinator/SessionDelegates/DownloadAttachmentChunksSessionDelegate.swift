@@ -82,8 +82,9 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
 protocol AttachmentChunkDownloadProgressTracker: AnyObject {
     func downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?)
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String)
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunksProgresses: [(chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)], flowId: FlowIdentifier)
-    func attachmentChunksWereDecryptedAndWrittenToAttachmentFile(attachmentId: AttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier)
+    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier)
+    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: AttachmentIdentifier, chunkNumber: Int, flowId: FlowIdentifier)
+    func attachmentDownloadIsComplete(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 }
 
 // MARK: - URLSessionDelegate
@@ -155,7 +156,7 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
         let attachmentId = self.attachmentId
         let flowId = self.flowId
         queueSynchronizingCallsToTracker.async {
-            tracker?.attachmentChunkDidProgress(attachmentId: attachmentId, chunksProgresses: [chunkProgress], flowId: flowId)
+            tracker?.attachmentChunkDidProgress(attachmentId: attachmentId, chunkProgress: chunkProgress, flowId: flowId)
         }
     }
 
@@ -259,7 +260,10 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
 
                 os_log("⛑ Saved to DB: Chunk %{public}@/%d was downloaded and decrypted within flow %{public}@", log: log, type: .info, attachmentId.debugDescription, chunkNumber, flowId.debugDescription)
 
-                tracker?.attachmentChunksWereDecryptedAndWrittenToAttachmentFile(attachmentId: attachmentId, chunkNumbers: [chunkNumber], flowId: flowId)
+                tracker?.attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: attachmentId, chunkNumber: chunkNumber, flowId: flowId)
+                if attachment.status == .downloaded {
+                    tracker?.attachmentDownloadIsComplete(attachmentId: attachmentId, flowId: flowId)
+                }
                 
             }
         }
