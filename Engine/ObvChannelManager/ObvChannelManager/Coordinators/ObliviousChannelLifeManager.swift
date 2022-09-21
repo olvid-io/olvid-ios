@@ -33,7 +33,7 @@ final class ObliviousChannelLifeManager: ObliviousChannelLifeDelegate {
     weak var delegateManager: ObvChannelDelegateManager?
     private static let logCategory = "ObliviousChannelLifeManager"
     
-    func finalizeInitialization(within obvContext: ObvContext) throws {
+    func deleteExpiredKeyMaterialsAndProvisions(within obvContext: ObvContext) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: ObliviousChannelLifeManager.logCategory)

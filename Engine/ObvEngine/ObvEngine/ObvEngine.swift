@@ -74,7 +74,8 @@ public final class ObvEngine: ObvManager {
     
     // MARK: - Public factory methods
     
-    public static func startFull(logPrefix: String, appNotificationCenter: NotificationCenter, uiApplication: UIApplication, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, appType: AppType, runningLog: RunningLogError) throws -> ObvEngine {
+    /// This method returns a full engine, with an initialized Core Data Stack
+    public static func startFull(logPrefix: String, appNotificationCenter: NotificationCenter, backgroundTaskManager: ObvBackgroundTaskManager, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, appType: AppType, runningLog: RunningLogError) throws -> ObvEngine {
         
         // The main container URL is shared between all the apps within the app group (i.e., between the main app, the share extension, and the notification extension).
         guard let mainContainerURL = ObvEngine.mainContainerURL else { throw makeError(message: "The main container URL is not set") }
@@ -122,9 +123,14 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvNotificationCenter())
         
         // ObvFlowDelegate
-        obvManagers.append(ObvFlowManager(uiApplication: uiApplication, prng: prng))
+        obvManagers.append(ObvFlowManager(backgroundTaskManager: backgroundTaskManager, prng: prng))
         
-        let fullEngine = try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: appNotificationCenter, appType: appType, runningLog: runningLog)
+        let fullEngine = try self.init(logPrefix: logPrefix,
+                                       sharedContainerIdentifier: sharedContainerIdentifier,
+                                       obvManagers: obvManagers,
+                                       appNotificationCenter: appNotificationCenter,
+                                       appType: appType,
+                                       runningLog: runningLog)
 
         channelManager.setObvUserInterfaceChannelDelegate(fullEngine)
         
@@ -235,7 +241,12 @@ public final class ObvEngine: ObvManager {
         
         let dummyNotificationCenter = NotificationCenter.init()
         
-        let engine = try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: dummyNotificationCenter, appType: appType, runningLog: runningLog)
+        let engine = try self.init(logPrefix: logPrefix,
+                                   sharedContainerIdentifier: sharedContainerIdentifier,
+                                   obvManagers: obvManagers,
+                                   appNotificationCenter: dummyNotificationCenter,
+                                   appType: appType,
+                                   runningLog: runningLog)
 
         channelManager.setObvUserInterfaceChannelDelegate(engine)
         
@@ -249,7 +260,7 @@ public final class ObvEngine: ObvManager {
         
         self.prng = ObvCryptoSuite.sharedInstance.prngService()
         self.appNotificationCenter = appNotificationCenter
-        self.returnReceiptSender = ReturnReceiptSender(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng)
+        self.returnReceiptSender = ReturnReceiptSender(prng: prng)
         self.transactionsHistoryReplayer = TransactionsHistoryReplayer(sharedContainerIdentifier: sharedContainerIdentifier, appType: appType)
         self.engineCoordinator = EngineCoordinator(logSubsystem: logSubsystem, prng: self.prng, appNotificationCenter: appNotificationCenter)
         delegateManager = ObvMetaManager()
@@ -424,8 +435,8 @@ extension ObvEngine: ObvErrorMaker {
     public static let errorDomain = "ObvEngine"
     
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
-    
-    public func replayTransactionsHistory() {
+
+    private func replayTransactionsHistory() {
         let log = self.log
         DispatchQueue(label: "Engine queue for replaying transactions history").async { [weak self] in
             let flowId = FlowIdentifier()
@@ -720,6 +731,8 @@ extension ObvEngine {
     
     public func updatePublishedIdentityDetailsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, with newIdentityDetails: ObvIdentityDetails) throws {
         
+        assert(!Thread.isMainThread)
+
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
         guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
@@ -781,10 +794,14 @@ extension ObvEngine {
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
 
+        os_log("🧥 Call to saveKeycloakAuthState", log: log, type: .info)
+        
         let flowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            try identityDelegate.saveKeycloakAuthState(ownedIdentity: ownedCryptoId.cryptoIdentity, rawAuthState: rawAuthState, within: obvContext)
-            try obvContext.save(logOnFailure: log)
+        try queueForSynchronizingCallsToManagers.sync {
+            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+                try identityDelegate.saveKeycloakAuthState(ownedIdentity: ownedCryptoId.cryptoIdentity, rawAuthState: rawAuthState, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+            }
         }
     }
 
@@ -793,9 +810,11 @@ extension ObvEngine {
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
 
         let flowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            try identityDelegate.saveKeycloakJwks(ownedIdentity: ownedCryptoId.cryptoIdentity, jwks: jwks, within: obvContext)
-            try obvContext.save(logOnFailure: log)
+        try queueForSynchronizingCallsToManagers.sync {
+            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+                try identityDelegate.saveKeycloakJwks(ownedIdentity: ownedCryptoId.cryptoIdentity, jwks: jwks, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+            }
         }
     }
 
@@ -816,9 +835,11 @@ extension ObvEngine {
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
 
         let flowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            try identityDelegate.setOwnedIdentityKeycloakUserId(ownedIdentity: ownedCryptoId.cryptoIdentity, keycloakUserId: userId, within: obvContext)
-            try obvContext.save(logOnFailure: log)
+        try queueForSynchronizingCallsToManagers.sync {
+            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+                try identityDelegate.setOwnedIdentityKeycloakUserId(ownedIdentity: ownedCryptoId.cryptoIdentity, keycloakUserId: userId, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+            }
         }
     }
 
@@ -836,19 +857,13 @@ extension ObvEngine {
             contactIdentityToAdd: contactIdentityToAdd,
             signedContactDetails: signedContactDetails.signedUserDetails)
 
-        var error: Error?
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
 
-        createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            do {
+        try queueForSynchronizingCallsToManagers.sync {
+            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
                 _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
                 try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
             }
-        }
-        guard error == nil else {
-            throw error!
         }
     }
 
@@ -881,9 +896,27 @@ extension ObvEngine {
     }
     
     
+    public func unbindOwnedIdentityFromKeycloakServer(ownedCryptoId: ObvCryptoId) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            do {
+                try unbindOwnedIdentityFromKeycloakServer(ownedCryptoId: ownedCryptoId) { result in
+                    switch result {
+                    case .failure(let error):
+                        continuation.resume(throwing: error)
+                    case .success:
+                        continuation.resume()
+                    }
+                }
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    
     /// This method asynchronously unbinds an owned identity from a keycloak server. During this process, new details are published for owned identity, based on the previously published details, but after removing the signed user details.
     /// This method eventually posts an `ownedIdentityUnbindingFromKeycloakPerformed` notification containing the result of the unbinding process.
-    public func unbindOwnedIdentityFromKeycloakServer(ownedCryptoId: ObvCryptoId, completion: @escaping (Result<Void,Error>) -> Void) throws {
+    private func unbindOwnedIdentityFromKeycloakServer(ownedCryptoId: ObvCryptoId, completion: @escaping (Result<Void,Error>) -> Void) throws {
         
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
@@ -1585,6 +1618,8 @@ extension ObvEngine {
     
     public func respondTo(_ obvDialog: ObvDialog) {
         
+        assert(!Thread.isMainThread)
+
         guard let createContextDelegate = createContextDelegate else { assertionFailure(); return }
         guard let channelDelegate = channelDelegate else { assertionFailure(); return }
         guard let flowDelegate = flowDelegate else { assertionFailure(); return }
@@ -1596,7 +1631,7 @@ extension ObvEngine {
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { [weak self] (obvContext) in
             guard let _self = self else { return }
             do {
-                guard let encodedResponse = obvDialog.encodedResponse else { throw NSError() }
+                guard let encodedResponse = obvDialog.encodedResponse else { throw Self.makeError(message: "Could not obtain encoded response") }
                 let timestamp = Date()
                 let channelDialogResponseMessageToSend = ObvChannelDialogResponseMessageToSend(uuid: obvDialog.uuid,
                                                                                                toOwnedIdentity: obvDialog.ownedCryptoId.cryptoIdentity,
@@ -1672,6 +1707,8 @@ extension ObvEngine {
     
     
     public func startContactMutualIntroductionProtocol(of remoteCryptoId: ObvCryptoId, with remoteCryptoIds: Set<ObvCryptoId>, forOwnedId ownedId: ObvCryptoId) throws {
+        
+        assert(!Thread.isMainThread)
         
         guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
@@ -1752,6 +1789,8 @@ extension ObvEngine {
     // This protocol is started when the user publishes her identity details
     private func startIdentityDetailsPublicationProtocol(ownedIdentity: ObvCryptoId, publishedIdentityDetailsVersion version: Int, within obvContext: ObvContext) throws {
         
+        assert(!Thread.isMainThread)
+        
         guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
         guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
@@ -1775,6 +1814,7 @@ extension ObvEngine {
         let message = try protocolDelegate.getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol(groupUid: groupStructure.groupUid, ownedIdentity: groupStructure.groupOwner, within: obvContext)
         _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
     }
+    
     
     /// This is similar to reCreateAllChannelEstablishmentProtocolsWithContactIdentity, except that we only delete the devices for which no channel is established yet. No chanell gets deleted here.
     public func restartAllOngoingChannelEstablishmentProtocolsWithContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentyWith ownedCryptoId: ObvCryptoId) throws {
@@ -2470,33 +2510,47 @@ extension ObvEngine {
     }
     
     
-    public func postReturnReceiptWithElements(_ elements: (nonce: Data, key: Data), andStatus status: Int, forContactCryptoId contactCryptoId: ObvCryptoId, ofOwnedIdentityCryptoId ownedCryptoId: ObvCryptoId) throws {
+    public func postReturnReceiptWithElements(_ elements: (nonce: Data, key: Data), andStatus status: Int, forContactCryptoId contactCryptoId: ObvCryptoId, ofOwnedIdentityCryptoId ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int?) throws {
         
-        guard let createContextDelegate = createContextDelegate else {
-            os_log("The create context delegate is not set", log: log, type: .fault)
-            assert(false)
-            return
-        }
+        os_log("🧾 Call to postReturnReceiptWithElements with nonce %{public}@ and attachmentNumber: %{public}@", log: log, type: .info, elements.nonce.hexString(), String(describing: attachmentNumber))
         
-        guard let identityDelegate = identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            assert(false)
-            return
-        }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The create context delegate is not set") }
+        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
+        guard let flowDelegate = self.flowDelegate else { throw makeError(message: "The flow delegate is not set") }
 
         let contactCryptoIdentity = contactCryptoId.cryptoIdentity
         let ownedCryptoIdentity = ownedCryptoId.cryptoIdentity
 
-        let randomFlowId = FlowIdentifier()
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
+        guard let messageUid = UID(uid: messageIdentifierFromEngine) else { assertionFailure(); throw makeError(message: "Could not parse message identifier from engine") }
+        let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: messageUid)
+
+        // We do not need to start a flow in order to wait for the return receipt to be posted.
+        // It was started when receiving the notification from the network manager informing the engine that a message / attachment is fully available.
+        
+        let flowId = FlowIdentifier()
+
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
             let deviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactCryptoIdentity, ofOwnedIdentity: ownedCryptoIdentity, within: obvContext)
-            try returnReceiptSender.postReturnReceiptWithElements(elements, andStatus: status, to: contactCryptoId, ownedCryptoId: ownedCryptoId, withDeviceUids: deviceUids)
+            Task {
+                try? await returnReceiptSender.postReturnReceiptWithElements(elements,
+                                                                             andStatus: status,
+                                                                             to: contactCryptoId,
+                                                                             ownedCryptoId: ownedCryptoId,
+                                                                             withDeviceUids: deviceUids,
+                                                                             messageId: messageId,
+                                                                             attachmentNumber: attachmentNumber,
+                                                                             flowId: flowId)
+                // We stop the flow that was created for us (see above) since we now that the upload of the return receipt was dealt with.
+                // We do not distinguish between a success and a failure here.
+                // Note also that, when the above call to `postReturnReceiptWithElements(...)` returns, the upload is either done or failed (note the `await` keyword).
+                try? flowDelegate.stopBackgroundActivityForPostingReturnReceipt(messageId: messageId, attachmentNumber: attachmentNumber)
+            }
         }
         
     }
     
     
-    public func decryptPayloadOfObvReturnReceipt(_ obvReturnReceipt: ObvReturnReceipt, usingElements elements: (nonce: Data, key: Data)) throws -> (contactCryptoId: ObvCryptoId, status: Int) {
+    public func decryptPayloadOfObvReturnReceipt(_ obvReturnReceipt: ObvReturnReceipt, usingElements elements: (nonce: Data, key: Data)) throws -> (contactCryptoId: ObvCryptoId, status: Int, attachmentNumber: Int?) {
         return try returnReceiptSender.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, usingElements: elements)
     }
     
@@ -2560,6 +2614,8 @@ extension ObvEngine {
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { [weak self] obvContext in
             guard let _self = self else { return }
                 
+            assert(!Thread.isMainThread)
+            
             let messageIdentifiersForToIdentities = try channelDelegate.post(message, randomizedWith: _self.prng, within: obvContext)
             
             try messageIdentifiersForToIdentities.keys.forEach { messageId in
@@ -2809,10 +2865,6 @@ extension ObvEngine {
             networkFetchDelegate.processCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: backgroundURLSessionIdentifier, withinFlowId: flowId)
         }
         
-        if returnReceiptSender.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: backgroundURLSessionIdentifier) {
-            os_log("🌊 The background URLSession Identifier %{public}@ is appropriate for the Return Receipt Sender", log: log, type: .info, backgroundURLSessionIdentifier)
-            self.returnReceiptSender.storeCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: backgroundURLSessionIdentifier)
-        }
     }
 
     
@@ -2986,35 +3038,28 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func applicationIsInitializedAndActive() {
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         let flowId = FlowIdentifier()
-        applicationDidStartRunning(flowId: flowId)
+        Task { [weak self] in await self?.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId) }
     }
 
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {
-        queueForPerformingBootstrapMethods.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
-            guard let _self = self else { return }
-            for manager in _self.delegateManager.registeredManagers {
-                manager.applicationDidStartRunning(flowId: flowId)
-            }
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        for manager in delegateManager.registeredManagers {
+            await manager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
+        }
+        if forTheFirstTime {
+            replayTransactionsHistory()
+            downloadAllMessagesForOwnedIdentities()
         }
     }
 
-    
-    public func applicationDidEnterBackground() {
-        queueForPerformingBootstrapMethods.async { [weak self] in
-            guard let _self = self else { return }
-            for manager in _self.delegateManager.registeredManagers {
-                manager.applicationDidEnterBackground()
-            }
-        }
-    }
-    
     
     /// This method allows to immediately download all messages from the server, for all owned identities, and connect all websockets.
     public func downloadMessagesAndConnectWebsockets() throws {
 
+        assert(!Thread.isMainThread)
+        
         guard let createContextDelegate = createContextDelegate else { assertionFailure(); throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { assertionFailure(); throw makeError(message: "The identityDelegate is not set") }
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); throw makeError(message: "The networkFetchDelegate is not set") }
@@ -3048,6 +3093,8 @@ extension ObvEngine {
     
     public func disconnectWebsockets() throws {
         
+        assert(!Thread.isMainThread)
+
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); throw makeError(message: "The networkFetchDelegate is not set") }
 
         queueForPerformingBootstrapMethods.async {

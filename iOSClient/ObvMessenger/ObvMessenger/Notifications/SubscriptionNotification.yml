@@ -4,7 +4,7 @@ import:
 notifications:
 - name: newListOfSKProducts
   params:
-  - {name: result, type: "Result<[SKProduct], SubscriptionCoordinator.RequestedListOfSKProductsError>"}
+  - {name: result, type: "Result<[SKProduct], SubscriptionManager.RequestedListOfSKProductsError>"}
 - name: userRequestedToBuySKProduct
   params:
   - {name: skProduct, type: SKProduct}

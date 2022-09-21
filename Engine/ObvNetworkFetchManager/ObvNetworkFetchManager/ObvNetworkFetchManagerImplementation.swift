@@ -168,12 +168,12 @@ extension ObvNetworkFetchManagerImplementation {
     }
     
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {
-        delegateManager.networkFetchFlowDelegate.resetAllFailedFetchAttempsCountersAndRetryFetching()
-        bootstrapWorker.applicationDidStartRunning()
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        if forTheFirstTime {
+            delegateManager.networkFetchFlowDelegate.resetAllFailedFetchAttempsCountersAndRetryFetching()
+        }
+        await bootstrapWorker.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
     }
-
-    public func applicationDidEnterBackground() {}
 
 }
 
@@ -428,7 +428,7 @@ extension ObvNetworkFetchManagerImplementation {
 
     /// This method is typically called by the channel manager when it cannot decrypt the message. It marks the message and its
     /// attachments for deletion. This does not actually delete the message/attachments. Instead, this will triger a notification
-    /// that will be catched internally by the appropriate coordinator that will atomically delete the message/attachements and
+    /// that will be catched internally by the appropriate coordinator that will atomically delete the message/attachments and
     /// create a PendingDeleteFromServer
     public func deleteMessageAndAttachments(messageId: MessageIdentifier, within obvContext: ObvContext) {
         let flowId = obvContext.flowId

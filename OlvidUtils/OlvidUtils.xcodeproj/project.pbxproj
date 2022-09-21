@@ -30,6 +30,7 @@
 		C48EA12A2703D88C006541D2 /* CGImage+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EA1292703D88C006541D2 /* CGImage+Utils.swift */; };
 		C49AA9F3261F4A9100E055F9 /* OlvidUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = C49AA9F1261F4A9100E055F9 /* OlvidUtils.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C49AAA2F261F4AD900E055F9 /* OperationWithSpecificReasonForCancel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49AAA2E261F4AD900E055F9 /* OperationWithSpecificReasonForCancel.swift */; };
+		C4A355D22878A44F001EE2D9 /* URLSession+Async.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */; };
 		C4B068072767B4860002DC39 /* ObvBackupable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B068062767B4860002DC39 /* ObvBackupable.swift */; };
 		C4B8E98D26B066B5009F5823 /* AssertQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8E98C26B066B5009F5823 /* AssertQueue.swift */; };
 		C4F79CDB2760F145004AF9C0 /* OperationQueue+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */; };
@@ -62,6 +63,7 @@
 		C49AA9F1261F4A9100E055F9 /* OlvidUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OlvidUtils.h; sourceTree = "<group>"; };
 		C49AA9F2261F4A9100E055F9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C49AAA2E261F4AD900E055F9 /* OperationWithSpecificReasonForCancel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationWithSpecificReasonForCancel.swift; sourceTree = "<group>"; };
+		C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+Async.swift"; sourceTree = "<group>"; };
 		C4B068062767B4860002DC39 /* ObvBackupable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvBackupable.swift; sourceTree = "<group>"; };
 		C4B8E98C26B066B5009F5823 /* AssertQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssertQueue.swift; sourceTree = "<group>"; };
 		C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OperationQueue+Utils.swift"; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 				C47651E8275784D700D3AB20 /* TimeInterval+Utils.swift */,
 				C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */,
 				C475A9CF27C445AA00335FE7 /* AVAudioSession+Utils.swift */,
+				C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */,
 			);
 			path = TypeExtensions;
 			sourceTree = "<group>";
@@ -287,6 +290,7 @@
 				C4619F35264A8DE800523B3A /* CompositionOfTwoContextualOperations.swift in Sources */,
 				C46F4C4227086A0E0018C7C1 /* UIImage+Utils.swift in Sources */,
 				C40F986526BE16B900BC055A /* CompositionOfFourContextualOperations.swift in Sources */,
+				C4A355D22878A44F001EE2D9 /* URLSession+Async.swift in Sources */,
 				C4619F38264A964F00523B3A /* CompositionOfThreeContextualOperations.swift in Sources */,
 				C4405CFB263BEA430093CE01 /* RunningLogError.swift in Sources */,
 				C4619F30264A82B400523B3A /* ObvContext.swift in Sources */,
@@ -426,7 +430,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = VMDQ4PU27W;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -454,7 +458,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = VMDQ4PU27W;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";

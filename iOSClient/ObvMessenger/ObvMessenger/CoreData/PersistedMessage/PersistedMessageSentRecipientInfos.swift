@@ -54,6 +54,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
     // MARK: - Relationships
     
     @NSManaged private(set) var messageSent: PersistedMessageSent
+    @NSManaged private(set) var attachmentInfos: Set<PersistedAttachmentSentRecipientInfos>
 
     // MARK: - Computed variables
     
@@ -116,7 +117,7 @@ extension PersistedMessageSentRecipientInfos {
         self.timestampAllAttachmentsSent = nil
         
         self.messageSent = messageSent
-     
+        self.attachmentInfos = Set<PersistedAttachmentSentRecipientInfos>()
 
     }
     
@@ -147,37 +148,44 @@ extension PersistedMessageSentRecipientInfos {
     }
 
 
-    func setTimestampDelivered(to timestamp: Date) {
-        if let currentTimeStamp = self.timestampDelivered {
-            guard currentTimeStamp != timestamp else { return }
-            self.timestampDelivered = min(timestamp, currentTimeStamp)
-        } else {
-            self.timestampDelivered = timestamp
-        }
-        self.messageSent.refreshStatus()
-        self.messageSent.fyleMessageJoinWithStatuses.forEach { $0.markAsComplete() }
-    }
-
-
-    func setTimestampRead(to timestamp: Date) {
-        if let currentTimeStamp = self.timestampRead {
-            guard currentTimeStamp != timestamp else { return }
-            self.timestampRead = min(timestamp, currentTimeStamp)
-        } else {
-            self.timestampRead = timestamp
-        }
-        self.messageSent.refreshStatus()
-    }
-
-    
     func setTimestampAllAttachmentsSentIfPossible() {
         guard self.timestampAllAttachmentsSent == nil else { return }
         let allAttachmentsAreComplete = messageSent.fyleMessageJoinWithStatuses.allSatisfy { $0.status == .complete }
         guard allAttachmentsAreComplete else { return }
         self.timestampAllAttachmentsSent = Date()
-        debugPrint(allAttachmentsAreComplete)
         self.messageSent.refreshStatus()
     }
+
+    
+    func messageWasDeliveredNoLaterThan(_ timestamp: Date, andRead: Bool) {
+        if let currentTimeStamp = self.timestampDelivered, currentTimeStamp != timestamp {
+            self.timestampDelivered = min(timestamp, currentTimeStamp)
+        } else {
+            self.timestampDelivered = timestamp
+        }
+        if andRead {
+            if let currentTimeStamp = self.timestampRead, currentTimeStamp != timestamp {
+                self.timestampRead = min(timestamp, currentTimeStamp)
+            } else {
+                self.timestampRead = timestamp
+            }
+        }
+    }
+
+    
+    func messageAndAttachmentWereDeliveredNoLaterThan(_ timestamp: Date, attachmentNumber: Int, andRead: Bool) {
+        messageWasDeliveredNoLaterThan(timestamp, andRead: false) // We do not assume that the message was read, even if the attachment was read
+        do {
+            let attachmentInfosOfDeliveredAttachment = try attachmentInfos.first(where: { $0.index == attachmentNumber }) ?? PersistedAttachmentSentRecipientInfos(status: .delivered, index: attachmentNumber, info: self)
+            if andRead {
+                attachmentInfosOfDeliveredAttachment.status = .read
+            }
+        } catch {
+            assertionFailure()
+            // In production, continue anyway
+        }
+    }
+
 }
 
 

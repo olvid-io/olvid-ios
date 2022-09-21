@@ -588,7 +588,7 @@ extension NetworkFetchFlowCoordinator {
 
     }
 
-    func downloadedAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func attachmentWasDownloaded(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)

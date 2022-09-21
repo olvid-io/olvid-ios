@@ -54,7 +54,13 @@ final class ContactTrustLevelWatcher {
             },
         ])
         
-        self.reEvaluateAllProtocolInstanceWaitingForContactUpgradeToOneToOne()
+    }
+    
+    
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        if forTheFirstTime {
+            self.reEvaluateAllProtocolInstanceWaitingForContactUpgradeToOneToOne()
+        }
     }
     
     /// This method, launched when finalizing the initialization, goes trough all protocol instances that wait for a contact to be promoted to OneToOne.

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.11.0 (542)] - 2022-07-20
+
+- Le démarrage d'Olvid devrait être beaucoup plus rapide qu'avant !
+- La vue d'information d'un message envoyé affiche maintenant des informations concernant la bonne réception des pièces jointes du message et, si le destinataire le permet, une information indiquant si la pièce jointe a été visualisée ou pas.
+- Les accusés de réception de message / pièce jointe sont envoyés (et donc reçus) beaucoup plus rapidement.
+- Un badge rouge permet de bien distinguer les messages audios que vous n'avez pas encore écoutés.
+- Corrige un bug empêchant parfois certains messages non lus d'être marqués comme « lus ».
+- Corrige un bug empêchant parfois l'interface de se mettre à jour au moment de la finalisation du téléchargement d'une pièce jointe.
+- Corrige un bug pouvant parfois entraîner un crash au moment de la suppression d'un message dont la discussion correspondante est affichée à l'écran.
+
 ## [0.10.3 (533)] - 2022-06-29
 
 - Vous pouvez maintenant choisir la sonnerie associée aux alertes des messages d'une discussion ! N'hésitez pas à essayer nos sons polyphoniques exclusifs, jamais entendus auparavant, absolument uniques :-)

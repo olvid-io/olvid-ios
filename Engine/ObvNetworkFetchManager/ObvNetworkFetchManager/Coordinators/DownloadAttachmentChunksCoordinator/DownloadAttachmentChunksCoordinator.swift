@@ -549,10 +549,9 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             }
         }
         
-        // If the attachment is downloaded, there is nothing left to do
-        
+        // If the attachment is downloaded, there is nothing left to do.
+        // Note that, if the attachment is downloaded, the network fetch flow delegate was already notified about it.
         guard !attachmentIsDownloaded else {
-            delegateManager.networkFetchFlowDelegate.downloadedAttachment(attachmentId: attachmentId, flowId: flowId)
             return
         }
 
@@ -600,6 +599,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             }
         }
     }
+    
     
     func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier) {
         
@@ -661,11 +661,25 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
     }
     
     
-    /// When an attachment is downloaded, we remove the progresses we stored in memory for its chunks
     func attachmentDownloadIsComplete(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+
+        // When an attachment is downloaded, we remove the progresses we stored in memory for its chunks
+
         queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
             self?._chunksProgressesForAttachment.removeValue(forKey: attachmentId)
         }
+
+        // We also immediately notify the network fetch flow delegate (so as to notify the app)
+        
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        delegateManager.networkFetchFlowDelegate.attachmentWasDownloaded(attachmentId: attachmentId, flowId: flowId)
+        
     }
 
 
@@ -697,6 +711,10 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
             return
         }
 
+        // Since the that attachment download was resumed by the user, we reset the failed attempt counter
+        
+        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+        
         localQueue.async { [weak self] in
             
             // We prevent any interference with previous operations

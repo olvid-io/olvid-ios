@@ -34,6 +34,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
     weak var cacheDelegate: DiscussionCacheDelegate?
     weak var cellReconfigurator: CellReconfigurator?
     weak var textBubbleDelegate: TextBubbleDelegate?
+    weak var audioPlayerViewDelegate: AudioPlayerViewDelegate?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -62,7 +63,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
     }
 
         
-    func updateWith(message: PersistedMessageReceived, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, previousMessageIsFromSameContact: Bool, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate) {
+    func updateWith(message: PersistedMessageReceived, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, previousMessageIsFromSameContact: Bool, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate, audioPlayerViewDelegate: AudioPlayerViewDelegate?) {
         assert(cacheDelegate != nil)
         self.message = message
         self.indexPath = indexPath
@@ -72,6 +73,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         self.cacheDelegate = cacheDelegate
         self.cellReconfigurator = cellReconfigurator
         self.textBubbleDelegate = textBubbleDelegate
+        self.audioPlayerViewDelegate = audioPlayerViewDelegate
     }
     
     
@@ -81,16 +83,12 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         hardlinks.append(contentsOf: contentView.singleImageView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.multipleImagesView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.attachmentsView.getAllShownHardLink())
+        hardlinks.append(contentsOf: contentView.audioPlayerView.getAllShownHardLink())
         return hardlinks
     }
 
     override func updateConfiguration(using state: UICellConfigurationState) {
-        guard AppStateManager.shared.currentState.isInitializedAndActive else {
-            // This prevents a crash when the user hits the home button while in the discussion.
-            // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
-            // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
-            return
-        }
+        // 2022-06-20 We used to check here whether the app is initialized and active. The app should always be initialized at this point, but not necessarilly active..
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
         var content = ReceivedMessageCellCustomContentConfiguration().updated(for: state)
@@ -268,6 +266,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
     private func registerDelegate() {
         guard let contentView = self.contentView as? ReceivedMessageCellContentView else { assertionFailure(); return }
         contentView.textBubble.delegate = textBubbleDelegate
+        contentView.audioPlayerView.delegate = audioPlayerViewDelegate
     }
 
     
@@ -396,9 +395,9 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
                 if let hardlink = hardlink {
                     let size = CGSize(width: MessageCellConstants.attachmentIconSize, height: MessageCellConstants.attachmentIconSize)
                     if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
-                        config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
+                        config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename, wasOpened: attachment.wasOpened)
                     } else {
-                        config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename)
+                        config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename, wasOpened: attachment.wasOpened)
                         if hardlink.hardlinkURL == nil {
                             // This happens when the attachment was just downloaded and we need to "refresh" the cached hardlink
                             // We do nothing since the hardlink will soon be refreshed
@@ -578,7 +577,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
     private let replyToBubbleView = ReplyToBubbleView(expirationIndicatorSide: .trailing)
     private let wipedView = WipedView(expirationIndicatorSide: .trailing)
     private let backgroundView = ReceivedMessageCellBackgroundView()
-    private let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .trailing)
+    fileprivate let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .trailing)
     private let bottomHorizontalStack = OlvidHorizontalStackView(gap: 4.0, side: .bothSides, debugName: "Date and reactions horizontal stack view", showInStack: true)
     fileprivate let missedMessageCountBubble = MissedMessageBubble()
     private let forwardView = ForwardView()

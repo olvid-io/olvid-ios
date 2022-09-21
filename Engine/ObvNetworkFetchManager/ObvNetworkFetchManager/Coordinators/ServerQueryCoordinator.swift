@@ -63,12 +63,15 @@ final class ServerQueryCoordinator: NSObject {
     init(prng: PRNGService, downloadedUserData: URL) {
         self.prng = prng
         self.downloadedUserData = downloadedUserData
+        super.init()
     }
 
     func finalizeInitialization() {
-        notificationCenterTokens.append(ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: self.delegateManager!.notificationDelegate!, queue: internalQueue) { [weak self] (ownedCryptoIdentity, flowId) in
-            self?.postAllPendingServerQuery(for: ownedCryptoIdentity, flowId: flowId)
-        })
+        notificationCenterTokens.append(contentsOf: [
+            ObvIdentityNotificationNew.observeOwnedIdentityWasReactivated(within: self.delegateManager!.notificationDelegate!, queue: internalQueue) { [weak self] (ownedCryptoIdentity, flowId) in
+                self?.postAllPendingServerQuery(for: ownedCryptoIdentity, flowId: flowId)
+            },
+        ])
     }
 
 }

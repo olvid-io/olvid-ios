@@ -245,7 +245,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
     private var obvContext: ObvContext
     private var fyleJoinsProvider: FyleJoinsProvider?
     private var model: ShareViewModel
-    private var hardLinksToFylesCoordinator: HardLinksToFylesCoordinator!
+    private var hardLinksToFylesManager: HardLinksToFylesManager!
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
 
     weak var delegate: ShareViewHostingControllerDelegate?
@@ -268,7 +268,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         self.model.delegate = self
 
         // Initialize the coordinators that allow to compute thumbnails
-        self.hardLinksToFylesCoordinator = HardLinksToFylesCoordinator(appType: .shareExtension)
+        self.hardLinksToFylesManager = HardLinksToFylesManager(appType: .shareExtension)
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -310,7 +310,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
     }
 
     /// This method queue operations that can be done to prepare message sending independently of selected discussion, the result of these operations will be used by operations latter queued in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
-    /// The last operation RequestHardLinksToFylesOperation is not required to send messages, but it used to show previews of attachements in ShareView.
+    /// The last operation RequestHardLinksToFylesOperation is not required to send messages, but it used to show previews of attachments in ShareView.
     private func initializeOperations() {
 
         guard let content = delegate?.firstInputItems else { return }
@@ -338,7 +338,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
             _self.model.setBodyTexts(bodyTexts)
         }
 
-        let op3 = RequestHardLinksToFylesOperation(hardLinksToFylesCoordinator: hardLinksToFylesCoordinator, fyleJoinsProvider: op2)
+        let op3 = RequestHardLinksToFylesOperation(hardLinksToFylesManager: hardLinksToFylesManager, fyleJoinsProvider: op2)
         op3.completionBlock = { [weak self] in
             guard let _self = self else { return }
             os_log("📤 Request HardLinks To Fyle Operation done.", log: Self.log, type: .info)

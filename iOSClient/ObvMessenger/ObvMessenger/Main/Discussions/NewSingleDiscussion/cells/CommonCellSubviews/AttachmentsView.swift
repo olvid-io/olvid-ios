@@ -34,11 +34,11 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, fileSize: Int, uti: String)
         case cancelledByServer(fileSize: Int, uti: String, filename: String?)
         // For both
-        case complete(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?)
+        case complete(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, wasOpened: Bool?)
         
         var hardlink: HardLinkToFyle? {
             switch self {
-            case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _),
+            case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, wasOpened: _),
                  .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, progress: _):
                 return hardlink
             case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
@@ -150,7 +150,7 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             imageView.reset()
             setTitleOnSubtitleView(titleView, filename: nil)
             setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        case .complete(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename):
+        case .complete(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename, wasOpened: _):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.complete)
             tapToReadView.messageObjectID = nil

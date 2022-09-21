@@ -284,7 +284,6 @@ extension SingleDiscussionViewController {
         observePersistedContactHasNewCustomDisplayNameNotifications()
         observePersistedContactGroupHasUpdatedContactIdentitiesNotifications()
         observeCallLogItemWasUpdatedNotifications()
-        observeAppStateChanges()
         observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
         showAccessoryView()
     }
@@ -306,7 +305,7 @@ extension SingleDiscussionViewController {
             let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
             items += [UIBarButtonItem(image: ellipsisImage, style: .plain, target: self, action: #selector(settingsButtonTapped))]
 
-            if discussion.isCallAvailable, AppStateManager.shared.appType == .mainApp {
+            if discussion.isCallAvailable {
                 let phoneImage = UIImage(systemIcon: .phoneFill, withConfiguration: symbolConfiguration)
                 items += [UIBarButtonItem(image: phoneImage, style: .plain, target: self, action: #selector(callButtonTapped))]
             }
@@ -876,37 +875,42 @@ extension SingleDiscussionViewController {
 
         // Check that the discussion is on screen, otherwise we do not mark the messages as "not new"
         guard isViewLoaded && view.window != nil else { return }
-        
-        // We also check that the app is running before setting the messages as "not new".
-        // If the user enters to fast in the app (e.g., by tapping a message notification), the app state might be 'inactive' although the messages should be indicated as "not new". To solve this issue, we also observe app state changes updates.
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
+
+        // If the scene is not foreground active, we do not mark visible messages as not new.
+        // When going back to the `active` state, a call to `markAsNotNewTheReceivedMessageInCell()` will be made for all visible cells.
+        // This will allow to mark visible messages as not new.
+        guard windowSceneActivationState == .foregroundActive else { return }
 
         markAsNotNewTheReceivedMessageInCell(cell)
         
     }
     
     
-    /// We observe app states changes to mark as "not new" all the messages that are visible when the app enters the running state.
-    private func observeAppStateChanges() {
-        observationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged(queue: OperationQueue.main) { [weak self] (previousState, currentState) in
-            guard let _self = self else { return }
-            guard currentState.isInitializedAndActive else { return }
-            guard _self.isViewLoaded && _self.view.window != nil else { return }
-            _self.insertSystemMessageIndicatingNewMesssages()
-            _self.scrollToSystemMessageIndicatingNewMesssages()
-            for cell in _self.collectionView.visibleCells {
-                _self.markAsNotNewTheReceivedMessageInCell(cell)
-            }
-            if _self.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured {
-                _self.fetchedResultsController.managedObjectContext.refreshAllObjects()
-                let visibleIps = _self.collectionView.indexPathsForVisibleItems.filter { _self.collectionView.cellForItem(at: $0) is MessageSystemCollectionViewCell }
-                _self.collectionView.reloadItems(at: visibleIps)
-                self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured = false
-            }
-        })
-    }
+    /// We observe app states changes to mark as "not new" all the messages that are visible when the app enters the active state.
+    private func observeSceneStateChanges() {
+        let sceneDidActivateNotification = UIScene.didActivateNotification
+        observationTokens.append(contentsOf: [
+            NotificationCenter.default.addObserver(forName: sceneDidActivateNotification, object: nil, queue: .main) { [weak self] _ in
+                // When the scene activates, we want to mark as not new the messages that were received while in background and that are now visible on screen.
+                guard let _self = self else { return }
+                _self.insertSystemMessageIndicatingNewMesssages()
+                _self.scrollToSystemMessageIndicatingNewMesssages()
+                for cell in _self.collectionView.visibleCells {
+                    _self.markAsNotNewTheReceivedMessageInCell(cell)
+                }
+                if _self.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured {
+                    _self.fetchedResultsController.managedObjectContext.refreshAllObjects()
+                    let visibleIps = _self.collectionView.indexPathsForVisibleItems.filter { _self.collectionView.cellForItem(at: $0) is MessageSystemCollectionViewCell }
+                    _self.collectionView.reloadItems(at: visibleIps)
+                    self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured = false
+                }
+            },
+        ])
 
+    }
     
+
+    @MainActor
     private func markAsNotNewTheReceivedMessageInCell(_ cell: UICollectionViewCell) {
         if let msgReceivedCell = cell as? MessageReceivedCollectionViewCell,
            let messageReceived = msgReceivedCell.message as? PersistedMessageReceived {
@@ -919,7 +923,6 @@ extension SingleDiscussionViewController {
             markAsNotNewTheSystemMessage(messageSystem)
         }
     }
-    
     
     
     override func collectionView(_ collectionView: UICollectionView, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
@@ -1036,7 +1039,7 @@ extension SingleDiscussionViewController {
                         let fyleElements: [FyleElement] = imageAttachments.compactMap {
                             $0.fyleElement
                         }
-                        ObvMessengerInternalNotification.requestAllHardLinksToFyles(fyleElements: fyleElements, completionHandler: completionHandlerForRequestAllHardLinksToFyles).postOnDispatchQueue()
+                        HardLinksToFylesNotifications.requestAllHardLinksToFyles(fyleElements: fyleElements, completionHandler: completionHandlerForRequestAllHardLinksToFyles).postOnDispatchQueue()
                     }
                     action.image = UIImage(systemName: "square.and.arrow.up")
                     children.append(action)
@@ -1061,7 +1064,7 @@ extension SingleDiscussionViewController {
                         let fyleElements: [FyleElement] = fyleMessagesJoinWithStatus.compactMap {
                             $0.fyleElement
                         }
-                        ObvMessengerInternalNotification.requestAllHardLinksToFyles(fyleElements: fyleElements, completionHandler: completionHandlerForRequestAllHardLinksToFyles).postOnDispatchQueue()
+                        HardLinksToFylesNotifications.requestAllHardLinksToFyles(fyleElements: fyleElements, completionHandler: completionHandlerForRequestAllHardLinksToFyles).postOnDispatchQueue()
                     }
                     action.image = UIImage(systemName: "square.and.arrow.up")
                     children.append(action)
@@ -1469,10 +1472,6 @@ extension SingleDiscussionViewController {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .undetermined:
             AVAudioSession.sharedInstance().requestRecordPermission { [weak self] (granted) in
-                guard AppStateManager.shared.currentState.isInitializedAndActive else {
-                    self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured = true
-                    return
-                }
                 self?.collectionView.reloadData()
             }
         case .denied:
@@ -1850,7 +1849,7 @@ extension SingleDiscussionViewController {
 
 // MARK: - CustomQLPreviewControllerDelegate
 
-extension SingleDiscussionViewController: QLPreviewControllerDelegate {
+extension SingleDiscussionViewController: CustomQLPreviewControllerDelegate {
     
     func previewController(_ controller: QLPreviewController, transitionViewFor item: QLPreviewItem) -> UIView? {
         guard let filesViewer = self.filesViewer else { assertionFailure(); return nil }
@@ -1877,7 +1876,10 @@ extension SingleDiscussionViewController: QLPreviewControllerDelegate {
         showAccessoryView()
         self.filesViewer = nil
     }
-    
+
+    func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+        ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: joinID).postOnDispatchQueue()
+    }
 }
 
 

@@ -39,11 +39,11 @@ public final class ObvIdentityManagerImplementation {
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvIdentityManagerImplementation")
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        guard forTheFirstTime else { return }
         deleteUnusedIdentityPhotos(flowId: flowId)
         pruneOldKeycloakRevokedIdentityAndUncertifyExpiredSignedContactDetails(flowId: flowId)
     }
-    public func applicationDidEnterBackground() {}
 
     let prng: PRNGService
     let identityPhotosDirectory: URL

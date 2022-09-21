@@ -40,71 +40,38 @@ final class KeycloakBindingStore {
     private static let errorDomain = "KeycloakBindingStore"
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    fileprivate func userWantsToAuthenticate(completionHandler: @escaping (Result<(keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, obvKeycloakState: ObvKeycloakState), Error>) -> Void) {
-        assert(Thread.isMainThread)
+
+    /// This method can throw either a standard `Error` or an error of the following type: `KeycloakManager.GetOwnDetailsError`
+    @MainActor
+    fileprivate func userWantsToAuthenticate() async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, obvKeycloakState: ObvKeycloakState) {
         let keycloakConfig = self.keycloakConfig
-        KeycloakManager.shared.discoverKeycloakServer(for: keycloakConfig.serverURL) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .failure(let error):
-                    completionHandler(.failure(error))
-                    return
-                case .success(let (jwks, configuration)):
-                    KeycloakManager.shared.authenticate(configuration: configuration,
-                                                        clientId: keycloakConfig.clientId,
-                                                        clientSecret: keycloakConfig.clientSecret,
-                                                        ownedCryptoId: nil) { result in
-                        assert(Thread.isMainThread)
-                        switch result {
-                        case .failure(let error):
-                            completionHandler(.failure(error))
-                            return
-                        case .success(let authState):
-                            KeycloakManager.shared.getOwnDetails(keycloakServer: keycloakConfig.serverURL,
-                                                                 authState: authState,
-                                                                 clientSecret: keycloakConfig.clientSecret,
-                                                                 jwks: jwks,
-                                                                 latestLocalRevocationListTimestamp: nil) { result in
-                                DispatchQueue.main.async { [weak self] in
-                                    switch result {
-                                    case .failure(let error):
-                                        completionHandler(.failure(error))
-                                        return
-                                    case .success(let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff)):
-                                        
-                                        if let minimumBuildVersion = keycloakServerRevocationsAndStuff.minimumIOSBuildVersion {
-                                            guard ObvMessengerConstants.bundleVersionAsInt >= minimumBuildVersion else {
-                                                self?.installedOlvidAppIsOutdated()
-                                                return
-                                            }
-                                        }
-                                        guard let rawAuthState = try? authState.serialize() else {
-                                            completionHandler(.failure(Self.makeError(message: "Unable to serialize AuthState.")))
-                                            return
-                                        }
-
-
-                                        let obvKeycloakState = ObvKeycloakState(
-                                            keycloakServer: keycloakConfig.serverURL,
-                                            clientId: keycloakConfig.clientId,
-                                            clientSecret: keycloakConfig.clientSecret,
-                                            jwks: jwks,
-                                            rawAuthState: rawAuthState,
-                                            signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
-                                            latestLocalRevocationListTimestamp: nil)
-                                        
-                                        completionHandler(.success((keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, obvKeycloakState)))
-                                        
-                                        return
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+        let (jwks, configuration) = try await KeycloakManagerSingleton.shared.discoverKeycloakServer(for: keycloakConfig.serverURL)
+        let authState = try await KeycloakManagerSingleton.shared.authenticate(configuration: configuration, clientId: keycloakConfig.clientId, clientSecret: keycloakConfig.clientSecret, ownedCryptoId: nil)
+        let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff) = try await KeycloakManagerSingleton.shared.getOwnDetails(
+            keycloakServer: keycloakConfig.serverURL,
+            authState: authState,
+            clientSecret: keycloakConfig.clientSecret,
+            jwks: jwks,
+            latestLocalRevocationListTimestamp: nil)
+        if let minimumBuildVersion = keycloakServerRevocationsAndStuff.minimumIOSBuildVersion {
+            guard ObvMessengerConstants.bundleVersionAsInt >= minimumBuildVersion else {
+                installedOlvidAppIsOutdated()
+                throw Self.makeError(message: "Installed Olvid App is outdated")
             }
         }
-                
+        
+        let rawAuthState = try authState.serialize()
+        let obvKeycloakState = ObvKeycloakState(
+            keycloakServer: keycloakConfig.serverURL,
+            clientId: keycloakConfig.clientId,
+            clientSecret: keycloakConfig.clientSecret,
+            jwks: jwks,
+            rawAuthState: rawAuthState,
+            signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
+            latestLocalRevocationListTimestamp: nil)
+
+        return (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, obvKeycloakState)
+        
     }
 
 }
@@ -139,19 +106,16 @@ struct BindingUseIdentityProviderView: View {
                     .padding(.horizontal)
                     .padding(.top)
                 BindingButtonsView(authenticateAction: {
-                    store.userWantsToAuthenticate { result in
-                        assert(Thread.isMainThread)
-                        switch result {
-                        case .failure:
-                            withAnimation {
-                                authenticationFailed = true
-                            }
-                        case .success(let authenticationResult):
-                            self.authenticationResult = authenticationResult
+                    Task {
+                        do {
+                            self.authenticationResult = try await store.userWantsToAuthenticate()
+                            assert(Thread.isMainThread)
                             os_log("Will show view displaying identity obtained from keycloak", log: log, type: .info)
-                            withAnimation {
-                                self.showBindingShowIdentityView = true
-                            }
+                            withAnimation { self.showBindingShowIdentityView = true }
+                        } catch {
+                            assert(Thread.isMainThread)
+                            os_log("Keycloak authentication failed: %{public}@", log: log, type: .error, error.localizedDescription)
+                            withAnimation { authenticationFailed = true }
                         }
                     }
                 })

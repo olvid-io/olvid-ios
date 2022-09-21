@@ -31,7 +31,7 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 enum SubscriptionNotification {
-	case newListOfSKProducts(result: Result<[SKProduct], SubscriptionCoordinator.RequestedListOfSKProductsError>)
+	case newListOfSKProducts(result: Result<[SKProduct], SubscriptionManager.RequestedListOfSKProductsError>)
 	case userRequestedToBuySKProduct(skProduct: SKProduct)
 	case skProductPurchaseFailed(error: SKError)
 	case userRequestedListOfSKProducts
@@ -131,10 +131,10 @@ enum SubscriptionNotification {
 		}
 	}
 
-	static func observeNewListOfSKProducts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Result<[SKProduct], SubscriptionCoordinator.RequestedListOfSKProductsError>) -> Void) -> NSObjectProtocol {
+	static func observeNewListOfSKProducts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Result<[SKProduct], SubscriptionManager.RequestedListOfSKProductsError>) -> Void) -> NSObjectProtocol {
 		let name = Name.newListOfSKProducts.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let result = notification.userInfo!["result"] as! Result<[SKProduct], SubscriptionCoordinator.RequestedListOfSKProductsError>
+			let result = notification.userInfo!["result"] as! Result<[SKProduct], SubscriptionManager.RequestedListOfSKProductsError>
 			block(result)
 		}
 	}

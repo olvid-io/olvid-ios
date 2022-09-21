@@ -83,7 +83,7 @@ final class AttachmentCell: UICollectionViewCell {
             content.hardlink = nil
             AttachmentCell.hardlinkForDraftFyleObjectID.removeValue(forKey: draftFyleJoinObjectID)
             if let fyleElement = draftFyleJoin.fyleElement ?? draftFyleJoin.genericFyleElement {
-                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { result in
+                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { result in
                     DispatchQueue.main.async { [weak self] in
                         switch result {
                         case .success(let hardlink):

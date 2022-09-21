@@ -48,16 +48,29 @@ fileprivate extension AudioPlayerView.Configuration {
 
     var duration: Double? {
         switch self {
-        case .complete(hardlink: let hardlink, _, _, _, _):
+        case .complete(hardlink: let hardlink, _, _, _, _, _):
             guard let url = hardlink?.hardlinkURL else { return nil }
             return ObvAudioPlayer.duration(of: url)
         case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer: return nil
         }
     }
+
+    var wasOpened: Bool? {
+        switch self {
+        case .complete(_, _, _, _, _, wasOpened: let wasOpened):
+            return wasOpened
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+            return nil
+        }
+    }
+}
+
+protocol AudioPlayerViewDelegate: AnyObject {
+    func audioHasBeenPlayed(_: HardLinkToFyle)
 }
 
 @available(iOS 14.0, *)
-final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWithExpirationIndicator {
+final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWithExpirationIndicator, ViewShowingHardLinks, UIViewWithTappableStuff {
 
     typealias Configuration = AttachmentsView.Configuration
 
@@ -65,6 +78,8 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
 
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
+
+    weak var delegate: AudioPlayerViewDelegate?
 
     private let bubble = BubbleView()
     private let playPauseButton = UIButton(type: .custom)
@@ -79,7 +94,10 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
     private let durationLabel = UILabel()
     private let byteCountFormatter = ByteCountFormatter()
     private let speakerButton = UIButton(type: .custom)
+    private let badge = UIImageView(image: UIImage(systemIcon: .circleFill))
+
     private var speakerButtonState: Bool = false
+    private let playPauseButtonSize: CGFloat = 26.0
 
     private let internalQueue = DispatchQueue(label: "Sleeping queue", qos: .userInitiated)
 
@@ -97,6 +115,15 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
+        guard self.showInStack else { return [] }
+        if let hardlink = currentConfiguration?.hardlink {
+            return [(hardlink, self)]
+        } else {
+            return []
+        }
     }
 
     func configure(with newConfiguration: Configuration) {
@@ -146,7 +173,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             fyleProgressView.setConfiguration(.complete)
             setTitle(filename: nil)
             setSubtitle(fileSize: fileSize, uti: uti)
-        case .complete(hardlink: let hardlink, thumbnail: _, fileSize: let fileSize, uti: let uti, filename: let filename):
+        case .complete(hardlink: let hardlink, thumbnail: _, fileSize: let fileSize, uti: let uti, filename: let filename, wasOpened: _):
             fyleProgressView.setConfiguration(.complete)
             if let url = hardlink?.hardlinkURL {
                 setTitle(url: url)
@@ -166,6 +193,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             ObvAudioPlayer.shared.delegate = self
             refreshPlayPause()
         }
+        badge.isHidden = configuration.wasOpened ?? true
         configureSpeakerButton()
     }
 
@@ -203,7 +231,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
     }
 
     private func setPlayPauseButtonImage(toPause: Bool) {
-        let largeConfig = UIImage.SymbolConfiguration(pointSize: 26, weight: .regular, scale: .large)
+        let largeConfig = UIImage.SymbolConfiguration(pointSize: playPauseButtonSize, weight: .regular, scale: .large)
         let image: UIImage?
         if toPause {
             image = UIImage(systemIcon: .pauseCircle, withConfiguration: largeConfig)
@@ -246,6 +274,12 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
         playPauseButton.translatesAutoresizingMaskIntoConstraints = false
         playPauseButton.addTarget(self, action: #selector(playPausePress), for: .touchUpInside)
         setPlayPauseButtonImage(toPause: false /* play */)
+
+        bubble.addSubview(badge)
+        badge.translatesAutoresizingMaskIntoConstraints = false
+        let badgeConfig = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 10))
+        badge.preferredSymbolConfiguration = badgeConfig
+        badge.tintColor = .red
 
         bubble.addSubview(title)
         title.translatesAutoresizingMaskIntoConstraints = false
@@ -320,6 +354,10 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
 
             tapToReadView.centerXAnchor.constraint(equalTo: playPauseButton.centerXAnchor),
             tapToReadView.centerYAnchor.constraint(equalTo: playPauseButton.centerYAnchor),
+
+            badge.centerXAnchor.constraint(equalTo: playPauseButton.centerXAnchor, constant: playPauseButtonSize / 2.3),
+            badge.centerYAnchor.constraint(equalTo: playPauseButton.centerYAnchor, constant: -playPauseButtonSize / 2.3),
+            badge.heightAnchor.constraint(equalTo: badge.widthAnchor),
         ]
 
         setupConstraintsForExpirationIndicator(gap: MessageCellConstants.gapBetweenExpirationViewAndBubble)
@@ -344,6 +382,18 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
         NSLayoutConstraint.activate(sizeConstraints)
     }
 
+    
+    func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
+        guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
+        if !tapToReadView.isHidden {
+            return tapToReadView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true)
+        } else {
+            // Note that the following call returns nil if the configuration is not downloading or downloadable
+            return fyleProgressView.tappedStuff(tapGestureRecognizer: tapGestureRecognizer, acceptTapOutsideBounds: true)
+        }
+    }
+    
+    
     var isConfiguredWithCurrentAudio: Bool {
         guard let hardlink = currentConfiguration?.hardlink else { return false }
         guard let current = ObvAudioPlayer.shared.current else { return false }
@@ -361,6 +411,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             ObvAudioPlayer.shared.stop()
             ObvAudioPlayer.shared.delegate = self
             _ = ObvAudioPlayer.shared.play(hardlink, enableSpeaker: speakerButtonState, at: time)
+            delegate?.audioHasBeenPlayed(hardlink)
             return
         }
 
@@ -394,7 +445,12 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
     }
 
     func configureSpeakerButton() {
-        setSpeakerButtonImage(isSpeakerEnable: isSpeakerEnableForCurrentPlayer)
+        if let currentConfiguration = currentConfiguration, currentConfiguration.canReadAudio {
+            speakerButton.isHidden = false
+            setSpeakerButtonImage(isSpeakerEnable: isSpeakerEnableForCurrentPlayer)
+        } else {
+            speakerButton.isHidden = true
+        }
     }
 
     func audioPlayerDidStopPlaying() {

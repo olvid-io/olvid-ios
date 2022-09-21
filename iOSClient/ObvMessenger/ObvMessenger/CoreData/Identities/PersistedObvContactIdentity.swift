@@ -131,6 +131,10 @@ final class PersistedObvContactIdentity: NSManagedObject {
         return ObvMessengerConstants.containerURL.forCustomContactProfilePictures.appendingPathComponent(customPhotoFilename)
     }
     
+    var displayPhotoURL: URL? {
+        customPhotoURL ?? photoURL
+    }
+    
     var shortOriginalName: String {
         let formatter = PersonNameComponentsFormatter()
         formatter.style = .short
@@ -684,57 +688,105 @@ extension PersistedObvContactIdentity {
     
 }
 
-// MARK: - Siri and Intent integration
+
+// MARK: - Thread safe struct
 
 extension PersistedObvContactIdentity {
+    
+    struct Structure: Hashable, Equatable {
+        
+        let typedObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
+        let cryptoId: ObvCryptoId
+        let fullDisplayName: String
+        let customOrFullDisplayName: String
+        let displayPhotoURL: URL?
+        let personNameComponents: PersonNameComponents
+        let ownedIdentity: PersistedObvOwnedIdentity.Structure
+        
+        private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedObvContactIdentity.Structure")
 
-    var personHandle: INPersonHandle {
-        INPersonHandle(value: objectID.uriRepresentation().absoluteString, type: .unknown)
-    }
-
-    @available(iOS 15.0, *)
-    func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
-
-        let pngData: Data?
-        if let url = customPhotoURL ?? photoURL,
-           let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
-           let _pngData = UIImage(cgImage: cgImage).pngData() {
-            pngData = _pngData
-        } else {
-            pngData = UIImage.makeCircledCharacter(fromString: fullDisplayName, circleDiameter: thumbnailSide, fillColor: cryptoId.colors.background, characterColor: cryptoId.colors.text)?.pngData()
+        // Hashable and equatable
+        
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(typedObjectID)
         }
         
-        let image: INImage?
-        if let pngData = pngData {
-            if let thumbnailURL = thumbnailURL {
-                do {
-                    try pngData.write(to: thumbnailURL)
-                    image = INImage(url: thumbnailURL)
-                } catch {
-                    os_log("Could not create PNG thumbnail file for contact", log: log, type: .fault)
+        static func == (lhs: Structure, rhs: Structure) -> Bool {
+            lhs.typedObjectID == rhs.typedObjectID
+        }
+
+        // Siri and Intent integration
+
+        var personHandle: INPersonHandle {
+            INPersonHandle(value: typedObjectID.objectID.uriRepresentation().absoluteString, type: .unknown)
+        }
+
+        @available(iOS 15.0, *)
+        func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
+
+            let pngData: Data?
+            if let url = displayPhotoURL,
+               let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
+               let _pngData = UIImage(cgImage: cgImage).pngData() {
+                pngData = _pngData
+            } else {
+                let fillColor = cryptoId.colors.background
+                let characterColor = cryptoId.colors.text
+                pngData = UIImage.makeCircledCharacter(fromString: fullDisplayName,
+                                                       circleDiameter: thumbnailSide,
+                                                       fillColor: fillColor,
+                                                       characterColor: characterColor)?.pngData()
+            }
+            
+            let image: INImage?
+            if let pngData = pngData {
+                if let thumbnailURL = thumbnailURL {
+                    do {
+                        try pngData.write(to: thumbnailURL)
+                        image = INImage(url: thumbnailURL)
+                    } catch {
+                        os_log("Could not create PNG thumbnail file for contact", log: log, type: .fault)
+                        image = INImage(imageData: pngData)
+                    }
+                } else {
                     image = INImage(imageData: pngData)
                 }
             } else {
-                image = INImage(imageData: pngData)
+                image = nil
             }
-        } else {
-            image = nil
+            return image
         }
-        return image
-    }
 
-    @available(iOS 15.0, *)
-    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
+        @available(iOS 15.0, *)
+        func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
 
-        return INPerson(personHandle: personHandle,
-                        nameComponents: personNameComponents,
-                        displayName: (customDisplayName ?? fullDisplayName),
-                        image: createINImage(storingPNGPhotoThumbnailAtURL: thumbnailURL, thumbnailSide: thumbnailSide),
-                        contactIdentifier: nil,
-                        customIdentifier: objectID.uriRepresentation().absoluteString,
-                        isMe: false,
-                        suggestionType: .none)
+            let image = createINImage(storingPNGPhotoThumbnailAtURL: thumbnailURL, thumbnailSide: thumbnailSide)
+            
+            return INPerson(personHandle: personHandle,
+                            nameComponents: personNameComponents,
+                            displayName: customOrFullDisplayName,
+                            image: image,
+                            contactIdentifier: nil,
+                            customIdentifier: typedObjectID.objectID.uriRepresentation().absoluteString,
+                            isMe: false,
+                            suggestionType: .none)
+        }
+
     }
+    
+    func toStruct() throws -> Structure {
+        guard let ownedIdentity = self.ownedIdentity else {
+            throw Self.makeError(message: "Could not extract required relationships")
+        }
+        return Structure(typedObjectID: self.typedObjectID,
+                         cryptoId: self.cryptoId,
+                         fullDisplayName: self.fullDisplayName,
+                         customOrFullDisplayName: self.customOrFullDisplayName,
+                         displayPhotoURL: self.displayPhotoURL,
+                         personNameComponents: self.personNameComponents,
+                         ownedIdentity: try ownedIdentity.toStruct())
+    }
+    
 }
 
 

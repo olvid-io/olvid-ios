@@ -40,6 +40,7 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     // MARK: - Properties
     
     @NSManaged private(set) var downsizedThumbnail: Data?
+    @NSManaged private(set) var wasOpened: Bool
 
     // MARK: - Computed properties
     
@@ -61,6 +62,8 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         guard !receivedMessage.readingRequiresUserAction else { return nil }
         return try? FyleElementForFyleMessageJoinWithStatus(self)
     }
+
+    private var changedKeys = Set<String>()
 
     // MARK: - Relationships
     
@@ -114,9 +117,7 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         // Set the remaining properties and relationships
         
         self.downsizedThumbnail = nil
-        
         self.receivedMessage = receivedMessage
-
     }
     
     
@@ -163,6 +164,11 @@ extension ReceivedFyleMessageJoinWithStatus {
         }
     }
 
+    func markAsOpened() {
+        guard !self.wasOpened else { return }
+        self.wasOpened = true
+    }
+
 }
 
 
@@ -192,6 +198,7 @@ extension ReceivedFyleMessageJoinWithStatus {
     
     struct Predicate {
         enum Key: String {
+            case wasOpened = "wasOpened"
             case receivedMessage = "receivedMessage"
         }
         static var FyleIsNonNil: NSPredicate {
@@ -240,6 +247,11 @@ extension ReceivedFyleMessageJoinWithStatus {
         try context.execute(deleteRequest)
     }
 
+    static func get(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
+        return try super.get(objectID: objectID.objectID, within: context) as? ReceivedFyleMessageJoinWithStatus
+    }
+
+
 }
 
 
@@ -258,8 +270,37 @@ extension ReceivedFyleMessageJoinWithStatus {
             if let fyle = self.fyle, fyle.allFyleMessageJoinWithStatus.count == 1 && fyle.allFyleMessageJoinWithStatus.first == self {
                 managedObjectContext?.delete(fyle)
             }
+        } else if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
         }
 
+    }
+ 
+    
+    override func didSave() {
+        super.didSave()
+        
+        defer {
+            self.changedKeys.removeAll()
+        }
+        
+        if changedKeys.contains(Predicate.Key.wasOpened.rawValue), wasOpened {
+            ObvMessengerInternalNotification.receivedFyleJoinHasBeenMarkAsOpened(receivedFyleJoinID: self.typedObjectID)
+                .postOnDispatchQueue()
+        }
+                
+        let statusChanged = changedKeys.contains(FyleMessageJoinWithStatus.Predicate.Key.rawStatus.rawValue)
+        
+        if !isDeleted && (statusChanged || isInserted), status == .complete, let returnReceipt = receivedMessage.returnReceipt, let contactCryptoId = receivedMessage.contactIdentity?.cryptoId, let ownedCryptoId = receivedMessage.contactIdentity?.ownedIdentity?.cryptoId {
+            ObvMessengerInternalNotification.aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus(
+                returnReceipt: returnReceipt,
+                contactCryptoId: contactCryptoId,
+                ownedCryptoId: ownedCryptoId,
+                messageIdentifierFromEngine: receivedMessage.messageIdentifierFromEngine,
+                attachmentNumber: index)
+            .postOnDispatchQueue()
+        }
+        
     }
     
 }

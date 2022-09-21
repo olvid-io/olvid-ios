@@ -20,84 +20,81 @@
 import Foundation
 import ObvTypes
 import OlvidUtils
-
+import os.log
 
 final class GateKeeper {
-    
+
+
     private let readOnly: Bool
-    
+    private let slotManager: ObvContextSlotManager
+
+
     init(readOnly: Bool) {
         self.readOnly = readOnly
+        self.slotManager = ObvContextSlotManager()
     }
-    
-    private let contextOperationQueue: ContextOperationQueue = {
-        let queue = ContextOperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        queue.isSuspended = false
-        return queue
-    }()
+
 
     func waitUntilSlotIsAvailableForObvContext(_ obvContext: ObvContext) throws {
+
         if self.readOnly {
+
             // If the context is read-only (which is the case when the engine is initialized by the notification extension), we make sure that the context is never saved
             try obvContext.addContextWillSaveCompletionHandler {
                 assertionFailure("The channel manager expects this context to be read only")
                 return
             }
+
         } else {
-            // If the context is not read-only, we ensure that two contexts cannot access the channel manager at the same time.
-            if try contextOperationQueue.getContextOfExecutingOperation() != obvContext {
-                let contextOperation = ContextOperation(obvContext: obvContext)
-                contextOperationQueue.addOperation(contextOperation)
-                contextOperation.operationStarted.wait()
-            }
+
+            slotManager.waitUntilSlotIsAvailableForObvContext(obvContext)
+
         }
     }
-    
+
 }
 
 
+// MARK: - ObvContextSlotManager
 
-fileprivate final class ContextOperation: Operation {
+fileprivate final class ObvContextSlotManager {
 
-    let operationStarted = DispatchSemaphore(value: 0)
-    private let contextFreed = DispatchSemaphore(value: 0)
-    let obvContext: ObvContext
+    private let semaphore = DispatchSemaphore(value: 1) // Tested
+
+    private let queueForCurrentContextInSlot = DispatchQueue(label: "ObvContextSlotManager queue for context in slot", attributes: [.concurrent])
+    private var _currentContextInSlot: ObvContext?
     
-    init(obvContext: ObvContext) {
-        self.obvContext = obvContext
-        super.init()
-        self.obvContext.addEndOfScopeCompletionHandler { [weak self] in
-            debugPrint("🧠 End of scope of the context \(obvContext.name)")
-            self?.contextFreed.signal()
+    private var currentContextInSlot: ObvContext? {
+        get {
+            return queueForCurrentContextInSlot.sync { return _currentContextInSlot }
+        }
+        set {
+            queueForCurrentContextInSlot.async(flags: .barrier) { [weak self] in self?._currentContextInSlot = newValue }
         }
     }
     
-    override func main() {
-        operationStarted.signal()
-        debugPrint("🧠 About to wait for the end of scope of the context \(obvContext.name)")
-        contextFreed.wait()
-    }
     
-}
+    func waitUntilSlotIsAvailableForObvContext(_ obvContext: ObvContext) {
 
-
-fileprivate final class ContextOperationQueue: OperationQueue {
-    
-    private static var errorDomain: String { "GateKeeper" }
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-    
-    
-    func getContextOfExecutingOperation() throws -> ObvContext? {
-        let executingOperations = operations.filter { $0.isExecuting }
-        guard executingOperations.count < 2 else {
-            throw ContextOperationQueue.makeError(message: "Expecting at most 1 executing operation, found \(executingOperations.count)")
+        // If the slot is taken by the obvContext we just reaceived (which happens for re-entrant calls), we can return immediately
+        
+        guard currentContextInSlot != obvContext else {
+            return
         }
-        return (executingOperations.first as? ContextOperation)?.obvContext
+        
+        semaphore.wait()
+        
+        assert(currentContextInSlot == nil)
+        
+        currentContextInSlot = obvContext
+        
+        obvContext.addEndOfScopeCompletionHandler { [weak self] in
+            assert(self?.currentContextInSlot == obvContext)
+            self?.currentContextInSlot = nil
+            self?.semaphore.signal()
+        }
+
+        
     }
-    
+
 }

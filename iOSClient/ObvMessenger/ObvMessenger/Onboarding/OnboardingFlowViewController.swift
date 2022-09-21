@@ -64,6 +64,7 @@ class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
     }
     
     private var photoURL: URL? = nil
+    private let obvEngine: ObvEngine
 
     /// This is set after a user authenticates on a keycloak server. This server returns signed details as well as a information indicating whether
     /// revocation is possible. At that point, if there is a previous identity in the signed details and revocation is not allowed, creating a new identity
@@ -80,7 +81,8 @@ class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
 
     // MARK: - Initializers
     
-    init() {
+    init(obvEngine: ObvEngine) {
+        self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -107,7 +109,7 @@ extension OnboardingFlowViewController {
         if ObvMessengerSettings.MDM.isConfiguredFromMDM,
            let mdmConfigurationURI = ObvMessengerSettings.MDM.Configuration.uri,
            let olvidURL = OlvidURL(urlRepresentation: mdmConfigurationURI) {
-            AppStateManager.shared.handleOlvidURL(olvidURL)
+            Task { await NewAppStateManager.shared.handleOlvidURL(olvidURL) }
         } else if let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey {
             self.serverAndAPIKey = ServerAndAPIKey(server: ObvMessengerConstants.serverURL, apiKey: hardcodedAPIKey)
         } else {
@@ -174,22 +176,6 @@ extension OnboardingFlowViewController {
                 _self.displayContentController(content: _self.flowNavigationController!)
             }
 
-        case is QRCodeScannerViewController:
-
-            let singleIdentity: SingleIdentity
-            if serverAndAPIKey != ObvMessengerConstants.defaultServerAndAPIKey {
-                singleIdentity = SingleIdentity(serverAndAPIKeyToShow: serverAndAPIKey, identityDetails: unmanagedIdentityDetails)
-            } else {
-                singleIdentity = SingleIdentity(serverAndAPIKeyToShow: nil, identityDetails: self.unmanagedIdentityDetails)
-            }
-            let displayNameChooserView = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: completionHandlerOnSave)
-            let displayNameChooserVC = UIHostingController(rootView: displayNameChooserView)
-            displayNameChooserVC.title = CommonString.Title.myId
-            DispatchQueue.main.async { [weak self] in
-                self?.flowNavigationController?.pushViewController(displayNameChooserVC, animated: true)
-                self?.flowNavigationController!.setNavigationBarHidden(false, animated: true)
-            }
-
         default:
             if currentVC is WelcomeScreenHostingController  || currentVC is IdentityProviderManualConfigurationHostingView {
                 
@@ -220,7 +206,9 @@ extension OnboardingFlowViewController {
         assert(Bool.xor(self.unmanagedIdentityDetails != nil && self.serverAndAPIKey != nil, self.keycloakDetails != nil))
         
         if let keycloakDetails = self.keycloakDetails {
-            
+        
+            showHUD(type: .spinner)
+
             assert(keycloakState != nil)
             
             // We are dealing with an identity server. If there was no previous olvid identity for this user, then we can safely generate a new one. If there was a previous identity, we must make sure that the server allows revocation before trying to create a new identity.
@@ -228,6 +216,7 @@ extension OnboardingFlowViewController {
             guard keycloakDetails.keycloakUserDetailsAndStuff.identity == nil || keycloakDetails.keycloakServerRevocationsAndStuff.revocationAllowed else {
                 // If this happens, there is an UI bug.
                 assertionFailure()
+                hideHUD()
                 return
             }
             
@@ -236,10 +225,11 @@ extension OnboardingFlowViewController {
                 // The following call discards the signed details. This is intentional. The reason is that these signed details, if they exist, contain an old identity that will be revoked. We do not want to store this identity.
                 guard let coreDetails = try? keycloakDetails.keycloakUserDetailsAndStuff.signedUserDetails.userDetails.getCoreDetails() else {
                     assertionFailure()
+                    self?.hideHUD()
                     return
                 }
                 let currentDetails = ObvIdentityDetails(coreDetails: coreDetails, photoURL: _self.photoURL)
-                guard let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey else { assertionFailure(); return }
+                guard let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey else { self?.hideHUD(); assertionFailure(); return }
                 
                 do {
                     try _self.obvEngine.generateOwnedIdentity(withApiKey: keycloakDetails.keycloakUserDetailsAndStuff.apiKey ?? hardcodedAPIKey,
@@ -342,25 +332,35 @@ extension OnboardingFlowViewController {
                             throw _self.makeError(message: "Could not recover owned identity within the app")
                         }
                         
-                        if persistedOwnedIdentity.isKeycloakManaged {
-                            KeycloakManager.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoIdentity, firstKeycloakBinding: true)
-                            KeycloakManager.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoIdentity) { result in
-                                DispatchQueue.main.async { [weak self] in
-                                    switch result {
-                                    case .failure:
+                        let isKeycloakManaged = persistedOwnedIdentity.isKeycloakManaged
+                        
+                        DispatchQueue.main.async {
+                            
+                            if isKeycloakManaged {
+                                
+                                Task {
+                                    assert(Thread.isMainThread)
+                                    await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoIdentity, firstKeycloakBinding: true)
+                                    do {
+                                        try await KeycloakManagerSingleton.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoIdentity)
+                                    } catch {
                                         let alert = UIAlertController(title: Strings.dialogTitleIdentityProviderError,
                                                                       message: Strings.dialogMessageFailedToUploadIdentityToKeycloak,
                                                                       preferredStyle: .alert)
                                         alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
                                         self?.present(alert, animated: true)
-                                    case .success:
-                                        break
+                                        return
                                     }
+                                    _self.transitionToNotificationsSubscriberScreen()
                                 }
+                                
+                            } else {
+                                
+                                _self.transitionToNotificationsSubscriberScreen()
+                                
                             }
+                            
                         }
-                        
-                        _self.transitionToNotificationsSubscriberScreen()
                         
                     } catch {
                         os_log("Could not recover owned identity within the app: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -376,17 +376,18 @@ extension OnboardingFlowViewController {
     }
     
     
+    @MainActor
     private func transitionToNotificationsSubscriberScreen() {
         
+        hideHUD()
+        
         // Transition to the next UIViewController
-        DispatchQueue.main.async { [weak self] in
-            let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: { [weak self] in
-                self?.subscribeToLocalNotifications()
-            })
-            vc.navigationItem.setHidesBackButton(true, animated: false)
-            vc.navigationController?.setNavigationBarHidden(true, animated: false)
-            self?.flowNavigationController?.pushViewController(vc, animated: true)
-        }
+        let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: { [weak self] in
+            self?.subscribeToLocalNotifications()
+        })
+        vc.navigationItem.setHidesBackButton(true, animated: false)
+        vc.navigationController?.setNavigationBarHidden(true, animated: false)
+        flowNavigationController?.pushViewController(vc, animated: true)
 
     }
     
@@ -553,7 +554,7 @@ extension OnboardingFlowViewController: WelcomeScreenHostingControllerDelegate {
                 .postOnDispatchQueue()
             return
         }
-        AppStateManager.shared.handleOlvidURL(olvidURL)
+        Task { await NewAppStateManager.shared.handleOlvidURL(olvidURL) }
     }
     
     
@@ -629,7 +630,7 @@ extension OnboardingFlowViewController: BackupRestoreViewHostingControllerDelega
             }
             // The iCloud service is available. Look for a backup to restore
             let predicate = NSPredicate(value: true)
-            let query = CKQuery(recordType: AppBackupCoordinator.recordType, predicate: predicate)
+            let query = CKQuery(recordType: AppBackupManager.recordType, predicate: predicate)
             query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
             let queryOp = CKQueryOperation(query: query)
             queryOp.resultsLimit = 1
@@ -696,7 +697,7 @@ extension OnboardingFlowViewController: ScannerHostingViewDelegate {
     
     func qrCodeWasScanned(olvidURL: OlvidURL) {
         flowNavigationController?.presentedViewController?.dismiss(animated: true)
-        AppStateManager.shared.handleOlvidURL(olvidURL)
+        Task { await NewAppStateManager.shared.handleOlvidURL(olvidURL) }
     }
 
 }
@@ -820,7 +821,7 @@ extension OnboardingFlowViewController: BackupRestoringWaitingScreenViewControll
 
 extension OnboardingFlowViewController {
     
-    
+    @MainActor
     func handleOlvidURL(_ olvidURL: OlvidURL) {
         assert(Thread.isMainThread)
         switch olvidURL.category {
@@ -835,7 +836,16 @@ extension OnboardingFlowViewController {
         case .mutualScan(mutualScanURL: _):
             assertionFailure("Cannot happen")
         case .openIdRedirect:
-            _ = KeycloakManager.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
+            Task {
+                do {
+                    _ = try await KeycloakManagerSingleton.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
+                    os_log("Successfully resumed the external user agent flow", log: log, type: .info)
+                } catch {
+                    os_log("Failed to resume external user agent flow: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    return
+                }
+            }
         }
     }
     

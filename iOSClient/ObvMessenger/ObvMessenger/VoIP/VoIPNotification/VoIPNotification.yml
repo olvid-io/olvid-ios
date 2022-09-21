@@ -15,7 +15,7 @@ notifications:
   - {name: contactIds, type: [OlvidUserId]}
 - name: callHasBeenUpdated
   params:
-  - {name: callEssentials, type: CallEssentials}
+  - {name: callUUID, type: UUID}
   - {name: updateKind, type: CallUpdateKind}
 - name: callParticipantHasBeenUpdated
   params:
@@ -30,3 +30,16 @@ notifications:
 - name: showCallViewControllerForAnsweringNonCallKitIncomingCall
   params:
   - {name: incomingCall, type: GenericCall}
+- name: noMoreCallInProgress
+- name: serverDoesNotSupportCall
+- name: newOutgoingCall
+  params:
+  - {name: newOutgoingCall, type: GenericCall}
+- name: newIncomingCall
+  params:
+  - {name: newIncomingCall, type: GenericCall}
+- name: showCallView
+- name: hideCallView
+- name: anIncomingCallShouldBeShownToUser
+  params:
+  - {name: newIncomingCall, type: GenericCall}

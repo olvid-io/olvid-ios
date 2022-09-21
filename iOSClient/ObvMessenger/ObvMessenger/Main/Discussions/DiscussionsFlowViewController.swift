@@ -25,29 +25,22 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
 
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DiscussionsFlowViewController.self))
 
-    var ownedCryptoId: ObvCryptoId!
+    let ownedCryptoId: ObvCryptoId
+    let obvEngine: ObvEngine
+    
     private var observationTokens = [NSObjectProtocol]()
 
-    // Factory (required because creating a custom init does not work under iOS 12)
-    static func create(ownedCryptoId: ObvCryptoId) -> DiscussionsFlowViewController {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
 
+        self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
+        
         let recentDiscussionsVC = RecentDiscussionsViewController(ownedCryptoId: ownedCryptoId, logCategory: "RecentDiscussionsViewController")
         recentDiscussionsVC.title = CommonString.Word.Discussions
-        let vc = self.init(rootViewController: recentDiscussionsVC)
-        
-        vc.ownedCryptoId = ownedCryptoId
-        
-        recentDiscussionsVC.delegate = vc
-        
-        vc.title = CommonString.Word.Discussions
+        super.init(rootViewController: recentDiscussionsVC)
 
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let image = UIImage(systemName: "bubble.left.and.bubble.right", withConfiguration: symbolConfiguration)
-        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+        recentDiscussionsVC.delegate = self
 
-        vc.delegate = ObvUserActivitySingleton.shared
-        
-        return vc
     }
     
     override var delegate: UINavigationControllerDelegate? {
@@ -60,18 +53,7 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
             super.delegate = newValue
         }
     }
-    
-    
-    override init(rootViewController: UIViewController) {
-        super.init(rootViewController: rootViewController)
-    }
-
-    
-    // Required in order to prevent a crash under iOS 12
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-    }
-    
+        
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
  
     weak var flowDelegate: ObvFlowControllerDelegate?
@@ -86,6 +68,14 @@ extension DiscussionsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        title = CommonString.Word.Discussions
+
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "bubble.left.and.bubble.right", withConfiguration: symbolConfiguration)
+        tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+
+        delegate = ObvUserActivitySingleton.shared
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance

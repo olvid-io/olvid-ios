@@ -718,17 +718,25 @@ extension ObvBackupManagerImplementation {
                 ObvEngineDelegateType.ObvNotificationDelegate]
     }
 
+
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
 
         // Observe `observeBackupableManagerDatabaseContentChanged` notifications for automatic backups
-        notificationTokens.append(ObvBackupNotification.observeBackupableManagerDatabaseContentChanged(within: delegateManager.notificationDelegate, queue: internalNotificationQueue) { [weak self] (flowId) in
-            self?.isBackupRequired = true
-        })
+        notificationTokens.append(contentsOf: [
+            ObvBackupNotification.observeBackupableManagerDatabaseContentChanged(within: delegateManager.notificationDelegate, queue: internalNotificationQueue) { [weak self] (flowId) in
+                self?.isBackupRequired = true
+            }
+        ])
         
-        evaluateIfBackupIsRequired(flowId: flowId)
-
     }
     
+    
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        if forTheFirstTime {
+            evaluateIfBackupIsRequired(flowId: flowId)
+        }
+    }
+
     
     private func evaluateIfBackupIsRequired(flowId: FlowIdentifier) {
         
@@ -781,9 +789,6 @@ extension ObvBackupManagerImplementation {
         }
     }
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
-
 }
 
 

@@ -58,19 +58,13 @@ class LocalAuthenticationViewController: UIViewController {
         ]
         NSLayoutConstraint.activate(constraints)
         configure()
-        setUptimeAtTheTimeOfChangeoverToNotActiveStateWhenAppropriate()
     }
     
     
-    private func setUptimeAtTheTimeOfChangeoverToNotActiveStateWhenAppropriate() {
-        observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeAppStateChanged(queue: .main) { [weak self] previousState, currentState in
-                guard let _self = self else { return }
-                if previousState.isAuthenticated && previousState.isInitialized && previousState.iOSAppState == .mayResignActive && currentState.iOSAppState == .inBackground {
-                    _self.uptimeAtTheTimeOfChangeoverToNotActiveState = TimeInterval.getUptime()
-                }
-            },
-        ])
+    /// If the app was initialized and goes to the background at a time the user was authenticated, we reset the `uptimeAtTheTimeOfChangeoverToNotActiveState`.
+    /// As for now, this is called from the Scene Delegate.
+    func setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow() {
+        uptimeAtTheTimeOfChangeoverToNotActiveState = TimeInterval.getUptime()
     }
     
         
@@ -101,14 +95,17 @@ class LocalAuthenticationViewController: UIViewController {
         }
     }
     
+    @MainActor
     @objc func authenticateButtonTapped() {
         performLocalAuthentication()
     }
     
+    @MainActor
     func shouldPerformLocalAuthentication() {
         setAuthenticationStatus(to: .shouldPerformLocalAuthentication)
     }
 
+    @MainActor
     func performLocalAuthentication(completion: ((Bool) -> Void)? = nil) {
         assert(Thread.isMainThread)
         let userIsAlreadyAuthenticated: Bool

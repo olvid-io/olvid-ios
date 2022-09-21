@@ -32,11 +32,11 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
     let contextCreator: ObvContextCreator
     let flowId: FlowIdentifier
     let log: OSLog
-    let queue = OperationQueue()
     let op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>
     let op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>
     let op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>
     let op4: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType4>
+    let internalQueue = OperationQueue.createSerialQueue()
 
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>,
                 op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>,
@@ -62,7 +62,7 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
-        queue.addOperations([op1], waitUntilFinished: true)
+        internalQueue.addOperations([op1], waitUntilFinished: true)
         guard !op1.isCancelled else {
             guard let reason = op1.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op1Cancelled(reason: reason))
@@ -70,7 +70,7 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
 
         op2.obvContext = obvContext
         op2.viewContext = contextCreator.viewContext
-        queue.addOperations([op2], waitUntilFinished: true)
+        internalQueue.addOperations([op2], waitUntilFinished: true)
         guard !op2.isCancelled else {
             guard let reason = op2.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op2Cancelled(reason: reason))
@@ -78,7 +78,7 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
         
         op3.obvContext = obvContext
         op3.viewContext = contextCreator.viewContext
-        queue.addOperations([op3], waitUntilFinished: true)
+        internalQueue.addOperations([op3], waitUntilFinished: true)
         guard !op3.isCancelled else {
             guard let reason = op3.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op3Cancelled(reason: reason))
@@ -86,7 +86,7 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
 
         op4.obvContext = obvContext
         op4.viewContext = contextCreator.viewContext
-        queue.addOperations([op4], waitUntilFinished: true)
+        internalQueue.addOperations([op4], waitUntilFinished: true)
         guard !op4.isCancelled else {
             guard let reason = op4.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op4Cancelled(reason: reason))

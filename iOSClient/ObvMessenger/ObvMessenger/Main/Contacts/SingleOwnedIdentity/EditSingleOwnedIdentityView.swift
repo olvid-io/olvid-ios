@@ -85,12 +85,14 @@ struct EditSingleOwnedIdentityView: View {
             disableAllButtons = true
         }
         ObvMessengerInternalNotification.userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ownCryptoId) { success in
-            withAnimation {
-                disableAllButtons = false
-                hudViewCategory = success ? .checkmark : nil
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-                withAnimation { hudViewCategory = nil }
+            DispatchQueue.main.async {
+                withAnimation {
+                    disableAllButtons = false
+                    hudViewCategory = success ? .checkmark : nil
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
+                    withAnimation { hudViewCategory = nil }
+                }
             }
         }.postOnDispatchQueue()
     }

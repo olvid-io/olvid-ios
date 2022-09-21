@@ -45,10 +45,7 @@ public final class ObvChannelManagerImplementation: ObvChannelDelegate, ObvProce
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     private weak var contextCreator: ObvCreateContextDelegate?
-    
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
-    
+        
     /// Strong reference to the delegate manager, which keeps strong references to all external and internal delegate requirements.
     let delegateManager: ObvChannelDelegateManager
     let gateKeeper: GateKeeper
@@ -136,25 +133,38 @@ extension ObvChannelManagerImplementation {
     }
     
     
-    public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
+    public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
 
-        guard let contextCreator = self.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
-            assertionFailure()
-            throw ObvChannelManagerImplementation.makeError(message: "The context creator is not set")
-        }
+    
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
-        try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            try delegateManager.obliviousChannelLifeDelegate.finalizeInitialization(within: obvContext)
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch  let error {
-                os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
-                throw error
-            }
-        }
+        guard forTheFirstTime else { return }
         
+        do {
+            
+            guard let contextCreator = self.contextCreator else {
+                os_log("The context creator is not set", log: log, type: .fault)
+                assertionFailure()
+                throw ObvChannelManagerImplementation.makeError(message: "The context creator is not set")
+            }
+            
+            try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+                try delegateManager.obliviousChannelLifeDelegate.deleteExpiredKeyMaterialsAndProvisions(within: obvContext)
+                do {
+                    try obvContext.save(logOnFailure: log)
+                } catch  let error {
+                    os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    throw error
+                }
+            }
+            
+        } catch {
+            os_log("Failed to delete expired key material: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+        }
+            
     }
+
 }
 
 
@@ -215,9 +225,14 @@ extension ObvChannelManagerImplementation {
     // MARK: Posting a message
     
     public func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
+        assert(!Thread.isMainThread)
         os_log("Posting a message within obvContext: %{public}@", log: log, type: .info, obvContext.name)
+        debugPrint("🚨 Posting a message within obvContext: \(obvContext.name)")
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
-        let messageIdentifiersForCryptoIdentities = try message.channelType.obvChannelType.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
+        debugPrint("🚨 A slot was made avaible for posting message within obvContext \(obvContext.name)")
+        os_log(" A slot was made avaible for posting message within obvContext: %{public}@", log: log, type: .info, obvContext.name)
+        let channelType = message.channelType.obvChannelType
+        let messageIdentifiersForCryptoIdentities = try channelType.post(message, randomizedWith: prng, delegateManager: delegateManager, within: obvContext)
         return messageIdentifiersForCryptoIdentities
     }
     
@@ -233,7 +248,7 @@ extension ObvChannelManagerImplementation {
         }
         var applicationMessage: ReceivedApplicationMessage?
         try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
+            // Since we do not save the context, we do not need to wait until a slot is available
             applicationMessage = try delegateManager.networkReceivedMessageDecryptorDelegate.decrypt(receivedMessage, within: obvContext)
             // We do *not* save the context so as to *not* delete the decryption key, making it possible to decrypt the (full) message reveived by the network manager.
         }

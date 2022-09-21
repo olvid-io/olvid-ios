@@ -39,7 +39,7 @@ enum NewSingleDiscussionNotification {
 	case userWantsToReplyToMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToRemoveReplyToMessage(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToSendDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String)
-	case userWantsToSendDraftWithOneAttachement(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, attachementsURL: [URL])
+	case userWantsToSendDraftWithOneAttachment(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, attachmentURL: URL)
 	case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool)
 	case userWantsToUpdateDraftExpiration(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?)
 	case userWantsToUpdateDraftBody(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String)
@@ -55,7 +55,7 @@ enum NewSingleDiscussionNotification {
 		case userWantsToReplyToMessage
 		case userWantsToRemoveReplyToMessage
 		case userWantsToSendDraft
-		case userWantsToSendDraftWithOneAttachement
+		case userWantsToSendDraftWithOneAttachment
 		case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty
 		case userWantsToUpdateDraftExpiration
 		case userWantsToUpdateDraftBody
@@ -81,7 +81,7 @@ enum NewSingleDiscussionNotification {
 			case .userWantsToReplyToMessage: return Name.userWantsToReplyToMessage.name
 			case .userWantsToRemoveReplyToMessage: return Name.userWantsToRemoveReplyToMessage.name
 			case .userWantsToSendDraft: return Name.userWantsToSendDraft.name
-			case .userWantsToSendDraftWithOneAttachement: return Name.userWantsToSendDraftWithOneAttachement.name
+			case .userWantsToSendDraftWithOneAttachment: return Name.userWantsToSendDraftWithOneAttachment.name
 			case .insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty: return Name.insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty.name
 			case .userWantsToUpdateDraftExpiration: return Name.userWantsToUpdateDraftExpiration.name
 			case .userWantsToUpdateDraftBody: return Name.userWantsToUpdateDraftBody.name
@@ -128,10 +128,10 @@ enum NewSingleDiscussionNotification {
 				"draftObjectID": draftObjectID,
 				"textBody": textBody,
 			]
-		case .userWantsToSendDraftWithOneAttachement(draftObjectID: let draftObjectID, attachementsURL: let attachementsURL):
+		case .userWantsToSendDraftWithOneAttachment(draftObjectID: let draftObjectID, attachmentURL: let attachmentURL):
 			info = [
 				"draftObjectID": draftObjectID,
-				"attachementsURL": attachementsURL,
+				"attachmentURL": attachmentURL,
 			]
 		case .insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: let discussionObjectID, markAsRead: let markAsRead):
 			info = [
@@ -251,12 +251,12 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUserWantsToSendDraftWithOneAttachement(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, [URL]) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToSendDraftWithOneAttachement.name
+	static func observeUserWantsToSendDraftWithOneAttachment(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, URL) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToSendDraftWithOneAttachment.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			let attachementsURL = notification.userInfo!["attachementsURL"] as! [URL]
-			block(draftObjectID, attachementsURL)
+			let attachmentURL = notification.userInfo!["attachmentURL"] as! URL
+			block(draftObjectID, attachmentURL)
 		}
 	}
 

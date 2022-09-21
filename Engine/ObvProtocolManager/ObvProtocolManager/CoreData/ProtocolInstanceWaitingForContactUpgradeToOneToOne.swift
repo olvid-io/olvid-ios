@@ -106,20 +106,6 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
     }
     
     
-//    static func get(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, contactNewTrustLevel: TrustLevel, contactNewOneToOne: Bool, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne> {
-//
-//        let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
-//        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-//            Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
-//            Predicate.withContactCryptoIdentity(contactCryptoIdentity),
-//        ])
-//        let items = try obvContext.fetch(request)
-//        let filteredItems = items
-//            .filter { $0.targetTrustLevel <= contactNewTrustLevel }
-//            .filter { !$0.oneToOneRequired ||  contactNewOneToOne }
-//        return Set(filteredItems.map { $0.delegateManager = delegateManager; return $0 })
-//    }
-    
     static func getAll(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> Set<ProtocolInstanceWaitingForContactUpgradeToOneToOne> {
         
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()

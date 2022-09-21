@@ -31,6 +31,7 @@ protocol PersistedDiscussionUI: PersistedDiscussion {
 }
 
 extension PersistedOneToOneDiscussion: PersistedDiscussionUI {
+    @MainActor
     var identityColors: (background: UIColor, text: UIColor)? {
         self.contactIdentity?.cryptoId.colors
     }
@@ -49,11 +50,15 @@ extension PersistedOneToOneDiscussion: PersistedDiscussionUI {
 }
 
 extension PersistedGroupDiscussion: PersistedDiscussionUI {
+    @MainActor
     var identityColors: (background: UIColor, text: UIColor)? {
-        AppTheme.shared.groupColors(forGroupUid: self.contactGroup?.groupUid ?? UID.zero)
+        assert(contactGroup?.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
+        return AppTheme.shared.groupColors(forGroupUid: self.contactGroup?.groupUid ?? UID.zero)
     }
+    @MainActor
     var photoURL: URL? {
-        self.contactGroup?.displayPhotoURL
+        assert(contactGroup?.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
+        return self.contactGroup?.displayPhotoURL
     }
     var isLocked: Bool { false }
     var isGroupDiscussion: Bool { true }

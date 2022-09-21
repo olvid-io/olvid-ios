@@ -42,19 +42,29 @@ final class BootstrapCoordinator {
         self.obvEngine = obvEngine
         self.internalQueue = operationQueue
         listenToNotifications()
-        
+    }
+
+    
+    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         // Bootstrap now
-        
         syncPersistedContactDevicesWithEngineObliviousChannelsOnOwnedIdentityChangedNotifications()
-        AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive { [weak self] in
-            DispatchQueue(label: "Queue for syncing engine database to app").async {
-                self?.processRequestSyncAppDatabasesWithEngine(completion: { _ in })
-            }
-        }
+        processRequestSyncAppDatabasesWithEngine(completion: { _ in })
         if let userDefaults = self.userDefaults {
             userDefaults.resetObjectsModifiedByShareExtension()
         }
-
+        pruneObsoletePersistedInvitations()
+        removeOldCachedURLMetadata()
+        resyncPersistedInvitationsWithEngine()
+        sendUnsentDrafts()
+        if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
+            AppBackupManager.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
+        }
+        deleteOldPendingRepliedTo()
+        resetOwnObvCapabilities()
+        autoAcceptPendingGroupInvitesIfPossible()
+        if forTheFirstTime {
+            deleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
+        }
     }
 
     
@@ -63,9 +73,6 @@ final class BootstrapCoordinator {
         // Internal Notifications
 
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeAppStateChanged() { [weak self] (previousState, currentState) in
-                self?.processAppStateChanged(previousState: previousState, currentState: currentState)
-            },
             ObvMessengerCoreDataNotification.observePersistedContactWasInserted() { [weak self] (objectID, contactCryptoId) in
                 self?.processPersistedContactWasInsertedNotification(objectID: objectID, contactCryptoId: contactCryptoId)
             },
@@ -82,21 +89,13 @@ final class BootstrapCoordinator {
 
 extension BootstrapCoordinator {
     
-    private func processAppStateChanged(previousState: AppState, currentState: AppState) {
-        if !previousState.isInitializedAndActive && currentState.isInitializedAndActive {
-            guard !bootstrapOnIsInitializedAndActiveWasPerformed else { return }
-            defer { bootstrapOnIsInitializedAndActiveWasPerformed = true }
-            pruneObsoletePersistedInvitations()
-            removeOldCachedURLMetadata()
-            resyncPersistedInvitationsWithEngine()
-            sendUnsentDrafts()
-            if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
-                AppBackupCoordinator.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
-            }
-            deleteOldPendingRepliedTo()
-            resetOwnObvCapabilities()
-            autoAcceptPendingGroupInvitesIfPossible()
-        }
+    private func deleteOrphanedPersistedAttachmentSentRecipientInfosOperation() {
+        assert(!Thread.isMainThread)
+        let op1 = DeleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        composedOp.queuePriority = .veryLow
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
     }
     
     

@@ -32,6 +32,8 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
     private let collectionView: UICollectionView
     private var collectionViewSizeChanged = false
     
+    private let obvEngine: ObvEngine
+    
     // All insets *must* have the same left and right values
     private let collectionViewLayoutInsetFirstSection = UIEdgeInsets(top: 8, left: 8, bottom: 0, right: 8)
     private let collectionViewLayoutInsetSecondSection = UIEdgeInsets(top: 0, left: 8, bottom: 8, right: 8)
@@ -69,7 +71,8 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
     
     // MARK: - Initializer
     
-    init(ownedCryptoId: ObvCryptoId, collectionViewLayout: UICollectionViewLayout) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, collectionViewLayout: UICollectionViewLayout) {
+        self.obvEngine = obvEngine
         self.collectionViewLayout = collectionViewLayout
         self.collectionView = UICollectionView.init(frame: CGRect.zero, collectionViewLayout: collectionViewLayout)
         super.init(ownedCryptoId: ownedCryptoId, logCategory: "InvitationsCollectionViewController")
@@ -732,14 +735,20 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 cell.addButton(title: title, style: .obvButton) { [weak self] in
                     var localDialog = obvDialog
                     try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: true)
-                    self?.obvEngine.respondTo(localDialog)
+                    guard let obvEngine = self?.obvEngine else { assertionFailure(); return }
+                    DispatchQueue(label: "Queue for responding to dialog").async {
+                        obvEngine.respondTo(localDialog)
+                    }
                 }
             }
             // Button for aborting
             cell.addButton(title: CommonString.Word.Reject, style: .obvButtonBorderless) { [weak self] in
                 var localDialog = obvDialog
                 try? localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: false)
-                self?.obvEngine.respondTo(localDialog)
+                guard let obvEngine = self?.obvEngine else { assertionFailure(); return }
+                DispatchQueue(label: "Queue for responding to dialog").async {
+                    obvEngine.respondTo(localDialog)
+                }
             }
         }
         
@@ -771,42 +780,42 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
     
 
     private func acceptInvitation(dialog: ObvDialog) {
-        DispatchQueue(label: "RespondingToInvitationDialog").async { [weak self] in
-            switch dialog.category {
-            case .acceptInvite:
-                var localDialog = dialog
-                try? localDialog.setResponseToAcceptInvite(acceptInvite: true)
-                self?.obvEngine.respondTo(localDialog)
-            default:
-                break
+        switch dialog.category {
+        case .acceptInvite:
+            var localDialog = dialog
+            try? localDialog.setResponseToAcceptInvite(acceptInvite: true)
+            let obvEngine = self.obvEngine
+            DispatchQueue(label: "Queue for responding to dialog").async {
+                obvEngine.respondTo(localDialog)
             }
+        default:
+            break
         }
     }
     
     
     private func rejectInvitation(dialog: ObvDialog, confirmed: Bool) {
         let currentTraitCollection = self.traitCollection
-        DispatchQueue(label: "RespondingToInvitationDialog").async { [weak self] in
-            switch dialog.category {
-            case .acceptInvite:
-                if confirmed {
-                    var localDialog = dialog
-                    try? localDialog.setResponseToAcceptInvite(acceptInvite: false)
-                    self?.obvEngine.respondTo(localDialog)
-                } else {
-                    let alert = UIAlertController(title: Strings.AbandonInvitation.title, message: nil, preferredStyleForTraitCollection: currentTraitCollection)
-                    alert.addAction(UIAlertAction(title: Strings.AbandonInvitation.actionTitleDiscard, style: .destructive, handler: { [weak self] _ in
-                        self?.rejectInvitation(dialog: dialog, confirmed: true)
-                    }))
-                    alert.addAction(UIAlertAction(title: Strings.AbandonInvitation.actionTitleDontDiscard, style: .default))
-                    alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-                    DispatchQueue.main.async { [weak self] in
-                        self?.present(alert, animated: true, completion: nil)
-                    }
+        switch dialog.category {
+        case .acceptInvite:
+            if confirmed {
+                var localDialog = dialog
+                try? localDialog.setResponseToAcceptInvite(acceptInvite: false)
+                let obvEngine = self.obvEngine
+                DispatchQueue(label: "Queue for responding to dialog").async {
+                    obvEngine.respondTo(localDialog)
                 }
-            default:
-                break
+            } else {
+                let alert = UIAlertController(title: Strings.AbandonInvitation.title, message: nil, preferredStyleForTraitCollection: currentTraitCollection)
+                alert.addAction(UIAlertAction(title: Strings.AbandonInvitation.actionTitleDiscard, style: .destructive, handler: { [weak self] _ in
+                    self?.rejectInvitation(dialog: dialog, confirmed: true)
+                }))
+                alert.addAction(UIAlertAction(title: Strings.AbandonInvitation.actionTitleDontDiscard, style: .default))
+                alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+                present(alert, animated: true, completion: nil)
             }
+        default:
+            break
         }
     }
     
@@ -817,7 +826,10 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             case .acceptMediatorInvite:
                 var localDialog = dialog
                 try? localDialog.setResponseToAcceptMediatorInvite(acceptInvite: acceptInvite)
-                self?.obvEngine.respondTo(localDialog)
+                guard let obvEngine = self?.obvEngine else { assertionFailure(); return }
+                DispatchQueue(label: "Queue for responding to dialog").async {
+                    obvEngine.respondTo(localDialog)
+                }
             default:
                 break
             }
@@ -831,7 +843,10 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             case .acceptGroupInvite:
                 var localDialog = dialog
                 try? localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
-                self?.obvEngine.respondTo(localDialog)
+                guard let obvEngine = self?.obvEngine else { assertionFailure(); return }
+                DispatchQueue(label: "Queue for responding to dialog").async {
+                    obvEngine.respondTo(localDialog)
+                }
             default:
                 break
             }
@@ -875,15 +890,16 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
 
     
     private func onSasInput(dialog: ObvDialog, _ enteredDigits: String) {
-        DispatchQueue(label: "RespondingToSasExchangeDialog").async { [weak self] in
-            switch dialog.category {
-            case .sasExchange:
-                var localDialog = dialog
-                try? localDialog.setResponseToSasExchange(otherSas: enteredDigits.data(using: .utf8)!)
-                self?.obvEngine.respondTo(localDialog)
-            default:
-                break
+        switch dialog.category {
+        case .sasExchange:
+            var localDialog = dialog
+            try? localDialog.setResponseToSasExchange(otherSas: enteredDigits.data(using: .utf8)!)
+            let obvEngine = self.obvEngine
+            DispatchQueue(label: "Queue for responding to dialog").async {
+                obvEngine.respondTo(localDialog)
             }
+        default:
+            break
         }
     }
     

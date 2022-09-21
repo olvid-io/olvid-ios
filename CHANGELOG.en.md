@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.11.0 (542)] - 2022-07-20
+
+- Starting Olvid is way faster than before!
+- The information screen about a sent message now shows information about the reception of its attachments and, if the recipient allows it, information about whether the attachment was seen or not.
+- Return receipts on messages and attachments are sent (and thus received) much faster than before.
+- A red badge allows to distinguish between audio messages you already listened to from those you did not.
+- Fixes an issue sometimes preventing messages to be marked as "not new" when entering a discussion.
+- Fixes a potential crash occurring when deleting a message while the corresponding discussion is displayed on screen.
+- Fixes an issue sometimes preventing the UI to update itself at the end of the download of an attachment.
+
 ## [0.10.3 (533)] - 2022-06-29
 
 - It is now possible to customize the alert sound for message notifications. You should definitively try our very exclusive, never heard before, unprecedented polyphonic sounds :-)

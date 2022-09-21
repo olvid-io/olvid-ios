@@ -27,7 +27,8 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     
     // Variables
     
-    private(set) var ownedCryptoId: ObvCryptoId!
+    let ownedCryptoId: ObvCryptoId
+    let obvEngine: ObvEngine
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -41,27 +42,17 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
 
     // MARK: - Factory
     
-    // Factory (required because creating a custom init does not work under iOS 12)
-    static func create(ownedCryptoId: ObvCryptoId) -> GroupsFlowViewController {
-
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
+        
+        self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
+        
         let allGroupsViewController = AllGroupsViewController(ownedCryptoId: ownedCryptoId)
-        let vc = self.init(rootViewController: allGroupsViewController)
-
-        vc.ownedCryptoId = ownedCryptoId
-
-        allGroupsViewController.delegate = vc
-
-        vc.title = CommonString.Word.Groups
+        super.init(rootViewController: allGroupsViewController)
         
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let image = UIImage(systemName: "person.3", withConfiguration: symbolConfiguration)
-        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-        
-        vc.delegate = ObvUserActivitySingleton.shared
+        allGroupsViewController.delegate = self
 
-        return vc
     }
-    
     
     override var delegate: UINavigationControllerDelegate? {
         get {
@@ -74,17 +65,6 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
         }
     }
 
-    
-    override init(rootViewController: UIViewController) {
-        super.init(rootViewController: rootViewController)
-
-        observeContactGroupDeletedNotifications()
-    }
-        
-    // Required in order to prevent a crash under iOS 12
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-    }
     
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
@@ -109,11 +89,22 @@ extension GroupsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        title = CommonString.Word.Groups
+        
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "person.3", withConfiguration: symbolConfiguration)
+        tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+        
+        delegate = ObvUserActivitySingleton.shared
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
 
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
+        
+        observeContactGroupDeletedNotifications()
+        
     }
     
 }
@@ -124,15 +115,16 @@ extension GroupsFlowViewController {
 extension GroupsFlowViewController: AllGroupsViewControllerDelegate {
     
     func userDidSelect(_ contactGroup: PersistedContactGroup, within nav: UINavigationController?) {
-        guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup) else { return }
+        guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup, obvEngine: obvEngine) else { return }
         singleGroupVC.delegate = self
         pushViewController(singleGroupVC, animated: true)
     }
     
     func userWantsToAddContactGroup() {
-        guard let ownedCryptoId = self.ownedCryptoId else { assertionFailure(); return }
+        let ownedCryptoId = self.ownedCryptoId
+        let obvEngine = self.obvEngine
         DispatchQueue.main.async { [weak self] in
-            let groupCreationFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .create)
+            let groupCreationFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .create, obvEngine: obvEngine)
             self?.present(groupCreationFlowVC, animated: true)
         }
 

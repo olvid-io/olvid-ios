@@ -90,6 +90,7 @@ enum ObvSystemIcon: Hashable {
     case chevronRightCircle
     case chevronRightCircleFill
     case circle
+    case circleDashed
     case circleFill
     case creditcardFill
     case display
@@ -503,6 +504,12 @@ enum ObvSystemIcon: Hashable {
             return "play.circle.fill"
         case .circleFill:
             return "circle.fill"
+        case .circleDashed:
+            if #available(iOS 14.0, *) {
+                return "circle.dashed"
+            } else {
+                return "circle"
+            }
         case .muliplyCircleFill:
             return "multiply.circle.fill"
         case .musicNote:

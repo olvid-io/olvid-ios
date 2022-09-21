@@ -1,0 +1,11 @@
+import:
+  - Foundation
+notifications:
+- name: requestHardLinkToFyle
+  params:
+  - {name: fyleElement, type: FyleElement}
+  - {name: completionHandler, type: "((Result<HardLinkToFyle,Error>) -> Void)", escaping: true}
+- name: requestAllHardLinksToFyles
+  params:
+  - {name: fyleElements, type: [FyleElement]}
+  - {name: completionHandler, type: "(([HardLinkToFyle?]) -> Void)", escaping: true}

@@ -29,7 +29,8 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
     let log: OSLog
     let op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>
     let op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>
-    
+    let internalQueue = OperationQueue.createSerialQueue()
+
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>,
                 op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>, contextCreator: ObvContextCreator, log: OSLog, flowId: FlowIdentifier) {
         self.contextCreator = contextCreator
@@ -48,7 +49,7 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
         assert(op1.isReady)
-        op1.start()
+        internalQueue.addOperations([op1], waitUntilFinished: true)
         assert(op1.isFinished)
         guard !op1.isCancelled else {
             guard let reason = op1.reasonForCancel else { return cancel(withReason: .unknownReason) }
@@ -58,7 +59,7 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
         op2.obvContext = obvContext
         op2.viewContext = contextCreator.viewContext
         assert(op2.isReady)
-        op2.start()
+        internalQueue.addOperations([op2], waitUntilFinished: true)
         assert(op2.isFinished)
         guard !op2.isCancelled else {
             guard let reason = op2.reasonForCancel else { return cancel(withReason: .unknownReason) }

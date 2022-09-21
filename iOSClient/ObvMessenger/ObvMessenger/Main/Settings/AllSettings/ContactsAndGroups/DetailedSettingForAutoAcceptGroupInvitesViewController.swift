@@ -20,17 +20,22 @@
 
 import UIKit
 import ObvEngine
+import OlvidUtils
 
 
-final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewController {
+final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewController, ObvErrorMaker {
     
     private let ownedCryptoId: ObvCryptoId
+    private let obvEngine: ObvEngine
 
-    init(ownedCryptoId: ObvCryptoId) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
         super.init(style: Self.settingsTableStyle)
     }
 
+    static let errorDomain = "DetailedSettingForAutoAcceptGroupInvitesViewController"
+    
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -139,7 +144,8 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
         }
     }
     
-    
+
+    @MainActor
     private func userConfirmedHerChoiceAndAutoAccepted(groupInvites: [PersistedInvitation]) async throws -> Bool {
         assert(Thread.isMainThread)
         guard !groupInvites.isEmpty else { return true }
@@ -151,10 +157,14 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
                                           preferredStyleForTraitCollection: traitCollection)
             let okAction = UIAlertAction(title: Strings.Alert.AcceptAction.title(numberOfInvitations: groupInvites.count), style: .default) { [weak self] _ in
                 do {
-                    try groupInvites.forEach {
-                        guard var localDialog = $0.obvDialog else { assertionFailure(); return }
+                    var dialogsForEngine = [ObvDialog]()
+                    for groupInvite in groupInvites {
+                        guard var localDialog = groupInvite.obvDialog else { assertionFailure(); throw Self.makeError(message: "Missing dialog") }
                         try localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
-                        self?.obvEngine.respondTo(localDialog)
+                        dialogsForEngine.append(localDialog)
+                    }
+                    for dialog in dialogsForEngine {
+                        self?.obvEngine.respondTo(dialog)
                     }
                 } catch {
                     continuation.resume(throwing: error)

@@ -292,6 +292,23 @@ extension PersistedDiscussionLocalConfiguration {
 }
 
 
+// MARK: - Thread safe struct
+
+extension PersistedDiscussionLocalConfiguration {
+    
+    struct Structure {
+        let notificationSound: NotificationSound?
+        let shouldMuteNotifications: Bool
+    }
+    
+    func toStructure() throws -> Structure {
+        return Structure(notificationSound: notificationSound,
+                         shouldMuteNotifications: self.shouldMuteNotifications)
+    }
+    
+}
+
+
 // MARK: - For Backup purposes
 
 extension PersistedDiscussionLocalConfiguration {

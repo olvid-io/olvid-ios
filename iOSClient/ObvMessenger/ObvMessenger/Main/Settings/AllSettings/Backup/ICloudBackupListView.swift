@@ -50,9 +50,9 @@ final class ICloudBackupListViewController: UIHostingController<ICloudBackupList
 fileprivate final class ICloudBackupListViewModel: ObservableObject {
 
     @Published var lastRecordsCount: Int? = nil
-    @Published var recordIterator: AppBackupCoordinator.CKRecordIterator = AppBackupCoordinator.buildAllCloudBackupsIterator()
+    @Published var recordIterator: AppBackupManager.CKRecordIterator = AppBackupManager.buildAllCloudBackupsIterator()
     @Published var operationInProgress: Bool = false
-    @Published var operationError: AppBackupCoordinator.AppBackupError? = nil
+    @Published var operationError: AppBackupManager.AppBackupError? = nil
     @Published var cleanInProgressCount: Int? = nil
     @Published var cleaningState: Cleaning? = nil
 
@@ -69,7 +69,7 @@ fileprivate final class ICloudBackupListViewModel: ObservableObject {
         recordIterator.currentOperation == .loadMoreRecords
     }
 
-    var error: AppBackupCoordinator.AppBackupError? {
+    var error: AppBackupManager.AppBackupError? {
         operationError ?? recordIterator.error
     }
 
@@ -134,7 +134,7 @@ fileprivate final class ICloudBackupListViewModel: ObservableObject {
                 self.operationInProgress = true
             }
         }
-        AppBackupCoordinator.deleteCloudBackup(record: record) { result in
+        AppBackupManager.deleteCloudBackup(record: record) { result in
             switch result {
             case .success:
                 self.update()
@@ -162,7 +162,7 @@ fileprivate final class ICloudBackupListViewModel: ObservableObject {
                 self.cleaningState = .inProgress
             }
         }
-        AppBackupCoordinator.incrementalCleanCloudBackups(cleanAllDevices: cleanAllDevices) { result in
+        AppBackupManager.incrementalCleanCloudBackups(cleanAllDevices: cleanAllDevices) { result in
             switch result {
             case .success:
                 break
@@ -381,7 +381,7 @@ struct ICloudBackupListView: View {
                     switch item {
                     case .cleanAction:
                         var buttons = [ActionSheet.Button]()
-                        let devices = Set(model.records.map { record in  record[AppBackupCoordinator.deviceIdentifierForVendorKey] as! String
+                        let devices = Set(model.records.map { record in  record[AppBackupManager.deviceIdentifierForVendorKey] as! String
                         })
                         if model.hasMoreRecords || devices.count > 1 {
                             buttons += [ActionSheet.Button.destructive(Text("CLEAN_OLD_BACKUPS_ON_ALL_DEVICES"),
@@ -424,11 +424,11 @@ struct ICloudBackupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(record[AppBackupCoordinator.deviceNameKey] as! String)
+            Text(record[AppBackupManager.deviceNameKey] as! String)
                 .font(.system(.headline, design: .rounded))
             HStack {
                 if let identifierForVendor = UIDevice.current.identifierForVendor,
-                   identifierForVendor.uuidString == record[AppBackupCoordinator.deviceIdentifierForVendorKey] as! String {
+                   identifierForVendor.uuidString == record[AppBackupManager.deviceIdentifierForVendorKey] as! String {
                     Text("CURRENT_DEVICE")
                         .font(.system(.callout))
                 } else {

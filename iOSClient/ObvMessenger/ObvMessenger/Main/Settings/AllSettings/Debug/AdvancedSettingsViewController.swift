@@ -86,6 +86,7 @@ extension AdvancedSettingsViewController {
         }
     }
     
+    @MainActor
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         switch indexPath.section {
         case 0:
@@ -132,19 +133,23 @@ extension AdvancedSettingsViewController {
                     tableView.reloadRows(at: [indexPath], with: .none)
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5), execute: toDoIfPingsTakesTooLong)
-            obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { [weak self] result in
-                toDoIfPingsTakesTooLong.cancel()
-                switch result {
-                case .failure:
-                    break
-                case .success(let webSocketStatus):
-                    self?.currentWebSocketStatus = webSocketStatus
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-                    guard let tableView = self?.tableView else { return }
-                    guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                    tableView.reloadRows(at: [indexPath], with: .none)
+            let ownedCryptoId = self.ownedCryptoId
+            Task {
+                let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5), execute: toDoIfPingsTakesTooLong)
+                obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { [weak self] result in
+                    toDoIfPingsTakesTooLong.cancel()
+                    switch result {
+                    case .failure:
+                        break
+                    case .success(let webSocketStatus):
+                        self?.currentWebSocketStatus = webSocketStatus
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
+                        guard let tableView = self?.tableView else { return }
+                        guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
+                        tableView.reloadRows(at: [indexPath], with: .none)
+                    }
                 }
             }
             return cell

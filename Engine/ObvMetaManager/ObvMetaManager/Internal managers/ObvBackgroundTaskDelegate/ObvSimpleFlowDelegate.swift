@@ -25,6 +25,6 @@ public protocol ObvSimpleFlowDelegate: ObvManager {
     
     // Handling simple situations
     
-    func simpleBackgroundTask(withReason reason: String, using block: @escaping (Bool) -> Void)
+    func simpleBackgroundTask(withReason reason: String, using block: @escaping (Bool) -> Void) async
     
 }

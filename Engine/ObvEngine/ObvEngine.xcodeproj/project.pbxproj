@@ -259,9 +259,9 @@
 				C4CA58B227519FD400E03105 /* ObvEngineNotificationNew.swift */,
 				C40D639F2073DC5C00047F87 /* ObvEngineNotification.swift */,
 				C40D63A12073DD4000047F87 /* NotificationSender.swift */,
-				C422A12623513EF900C2B124 /* ReturnReceiptSender.swift */,
 				C406147D2409E1BE001616EF /* EngineCoordinator.swift */,
 				C4E29F6024743478004D539D /* TransactionsHistoryReplayer.swift */,
+				C4A355BF287884CA001EE2D9 /* ReturnReceiptSender */,
 				C4A7472720738D6B00E1CCAC /* Types */,
 				C49D628E2074FCFD006259C9 /* CoreData */,
 				C4468D2C206D0E58004A4155 /* ObvEngine.h */,
@@ -379,6 +379,14 @@
 				C49D62922074FE27006259C9 /* PersistedEngineDialog.swift */,
 			);
 			path = CoreData;
+			sourceTree = "<group>";
+		};
+		C4A355BF287884CA001EE2D9 /* ReturnReceiptSender */ = {
+			isa = PBXGroup;
+			children = (
+				C422A12623513EF900C2B124 /* ReturnReceiptSender.swift */,
+			);
+			path = ReturnReceiptSender;
 			sourceTree = "<group>";
 		};
 		C4A7472720738D6B00E1CCAC /* Types */ = {

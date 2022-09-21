@@ -262,9 +262,11 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
 
                 tracker?.attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: attachmentId, chunkNumber: chunkNumber, flowId: flowId)
                 if attachment.status == .downloaded {
+                    os_log("⛑ Attachment %{public}@ is now fully downoalded within flow %{public}@", log: log, type: .info, attachmentId.debugDescription, flowId.debugDescription)
                     tracker?.attachmentDownloadIsComplete(attachmentId: attachmentId, flowId: flowId)
+                } else {
+                    os_log("⛑ Attachment %{public}@ is not fully downoalded within flow %{public}@. Still waiting for more chunks.", log: log, type: .info, attachmentId.debugDescription, flowId.debugDescription)
                 }
-                
             }
         }
     }

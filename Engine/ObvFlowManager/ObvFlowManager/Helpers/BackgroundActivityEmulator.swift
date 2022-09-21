@@ -18,10 +18,12 @@
  */
 
 import Foundation
+import ObvTypes
+
 
 /// This struct allows to simulate the behavior of two important methods of the UIApplication object available when launching the full
-/// version of the engine, but not available when launching limited version of the engine. In other words, it allows to
-final class BackgroundActivityEmulator: ExpiringActivityPerformer {
+/// version of the engine, but not available when launching limited version of the engine.
+final class BackgroundActivityEmulator: ObvBackgroundTaskManager {
     
     private let internalQueue = DispatchQueue(label: "BackgroundActivityEmulator Queue")
     private var _semaphoreForTaskIdentifier = [UIBackgroundTaskIdentifier: DispatchSemaphore]()

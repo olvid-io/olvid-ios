@@ -76,6 +76,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
         present(nav, animated: true)
     }
     
+    @MainActor
     func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId) {
         assert(Thread.isMainThread)
         showHUD(type: .spinner)
@@ -120,7 +121,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
 
 protocol AddContactHostingViewStoreDelegate: UIViewController {
     func userWantsToSearchWithinKeycloak()
-    func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId)
+    @MainActor func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId)
     func installedOlvidAppIsOutdated()
 }
 
@@ -182,6 +183,7 @@ final class AddContactHostingViewStore: ObservableObject {
  
     /// This is called when the user taps the "Add to contacts" button on the confirmation screen showing the contact about to be added to the local directory
     func confirmAddingKeycloakContactViewAction() {
+        assert(Thread.isMainThread)
         guard let userDetailsOfKeycloakContact = self.userDetailsOfKeycloakContact,
               let userIdentity = userDetailsOfKeycloakContact.identity,
               let userCryptoId = try? ObvCryptoId(identity: userIdentity)
@@ -190,30 +192,31 @@ final class AddContactHostingViewStore: ObservableObject {
             assertionFailure()
             return
         }
-        KeycloakManager.shared.addContact(ownedCryptoId: ownedCryptoId, userId: userDetailsOfKeycloakContact.id, userIdentity: userIdentity) { [weak self] result in
-            guard let _self = self else { return }
-            DispatchQueue.main.async {
-                switch result {
-                case .failure(let error):
-                    switch error {
-                    case .authenticationRequired,
-                            .ownedIdentityNotManaged,
-                            .badResponse,
-                            .userHasCancelled,
-                            .keycloakApiRequest,
-                            .invalidSignature,
-                            .unkownError:
-                        _self.addingKeycloakContactFailedAlertIsPresented = true
-                    case .willSyncKeycloakServerSignatureKey:
-                        break
-                    case .ownedIdentityWasRevoked:
-                        ObvMessengerInternalNotification.userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: _self.ownedCryptoId)
-                            .postOnDispatchQueue()
-                        return
-                    }
-                case .success:
-                    self?.delegate?.userSuccessfullyAddKeycloakContact(ownedCryptoId: _self.ownedCryptoId, newContactCryptoId: userCryptoId)
+        Task {
+            do {
+                try await KeycloakManagerSingleton.shared.addContact(ownedCryptoId: ownedCryptoId, userId: userDetailsOfKeycloakContact.id, userIdentity: userIdentity)
+                await delegate?.userSuccessfullyAddKeycloakContact(ownedCryptoId: ownedCryptoId, newContactCryptoId: userCryptoId)
+            } catch let addContactError as KeycloakManager.AddContactError {
+                switch addContactError {
+                case .authenticationRequired,
+                        .ownedIdentityNotManaged,
+                        .badResponse,
+                        .userHasCancelled,
+                        .keycloakApiRequest,
+                        .invalidSignature,
+                        .unkownError:
+                    addingKeycloakContactFailedAlertIsPresented = true
+                case .willSyncKeycloakServerSignatureKey:
+                    break
+                case .ownedIdentityWasRevoked:
+                    ObvMessengerInternalNotification.userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ownedCryptoId)
+                        .postOnDispatchQueue()
                 }
+                return
+            } catch {
+                assertionFailure()
+                addingKeycloakContactFailedAlertIsPresented = true
+                return
             }
         }
     }

@@ -23,17 +23,19 @@ import ObvEngine
 final class SettingsFlowViewController: UINavigationController {
 
     private(set) var ownedCryptoId: ObvCryptoId!
+    private(set) var obvEngine: ObvEngine!
     
     // MARK: - Factory
 
     // Factory (required because creating a custom init does not work under iOS 12)
-    static func create(ownedCryptoId: ObvCryptoId) -> SettingsFlowViewController {
+    static func create(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) -> SettingsFlowViewController {
 
         let allSettingsTableViewController = AllSettingsTableViewController(ownedCryptoId: ownedCryptoId)
 
         let vc = self.init(rootViewController: allSettingsTableViewController)
 
         vc.ownedCryptoId = ownedCryptoId
+        vc.obvEngine = obvEngine
 
         allSettingsTableViewController.delegate = vc
 
@@ -84,7 +86,7 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         let settingViewController: UIViewController
         switch setting {
         case .contactsAndGroups:
-            settingViewController = ContactsAndGroupsSettingsTableViewController(ownedCryptoId: ownedCryptoId)
+            settingViewController = ContactsAndGroupsSettingsTableViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         case .downloads:
             settingViewController = DownloadsSettingsTableViewController()
         case .interface:
@@ -94,7 +96,7 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         case .privacy:
             settingViewController = PrivacyTableViewController(ownedCryptoId: ownedCryptoId)
         case .backup:
-            settingViewController = BackupTableViewController()
+            settingViewController = BackupTableViewController(obvEngine: obvEngine)
         case .about:
             settingViewController = AboutSettingsTableViewController()
         case .advanced:

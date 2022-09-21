@@ -26,9 +26,11 @@ class SingleContactDetailedInfosViewController: UIViewController {
     
     private let scrollView = UIScrollView()
     private let mainStackView = UIStackView()
+    private let obvEngine: ObvEngine
     
-    init(persistedObvContactIdentity: PersistedObvContactIdentity) {
+    init(persistedObvContactIdentity: PersistedObvContactIdentity, obvEngine: ObvEngine) {
         self.persistedObvContactIdentity = persistedObvContactIdentity
+        self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
     }
     

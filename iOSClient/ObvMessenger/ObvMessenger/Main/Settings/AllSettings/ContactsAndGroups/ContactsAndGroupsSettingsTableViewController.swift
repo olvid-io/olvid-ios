@@ -25,9 +25,11 @@ import ObvEngine
 final class ContactsAndGroupsSettingsTableViewController: UITableViewController {
     
     private let ownedCryptoId: ObvCryptoId
+    private let obvEngine: ObvEngine
     
-    init(ownedCryptoId: ObvCryptoId) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
         super.init(style: Self.settingsTableStyle)
     }
 
@@ -165,7 +167,7 @@ extension ContactsAndGroupsSettingsTableViewController {
             guard indexPath.row < shownGroupsRows.count else { assertionFailure(); return }
             switch shownGroupsRows[indexPath.row] {
             case .autoAcceptGroupInvitesFrom:
-                let vc = DetailedSettingForAutoAcceptGroupInvitesViewController(ownedCryptoId: ownedCryptoId)
+                let vc = DetailedSettingForAutoAcceptGroupInvitesViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
                 self.navigationController?.pushViewController(vc, animated: true)
             }
 

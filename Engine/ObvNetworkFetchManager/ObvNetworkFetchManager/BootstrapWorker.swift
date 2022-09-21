@@ -43,7 +43,6 @@ final class BootstrapWorker {
 
     private var observationTokens = [NSObjectProtocol]()
     private let inbox: URL
-    private var engineWasJustInitialized = true
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
 
@@ -51,35 +50,19 @@ final class BootstrapWorker {
         self.inbox = inbox
     }
 
+    
     func finalizeInitialization(flowId: FlowIdentifier) {
-
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
             assertionFailure()
             return
         }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        os_log("FetchManager: Finalizing initialization", log: log, type: .info)
-
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        internalQueue.addOperation { [weak self] in
-            self?.deleteAllRegisteredPushNotifications(flowId: flowId, log: log, contextCreator: contextCreator)
-            self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
-            self?.reschedulePendingDeleteFromServers(flowId: flowId, log: log, delegateManager: delegateManager, contextCreator: contextCreator)
-            delegateManager.downloadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessions(flowId: flowId)
-        }
-
+        delegateManager.wellKnownCacheDelegate.initializateCache(flowId: flowId)
     }
 
-    func applicationDidStartRunning() {
+    
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
         let flowId = FlowIdentifier()
         
@@ -100,12 +83,19 @@ final class BootstrapWorker {
             return
         }
 
-        if engineWasJustInitialized {
-            engineWasJustInitialized = false
+        // These operations used to be scheduled in the `finalizeInitialization` method. In order to speed up the boot process, we schedule them here instead
+        internalQueue.addOperation { [weak self] in
+            self?.deleteAllRegisteredPushNotifications(flowId: flowId, log: log, contextCreator: contextCreator)
+            self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
+            self?.reschedulePendingDeleteFromServers(flowId: flowId, log: log, delegateManager: delegateManager, contextCreator: contextCreator)
+            delegateManager.downloadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessions(flowId: flowId)
+        }
+
+        if forTheFirstTime {
             internalQueue.addOperation { [weak self] in
                 // We cannot call this method in the finalizeInitialization method because the generated notifications would not be received by the app
                 self?.rescheduleAllInboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
-                delegateManager.wellKnownCacheDelegate.initializateCache(flowId: flowId)
+                delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId)
             }
         }
         
@@ -236,7 +226,7 @@ extension BootstrapWorker {
                         case .resumeRequested:
                             delegateManager.downloadAttachmentChunksDelegate.resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachment.attachmentId, flowId: flowId)
                         case .downloaded:
-                            delegateManager.networkFetchFlowDelegate.downloadedAttachment(attachmentId: attachment.attachmentId, flowId: flowId)
+                            delegateManager.networkFetchFlowDelegate.attachmentWasDownloaded(attachmentId: attachment.attachmentId, flowId: flowId)
                         case .cancelledByServer:
                             delegateManager.networkFetchFlowDelegate.attachmentWasCancelledByServer(attachmentId: attachment.attachmentId, flowId: flowId)
                         case .markedForDeletion:

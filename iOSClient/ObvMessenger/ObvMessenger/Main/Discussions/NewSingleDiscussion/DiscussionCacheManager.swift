@@ -60,7 +60,6 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     private let backgroundContext = ObvStack.shared.newBackgroundContext()
     
-    private let dispatchGroup = DispatchGroup()
     private let queueForLaunchingImageGeneration = DispatchQueue(label: "DiscussionCacheManager internal queue for launching image generations")
     
     private static func makeError(message: String) -> Error {
@@ -133,7 +132,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
 
         // Request hardlinks
         
-        ObvMessengerInternalNotification.requestAllHardLinksToFyles(fyleElements: fyleElements) { hardlinks in
+        HardLinksToFylesNotifications.requestAllHardLinksToFyles(fyleElements: fyleElements) { hardlinks in
             DispatchQueue.main.async { [weak self] in
                 var cellNeedsToUpdateItsConfiguration = false
                 for (joinObjectID, hardlink) in zip(joinObjectIDs, hardlinks) {
@@ -185,7 +184,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             hardlinksCacheContinuations[objectID] = [] // We are in charge -> this prevents another call to fall in this branch
             
             return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { result in
+                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { result in
                     DispatchQueue.main.async { [weak self] in
                         let error: Error?
                         switch result {

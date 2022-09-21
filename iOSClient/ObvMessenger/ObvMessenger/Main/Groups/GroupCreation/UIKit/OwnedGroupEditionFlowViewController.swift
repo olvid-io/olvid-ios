@@ -36,6 +36,7 @@ final class OwnedGroupEditionFlowViewController: UIViewController {
     
     let ownedCryptoId: ObvCryptoId
     let editionType: EditionType
+    let obvEngine: ObvEngine
 
     private var selectedGroupMembers = Set<PersistedObvContactIdentity>()
     private var groupName: String?
@@ -53,9 +54,10 @@ final class OwnedGroupEditionFlowViewController: UIViewController {
 
     // MARK: - Initializer
 
-    init(ownedCryptoId: ObvCryptoId, editionType: EditionType) {
+    init(ownedCryptoId: ObvCryptoId, editionType: EditionType, obvEngine: ObvEngine) {
         self.ownedCryptoId = ownedCryptoId
         self.editionType = editionType
+        self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -197,12 +199,9 @@ extension OwnedGroupEditionFlowViewController {
             
             guard !newGroupMembers.isEmpty else { return }
             
-            let NotificationType = MessengerInternalNotification.InviteContactsToGroupOwned.self
-            let userInfo = [NotificationType.Key.ownedCryptoId: ownedCryptoId,
-                            NotificationType.Key.groupUid: groupUid,
-                            NotificationType.Key.newGroupMembers: newGroupMembers] as [String: Any]
-            NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
-            
+            ObvMessengerInternalNotification.inviteContactsToGroupOwned(groupUid: groupUid, ownedCryptoId: ownedCryptoId, newGroupMembers: newGroupMembers)
+                .postOnDispatchQueue()
+
         case .removeGroupMembers(groupUid: let groupUid, currentGroupMembers: _):
             
             flowNavigationController.dismiss(animated: true)
@@ -211,12 +210,9 @@ extension OwnedGroupEditionFlowViewController {
             
             guard !removedContacts.isEmpty else { return }
             
-            let NotificationType = MessengerInternalNotification.RemoveContactsFromGroupOwned.self
-            let userInfo = [NotificationType.Key.ownedCryptoId: ownedCryptoId,
-                            NotificationType.Key.groupUid: groupUid,
-                            NotificationType.Key.removedContacts: removedContacts] as [String: Any]
-            NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
-            
+            ObvMessengerInternalNotification.removeContactsFromGroupOwned(groupUid: groupUid, ownedCryptoId: ownedCryptoId, removedContacts: removedContacts)
+                .postOnDispatchQueue()
+                        
         case .editGroupDetails:
 
             assertionFailure()
@@ -246,20 +242,21 @@ extension OwnedGroupEditionFlowViewController {
                 return
             }
 
-            do {
-                try _self.obvEngine.publishLatestDetailsOfOwnedContactGroup(ownedCryptoId: _self.ownedCryptoId, groupUid: groupUid)
-            } catch {
-                DispatchQueue.main.async {
-                    _self.showHUD(type: .text(text: "Failed"))
+                do {
+                    try _self.obvEngine.publishLatestDetailsOfOwnedContactGroup(ownedCryptoId: _self.ownedCryptoId, groupUid: groupUid)
+                } catch {
+                    DispatchQueue.main.async {
+                        _self.showHUD(type: .text(text: "Failed"))
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
+                    }
+                    return
+                }
+                
+                DispatchQueue.main.sync {
+                    _self.showHUD(type: .checkmark)
                     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
                 }
-                return
-            }
-
-            DispatchQueue.main.sync {
-                _self.showHUD(type: .checkmark)
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
-            }
+                
         }
     }
 
@@ -282,14 +279,13 @@ extension OwnedGroupEditionFlowViewController {
             
             flowNavigationController.dismiss(animated: true)
 
-            let NotificationType = MessengerInternalNotification.CreateNewGroup.self
-            let userInfo = [NotificationType.Key.groupName: groupName,
-                            NotificationType.Key.groupDescription: groupDescription as Any,
-                            NotificationType.Key.groupMembersCryptoIds: groupMembersCryptoIds,
-                            NotificationType.Key.ownedCryptoId: ownedCryptoId,
-                            NotificationType.Key.photoURL: self.photoURL as Any] as [String: Any]
-            NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
-
+            ObvMessengerInternalNotification.createNewGroup(groupName: groupName,
+                                                            groupDescription: groupDescription,
+                                                            groupMembersCryptoIds: groupMembersCryptoIds,
+                                                            ownedCryptoId: ownedCryptoId,
+                                                            photoURL: photoURL)
+            .postOnDispatchQueue()
+            
         case .addGroupMembers,
              .removeGroupMembers,
              .editGroupDetails:

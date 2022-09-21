@@ -29,11 +29,12 @@ final class BackupTableViewController: UITableViewController {
     private var backupKeyInformation: ObvBackupKeyInformation?
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BackupTableViewController.self))
     private var lastCloudBackupState: LastCloudBackupState?
+    private let obvEngine: ObvEngine
 
     private enum LastCloudBackupState {
         case lastBackup(_: Date)
         case noBackups
-        case error(_: AppBackupCoordinator.AppBackupError)
+        case error(_: AppBackupManager.AppBackupError)
     }
 
     private let dateFormater: DateFormatter = {
@@ -76,7 +77,8 @@ final class BackupTableViewController: UITableViewController {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    init() {
+    init(obvEngine: ObvEngine) {
+        self.obvEngine = obvEngine
         super.init(style: Self.settingsTableStyle)
     }
     
@@ -108,7 +110,7 @@ final class BackupTableViewController: UITableViewController {
 
     private func refreshLatestCloudBackupInformation() {
         assert(Thread.isMainThread)
-        AppBackupCoordinator.getLatestCloudBackup { result in
+        AppBackupManager.getLatestCloudBackup { result in
             switch result {
             case .success(let record):
                 if let record = record {
@@ -144,12 +146,17 @@ final class BackupTableViewController: UITableViewController {
             notificationTokens.append(token)
         }
         
-        notificationTokens.append(ObvEngineNotificationNew.observeBackupForUploadWasUploaded(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (_, _, _) in
+        notificationTokens.append(ObvEngineNotificationNew.observeBackupForUploadWasUploaded(within: NotificationCenter.default, queue: .main) { [weak self] (_, _, _) in
             self?.refreshBackupKeyInformation(reloadData: true)
             self?.lastCloudBackupState = nil
             self?.reloadAutomaticBackupSections()
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5)) {
                 self?.refreshLatestCloudBackupInformation()
+            }
+            // Remove the HUD if there is one
+            if self?.hudIsShown() == true {
+                self?.showHUD(type: .checkmark)
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
             }
         })
 
@@ -353,12 +360,13 @@ extension BackupTableViewController {
                 guard let cell = tableView.cellForRow(at: indexPath) else { assertionFailure(); return }
                 disable(cell: cell)
                 tableView.deselectRow(at: indexPath, animated: true)
-                let notification = ObvMessengerInternalNotification.userWantsToPerfomBackupForExportNow(sourceView: cell)
-                notification.postOnDispatchQueue()
+                ObvMessengerInternalNotification.userWantsToPerfomBackupForExportNow(sourceView: cell, sourceViewController: self)
+                    .postOnDispatchQueue()
             case .iCloudBackup:
                 guard self.backupKeyInformation != nil else { assertionFailure(); return }
                 guard let cell = tableView.cellForRow(at: indexPath) else { assertionFailure(); return }
                 disable(cell: cell)
+                showHUD(type: .spinner) // removed when receiving the BackupForUploadWasUploaded notification
                 userTappedOnPerfomCloudKitBackupNow { [weak self] in
                     assert(Thread.isMainThread)
                     self?.enable(cell: cell)
@@ -510,7 +518,7 @@ extension BackupTableViewController {
         ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled = value // True
         // If we reach this point, the user wants to activate automatic backup cleaning.
         // Perform first cleaning now
-        AppBackupCoordinator.incrementalCleanCloudBackups(cleanAllDevices: false) { [weak self] result in
+        AppBackupManager.incrementalCleanCloudBackups(cleanAllDevices: false) { [weak self] result in
             guard let _self = self else { return }
             switch result {
             case .success:

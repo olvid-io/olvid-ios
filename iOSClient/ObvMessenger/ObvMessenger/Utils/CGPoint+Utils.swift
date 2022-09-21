@@ -23,7 +23,7 @@ import UIKit
 extension CGPoint {
     
     func distance(to other: CGPoint) -> CGFloat {
-        return sqrt(self.x * other.x + self.y + other.y)
+        return sqrt(pow(other.x - self.x, 2) + pow(other.y - self.y, 2))
     }
     
 }

@@ -239,54 +239,92 @@ extension PersistedObvOwnedIdentity {
 
 }
 
-// MARK: - Siri and Intent integration
+
+// MARK: - Thread safe structure
 
 extension PersistedObvOwnedIdentity {
-
-    var personHandle: INPersonHandle {
-        INPersonHandle(value: objectID.uriRepresentation().absoluteString, type: .unknown)
-    }
-
-    @available(iOS 15.0, *)
-    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
+    
+    struct Structure: Hashable, Equatable {
         
-        let pngData: Data?
-        if let url = photoURL,
-           let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
-           let _pngData = UIImage(cgImage: cgImage).pngData() {
-            pngData = _pngData
-        } else {
-            pngData = UIImage.makeCircledCharacter(fromString: fullDisplayName, circleDiameter: thumbnailSide, fillColor: cryptoId.colors.background, characterColor: cryptoId.colors.text)?.pngData()
+        let typedObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>
+        let cryptoId: ObvCryptoId
+        let fullDisplayName: String
+        let identityCoreDetails: ObvIdentityCoreDetails
+        let photoURL: URL?
+        
+        private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedObvOwnedIdentity.Structure")
+        
+        // Hashable and equatable
+        
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(typedObjectID)
+        }
+        
+        static func == (lhs: Structure, rhs: Structure) -> Bool {
+            lhs.typedObjectID == rhs.typedObjectID
         }
 
-        let image: INImage?
-        if let pngData = pngData {
-            if let thumbnailURL = thumbnailURL {
-                do {
-                    try pngData.write(to: thumbnailURL)
-                    image = INImage(url: thumbnailURL)
-                } catch {
-                    os_log("Could not create PNG thumbnail file for contact", log: log, type: .fault)
+        // Siri and Intent integration
+        
+        var personHandle: INPersonHandle {
+            INPersonHandle(value: typedObjectID.objectID.uriRepresentation().absoluteString, type: .unknown)
+        }
+
+        @available(iOS 15.0, *)
+        func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
+            
+            let pngData: Data?
+            if let url = photoURL,
+               let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
+               let _pngData = UIImage(cgImage: cgImage).pngData() {
+                pngData = _pngData
+            } else {
+                let fillColor = cryptoId.colors.background
+                let characterColor = cryptoId.colors.text
+                pngData = UIImage.makeCircledCharacter(fromString: fullDisplayName,
+                                                       circleDiameter: thumbnailSide,
+                                                       fillColor: fillColor,
+                                                       characterColor: characterColor)?.pngData()
+            }
+
+            let image: INImage?
+            if let pngData = pngData {
+                if let thumbnailURL = thumbnailURL {
+                    do {
+                        try pngData.write(to: thumbnailURL)
+                        image = INImage(url: thumbnailURL)
+                    } catch {
+                        os_log("Could not create PNG thumbnail file for contact", log: log, type: .fault)
+                        image = INImage(imageData: pngData)
+                    }
+                } else {
                     image = INImage(imageData: pngData)
                 }
             } else {
-                image = INImage(imageData: pngData)
+                image = nil
             }
-        } else {
-            image = nil
+
+            return INPerson(personHandle: personHandle,
+                            nameComponents: identityCoreDetails.personNameComponents,
+                            displayName: fullDisplayName,
+                            image: image,
+                            contactIdentifier: typedObjectID.objectID.uriRepresentation().absoluteString,
+                            customIdentifier: nil,
+                            isMe: true,
+                            suggestionType: .none)
         }
 
-        return INPerson(personHandle: personHandle,
-                        nameComponents: identityCoreDetails.personNameComponents,
-                        displayName: fullDisplayName,
-                        image: image,
-                        contactIdentifier: objectID.uriRepresentation().absoluteString,
-                        customIdentifier: nil,
-                        isMe: true,
-                        suggestionType: .none)
     }
+    
+    func toStruct() throws -> Structure {
+        return Structure(typedObjectID: self.typedObjectID,
+                         cryptoId: self.cryptoId,
+                         fullDisplayName: self.fullDisplayName,
+                         identityCoreDetails: self.identityCoreDetails,
+                         photoURL: self.photoURL)
+    }
+    
 }
-
 
 
 // MARK: - Sending notifications on change

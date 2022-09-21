@@ -170,3 +170,38 @@ extension TypeSafeManagedObjectID where T == PersistedGroupDiscussion {
         TypeSafeManagedObjectID<PersistedDiscussion>(objectID: objectID)
     }
 }
+
+
+// MARK: - Thread safe struct
+
+extension PersistedGroupDiscussion {
+    
+    struct Structure {
+        let typedObjectID: TypeSafeManagedObjectID<PersistedGroupDiscussion>
+        let groupUID: Data
+        let ownerIdentityIdentity: Data
+        let contactGroup: PersistedContactGroup.Structure
+        fileprivate let discussionStruct: PersistedDiscussion.AbstractStructure
+        var title: String { discussionStruct.title }
+        var localConfiguration: PersistedDiscussionLocalConfiguration.Structure { discussionStruct.localConfiguration }
+    }
+    
+    func toStruct() throws -> Structure {
+        guard let groupUID = self.rawGroupUID,
+              let ownerIdentityIdentity = self.rawOwnerIdentityIdentity else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract required attributes")
+        }
+        guard let contactGroup = self.contactGroup else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract required relationships")
+        }
+        let discussionStruct = try toAbstractStruct()
+        return Structure(typedObjectID: self.typedObjectID,
+                         groupUID: groupUID,
+                         ownerIdentityIdentity: ownerIdentityIdentity,
+                         contactGroup: try contactGroup.toStruct(),
+                         discussionStruct: discussionStruct)
+    }
+    
+}

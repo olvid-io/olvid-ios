@@ -34,7 +34,7 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
     let contextCreator: ObvContextCreator
     let flowId: FlowIdentifier
     let log: OSLog
-    let queue = OperationQueue()
+    let internalQueue = OperationQueue()
     let op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>
     let op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>
     let op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>
@@ -67,7 +67,7 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
-        queue.addOperations([op1], waitUntilFinished: true)
+        internalQueue.addOperations([op1], waitUntilFinished: true)
         guard !op1.isCancelled else {
             guard let reason = op1.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op1Cancelled(reason: reason))
@@ -75,7 +75,7 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
 
         op2.obvContext = obvContext
         op2.viewContext = contextCreator.viewContext
-        queue.addOperations([op2], waitUntilFinished: true)
+        internalQueue.addOperations([op2], waitUntilFinished: true)
         guard !op2.isCancelled else {
             guard let reason = op2.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op2Cancelled(reason: reason))
@@ -83,7 +83,7 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
         
         op3.obvContext = obvContext
         op3.viewContext = contextCreator.viewContext
-        queue.addOperations([op3], waitUntilFinished: true)
+        internalQueue.addOperations([op3], waitUntilFinished: true)
         guard !op3.isCancelled else {
             guard let reason = op3.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op3Cancelled(reason: reason))
@@ -91,7 +91,7 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
 
         op4.obvContext = obvContext
         op4.viewContext = contextCreator.viewContext
-        queue.addOperations([op4], waitUntilFinished: true)
+        internalQueue.addOperations([op4], waitUntilFinished: true)
         guard !op4.isCancelled else {
             guard let reason = op4.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op4Cancelled(reason: reason))
@@ -99,7 +99,7 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
 
         op5.obvContext = obvContext
         op5.viewContext = contextCreator.viewContext
-        queue.addOperations([op5], waitUntilFinished: true)
+        internalQueue.addOperations([op5], waitUntilFinished: true)
         guard !op5.isCancelled else {
             guard let reason = op5.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op5Cancelled(reason: reason))

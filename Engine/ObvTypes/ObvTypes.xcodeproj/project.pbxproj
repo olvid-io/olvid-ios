@@ -18,6 +18,7 @@
 		C497F2DA2284274F00CC67EC /* ObvGroupDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C497F2D92284274F00CC67EC /* ObvGroupDetails.swift */; };
 		C4AEE8A6255AD8880059FB66 /* BackupRestoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AEE8A5255AD8880059FB66 /* BackupRestoreError.swift */; };
 		C4B2B5002540E3F000269E26 /* APIKeyStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B2B4FF2540E3F000269E26 /* APIKeyStatus.swift */; };
+		C4B8B2032859427B00C732DC /* ObvBackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8B2022859427B00C732DC /* ObvBackgroundTaskManager.swift */; };
 		C4C11F731FA0879800D5E44B /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4C11F691FA0879800D5E44B /* ObvTypes.framework */; };
 		C4C11F781FA0879800D5E44B /* ObvTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C11F771FA0879800D5E44B /* ObvTypesTests.swift */; };
 		C4C11F7A1FA0879800D5E44B /* ObvTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = C4C11F6C1FA0879800D5E44B /* ObvTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -69,6 +70,7 @@
 		C497F2D92284274F00CC67EC /* ObvGroupDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvGroupDetails.swift; sourceTree = "<group>"; };
 		C4AEE8A5255AD8880059FB66 /* BackupRestoreError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreError.swift; sourceTree = "<group>"; };
 		C4B2B4FF2540E3F000269E26 /* APIKeyStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyStatus.swift; sourceTree = "<group>"; };
+		C4B8B2022859427B00C732DC /* ObvBackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvBackgroundTaskManager.swift; sourceTree = "<group>"; };
 		C4C11F691FA0879800D5E44B /* ObvTypes.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvTypes.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4C11F6C1FA0879800D5E44B /* ObvTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObvTypes.h; sourceTree = "<group>"; };
 		C4C11F6D1FA0879800D5E44B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */,
 				C4D25D732747BB88005BAB17 /* ObvKeycloakState.swift */,
 				C45E191727916D7900EE9446 /* ObvCapability.swift */,
+				C4B8B2022859427B00C732DC /* ObvBackgroundTaskManager.swift */,
 			);
 			path = ObvTypes;
 			sourceTree = "<group>";
@@ -366,6 +369,7 @@
 				C4CCBBA121E8C2BC00E82E1A /* ObvIdentityCoreDetails.swift in Sources */,
 				C497F2D8228425A900CC67EC /* ObvGroupCoreDetails.swift in Sources */,
 				C4AEE8A6255AD8880059FB66 /* BackupRestoreError.swift in Sources */,
+				C4B8B2032859427B00C732DC /* ObvBackgroundTaskManager.swift in Sources */,
 				C4F5343D209C9D4700F5D2BB /* Data+hexString.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

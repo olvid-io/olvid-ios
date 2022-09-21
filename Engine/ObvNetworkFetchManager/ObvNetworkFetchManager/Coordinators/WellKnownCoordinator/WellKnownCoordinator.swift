@@ -33,6 +33,7 @@ protocol WellKnownCacheDelegate: AnyObject {
 
     func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier)
     func initializateCache(flowId: FlowIdentifier)
+    func downloadAndUpdateCache(flowId: FlowIdentifier)
     func getTurnURLs(for server: URL, flowId: FlowIdentifier) -> Result<[String], WellKnownCacheError>
     func getWebSocketURL(for server: URL, flowId: FlowIdentifier) -> Result<URL, WellKnownCacheError>
     func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier)
@@ -129,12 +130,6 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The Identity Delegate is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator manager is not set", log: log, type: .fault)
             assertionFailure()
@@ -146,6 +141,7 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
             do {
                 let cachedWellKnowns = try CachedWellKnown.getAllCachedWellKnown(within: obvContext)
+                os_log("Filling the cached well known with %{public}d entries", log: log, type: .info, cachedWellKnowns.count)
                 for cachedWellKnown in cachedWellKnowns {
                     if let wellKnown = try? WellKnownJSON.decode(cachedWellKnown.wellKnownData) {
                         setWellKnownJSON(wellKnown, for: cachedWellKnown.serverURL)
@@ -158,6 +154,32 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
         }
 
         cacheInitialized = true
+
+    }
+    
+
+    func downloadAndUpdateCache(flowId: FlowIdentifier) {
+
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            os_log("The Identity Delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
 
         // Download updated versions of the well known
         
@@ -186,6 +208,7 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
 
     func getTurnURLs(for server: URL, flowId: FlowIdentifier) -> Result<[String], WellKnownCacheError> {
         guard cacheInitialized else {
+            assertionFailure()
             return .failure(.cacheNotInitialized)
         }
         guard let wellKnown = getWellKnownJSON(for: server) else {

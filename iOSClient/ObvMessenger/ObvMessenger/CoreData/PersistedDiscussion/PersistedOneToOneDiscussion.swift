@@ -100,6 +100,33 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
         
 }
 
+
+// MARK: - Thread safe struct
+
+extension PersistedOneToOneDiscussion {
+    
+    struct Structure {
+        let typedObjectID: TypeSafeManagedObjectID<PersistedOneToOneDiscussion>
+        let contactIdentity: Data
+        fileprivate let discussionStruct: PersistedDiscussion.AbstractStructure
+        var title: String { discussionStruct.title }
+        var localConfiguration: PersistedDiscussionLocalConfiguration.Structure { discussionStruct.localConfiguration }
+    }
+    
+    func toStruct() throws -> Structure {
+        guard let contactIdentity = self.rawContactIdentityIdentity else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract required attributes")
+        }
+        let discussionStruct = try toAbstractStruct()
+        return Structure(typedObjectID: self.typedObjectID,
+                         contactIdentity: contactIdentity,
+                         discussionStruct: discussionStruct)
+    }
+    
+}
+
+
 // MARK: - NSFetchRequest
 
 extension PersistedOneToOneDiscussion {

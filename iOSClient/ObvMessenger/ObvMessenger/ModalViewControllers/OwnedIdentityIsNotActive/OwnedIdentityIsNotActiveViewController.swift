@@ -52,8 +52,10 @@ class OwnedIdentityIsNotActiveViewController: UIViewController {
     }
 
     @IBAction func reactivateButtonTapped(_ sender: Any) {
-        ObvPushNotificationManager.shared.doKickOtherDevicesOnNextRegister()
-        ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+        Task {
+            await ObvPushNotificationManager.shared.doKickOtherDevicesOnNextRegister()
+            await ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+        }
     }
     
 }

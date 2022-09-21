@@ -46,4 +46,9 @@ protocol BackgroundTaskDelegate {
     func startBackgroundActivityForDeletingAMessage(messageId: MessageIdentifier) -> FlowIdentifier?
     func startBackgroundActivityForDeletingAnAttachment(attachmentId: AttachmentIdentifier) -> FlowIdentifier?
 
+    // Posting a return receipt (for message or an attachment)
+
+    func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier
+    func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws
+
 }

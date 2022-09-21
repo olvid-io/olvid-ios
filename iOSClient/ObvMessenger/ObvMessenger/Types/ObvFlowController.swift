@@ -28,6 +28,7 @@ protocol ObvFlowController: UINavigationController, SingleDiscussionViewControll
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
+    var obvEngine: ObvEngine { get }
 
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToDisplay(persistedMessage message: PersistedMessage)
@@ -209,7 +210,7 @@ extension ObvFlowController {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 return
             }
-            guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup) else { return }
+            guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup, obvEngine: obvEngine) else { return }
             singleGroupVC.delegate = self
             vcToPresent = singleGroupVC
         case .none:
@@ -242,7 +243,7 @@ extension ObvFlowController {
 
     }
     
-    
+    @MainActor
     func userSelectedURL(_ url: URL, within vc: UIViewController) {
         flowDelegate?.userSelectedURL(url, within: vc)
     }
@@ -265,7 +266,7 @@ extension ObvFlowController {
             return
         }
         // If we reach this point, we could not find an appropriate VC within the navigation stack, so we push a new one
-        guard let singleGroupViewController = try? SingleGroupViewController(persistedContactGroup: persistedContactGroup) else { return }
+        guard let singleGroupViewController = try? SingleGroupViewController(persistedContactGroup: persistedContactGroup, obvEngine: obvEngine) else { return }
         singleGroupViewController.delegate = self
         appropriateNav.pushViewController(singleGroupViewController, animated: true)
 
@@ -424,7 +425,7 @@ extension ObvFlowController {
 protocol ObvFlowControllerDelegate: AnyObject {
 
     func getAndRemoveAirDroppedFileURLs() -> [URL]
-    func userSelectedURL(_ url: URL, within viewController: UIViewController)
+    @MainActor func userSelectedURL(_ url: URL, within viewController: UIViewController)
     func performTrustEstablishmentProtocolOfRemoteIdentity(remoteCryptoId: ObvCryptoId, remoteFullDisplayName: String)
     func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String)
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: ObvCryptoId, using: ObvIdentityDetails)

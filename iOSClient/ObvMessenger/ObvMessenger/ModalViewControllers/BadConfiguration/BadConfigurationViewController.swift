@@ -21,6 +21,9 @@ import UIKit
 
 class BadConfigurationViewController: UIViewController {
 
+    private var timerForRepeatingConfigurationCheck: Timer?
+    private let configChecker = DeviceConfigurationChecker()
+    
     // Views
     
     @IBOutlet weak var badBackgroundRefreshStatusTitleLabel: UILabel!
@@ -69,6 +72,20 @@ extension BadConfigurationViewController {
         badBackgroundRefreshStatusSolution.text = Strings.badBackgroundRefreshStatus.solution
         problemTitleLabel.text = Strings.problemTitle
         solutionTitleLabel.text = Strings.solutionTitle
+    }
+    
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        timerForRepeatingConfigurationCheck = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+            assert(Thread.isMainThread)
+            if self?.configChecker.currentConfigurationIsValid(application: UIApplication.shared) == true {
+                timer.invalidate()
+                self?.dismiss(animated: true)
+            }
+        }
+        
     }
     
 }

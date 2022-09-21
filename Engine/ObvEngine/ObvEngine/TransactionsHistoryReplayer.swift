@@ -91,7 +91,6 @@ final class TransactionsHistoryReplayer {
     }
     
     
-    
     func replayTransactionsHistory(flowId: FlowIdentifier) throws {
         
         guard let createContextDelegate = self.createContextDelegate else {

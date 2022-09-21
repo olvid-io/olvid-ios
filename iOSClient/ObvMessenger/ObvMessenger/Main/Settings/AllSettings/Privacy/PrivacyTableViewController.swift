@@ -83,7 +83,6 @@ final class PrivacyTableViewController: UITableViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        ObvMessengerInternalNotification.badgesNeedToBeUpdated(ownedCryptoId: ownedCryptoId).postOnDispatchQueue()
     }
     
     // MARK: - Table view data source

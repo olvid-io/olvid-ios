@@ -28,29 +28,34 @@ import AppAuth
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    var appInitializer: AppInitializer!
-    var obvEngine: ObvEngine!
-    let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppDelegate.self))
+    private let appMainManager = AppMainManager()
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppDelegate.self))
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                
-        os_log("Application did finish launching with options", log: log, type: .info)
-        
-        self.appInitializer = AppInitializer()
 
-        // Register for push notifications
+        os_log("🧦 Application did finish launching with options", log: log, type: .info)
+
+        // Register for remote (push) notifications
         application.registerForRemoteNotifications()
 
-        // Set the shortcut item in case we were launched via a home screen quick action (and the app was not already loaded in memory)
-        if let shortcutItem = launchOptions?[UIApplication.LaunchOptionsKey.shortcutItem] as? UIApplicationShortcutItem {
-            self.appInitializer.application(application, performActionFor: shortcutItem, completionHandler: { _ in })
+        // Initialize the BackgroundTasksManager as it must registers its tasks
+        // Pass it to the App main manager that will register it with the managers holder
+        
+        let backgroundTasksManager = BackgroundTasksManager()
+        
+        // Initialize the UserNotificationsManager as it registers the UNUserNotificationCenter delegate.
+        // This must be done before the app finishes launching.
+        // See https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate
+
+        let userNotificationsManager = UserNotificationsManager()
+
+        // Start the app initialization passing in the managers that had to be created before the app finishes launching.
+        
+        Task {
+            await appMainManager.initializeApp(backgroundTasksManager: backgroundTasksManager,
+                                               userNotificationsManager: userNotificationsManager)
         }
 
-        // Start the initialization process (without waiting for the active state)
-        DispatchQueue.main.async { [weak self] in
-            self?.appInitializer.initializeApp()
-        }
-        
         return true
     }
     
@@ -66,46 +71,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        os_log("Application applicationDidEnterBackground", log: log, type: .info)
-        guard AppStateManager.shared.currentState.isInitialized else {
-            // This protects from trying to access the coredata stack that may not be ready if the app has not been initialized.
-            os_log("Application did enter background before being initialized. We cannot schedule background tasks.", log: log, type: .error)
-            return
-        }
-        obvEngine?.applicationDidEnterBackground()
-        BackgroundTasksManager.shared.cancelAllPendingBGTask()
-        BackgroundTasksManager.shared.scheduleBackgroundTasks()
-    }
-    
-    
     func application(_ application: UIApplication, handlerFor intent: INIntent) -> Any? {
         assertionFailure()
         return nil
     }
 
     
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        os_log("Application applicationDidBecomeActive", log: log, type: .info)
-    }
-    
-    
     // This method is also called when sending a file through AirDrop, or when a configuration link is tapped
+    @MainActor
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         os_log("Application open url %{public}@", log: log, type: .info, url.debugDescription)
-        return appInitializer.application(app, open: url, options: options)
+        assertionFailure("Not expected to be called anymore")
+        return true
     }
     
     
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         os_log("Application continue user activity", log: log, type: .info)
-        return appInitializer.application(application, continue: userActivity, restorationHandler: restorationHandler)
+        assertionFailure("Not expected to be called anymore")
+        return true
     }
     
     
-    func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+    func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
         os_log("Application perform action for shortcut", log: log, type: .info)
-        self.appInitializer.application(application, performActionFor: shortcutItem, completionHandler: completionHandler)
+        assertionFailure("Not expected to be called anymore")
+        return true
     }
 
     
@@ -113,18 +104,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         os_log("🍎✅ We received a remote notification device token: %{public}@", log: log, type: .info, deviceToken.hexString())
-        appInitializer.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+        Task { [weak self] in await self?.appMainManager.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken) }
     }
     
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         os_log("🍎 Application failed to register for remote notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
-        appInitializer.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+        Task { [weak self] in await self?.appMainManager.application(application, didFailToRegisterForRemoteNotificationsWithError: error) }
     }
     
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         os_log("🌊 Application did receive remote notification", log: log, type: .info)
-        appInitializer.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+        Task { [weak self] in await self?.appMainManager.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler) }
     }
     
     
@@ -134,7 +125,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
         os_log("🌊 application:handleEventsForBackgroundURLSession:completionHandler called with identifier: %{public}@", log: log, type: .info, identifier)
         // Typically called when a background URLSession was initiated from an extension, but that extension did not finish the job
-        appInitializer.application(application, handleEventsForBackgroundURLSession: identifier, completionHandler: completionHandler)
+        Task { [weak self] in await self?.appMainManager.application(application, handleEventsForBackgroundURLSession: identifier, completionHandler: completionHandler) }
     }
     
 }

@@ -78,16 +78,18 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         hardlinks.append(contentsOf: contentView.singleImageView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.multipleImagesView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.attachmentsView.getAllShownHardLink())
+        hardlinks.append(contentsOf: contentView.audioPlayerView.getAllShownHardLink())
         return hardlinks
     }
     
     override func updateConfiguration(using state: UICellConfigurationState) {
-        guard AppStateManager.shared.currentState.isInitializedAndActive else {
-            // This prevents a crash when the user hits the home button while in the discussion.
-            // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
-            // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
-            return
-        }
+        // 2022-06-20: Commented out during the change of the startup process.
+        // X       guard AppStateManager.shared.currentState.isInitializedAndActive else {
+        // X           // This prevents a crash when the user hits the home button while in the discussion.
+        // X           // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
+        // X           // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
+        // X           return
+        // X       }
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
         var content = SentMessageCellCustomContentConfiguration().updated(for: state)
@@ -317,9 +319,9 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         case .complete:
             if let hardlink = hardlink {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
-                    config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+                    config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
                 } else {
-                    config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+                    config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
                     Task {
                         do {
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
@@ -330,7 +332,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     }
                 }
             } else {
-                config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+                config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
             }
         }
         return config
@@ -470,7 +472,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
     private let replyToBubbleView = ReplyToBubbleView(expirationIndicatorSide: .leading)
     private let wipedView = WipedView(expirationIndicatorSide: .leading)
     private let backgroundView = SentMessageCellBackgroundView()
-    private let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .leading)
+    fileprivate let audioPlayerView = AudioPlayerView(expirationIndicatorSide: .leading)
     private let forwardView = ForwardView()
 
     private var appliedConfiguration: SentMessageCellCustomContentConfiguration!

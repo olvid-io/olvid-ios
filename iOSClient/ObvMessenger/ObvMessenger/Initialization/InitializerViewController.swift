@@ -28,8 +28,6 @@ final class InitializerViewController: UIViewController {
     private var progressView: UIProgressView?
     private var observationTokens = [NSObjectProtocol]()
 
-    var runningLog: RunningLogError?
-    
     override var preferredStatusBarStyle: UIStatusBarStyle {
         if view?.window?.isKeyWindow == true {
             return .lightContent
@@ -37,7 +35,8 @@ final class InitializerViewController: UIViewController {
             return .default
         }
     }
-
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -46,32 +45,93 @@ final class InitializerViewController: UIViewController {
         let launchScreenStoryBoard = UIStoryboard(name: "LaunchScreen", bundle: nil)
         guard let launchViewController = launchScreenStoryBoard.instantiateInitialViewController() else { assertionFailure(); return }
         self.view.addSubview(launchViewController.view)
+        launchViewController.view.translatesAutoresizingMaskIntoConstraints = false
         self.view.pinAllSidesToSides(of: launchViewController.view)
         
-        activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(3)) { [weak self] in
-            self?.activityIndicatorView.startAnimating()
-        }
         self.view.addSubview(activityIndicatorView)
+        activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicatorView.hidesWhenStopped = true
+        activityIndicatorView.color = .white
         
+        self.view.addSubview(exportRunningLogButton)
         exportRunningLogButton.translatesAutoresizingMaskIntoConstraints = false
         let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 30.0, weight: .bold)
         let image = UIImage(systemIcon: .squareAndArrowUp, withConfiguration: symbolConfiguration)
         exportRunningLogButton.setImage(image, for: .normal)
         exportRunningLogButton.addTarget(self, action: #selector(exportRunningLogButtonTapped), for: .touchUpInside)
         exportRunningLogButton.alpha = 0
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(20)) { [weak self] in
-            UIView.animate(withDuration: 0.3) {
-                self?.exportRunningLogButton.alpha = 1
-            }
-        }
-        self.view.addSubview(exportRunningLogButton)
 
         setupConstraints()
+        
         observeDatabaseMigrationNotifications()
+        showSpinnerAfterCertainTime()
+        
     }
     
     
+    private func setupConstraints() {
+        let constraints = [
+            self.view.centerXAnchor.constraint(equalTo: activityIndicatorView.centerXAnchor),
+            self.view.centerYAnchor.constraint(equalTo: activityIndicatorView.centerYAnchor),
+            self.view.safeAreaLayoutGuide.trailingAnchor.constraint(equalTo: exportRunningLogButton.trailingAnchor, constant: 16),
+            self.view.safeAreaLayoutGuide.bottomAnchor.constraint(equalTo: exportRunningLogButton.bottomAnchor, constant: 16),
+        ]
+        NSLayoutConstraint.activate(constraints)
+    }
+
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        presentedViewController?.dismiss(animated: true)
+    }
+
+    
+    // MARK: - Spinner and export logs
+    
+    private var neverShowActivityIndicator = false
+
+    private func showSpinnerAfterCertainTime() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(45)) { [weak self] in
+            guard let _self = self else { return }
+            guard !_self.neverShowActivityIndicator else { return }
+            UIView.animate(withDuration: 0.3) {
+                self?.activityIndicatorView.startAnimating()
+                self?.exportRunningLogButton.alpha = 1
+            }
+        }
+    }
+    
+    
+    /// If the app is initialized successfully, we don't need to show the spiner nor the export log button ever again.
+    func appInitializationSucceeded() {
+        neverShowActivityIndicator = true
+        activityIndicatorView.stopAnimating()
+        exportRunningLogButton.alpha = 0
+        progressView?.isHidden = true
+    }
+
+    
+    @objc private func exportRunningLogButtonTapped() {
+        ObvMessengerInternalNotification.requestRunningLog { [weak self] runningLog in
+            DispatchQueue.main.async {
+                self?.showReceivedRunningLog(runningLog)
+            }
+        }
+        .postOnDispatchQueue()
+    }
+    
+    
+    private func showReceivedRunningLog(_ runningLog: RunningLogError) {
+        assert(Thread.isMainThread)
+        let vc = InitializationFailureViewController()
+        vc.error = runningLog
+        vc.category = .initializationTakesTooLong
+        let nav = UINavigationController(rootViewController: vc)
+        present(nav, animated: true)
+    }
+    
+    // MARK: - Progress bar for migrations
+
     private func observeDatabaseMigrationNotifications() {
         observationTokens.append(DataMigrationManagerNotification.observeMigrationManagerWillMigrateStore(queue: .main) { [weak self] migrationProgress, storeName in
             self?.createOrUpdateProgressView(migrationProgress: migrationProgress)
@@ -91,32 +151,8 @@ final class InitializerViewController: UIViewController {
             ]
             NSLayoutConstraint.activate(constraints)
         }
+        progressView?.isHidden = false
         progressView?.observedProgress = migrationProgress
     }
-        
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        presentedViewController?.dismiss(animated: true)
-    }
-    
-    private func setupConstraints() {
-        let constraints = [
-            self.view.centerXAnchor.constraint(equalTo: activityIndicatorView.centerXAnchor),
-            self.view.centerYAnchor.constraint(equalTo: activityIndicatorView.centerYAnchor),
-            self.view.safeAreaLayoutGuide.trailingAnchor.constraint(equalTo: exportRunningLogButton.trailingAnchor, constant: 16),
-            self.view.safeAreaLayoutGuide.bottomAnchor.constraint(equalTo: exportRunningLogButton.bottomAnchor, constant: 16),
-        ]
-        NSLayoutConstraint.activate(constraints)
-    }
- 
-    
-    @objc private func exportRunningLogButtonTapped() {
-        guard let runningLog = self.runningLog else { assertionFailure(); return }
-        let vc = InitializationFailureViewController()
-        vc.error = runningLog
-        vc.category = .initializationTakesTooLong
-        let nav = UINavigationController(rootViewController: vc)
-        present(nav, animated: true)
-    }
-    
+         
 }

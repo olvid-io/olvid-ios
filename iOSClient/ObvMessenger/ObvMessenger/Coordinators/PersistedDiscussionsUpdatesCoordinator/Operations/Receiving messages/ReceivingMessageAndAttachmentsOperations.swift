@@ -205,7 +205,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                  * In that case, and in that case only, we immediately allow reading of the message.
                  */
                 
-                if let currentUserActivityPersistedDiscussionObjectID = currentUserActivityPersistedDiscussionObjectID, AppStateManager.shared.currentState.isInitializedAndActive {
+                if let currentUserActivityPersistedDiscussionObjectID = currentUserActivityPersistedDiscussionObjectID {
                     
                     let insertedReceivedEphemeralMessagesWithUserAction: [PersistedMessageReceived] = obvContext.context.insertedObjects.compactMap({
                         guard let receivedMessage = $0 as? PersistedMessageReceived,
@@ -552,7 +552,7 @@ fileprivate final class ReceivingMessageAndAttachmentsOperationHelper {
                     receivedFyleMessageJoinWithStatus.tryToSetStatusTo(.complete)
                 }
             })
-            
+
         }
         
     }

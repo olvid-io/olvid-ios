@@ -29,7 +29,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     public let modelName: String
     private let storeName: String
     private let transactionAuthor: String
-    private let log = OSLog(subsystem: "io.olvid.messenger", category: "CoreDataStack")
+    private let log: OSLog
     private var kvObservations = [NSKeyValueObservation]()
 
     private static func makeError(code: Int = 0, message: String) -> Error {
@@ -139,18 +139,20 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         self.transactionAuthor = transactionAuthor
         self.enableMigrations = enableMigrations
         self.migrationRunningLog = migrationRunningLog
+        let logCategory = "CoreDataStack-\(storeName)"
+        self.log = OSLog(subsystem: "io.olvid.messenger", category: logCategory)
     }
     
     
     // MARK: - Persistent store
     
-    private var storeURL: URL {
+    lazy private var storeURL: URL = {
         let directory = PersistentContainerType.defaultDirectoryURL()
         let storeFileName = [storeName, "sqlite"].joined(separator: ".")
         let url = URL(fileURLWithPath: storeFileName, relativeTo: directory)
-        debugPrint("Store URL is: \(url)")
+        os_log("Store URL is %{public}@", log: log, type: .info, url.path)
         return url
-    }
+    }()
     
     private func storeExists() -> Bool {
         let res = FileManager.default.fileExists(atPath: storeURL.path)

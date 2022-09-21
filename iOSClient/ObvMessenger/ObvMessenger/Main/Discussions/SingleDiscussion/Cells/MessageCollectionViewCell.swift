@@ -830,7 +830,7 @@ extension MessageCollectionViewCell: UITextViewDelegate {
             urlComponents.scheme = "https"
             guard let newUrl = urlComponents.url else { return false }
             if let olvidURL = OlvidURL(urlRepresentation: newUrl) {
-                AppStateManager.shared.handleOlvidURL(olvidURL)
+                Task { await NewAppStateManager.shared.handleOlvidURL(olvidURL) }
                 return false
             }
         }

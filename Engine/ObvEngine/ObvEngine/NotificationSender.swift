@@ -1479,6 +1479,8 @@ extension ObvEngine {
     
     private func processMessageDecryptedNotification(messageId: MessageIdentifier, flowId: FlowIdentifier) {
         
+        let log = self.log
+        
         guard let createContextDelegate = createContextDelegate else {
             os_log("The create context delegate is not set", log: log, type: .fault)
             return
@@ -1545,6 +1547,17 @@ extension ObvEngine {
                 }
             }
             
+            // Before notifying the app about this new message, we start a flow allowing to wait until the return receipt is sent.
+            // In practice, the app will save the new message is database, create the return receipt, pass it to the engine that will send it.
+            // Once this is done, the engine will stop the flow.
+            do {
+                _ = try flowDelegate.startBackgroundActivityForPostingReturnReceipt(messageId: messageId, attachmentNumber: nil)
+            } catch {
+                assertionFailure()
+                os_log("🧾 Failed to start a flow allowing to wait for the message return receipt to be sent", log: log, type: .fault)
+                // In production, continue anyway
+            }
+            
             ObvEngineNotificationNew.newMessageReceived(obvMessage: obvMessage, completionHandler: completionHandler)
                 .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
 
@@ -1554,6 +1567,8 @@ extension ObvEngine {
     
     
     private func processAttachmentDownloadedNotification(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+        
+        let log = self.log
         
         os_log("We received an AttachmentDownloaded notification for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
         
@@ -1574,6 +1589,11 @@ extension ObvEngine {
             return
         }
         
+        guard let flowDelegate = flowDelegate else {
+            os_log("The flow delegate is not set", log: log, type: .fault)
+            return
+        }
+
         let randomFlowId = FlowIdentifier()
         createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
             
@@ -1587,6 +1607,17 @@ extension ObvEngine {
                 return
             }
             
+            // Before notifying the app about this downloaded attachment, we start a flow allowing to wait until the return receipt for this attachment is sent.
+            // In practice, the app will marks this attachment as "complete" in database, create the return receipt, pass it to the engine that will send it.
+            // Once this is done, the engine will stop the flow.
+            do {
+                _ = try flowDelegate.startBackgroundActivityForPostingReturnReceipt(messageId: attachmentId.messageId, attachmentNumber: attachmentId.attachmentNumber)
+            } catch {
+                assertionFailure()
+                os_log("🧾 Failed to start a flow allowing to wait for the message return receipt to be sent", log: log, type: .fault)
+                // In production, continue anyway
+            }
+            
             // We notify the app
             
             ObvEngineNotificationNew.attachmentDownloaded(obvAttachment: obvAttachment)
@@ -1596,7 +1627,7 @@ extension ObvEngine {
     
     
     func processInboxAttachmentDownloadWasResumed(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
-        os_log("We received an InboxAttachmentDownloadWasResumed notification for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
+        os_log("We received an InboxAttachmentDownloadWasResumed notification from the network fetch manager for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
         let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
         ObvEngineNotificationNew.attachmentDownloadWasResumed(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
@@ -1604,7 +1635,7 @@ extension ObvEngine {
 
     
     func processInboxAttachmentDownloadWasPaused(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
-        os_log("We received an InboxAttachmentDownloadWasResumed notification for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
+        os_log("We received an InboxAttachmentDownloadWasPaused notification from the network fetch manager for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
         let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
         ObvEngineNotificationNew.attachmentDownloadWasPaused(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)

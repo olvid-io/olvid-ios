@@ -89,8 +89,7 @@ public final class ObvNotificationCenterDummy: ObvNotificationDelegate {
     
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     // MARK: - Notification names for which we should not generate a log within this dummy implementation
     private let acceptableDiscardedNotifications = Set<Notification.Name>([

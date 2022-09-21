@@ -116,30 +116,21 @@ final class ContactIdentityCoordinator {
                 self?.processContactWasDeleted(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
             },
         ])
-     
-        observeAppStateChangedNotifications()
 
     }
     
-}
-
-// MARK: - Bootstrap
-
-extension ContactIdentityCoordinator {
     
-    private func observeAppStateChangedNotifications() {
-        let log = self.log
-        observationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged() { [weak self] (previousState, currentState) in
-            if currentState.isInitializedAndActive {
-                do {
-                    try self?.obvEngine.requestSetOfContactsCertifiedByOwnKeycloakForAllOwnedCryptoIds()
-                } catch {
-                    os_log("Could not bootstrap list of all contactact certified by same keycloak server as owned identity", log: log, type: .fault)
-                }
-            }
-        })
-    }    
+    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
+        do {
+            try obvEngine.requestSetOfContactsCertifiedByOwnKeycloakForAllOwnedCryptoIds()
+        } catch {
+            os_log("Could not bootstrap list of all contactact certified by same keycloak server as owned identity", log: log, type: .fault)
+        }
+    }
+
+    
 }
+
 
 // MARK: - Observing Notifications
 
@@ -496,25 +487,31 @@ extension ContactIdentityCoordinator {
                 try obvEngine.downgradeOneToOneContact(ownedIdentity: ownedCryptoId, contactIdentity: contactCryptoId)
             } catch {
                 os_log("Fail to downgrade the contact to non-OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
-                completionHandler?(false)
+                DispatchQueue.main.async {
+                    completionHandler?(false)
+                }
                 return
             }
-            completionHandler?(true)
-            
+            DispatchQueue.main.async {
+                completionHandler?(true)
+            }
+
         case .userConfirmedFullDeletion:
             
             // The user confirmed she wishes to delete the contact identity. We do not check whether this makes sense here, this has been
             // Done above, when determining the most appropriate alert to show.
 
-            do {
-                try obvEngine.deleteContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
-            } catch {
-                os_log("Fail to delete the contact: %{public}@", log: log, type: .fault, error.localizedDescription)
-                completionHandler?(false)
-                return
+            let obvEngine = self.obvEngine
+            DispatchQueue(label: "Background queue for deleting a contact identity").async {
+                do {
+                    try obvEngine.deleteContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
+                    DispatchQueue.main.async { completionHandler?(true) }
+                } catch {
+                    os_log("Fail to delete the contact: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    DispatchQueue.main.async { completionHandler?(false) }
+                }
             }
-            completionHandler?(true)
-            
+                        
         }
 
     }

@@ -151,7 +151,7 @@ final class ReplyToView: UIView {
             if let join = fyleMessageJoinWithStatus.first(where: { $0.fullFileIsAvailable }) ?? fyleMessageJoinWithStatus.first {
                 let joinObjectID = join.typedObjectID
                 if let fyleElements = join.fyleElement {
-                    ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElements) { result in
+                    HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElements) { result in
                         DispatchQueue.main.async { [weak self] in
                             switch result {
                             case .success(let hardlink):

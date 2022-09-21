@@ -26,14 +26,13 @@ protocol FyleJoinsProvider: Operation {
 
 final class RequestHardLinksToFylesOperation: Operation {
 
-    let hardLinksToFylesCoordinator: HardLinksToFylesCoordinator
+    let hardLinksToFylesManager: HardLinksToFylesManager
     let fyleJoinsProvider: FyleJoinsProvider
 
     private(set) var hardlinks: [HardLinkToFyle?]?
 
-    init(hardLinksToFylesCoordinator: HardLinksToFylesCoordinator,
-         fyleJoinsProvider: FyleJoinsProvider) {
-        self.hardLinksToFylesCoordinator = hardLinksToFylesCoordinator
+    init(hardLinksToFylesManager: HardLinksToFylesManager, fyleJoinsProvider: FyleJoinsProvider) {
+        self.hardLinksToFylesManager = hardLinksToFylesManager
         self.fyleJoinsProvider = fyleJoinsProvider
         super.init()
     }
@@ -54,7 +53,7 @@ final class RequestHardLinksToFylesOperation: Operation {
         let fyleElements: [FyleElement] = fyleJoins.compactMap {
             $0.genericFyleElement
         }
-        hardLinksToFylesCoordinator.requestAllHardLinksToFyles(fyleElements: fyleElements) { [weak self] hardlinks in
+        hardLinksToFylesManager.requestAllHardLinksToFyles(fyleElements: fyleElements) { [weak self] hardlinks in
             guard let _self = self else { return }
             _self.hardlinks = hardlinks
             _self._isFinished = true

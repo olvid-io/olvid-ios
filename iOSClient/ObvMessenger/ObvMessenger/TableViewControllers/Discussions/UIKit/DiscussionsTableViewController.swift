@@ -309,7 +309,6 @@ extension DiscussionsTableViewController {
         let frcIndexPath = frcIndexPathFromTvIndexPath(tvIndexPath)
         let cell = tableView.dequeueReusableCell(withIdentifier: ObvSubtitleTableViewCell.identifier) as! ObvSubtitleTableViewCell
         cell.selectionStyle = .none
-        assert(AppStateManager.shared.currentState.isInitializedAndActive)
         configure(cell, withObjectAtIndexPath: frcIndexPath)
         switch self.cellSelectionStyle {
         case .none: cell.selectionStyle = .none

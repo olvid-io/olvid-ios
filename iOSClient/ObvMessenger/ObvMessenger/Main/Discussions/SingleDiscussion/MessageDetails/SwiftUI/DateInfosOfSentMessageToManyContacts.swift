@@ -33,7 +33,7 @@ struct Recipient: Identifiable, Hashable {
 }
 
 
-struct DateInfosOfSentMessageToManyContactsInnverView: View {
+struct DateInfosOfSentMessageToManyContactsInnerView: View {
     
     let read: [RecipientAndTimestamp]
     let delivered: [RecipientAndTimestamp]
@@ -79,7 +79,7 @@ struct DateInfosOfSentMessageToManyContactsInnverView: View {
 
 
 
-fileprivate struct DateInfosOfSentMessageToManyContactsInnverView_Previews: PreviewProvider {
+fileprivate struct DateInfosOfSentMessageToManyContactsInnerView_Previews: PreviewProvider {
     
     private static let read = [
         RecipientAndTimestamp(id: Data(), recipientName: "Steve Read", timestampAsString: "date here"),
@@ -99,9 +99,9 @@ fileprivate struct DateInfosOfSentMessageToManyContactsInnverView_Previews: Prev
     ]
     
     static var previews: some View {
-        DateInfosOfSentMessageToManyContactsInnverView(read: read,
-                                                       delivered: delivered,
-                                                       sent: sent,
-                                                       pending: pending)
+        DateInfosOfSentMessageToManyContactsInnerView(read: read,
+                                                      delivered: delivered,
+                                                      sent: sent,
+                                                      pending: pending)
     }
 }

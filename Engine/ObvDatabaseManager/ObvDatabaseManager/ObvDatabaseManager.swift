@@ -52,8 +52,7 @@ public final class ObvDatabaseManager: ObvCreateContextDelegate {
 
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvDatabaseManager")
 
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     // MARK: - Initializer
     
@@ -167,7 +166,11 @@ extension ObvDatabaseManager {
     }
     
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
-        let manager = DataMigrationManagerForObvEngine(modelName: "ObvEngine", storeName: "ObvEngine", transactionAuthor: transactionAuthor, enableMigrations: enableMigrations, migrationRunningLog: runningLog)
+        let manager = DataMigrationManagerForObvEngine(modelName: "ObvEngine",
+                                                       storeName: "ObvEngine",
+                                                       transactionAuthor: transactionAuthor,
+                                                       enableMigrations: enableMigrations,
+                                                       migrationRunningLog: runningLog)
         try manager.initializeCoreDataStack()
         self.coreDataStack = manager.coreDataStack
     }

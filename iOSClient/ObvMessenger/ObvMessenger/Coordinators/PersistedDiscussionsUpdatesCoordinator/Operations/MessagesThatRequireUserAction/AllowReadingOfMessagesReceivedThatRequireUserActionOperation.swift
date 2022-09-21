@@ -44,8 +44,6 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Operat
 
         var discussionObjectIDsToRefresh = Set<NSManagedObjectID>()
         
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { assertionFailure(); return }
-        
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             
             /* The following line was added to solve a recurring merge conflict between the context created here

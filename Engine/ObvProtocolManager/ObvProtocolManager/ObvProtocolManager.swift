@@ -36,9 +36,6 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
     }
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvProtocolManager")
-
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
     
     private let prng: PRNGService
     
@@ -100,14 +97,20 @@ extension ObvProtocolManager {
             guard let delegate = delegate as? ObvSolveChallengeDelegate else { throw NSError() }
             delegateManager.solveChallengeDelegate = delegate
         default:
-            throw NSError()
+            throw Self.makeError(message: "Unexpected delegate type")
         }
     }
     
+
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
-        
         delegateManager.contactTrustLevelWatcher.finalizeInitialization()
-        
+    }
+    
+
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+
+        await delegateManager.contactTrustLevelWatcher.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
+
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator is not set", log: log, type: .fault)
             return
@@ -161,9 +164,10 @@ extension ObvProtocolManager {
             }
             
         }
-        
+
         
     }
+
 }
 
 
@@ -216,15 +220,23 @@ extension ObvProtocolManager {
                 throw ObvProtocolManager.makeError(message: "Could create generic protocol message to send")
             }
 
+            debugPrint("🚨 Will post message for full ratchet \(obvContext.name)")
             _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
-            
+            debugPrint("🚨 Did post message for full ratchet \(obvContext.name)")
+
             do {
+                debugPrint("🚨 Will save context for full ratchet \(obvContext.name)")
                 try obvContext.save(logOnFailure: log)
+                debugPrint("🚨 Did save context for full ratchet \(obvContext.name)")
             } catch let error {
+                debugPrint("🚨 Failed to save context for full ratchet \(obvContext.name)")
                 os_log("Could not save context allowing to post a message that would start a full ratchet protocol: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
                 throw error
             }
-                        
+             
+            debugPrint("🚨 Will reach the end of scope of context \(obvContext.name)")
+            
         }
         
     }

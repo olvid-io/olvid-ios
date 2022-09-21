@@ -29,8 +29,6 @@ final class AppTheme {
     static let appleTableSeparatorColor = UIColor(red: 0.78, green: 0.78, blue: 0.8, alpha: 1.0)
     static let appleTableSeparatorHeight: CGFloat = 0.33
     
-    private var richterCache = [Data: UIColor]()
-    
     fileprivate enum Name {
         case edmond
     }
@@ -79,10 +77,6 @@ extension AppTheme {
 
     }
     
-    static var defaultIdentityColorStyle: IdentityColorStyle {
-      return ObvMessengerSettings.Interface.identityColorStyle
-    }
-    
     static let richterColors: [UIColor] = {
         var index = 0
         var colors = [UIColor]()
@@ -93,7 +87,7 @@ extension AppTheme {
         return colors
     }()
     
-    func identityTextColor(for cryptoId: ObvCryptoId, using style: IdentityColorStyle = defaultIdentityColorStyle) -> UIColor {
+    func identityTextColor(for cryptoId: ObvCryptoId, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> UIColor {
         switch style {
         case .hue:
             let hue = hueFromBytes(cryptoId.getIdentity())
@@ -105,7 +99,7 @@ extension AppTheme {
     }
 
     
-    func identityColors(for cryptoId: ObvCryptoId, using style: IdentityColorStyle = defaultIdentityColorStyle) -> (background: UIColor, text: UIColor) {
+    func identityColors(for cryptoId: ObvCryptoId, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> (background: UIColor, text: UIColor) {
         switch style {
         case .hue:
             let hue = hueFromBytes(cryptoId.getIdentity())
@@ -120,7 +114,7 @@ extension AppTheme {
     }
 
     
-    func groupColors(forGroupUid groupUid: UID, using style: IdentityColorStyle = defaultIdentityColorStyle) -> (background: UIColor, text: UIColor) {
+    func groupColors(forGroupUid groupUid: UID, using style: IdentityColorStyle = ObvMessengerSettings.Interface.identityColorStyle) -> (background: UIColor, text: UIColor) {
         switch style {
         case .hue:
             let hue = hueFromBytes(groupUid.raw)
@@ -145,16 +139,10 @@ extension AppTheme {
     }
     
     private func richterColorFromBytes(_ bytes: Data) -> UIColor {
-        if let color = richterCache[bytes] {
-            return color
-        } else {
-            // Not uniform. Quick and dirty...
-            let bitsValue = bytesValue(bytes)
-            let index = bitsValue % AppTheme.richterColors.count
-            let color = AppTheme.richterColors[index]
-            richterCache[bytes] = color
-            return color
-        }
+        let bitsValue = bytesValue(bytes)
+        let index = bitsValue % AppTheme.richterColors.count
+        let color = AppTheme.richterColors[index]
+        return color
     }
     
 

@@ -25,7 +25,7 @@ public struct ObvConstants {
     public static let broadcastDeviceUid = UID(uid: Data(repeating: 0xff, count: UID.length))!
     
     public static let standardDelay = 200 // In milliseconds
-    public static let maximumDelay = 2 * 60 * 1000 // In milliseconds, 2 minutes
+    public static let maximumDelay = 60 * 1000 // In milliseconds, 1 minute
 
     
     public static let AttachmentCiphertextChunkTypicalLength = 10_485_760 // 2_097_152 = 2MB, 10_485_760 = 10MB

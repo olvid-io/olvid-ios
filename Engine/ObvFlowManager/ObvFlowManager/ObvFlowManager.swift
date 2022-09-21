@@ -35,8 +35,7 @@ public final class ObvFlowManager: ObvFlowDelegate {
         delegateManager.prependLogSubsystem(with: prefix)
     }
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvFlowManagerImplementation")
     
@@ -51,9 +50,9 @@ public final class ObvFlowManager: ObvFlowDelegate {
     
     // MARK: Initialisers
     
-    public init(uiApplication: UIApplication, prng: PRNGService) {
+    public init(backgroundTaskManager: ObvBackgroundTaskManager, prng: PRNGService) {
         self.prng = prng
-        let backgroundTaskCoordinator = BackgroundTaskCoordinator(uiApplication: uiApplication)
+        let backgroundTaskCoordinator = BackgroundTaskCoordinator(backgroundTaskManager: backgroundTaskManager)
         let remoteNotificationCoordinator = RemoteNotificationCoordinator()
         self.delegateManager = ObvFlowDelegateManager(simpleBackgroundTaskDelegate: backgroundTaskCoordinator,
                                                       backgroundTaskDelegate: backgroundTaskCoordinator,
@@ -85,7 +84,7 @@ extension ObvFlowManager {
     // Handling simple situations
     
     public func simpleBackgroundTask(withReason reason: String, using block: @escaping (Bool) -> Void) {
-        self.delegateManager.simpleBackgroundTaskDelegate.simpleBackgroundTask(withReason: reason, using: block)
+        delegateManager.simpleBackgroundTaskDelegate.simpleBackgroundTask(withReason: reason, using: block)
     }
     
     // Posting message and attachments
@@ -114,6 +113,22 @@ extension ObvFlowManager {
         return try backgroundTaskDelegate.startBackgroundActivityForStartingOrResumingProtocol()
     }
     
+
+    // Posting a return receipt (for message or an attachment)
+
+    public func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier {
+        guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
+            throw Self.makeError(message: "The backgroundTaskDelegate is not set")
+        }
+        return try backgroundTaskDelegate.startBackgroundActivityForPostingReturnReceipt(messageId: messageId, attachmentNumber: attachmentNumber)
+    }
+    
+    public func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws {
+        guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
+            throw Self.makeError(message: "The backgroundTaskDelegate is not set")
+        }
+        try backgroundTaskDelegate.stopBackgroundActivityForPostingReturnReceipt(messageId: messageId, attachmentNumber: attachmentNumber)
+    }
     
     // Downloading messages, downloading/pausing attachment
     

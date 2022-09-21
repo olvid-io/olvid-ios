@@ -1,3 +1,5 @@
+"Olvid" = "Olvid";
+
 /* System message displayed within a group discussion */
 "%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@" = "%@ a rejoint ce groupe - %@";
 
@@ -539,9 +541,6 @@
 /* Title of the UIAlertAction allowing to add a photo as an attachment within a message to send */
 "Photo & Video Library" = "Librairie de photos & vidéos";
 
-/* Explanation for the QR code scanner */
-"ASK_CONTACT_TO_GO_UNDER_MY_ID_MAKING_IT_POSSIBLE_FOR_YOU_TO_SCAN_QR_CODE" = "Demandez à votre contact d'aller dans le tab \"Invitations\" et d'appuyer sur le bouton \"+\" de manière à ce que vous puissiez scanner son code QR.";
-
 /* Disclaimer showed during the onboarding */
 "Please enter a name which will be displayed to your contacts. These details will never be sent to Olvid's servers." = "Choisissez un nom qui sera affiché chez vos contacts. Ces informations ne seront jamais envoyées aux serveurs d'Olvid.";
 
@@ -602,9 +601,6 @@
 
 /* No comment provided by engineer. */
 "Scan" = "Scanner";
-
-/* QR code scanner title */
-"Scan an Olvid identity" = "Scannez une identité Olvid";
 
 /* Title of an alert action */
 "Scan another user's QR code" = "Scanner le code QR d'un autre utilisateur";
@@ -2321,6 +2317,8 @@
 "Forwarded" = "Transféré";
 
 "NO_SOUNDS" = "Aucun";
+
+"ATTACHMENTS_INFO" = "Pièces jointes";
 
 "NOTIFICATION_SOUNDS_TITLE_POLYPHONIC" = "Sons polyphoniques";
 

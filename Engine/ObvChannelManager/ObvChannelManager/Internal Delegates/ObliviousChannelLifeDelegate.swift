@@ -25,7 +25,7 @@ import OlvidUtils
 
 protocol ObliviousChannelLifeDelegate {
     
-    func finalizeInitialization(within: ObvContext) throws
+    func deleteExpiredKeyMaterialsAndProvisions(within: ObvContext) throws
     
     func deleteAllObliviousChannelsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andTheDevicesOfContactIdentity: ObvCryptoIdentity, within: ObvContext) throws
 

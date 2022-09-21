@@ -51,7 +51,7 @@ final class PersistedMessageSent: PersistedMessage {
 
     }
 
-    // MARK: - Attributesb
+    // MARK: - Attributes
 
     @NSManaged private var rawExistenceDuration: NSNumber?
 
@@ -384,6 +384,73 @@ extension PersistedMessageSent {
 }
 
 
+// MARK: Setting delivered or read timestamps
+
+extension PersistedMessageSent {
+ 
+    /// When receiving a return receipt for a sent message, we expect the operation processing the receipt to call this method.
+    func messageSentWasDeliveredToRecipient(withCryptoId recipientCryptoId: ObvCryptoId, noLaterThan newTimestamp: Date, andRead: Bool) {
+        let allInfos = unsortedRecipientsInfos.filter({ $0.recipientCryptoId == recipientCryptoId })
+        assert(allInfos.count < 2, "Each recipient should have at most one recipient infos")
+        guard let infos = allInfos.first else { assertionFailure("Each recipient should have at least one recipient infos"); return }
+        infos.messageWasDeliveredNoLaterThan(newTimestamp, andRead: andRead)
+        fyleMessageJoinWithStatuses.forEach { $0.markAsComplete() }
+        refreshStatus()
+    }
+
+    
+    /// When receiving a return receipt for a sent attachment, we expect the operation processing the receipt to call this method.
+    func attachmentSentWasDeliveredToRecipient(withCryptoId recipientCryptoId: ObvCryptoId, at newTimestamp: Date, deliveredAttachmentNumber: Int, andRead: Bool) {
+
+        // For consistency, we also make sure the delivered timestamp of the message is set to an earlier date than the delivered timestamp of the attachment
+
+        messageSentWasDeliveredToRecipient(withCryptoId: recipientCryptoId, noLaterThan: newTimestamp, andRead: false) // We do not assume that the message was read if the attachment was read
+
+        // We update the recipient infos of the message as she received/read the attachment
+
+        assert(unsortedRecipientsInfos.filter({ $0.recipientCryptoId == recipientCryptoId }).count == 1, "There should be exactly one recipient info per recipient")
+        if let infos = unsortedRecipientsInfos.first(where: { $0.recipientCryptoId == recipientCryptoId }) {
+            infos.messageAndAttachmentWereDeliveredNoLaterThan(newTimestamp, attachmentNumber: deliveredAttachmentNumber, andRead: andRead)
+        }
+                
+        // We update the (global) reception status of the attachment as it might change since one of the recipients has a new reception status within the recipient infos
+
+        assert(fyleMessageJoinWithStatuses.filter({ $0.index == deliveredAttachmentNumber }).count == 1, "There should be exactly one join for the given delivered attachment number")
+        if let join = fyleMessageJoinWithStatuses.first(where: { $0.index == deliveredAttachmentNumber }) {
+
+            // Collect all the attachment infos for all recipients of this attachment
+            let allAttachmentInfos = unsortedRecipientsInfos.filter({ !$0.isDeleted }).map({ $0.attachmentInfos.first(where: { $0.index == deliveredAttachmentNumber }) })
+            
+            // Deduce all the attachment reception statuses for all recipients of this attachment
+            let allReceptionStatuses = allAttachmentInfos.map({ $0?.status })
+            
+            // The (global) reception status of the attachment is set to
+            // - "none" if one (or more) recipient did not receive the attachment yet
+            // - "delivered" if it was received by all recipients, but one (or more) recipient did not read the attachment yet
+            // - "read" if all the recipients did read the attachment
+            let newReceptionStatus: SentFyleMessageJoinWithStatus.FyleReceptionStatus
+            if allReceptionStatuses.contains(nil) {
+                // At least one attachment is not delivered
+                newReceptionStatus = .none
+            } else if allReceptionStatuses.contains(.delivered) {
+                // All attachments are delivered or read, and at least one is not read
+                newReceptionStatus = .delivered
+            } else {
+                // All attachments are read
+                assert(allReceptionStatuses.allSatisfy({ $0 == .read }))
+                newReceptionStatus = .read
+            }
+            
+            join.tryToSetReceptionStatusTo(newReceptionStatus)
+            
+        }
+        
+        refreshStatus()
+    }
+    
+}
+
+
 extension PersistedMessageSent {
     
     
@@ -648,6 +715,31 @@ extension PersistedMessageSent {
         return result
     }
 
+}
+
+
+// MARK: - Thread safe struct
+
+extension PersistedMessageSent {
+    
+    struct Structure {
+        let typedObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
+        let textBody: String?
+        let isEphemeralMessageWithLimitedVisibility: Bool
+        fileprivate let abstractStructure: PersistedMessage.AbstractStructure
+        var isReplyToAnotherMessage: Bool { abstractStructure.isReplyToAnotherMessage }
+        var readOnce: Bool { abstractStructure.readOnce }
+        var forwarded: Bool { abstractStructure.forwarded }
+        var discussionKind: PersistedDiscussion.StructureKind { abstractStructure.discussionKind }
+    }
+    
+    func toStructure() throws -> Structure {
+        return Structure(typedObjectID: self.typedObjectID,
+                         textBody: self.textBody,
+                         isEphemeralMessageWithLimitedVisibility: self.isEphemeralMessageWithLimitedVisibility,
+                         abstractStructure: try toAbstractStructure())
+    }
+    
 }
 
 

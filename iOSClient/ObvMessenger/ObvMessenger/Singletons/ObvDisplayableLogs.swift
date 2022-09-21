@@ -37,7 +37,7 @@ final class ObvDisplayableLogs {
     
     private let dateFormatterForLog: DateFormatter = {
         let df = DateFormatter()
-        df.dateFormat = "HH:mm:ss:SSSS"
+        df.dateFormat = "HH:mm:ss:SSSSZZZZZ"
         return df
     }()
     

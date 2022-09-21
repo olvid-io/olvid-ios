@@ -55,7 +55,23 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
         let questionmarkCircleImage = UIImage(systemIcon: .questionmarkCircle, withConfiguration: symbolConfiguration)
         let questionmarkCircleButton = UIBarButtonItem(image: questionmarkCircleImage, style: UIBarButtonItem.Style.plain, target: self, action: #selector(questionmarkCircleButtonTapped))
         navigationItem.rightBarButtonItem = questionmarkCircleButton
+        
     }
+    
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.navigationBar.barStyle = .black
+        navigationController?.navigationBar.tintColor = .white
+    }
+    
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.navigationBar.barStyle = .default
+        navigationController?.navigationBar.tintColor = .systemBlue
+    }
+    
     
     @objc func questionmarkCircleButtonTapped() {
         let view = KeycloakConfigurationDetailsView(keycloakConfig: store.keycloakConfig)
@@ -134,6 +150,7 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
         }
     }
     
+    @MainActor
     fileprivate func userWantsToValidateDisplayedServer() {
         assert(Thread.isMainThread)
         switch validationStatus {
@@ -142,89 +159,95 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
         case .validationFailed, .validated:
             return // Already validated, happens typically when the user comes back to this view after a successfull authentication
         }
-        KeycloakManager.shared.discoverKeycloakServer(for: keycloakConfig.serverURL) { result in
-            DispatchQueue.main.async { [weak self] in
-                switch result {
-                case .success(let keycloakServerKeyAndConfig):
-                    withAnimation {
-                        self?.validationStatus = .validated(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig)
-                    }
-                case .failure:
-                    withAnimation {
-                        self?.validationStatus = .validationFailed
-                    }
-                }
+        Task {
+            let keycloakServerKeyAndConfig: (ObvJWKSet, OIDServiceConfiguration)
+            do {
+                keycloakServerKeyAndConfig = try await KeycloakManagerSingleton.shared.discoverKeycloakServer(for: keycloakConfig.serverURL)
+            } catch {
+                assert(Thread.isMainThread)
+                withAnimation { validationStatus = .validationFailed }
+                return
             }
+            assert(Thread.isMainThread)
+            withAnimation { validationStatus = .validated(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig) }
         }
     }
 
-    fileprivate func userWantsToAuthenticate(keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) {
-        assert(Thread.isMainThread)
-        KeycloakManager.shared.authenticate(configuration: keycloakServerKeyAndConfig.serviceConfig,
-                                            clientId: keycloakConfig.clientId,
-                                            clientSecret: keycloakConfig.clientSecret,
-                                            ownedCryptoId: nil) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .failure:
-                    self?.alertType = .userAuthenticationFailed
-                    self?.isAlertPresented = true
-                case .success(let authState):
-                    self?.getOwnedDetailsAfterSucessfullAuthentication(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig, authState: authState)
-                }
-            }
+    
+    @MainActor
+    fileprivate func userWantsToAuthenticate(keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async {
+        do {
+            let authState = try await KeycloakManagerSingleton.shared.authenticate(configuration: keycloakServerKeyAndConfig.serviceConfig,
+                                                                                   clientId: keycloakConfig.clientId,
+                                                                                   clientSecret: keycloakConfig.clientSecret,
+                                                                                   ownedCryptoId: nil)
+            assert(Thread.isMainThread)
+            await getOwnedDetailsAfterSucessfullAuthentication(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig, authState: authState)
+        } catch {
+            assert(Thread.isMainThread)
+            alertType = .userAuthenticationFailed
+            isAlertPresented = true
+            return
         }
     }
     
     
-    private func getOwnedDetailsAfterSucessfullAuthentication(keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration), authState: OIDAuthState) {
+    @MainActor
+    private func getOwnedDetailsAfterSucessfullAuthentication(keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration), authState: OIDAuthState) async {
+        
         assert(Thread.isMainThread)
-        KeycloakManager.shared.getOwnDetails(keycloakServer: keycloakConfig.serverURL,
-                                             authState: authState,
-                                             clientSecret: keycloakConfig.clientSecret,
-                                             jwks: keycloakServerKeyAndConfig.jwks,
-                                             latestLocalRevocationListTimestamp: nil) { result in
-            DispatchQueue.main.async { [weak self] in
-                guard let _self = self else { return }
-                switch result {
-                case .failure(let error):
-                    switch error {
-                    case .badResponse:
-                        self?.alertType = .badKeycloakServerResponse
-                        self?.isAlertPresented = true
-                    default:
-                        // We should be more specific
-                        self?.alertType = .badKeycloakServerResponse
-                        self?.isAlertPresented = true
-                    }
-                case .success(let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff)):
-                    
-                    if let minimumBuildVersion = keycloakServerRevocationsAndStuff.minimumIOSBuildVersion {
-                        guard ObvMessengerConstants.bundleVersionAsInt >= minimumBuildVersion else {
-                            ObvMessengerInternalNotification.installedOlvidAppIsOutdated(presentingViewController: nil)
-                                .postOnDispatchQueue()
-                            return
-                        }
-                    }
-                    
-                    guard let rawAuthState = try? authState.serialize() else {
-                        self?.alertType = .badKeycloakServerResponse
-                        self?.isAlertPresented = true
-                        return
-                    }
-                    let keycloakState = ObvKeycloakState(
-                        keycloakServer: _self.keycloakConfig.serverURL,
-                        clientId: _self.keycloakConfig.clientId,
-                        clientSecret: _self.keycloakConfig.clientSecret,
-                        jwks: keycloakServerKeyAndConfig.jwks,
-                        rawAuthState: rawAuthState,
-                        signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
-                        latestLocalRevocationListTimestamp: nil)
-                    self?.delegate?.newKeycloakState(keycloakState)
-                    self?.delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff)
-                }
+        
+        let keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff
+        let keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff
+        do {
+            (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff) = try await KeycloakManagerSingleton.shared.getOwnDetails(keycloakServer: keycloakConfig.serverURL,
+                                                                                                                                       authState: authState,
+                                                                                                                                       clientSecret: keycloakConfig.clientSecret,
+                                                                                                                                       jwks: keycloakServerKeyAndConfig.jwks,
+                                                                                                                                       latestLocalRevocationListTimestamp: nil)
+        } catch let error as KeycloakManager.GetOwnDetailsError {
+            switch error {
+            case .badResponse:
+                alertType = .badKeycloakServerResponse
+                isAlertPresented = true
+            default:
+                // We should be more specific
+                alertType = .badKeycloakServerResponse
+                isAlertPresented = true
+            }
+            return
+        } catch {
+            // We should be more specific
+            alertType = .badKeycloakServerResponse
+            isAlertPresented = true
+            return
+        }
+        
+        assert(Thread.isMainThread)
+
+        if let minimumBuildVersion = keycloakServerRevocationsAndStuff.minimumIOSBuildVersion {
+            guard ObvMessengerConstants.bundleVersionAsInt >= minimumBuildVersion else {
+                ObvMessengerInternalNotification.installedOlvidAppIsOutdated(presentingViewController: nil)
+                    .postOnDispatchQueue()
+                return
             }
         }
+
+        guard let rawAuthState = try? authState.serialize() else {
+            alertType = .badKeycloakServerResponse
+            isAlertPresented = true
+            return
+        }
+        let keycloakState = ObvKeycloakState(
+            keycloakServer: keycloakConfig.serverURL,
+            clientId: keycloakConfig.clientId,
+            clientSecret: keycloakConfig.clientSecret,
+            jwks: keycloakServerKeyAndConfig.jwks,
+            rawAuthState: rawAuthState,
+            signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
+            latestLocalRevocationListTimestamp: nil)
+        delegate?.newKeycloakState(keycloakState)
+        delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff)
     }
 
     func userWantsToRestoreBackup() {
@@ -295,7 +318,7 @@ struct IdentityProviderValidationHostingView: View {
                                 OlvidButton(style: colorScheme == .dark ? .blue : .white,
                                             title: Text("AUTHENTICATE"),
                                             systemIcon: .personCropCircleBadgeCheckmark,
-                                            action: { store.userWantsToAuthenticate(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig) })
+                                            action: { Task { await store.userWantsToAuthenticate(keycloakServerKeyAndConfig: keycloakServerKeyAndConfig) } })
                                     .padding(.bottom, 16)
                             }
                         }

@@ -469,6 +469,30 @@ extension PersistedMessage {
 
 }
 
+
+// MARK: - Thread safe structure
+
+extension PersistedMessage {
+    
+    struct AbstractStructure {
+        let isReplyToAnotherMessage: Bool
+        let readOnce: Bool
+        let forwarded: Bool
+        let timestamp: Date
+        let discussionKind: PersistedDiscussion.StructureKind
+    }
+    
+    func toAbstractStructure() throws -> AbstractStructure {
+        return AbstractStructure(isReplyToAnotherMessage: self.isReplyToAnotherMessage,
+                                 readOnce: self.readOnce,
+                                 forwarded: self.forwarded,
+                                 timestamp: self.timestamp,
+                                 discussionKind: try discussion.toStruct())
+    }
+    
+}
+
+
 // MARK: - Reacting to changes
 
 extension PersistedMessage {

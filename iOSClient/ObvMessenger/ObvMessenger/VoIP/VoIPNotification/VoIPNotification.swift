@@ -36,10 +36,17 @@ fileprivate struct OptionalWrapper<T> {
 enum VoIPNotification {
 	case userWantsToKickParticipant(call: GenericCall, callParticipant: CallParticipant)
 	case userWantsToAddParticipants(call: GenericCall, contactIds: [OlvidUserId])
-	case callHasBeenUpdated(callEssentials: CallEssentials, updateKind: CallUpdateKind)
+	case callHasBeenUpdated(callUUID: UUID, updateKind: CallUpdateKind)
 	case callParticipantHasBeenUpdated(callParticipant: CallParticipant, updateKind: CallParticipantUpdateKind)
 	case reportCallEvent(callUUID: UUID, callReport: CallReport, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, ownedCryptoId: ObvCryptoId)
 	case showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: GenericCall)
+	case noMoreCallInProgress
+	case serverDoesNotSupportCall
+	case newOutgoingCall(newOutgoingCall: GenericCall)
+	case newIncomingCall(newIncomingCall: GenericCall)
+	case showCallView
+	case hideCallView
+	case anIncomingCallShouldBeShownToUser(newIncomingCall: GenericCall)
 
 	private enum Name {
 		case userWantsToKickParticipant
@@ -48,6 +55,13 @@ enum VoIPNotification {
 		case callParticipantHasBeenUpdated
 		case reportCallEvent
 		case showCallViewControllerForAnsweringNonCallKitIncomingCall
+		case noMoreCallInProgress
+		case serverDoesNotSupportCall
+		case newOutgoingCall
+		case newIncomingCall
+		case showCallView
+		case hideCallView
+		case anIncomingCallShouldBeShownToUser
 
 		private var namePrefix: String { String(describing: VoIPNotification.self) }
 
@@ -66,6 +80,13 @@ enum VoIPNotification {
 			case .callParticipantHasBeenUpdated: return Name.callParticipantHasBeenUpdated.name
 			case .reportCallEvent: return Name.reportCallEvent.name
 			case .showCallViewControllerForAnsweringNonCallKitIncomingCall: return Name.showCallViewControllerForAnsweringNonCallKitIncomingCall.name
+			case .noMoreCallInProgress: return Name.noMoreCallInProgress.name
+			case .serverDoesNotSupportCall: return Name.serverDoesNotSupportCall.name
+			case .newOutgoingCall: return Name.newOutgoingCall.name
+			case .newIncomingCall: return Name.newIncomingCall.name
+			case .showCallView: return Name.showCallView.name
+			case .hideCallView: return Name.hideCallView.name
+			case .anIncomingCallShouldBeShownToUser: return Name.anIncomingCallShouldBeShownToUser.name
 			}
 		}
 	}
@@ -82,9 +103,9 @@ enum VoIPNotification {
 				"call": call,
 				"contactIds": contactIds,
 			]
-		case .callHasBeenUpdated(callEssentials: let callEssentials, updateKind: let updateKind):
+		case .callHasBeenUpdated(callUUID: let callUUID, updateKind: let updateKind):
 			info = [
-				"callEssentials": callEssentials,
+				"callUUID": callUUID,
 				"updateKind": updateKind,
 			]
 		case .callParticipantHasBeenUpdated(callParticipant: let callParticipant, updateKind: let updateKind):
@@ -102,6 +123,26 @@ enum VoIPNotification {
 		case .showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: let incomingCall):
 			info = [
 				"incomingCall": incomingCall,
+			]
+		case .noMoreCallInProgress:
+			info = nil
+		case .serverDoesNotSupportCall:
+			info = nil
+		case .newOutgoingCall(newOutgoingCall: let newOutgoingCall):
+			info = [
+				"newOutgoingCall": newOutgoingCall,
+			]
+		case .newIncomingCall(newIncomingCall: let newIncomingCall):
+			info = [
+				"newIncomingCall": newIncomingCall,
+			]
+		case .showCallView:
+			info = nil
+		case .hideCallView:
+			info = nil
+		case .anIncomingCallShouldBeShownToUser(newIncomingCall: let newIncomingCall):
+			info = [
+				"newIncomingCall": newIncomingCall,
 			]
 		}
 		return info
@@ -150,12 +191,12 @@ enum VoIPNotification {
 		}
 	}
 
-	static func observeCallHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (CallEssentials, CallUpdateKind) -> Void) -> NSObjectProtocol {
+	static func observeCallHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallUpdateKind) -> Void) -> NSObjectProtocol {
 		let name = Name.callHasBeenUpdated.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let callEssentials = notification.userInfo!["callEssentials"] as! CallEssentials
+			let callUUID = notification.userInfo!["callUUID"] as! UUID
 			let updateKind = notification.userInfo!["updateKind"] as! CallUpdateKind
-			block(callEssentials, updateKind)
+			block(callUUID, updateKind)
 		}
 	}
 
@@ -185,6 +226,58 @@ enum VoIPNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let incomingCall = notification.userInfo!["incomingCall"] as! GenericCall
 			block(incomingCall)
+		}
+	}
+
+	static func observeNoMoreCallInProgress(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.noMoreCallInProgress.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeServerDoesNotSupportCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.serverDoesNotSupportCall.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeNewOutgoingCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
+		let name = Name.newOutgoingCall.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let newOutgoingCall = notification.userInfo!["newOutgoingCall"] as! GenericCall
+			block(newOutgoingCall)
+		}
+	}
+
+	static func observeNewIncomingCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
+		let name = Name.newIncomingCall.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let newIncomingCall = notification.userInfo!["newIncomingCall"] as! GenericCall
+			block(newIncomingCall)
+		}
+	}
+
+	static func observeShowCallView(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.showCallView.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeHideCallView(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.hideCallView.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeAnIncomingCallShouldBeShownToUser(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
+		let name = Name.anIncomingCallShouldBeShownToUser.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let newIncomingCall = notification.userInfo!["newIncomingCall"] as! GenericCall
+			block(newIncomingCall)
 		}
 	}
 

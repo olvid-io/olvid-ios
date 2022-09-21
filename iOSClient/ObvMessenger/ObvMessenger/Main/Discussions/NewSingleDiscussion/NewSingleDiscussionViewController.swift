@@ -26,7 +26,7 @@ import AVFoundation
 import Combine
 
 @available(iOS 15.0, *)
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, QLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate {
     
     static let sectionHeaderElementKind = UICollectionView.elementKindSectionHeader
     private var collectionView: DiscussionCollectionView!
@@ -43,13 +43,13 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var unreadMessagesSystemMessage: PersistedMessageSystem?
     private let initialScroll: InitialScroll
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewSingleDiscussionViewController.self))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewSingleDiscussionViewController.self))
     private let internalQueue = DispatchQueue(label: "NewSingleDiscussionViewController internal queue")
     private let hidingView = UIView()
     private var initialScrollWasPerformed = false
     private var currentKbdSize = CGRect.zero
     private let queueForApplyingSnapshots = DispatchQueue(label: "NewSingleDiscussionViewController queue for snapshots")
     private let cacheDelegate = DiscussionCacheManager()
-    private var cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured = false
     private var messagesToMarkAsNotNewWhenScrollingEnds = Set<TypeSafeManagedObjectID<PersistedMessage>>()
     private var atLeastOneSnapshotWasApplied = false
     private var isRegisteredToKeyboardNotifications = false
@@ -203,7 +203,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         updateNewMessageCellOnInsertionOfRelevantSystemMessages()
         updateNewMessageCellOnInsertionOfSentMessage()
         
-        observeAppStateChanges()
         observePersistedDiscussionChanges()
         observePersistedObvContactIdentityChanges()
         observeRouteChange()
@@ -238,7 +237,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         registerForNotification()
 
         // This constraint was *not* set in viewDidLoad. We want to reset it every time the main view will appear
-        // Otherwise, it seems that the constraint "desappears" each time another VC is presented over this one.
+        // Otherwise, it seems that the constraint "disappears" each time another VC is presented over this one.
         // NOTE: replaced by myKeyboardLayoutGuide until Apple fixes the bug with keyboardLayoutGuide
         myKeyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView!.bottomAnchor).isActive = true
 
@@ -251,6 +250,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         composeMessageView?.discussionViewDidAppear()
         configureTimerForRefreshingCellCountdowns()
                 
+        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from viewDidAppear")
         markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
         insertSystemMessageIfCurrentDiscussionIsEmpty()
         
@@ -277,6 +277,8 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 self?.hidingView.alpha = 0
             } completion: { _ in
                 self?.hidingView.isHidden = true
+                ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from performInitialScrollIfAppropriateAndRemoveHidingView")
+                self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
             }
         }
         switch initialScroll {
@@ -314,6 +316,8 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private func registerForNotification() {
         guard !isRegisteredToNotifications else { return }
         isRegisteredToNotifications = true
+        let sceneDidActivateNotification = UIScene.didActivateNotification
+        let sceneDidEnterBackgroundNotification = UIScene.didEnterBackgroundNotification
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
                 guard let _self = self else { return }
@@ -336,6 +340,14 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             },
             ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged(queue: OperationQueue.main) { [weak self] _ in
                 self?.configureNewComposeMessageViewVisibility(animate: true)
+            },
+            NotificationCenter.default.addObserver(forName: sceneDidActivateNotification, object: nil, queue: .main) { [weak self] _ in
+                // When the scene activates, we want to mark as not new the messages that were received while in background and that are now visible on screen.
+                self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
+            },
+            NotificationCenter.default.addObserver(forName: sceneDidEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+                guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == self?.discussionObjectID else { return }
+                self?.theUserLeftTheDiscussion()
             },
         ])
     }
@@ -397,7 +409,7 @@ extension NewSingleDiscussionViewController {
                         image: UIImage(systemIcon: .photoOnRectangleAngled),
                         handler: { [weak self] _ in self?.galleryButtonTapped() })
                 ]
-                if discussion.isCallAvailable, AppStateManager.shared.appType == .mainApp {
+                if discussion.isCallAvailable {
                     menuElements += [
                         UIAction(
                             title: CommonString.Word.Call,
@@ -544,13 +556,19 @@ extension NewSingleDiscussionViewController {
         let systemMessageCellRegistration = UICollectionView.CellRegistration<SystemMessageCell, PersistedMessageSystem> { [weak self] (cell, indexPath, message) in
             self?.updateSystemMessageCell(cell, at: indexPath, with: message)
         }
+        
+        let invisibleCellRegistration = UICollectionView.CellRegistration<InvisibleCell, NSManagedObjectID> { (_, _, _) in }
 
         let headerRegistration = UICollectionView.SupplementaryRegistration<DateSupplementaryView>(elementKind: NewSingleDiscussionViewController.sectionHeaderElementKind) { [weak self] (dateSupplementaryView, string, indexPath) in
             self?.updateDateSupplementaryView(dateSupplementaryView, at: indexPath)
         }
 
         self.dataSource = UICollectionViewDiffableDataSource<Int, NSManagedObjectID>(collectionView: collectionView) { (collectionView: UICollectionView, indexPath: IndexPath, objectID: NSManagedObjectID) -> UICollectionViewCell? in
-            guard let message = try? PersistedMessage.get(with: objectID, within: ObvStack.shared.viewContext) else { return nil }
+            guard let message = try? PersistedMessage.get(with: objectID, within: ObvStack.shared.viewContext) else {
+                // This may happen if the message was just deleted. In that case, we return an "invisible" cell that will soon be deleted by the collection view anyway.
+                // This technique avoids to return nil, preventing a crash of the entire app.
+                return collectionView.dequeueConfiguredReusableCell(using: invisibleCellRegistration, for: indexPath, item: objectID)
+            }
             if let messageSent = message as? PersistedMessageSent {
                 return collectionView.dequeueConfiguredReusableCell(using: sentMessageCellRegistration, for: indexPath, item: messageSent)
             } else if let messageReceived = message as? PersistedMessageReceived {
@@ -558,7 +576,8 @@ extension NewSingleDiscussionViewController {
             } else if let messageSystem = message as? PersistedMessageSystem {
                 return collectionView.dequeueConfiguredReusableCell(using: systemMessageCellRegistration, for: indexPath, item: messageSystem)
             } else {
-                return nil
+                // See the comment above, where we also return an "invisible" cell.
+                return collectionView.dequeueConfiguredReusableCell(using: invisibleCellRegistration, for: indexPath, item: objectID)
             }
         }
                         
@@ -594,7 +613,7 @@ extension NewSingleDiscussionViewController {
                 prvMessageIsFromSameContact = previousMessageIsFromSameContact(message: message)
             }
         }
-        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, previousMessageIsFromSameContact: prvMessageIsFromSameContact, cacheDelegate: cacheDelegate, cellReconfigurator: self, textBubbleDelegate: self)
+        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, previousMessageIsFromSameContact: prvMessageIsFromSameContact, cacheDelegate: cacheDelegate, cellReconfigurator: self, textBubbleDelegate: self, audioPlayerViewDelegate: self)
     }
 
     
@@ -633,7 +652,6 @@ extension NewSingleDiscussionViewController {
     
     @objc(refreshCellCountdowns)
     private func refreshCellCountdowns() {
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
         collectionView?.visibleCells.forEach {
             if let sentMessageCell = $0 as? SentMessageCell {
                 guard sentMessageCell.message?.isEphemeralMessage == true else { return }
@@ -682,24 +700,6 @@ extension NewSingleDiscussionViewController {
         }
     }
 
-    
-    private func observeAppStateChanges() {
-        observationTokens.append(ObvMessengerInternalNotification.observeAppStateChanged(queue: OperationQueue.main) { [weak self] (previousState, currentState) in
-            debugPrint("🍆 \(previousState.iOSAppState.debugDescription) --> \(currentState.iOSAppState.debugDescription)")
-            guard currentState.isInitialized else { return }
-            if currentState.iOSAppState == .active, self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured ?? false {
-                self?.reconfigureCellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission()
-            }
-            switch (previousState.iOSAppState, currentState.iOSAppState) {
-            case (.active, .notActive),
-                 (.mayResignActive, .inBackground):
-                guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == self?.discussionObjectID else { return }
-                self?.theUserLeftTheDiscussion()
-            default:
-                break
-            }
-        })
-    }
 
     // Refresh the discussion title if it is updated
     private func observePersistedDiscussionChanges() {
@@ -791,9 +791,7 @@ extension NewSingleDiscussionViewController {
             debugPrint("😤 Will call apply for the new snapshot")
             var snapshot = self.dataSource.snapshot()
             snapshot.reconfigureItems(itemsToReconfigure)
-            self.dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
-                self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured = false
-            }
+            self.dataSource.apply(snapshot, animatingDifferences: true) 
         }
     }
 
@@ -855,33 +853,31 @@ extension NewSingleDiscussionViewController {
         let shouldScrollToBottom = scrollToBottomAfterApplyingSnapshot(controller: controller)
         debugPrint("🦄 shouldScrollToBottom: \(shouldScrollToBottom)")
         
-        debugPrint("😤💿 Is initialized and active is \(AppStateManager.shared.currentState.isInitializedAndActive)")
-        
-        AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive { [weak self] in
+        // AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive { [weak self] in
             
-            self?.queueForApplyingSnapshots.async {
-                
-                debugPrint("😤💿 Will call apply for the new snapshot")
-                
-                dataSource.apply(newSnapshot, animatingDifferences: true) { [weak self] in
-                    debugPrint("😤💿 Did call apply for the new snapshot")
-                    DispatchQueue.main.async {
-                        guard let _self = self else { return }
-                        _self.atLeastOneSnapshotWasApplied = true
-                        if _self.initialScrollWasPerformed {
-                            guard _self.viewDidAppearWasCalled else { return }
-                            if shouldScrollToBottom {
-                                _self.simpleScrollToBottom()
-                            }
-                        } else {
-                            _self.performInitialScrollIfAppropriateAndRemoveHidingView()
+        queueForApplyingSnapshots.async {
+            
+            debugPrint("😤💿 Will call apply for the new snapshot")
+            
+            dataSource.apply(newSnapshot, animatingDifferences: true) { [weak self] in
+                debugPrint("😤💿 Did call apply for the new snapshot")
+                DispatchQueue.main.async {
+                    guard let _self = self else { return }
+                    _self.atLeastOneSnapshotWasApplied = true
+                    if _self.initialScrollWasPerformed {
+                        guard _self.viewDidAppearWasCalled else { return }
+                        if shouldScrollToBottom {
+                            _self.simpleScrollToBottom()
                         }
+                    } else {
+                        _self.performInitialScrollIfAppropriateAndRemoveHidingView()
                     }
                 }
-                
             }
             
         }
+            
+        // }
         
     }
 
@@ -1108,9 +1104,14 @@ extension NewSingleDiscussionViewController {
     
     /// This method sends a notification allowing the database to mark the message as not new (which will eventually send read receipt if this setting is set)
     private func markAsNotNewTheMessageInCell(_ cell: UICollectionViewCell) {
-        guard AppStateManager.shared.currentState.isInitialized else { return }
         guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == discussionObjectID else { return }
         guard viewDidAppearWasCalled else { return }
+        
+        // If the scene is not foreground active, we do not mark visible messages as not new.
+        // When going back to the `active` state, a call to `markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew(..)` will be made.
+        // This will allow to mark visible messages as not new.
+        guard windowSceneActivationState == .foregroundActive else { return }
+        
         let messageObjectId: TypeSafeManagedObjectID<PersistedMessage>
         if let receivedCell = cell as? ReceivedMessageCell, let receivedMessage = receivedCell.message, receivedMessage.status == .new {
             messageObjectId = receivedMessage.typedObjectID.downcast
@@ -1121,17 +1122,6 @@ extension NewSingleDiscussionViewController {
                 return
             }
         } else {
-            return
-        }
-        
-        // If the app is no active yet, we wait until it is before sending the `messagesAreNotNewAnymore` notification.
-        
-        guard AppStateManager.shared.currentState.isInitializedAndActive else {
-            AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive {
-                ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markAsNotNewTheMessageInCell for \([messageObjectId].count) messages (after waiting for the active state)")
-                ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageObjectId])
-                    .postOnDispatchQueue()
-            }
             return
         }
         
@@ -1151,7 +1141,17 @@ extension NewSingleDiscussionViewController {
     /// Marks all new received and relevant system messages that are visible as "not new"
     private func markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew() {
 
-        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew. AppStateManager.shared.currentState.isInitializedAndActive: \(AppStateManager.shared.currentState.isInitializedAndActive)")
+        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew")
+        
+        // If the scene is not foreground active, we do not mark visible messages as not new.
+        // When going back to the `active` state, a call to `markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew(..)` will be made.
+        // This will allow to mark visible messages as not new.
+        guard windowSceneActivationState == .foregroundActive else {
+            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Not performing markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew as we are not foregroundActive")
+            return
+        }
+
+        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Performing markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew")
         
         let visibleReceivedCells = collectionView.visibleCells.compactMap({ $0 as? ReceivedMessageCell })
         let visibleSystemCells = collectionView.visibleCells.compactMap({ $0 as? SystemMessageCell })
@@ -1164,10 +1164,11 @@ extension NewSingleDiscussionViewController {
 
         let objectIDsOfNewVisibleMessages = objectIDsOfNewVisibleReceivedMessages.union(objectIDsOfNewVisibleSystemMessages)
 
-        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew for \(objectIDsOfNewVisibleMessages.count) messages")
-
-        ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: objectIDsOfNewVisibleMessages)
-            .postOnDispatchQueue(internalQueue)
+        if !objectIDsOfNewVisibleMessages.isEmpty {
+            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew for \(objectIDsOfNewVisibleMessages.count) messages")
+            ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: objectIDsOfNewVisibleMessages)
+                .postOnDispatchQueue(internalQueue)
+        }
 
     }
     
@@ -1246,6 +1247,7 @@ extension NewSingleDiscussionViewController {
 
     
     private func processReceivedMessagesThatBecameNotNewDuringScrolling() {
+        // No need to check whether the window is foreground active
         guard !messagesToMarkAsNotNewWhenScrollingEnds.isEmpty else { return }
         guard currentScrolling == .none else { return }
         ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in processReceivedMessagesThatBecameNotNewDuringScrolling for \(messagesToMarkAsNotNewWhenScrollingEnds.count) messages")
@@ -1335,6 +1337,12 @@ extension NewSingleDiscussionViewController {
                     let action = UIAction(title: Strings.sharePhotos(itemProvidersForImages.count)) { [weak self] (_) in
                         let uiActivityVC = UIActivityViewController(activityItems: itemProvidersForImages, applicationActivities: nil)
                         uiActivityVC.popoverPresentationController?.sourceView = cell
+                        uiActivityVC.completionWithItemsHandler = { [weak self] (activityType, completed, returnedItems, activityError) in
+                            guard completed, activityError == nil else {
+                                return
+                            }
+                            self?.postUserHasOpenedAReceivedAttachmentNotification(for: persistedMessage)
+                        }
                         self?.present(uiActivityVC, animated: true)
                     }
                     action.image = UIImage(systemIcon: .squareAndArrowUp)
@@ -1346,6 +1354,12 @@ extension NewSingleDiscussionViewController {
                     let action = UIAction(title: Strings.shareAttachments(itemProvidersForAllAttachments.count)) { [weak self] (_) in
                         let uiActivityVC = UIActivityViewController(activityItems: itemProvidersForAllAttachments, applicationActivities: nil)
                         uiActivityVC.popoverPresentationController?.sourceView = cell
+                        uiActivityVC.completionWithItemsHandler = { [weak self] (activityType, completed, returnedItems, activityError) in
+                            guard completed, activityError == nil else {
+                                return
+                            }
+                            self?.postUserHasOpenedAReceivedAttachmentNotification(for: persistedMessage)
+                        }
                         self?.present(uiActivityVC, animated: true)
                     }
                     action.image = UIImage(systemIcon: .squareAndArrowUp)
@@ -1450,6 +1464,13 @@ extension NewSingleDiscussionViewController {
         }
     }
 
+    private func postUserHasOpenedAReceivedAttachmentNotification(for message: PersistedMessage) {
+        guard let receivedMessage = message as? PersistedMessageReceived else { return }
+        let joins = receivedMessage.fyleMessageJoinWithStatuses
+        for join in joins {
+            ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: join.typedObjectID).postOnDispatchQueue()
+        }
+    }
     
     private func deletePersistedMessage(objectId: NSManagedObjectID, confirmedDeletionType: DeletionType?, withinCell cell: CellWithMessage) {
         
@@ -1902,10 +1923,6 @@ extension NewSingleDiscussionViewController {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .undetermined:
             AVAudioSession.sharedInstance().requestRecordPermission { [weak self] (granted) in
-                guard AppStateManager.shared.currentState.isInitializedAndActive else {
-                    self?.cellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionNeedToBeReconfigured = true
-                    return
-                }
                 self?.reconfigureCellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission()
             }
         case .denied:
@@ -2014,7 +2031,10 @@ extension NewSingleDiscussionViewController {
             return composeMessageView?.attachmentsCollectionViewController.getView(at: indexPath)
         }
     }
-    
+
+    func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+        ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: joinID).postOnDispatchQueue()
+    }
     
     func previewControllerDidDismiss(_ controller: QLPreviewController) {
         self.filesViewer = nil
@@ -2089,4 +2109,18 @@ extension NewSingleDiscussionViewController {
         }
     }
     
+}
+
+// MARK: - AudioPlayerViewDelegate
+
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
+
+    func audioHasBeenPlayed(_ hardlink: HardLinkToFyle) {
+        guard let cell = findCellShowingHardlink(hardlink) else { assertionFailure(); return }
+        guard let message = cell.persistedMessage else { assertionFailure(); return }
+        guard let join = message.fyleMessageJoinWithStatus?.first(where: { $0.fyle?.url == hardlink.fyleURL }) else { assertionFailure(); return }
+        guard let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus else { return }
+        ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: receivedJoin.typedObjectID).postOnDispatchQueue()
+    }
 }

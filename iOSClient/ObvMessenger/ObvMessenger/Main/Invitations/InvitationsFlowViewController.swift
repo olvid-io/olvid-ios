@@ -24,7 +24,8 @@ import ObvEngine
 
 final class InvitationsFlowViewController: UINavigationController, ObvFlowController {
     
-    private(set) var ownedCryptoId: ObvCryptoId!
+    let ownedCryptoId: ObvCryptoId
+    let obvEngine: ObvEngine
 
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: InvitationsFlowViewController.self))
 
@@ -34,28 +35,18 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
     
     // MARK: - Factory
 
-    // Factory (required because creating a custom init does not work under iOS 12)
-    static func create(ownedCryptoId: ObvCryptoId) -> InvitationsFlowViewController {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
+        
+        self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
 
         let layout = UICollectionViewFlowLayout()
-        let invitationsCollectionViewController = InvitationsCollectionViewController(ownedCryptoId: ownedCryptoId, collectionViewLayout: layout)
-        let vc = self.init(rootViewController: invitationsCollectionViewController)
+        let invitationsCollectionViewController = InvitationsCollectionViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, collectionViewLayout: layout)
+        super.init(rootViewController: invitationsCollectionViewController)
 
-        vc.ownedCryptoId = ownedCryptoId
+        invitationsCollectionViewController.delegate = self
 
-        invitationsCollectionViewController.delegate = vc
-        
-        vc.title = CommonString.Word.Invitations
-        
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let image = UIImage(systemName: "tray.and.arrow.down", withConfiguration: symbolConfiguration)
-        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-        
-        vc.delegate = ObvUserActivitySingleton.shared
-
-        return vc
     }
-    
     
     override var delegate: UINavigationControllerDelegate? {
         get {
@@ -68,16 +59,6 @@ final class InvitationsFlowViewController: UINavigationController, ObvFlowContro
         }
     }
 
-    
-    override init(rootViewController: UIViewController) {
-        super.init(rootViewController: rootViewController)
-    }
-
-    
-    // Required in order to prevent a crash under iOS 12
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-    }
     
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
@@ -94,6 +75,14 @@ extension InvitationsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        title = CommonString.Word.Invitations
+        
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "tray.and.arrow.down", withConfiguration: symbolConfiguration)
+        tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+        
+        delegate = ObvUserActivitySingleton.shared
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
@@ -108,20 +97,21 @@ extension InvitationsFlowViewController {
 extension InvitationsFlowViewController {
 
     private func respondToInvitation(dialog: ObvDialog, acceptInvite: Bool) {
-        DispatchQueue(label: "RespondingToInvitationDialog").async { [weak self] in
-            var localDialog = dialog
-            try? localDialog.setResponseToAcceptInvite(acceptInvite: acceptInvite)
-            self?.obvEngine.respondTo(localDialog)
+        var localDialog = dialog
+        do {
+            try localDialog.setResponseToAcceptInvite(acceptInvite: acceptInvite)
+        } catch {
+            assertionFailure()
+            return
         }
+        obvEngine.respondTo(localDialog)
     }
     
     private func confirmDigits(dialog: ObvDialog, enteredDigits: String) {
-        DispatchQueue(label: "RespondingToConfirmDigitsDialog").async { [weak self] in
-            var localDialog = dialog
-            guard let sas = enteredDigits.data(using: .utf8) else { return }
-            try? localDialog.setResponseToSasExchange(otherSas: sas)
-            self?.obvEngine.respondTo(localDialog)
-        }
+        var localDialog = dialog
+        guard let sas = enteredDigits.data(using: .utf8) else { return }
+        try? localDialog.setResponseToSasExchange(otherSas: sas)
+        obvEngine.respondTo(localDialog)
     }
 }
 

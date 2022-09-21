@@ -34,16 +34,18 @@ class SingleOwnedIdentityFlowViewController: UIViewController {
 
     let ownedIdentity: PersistedObvOwnedIdentity
     let ownedCryptoId: ObvCryptoId
+    let obvEngine: ObvEngine
     weak var delegate: SingleOwnedIdentityFlowViewControllerDelegate?
     private var editedOwnedIdentity: SingleIdentity?
     private var availableSubscriptionPlans: AvailableSubscriptionPlans?
     private var apiKeyStatusAndExpiry: APIKeyStatusAndExpiry
     
-    init(ownedIdentity: PersistedObvOwnedIdentity) {
+    init(ownedIdentity: PersistedObvOwnedIdentity, obvEngine: ObvEngine) {
         assert(Thread.isMainThread)
         assert(ownedIdentity.managedObjectContext == ObvStack.shared.viewContext)
         self.ownedIdentity = ownedIdentity
         self.ownedCryptoId = ownedIdentity.cryptoId
+        self.obvEngine = obvEngine
         self.apiKeyStatusAndExpiry = APIKeyStatusAndExpiry(ownedIdentity: ownedIdentity)
         super.init(nibName: nil, bundle: nil)
     }
@@ -167,24 +169,22 @@ class SingleOwnedIdentityFlowViewController: UIViewController {
         let ownedCryptoId = ownedIdentity.cryptoId
         let obvEngine = self.obvEngine
 
-        DispatchQueue(label: "Queue for publishing new owned Id").async { [weak self] in
+        DispatchQueue(label: "Queue for calling updatePublishedIdentityDetailsOfOwnedIdentity").async {
             do {
-                let newDetails = ObvIdentityDetails(coreDetails: newCoreIdentityDetails,
-                                                    photoURL: newProfilPictureURL)
+                let newDetails = ObvIdentityDetails(coreDetails: newCoreIdentityDetails, photoURL: newProfilPictureURL)
                 try obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: newDetails)
             } catch {
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     self?.showHUD(type: .text(text: "Failed"))
                     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
                 }
                 return
             }
-
-            DispatchQueue.main.sync {
+            
+            DispatchQueue.main.async { [weak self] in
                 self?.showHUD(type: .checkmark)
                 DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
             }
-            
         }
 
     }

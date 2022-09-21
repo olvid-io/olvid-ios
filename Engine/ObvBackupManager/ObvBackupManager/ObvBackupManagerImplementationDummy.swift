@@ -36,8 +36,7 @@ final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {
         self.log = OSLog(subsystem: logSubsystem, category: "ObvBackupManagerImplementationDummy")
     }
 
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     private static let errorDomain = "ObvBackupManagerImplementationDummy"
     

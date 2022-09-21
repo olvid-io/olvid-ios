@@ -71,6 +71,6 @@ final class CallBannerView: UIView {
     }
 
     @objc func tapPerformed(recognizer: UITapGestureRecognizer) {
-        ObvMessengerInternalNotification.toggleCallView.postOnDispatchQueue()
+        VoIPNotification.showCallView.postOnDispatchQueue()
     }
 }

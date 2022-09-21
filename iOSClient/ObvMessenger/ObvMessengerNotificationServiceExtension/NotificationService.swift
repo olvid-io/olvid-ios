@@ -51,11 +51,6 @@ class NotificationService: UNNotificationServiceExtension {
         
         contactThumbnailFileManager.deleteOldFiles()
         
-        defer {
-            cleanUserDefaults()
-            addNotification()
-        }
-        
         // Store the request and content handler, and create a minimal notification to instantiate the full attempt content.
         // This minimal attempt content allows to make sure we display a notification in all situations (even in bad cases where
         // The engine fails to load, e.g., because a database migration is required and the app has not been started yet since
@@ -73,6 +68,8 @@ class NotificationService: UNNotificationServiceExtension {
                 NotificationService.obvEngine = try ObvEngine.startLimitedToDecrypting(sharedContainerIdentifier: ObvMessengerConstants.appGroupIdentifier, logPrefix: "DecryptingLimitedEngine", appType: .notificationExtension, runningLog: NotificationService.runningLog)
             } catch {
                 os_log("Could not start the obvEngine (happens when a migration is needed)", log: log, type: .fault)
+                cleanUserDefaults()
+                addNotification()
                 return
             }
         }
@@ -83,6 +80,8 @@ class NotificationService: UNNotificationServiceExtension {
             try ObvStack.initSharedInstance(transactionAuthor: ObvMessengerConstants.AppType.notificationExtension.transactionAuthor, runningLog: NotificationService.runningLog, enableMigrations: false)
         } catch let error {
             os_log("Could initialize the ObvStack within the notification service extension: %{public}@", log: log, type: .fault, error.localizedDescription)
+            cleanUserDefaults()
+            addNotification()
             return
         }
 
@@ -90,31 +89,44 @@ class NotificationService: UNNotificationServiceExtension {
         
         guard let encryptedNotification = EncryptedPushNotification(content: request.content) else {
             os_log("Could not extract information from the received notification", log: log, type: .error)
+            cleanUserDefaults()
+            addNotification()
             return
         }
         
-        // First try: Decrypt the notification in order to create an appropriate user notification
-        
-        if tryToCreateNewMessageNotificationByDecrypting(encryptedPushNotification: encryptedNotification, request: request) {
-            os_log("The encrypted push notification was successfully decrypted and the notification was set", log: log, type: .info)
-            return
+        Task {
+            
+            // First try: Decrypt the notification in order to create an appropriate user notification
+            
+            if await tryToCreateNewMessageNotificationByDecrypting(encryptedPushNotification: encryptedNotification, request: request) {
+                os_log("The encrypted push notification was successfully decrypted and the notification was set", log: log, type: .info)
+                cleanUserDefaults()
+                addNotification()
+                return
+            }
+            
+            // Second try: If we reach this point, it might be the case that we could not decrypt the notification because the decryption key was not available.
+            // This happens in particular when the message was already fetched and decrypted by the app. In that case, the decrypted might already be in database.
+            // So we try to fetch it from there.
+            
+            if await tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: encryptedNotification, request: request) {
+                os_log("The message was found in database. We used it to populate the notification.", log: log, type: .info)
+                cleanUserDefaults()
+                addNotification()
+                return
+            }
+            
+            // If we reach this point, we could not decrypt, we could not get the message from the app. We do not display a user notification.
+            // It might be the case that the app is in foreground and that we are receiving a message from a non-OntToOne contact or within an unknown group discussion.
+            // In those cases, we do not want to display a user notification, we we set the fullAttemptContent to nil.
+            
+            self.fullAttemptContent = nil
+            
+            cleanUserDefaults()
+            addNotification()
+            
         }
-        
-        // Second try: If we reach this point, it might be the case that we could not decrypt the notification because the decryption key was not available.
-        // This happens in particular when the message was already fetched and decrypted by the app. In that case, the decrypted might already be in database.
-        // So we try to fetch it from there.
-        
-        if tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: encryptedNotification, request: request) {
-            os_log("The message was found in database. We used it to populate the notification.", log: log, type: .info)
-            return
-        }
-        
-        // If we reach this point, we could not decrypt, we could not get the message from the app. We do not display a user notification.
-        // It might be the case that the app is in foreground and that we are receiving a message from a non-OntToOne contact or within an unknown group discussion.
-        // In those cases, we do not want to display a user notification, we we set the fullAttemptContent to nil.
-        
-        self.fullAttemptContent = nil
-        
+
     }
 
     // Update the app badge value within user defaults. The actual app badge is updated using the User Notification badge content.
@@ -126,12 +138,10 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     
-    private func tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) -> Bool {
+    private func tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
 
-        var returnValue = false
-        
-        ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
-
+        var messageReceivedStructure: PersistedMessageReceived.Structure?
+        ObvStack.shared.performBackgroundTaskAndWait { context in
             let messageReceived: PersistedMessageReceived
             do {
                 guard let _message = try PersistedMessageReceived.getAll(messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine, within: context)
@@ -144,52 +154,56 @@ class NotificationService: UNNotificationServiceExtension {
                 os_log("Could not get any PersistedMessageReceived from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
-            
-            // Save the notification identifier (forced by iOS) and associate it with the message
-            
-            ObvUserNotificationIdentifier.saveIdentifierForcedInNotificationExtension(
-                identifier: request.identifier,
-                messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine,
-                timestamp: messageReceived.timestamp)
-
-            // We do not need to save a serialized version of the message for the app (since the app is obviously aware of the message).
-            // Similarly, we do not need to create a return receipt. The app took care of that.
-                        
-            // Construct the notification content
-            
-            guard let contact = messageReceived.contactIdentity else {
-                os_log("Could not determine the contact", log: log, type: .error)
+            do {
+                messageReceivedStructure = try messageReceived.toStructure()
+            } catch {
+                assertionFailure()
+                os_log("Could create PersistedMessageReceived.Structure: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
-            let discussion = messageReceived.discussion
-            if discussion.shouldMuteNotifications {
-                self?.fullAttemptContent = nil
-            } else {
-                let badge = incrAndGetBadge()
-                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(
-                    body: messageReceived.textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
-                    isEphemeralMessageWithUserAction: messageReceived.isEphemeralMessageWithUserAction,
-                    messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine,
-                    contact: contact,
-                    attachmentsFileNames: [],
-                    discussion: discussion,
-                    urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail(),
-                    badge: badge)
-                self?.fullAttemptContent = notificationContent
-            }
-            
-            returnValue = true
-
         }
         
-        return returnValue
+        guard let messageReceivedStructure = messageReceivedStructure else {
+            assertionFailure()
+            os_log("Could create PersistedMessageReceived.Structure", log: log, type: .fault)
+            return false
+        }
+        
+        // If we reach this point, we were eable to create the thread safe structure from the PersistedMessageReceived in database
+        
+        // Save the notification identifier (forced by iOS) and associate it with the message
+        
+        ObvUserNotificationIdentifier.saveIdentifierForcedInNotificationExtension(
+            identifier: request.identifier,
+            messageIdentifierFromEngine: messageReceivedStructure.messageIdentifierFromEngine,
+            timestamp: messageReceivedStructure.timestamp)
+
+        // We do not need to save a serialized version of the message for the app (since the app is obviously aware of the message).
+        // Similarly, we do not need to create a return receipt. The app took care of that.
+                    
+        // Construct the notification content
+        
+        let discussion = messageReceivedStructure.discussionKind
+        if discussion.localConfiguration.shouldMuteNotifications {
+            self.fullAttemptContent = nil
+        } else {
+            let badge = incrAndGetBadge()
+            let urlForStoringPNGThumbnail = contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail()
+            let infos = UserNotificationCreator.NewMessageNotificationInfos(messageReceived: messageReceivedStructure, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, attachmentsFileNames: [], badge: badge)
+            self.fullAttemptContent = notificationContent
+        }
+
+        return true
         
     }
     
     
     /// Returns true if the encrypted pushed notification was processed, either because a user notification was created, or because we detected that no notification should be shown.
-    private func tryToCreateNewMessageNotificationByDecrypting(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) -> Bool {
+    private func tryToCreateNewMessageNotificationByDecrypting(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
 
+        let log = self.log
+        
         guard NotificationService.obvEngine != nil else {
             os_log("Could not get the obvEngine", log: log, type: .error)
             return false
@@ -222,15 +236,15 @@ class NotificationService: UNNotificationServiceExtension {
         }
 
         // Grab the persisted contact and the appropriate discussion
+
+        var contactStructure: PersistedObvContactIdentity.Structure?
+        var discussionKind: PersistedDiscussion.StructureKind?
+        var shouldShowNotification = true
         
-        var returnValue = false
-        
-        ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
-            
-            guard let _self = self else { return }
+        ObvStack.shared.performBackgroundTaskAndWait { context in
             
             guard let persistedContactIdentity = try? PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: context) else {
-                os_log("Could not recover the persisted contact identity", log: _self.log, type: .fault)
+                os_log("Could not recover the persisted contact identity", log: log, type: .fault)
                 return
             }
 
@@ -240,7 +254,7 @@ class NotificationService: UNNotificationServiceExtension {
             } else if let reactionJSON = persistedItemJSON.reactionJSON {
                 groupId = reactionJSON.groupId
             } else {
-                os_log("The received item should be a message or a reaction", log: _self.log, type: .fault)
+                os_log("The received item should be a message or a reaction", log: log, type: .fault)
                 assertionFailure()
                 return
             }
@@ -260,9 +274,8 @@ class NotificationService: UNNotificationServiceExtension {
                     discussion = oneToOneDiscussion
                 } else {
                     os_log("Could not find an appropriate discussion where the received message could go.", log: log, type: .error)
-                    // We return `true` since we are in a situation where we can decide that no user notification should be shown
-                    self?.fullAttemptContent = nil
-                    returnValue = true
+                    // We are in a situation where we can decide that no user notification should be shown
+                    shouldShowNotification = false
                     return
                 }
             } catch {
@@ -272,95 +285,139 @@ class NotificationService: UNNotificationServiceExtension {
             }
             
             // If we reach this point, we found an appropriate discussion where the message can go
-            
-            // Save the notification identifier (forced by iOS) and associate it with the message
-            
-            ObvUserNotificationIdentifier.saveIdentifierForcedInNotificationExtension(
-                identifier: request.identifier,
-                messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
-                timestamp: obvMessage.messageUploadTimestampFromServer)
-            
-            // Save a serialized version of the `ObvMessage` in an appropriate location so that the app can fetch it immediately at next launch
-            
+
             do {
-                let jsonDecryptedMessage = try obvMessage.encodeToJson()
-                let directory = ObvMessengerConstants.containerURL.forMessagesDecryptedWithinNotificationExtension
-                let filename = [encryptedPushNotification.messageIdFromServerAsString, "json"].joined(separator: ".")
-                let filepath = directory.appendingPathComponent(filename)
-                try jsonDecryptedMessage.write(to: filepath)
-                os_log("📮 Notification extension has saved a serialized version of the message.", log: log, type: .info)
-            } catch let error {
-                os_log("📮 Could not save a serialized version of the message: %{public}@", log: log, type: .fault, error.localizedDescription)
-                // Continue anyway
+                contactStructure = try persistedContactIdentity.toStruct()
+            } catch {
+                assertionFailure()
+                os_log("Could create PersistedObvContactIdentity.Structure: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
             }
 
-            // If there is a return receipt within the json item we received, we use it to send a return receipt for the received obvMessage
-            
-            if let returnReceiptJSON = persistedItemJSON.returnReceipt {
-                do {
-                    try NotificationService.obvEngine!.postReturnReceiptWithElements(
-                        returnReceiptJSON.elements,
-                        andStatus: ReturnReceiptJSON.Status.delivered.rawValue,
-                        forContactCryptoId: obvMessage.fromContactIdentity.cryptoId,
-                        ofOwnedIdentityCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId)
-                } catch {
-                    os_log("The Return Receipt could not be posted", log: log, type: .fault)
-                    // Continue anyway
-                }
+            do {
+                discussionKind = try discussion.toStruct()
+            } catch {
+                assertionFailure()
+                os_log("Could create PersistedDiscussion.StructureKind: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
             }
 
-            // Depending on whether the discussion is muted or not, we construct the notification content
-
-            if discussion.shouldMuteNotifications {
-
-                self?.fullAttemptContent = nil
-                
-            } else {
-                // Construct the notification content
-
-                if let messageJSON = persistedItemJSON.message {
-                    let textBody: String?
-                    var isEphemeralMessageWithUserAction = false
-                    if let expiration = messageJSON.expiration, expiration.visibilityDuration != nil || expiration.readOnce {
-                        isEphemeralMessageWithUserAction = true
-                    }
-                    if isEphemeralMessageWithUserAction {
-                        textBody = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
-                    } else {
-                        textBody = messageJSON.body
-                    }
-                    let badge = incrAndGetBadge()
-                    let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(
-                        body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
-                        isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
-                        messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine,
-                        contact: persistedContactIdentity,
-                        attachmentsFileNames: [],
-                        discussion: discussion,
-                        urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail(),
-                        badge: badge)
-                    self?.fullAttemptContent = notificationContent
-                } else if let reactionJSON = persistedItemJSON.reactionJSON {
-                    self?.fullAttemptContent = nil // Do not want any minimal notification on failure for reaction.
-
-                    guard let message = try? PersistedMessage.findMessageFrom(reference: reactionJSON.messageReference, within: discussion) else { return }
-                    guard message is PersistedMessageSent, !message.isWiped else { return }
-
-                    if let emoji = reactionJSON.emoji {
-                        if let (_, notificationContent) = UserNotificationCreator.createReactionNotification(message: message, contact: persistedContactIdentity, emoji: emoji, reactionTimestamp: obvMessage.messageUploadTimestampFromServer) {
-                            self?.fullAttemptContent = notificationContent
-                        }
-                    } else {
-                        // Nothing can be done: we are not able to remove the notification from the extension and we cannot wake up the app.
-                    }
-                }
-
-            }
-            returnValue = true
         }
 
-        return returnValue        
+        if let returnReceiptJSON = persistedItemJSON.returnReceipt {
+            do {
+                try NotificationService.obvEngine!.postReturnReceiptWithElements(
+                    returnReceiptJSON.elements,
+                    andStatus: ReturnReceiptJSON.Status.delivered.rawValue,
+                    forContactCryptoId: obvMessage.fromContactIdentity.cryptoId,
+                    ofOwnedIdentityCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
+                    messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
+                    attachmentNumber: nil)
+            } catch {
+                os_log("The Return Receipt could not be posted", log: log, type: .fault)
+                // Continue anyway
+            }
+        }
+        
+        guard shouldShowNotification else {
+            // Rare case where we could decide in the previous block that no
+            self.fullAttemptContent = nil
+            return true
+        }
+        
+        guard let contactStructure = contactStructure, let discussionKind = discussionKind else {
+            assertionFailure()
+            os_log("Could create PersistedDiscussion.StructureKind or PersistedObvContactIdentity.Structure", log: log, type: .error)
+            return false
+        }
+        
+        // If we reach this point, we found an appropriate discussion where the message can go
+
+        // Save the notification identifier (forced by iOS) and associate it with the message
+        
+        ObvUserNotificationIdentifier.saveIdentifierForcedInNotificationExtension(
+            identifier: request.identifier,
+            messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
+            timestamp: obvMessage.messageUploadTimestampFromServer)
+        
+        // Save a serialized version of the `ObvMessage` in an appropriate location so that the app can fetch it immediately at next launch
+        
+        do {
+            let jsonDecryptedMessage = try obvMessage.encodeToJson()
+            let directory = ObvMessengerConstants.containerURL.forMessagesDecryptedWithinNotificationExtension
+            let filename = [encryptedPushNotification.messageIdFromServerAsString, "json"].joined(separator: ".")
+            let filepath = directory.appendingPathComponent(filename)
+            try jsonDecryptedMessage.write(to: filepath)
+            os_log("📮 Notification extension has saved a serialized version of the message.", log: log, type: .info)
+        } catch let error {
+            os_log("📮 Could not save a serialized version of the message: %{public}@", log: log, type: .fault, error.localizedDescription)
+            // Continue anyway
+        }
+
+        // Depending on whether the discussion is muted or not, we construct the notification content
+
+        if discussionKind.localConfiguration.shouldMuteNotifications {
+
+            self.fullAttemptContent = nil
+            
+        } else {
+
+            // Construct the notification content
+
+            if let messageJSON = persistedItemJSON.message {
+                
+                let textBody: String?
+                var isEphemeralMessageWithUserAction = false
+                if let expiration = messageJSON.expiration, expiration.visibilityDuration != nil || expiration.readOnce {
+                    isEphemeralMessageWithUserAction = true
+                }
+                if isEphemeralMessageWithUserAction {
+                    textBody = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
+                } else {
+                    textBody = messageJSON.body
+                }
+                let badge = incrAndGetBadge()
+                let infos = await UserNotificationCreator.NewMessageNotificationInfos(
+                    body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
+                    messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine,
+                    contact: contactStructure,
+                    discussionKind: discussionKind,
+                    isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
+                    urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail())
+                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, attachmentsFileNames: [], badge: badge)
+                self.fullAttemptContent = notificationContent
+                
+            } else if let reactionJSON = persistedItemJSON.reactionJSON {
+                
+                self.fullAttemptContent = nil // Do not want any minimal notification on failure for reaction.
+                
+                var messageSentStructure: PersistedMessageSent.Structure?
+                
+                ObvStack.shared.performBackgroundTaskAndWait { context in
+                    guard let persistedDiscussion = try? PersistedDiscussion.get(objectID: discussionKind.objectID, within: context) else { return }
+                    guard let message = try? PersistedMessage.findMessageFrom(reference: reactionJSON.messageReference, within: persistedDiscussion) else { return }
+                    guard let messageSent = message as? PersistedMessageSent, !messageSent.isWiped else { return }
+                    messageSentStructure = try? messageSent.toStructure()
+                }
+                
+                guard let messageSentStructure = messageSentStructure else { return true }
+                
+                if let emoji = reactionJSON.emoji {
+                    let infos = UserNotificationCreator.ReactionNotificationInfos(messageSent: messageSentStructure, contact: contactStructure, urlForStoringPNGThumbnail: nil)
+                    let (_, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: emoji, reactionTimestamp: obvMessage.messageUploadTimestampFromServer)
+                    self.fullAttemptContent = notificationContent
+                } else {
+                    // Nothing can be done: we are not able to remove the notification from the extension and we cannot wake up the app.
+                }
+                
+            }
+
+        }
+        
+        return true
+
     }
+
     
     private func addNotification() {
         if addFullNotification() { return }

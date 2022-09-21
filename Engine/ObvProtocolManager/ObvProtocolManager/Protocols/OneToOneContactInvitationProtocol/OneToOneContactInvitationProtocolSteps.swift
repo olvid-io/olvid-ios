@@ -661,8 +661,8 @@ extension OneToOneContactInvitationProtocol {
             let dialogUuid = startState.dialogUuid
             
             // Make sure the contact is indeed a OneToOne contact now. Note that, during startup, all the messages targeted by the
-            // ProtocolInstanceWaitingForContactUpgradeToOneToOne entries are replayed. So it is frequent to execute this step
-            // although the contact is *not* OneToOne yet. In that case, we simply do not change the protocol state.
+            // ProtocolInstanceWaitingForContactUpgradeToOneToOne entries are replayed.
+            // So it is frequent to execute this step although the contact is *not* OneToOne yet. In that case, we simply do not change the protocol state.
             
             guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
                 return startState
@@ -714,8 +714,8 @@ extension OneToOneContactInvitationProtocol {
             let dialogUuid = startState.dialogUuid
             
             // Make sure the contact is indeed a OneToOne contact now. Note that, during startup, all the messages targeted by the
-            // ProtocolInstanceWaitingForContactUpgradeToOneToOne entries are replayed. So it is frequent to execute this step
-            // although the contact is *not* OneToOne yet. In that case, we simply do not change the protocol state.
+            // ProtocolInstanceWaitingForContactUpgradeToOneToOne entries are replayed.
+            // So it is frequent to execute this step although the contact is *not* OneToOne yet. In that case, we simply do not change the protocol state.
             
             guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
                 return startState
@@ -1081,8 +1081,8 @@ extension OneToOneContactInvitationProtocol {
                 
                 // Alice considers us as OneToOne, but we do not. We do not upgrade her, unless we did invite her to be OneToOne.
                 // This can be detected by looking for an appropriate entry in the
-                // ProtocolInstanceWaitingForContactUpgradeToOneToOne database. If an entry is found, we upgrade the contact. This will eventually trigger
-                // the message allowing the other protocol to properly finish.
+                // ProtocolInstanceWaitingForContactUpgradeToOneToOne database. If an entry is found, we upgrade the contact.
+                // This will eventually trigger the message allowing the other protocol to properly finish.
                 
                 do {
                     let waitingInstances = try ProtocolInstanceWaitingForContactUpgradeToOneToOne.getAll(ownedCryptoIdentity: ownedIdentity, contactCryptoIdentity: contactIdentity, delegateManager: delegateManager, within: obvContext)
@@ -1127,7 +1127,7 @@ extension OneToOneContactInvitationProtocol {
                 
                 return FinishedState()
                 
-            } // end of switch
+            } // End of switch
 
         }
 

@@ -60,7 +60,7 @@ final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpe
                 }
 
                 for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
-                    recipientInfos.setTimestampDelivered(to: Date())
+                    persistedMessageSent.messageSentWasDeliveredToRecipient(withCryptoId: recipientInfos.recipientCryptoId, noLaterThan: Date(), andRead: false)
                 }
 
             } catch {

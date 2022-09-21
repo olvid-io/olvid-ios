@@ -27,7 +27,8 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
     let log: OSLog
     let flowId: FlowIdentifier
     let op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>
-    
+    let internalQueue = OperationQueue.createSerialQueue()
+
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>, contextCreator: ObvContextCreator, log: OSLog, flowId: FlowIdentifier) {
         self.contextCreator = contextCreator
         self.flowId = flowId
@@ -44,7 +45,7 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
         assert(op1.isReady)
-        op1.start()
+        internalQueue.addOperations([op1], waitUntilFinished: true)
         assert(op1.isFinished)
         guard !op1.isCancelled else {
             guard let reason = op1.reasonForCancel else { return cancel(withReason: .unknownReason) }

@@ -109,6 +109,8 @@ protocol KeycloakSearchViewDelegate: UIViewController {
 
 final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResultsUpdating {
 
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "KeycloakSearchViewStore")
+
     @Published var searchResult: [UserDetails]?
     @Published var numberOfMissingResults: Int = 0
     @Published var searchEncounteredAnError: Bool = false
@@ -145,13 +147,13 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
                 .debounce(for: 0.5, scheduler: RunLoop.main)
                 .removeDuplicates()
                 .sink(receiveValue: { [weak self] (textToSearchNow) in
-                    self?.performKeycloakSearchNow(textToSearchNow: textToSearchNow)
+                    Task { await self?.performKeycloakSearchNow(textToSearchNow: textToSearchNow) }
                 })
         ])
     }
     
-    
-    private func performKeycloakSearchNow(textToSearchNow: String?) {
+    @MainActor
+    private func performKeycloakSearchNow(textToSearchNow: String?) async {
         assert(Thread.isMainThread)
         guard let delegate = self.delegate else { assertionFailure(); return }
         guard let searchQuery = textToSearchNow else {
@@ -159,25 +161,17 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
             return
         }
         delegate.startSpinner()
-        KeycloakManager.shared.search(ownedCryptoId: self.ownedCryptoId,
-                                      searchQuery: searchQuery) { result in
-            defer {
-                DispatchQueue.main.async { [weak self] in
-                    self?.delegate?.stopSpinner()
-                }
-            }
-            switch result {
-            case .failure:
-                DispatchQueue.main.async { [weak self] in
-                    self?.searchEncounteredAnError = true
-                }
-            case .success(let newSearchResults):
-                DispatchQueue.main.async { [weak self] in
-                    self?.mergeReceivedSearchResults(newSearchResults.userDetails, numberOfMissingResults: newSearchResults.numberOfMissingResults)
-                }
-            }
+        
+        do {
+            let newSearchResults = try await KeycloakManagerSingleton.shared.search(ownedCryptoId: ownedCryptoId, searchQuery: searchQuery)
+            mergeReceivedSearchResults(newSearchResults.userDetails, numberOfMissingResults: newSearchResults.numberOfMissingResults)
+        } catch let searchError as KeycloakManager.SearchError {
+            os_log("Search error: %{public}@", log: Self.log, type: .error, searchError.localizedDescription)
+            searchEncounteredAnError = true
+        } catch {
+            os_log("Search error: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+            searchEncounteredAnError = true
         }
-
     }
     
     
@@ -233,12 +227,13 @@ struct KeycloakSearchViewInner: View {
                     ForEach(searchResults) { userDetails in
                         HStack {
                             IdentityCardContentView(model: SingleIdentity(userDetails: userDetails))
-                                .onTapGesture {
-                                    userSelectedContact(userDetails)
-                                }
                             Spacer()
                         }
                         .padding(.vertical, 6.0)
+                        .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+                        .onTapGesture {
+                            userSelectedContact(userDetails)
+                        }
                     }
                     if numberOfMissingResults > 0 {
                         Text(String.localizedStringWithFormat(NSLocalizedString("KEYCLOAK_MISSING_SEARCH_RESULT", comment: ""), numberOfMissingResults))

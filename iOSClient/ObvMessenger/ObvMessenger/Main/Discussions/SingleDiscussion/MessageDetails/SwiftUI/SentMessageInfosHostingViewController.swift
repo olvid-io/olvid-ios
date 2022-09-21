@@ -46,6 +46,7 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
     
     let ownedCryptoId: ObvCryptoId
     @Published var sortedInfos: [RecipientAndInfos]
+    @Published var attachmentInfos: [AttachementInfo]
     @Published var timeBasedDeletionDateString: String?
     @Published var numberOfNewMessagesBeforeSuppression: Int?
 
@@ -55,12 +56,21 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
     init?(messageSent: PersistedMessageSent) {
         guard let ownedCryptoId = messageSent.discussion.ownedIdentity?.cryptoId else { return nil }
         self.ownedCryptoId = ownedCryptoId
-        sortedInfos = SentMessageInfosViewStore.computeRecipientAndInfos(from: messageSent.unsortedRecipientsInfos)
+        self.sortedInfos = SentMessageInfosViewStore.computeRecipientAndInfos(from: messageSent.unsortedRecipientsInfos)
+        self.attachmentInfos = SentMessageInfosViewStore.computeAttachementInfos(message: messageSent)
         self.messageSentObjectID = messageSent.objectID
         self.timeBasedDeletionDateString = nil
         self.numberOfNewMessagesBeforeSuppression = nil
         observePersistedMessageSentRecipientInfosUpdates()
+        observePersistedAttachmentSentRecipientInfosUpdates()
         refreshRetentionInformation()
+    }
+    
+    
+    deinit {
+        notificationTokens.forEach { token in
+            NotificationCenter.default.removeObserver(token)
+        }
     }
     
     
@@ -90,7 +100,24 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
             .map({ RecipientAndInfos(infos: $0, dateStringFromDate: dateStringFromDate) })
         return readInfos + deliveredInfos + sentInfos + pendingInfos
     }
-    
+
+    private static func computeAttachementInfos(message: PersistedMessageSent) -> [AttachementInfo] {
+        var attachementInfos: [AttachementInfo] = []
+        for join in message.fyleMessageJoinWithStatuses {
+            var attachmentRecipientsInfos: [(String, PersistedAttachmentSentRecipientInfos.ReceptionStatus?)] = []
+            for recipientsInfos in message.unsortedRecipientsInfos {
+                let recipientName = recipientsInfos.recipientName
+                let status = recipientsInfos.attachmentInfos.first(where: {$0.index == join.index })?.status
+                attachmentRecipientsInfos.append((recipientName, status))
+            }
+            attachmentRecipientsInfos = attachmentRecipientsInfos.sorted { $0.0 < $1.0 }
+            attachementInfos += [AttachementInfo(index: join.index,
+                                                 filename: join.fileName,
+                                                 status: join.receptionStatus,
+                                                 attachmentRecipientsInfos: attachmentRecipientsInfos.sorted { $0.0 < $1.0 })]
+        }
+        return attachementInfos.sorted { $0.index < $1.index }
+    }
     
     static func dateStringFromDate(_ date: Date?) -> String? {
         date == nil ? nil : dateFormater.string(from: date!)
@@ -113,7 +140,7 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
             guard let messageSentObjectID = self?.messageSentObjectID else { return }
             guard let context = notification.object as? NSManagedObjectContext else { return }
             guard context.concurrencyType != .mainQueueConcurrencyType else { return }
-            context.performAndWait {
+            context.perform {
                 guard let userInfo = notification.userInfo else { return }
                 guard let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> else { return }
                 guard !updatedObjects.isEmpty else { return }
@@ -127,6 +154,33 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
                     withAnimation {
                         self?.objectWillChange.send()
                         self?.sortedInfos = SentMessageInfosViewStore.computeRecipientAndInfos(from: messageSent.unsortedRecipientsInfos)
+                    }
+                }
+            }
+        })
+    }
+
+    private func observePersistedAttachmentSentRecipientInfosUpdates() {
+        let NotificationName = Notification.Name.NSManagedObjectContextDidSave
+        notificationTokens.append(NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { [weak self] (notification) in
+            guard let messageSentObjectID = self?.messageSentObjectID else { return }
+            guard let context = notification.object as? NSManagedObjectContext else { return }
+            guard context.concurrencyType != .mainQueueConcurrencyType else { return }
+            context.perform {
+                guard let userInfo = notification.userInfo else { return }
+                guard let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> else { assertionFailure(); return }
+                guard let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject> else { assertionFailure(); return }
+                let updatedOrInsertedObjects = updatedObjects.union(insertedObjects)
+                let relevantUpdatedInfos = updatedOrInsertedObjects
+                    .compactMap({ $0 as? PersistedAttachmentSentRecipientInfos })
+                    .filter({ $0.messageInfo?.messageSent.objectID == messageSentObjectID })
+                guard !relevantUpdatedInfos.isEmpty else { return }
+                DispatchQueue.main.async {
+                    ObvStack.shared.viewContext.mergeChanges(fromContextDidSave: notification)
+                    guard let messageSent = try? PersistedMessageSent.get(with: messageSentObjectID, within: ObvStack.shared.viewContext) as? PersistedMessageSent else { return }
+                    withAnimation {
+                        self?.objectWillChange.send()
+                        self?.attachmentInfos = SentMessageInfosViewStore.computeAttachementInfos(message: messageSent)
                     }
                 }
             }
@@ -176,6 +230,13 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
     
 }
 
+struct AttachementInfo: Identifiable {
+    var id: Int { index }
+    let index: Int
+    let filename: String
+    let status: SentFyleMessageJoinWithStatus.FyleReceptionStatus
+    let attachmentRecipientsInfos: [(String, PersistedAttachmentSentRecipientInfos.ReceptionStatus?)]
+}
 
 fileprivate struct RecipientAndInfos: Identifiable {
     let id: Data
@@ -183,7 +244,7 @@ fileprivate struct RecipientAndInfos: Identifiable {
     let readTimestampAsString: String?
     let deliveredTimestampAsString: String?
     let sentTimestampAsString: String?
-    
+
     init(infos: PersistedMessageSentRecipientInfos, dateStringFromDate: (Date?) -> String?) {
         self.id = infos.recipientCryptoId.getIdentity()
         self.recipientName = infos.recipientName
@@ -201,6 +262,7 @@ struct SentMessageInfosView: View {
     var body: some View {
         SentMessageInfosInnerView(ownedCryptoId: store.ownedCryptoId,
                                   sortedInfos: store.sortedInfos,
+                                  attachmentInfos: store.attachmentInfos,
                                   timeBasedDeletionDateString: store.timeBasedDeletionDateString,
                                   numberOfNewMessagesBeforeSuppression: store.numberOfNewMessagesBeforeSuppression,
                                   messageObjectID: store.messageSentObjectID,
@@ -215,6 +277,7 @@ struct SentMessageInfosInnerView: View {
     
     let ownedCryptoId: ObvCryptoId
     fileprivate let sortedInfos: [RecipientAndInfos]
+    fileprivate let attachmentInfos: [AttachementInfo]
     let timeBasedDeletionDateString: String?
     let numberOfNewMessagesBeforeSuppression: Int?
     var messageObjectID: NSManagedObjectID
@@ -252,11 +315,14 @@ struct SentMessageInfosInnerView: View {
                                                           dateSent: sortedInfos.first!.sentTimestampAsString)
                 }
             } else {
-                DateInfosOfSentMessageToManyContactsInnverView(read: readInfos,
-                                                               delivered: deliveredInfos,
-                                                               sent: sentInfos,
-                                                               pending: pendingInfos)
+                DateInfosOfSentMessageToManyContactsInnerView(read: readInfos,
+                                                              delivered: deliveredInfos,
+                                                              sent: sentInfos,
+                                                              pending: pendingInfos)
             }
+
+            AttachementInfosView(attachmentInfos: attachmentInfos)
+
             if timeBasedDeletionDateString != nil || numberOfNewMessagesBeforeSuppression != nil {
                 MessageRetentionInfoSectionView(timeBasedDeletionDateString: timeBasedDeletionDateString,
                                                 numberOfNewMessagesBeforeSuppression: numberOfNewMessagesBeforeSuppression)

@@ -1,3 +1,5 @@
+"Olvid" = "Olvid";
+
 /* No comment provided by engineer. */
 "%@ and" = "%@ and";
 
@@ -304,9 +306,6 @@ Please make sure that %1$@ is indeed the one giving you this code: prefer a face
 /* View controller title */
 "Congratulations!" = "Congratulations!";
 
-/* Explanation for the QR code scanner */
-"ASK_CONTACT_TO_GO_UNDER_MY_ID_MAKING_IT_POSSIBLE_FOR_YOU_TO_SCAN_QR_CODE" = "Please ask your contact to go under the \"Invitations\" tab and to tap on the \"+\" button, making it possible for you to scan the QR code.";
-
 /* Must be short, label for last name */
 "Last" = "Last";
 
@@ -402,9 +401,6 @@ Settings > General > Background App Refresh";
 
 /* No comment provided by engineer. */
 "Scan" = "Scan";
-
-/* QR code scanner title */
-"Scan an Olvid identity" = "Scan an Olvid identity";
 
 /* View controller title */
 "Scan QR code" = "Scan QR code";
@@ -2290,6 +2286,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "Forwarded" = "Forwarded";
 
 "NO_SOUNDS" = "None";
+
+"ATTACHMENTS_INFO" = "Attachments";
 
 "NOTIFICATION_SOUNDS_TITLE_POLYPHONIC" = "Polyphonic tones";
 

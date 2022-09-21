@@ -36,7 +36,7 @@ final class AvailableSubscriptionPlans: ObservableObject {
     private let userWantsToRestorePurchases: () -> Void
     @Published private(set) var freePlanIsAvailable: Bool? = nil // Nil until we know whether a free plan is available or not
     @Published private(set) var skProducts: [SKProduct]? // Nil until store plans are known
-    @Published private(set) var requestedListOfSKProductsError: SubscriptionCoordinator.RequestedListOfSKProductsError? // Nil until an error occurs when fetching skProducts
+    @Published private(set) var requestedListOfSKProductsError: SubscriptionManager.RequestedListOfSKProductsError? // Nil until an error occurs when fetching skProducts
     @Published private(set) var shownHUD: HUDView.Category? = nil
     @Published var buttonsAreDisabled = false
     @Published private(set) var errorMessage = Text("")
@@ -331,7 +331,7 @@ struct AvailableSubscriptionPlansView: View {
 
 struct SKProductErrorCardView: View {
     
-    let error: SubscriptionCoordinator.RequestedListOfSKProductsError
+    let error: SubscriptionManager.RequestedListOfSKProductsError
 
     private var title: Text {
         switch error {

@@ -31,8 +31,19 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         case complete = 2
     }
 
+    enum FyleReceptionStatus: Int {
+        case none = 0
+        case delivered = 1
+        case read = 2
+
+        static func < (lhs: Self, rhs: Self) -> Bool {
+            return lhs.rawValue < rhs.rawValue
+        }
+    }
+
     // MARK: - Properties
 
+    @NSManaged private var rawReceptionStatus: Int
     @NSManaged var identifierForNotifications: UUID?
 
     // MARK: - Computed properties
@@ -44,6 +55,16 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         set {
             guard newValue.rawValue != self.rawStatus else { return }
             self.rawStatus = newValue.rawValue
+        }
+    }
+
+    private(set) var receptionStatus: FyleReceptionStatus {
+        get {
+            return FyleReceptionStatus(rawValue: rawReceptionStatus) ?? FyleReceptionStatus.none
+        }
+        set {
+            guard receptionStatus < newValue else { return }
+            self.rawReceptionStatus = newValue.rawValue
         }
     }
 
@@ -135,7 +156,13 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
             }
         }
     }
-
+    
+    
+    func tryToSetReceptionStatusTo(_ newReceptionStatus: FyleReceptionStatus) {
+        guard newReceptionStatus.rawValue > receptionStatus.rawValue else { return }
+        self.receptionStatus = newReceptionStatus
+    }
+    
 }
 
 

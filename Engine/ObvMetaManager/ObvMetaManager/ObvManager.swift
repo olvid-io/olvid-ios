@@ -31,7 +31,6 @@ public protocol ObvManager: AnyObject {
     var requiredDelegates: [ObvEngineDelegateType] { get }
     
     func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws
+    func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async
     
-    func applicationDidStartRunning(flowId: FlowIdentifier)
-    func applicationDidEnterBackground()
 }

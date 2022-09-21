@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		C40D3FAD235768AD00D039A7 /* BackgroundActivityEmulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40D3FAC235768AD00D039A7 /* BackgroundActivityEmulator.swift */; };
-		C40D3FAF235774DB00D039A7 /* ExpiringActivityPerformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40D3FAE235774DB00D039A7 /* ExpiringActivityPerformer.swift */; };
 		C446A552216AB115007D579F /* RemoteNotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C446A551216AB115007D579F /* RemoteNotificationCoordinator.swift */; };
 		C446A560216AB77D007D579F /* RemoteNotificationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C446A55F216AB77D007D579F /* RemoteNotificationDelegate.swift */; };
 		C4AAA773215E142C00BF8D46 /* ObvFlowManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C4AAA771215E142C00BF8D46 /* ObvFlowManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -42,7 +41,6 @@
 /* Begin PBXFileReference section */
 		C0B4A4D5276F5AA500816D8D /* .swiftlint.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
 		C40D3FAC235768AD00D039A7 /* BackgroundActivityEmulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundActivityEmulator.swift; sourceTree = "<group>"; };
-		C40D3FAE235774DB00D039A7 /* ExpiringActivityPerformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpiringActivityPerformer.swift; sourceTree = "<group>"; };
 		C446A551216AB115007D579F /* RemoteNotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteNotificationCoordinator.swift; sourceTree = "<group>"; };
 		C446A55F216AB77D007D579F /* RemoteNotificationDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteNotificationDelegate.swift; sourceTree = "<group>"; };
 		C4AAA76E215E142C00BF8D46 /* ObvFlowManager.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvFlowManager.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -75,7 +73,6 @@
 			isa = PBXGroup;
 			children = (
 				C40D3FAC235768AD00D039A7 /* BackgroundActivityEmulator.swift */,
-				C40D3FAE235774DB00D039A7 /* ExpiringActivityPerformer.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -276,7 +273,6 @@
 			files = (
 				C40D3FAD235768AD00D039A7 /* BackgroundActivityEmulator.swift in Sources */,
 				C4AAA7A0215E15B200BF8D46 /* BackgroundTaskCoordinator.swift in Sources */,
-				C40D3FAF235774DB00D039A7 /* ExpiringActivityPerformer.swift in Sources */,
 				C4E2890721AE9E0C00D3275B /* SimpleBackgroundTaskDelegate.swift in Sources */,
 				C4AAA7A9215E166400BF8D46 /* BackgroundTaskDelegate.swift in Sources */,
 				C4AAA9D4215E660B00BF8D46 /* Expectation.swift in Sources */,

@@ -30,13 +30,13 @@ import SwiftUI
 final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     
     let ownedCryptoId: ObvCryptoId
+    private let obvEngine: ObvEngine
     var anOwnedIdentityWasJustCreatedOrRestored = false
-    
+
     private let splitDelegate: MainFlowViewControllerSplitDelegate // Strong reference to the delegate
     
     fileprivate let mainTabBarController = ObvSubTabBarController()
 
-    private let applicationShortcutItemsCoordinator = ApplicationShortcutItemsCoordinator()
     private let discussionsFlowViewController: DiscussionsFlowViewController
     private let contactsFlowViewController: ContactsFlowViewController
     private let groupsFlowViewController: GroupsFlowViewController
@@ -51,22 +51,10 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     
     private var secureCallsInBetaModalWasShown = false
     
-    private let internalQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.name = "Internal queue of MainFlowViewController"
-        return queue
-    }()
-    
     /// This variable is set when Olvid is started because an invite or configuration link was opened.
     /// When this happens, this link is processed as soon as this view controller's view appears.
     private var externallyScannedOrTappedOlvidURL: OlvidURL?
     private var viewDidAppearWasCalled = false
-    
-    var badgesDelegate: UserNotificationsBadgesDelegate? = nil {
-        didSet {
-            refreshAllTabbarBadges()
-        }
-    }
     
     struct ChildTypes {
         static let latestDiscussions = 0
@@ -80,24 +68,25 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     private var airDroppedFileURLs = [URL]()
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MainFlowViewController.self))
-
-    init(ownedCryptoId: ObvCryptoId) {
+    
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
                 
         os_log("🥏🏁 Call to the initializer of MainFlowViewController", log: log, type: .info)
         
+        self.obvEngine = obvEngine
         self.ownedCryptoId = ownedCryptoId
         self.splitDelegate = MainFlowViewControllerSplitDelegate()
         
-        discussionsFlowViewController = DiscussionsFlowViewController.create(ownedCryptoId: ownedCryptoId)
+        discussionsFlowViewController = DiscussionsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         mainTabBarController.addChild(discussionsFlowViewController)
 
-        contactsFlowViewController = ContactsFlowViewController.create(ownedCryptoId: ownedCryptoId)
+        contactsFlowViewController = ContactsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         mainTabBarController.addChild(contactsFlowViewController)
                 
-        groupsFlowViewController = GroupsFlowViewController.create(ownedCryptoId: ownedCryptoId)
+        groupsFlowViewController = GroupsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         mainTabBarController.addChild(groupsFlowViewController)
 
-        invitationsFlowViewController = InvitationsFlowViewController.create(ownedCryptoId: ownedCryptoId)
+        invitationsFlowViewController = InvitationsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         mainTabBarController.addChild(invitationsFlowViewController)
 
         super.init(nibName: nil, bundle: nil)
@@ -119,36 +108,14 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         groupsFlowViewController.flowDelegate = self
         invitationsFlowViewController.flowDelegate = self
         
-        // If the user has at least one discussion, go to the Discussions tab. Otherwise, if the user has at least one contact, go to the contact tab. Otherwise, go to the MyIdView tab.
+        // If the user has no contact, go to the contact tab
         
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            context.name = "Context created in MainFlowViewController"
-            guard let discussionCount = try? PersistedDiscussion.getAllSortedByTimestampOfLastMessage(within: context).count else { return }
-            guard discussionCount == 0 else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
-                }
-                return
-            }
-            let contactCount = try? PersistedObvContactIdentity.countContactsOfOwnedIdentity(ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: context)
-            guard contactCount == 0 else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.mainTabBarController.selectedIndex = ChildTypes.contacts
-                }
-                return
-            }
-            DispatchQueue.main.async { [weak self] in
-                self?.mainTabBarController.selectedIndex = ChildTypes.contacts
-            }
+        if let contactCount = try? PersistedObvContactIdentity.countContactsOfOwnedIdentity(ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: ObvStack.shared.viewContext), contactCount == 0 {
+            mainTabBarController.selectedIndex = ChildTypes.contacts
         }
-        
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToSendInvite(queue: internalQueue) { [weak self] (ownedIdentity, urlIdentity) in
-            self?.sendInvite(to: urlIdentity.cryptoId, withFullDisplayName: urlIdentity.fullDisplayName, for: ownedIdentity.cryptoId)
-        })
-
+                
         // Listen to notifications
         
-        observeBadgesNeedToBeUpdatedNotifications()
         observeUserWantsToShareOwnPublishedDetailsNotifications()
         observeUserWantsToCallNotifications()
         observeServerDoesNotSupportCall()
@@ -158,9 +125,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         observationTokens.append(contentsOf: [
             ObvMessengerCoreDataNotification.observeOwnedIdentityWasDeactivated(queue: .main) { [weak self] _ in
                 self?.presentOwnedIdentityIsNotActiveViewControllerIfRequired()
-            },
-            ObvMessengerInternalNotification.observeAppStateChanged(queue: .main) { [weak self] (previousState, currentState) in
-                self?.processAppStateChanged(previousState: previousState, currentState: currentState)
             },
             ObvEngineNotificationNew.observeNetworkOperationFailedSinceOwnedIdentityIsNotActive(within: NotificationCenter.default, queue: .main) { [weak self] (_) in
                 self?.presentOwnedIdentityIsNotActiveViewControllerIfRequired()
@@ -177,11 +141,40 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
             ObvMessengerInternalNotification.observeUserWantsToSeeDetailedExplanationsOfSnackBar(queue: .main) { [weak self] ownedCryptoId, snackBarCategory in
                 self?.processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
             },
+            ObvMessengerInternalNotification.observeUserWantsToSendInvite { [weak self] (ownedIdentity, urlIdentity) in
+                self?.sendInvite(to: urlIdentity.cryptoId, withFullDisplayName: urlIdentity.fullDisplayName, for: ownedIdentity.cryptoId)
+            },
+            ObvMessengerInternalNotification.observeBadgeForNewMessagesHasBeenUpdated(queue: OperationQueue.main) { [weak self] ownedCryptoId, newCount in
+                self?.processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount)
+            },
+            ObvMessengerInternalNotification.observeBadgeForInvitationsHasBeenUpdated(queue: OperationQueue.main) { [weak self] ownedCryptoId, newCount in
+                self?.processBadgeForInvitationsHasBeenUpdated(ownCryptoId: ownedCryptoId, newCount: newCount)
+            },
         ])
     }
     
     
+    /// Called by the MetaFlowController (itself called by the SceneDelegate).
+    @MainActor
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        // Called when the scene has moved from an inactive state to an active state.
+        if viewDidAppearWasCalled == true {
+            presentOneOfTheModalViewControllersIfRequired()
+        }
+        presentOwnedIdentityIsNotActiveViewControllerIfRequired()
+    }
+
+    
+    /// Called by the MetaFlowController (itself called by the SceneDelegate).
+    @MainActor
+    func sceneWillResignActive(_ scene: UIScene) {
+        // Called when the scene will move from an active state to an inactive state.
+        airDroppedFileURLs.removeAll()
+    }
+
+    
     /// Called when the user tap the button shown on the snackbar view.
+    @MainActor
     private func processUserWantsToSeeDetailedExplanationsOfSnackBar(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory) {
         guard self.ownedCryptoId == ownedCryptoId else { return }
         
@@ -240,20 +233,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         
     }
     
-    
-    
-    private func processAppStateChanged(previousState: AppState, currentState: AppState) {
-        if !previousState.isInitializedAndActive && currentState.isInitializedAndActive {
-            if viewDidAppearWasCalled == true {
-                presentOneOfTheModalViewControllersIfRequired()
-            }
-            presentOwnedIdentityIsNotActiveViewControllerIfRequired()
-        }
-        
-        if previousState.isInitializedAndActive && currentState.iOSAppState == .mayResignActive {
-            airDroppedFileURLs.removeAll()
-        }        
-    }
     
     /// The current `ObvFlowController` currently on screen, if there is one.
     fileprivate var currentFlow: ObvFlowController? {
@@ -333,8 +312,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
   
         ObvMessengerInternalNotification.currentOwnedCryptoIdChanged(newOwnedCryptoId: ownedCryptoId, apiKey: apiKey)
             .postOnDispatchQueue()
-                
-        refreshAllTabbarBadges()
         
     }
     
@@ -377,41 +354,41 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         }
         guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: ownedCryptoId) else { assertionFailure(); return }
         if obvOwnedIdentity.isKeycloakManaged {
-            KeycloakManager.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId, firstKeycloakBinding: false)
-        }
-    }
-    
-    
-    private func presentOwnedIdentityIsNotActiveViewControllerIfRequired() {
-        assert(Thread.current == Thread.main)
-        guard viewDidAppearWasCalled else { return }
-        guard !anOwnedIdentityWasJustCreatedOrRestored else { return }
-        let log = self.log
-        AppStateManager.shared.addCompletionHandlerToExecuteWhenInitializedAndActive {
-            ObvStack.shared.performBackgroundTask { [weak self] (context) in
-                guard let _self = self else { return }
-                guard let ownedIdentityObv = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else {
-                    os_log("Could not find persisted owned identity", log: log, type: .fault)
-                    return
-                }
-                guard !ownedIdentityObv.isActive else { return }
-                // If we reach this point, the current owned identity is not active. So we should present the appropriate view controller.
-                DispatchQueue.main.async {
-                    // Check that we are not presenting an OwnedIdentityIsNotActiveViewController already
-                    if let presentedVC = self?.presentedViewController as? UINavigationController, presentedVC.children.filter({ $0 is OwnedIdentityIsNotActiveViewController }).isEmpty {
-                        return
-                    }
-                    let ownedIdentityIsNotActiveVC = OwnedIdentityIsNotActiveViewController()
-                    let nav = ObvNavigationController(rootViewController: ownedIdentityIsNotActiveVC)
-                    self?.present(nav, animated: true)
-                    self?.ownedIdentityIsNotActiveViewControllerWasShowAtLeastOnce = true
-                }
-                
+            Task {
+                await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId, firstKeycloakBinding: false)
             }
         }
     }
     
     
+    @MainActor
+    private func presentOwnedIdentityIsNotActiveViewControllerIfRequired() {
+        guard viewDidAppearWasCalled else { return }
+        guard !anOwnedIdentityWasJustCreatedOrRestored else { return }
+        let log = self.log
+        ObvStack.shared.performBackgroundTask { [weak self] (context) in
+            guard let _self = self else { return }
+            guard let ownedIdentityObv = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else {
+                os_log("Could not find persisted owned identity", log: log, type: .fault)
+                return
+            }
+            guard !ownedIdentityObv.isActive else { return }
+            // If we reach this point, the current owned identity is not active. So we should present the appropriate view controller.
+            DispatchQueue.main.async {
+                // Check that we are not presenting an OwnedIdentityIsNotActiveViewController already
+                if let presentedVC = self?.presentedViewController as? UINavigationController, presentedVC.children.filter({ $0 is OwnedIdentityIsNotActiveViewController }).isEmpty {
+                    return
+                }
+                let ownedIdentityIsNotActiveVC = OwnedIdentityIsNotActiveViewController()
+                let nav = ObvNavigationController(rootViewController: ownedIdentityIsNotActiveVC)
+                self?.present(nav, animated: true)
+                self?.ownedIdentityIsNotActiveViewControllerWasShowAtLeastOnce = true
+            }
+        }
+    }
+    
+    
+    @MainActor
     private func processUserWantsToDisplayContactIntroductionScreen(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, viewController: UIViewController) {
         assert(Thread.isMainThread)
         
@@ -449,7 +426,7 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     }
     
     
-    
+    @MainActor
     private func presentUserNotificationsSubscriberHostingController() {
         self.dismiss(animated: true) {
             let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: {
@@ -470,30 +447,15 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     
     
     /// Shall only be called from `presentOneOfTheModalViewControllersIfRequired`
+    @MainActor
     private func presentOneOfTheOtherModalViewControllersIfRequired() {
         assert(Thread.isMainThread)
         // Once the appropriate view controller has been displayed, check the user's device configuration. If something bad happens, present a view controller asking the user to update her configuration.
-        let configChecked = DeviceConfigurationChecker()
-        guard configChecked.currentConfigurationIsValid(application: UIApplication.shared) else {
+        let configChecker = DeviceConfigurationChecker()
+        guard configChecker.currentConfigurationIsValid(application: UIApplication.shared) else {
             let badConfigurationViewController = BadConfigurationViewController()
             let nav = ObvNavigationController(rootViewController: badConfigurationViewController)
-            present(nav, animated: true) {
-                DispatchQueue(label: "DeviceConfigurationChecker").async {
-                    while true {
-                        sleep(1)
-                        var validConfig = false
-                        DispatchQueue.main.sync {
-                            if configChecked.currentConfigurationIsValid(application: UIApplication.shared) {
-                                nav.dismiss(animated: true)
-                                validConfig = true
-                            }
-                        }
-                        if validConfig {
-                            break
-                        }
-                    }
-                }
-            }
+            present(nav, animated: true)
             return
         }
         guard (ObvMessengerSettings.AppVersionAvailable.minimum ?? 0) <= ObvMessengerConstants.bundleVersionAsInt else {
@@ -530,26 +492,26 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
 
 extension MainFlowViewController {
     
-    private func refreshAllTabbarBadges() {
-        DispatchQueue.main.async { [weak self] in
-            guard let _self = self else { return }
-            if let tabbarItem = _self.mainTabBarController.viewControllers?[ChildTypes.latestDiscussions].tabBarItem {
-                if let count = _self.badgesDelegate?.getCurrentCountForNewMessagesBadgeForOwnedIdentity(with: _self.ownedCryptoId), count > 0 {
-                    tabbarItem.badgeValue = "\(count)"
-                } else {
-                    tabbarItem.badgeValue = nil
-                }
-            }
-            if let tabbarItem = _self.mainTabBarController.viewControllers?[ChildTypes.invitations].tabBarItem {
-                if let count = _self.badgesDelegate?.getCurrentCountForInvitationsBadgeForOwnedIdentity(with: _self.ownedCryptoId), count > 0 {
-                    tabbarItem.badgeValue = "\(count)"
-                } else {
-                    tabbarItem.badgeValue = nil
-                }
-            }
+    @MainActor
+    private func processBadgeForNewMessagesHasBeenUpdated(ownCryptoId: ObvCryptoId, newCount: Int) {
+        assert(Thread.isMainThread)
+        guard ownCryptoId == self.ownedCryptoId else { return }
+        if let tabbarItem = mainTabBarController.viewControllers?[ChildTypes.latestDiscussions].tabBarItem {
+            tabbarItem.badgeValue = newCount > 0 ? "\(newCount)" : nil
+        }
+    }
+
+    
+    @MainActor
+    private func processBadgeForInvitationsHasBeenUpdated(ownCryptoId: ObvCryptoId, newCount: Int) {
+        assert(Thread.isMainThread)
+        guard ownCryptoId == self.ownedCryptoId else { return }
+        if let tabbarItem = mainTabBarController.viewControllers?[ChildTypes.invitations].tabBarItem {
+            tabbarItem.badgeValue = newCount > 0 ? "\(newCount)" : nil
         }
     }
     
+
 }
 
 
@@ -562,6 +524,7 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     }
     
     
+    @MainActor
     private func userSelectedURL(_ url: URL, within viewController: UIViewController, confirmed: Bool) {
 
         if confirmed {
@@ -589,7 +552,7 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
 
     
     func performTrustEstablishmentProtocolOfRemoteIdentity(remoteCryptoId: ObvCryptoId, remoteFullDisplayName: String) {
-        self.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: remoteCryptoId, contactFullDisplayName: remoteFullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: false)
+         self.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: remoteCryptoId, contactFullDisplayName: remoteFullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: false)
     }
     
     
@@ -597,6 +560,7 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         self.rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: contactCryptoId, contactFullDisplayName: contactFullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: false)
     }
     
+    @MainActor
     private func userWantsToAddContact(sourceView: UIView, alreadyScannedOrTappedURL: OlvidURL?) {
         
         assert(Thread.isMainThread)
@@ -612,8 +576,11 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         guard let vc = AddContactHostingViewController(
             obvOwnedIdentity: obvOwnedIdentity,
             alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
-            dismissAction: self.dismissPresentedViewController,
-            checkSignatureMutualScanUrl: self.checkSignatureMutualScanUrl)
+            dismissAction: { [weak self] in self?.dismissPresentedViewController() },
+            checkSignatureMutualScanUrl: { [weak self] mutualScanUrl in
+                guard let _self = self else { return false }
+                return _self.checkSignatureMutualScanUrl(mutualScanUrl)
+            })
         else {
             assertionFailure()
             return
@@ -624,8 +591,7 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         
     }
     
-    
-    // 2020-10-07: We will soon remove this code since it is integrated within the MyIdView view controller
+
     private func checkAuthorizationStatusThenSetupAndPresentQRCodeScanner() {
         assert(Thread.isMainThread)
         switch AVCaptureDevice.authorizationStatus(for: AVMediaType.video) {
@@ -649,21 +615,22 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         }
     }
     
-    
-    /// Do not call this function directly. Use `checkAuthStatusThenSetupAndPresentQRCodeScanner` instead.
+
+    /// Do not call this function directly. Use ``func checkAuthorizationStatusThenSetupAndPresentQRCodeScanner()`` instead.
+    @MainActor
     private func setupAndPresentQRCodeScanner() {
         assert(Thread.isMainThread)
-        let qrCodeScanner = QRCodeScannerViewController()
-        qrCodeScanner.delegate = self
-        qrCodeScanner.explanation = Strings.qrCodeScannerExplanation
-        qrCodeScanner.title = Strings.qrCodeScannerTitle
-        let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
-        qrCodeScanner.navigationItem.setLeftBarButton(closeButton, animated: false)
-        let qrCodeScannerNavigationController = ObvNavigationController(rootViewController: qrCodeScanner)
-        present(qrCodeScannerNavigationController, animated: true)
+        let vc = ScannerHostingView(buttonType: .back, delegate: self)
+        let nav = UINavigationController(rootViewController: vc)
+        // Configure the ScannerHostingView properly for the navigation controller
+        vc.title = NSLocalizedString("SCAN_QR_CODE", comment: "")
+        dismiss(animated: false) { [weak self] in
+            self?.present(nav, animated: true)
+        }
     }
     
     
+    @MainActor
     private func userWantsToAddContactUsingAdvancedOptions(sourceView: UIView?) {
         
         let alert = UIAlertController(title: Strings.AddInviteAlert.title, message: Strings.AddInviteAlert.messageAdvanced, preferredStyle: .actionSheet)
@@ -712,10 +679,9 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     }
 
     
+    @MainActor
     @objc func dismissPresentedViewController() {
-        DispatchQueue.main.async { [weak self] in
-            self?.presentedViewController?.dismiss(animated: true)
-        }
+        presentedViewController?.dismiss(animated: true)
     }
 
     private func checkSignatureMutualScanUrl(_ mutualScanUrl: ObvMutualScanUrl) -> Bool {
@@ -795,15 +761,6 @@ extension MainFlowViewController: UITabBarControllerDelegate, ObvSubTabBarContro
 extension MainFlowViewController {
         
     
-    private func observeBadgesNeedToBeUpdatedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeBadgesNeedToBeUpdated { [weak self] ownedCryptoId in
-            guard let _self = self else { return }
-            guard _self.ownedCryptoId == ownedCryptoId else { return }
-            _self.refreshAllTabbarBadges()
-        })
-    }
-
-    
     private func observeUserWantsToShareOwnPublishedDetailsNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToShareOwnPublishedDetails { [weak self] (ownedCryptoId, sourceView) in
             guard self?.ownedCryptoId == ownedCryptoId else { return }
@@ -812,16 +769,18 @@ extension MainFlowViewController {
     }
     
     
-    /// When the user wants to emit a call, an internal notification is sent and cached here. We check that the user is allowed to make this call.
-    /// If this is the case, we send an appropriate notification that will be cached by the call manager.
+    /// When the user wants to emit a call, an internal notification is sent and catched here. We check that the user is allowed to make this call.
+    /// If this is the case, we send an appropriate notification that will be catched by the call manager.
     /// Otherwise, we show the subscription plans.
     private func observeUserWantsToCallNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(queue: OperationQueue.main) { [weak self] (contactIDs, groupId) in
+        os_log("📲 Observing UserWantsToCall notifications", log: log, type: .info)
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(queue: .main) { [weak self] (contactIDs, groupId) in
             self?.processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contactIDs, groupId: groupId)
         })
     }
     
     
+    @MainActor
     private func processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
         assert(Thread.isMainThread)
         
@@ -930,7 +889,7 @@ extension MainFlowViewController {
     }
 
     private func observeServerDoesNotSupportCall() {
-        observationTokens.append(ObvMessengerInternalNotification.observeServerDoesNotSupportCall(queue: OperationQueue.main) { [weak self] in
+        observationTokens.append(VoIPNotification.observeServerDoesNotSupportCall(queue: OperationQueue.main) { [weak self] in
             let alert = UIAlertController(title: Strings.ServerDoesNotSupportCallAlert.title, message: nil, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
             if let presentedViewController = self?.presentedViewController {
@@ -942,7 +901,7 @@ extension MainFlowViewController {
     }
 
     private func observeCallHasBeenUpdated() {
-        observationTokens.append(VoIPNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] call, updateKind in
+        observationTokens.append(VoIPNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] _, updateKind in
             guard case .state(let newState) = updateKind else { return }
             guard newState == .kicked else { return }
 
@@ -956,25 +915,25 @@ extension MainFlowViewController {
         })
     }
     
+    @MainActor
     private func presentUIActivityViewControllerForSharingOwnPublishedDetails(sourceView: UIView) {
         guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: ownedCryptoId) else { return }
         let genericIdentityForSharing = ObvGenericIdentityForSharing(genericIdentity: obvOwnedIdentity.getGenericIdentity())
         let activityItems: [Any] = [genericIdentityForSharing]
         let uiActivityVC = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
         uiActivityVC.excludedActivityTypes = [.addToReadingList, .openInIBooks, .markupAsPDF]
-        DispatchQueue.main.async { [weak self] in
-            uiActivityVC.popoverPresentationController?.sourceView = sourceView
-            if let presentedViewController = self?.presentedViewController {
-                presentedViewController.present(uiActivityVC, animated: true)
-            } else {
-                self?.present(uiActivityVC, animated: true)
-            }
+        uiActivityVC.popoverPresentationController?.sourceView = sourceView
+        if let presentedViewController = self.presentedViewController {
+            presentedViewController.present(uiActivityVC, animated: true)
+        } else {
+            self.present(uiActivityVC, animated: true)
         }
     }
     
     
     /// This method shall only be called from the MetaFlowController. The reason we do not listen to notifications in this class is that it is
     /// initialized late in the app initialization process and thus, we could miss deep link navigation notifications sent earlier.
+    @MainActor
     func performCurrentDeepLinkInitialNavigation(deepLink: ObvDeepLink) {
         assert(Thread.isMainThread)
         os_log("🥏 Performing deep link initial navigation to %{public}@", log: log, type: .info, deepLink.url.debugDescription)
@@ -986,7 +945,7 @@ extension MainFlowViewController {
             guard let ownedIdentityObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: ownedIdentityURI) else { assertionFailure(); return }
             guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(objectID: ownedIdentityObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             presentedViewController?.dismiss(animated: true)
-            let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity)
+            let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine)
             vc.delegate = self
             present(vc, animated: true)
             
@@ -1115,17 +1074,19 @@ extension MainFlowViewController {
     }
 
     
+    @MainActor
     private func presentSettingsFlowViewController() {
         assert(Thread.isMainThread)
-        let vc = SettingsFlowViewController.create(ownedCryptoId: ownedCryptoId)
+        let vc = SettingsFlowViewController.create(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true)
     }
 
+    @MainActor
     private func presentBackupSettingsFlowViewController() {
         assert(Thread.isMainThread)
-        let vc = SettingsFlowViewController.create(ownedCryptoId: ownedCryptoId)
+        let vc = SettingsFlowViewController.create(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true) {
@@ -1188,8 +1149,17 @@ extension MainFlowViewController {
 
 // MARK: - QRCodeScannerViewControllerDelegate
 
-extension MainFlowViewController: QRCodeScannerViewControllerDelegate {
+extension MainFlowViewController: ScannerHostingViewDelegate {
 
+    func qrCodeWasScanned(olvidURL: OlvidURL) {
+        processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL)
+    }
+    
+    
+    func scannerViewActionButtonWasTapped() {
+        presentedViewController?.dismiss(animated: true)
+    }
+    
     private func sendInvite(to remoteCryptoId: ObvCryptoId, withFullDisplayName fullDisplayName: String, for ownedCryptoId: ObvCryptoId) {
         do {
             // Launch a trust establishment protocol with the contact
@@ -1207,58 +1177,48 @@ extension MainFlowViewController: QRCodeScannerViewControllerDelegate {
         }
     }
         
-    func userCancelledQRCodeScanSession() {
-        presentedViewController?.dismiss(animated: true)
-    }
-    
-    
+
+    @MainActor
     private func presentBadScannedQRCodeAlert() {
         let alert = UIAlertController(title: Strings.BadScannedQRCodeAlert.title, message: Strings.BadScannedQRCodeAlert.message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-        DispatchQueue.main.async { [weak self] in
-            self?.present(alert, animated: true)
-        }
+        self.present(alert, animated: true)
     }
     
     
-    func qrCodeScanned(url: URL) {
-        assert(Thread.isMainThread)
-        guard let olvidURL = OlvidURL(urlRepresentation: url) else {
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.dismiss(animated: true) { [weak self] in
-                    self?.presentBadScannedQRCodeAlert()
-                }
-            } else {
-                presentBadScannedQRCodeAlert()
-            }
-            return
-        }
-        processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL)
-    }
-
-    
+    @MainActor
     func processExternallyScannedOrTappedOlvidURL(olvidURL: OlvidURL) {
         
-        assert(Thread.isMainThread)
-
         os_log("Processing an externally scanned or tapped Olvid URL", log: log, type: .info)
 
         switch olvidURL.category {
         case .openIdRedirect:
-            _ = KeycloakManager.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
+            Task {
+                do {
+                    _ = try await KeycloakManagerSingleton.shared.resumeExternalUserAgentFlow(with: olvidURL.url)
+                    os_log("Successfully resumed the external user agent flow", log: log, type: .info)
+                } catch {
+                    os_log("Failed to resume external user agent flow: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    return
+                }
+            }
         case .configuration, .invitation, .mutualScan:
             userWantsToAddContact(sourceView: UIView(), alreadyScannedOrTappedURL: olvidURL)
         }
 
     }
     
-    
+    @MainActor
     private func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String, ownedCryptoId: ObvCryptoId, confirmed: Bool) {
         
         guard confirmed else {
             let invitationAlert = UIAlertController(title: Strings.alertInvitationTitle, message: Strings.alertInvitationScanedIsAlreadtPart, preferredStyle: .alert)
             invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Proceed, style: .default) { [weak self] _ in
-                self?.rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: contactCryptoId, contactFullDisplayName: contactFullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: true)
+                self?.rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: contactCryptoId,
+                                                                           contactFullDisplayName: contactFullDisplayName,
+                                                                           ownedCryptoId: ownedCryptoId,
+                                                                           confirmed: true)
             })
             invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
             present(invitationAlert, animated: true)
@@ -1270,12 +1230,16 @@ extension MainFlowViewController: QRCodeScannerViewControllerDelegate {
     }
     
     
+    @MainActor
     private func performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String, ownedCryptoId: ObvCryptoId, confirmed: Bool) {
         
         guard confirmed else {
             let invitationAlert = UIAlertController(title: Strings.alertInvitationTitle, message: Strings.alertInvitationWantToSend(contactFullDisplayName), preferredStyle: .alert)
             invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Proceed, style: .default) { [weak self] _ in
-                self?.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: contactCryptoId, contactFullDisplayName: contactFullDisplayName, ownedCryptoId: ownedCryptoId, confirmed: true)
+                    self?.performTrustEstablishmentProtocolOfRemoteIdentity(contactCryptoId: contactCryptoId,
+                                                                                  contactFullDisplayName: contactFullDisplayName,
+                                                                                  ownedCryptoId: ownedCryptoId,
+                                                                                  confirmed: true)
             })
             invitationAlert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
             present(invitationAlert, animated: true)
@@ -1498,10 +1462,6 @@ extension MainFlowViewController {
             static let title = NSLocalizedString("Bad QR code", comment: "Alert title")
             static let message = NSLocalizedString("The scanned QR code does not appear to be an Olvid identity.", comment: "Alert message")
         }
-
-        static let qrCodeScannerExplanation = NSLocalizedString("ASK_CONTACT_TO_GO_UNDER_MY_ID_MAKING_IT_POSSIBLE_FOR_YOU_TO_SCAN_QR_CODE", comment: "Explanation for the QR code scanner")
-        
-        static let qrCodeScannerTitle = NSLocalizedString("Scan an Olvid identity", comment: "QR code scanner title")
 
         static let alertInvitationTitle = NSLocalizedString("Invitation", comment: "Alert title")
 

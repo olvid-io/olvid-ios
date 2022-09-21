@@ -41,18 +41,16 @@ final class BackgroundTaskCoordinator: SimpleBackgroundTaskDelegate, BackgroundT
     private let backgroundActivitiesQueue = DispatchQueue(label: "BackgroundTaskCoordinator.CurrentExpectationsWithinFlowQueue")
     private let internalQueue = OperationQueue()
     
-    weak var uiApplication: UIApplication?
-    private let backgroundActivityEmulator = BackgroundActivityEmulator()
-    private var expiringActivityPerformer: ExpiringActivityPerformer {
-        return uiApplication ?? backgroundActivityEmulator
+    private let backgroundTaskManager: ObvBackgroundTaskManager
+    
+    /// Called when starting the full engine. In practice, the `ObvBackgroundTaskManager` is implemented using the UIApplication object.
+    init(backgroundTaskManager: ObvBackgroundTaskManager) {
+        self.backgroundTaskManager = backgroundTaskManager
     }
     
-    init(uiApplication: UIApplication) {
-        self.uiApplication = uiApplication
-    }
-    
+    /// Called when starting a limited engine, where the UIApplication is not defined.
     init() {
-        self.uiApplication = nil
+        self.backgroundTaskManager = BackgroundActivityEmulator()
     }
     
     // MARK: - Init/Deinit
@@ -82,22 +80,19 @@ extension BackgroundTaskCoordinator {
         
         let flowId = FlowIdentifier()
         
+        let backgroundTaskId = backgroundTaskManager.beginBackgroundTask { [weak self] in
+            // End the activity if time expires.
+            os_log("Ending background activity associated with flow %{public}@ because time expired", log: log, type: .error, flowId.debugDescription)
+            self?.endBackgroundActivityAssociatedWithFlow(withId: flowId)
+        }
+
         backgroundActivitiesQueue.sync {
-                        
-            let backgroundTaskId = expiringActivityPerformer.beginBackgroundTask { [weak self] in
-                // End the activity if time expires.
-                guard let _self = self else { return }
-                os_log("Ending background activity associated with flow %{public}@ because time expired", log: log, type: .error, flowId.debugDescription)
-                _self.endBackgroundActivityAssociatedWithFlow(withId: flowId)
-            }
-            
             _currentExpectationsWithinFlow[flowId] = (expectations, backgroundTaskId, completionHandler)
-            
-            os_log("Starting flow %{public}@ associated with background task %d", log: log, type: .info, flowId.debugDescription, backgroundTaskId.rawValue)
-            os_log("Initial expectations of flow %{public}@: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: expectations))
-            
         }
         
+        os_log("Starting flow %{public}@ associated with background task %d", log: log, type: .info, flowId.debugDescription, backgroundTaskId.rawValue)
+        os_log("Initial expectations of flow %{public}@: %{public}@", log: log, type: .info, flowId.debugDescription, Expectation.description(of: expectations))
+
         return flowId
     }
 
@@ -173,7 +168,8 @@ extension BackgroundTaskCoordinator {
             }
             os_log("Ending flow %{public}@ associated with background task %d", log: log, type: .info, flowId.debugDescription, backgroundTaskId.rawValue)
             
-            expiringActivityPerformer.endBackgroundTask(backgroundTaskId, completionHandler: completionHandler)
+            backgroundTaskManager.endBackgroundTask(backgroundTaskId, completionHandler: completionHandler)
+
         }
         
     }
@@ -269,11 +265,11 @@ extension BackgroundTaskCoordinator {
     
     func simpleBackgroundTask(withReason reason: String, using block: @escaping (Bool) -> Void) {
         let log = OSLog(subsystem: "io.olvid.protocol", category: BackgroundTaskCoordinator.logCategory)
-        let backgroundTaskId = expiringActivityPerformer.beginBackgroundTask(expirationHandler: nil)
+        let backgroundTaskId = backgroundTaskManager.beginBackgroundTask(expirationHandler: nil)
         os_log("Starting simple background task %d with reason %{public}@", log: log, type: .debug, backgroundTaskId.rawValue, reason)
         block(false)
         os_log("Ending simple background task %d with reason %{public}@", log: log, type: .debug, backgroundTaskId.rawValue, reason)
-        expiringActivityPerformer.endBackgroundTask(backgroundTaskId, completionHandler: nil)
+        backgroundTaskManager.endBackgroundTask(backgroundTaskId, completionHandler: nil)
     }
 
     // Posting message and attachments
@@ -295,6 +291,53 @@ extension BackgroundTaskCoordinator {
 
         updateExpectationsOfBackgroundActivityAssociatedWithFlow(withId: flowId, expectationsToRemove: [], expectationsToAdd: Array(expectations))
         
+    }
+    
+    // Posting a return receipt (for message or an attachment)
+    
+    /// This method allows to start a flow allowing to make sure the system gives us enough time to post the return receipt corresponding to a fully received message or attachment.
+    ///
+    /// In practice, this method is called by the engine when receiving a notification of the network fetch manager that a message / attachment is available.
+    /// It is called *before* notifying the app. The app will eventually post a return receipt. To do that, it will make a request to the engine that will eventually call the
+    /// ``stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?)`` bellow.
+    ///
+    func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier {
+        guard let delegateManager = delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "🧾 The delegate manager is not set")
+        }
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        let expectations: Set<Expectation>
+        if let attachmentNumber = attachmentNumber {
+            let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+            os_log("🧾 Starting background activity for attachmentId %{public}@", log: log, type: .debug, attachmentId.debugDescription)
+            expectations = Set([.returnReceiptWasPostedForAttachment(attachmentId: attachmentId)])
+        } else {
+            os_log("🧾 Starting background activity for messageId %{public}@", log: log, type: .debug, messageId.debugDescription)
+            expectations = Set([.returnReceiptWasPostedForMessage(messageId: messageId)])
+        }
+        return try startFlowForBackgroundTask(with: expectations)
+    }
+    
+    /// This method allows to stop the flow allowing to wait until a return receipt is posted. See the comment for the
+    /// ``startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws``
+    /// method above.
+    func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws {
+        guard let delegateManager = delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "The delegate manager is not set")
+        }
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
+        let expectationsToRemove: [Expectation]
+        if let attachmentNumber = attachmentNumber {
+            let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+            os_log("🧾 Stopping background activity for attachmentId %{public}@", log: log, type: .debug, attachmentId.debugDescription)
+            expectationsToRemove = [.returnReceiptWasPostedForAttachment(attachmentId: attachmentId)]
+        } else {
+            os_log("🧾 Stopping background activity for messageId %{public}@", log: log, type: .debug, messageId.debugDescription)
+            expectationsToRemove = [.returnReceiptWasPostedForMessage(messageId: messageId)]
+        }
+        updateExpectationsOfAllBackgroundActivities(expectationsToRemove: expectationsToRemove)
     }
     
     // Resuming a protocol

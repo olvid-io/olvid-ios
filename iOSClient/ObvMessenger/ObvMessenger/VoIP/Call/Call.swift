@@ -93,7 +93,7 @@ actor Call: GenericCall, ObvErrorMaker {
         assert(callParticipants.firstIndex(of: HashableCallParticipant(callParticipant)) == nil, "The participant already exists in the set, we should never happen since we have an anti-race mechanism")
         callParticipants.insert(HashableCallParticipant(callParticipant))
         if report {
-            VoIPNotification.callHasBeenUpdated(callEssentials: callEssentials, updateKind: .callParticipantChange)
+            VoIPNotification.callHasBeenUpdated(callUUID: self.uuid, updateKind: .callParticipantChange)
                 .postOnDispatchQueue(queueForPostingNotifications)
         }
         for iceCandidate in pendingIceCandidates[callParticipant.userId] ?? [] {
@@ -115,7 +115,7 @@ actor Call: GenericCall, ObvErrorMaker {
         if callParticipants.isEmpty {
             await endCallAsAllOtherParticipantsLeft()
         }
-        VoIPNotification.callHasBeenUpdated(callEssentials: callEssentials, updateKind: .callParticipantChange)
+        VoIPNotification.callHasBeenUpdated(callUUID: self.uuid, updateKind: .callParticipantChange)
             .postOnDispatchQueue(queueForPostingNotifications)
         
         // If we are the caller (i.e., if this is an outgoing call) and if the call is not over, we send an updated list of participants to the remaining participants
@@ -140,11 +140,6 @@ actor Call: GenericCall, ObvErrorMaker {
     
     func getParticipant(remoteCryptoId: ObvCryptoId) -> CallParticipantImpl? {
         return callParticipants.first(where: { $0.remoteCryptoId == remoteCryptoId })?.callParticipant
-    }
-    
-
-    var callEssentials: CallEssentials {
-        CallEssentials(uuid: uuid, state: internalState, direction: direction, userAnsweredIncomingCall: userAnsweredIncomingCall)
     }
     
     func getCallParticipants() async -> [CallParticipant] {
@@ -214,9 +209,16 @@ actor Call: GenericCall, ObvErrorMaker {
             stateDate[internalState] = Date()
         }
         
-        VoIPNotification.callHasBeenUpdated(callEssentials: callEssentials, updateKind: .state(newState: newState))
+        VoIPNotification.callHasBeenUpdated(callUUID: self.uuid, updateKind: .state(newState: newState))
             .postOnDispatchQueue(queueForPostingNotifications)
 
+        // Notify of the fact that the incoming call is initializing (this is used to show the call view and the call toggle view)
+        
+        if self.direction == .incoming && newState == .initializingCall {
+            VoIPNotification.anIncomingCallShouldBeShownToUser(newIncomingCall: self)
+                .postOnDispatchQueue(queueForPostingNotifications)
+        }
+        
         if internalState.isFinalState {
 
             // Close all connections
@@ -403,7 +405,7 @@ actor Call: GenericCall, ObvErrorMaker {
             guard await !participant.isMuted else { continue }
             await participant.mute()
         }
-        VoIPNotification.callHasBeenUpdated(callEssentials: callEssentials, updateKind: .mute)
+        VoIPNotification.callHasBeenUpdated(callUUID: self.uuid, updateKind: .mute)
             .postOnDispatchQueue(queueForPostingNotifications)
     }
 
@@ -416,7 +418,7 @@ actor Call: GenericCall, ObvErrorMaker {
             guard await participant.isMuted else { continue }
             await participant.unmute()
         }
-        VoIPNotification.callHasBeenUpdated(callEssentials: callEssentials, updateKind: .mute)
+        VoIPNotification.callHasBeenUpdated(callUUID: self.uuid, updateKind: .mute)
             .postOnDispatchQueue(queueForPostingNotifications)
     }
     

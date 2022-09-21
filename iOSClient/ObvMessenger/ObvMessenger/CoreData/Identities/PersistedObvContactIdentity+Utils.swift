@@ -29,4 +29,5 @@ extension PersistedObvContactIdentity {
                  showRedShield: !isActive,
                  colors: cryptoId.colors)
     }
+    
 }

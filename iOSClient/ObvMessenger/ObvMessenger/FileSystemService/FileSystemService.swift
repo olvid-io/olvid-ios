@@ -19,27 +19,24 @@
 
 import Foundation
 import os.log
+import OlvidUtils
 
 final class FileSystemService {
     
-    
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: FileSystemService.self))
     private var notificationTokens = [NSObjectProtocol]()
-    private let internalQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        queue.name = "FileSystemService internal Queue"
-        return queue
-    }()
+    private let internalQueue = OperationQueue.createSerialQueue(name: "FileSystemService internal Queue", qualityOfService: .default)
 
     init() {
         listenToNotifications()
     }
     
     private func listenToNotifications() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeTrashShouldBeEmptied(queue: internalQueue) { [weak self] in
-            self?.emptyTrashNow()
-        })
+        notificationTokens.append(contentsOf: [
+            ObvMessengerInternalNotification.observeTrashShouldBeEmptied(queue: internalQueue) { [weak self] in
+                self?.emptyTrashNow()
+            },
+        ])
     }
     
 }

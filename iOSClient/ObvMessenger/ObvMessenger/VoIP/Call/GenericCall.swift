@@ -49,14 +49,6 @@ protocol GenericCall: AnyObject {
 }
 
 
-struct CallEssentials {
-    let uuid: UUID
-    let state: CallState
-    let direction: CallDirection
-    let userAnsweredIncomingCall: Bool // Always false for an outgoing call
-}
-
-
 // MARK: - Call State
 
 enum CallState: Hashable, CustomDebugStringConvertible {

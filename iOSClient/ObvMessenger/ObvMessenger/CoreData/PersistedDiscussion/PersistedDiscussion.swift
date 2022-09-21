@@ -453,6 +453,63 @@ extension PersistedDiscussion {
 
 }
 
+
+// MARK: - Thread safe struct
+
+extension PersistedDiscussion {
+    
+    struct AbstractStructure {
+        let title: String
+        let localConfiguration: PersistedDiscussionLocalConfiguration.Structure
+    }
+    
+    func toAbstractStruct() throws -> AbstractStructure {
+        return AbstractStructure(title: self.title,
+                                 localConfiguration: try self.localConfiguration.toStructure())
+    }
+    
+    enum StructureKind {
+        case groupDiscussion(structure: PersistedGroupDiscussion.Structure)
+        case oneToOneDiscussion(structure: PersistedOneToOneDiscussion.Structure)
+        var objectID: NSManagedObjectID {
+            switch self {
+            case .groupDiscussion(let structure):
+                return structure.typedObjectID.objectID
+            case .oneToOneDiscussion(let structure):
+                return structure.typedObjectID.objectID
+            }
+        }
+        var title: String {
+            switch self {
+            case .groupDiscussion(let structure):
+                return structure.title
+            case .oneToOneDiscussion(let structure):
+                return structure.title
+            }
+        }
+        var localConfiguration: PersistedDiscussionLocalConfiguration.Structure {
+            switch self {
+            case .groupDiscussion(let structure):
+                return structure.localConfiguration
+            case .oneToOneDiscussion(let structure):
+                return structure.localConfiguration
+            }
+        }
+    }
+    
+    func toStruct() throws -> StructureKind {
+        if let oneToOneDiscussion = self as? PersistedOneToOneDiscussion {
+            return .oneToOneDiscussion(structure: try oneToOneDiscussion.toStruct())
+        } else if let groupDiscussion = self as? PersistedGroupDiscussion {
+            return .groupDiscussion(structure: try groupDiscussion.toStruct())
+        } else {
+            throw Self.makeError(message: "Unexpected discussion type")
+        }
+    }
+    
+}
+
+
 // MARK: - Sending notifications on changes
 
 extension PersistedDiscussion {

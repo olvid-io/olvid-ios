@@ -41,7 +41,6 @@ final class AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation: Ope
 
     override func main() {
 
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
         guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == persistedDiscussionObjectID else { assertionFailure(); return }
         
         ObvStack.shared.performBackgroundTaskAndWait { context in

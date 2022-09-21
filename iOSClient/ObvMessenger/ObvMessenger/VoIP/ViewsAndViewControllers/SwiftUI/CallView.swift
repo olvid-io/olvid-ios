@@ -89,7 +89,7 @@ final class ObservableCallWrapper: ObservableObject {
     
 
     nonisolated func actionDiscussions() {
-        ObvMessengerInternalNotification.toggleCallView.postOnDispatchQueue()
+        VoIPNotification.hideCallView.postOnDispatchQueue()
     }
 
     
@@ -97,8 +97,8 @@ final class ObservableCallWrapper: ObservableObject {
         self.call = call
         self.callHeadline = ""
         self.tokens.append(contentsOf: [
-            VoIPNotification.observeCallHasBeenUpdated { (updatedCall, updateKind) in
-                Task { [weak self] in await self?.processCallHasBeenUpdated(updatedCall: updatedCall, updateKind: updateKind) }
+            VoIPNotification.observeCallHasBeenUpdated { (callUUID, updateKind) in
+                Task { [weak self] in await self?.processCallHasBeenUpdated(callUUID: callUUID, updateKind: updateKind) }
             },
             VoIPNotification.observeCallParticipantHasBeenUpdated(queue: OperationQueue.main) { [weak self] (updatedParticipant, updateKind) in
                 Task { [weak self] in
@@ -119,9 +119,9 @@ final class ObservableCallWrapper: ObservableObject {
     }
     
     
-    private func processCallHasBeenUpdated(updatedCall: CallEssentials, updateKind: CallUpdateKind) async {
+    private func processCallHasBeenUpdated(callUUID: UUID, updateKind: CallUpdateKind) async {
         assert(Thread.isMainThread)
-        guard updatedCall.uuid == call.uuid else { return }
+        guard callUUID == call.uuid else { return }
         switch updateKind {
         case .state, .mute:
             break

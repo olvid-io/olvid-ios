@@ -26,6 +26,9 @@ import QuickLook
 import CoreData
 import OlvidUtils
 
+protocol CustomQLPreviewControllerDelegate: QLPreviewControllerDelegate {
+    func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
+}
 
 final class CustomQLPreviewController: QLPreviewController {
     
@@ -137,31 +140,33 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
     private let queueForRequestingHardlinks = DispatchQueue(label: "FilesViewer internal queue for requesting hardlinks")
     
     private var observationTokens = [NSObjectProtocol]()
+
+    private var reloadDataOnNextControllerDidChangeContent = false
     
-    init(frc: NSFetchedResultsController<FyleMessageJoinWithStatus>, qlPreviewControllerDelegate: QLPreviewControllerDelegate) {
+    init(frc: NSFetchedResultsController<FyleMessageJoinWithStatus>, qlPreviewControllerDelegate: CustomQLPreviewControllerDelegate) {
         assert(frc.delegate == nil)
         self.frcType = .fyleMessageJoinWithStatus(frc: frc)
         previewController.delegate = qlPreviewControllerDelegate
         super.init()
         observeCurrentItemToPreventSharingIfNecessary()
+        observeCurrentItemToSendReadReceiptIfNecessary()
         if case .fyleMessageJoinWithStatus(frc: let frc) = frcType {
             frc.delegate = self
         }
     }
 
     
-    init(frc: NSFetchedResultsController<PersistedDraftFyleJoin>, qlPreviewControllerDelegate: QLPreviewControllerDelegate) {
+    init(frc: NSFetchedResultsController<PersistedDraftFyleJoin>, qlPreviewControllerDelegate: CustomQLPreviewControllerDelegate) {
         self.frcType = .persistedDraftFyleJoin(frc: frc)
         previewController.delegate = qlPreviewControllerDelegate
         super.init()
         // No need to observe current item to prevent sharing
     }
 
-    private var kvo: NSKeyValueObservation?
-
+    private var kvoTokens = [NSKeyValueObservation]()
     
     private func observeCurrentItemToPreventSharingIfNecessary() {
-        kvo = previewController.observe(\.currentPreviewItemIndex, options: [.new, .prior]) { [weak self] _, change in
+        let token = previewController.observe(\.currentPreviewItemIndex, options: [.new, .prior]) { [weak self] _, change in
             guard case let .fyleMessageJoinWithStatus(frc) = self?.frcType else { return }
             if change.isPrior {
                 // When we receive a "prior" notification, we do not have access to the new index yet.
@@ -178,6 +183,26 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
                 self?.previewController.preventSharing = !join.shareActionCanBeMadeAvailable
             }
         }
+        kvoTokens.append(token)
+    }
+
+    private func observeCurrentItemToSendReadReceiptIfNecessary() {
+        let token = previewController.observe(\.currentPreviewItemIndex, options: [.new, .prior]) { [weak self] _, change in
+            guard case let .fyleMessageJoinWithStatus(frc) = self?.frcType else { return }
+            guard !change.isPrior else { return }
+            guard let section = self?.section else { return }
+            guard let index = change.newValue else { assertionFailure(); return }
+            let indexPath = IndexPath(item: index, section: section)
+            guard section < frc.sections?.count ?? 0 else { return }
+            guard let sectionInfos = frc.sections?[section] else { return }
+            guard index < sectionInfos.numberOfObjects else { return }
+            let join = frc.object(at: indexPath)
+
+            guard let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus else { return }
+            guard let customDelegate = self?.previewController.delegate as? CustomQLPreviewControllerDelegate else { assertionFailure(); return }
+            customDelegate.previewController(hasDisplayed: receivedJoin.typedObjectID)
+        }
+        kvoTokens.append(token)
     }
     
     
@@ -230,7 +255,7 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
                 continue
             }
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { result in
+                HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { result in
                     assert(!Thread.isMainThread)
                     switch result {
                     case .success(let hardLinkToFyle):
@@ -250,7 +275,22 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
     
     /// When the fetched results controller changes content (e.g., when a file expires), we reload the preview controller.
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        previewController.reloadData()
+        if reloadDataOnNextControllerDidChangeContent {
+            previewController.reloadData()
+        }
+        reloadDataOnNextControllerDidChangeContent = false
+    }
+
+    /// Only reload data if one of the changes is insert, delete or move.
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
+        switch type {
+        case .insert, .delete, .move:
+            reloadDataOnNextControllerDidChangeContent = true
+        case .update:
+            break
+        @unknown default:
+            assertionFailure()
+        }
     }
     
     
@@ -352,7 +392,7 @@ extension FilesViewer: QLPreviewControllerDataSource {
             
             let dispatchGroup = DispatchGroup()
             dispatchGroup.enter()
-            ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { [weak self] result in
+            HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { [weak self] result in
                 switch result {
                 case .success(let hardLinkToFyle):
                     self?.hardLinkToFyleForJoin[joinObject.objectID] = hardLinkToFyle
@@ -371,7 +411,7 @@ extension FilesViewer: QLPreviewControllerDataSource {
             }
                
         } else if let receivedJoin = joinObject as? ReceivedFyleMessageJoinWithStatus, receivedJoin.receivedMessage.readingRequiresUserAction {
-            
+
             return FlameQLPreviewItem()
             
         } else {

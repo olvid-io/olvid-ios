@@ -59,12 +59,13 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
     }
 
     override func updateConfiguration(using state: UICellConfigurationState) {
-        guard AppStateManager.shared.currentState.isInitializedAndActive else {
-            // This prevents a crash when the user hits the home button while in the discussion.
-            // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
-            // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
-            return
-        }
+        // 2022-06-20: Commented out during the change of the startup process. Still required?
+        // X       guard AppStateManager.shared.currentState.isInitializedAndActive else {
+        // X           // This prevents a crash when the user hits the home button while in the discussion.
+        // X           // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
+        // X           // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
+        // X           return
+        // X       }
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
         var content = SystemMessageCellCustomContentConfiguration().updated(for: state)

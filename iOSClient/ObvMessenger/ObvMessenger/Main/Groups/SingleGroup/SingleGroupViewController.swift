@@ -90,6 +90,7 @@ class SingleGroupViewController: UIViewController {
     // Model
 
     let persistedContactGroup: PersistedContactGroup
+    let obvEngine: ObvEngine
     private(set) var obvContactGroup: ObvContactGroup!
     
     
@@ -109,8 +110,9 @@ class SingleGroupViewController: UIViewController {
     
     // Initializer
     
-    init(persistedContactGroupOwned: PersistedContactGroupOwned) throws {
+    init(persistedContactGroupOwned: PersistedContactGroupOwned, obvEngine: ObvEngine) throws {
         self.persistedContactGroup = persistedContactGroupOwned
+        self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
         guard let ownedIdentity = persistedContactGroupOwned.ownedIdentity else {
             throw SingleGroupViewController.makeError(message: "Could not find owned identity. This is ok if it was just deleted")
@@ -118,8 +120,9 @@ class SingleGroupViewController: UIViewController {
         try self.obvContactGroup = obvEngine.getContactGroupOwned(groupUid: persistedContactGroupOwned.groupUid, ownedCryptoId: ownedIdentity.cryptoId)
     }
 
-    init(persistedContactGroupJoined: PersistedContactGroupJoined) throws {
+    init(persistedContactGroupJoined: PersistedContactGroupJoined, obvEngine: ObvEngine) throws {
         self.persistedContactGroup = persistedContactGroupJoined
+        self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
         guard let ownedIdentity = persistedContactGroupJoined.ownedIdentity else {
             throw SingleGroupViewController.makeError(message: "Could not find owned identity. This is ok if it was just deleted")
@@ -131,11 +134,11 @@ class SingleGroupViewController: UIViewController {
         try self.obvContactGroup = obvEngine.getContactGroupJoined(groupUid: persistedContactGroupJoined.groupUid, groupOwner: owner.cryptoId, ownedCryptoId: ownedIdentity.cryptoId)
     }
 
-    convenience init(persistedContactGroup: PersistedContactGroup) throws {
+    convenience init(persistedContactGroup: PersistedContactGroup, obvEngine: ObvEngine) throws {
         if let groupJoined = persistedContactGroup as? PersistedContactGroupJoined {
-            try self.init(persistedContactGroupJoined: groupJoined)
+            try self.init(persistedContactGroupJoined: groupJoined, obvEngine: obvEngine)
         } else if let groupOwned = persistedContactGroup as? PersistedContactGroupOwned {
-            try self.init(persistedContactGroupOwned: groupOwned)
+            try self.init(persistedContactGroupOwned: groupOwned, obvEngine: obvEngine)
         } else {
             throw NSError()
         }
@@ -557,7 +560,7 @@ extension SingleGroupViewController {
         case .owned:
             let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(
                 ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
-                editionType: .editGroupDetails(obvContactGroup: obvContactGroup))
+                editionType: .editGroupDetails(obvContactGroup: obvContactGroup), obvEngine: obvEngine)
             DispatchQueue.main.async { [weak self] in
                 self?.present(ownedGroupEditionFlowVC, animated: true)
             }
@@ -626,6 +629,7 @@ extension SingleGroupViewController: PendingGroupMembersTableViewControllerDeleg
     }
 
     
+    @MainActor
     private func sendAnotherInvitation(to persistedPendingGroupMember: PersistedPendingGroupMember, confirmed: Bool, completionHandler: (() -> Void)?) {
         let currentPendingMembers = obvContactGroup.pendingGroupMembers.map { $0.cryptoId }
         guard currentPendingMembers.contains(persistedPendingGroupMember.cryptoId) else { return }
@@ -635,6 +639,7 @@ extension SingleGroupViewController: PendingGroupMembersTableViewControllerDeleg
             try? obvEngine.reInviteContactToGroupOwned(groupUid: obvContactGroup.groupUid,
                                                        ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
                                                        pendingGroupMember: persistedPendingGroupMember.cryptoId)
+            
         } else {
             
             let alert = UIAlertController(title: Strings.reinviteContact.title,
@@ -746,7 +751,9 @@ extension SingleGroupViewController {
         let currentGroupMembers = Set(obvContactGroup.groupMembers.map { $0.cryptoId })
         let currentPendingMembers = obvContactGroup.pendingGroupMembers.map { $0.cryptoId }
         let groupMembersAndPendingMembers = currentGroupMembers.union(currentPendingMembers)
-        let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId, editionType: .addGroupMembers(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers))
+        let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
+                                                                          editionType: .addGroupMembers(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers),
+                                                                          obvEngine: obvEngine)
         DispatchQueue.main.async { [weak self] in
             self?.present(ownedGroupEditionFlowVC, animated: true)
         }
@@ -758,7 +765,9 @@ extension SingleGroupViewController {
         let currentGroupMembers = Set(obvContactGroup.groupMembers.map { $0.cryptoId })
         let currentPendingMembers = obvContactGroup.pendingGroupMembers.map { $0.cryptoId }
         let groupMembersAndPendingMembers = currentGroupMembers.union(currentPendingMembers)
-        let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId, editionType: .removeGroupMembers(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers))
+        let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
+                                                                          editionType: .removeGroupMembers(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers),
+                                                                          obvEngine: obvEngine)
         DispatchQueue.main.async { [weak self] in
             self?.present(ownedGroupEditionFlowVC, animated: true)
         }

@@ -36,6 +36,11 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
     
     func startBackgroundActivityForStartingOrResumingProtocol() throws -> FlowIdentifier
     
+    // Posting a return receipt (for message or an attachment)
+
+    func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier
+    func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws
+
     // Downloading messages, downloading/pausing attachment
     
     func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> FlowIdentifier?

@@ -42,6 +42,10 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     // For inbox attachments
     case decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: AttachmentIdentifier)
     
+    // For posting return receipts
+    case returnReceiptWasPostedForMessage(messageId: MessageIdentifier)
+    case returnReceiptWasPostedForAttachment(attachmentId: AttachmentIdentifier)
+
     
     static func == (lhs: Expectation, rhs: Expectation) -> Bool {
         switch lhs {
@@ -122,6 +126,20 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             default:
                 return false
             }
+        case .returnReceiptWasPostedForMessage(messageId: let id1):
+            switch rhs {
+            case .returnReceiptWasPostedForMessage(messageId: let id2):
+                return id1 == id2
+            default:
+                return false
+            }
+        case .returnReceiptWasPostedForAttachment(attachmentId: let id1):
+            switch rhs {
+            case .returnReceiptWasPostedForAttachment(attachmentId: let id2):
+                return id1 == id2
+            default:
+                return false
+            }
         }
     }
     
@@ -149,6 +167,10 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             return "decisionToDownloadAttachmentOrNotHasBeenTaken<\(attachmentId.debugDescription)>"
         case .extendedMessagePayloadWasDownloaded(messageId: let uid):
             return "extendedMessagePayloadWasDownloaded<\(uid.debugDescription)>"
+        case .returnReceiptWasPostedForMessage(messageId: let uid):
+            return "returnReceiptWasPostedForMessage<\(uid.debugDescription)>"
+        case .returnReceiptWasPostedForAttachment(attachmentId: let attachmentId):
+            return "returnReceiptWasPostedForAttachment<\(attachmentId.debugDescription)>"
         }
     }
     

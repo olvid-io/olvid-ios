@@ -220,7 +220,7 @@ extension DiscussionGalleryViewController {
 // MARK: - JoinGalleryViewController
 
 @available(iOS 15.0, *)
-final class JoinGalleryViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDataSourcePrefetching, UICollectionViewDelegate, ObvErrorMaker, QLPreviewControllerDelegate {
+final class JoinGalleryViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDataSourcePrefetching, UICollectionViewDelegate, ObvErrorMaker, CustomQLPreviewControllerDelegate {
 
     let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     fileprivate let kind: JoinKind
@@ -344,7 +344,7 @@ extension JoinGalleryViewController {
     
     private static func requestHardLinkToFyleForFyleElement(_ fyleElement: FyleElement) async throws -> HardLinkToFyle {
         return try await withCheckedThrowingContinuation { continuation in
-            ObvMessengerInternalNotification.requestHardLinkToFyle(fyleElement: fyleElement) { result in
+            HardLinksToFylesNotifications.requestHardLinkToFyle(fyleElement: fyleElement) { result in
                 switch result {
                 case .success(let hardlink):
                     continuation.resume(returning: hardlink)
@@ -659,7 +659,7 @@ extension JoinGalleryViewController {
 }
 
 
-// MARK: - QLPreviewControllerDelegate
+// MARK: - CustomQLPreviewControllerDelegate
 
 @available(iOS 15.0, *)
 extension JoinGalleryViewController {
@@ -685,7 +685,11 @@ extension JoinGalleryViewController {
             }
         }
     }
-    
+
+    func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+        ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: joinID).postOnDispatchQueue()
+    }
+
 }
 
 

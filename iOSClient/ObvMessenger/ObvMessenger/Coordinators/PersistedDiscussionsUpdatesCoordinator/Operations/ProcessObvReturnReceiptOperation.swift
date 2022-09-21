@@ -63,8 +63,9 @@ final class ProcessObvReturnReceiptOperation: ContextualOperationWithSpecificRea
                 guard let elements = infos.returnReceiptElements else { assertionFailure(); continue }
                 let contactCryptoId: ObvCryptoId
                 let rawStatus: Int
+                let attachmentNumber: Int?
                 do {
-                    (contactCryptoId, rawStatus) = try obvEngine.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, usingElements: elements)
+                    (contactCryptoId, rawStatus, attachmentNumber) = try obvEngine.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, usingElements: elements)
                 } catch {
                     os_log("Could not decrypt the return receipt encrypted payload: %{public}@", log: log, type: .error, error.localizedDescription)
                     continue
@@ -77,12 +78,27 @@ final class ProcessObvReturnReceiptOperation: ContextualOperationWithSpecificRea
                     // The recipient do not concern the contact (but another contact of the discussion), so we continue the for loop
                     continue
                 }
-                switch status {
-                case .delivered:
-                    infos.setTimestampDelivered(to: obvReturnReceipt.timestamp)
-                case .read:
-                    infos.setTimestampRead(to: obvReturnReceipt.timestamp)
+                
+                // We have all the information we need to set the delivered or read timestamp for this sent message (and for its attachment if the attachment number if non nil)
+                
+                let messageSent = infos.messageSent
+                
+                if let attachmentNumber = attachmentNumber {
+                    switch status {
+                    case .delivered:
+                        messageSent.attachmentSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, at: obvReturnReceipt.timestamp, deliveredAttachmentNumber: attachmentNumber, andRead: false)
+                    case .read:
+                        messageSent.attachmentSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, at: obvReturnReceipt.timestamp, deliveredAttachmentNumber: attachmentNumber, andRead: true)
+                    }
+                } else {
+                    switch status {
+                    case .delivered:
+                        messageSent.messageSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, noLaterThan: obvReturnReceipt.timestamp, andRead: false)
+                    case .read:
+                        messageSent.messageSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, noLaterThan: obvReturnReceipt.timestamp, andRead: true)
+                    }
                 }
+                
                 // If we reach this point, we can break out of the loop since we updated an appropriate PersistedMessageSentRecipientInfos
                 break
             }

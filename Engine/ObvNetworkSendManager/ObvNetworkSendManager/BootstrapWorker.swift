@@ -59,39 +59,7 @@ final class BootstrapWorker {
     }
     
     
-    func finalizeInitialization(flowId: FlowIdentifier) {
-
-        guard appType == .mainApp else { return }
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        os_log("SendManager: Finalizing initialization", log: log, type: .info)
-
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        internalQueue.addOperation { [weak self] in
-            self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
-            delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.mainApp, flowId: flowId)
-            self?.rescheduleAllOutboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
-            // 2020-06-29 Added this to make sure we always send attachments
-            delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
-        }
-
-    }
-    
-    
-    func applicationDidStartRunning() {
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
 
         guard appType == .mainApp else { return }
 
@@ -114,8 +82,18 @@ final class BootstrapWorker {
             return
         }
 
+        // We used to schedule these operations in `finalizeInitialization`. In order to speed up the boot process, we schedule them here instead
         internalQueue.addOperation { [weak self] in
             self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
+            if forTheFirstTime {
+                delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.mainApp, flowId: flowId)
+                self?.rescheduleAllOutboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
+            }
+            // 2020-06-29 Added this to make sure we always send attachments
+            delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
+        }
+
+        internalQueue.addOperation { [weak self] in
             self?.cleanOutboxFromOrphanedMessagesDirectories(flowId: flowId)
             delegateManager.uploadAttachmentChunksDelegate.resumeMissingAttachmentUploads(flowId: flowId)
             delegateManager.uploadAttachmentChunksDelegate.queryServerOnSessionsTasksCreatedByShareExtension(flowId: flowId)

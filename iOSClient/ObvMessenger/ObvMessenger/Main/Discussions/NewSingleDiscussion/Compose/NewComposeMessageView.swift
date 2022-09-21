@@ -1097,7 +1097,7 @@ extension NewComposeMessageView {
                     guard let _self = self else { return }
                     switch result {
                     case .success(let url):
-                        NewSingleDiscussionNotification.userWantsToSendDraftWithOneAttachement(draftObjectID: draftObjectID, attachementsURL: [url]).postOnDispatchQueue()
+                        NewSingleDiscussionNotification.userWantsToSendDraftWithOneAttachment(draftObjectID: draftObjectID, attachmentURL: url).postOnDispatchQueue()
                     case .failure(let error):
                         os_log("🎤 Failed to record: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
                     }

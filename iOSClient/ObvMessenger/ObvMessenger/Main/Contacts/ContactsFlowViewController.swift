@@ -27,7 +27,8 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
     
     // Variables
     
-    private(set) var ownedCryptoId: ObvCryptoId!
+    let ownedCryptoId: ObvCryptoId
+    let obvEngine: ObvEngine
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -41,28 +42,18 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
 
     // MARK: - Factory
 
-    // Factory (required because creating a custom init does not work under iOS 12)
-    static func create(ownedCryptoId: ObvCryptoId) -> ContactsFlowViewController {
-
-        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true)
-        let vc = self.init(rootViewController: allContactsVC)
-
-        vc.ownedCryptoId = ownedCryptoId
-
-        allContactsVC.delegate = vc
-
-        vc.title = CommonString.Word.Contacts
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let image = UIImage(systemName: "person", withConfiguration: symbolConfiguration)
-        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+        self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
+        
+        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true)
+        super.init(rootViewController: allContactsVC)
+        
+        allContactsVC.delegate = self
 
-        vc.delegate = ObvUserActivitySingleton.shared
-
-        return vc
     }
     
-
     override var delegate: UINavigationControllerDelegate? {
         get {
             super.delegate
@@ -74,17 +65,6 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
         }
     }
 
-    
-    override init(rootViewController: UIViewController) {
-        super.init(rootViewController: rootViewController)
-    }
-
-    
-    // Required in order to prevent a crash under iOS 12
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
-    }
-    
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
 }
@@ -96,6 +76,14 @@ extension ContactsFlowViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        title = CommonString.Word.Contacts
+        
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemName: "person", withConfiguration: symbolConfiguration)
+        tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
+
+        delegate = ObvUserActivitySingleton.shared
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance

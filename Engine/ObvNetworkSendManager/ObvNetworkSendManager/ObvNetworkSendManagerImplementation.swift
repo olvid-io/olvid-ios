@@ -33,8 +33,6 @@ public final class ObvNetworkSendManagerImplementation: ObvNetworkPostDelegate {
         delegateManager.prependLogSubsystem(with: prefix)
     }
     
-    public func applicationDidEnterBackground() {}
-
     // MARK: Instance variables
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvNetworkSendManagerImplementation")
@@ -108,14 +106,15 @@ extension ObvNetworkSendManagerImplementation {
                 ObvEngineDelegateType.ObvIdentityDelegate]
     }
     
-    public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
-        bootstrapWorker.finalizeInitialization(flowId: flowId)
-    }
+
+    public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {}
     
     
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {
-        delegateManager.networkSendFlowDelegate.resetAllFailedSendAttempsCountersAndRetrySending()
-        bootstrapWorker.applicationDidStartRunning()
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        if forTheFirstTime {
+            delegateManager.networkSendFlowDelegate.resetAllFailedSendAttempsCountersAndRetrySending()
+        }
+        await bootstrapWorker.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
     }
 
 

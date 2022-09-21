@@ -411,9 +411,10 @@ extension PersistedMessageReceived {
     
     func allowReading(now: Date) throws {
         assert(isEphemeralMessageWithUserAction)
-        assert(AppStateManager.shared.currentState.isInitializedAndActive)
-        guard AppStateManager.shared.currentState.isInitializedAndActive else { return }
-        guard isEphemeralMessageWithUserAction else { assertionFailure("There is not reason why this is called on a message that is not marked as readOnce or with a certain visibility"); return }
+        guard isEphemeralMessageWithUserAction else {
+            assertionFailure("There is no reason why this is called on a message that is not marked as readOnce or with a certain visibility")
+            return
+        }
         try self.markAsRead(now: now)
     }
 
@@ -548,7 +549,9 @@ extension PersistedMessageReceived {
         static func inDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussion) }
         static func inDiscussionWithObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID) }
         static var readOnce: NSPredicate { NSPredicate(format: "%K == TRUE", PersistedMessage.readOnceKey) }
-        static func forOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessageReceived.ownedIdentityKey, ownedIdentity) }
+        static func forOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
+            NSPredicate(PersistedMessageReceived.ownedIdentityKey, EqualToData: ownedIdentity.identity)
+        }
         static func forOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(PersistedMessageReceived.ownedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
         }
@@ -663,10 +666,9 @@ extension PersistedMessageReceived {
     static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
         guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                                                    Predicate.isNew,
-                                                    Predicate.isDisussionUnmuted,
-                                                    Predicate.forOwnedIdentity(ownedIdentity)])
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [Predicate.isNew,
+                                                                                Predicate.isDisussionUnmuted,
+                                                                                Predicate.forOwnedIdentity(ownedIdentity)])
         return try context.count(for: request)
     }
 
@@ -909,6 +911,38 @@ extension PersistedMessageReceived {
 }
 
 
+// MARK: - Thread safe struct
+
+extension PersistedMessageReceived {
+    
+    struct Structure {
+        let typedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>
+        let textBody: String?
+        let messageIdentifierFromEngine: Data
+        let contact: PersistedObvContactIdentity.Structure
+        fileprivate let abstractStructure: PersistedMessage.AbstractStructure
+        var isReplyToAnotherMessage: Bool { abstractStructure.isReplyToAnotherMessage }
+        var readOnce: Bool { abstractStructure.readOnce }
+        var forwarded: Bool { abstractStructure.forwarded }
+        var discussionKind: PersistedDiscussion.StructureKind { abstractStructure.discussionKind }
+        var timestamp: Date { abstractStructure.timestamp }
+    }
+    
+    func toStructure() throws -> Structure {
+        guard let contact = self.contactIdentity else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract required relationships")
+        }
+        return Structure(typedObjectID: self.typedObjectID,
+                         textBody: self.textBody,
+                         messageIdentifierFromEngine: self.messageIdentifierFromEngine,
+                         contact: try contact.toStruct(),
+                         abstractStructure: try toAbstractStructure())
+    }
+    
+}
+
+
 // MARK: - Sending notifications on change
 
 extension PersistedMessageReceived {
@@ -952,9 +986,19 @@ extension PersistedMessageReceived {
             ObvMessengerInternalNotification.persistedMessageReceivedWasDeleted(objectID: objectID, messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, sortIndex: sortIndex, discussionObjectID: discussionObjectID)
                 .postOnDispatchQueue()
             
-        } else if (self.changedKeys.contains(PersistedMessageReceived.rawStatusKey) || isInserted) && self.status == .read {
-            ObvMessengerInternalNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.typedObjectID)
+        } else if (self.changedKeys.contains(PersistedMessageReceived.rawStatusKey) || isInserted) {
+            if self.status == .read {
+                ObvMessengerInternalNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.typedObjectID)
+                    .postOnDispatchQueue()
+            }
+            if isInserted, let returnReceipt = self.returnReceipt, let contactCryptoId = contactIdentity?.cryptoId, let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId {
+                ObvMessengerInternalNotification.aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived(
+                    returnReceipt: returnReceipt,
+                    contactCryptoId: contactCryptoId,
+                    ownedCryptoId: ownedCryptoId,
+                    messageIdentifierFromEngine: messageIdentifierFromEngine)
                 .postOnDispatchQueue()
+            }
         }
         
         if self.changedKeys.contains(PersistedMessage.bodyKey) {

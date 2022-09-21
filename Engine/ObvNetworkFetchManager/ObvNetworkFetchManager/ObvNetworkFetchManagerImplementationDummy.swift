@@ -39,8 +39,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         self.log = OSLog(subsystem: logSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
 
-    public func applicationDidStartRunning(flowId: FlowIdentifier) {}
-    public func applicationDidEnterBackground() {}
+    public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {}
 
     // MARK: Instance variables
     

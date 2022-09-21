@@ -45,6 +45,7 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
     let contactCryptoId: ObvCryptoId
     private let ownedIdentityCryptoId: ObvCryptoId?
     private var keyValueObservations = [NSKeyValueObservation]()
+    private let obvEngine: ObvEngine
 
     weak var delegate: SingleContactIdentityViewHostingControllerDelegate?
     
@@ -52,6 +53,7 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         self.persistedObvContactIdentityObjectID = contact.objectID
         self.contactCryptoId = contact.cryptoId
         self.ownedIdentityCryptoId = contact.ownedIdentity?.cryptoId
+        self.obvEngine = obvEngine
         let trustOrigins = SingleContactIdentityViewHostingController.getTrustOriginsOfContact(contact, obvEngine: obvEngine)
         let singleContact = SingleContactIdentity(persistedContact: contact,
                                                   observeChangesMadeToContact: true,

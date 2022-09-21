@@ -21,18 +21,21 @@ import Foundation
 import CoreData
 import SwiftUI
 import OlvidUtils
+import os.log
 
 final public class CoreDataStack<PersistentContainerType: NSPersistentContainer> {
     
     private let modelName: String
     private let transactionAuthor: String
     private var notificationTokens = [NSObjectProtocol]()
+    private let log: OSLog
 
     private var automaticallyMergesChangesFromParentWithAnimationWasCalled = false
     
     public init(modelName: String, transactionAuthor: String) {
         self.modelName = modelName
         self.transactionAuthor = transactionAuthor
+        self.log = OSLog(subsystem: "io.olvid.messenger", category: "CoreDataStack-\(modelName)")
     }
     
     private lazy var persistentContainer: PersistentContainerType = {
@@ -60,7 +63,7 @@ final public class CoreDataStack<PersistentContainerType: NSPersistentContainer>
         } catch let error as NSError {
             fatalError("Error excluding \(persistentStoreURL) from backup \(error)")
         }
-        debugPrint("The App persistent store was excluded from iCloud and iTunes backup")
+        os_log("The App persistent store was excluded from iCloud and iTunes backup", log: log, type: .info)
 
     }
     
