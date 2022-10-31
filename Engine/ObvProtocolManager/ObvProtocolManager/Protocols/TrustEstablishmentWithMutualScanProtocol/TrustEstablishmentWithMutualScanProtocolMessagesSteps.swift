@@ -83,20 +83,14 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let contactIdentity = receivedMessage.contactIdentity
             let signature = receivedMessage.signature
                         
             // Verify the signature
             
             do {
-                let prefix = ObvConstants.trustEstablishmentWithMutualScanProtocolPrefix
-                let challenge = ownedIdentity.getIdentity() + contactIdentity.getIdentity()
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: contactIdentity) else {
+                let challengeType = ChallengeType.mutualScan(firstIdentity: ownedIdentity, secondIdentity: contactIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: contactIdentity) else {
                     os_log("The signature is invalid", log: log, type: .error)
                     assertionFailure()
                     return CancelledState()
@@ -156,20 +150,14 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let bobIdentity = receivedMessage.bobIdentity
             let signature = receivedMessage.signature
                         
             // Verify the signature
             
             do {
-                let prefix = ObvConstants.trustEstablishmentWithMutualScanProtocolPrefix
-                let challenge = ownedIdentity.getIdentity() + bobIdentity.getIdentity()
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: bobIdentity) else {
+                let challengeType = ChallengeType.mutualScan(firstIdentity: ownedIdentity, secondIdentity: bobIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: bobIdentity) else {
                     os_log("The signature is invalid", log: log, type: .error)
                     assertionFailure()
                     return CancelledState()
@@ -204,11 +192,6 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let aliceIdentity = receivedMessage.aliceIdentity
             let signature = receivedMessage.signature
             let aliceCoreDetails = receivedMessage.aliceCoreDetails
@@ -217,9 +200,8 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Verify the signature
             
             do {
-                let prefix = ObvConstants.trustEstablishmentWithMutualScanProtocolPrefix
-                let challenge = aliceIdentity.getIdentity() + ownedIdentity.getIdentity()
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: ownedIdentity) else {
+                let challengeType = ChallengeType.mutualScan(firstIdentity: aliceIdentity, secondIdentity: ownedIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: ownedIdentity) else {
                     os_log("The signature is invalid", log: log, type: .error)
                     assertionFailure()
                     return CancelledState()
@@ -323,11 +305,6 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let aliceIdentity = receivedMessage.aliceIdentity
             let signature = receivedMessage.signature
             let aliceCoreDetails = receivedMessage.aliceCoreDetails
@@ -336,9 +313,8 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Verify the signature
             
             do {
-                let prefix = ObvConstants.trustEstablishmentWithMutualScanProtocolPrefix
-                let challenge = aliceIdentity.getIdentity() + ownedIdentity.getIdentity()
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: ownedIdentity) else {
+                let challengeType = ChallengeType.mutualScan(firstIdentity: aliceIdentity, secondIdentity: ownedIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: ownedIdentity) else {
                     os_log("The signature is invalid", log: log, type: .error)
                     assertionFailure()
                     return CancelledState()

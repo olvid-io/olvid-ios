@@ -177,6 +177,8 @@ struct UserNotificationCreator {
             switch messageReceived.discussionKind {
             case .groupDiscussion(structure: let structure):
                 self.groupDiscussionTitle = structure.title
+            case .groupV2Discussion(structure: let structure):
+                self.groupDiscussionTitle = structure.title
             case .oneToOneDiscussion:
                 self.groupDiscussionTitle = nil
             }
@@ -197,6 +199,8 @@ struct UserNotificationCreator {
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
             switch discussionKind {
             case .groupDiscussion(structure: let structure):
+                self.groupDiscussionTitle = structure.title
+            case .groupV2Discussion(structure: let structure):
                 self.groupDiscussionTitle = structure.title
             case .oneToOneDiscussion:
                 self.groupDiscussionTitle = nil
@@ -332,6 +336,9 @@ struct UserNotificationCreator {
             case .groupDiscussion(structure: let structure):
                 self.groupInfos = GroupInfos(groupDiscussion: structure,
                                              urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            case .groupV2Discussion(structure: let structure):
+                self.groupInfos = GroupInfos(groupDiscussion: structure,
+                                             urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             case .oneToOneDiscussion:
                 self.groupInfos = nil
             }
@@ -358,6 +365,21 @@ struct UserNotificationCreator {
                                                                thumbnailSide: thumbnailPhotoSide)
             }
             
+            @available(iOS 15.0, *)
+            init(groupDiscussion: PersistedGroupV2Discussion.Structure, urlForStoringPNGThumbnail: URL?) {
+                let group = groupDiscussion.group
+                let contactIdentities = group.contactIdentities
+                var groupRecipients = [INPerson]()
+                for contactIdentity in contactIdentities {
+                    let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
+                    groupRecipients.append(inPerson)
+                }
+                self.groupRecipients = groupRecipients
+                speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
+                self.groupINImage = group.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
+                                                        thumbnailSide: thumbnailPhotoSide)
+            }
+
         }
 
     }
@@ -448,12 +470,24 @@ struct UserNotificationCreator {
                 let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
                 notificationContent.title = Strings.AcceptOneToOneInvite.title
                 notificationContent.body = Strings.AcceptOneToOneInvite.body(contactDisplayName)
+            case .acceptGroupV2Invite(inviter: let inviter, group: _):
+                ObvStack.shared.performBackgroundTaskAndWait { context in
+                    guard let inviterContact = try? PersistedObvContactIdentity.get(contactCryptoId: inviter, ownedIdentityCryptoId: obvDialog.ownedCryptoId, whereOneToOneStatusIs: .any, within: context) else {
+                        assertionFailure()
+                        return
+                    }
+                    let inviterDisplayName = inviterContact.customOrNormalDisplayName
+                    notificationContent.title = Strings.AcceptGroupInvite.title
+                    notificationContent.body = Strings.AcceptGroupInvite.body(inviterDisplayName)
+                }
+                
             case .inviteSent,
                  .invitationAccepted,
                  .sasConfirmed,
                  .mediatorInviteAccepted,
                  .oneToOneInvitationSent,
-                 .increaseGroupOwnerTrustLevelRequired:
+                 .increaseGroupOwnerTrustLevelRequired,
+                 .freezeGroupV2Invite:
                 // For now, we do not notify when receiving these dialogs
                 return nil
             }
@@ -507,12 +541,16 @@ struct UserNotificationCreator {
             case .oneToOneInvitationReceived(contactIdentity: _):
                 notificationId = ObvUserNotificationIdentifier.oneToOneInvitationReceived(persistedInvitationUUID: persistedInvitationUUID)
                 notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
+            case .acceptGroupV2Invite:
+                notificationId = ObvUserNotificationIdentifier.acceptGroupInvite(persistedInvitationUUID: persistedInvitationUUID)
+                notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
             case .inviteSent,
                  .invitationAccepted,
                  .sasConfirmed,
                  .mediatorInviteAccepted,
                  .oneToOneInvitationSent,
-                 .increaseGroupOwnerTrustLevelRequired:
+                 .increaseGroupOwnerTrustLevelRequired,
+                 .freezeGroupV2Invite:
                 // For now, we do not notify when receiving these dialogs
                 return nil
             }

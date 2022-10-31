@@ -24,6 +24,7 @@ import QuickLook
 import MobileCoreServices
 import AVFoundation
 import Combine
+import ObvTypes
 
 @available(iOS 15.0, *)
 final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate {
@@ -318,6 +319,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         isRegisteredToNotifications = true
         let sceneDidActivateNotification = UIScene.didActivateNotification
         let sceneDidEnterBackgroundNotification = UIScene.didEnterBackgroundNotification
+        let log = self.log
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
                 guard let _self = self else { return }
@@ -327,6 +329,11 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 _self.configureNavigationTitle()
             },
             ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities(queue: OperationQueue.main) { [weak self] _,_,_ in
+                self?.configureNewComposeMessageViewVisibility(animate: true)
+            },
+            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished(queue: OperationQueue.main) { [weak self] groupV2ObjectID in
+                guard let group = try? PersistedGroupV2.get(objectID: groupV2ObjectID, within: ObvStack.shared.viewContext) else { return }
+                guard group.discussion?.typedObjectID.downcast == self?.discussionObjectID else { return }
                 self?.configureNewComposeMessageViewVisibility(animate: true)
             },
             ObvMessengerInternalNotification.observeCurrentUserActivityDidChange(queue: OperationQueue.main) { [weak self] (previousUserActivity, currentUserActivity) in
@@ -346,8 +353,10 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
             },
             NotificationCenter.default.addObserver(forName: sceneDidEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-                guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == self?.discussionObjectID else { return }
+                 guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == self?.discussionObjectID else { return }
+                os_log("🛫 Start call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
                 self?.theUserLeftTheDiscussion()
+                os_log("🛫 End call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
             },
         ])
     }
@@ -368,7 +377,7 @@ extension NewSingleDiscussionViewController {
     
     func configureNavigationTitle() {
         assert(Thread.isMainThread)
-        guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+        guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
         navigationItem.titleView = nil
         switch discussion.status {
         case .locked:
@@ -381,6 +390,10 @@ extension NewSingleDiscussionViewController {
                 }
             case .groupV1(withContactGroup: let contactGroup):
                 if let group = contactGroup {
+                    navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
+                }
+            case .groupV2(withGroup: let group):
+                if let group = group {
                     navigationItem.titleView = SingleDiscussionTitleView(objectID: group.typedObjectID)
                 }
             case .none:
@@ -609,7 +622,7 @@ extension NewSingleDiscussionViewController {
     private func updateReceivedMessageCell(_ cell: ReceivedMessageCell, at indexPath: IndexPath, with message: PersistedMessageReceived) {
         var prvMessageIsFromSameContact = false
         if let discussionEntityName = discussionObjectID.entityName {
-            if discussionEntityName == PersistedGroupDiscussion.entityName {
+            if [PersistedGroupDiscussion.entityName, PersistedGroupV2Discussion.entityName].contains(discussionEntityName) {
                 prvMessageIsFromSameContact = previousMessageIsFromSameContact(message: message)
             }
         }
@@ -689,10 +702,17 @@ extension NewSingleDiscussionViewController {
             ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [contactID], groupId: nil)
                 .postOnDispatchQueue(internalQueue)
         case .groupV1(withContactGroup: let contactGroup):
-            if let contactGroup = contactGroup,
-               let groupId = try? contactGroup.getGroupId() {
+            if let contactGroup = contactGroup {
+                let objecID = contactGroup.typedObjectID
                 let contactIdentities = contactGroup.contactIdentities
-                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId)
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: .groupV1(objecID))
+                    .postOnDispatchQueue(internalQueue)
+            }
+        case .groupV2(withGroup: let group):
+            if let group = group {
+                let groupObjectID = group.typedObjectID
+                let contactObjectIDs = group.contactsAmongNonPendingOtherMembers.map({ $0.typedObjectID })
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactObjectIDs, groupId: .groupV2(groupObjectID))
                     .postOnDispatchQueue(internalQueue)
             }
         case .none:
@@ -1049,7 +1069,7 @@ extension NewSingleDiscussionViewController {
 
     /// We observe deletion of received messages so as to update the system message cell counting new messages.
     private func updateNewMessageCellOnDeletionOfReceivedMessages() {
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, _, discussionObjectID) in
+        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, _, discussionObjectID) in
             guard let _self = self else { return }
             guard discussionObjectID == _self.discussionObjectID else { return }
             let messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
@@ -1406,7 +1426,18 @@ extension NewSingleDiscussionViewController {
                 let action = UIAction(title: CommonString.Word.Forward) { [weak self] (_) in
                     guard let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId else { return }
                     let vc = DiscussionsViewController(ownedCryptoId: ownedCryptoId) { discussionObjectIDs in
-                        ObvMessengerInternalNotification.userWantsToForwardMessage(messageObjectID: persistedMessage.typedObjectID, discussionObjectIDs: discussionObjectIDs).postOnDispatchQueue()
+                        guard !discussionObjectIDs.isEmpty else { return }
+                        // Forward the message to all the discussions
+                        ObvMessengerInternalNotification.userWantsToForwardMessage(messageObjectID: persistedMessage.typedObjectID, discussionObjectIDs: discussionObjectIDs)
+                            .postOnDispatchQueue()
+                        // In case the message was forwarded to exactly one discussion, we want to push this discussion onto the navigation stack
+                        if discussionObjectIDs.count == 1,
+                           let discussionObjectID = discussionObjectIDs.first,
+                           discussionObjectID != persistedMessage.discussion.typedObjectID {
+                            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussionObjectID.uriRepresentation().url)
+                            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                                .postOnDispatchQueue()
+                        }
                     }
                     let nav = ObvNavigationController(rootViewController: vc)
                     self?.present(nav, animated: true)
@@ -1421,7 +1452,7 @@ extension NewSingleDiscussionViewController {
                 let action = UIAction(title: CommonString.Word.Call) { (_) in
                     guard let systemMessage = persistedMessage as? PersistedMessageSystem else { return }
                     guard let item = systemMessage.optionalCallLogItem else { return }
-                    let groupId = try? item.getGroupId()
+                    let groupId = try? item.getGroupIdentifier()
 
                     var contactsToCall = [TypeSafeManagedObjectID<PersistedObvContactIdentity>]()
                     for logContact in item.logContacts {
@@ -1506,7 +1537,7 @@ extension NewSingleDiscussionViewController {
                 self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: .local, withinCell: cell)
             }))
             
-            if !persistedMessage.isRemoteWiped && (persistedMessage is PersistedMessageSent || persistedMessage is PersistedMessageReceived) {
+            if persistedMessage.globalDeleteMessageActionCanBeMadeAvailable {
                 alert.addAction(UIAlertAction(title: CommonString.AlertButton.performGlobalDeletionAction, style: .destructive, handler: { [weak self] (action) in
                     self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: .global, withinCell: cell)
                 }))
@@ -1519,7 +1550,17 @@ extension NewSingleDiscussionViewController {
             
         case .some(let deletionType):
             
-            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedMessage(persistedMessageObjectID: objectId, deletionType: deletionType)
+            assert(Thread.isMainThread)
+            
+            guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
+                return
+            }
+            
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
+                return
+            }
+            
+            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedMessage(ownedCryptoId: ownedCryptoId, persistedMessageObjectID: objectId, deletionType: deletionType)
                 .postOnDispatchQueue(internalQueue)
 
         }
@@ -1741,6 +1782,15 @@ extension NewSingleDiscussionViewController {
                 if !contactGroup.hasAtLeastOneRemoteContactDevice() {
                     return true
                 }
+            case .groupV2(withGroup: let group):
+                // We do no not show the compose view if we have no one to write to in a group discussion
+                guard let group = group else { assertionFailure(); return true }
+                if group.otherMembers.isEmpty {
+                    return true
+                }
+                if !group.ownedIdentityIsAllowedToSendMessage {
+                    return true
+                }
             case .none:
                 assertionFailure()
             }
@@ -1855,6 +1905,9 @@ extension NewSingleDiscussionViewController {
         guard let tappedStuff = viewWithTappableStuff.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) else { return }
         switch tappedStuff {
             
+        case .behaveAsIfTheDiscussionTitleWasTapped:
+            titleViewWasTapped()
+            
         case .hardlink(let hardLink):
             userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardLink)
             
@@ -1922,8 +1975,10 @@ extension NewSingleDiscussionViewController {
     private func systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionWasTapped() {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .undetermined:
-            AVAudioSession.sharedInstance().requestRecordPermission { [weak self] (granted) in
-                self?.reconfigureCellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission()
+            AVAudioSession.sharedInstance().requestRecordPermission { (granted) in
+                DispatchQueue.main.async { [weak self] in
+                    self?.reconfigureCellsShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission()
+                }
             }
         case .denied:
             ObvMessengerInternalNotification.rejectedIncomingCallBecauseUserDeniedRecordPermission
@@ -1947,6 +2002,7 @@ extension NewSingleDiscussionViewController {
     private func userDoubleTappedOnMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
         guard let message = try? PersistedMessage.get(with: messageID, within: ObvStack.shared.viewContext) else { return }
         guard !message.isWiped else { return }
+        guard (try? message.ownedIdentityIsAllowedToSetReaction) == true else { return }
         var selectedEmoji: String?
         if let ownReaction = message.reactionFromOwnedIdentity() {
             selectedEmoji = ownReaction.emoji

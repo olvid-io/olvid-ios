@@ -22,6 +22,7 @@ import os.log
 import CoreData
 import ObvEngine
 import ObvTypes
+import ObvCrypto
 
 class DiscussionsTableViewController: UITableViewController {
     

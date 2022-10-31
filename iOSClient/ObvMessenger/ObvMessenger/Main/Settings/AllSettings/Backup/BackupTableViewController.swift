@@ -164,6 +164,10 @@ final class BackupTableViewController: UITableViewController {
             self?.refreshBackupKeyInformation(reloadData: true)
         })
 
+        notificationTokens.append(ObvMessengerInternalNotification.observeUserCancelledBackupForExportNow(queue: OperationQueue.main) { [weak self] in
+            self?.refreshBackupKeyInformation(reloadData: true)
+        })
+        
     }
 
 }
@@ -234,6 +238,7 @@ extension BackupTableViewController {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "ManualShareBackupCell") ?? UITableViewCell(style: .default, reuseIdentifier: "ManualShareBackupCell")
                 cell.textLabel?.text = Strings.backupAndShareNow
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
+                enable(cell: cell)
                 return cell
             case .iCloudBackup:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "ManualICloudBackupCell") ?? UITableViewCell(style: .default, reuseIdentifier: "ManualICloudBackupCell")

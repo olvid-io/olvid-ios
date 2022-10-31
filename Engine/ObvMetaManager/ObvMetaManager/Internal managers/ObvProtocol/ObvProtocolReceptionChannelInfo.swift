@@ -192,7 +192,7 @@ extension ObvProtocolReceptionChannelInfo {
                 default:
                     return false
                 }
-            default :
+            default:
                 return false
             }
         }

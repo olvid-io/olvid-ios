@@ -244,7 +244,7 @@
 "Downloads" = "Téléchargements";
 
 /* Edit word, capitalized */
-"Edit" = "Éditer";
+"Edit" = "Modifier";
 
 /* Title of the EditDisplayNameViewController */
 "Edit your name" = "Modifiez votre nom";
@@ -293,9 +293,6 @@
 
 /* Invitation subtitle */
 "Group Created" = "Groupe Créé";
-
-/* UIAlert title */
-"Group creation started" = "Création du Groupe initiée";
 
 /* Title group description text field */
 "Group description:" = "Description du groupe:";
@@ -718,9 +715,6 @@
 /* Invitation details */
 "We are bootstraping the secure channel between you and %@. Please note that this requires %@'s device to be online." = "Nous procédons à la création du canal sécurisé entre vous et %1$@. Merci de patienter...";
 
-/* UIAlert message */
-"We started a new discussion group creation for you. Go to the Invitations tab to see who accepted your invitation so far." = "Nous venons de créer un groupe de discussion pour vous.";
-
 /* View controller title */
 "Welcome" = "Bienvenue";
 
@@ -864,17 +858,31 @@
 
 "Privacy" = "Vie Privée";
 
-"Log in with passcode" = "S'authentifier avec un code";
-"Log in with Touch ID" = "S'authentifier avec Touch ID";
-"Log in with Face ID" = "S'authentifier avec Face ID";
+"LOGIN_WITH_SYSTEM_PASSCODE_TITLE" = "S'authentifier avec le code d’accès de votre appareil";
+"LOGIN_WITH_TOUCH_ID_SYSTEM_PASSCODE_TITLE" = "S'authentifier avec Touch ID ou le code d’accès de votre appareil";
+"LOGIN_WITH_FACE_ID_SYSTEM_PASSCODE_TITLE" = "S'authentifier avec Face ID ou le code d’accès de votre appareil";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_SYSTEM_PASSCODE_TITLE" = "S'authentifier avec Touch ID, Face ID ou le code d’accès de votre appareil";
+
+"LOGIN_WITH_CUSTOM_PASSCODE_TITLE" = "S'authentifier avec un code personnalisé";
+"LOGIN_WITH_TOUCH_ID_CUSTOM_PASSCODE_TITLE" = "S'authentifier avec Touch ID ou un code personnalisé";
+"LOGIN_WITH_FACE_ID_CUSTOM_PASSCODE_TITLE" = "S'authentifier avec Face ID ou un code personnalisé";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_CUSTOM_PASSCODE_TITLE" = "S'authentifier avec Touch ID, Face ID ou un code personnalisé";
+
+"LOGIN_WITH_SYSTEM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce au code d’accès de votre appareil.";
+"LOGIN_WITH_TOUCH_ID_SYSTEM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce à Touch ID ou au code d’accès de votre appareil.";
+"LOGIN_WITH_FACE_ID_SYSTEM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce à Face ID ou au code d’accès de votre appareil.";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_SYSTEM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce à Face ID, Touch ID ou au code d’accès de votre appareil.";
+
+"NO_AUTHENTICATION_EXPLANATION" = "L'écran d'Olvid ne sera pas vérouillé.";
+
+"LOGIN_WITH_CUSTOM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce au code personnalisé.";
+"LOGIN_WITH_TOUCH_ID_CUSTOM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce à Touch ID ou au code personnalisé.";
+"LOGIN_WITH_FACE_ID_CUSTOM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce à Face ID ou au code personnalisé.";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_CUSTOM_PASSCODE_EXPLANATION" = "Cette option vous permet de protéger l'accès à Olvid grâce à Touch/Face ID ou au code personnalisé.";
 
 "Authenticate" = "S'authentifier";
 
 "Please authenticate to start Olvid" = "Authentifiez-vous pour démarrer Olvid";
-
-"Explanation for Log in with passcode" = "En activant cette option, vous protégez l'accès à Olvid grâce au code PIN que vous utilisez déjà pour déverouiller votre iPhone.";
-"Explanation for Log in with Touch ID" = "En activant cette option, vous protégez l'accès à Olvid grâce à Touch ID.";
-"Explanation for Log in with Face ID" = "En activant cette option, vous protégez l'accès à Olvid grâce à Face ID.";
 
 "After" = "Après";
 
@@ -1147,7 +1155,7 @@
 
 "USE_CALLKIT" = "Utiliser CallKit";
 
-"BUTTON_TITLE_AUTHENTICATE" = "Appuyer pour s'authentifier";
+"BUTTON_TITLE_AUTHENTICATE" = "S'authentifier";
 
 "VoIP" = "VoIP";
 
@@ -1193,11 +1201,7 @@
 
 "Exclude" = "Exclure";
 
-//"MESSAGE_VOIP_BETA" = "Il est désormais possible d'utiliser Olvid pour des appels audio sécurisés !\n\nCette fonctionnalité restera gratuite pour tous les utilisateurs d'Olvid pendant un temps limité. À l'issue de cette période, l'émission d'appels nécessitera la souscription à un abonnement payant, mais tous les utilisateurs d'Olvid pourront encore recevoir des appels provenant d'utilisateurs abonnés.\n\nVeuillez noter que les appels audio ne sont possibles qu'entre des utilisateurs ayant la dernière version d'Olvid. Appeler un utilisateur d'une ancienne version aboutira à un délai d'attente expiré.";
-
 "DO_NO_SHOW_MSG_AGAIN" = "Ne plus afficher ce message";
-
-//"TITLE_SECURE_CALLS_BETA" = "Appels sécurisés";
 
 "TITLE_RESET_ALL_ALERTS" = "Réinitialiser les alertes";
 
@@ -1308,7 +1312,7 @@
 
 "CHOOSE_GROUP_MEMBERS" = "Choisir les participants";
 
-"EDIT_MY_ID" = "Éditer mon ID";
+"EDIT_MY_ID" = "Modifier mon ID";
 
 "SUBSCRIPTION_STATUS" = "État de l'abonnement";
 
@@ -1614,7 +1618,7 @@
 
 "GLOBAL_EXPIRATION_SETTINGS_EXPLANATION" = "Les paramètres ci-dessous seront appliqués à toute nouvelle discussion « one-to-one » ainsi qu'à toute nouvelle discussion de groupe que vous créerez. Veuillez noter que ces paramètres de discussion seront partagés avec tous les participants.";
 
-"ONLY_GROUP_OWNER_CAN_MODIFY" = "Seul le propriétaire du groupe peut modifier ces paramètres.";
+"ONLY_GROUP_OWNER_CAN_MODIFY" = "Seul un administrateur du groupe peut modifier ces paramètres.";
 
 "UNREAD_EPHEMERAL_MESSAGE" = "Message éphémère non lu";
 
@@ -1700,11 +1704,11 @@
 
 "This discussion was remotely wiped by %@" = "Cette discussion a été effacée à distance par %@";
 
-"EDIT_YOUR_MESSAGE" = "Éditez votre message";
+"EDIT_YOUR_MESSAGE" = "Modifiez votre message";
 
 "UPDATE_YOUR_ALREADY_SENT_MESSAGE" = "Mettez à jour le message déjà envoyé";
 
-"Edited" = "Édité";
+"Edited" = "Modifié";
 
 "CREATE_MY_ID" = "Créer mon ID";
 
@@ -1730,7 +1734,7 @@
 
 "CREATE_GROUP" = "Créer le groupe";
 
-"EDIT_GROUP" = "Éditer le groupe";
+"EDIT_GROUP" = "Modifier le groupe";
 
 "PUBLISH_GROUP" = "Publier les modifications";
 
@@ -2304,13 +2308,31 @@
 
 "SHOW_IN_DISCUSSION" = "Afficher dans la discussion";
 
-"NOT_PART_OF_THE_GROUP_ANYMORE" = "Vous ne faites plus partie de ce groupe, soit parce que vous l'avez quitté, soit parce qu'un administrateur vous a retiré du groupe.";
+"NOT_PART_OF_THE_GROUP_ANYMORE" = "Vous ne faites plus partie de ce groupe, parce que vous l'avez quitté, parce qu'un administrateur vous a retiré du groupe, ou tout simplement parce que le groupe a été supprimé 🥲.";
 
 "REJOINED_GROUP" = "Vous faites à nouveau partie du groupe ✌️";
 
 "CONTACT_%@_IS_ONE_TO_ONE_AGAIN" = "%@ fait à nouveau partie de vos contacts, vous pouvez reprendre la discussion là où vous l'aviez laissée 🤗.";
 
 "Medias" = "Médias";
+
+"UNKNOWN_USER" = "Utilisateur inconnu";
+
+"CREATE_GROUP_WITH_OWN_PERMISSION_ADMIN" = "Créer un groupe";
+
+"CREATE_FIRST_GROUP_WITH_OWN_PERMISSION_ADMIN" = "Créez votre premier groupe";
+
+"GROUPS_THAT_YOU_ADMINISTER" = "Groupes que vous administrez";
+
+"CHOOSE_GROUP_TYPE_TITLE" = "Quel type de groupe voulez-vous créer ?";
+
+"CHOOSE_GROUP_TYPE_MESSAGE" = "Un nouveau format de groupe autorisant plusieurs administrateurs est en cours de déploiement sur Olvid. Seuls vos contacts ayant une version d'Olvid qui supporte ce nouveau format de groupe peuvent y être ajoutés.\n\nSouhaitez-vous créer un groupe au nouveau format ou un groupe classique ?";
+
+"CHOOSE_GROUP_V1" = "Classique";
+
+"CHOOSE_GROUP_V2" = "Nouveau format";
+
+"NO_SOUNDS" = "Aucun";
 
 "Forward" = "Transférer";
 
@@ -2423,3 +2445,133 @@
 "NOTIFICATION_SOUNDS_SUBTITLE_POLYPHONIC" = "Lorsque vous recevrez un message, vous entendrez une note aléatoire de l'instrument choisi. N'hésitez pas à essayer en appuyant plusieurs fois sur votre instrument préféré 😉.";
 
 "SYSTEM_SOUND" = "Son système";
+
+"GRACE_PERIOD" = "Exiger l'authentification";
+
+"PIN" = "PIN";
+
+"PASSWORD" = "Mot de passe";
+
+"CREATE_YOUR_PASSCODE" = "Créez votre code personnalisé";
+
+"CONFIRM_YOUR_PASSCODE" = "Confirmez votre code personnalisé";
+
+"ENTER_YOUR_PASSCODE" = "Entrez votre code personnalisé";
+
+"CREATE_MY_PASSCODE" = "Créer mon code personnalisé";
+
+"LOCKED_OUT_FOR" = "Bloqué pour ";
+
+"LOCKED_OUT" = "Bloqué";
+
+"RETRY_WITH_TOUCH_ID" = "Réessayer avec Touch ID";
+
+"RETRY_WITH_FACE_ID" = "Réessayer avec Face ID";
+
+"LOCKED_OUT_EXPLANATION" = "Olvid est verrouillée suite à la saisie d'un nombre trop important de mauvais passcode.";
+
+"LOCKOUT_CLEAN_EPHEMERAL_TITLE" = "Effacer les messages sensibles après 3 mauvais codes";
+
+"LOCKOUT_CLEAN_EPHEMERAL_EXPLANATION" = "Quand cette option est activée, saisir 3 mauvais codes d'affilée entraîne l'effacement silencieux de tous les messages à visibilité limitée.";
+
+"BIOMETRY_NOT_ENROLLED_ERROR_TITLE" = "Il vous faut configurer Face ID ou Touch ID";
+
+"BIOMETRY_NOT_ENROLLED_ERROR_MESSAGE" = "Pour utiliser cette fonctionnalité, vous devez configurer Face ID ou Touch ID dans l'app Réglages de votre appareil.";
+
+"NO_GRACE_PERIOD_EXPLANATION" = "Une fois fermée, Olvid se vérrouillera immédiatement.";
+
+"GRACE_PERIOD_EXPLANATION_%@" = "Une fois fermée, Olvid se vérrouillera après %@.";
+
+"GRACE_PERIOD_TITLE_%@" = "après %@";
+
+"OTHER_GROUP_MEMBERS" = "Autres membres du groupe";
+
+"EDIT_GROUP_MEMBERS" = "Modifier les membres du groupe";
+
+"IS_ADMIN" = "Admin";
+
+"IS_NOT_ADMIN" = "Pas admin";
+
+"ADD_GROUP_MEMBERS" = "Ajouter des membres";
+
+"PUBLISH" = "Publier";
+
+"GROUP_V2_PUBLISHED_DETAILS_EXPLANATION_%@" = "Les détails du groupe ont été mis à jour. Si vous désirez utiliser ces nouveaux détails au lieu de ceux sur votre %@, touchez le bouton ci-dessous.";
+
+"CHOOSE_GROUP_NICKNAME" = "Choisir un surnom pour le groupe";
+
+"ADD_MEMBER_BY_TAPPING_EDIT_GROUP_MEMBERS_BUTTON" = "Vous êtes le seul membre de ce groupe 😅. Ajoutez des membres en touchant le bouton \"Modifier les membres\" ☝️.";
+
+"GROUP_UPDATE_IN_PROGRESS_EXPLANATION_TITLE" = "Mise à jour en cours";
+
+"GROUP_UPDATE_IN_PROGRESS_EXPLANATION_BODY" = "Une mise à jour du groupe est en cours. Merci de patienter jusqu'à son terme pour faire de nouvelles modifications.";
+
+"MANUAL_RESYNC_OF_GROUP_V2" = "Resynchroniser ce groupe";
+
+"SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_TITLE" = "Vous ne pouvez pas quitter le groupe pour le moment";
+
+"SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_MESSAGE" = "Comme vous êtes le seul administrateur de ce groupe, il vous est impossible de le quitter (vous laisseriez le groupe sans administrateur). Une fois que vous aurez nommé un autre administrateur, vous pourrez essayer à nouveau.";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_TITLE" = "Voulez-vous vraiment quitter le groupe ?";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_MESSAGE" = "Attention, cette action est irréversible (sauf si un administrateur du groupe vous y invite à nouveau après que vous l'ayez quitté).";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_BUTTON_TITLE" = "Quitter ce groupe";
+
+"LEAVE_GROUP" = "Quitter ce groupe";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_TITLE" = "Attention ! Voulez-vous vraiment supprimer ce groupe ?";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_MESSAGE" = "Supprimer un groupe est une opération irréversible. Si vous continuez, le groupe sera supprimé chez tous les membres.";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_BUTTON_TITLE" = "Supprimer ce groupe chez tous les utilisateurs";
+
+"DISBAND_GROUP" = "Supprimer ce groupe";
+
+"UNKNOWN_GROUP_MEMBER_NAME" = "Nom inconnu";
+
+"IS_PENDING" = "En attente";
+
+"IS_PENDING_ADMIN" = "Admin\nen attente";
+
+"SAVE_CUSTOM_GROUP_VALUES" = "Sauvegarder vos modifications";
+
+"EDIT_GROUP_DETAILS_AS_ADMINISTRATOR_BUTTON_TITLE" = "Modifier le titre";
+
+"EDIT_GROUP_MEMBERS_AS_ADMINISTRATOR_BUTTON_TITLE" = "Modifier les membres";
+
+"CHOOSE_GROUP_CUSTOM_NAME_AND_PHOTO_TITLE" = "Photo et nom personalisés";
+
+"GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN" = "Groupe sans nom 😅";
+
+"MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE" = "Les membres du groupe ont été mis à jour. Touchez pour en savoir plus.";
+
+"CHOSEN_GROUP_MEMBERS" = "Participants choisis";
+
+"CLONE_THIS_GROUP" = "Cloner ce groupe";
+
+"CLONE_THIS_GROUP_V1_TO_GROUP_V2" = "Créer un groupe V2 à partir de ce groupe";
+
+"SOME_GROUP_MEMBERS_MUST_UPGRADE" = "Certains membres doivent mettre à jour Olvid";
+
+"FOLLOWING_MEMBERS_MUST_UPGRADE_BEFORE_CREATING_GROUP_V2_%@" = "Pour pouvoir créer un groupe v2, tous les membres doivent utiliser une version récente d'Olvid 🤓. Avant d'essayer à nouveau, demandez aux contacts suivants de mettre Olvid à jour:\n%@.";
+
+"YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" = "Vous êtes maintenant un administrateur de ce groupe 😎.";
+
+"YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" = "Vous n'êtes plus administrateur de ce groupe.";
+
+"PLEASE_AUTHENTICATE" = "Authentification requise";
+
+"PLEASE_NOTE_THAT_YOUR_CUSTOM_PASSCODE_CANNOT_BE_RECOVERED" = "Veuillez noter que si vous oubliez votre code personnalisé, il ne sera pas possible de le récupérer, et vous ne pourrez plus accéder à Olvid.";
+
+"CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@" = "Copie de %@";
+
+"DISK_USAGE" = "Espace de stockage occupé";
+
+"REFERENCED_BY_DATABASE" = "Référencés depuis la base de données";
+
+"APP_DIRECTORIES" = "Répertoires de l'app";
+
+"ENGINE_DIRECTORIES" = "Répertoires de l'engine";
+
+"ABOUT_DISKUSAGEVIEW_%@" = "Cet écran permet d'évaluer l'espace de stockage occupé par Olvid sur votre %@. Attention cependant, le stockage total n'est pas la somme des valeurs indiquées ici (Olvid utilise des techniques de déduplication). Pour évaluer le stockage total, il suffit en général de considérer les valeurs référencées depuis la base de données.";

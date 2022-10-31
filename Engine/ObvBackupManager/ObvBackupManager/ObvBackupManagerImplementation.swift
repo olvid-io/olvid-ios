@@ -260,7 +260,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
         }
                 
         let fullBackup = try FullBackup(allInternalJsonAndIdentifier: allInternalDataForBackup)
-        
+                
         // Create and compress the full backup
         
         let compressedFullBackupData = try fullBackup.computeCompressedData(flowId: backupRequestIdentifier, log: log)
@@ -647,6 +647,7 @@ extension ObvBackupManagerImplementation {
                 guard !group.isCancelled else {
                     throw Self.makeError(message: "Failed to restore a backup")
                 }
+                try await group.waitForAll()
             }
         }
         
@@ -812,6 +813,18 @@ fileprivate struct FullBackup: Codable {
         case jsonVersion = "backup_json_version"
     }
     
+    func debugPrintEngineManagerBackups() {
+        for (key, value) in engineManagerBackups {
+            debugPrint("📀 \(key) back data:")
+            if let jsonObject = try? JSONSerialization.jsonObject(with: value.data(using: .utf8)!),
+               let prettyPrintedData = try? JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .withoutEscapingSlashes, .sortedKeys]),
+               let prettyPrintedString =  NSString(data: prettyPrintedData, encoding: String.Encoding.utf8.rawValue) {
+                print(prettyPrintedString)
+            } else {
+                debugPrint("📀 Could not log data")
+            }
+        }
+    }
     
     init(allInternalJsonAndIdentifier: [ObvBackupableObjectSource: [String: String]]) throws {
         self.backupTimestamp = Int(Date().timeIntervalSince1970 * 1000)

@@ -160,7 +160,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
                 } else {
                     return action.title
                 }
-            case .groupV1, .none:
+            case .groupV1, .groupV2, .none:
                 return action.title
             }
         } else {
@@ -181,7 +181,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
             switch try? draft.discussion.kind {
             case .oneToOne(withContactIdentity: let contactIdentity):
                 return contactIdentity != nil
-            case .groupV1, .none:
+            case .groupV1, .groupV2, .none:
                 return false
             }
         }
@@ -829,7 +829,7 @@ extension NewComposeMessageView {
             guard let viewController = self.delegate else { return }
             ObvMessengerInternalNotification.userWantsToDisplayContactIntroductionScreen(contactObjectID: contactObjectID, viewController: viewController)
                 .postOnDispatchQueue()
-        case .groupV1, .none:
+        case .groupV1, .groupV2, .none:
             assertionFailure()
         }
     }

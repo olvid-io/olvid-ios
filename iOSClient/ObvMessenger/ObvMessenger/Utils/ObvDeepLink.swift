@@ -50,7 +50,7 @@ enum ObvDeepLinkHost: CaseIterable {
         case .latestDiscussions: return nil
         case .singleDiscussion: return "discussionObjectURI"
         case .invitations: return nil
-        case .contactGroupDetails: return "contactGroupURI"
+        case .contactGroupDetails: return "displayedContactGroupURI"
         case .contactIdentityDetails: return "contactIdentityURI"
         case .airDrop: return "fileURL"
         case .qrCodeScan: return nil
@@ -68,7 +68,7 @@ enum ObvDeepLink: Equatable {
     case latestDiscussions
     case singleDiscussion(discussionObjectURI: URL)
     case invitations
-    case contactGroupDetails(contactGroupURI: URL)
+    case contactGroupDetails(displayedContactGroupURI: URL)
     case contactIdentityDetails(contactIdentityURI: URL)
     case airDrop(fileURL: URL)
     case qrCodeScan
@@ -104,9 +104,9 @@ enum ObvDeepLink: Equatable {
             guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
             return [queryItemsKey: discussionObjectURI]
         case .invitations: return [:]
-        case .contactGroupDetails(let contactGroupURI):
+        case .contactGroupDetails(displayedContactGroupURI: let displayedContactGroupURI):
             guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: contactGroupURI]
+            return [queryItemsKey: displayedContactGroupURI]
         case .contactIdentityDetails(let contactIdentityURI):
             guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
             return [queryItemsKey: contactIdentityURI]
@@ -163,7 +163,7 @@ enum ObvDeepLink: Equatable {
             self = .invitations
         case .contactGroupDetails:
             guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .contactGroupDetails(contactGroupURI: url)
+            self = .contactGroupDetails(displayedContactGroupURI: url)
         case .contactIdentityDetails:
             guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
             self = .contactIdentityDetails(contactIdentityURI: url)

@@ -63,6 +63,21 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
             }
             
             switch persistedMessageSystemCategory {
+            case .ownedIdentityIsPartOfGroupV2Admins:
+                guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                _ = try? PersistedMessageSystem.insertOwnedIdentityIsPartOfGroupV2AdminsMessage(within: groupV2Discussion)
+            case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+                guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                _ = try? PersistedMessageSystem.insertOwnedIdentityIsNoLongerPartOfGroupV2AdminsMessage(within: groupV2Discussion)
+            case .membersOfGroupV2WereUpdated:
+                guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                _ = try? PersistedMessageSystem.insertMembersOfGroupV2WereUpdatedSystemMessage(within: groupV2Discussion)
             case .contactJoinedGroup,
                  .contactLeftGroup:
                 guard let contactIdentityObjectID = self.optionalContactIdentityObjectID else {
@@ -80,7 +95,7 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 switch try? discussion.kind {
                 case .oneToOne, .none:
                     return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                case .groupV1:
+                case .groupV1, .groupV2:
                     break
                 }
                 do {

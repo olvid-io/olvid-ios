@@ -45,9 +45,17 @@ final actor AppManagersHolder {
     private let keycloakManager: KeycloakManager
     private let backgroundTasksManager: BackgroundTasksManager
     private let webSocketManager: WebSocketManager
+    private let localAuthenticationManager: LocalAuthenticationManager
 
     private var observationTokens = [NSObjectProtocol]()
-    
+
+    var localAuthenticationDelegate: LocalAuthenticationDelegate {
+        localAuthenticationManager
+    }
+    var createPasscodeDelegate: CreatePasscodeDelegate {
+        localAuthenticationManager
+    }
+
     init(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager, userNotificationsManager: UserNotificationsManager) {
 
         self.obvEngine = obvEngine
@@ -68,9 +76,10 @@ final actor AppManagersHolder {
         self.applicationShortcutItemsManager = ApplicationShortcutItemsManager()
         self.keycloakManager = KeycloakManager(obvEngine: obvEngine)
         self.webSocketManager = WebSocketManager(obvEngine: obvEngine)
-        
+        self.localAuthenticationManager = LocalAuthenticationManager()
+
         // Listen to StoreKit transactions
-        subscriptionManager.listenToSKPaymentTransactions()
+        self.subscriptionManager.listenToSKPaymentTransactions()
         
     }
     
@@ -83,6 +92,7 @@ final actor AppManagersHolder {
         // Initialize the Keycloak manager singleton
         await keycloakManager.performPostInitialization()
         await webSocketManager.performPostInitialization()
+        await localAuthenticationManager.performPostInitialization()
     }
     
     
@@ -103,10 +113,12 @@ final actor AppManagersHolder {
         let didEnterBackgroundNotification = UIApplication.didEnterBackgroundNotification
         let tokens = [
             NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: .main) { _ in
-                os_log("🧦 didEnterBackgroundNotification", log: Self.log, type: .info)
-                Task { [weak self] in
-                    await self?.cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground()
-                }
+                 os_log("🧦 didEnterBackgroundNotification", log: Self.log, type: .info)
+                 Task { [weak self] in
+                     os_log("🧦 Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground starts", log: Self.log, type: .info)
+                     await self?.cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground()
+                     os_log("🧦 Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground ends", log: Self.log, type: .info)
+                 }
             },
         ]
         await storeObservationTokens(observationTokens: tokens)

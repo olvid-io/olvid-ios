@@ -88,16 +88,18 @@ extension UserNotificationsManager {
                     guard let contactObjectID = caller?.contactObjectID else { return }
                     let notificationCenter = UNUserNotificationCenter.current()
 
-                    guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else { return }
-
                     guard let contactIdentity = try? PersistedObvContactIdentity.get(objectID: contactObjectID, within: context) else { assertionFailure(); return }
 
                     let discussion: PersistedDiscussion?
-                    if let groupId = groupId {
-                        guard let contactGroup = try? PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else { return }
+                    switch groupId {
+                    case .groupV1(let objectID):
+                        guard let contactGroup = try? PersistedContactGroup.get(objectID: objectID.objectID, within: context) else { return }
                         discussion = contactGroup.discussion
-                    } else {
-                        discussion = try? PersistedOneToOneDiscussion.get(with: contactIdentity, status: .active)
+                    case .groupV2(let objectID):
+                        guard let group = try? PersistedGroupV2.get(objectID: objectID, within: context) else { return }
+                        discussion = group.discussion
+                    case .none:
+                        discussion = nil
                     }
                     guard let discussion = discussion, discussion.status == .active else { return }
 
@@ -159,7 +161,7 @@ extension UserNotificationsManager {
     /// When a received message is deleted (for whatever reason), we want to removing any existing notification related
     /// to this message
     private func observePersistedMessageReceivedWasDeletedNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageReceivedWasDeleted { (_, messageIdentifierFromEngine, _, _, _) in
+        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted { (_, messageIdentifierFromEngine, _, _, _) in
             let notificationCenter = UNUserNotificationCenter.current()
             let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageIdentifierFromEngine)
             UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
@@ -168,7 +170,7 @@ extension UserNotificationsManager {
     
     
     private func observeTheBodyOfPersistedMessageReceivedDidChangeNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeTheBodyOfPersistedMessageReceivedDidChange { (persistedMessageReceivedObjectID) in
+        observationTokens.append(PersistedMessageReceivedNotification.observeTheBodyOfPersistedMessageReceivedDidChange { (persistedMessageReceivedObjectID) in
             ObvStack.shared.performBackgroundTask { (context) in
                 let notificationCenter = UNUserNotificationCenter.current()
                 guard let messageReceived = try? PersistedMessageReceived.get(with: persistedMessageReceivedObjectID, within: context) as? PersistedMessageReceived else { assertionFailure(); return }

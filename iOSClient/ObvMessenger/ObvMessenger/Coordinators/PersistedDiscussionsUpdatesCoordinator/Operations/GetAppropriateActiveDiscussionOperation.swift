@@ -23,21 +23,22 @@ import os.log
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 /// This operation looks for a persisted discussion (either one2one or for a group) that is the most appropriate given the parameters. In case the groupId is non nil, it looks for a group discussion and makes sure the contact identity is part of the group (but not necessarily owner).
 /// If this operation finishes without cancelling, the value of the `discussionObjectID` variable is guaranteed to be set.
 final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReasonForCancel<GetAppropriateDiscussionOperationReasonForCancel> {
 
     private let contact: ObvContactIdentity
-    private let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+    private let groupIdentifier: GroupIdentifier?
     
     private(set) var discussionObjectID: NSManagedObjectID?
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: GetAppropriateActiveDiscussionOperation.self))
 
-    init(contact: ObvContactIdentity, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
+    init(contact: ObvContactIdentity, groupIdentifier: GroupIdentifier?) {
         self.contact = contact
-        self.groupId = groupId
+        self.groupIdentifier = groupIdentifier
         super.init()
     }
 
@@ -45,23 +46,31 @@ final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReason
 
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             
-            let persistedContact: PersistedObvContactIdentity
             do {
-                guard let _persistedContact = try PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else {
+                
+                guard let persistedContact = try PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else {
                     return cancel(withReason: .couldNotFindContact)
                 }
-                persistedContact = _persistedContact
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            guard let ownedIdentity = persistedContact.ownedIdentity else {
-                return cancel(withReason: .couldNotFindOwnedIdentity)
-            }
-            
-            if let groupId = self.groupId {
-                do {
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+                
+                guard let ownedIdentity = persistedContact.ownedIdentity else {
+                    return cancel(withReason: .couldNotFindOwnedIdentity)
+                }
+                
+                switch groupIdentifier {
+                    
+                case .none:
+                    
+                    guard let discussion = try PersistedOneToOneDiscussion.get(with: persistedContact, status: .active) else {
+                        return cancel(withReason: .couldNotFindDiscussion)
+                    }
+                    assert(persistedContact.isOneToOne)
+                    // If we reach this point, we found the appropriate one2one discussion
+                    self.discussionObjectID = discussion.objectID
+                    return
+                    
+                case .groupV1(groupV1Identifier: let groupV1Identifier):
+                    
+                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindContactGroup)
                     }
                     // We make sure the contact is either owner or part of the group
@@ -85,21 +94,28 @@ final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReason
                     }
                     self.discussionObjectID = contactGroup.discussion.objectID
                     return
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
-                }
-            } else {
-                do {
-                    guard let discussion = try PersistedOneToOneDiscussion.get(with: persistedContact, status: .active) else {
+                    
+                case .groupV2(groupV2Identifier: let groupV2Identifier):
+                    
+                    guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        return cancel(withReason: .couldNotFindContactGroup)
+                    }
+                    // Make sure the contact is part of the group
+                    guard group.contactsAmongOtherPendingAndNonPendingMembers.contains(persistedContact) else {
+                        assertionFailure()
+                        return cancel(withReason: .contactIsNotPartOfGroup)
+                    }
+                    // If we reach this point, we found the group and the contact is indeed part of this group
+                    guard let discussion = group.discussion, discussion.status == .active else {
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
-                    assert(persistedContact.isOneToOne)
-                    // If we reach this point, we found the appropriate one2one discussion
                     self.discussionObjectID = discussion.objectID
                     return
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                    
                 }
+                
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
         }
         

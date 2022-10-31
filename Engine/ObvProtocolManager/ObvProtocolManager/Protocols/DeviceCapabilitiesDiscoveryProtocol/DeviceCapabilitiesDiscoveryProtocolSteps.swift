@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvMetaManager
+import ObvCrypto
 
 
 extension DeviceCapabilitiesDiscoveryProtocol {

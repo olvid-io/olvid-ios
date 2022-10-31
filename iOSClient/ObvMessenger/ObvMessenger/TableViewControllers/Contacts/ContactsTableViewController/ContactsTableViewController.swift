@@ -20,7 +20,7 @@
 import UIKit
 import os.log
 import CoreData
-import ObvEngine
+import ObvTypes
 
 class ContactsTableViewController: UITableViewController {
     

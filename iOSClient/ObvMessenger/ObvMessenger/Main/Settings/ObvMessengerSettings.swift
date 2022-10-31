@@ -300,27 +300,140 @@ struct ObvMessengerSettings {
     // MARK: - Privacy
     
     struct Privacy {
-        
-        // MARK: Lock screen
-        
-        static var lockScreen: Bool {
+
+        struct Keys {
+            static let localAuthenticationPolicy = "settings.privacy.localAuthenticationPolicy"
+            static let lockScreenGracePeriod = "settings.privacy.lockScreenGracePeriod"
+            static let hideNotificationContent = "settings.privacy.hideNotificationContent"
+
+            static let passcodeHashAnsSalt = "settings.privacy.passcodeHashAndSalt"
+            static let passcodeIsPassword = "settings.privacy.passcodeIsPassword"
+            static let passcodeFailedCount = "settings.privacy.passcodeFailedCount"
+            static let passcodeAttempsSessions = "settings.privacy.passcodeAttempsSessions"
+            static let lockoutUptime = "settings.privacy.lockoutUptime"
+            static let lockoutCleanEphemeral = "settings.privacy.lockoutCleanEphemeral"
+            static let userHasBeenLockedOut = "settings.privacy.userHasBeenLockedOut"
+        }
+
+        // MARK: Local Authentication Policy
+
+        static var localAuthenticationPolicy: LocalAuthenticationPolicy {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.privacy.lockScreen") ?? false
+                guard let rawPolicy = userDefaults.integerOrNil(forKey: Keys.localAuthenticationPolicy) else {
+                    return .none
+                }
+                guard let policy = LocalAuthenticationPolicy(rawValue: rawPolicy) else {
+                    assertionFailure(); return .none
+                }
+                return policy
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.privacy.lockScreen")
+                userDefaults.set(newValue.rawValue, forKey: Keys.localAuthenticationPolicy)
             }
         }
-        
+
+        // MARK: Passcode
+
+        static var passcodeHashAndSalt: (Data, Data)? {
+            get {
+                guard let passcodeHashAndSaltAsString = userDefaults.stringOrNil(forKey: Keys.passcodeHashAnsSalt) else {
+                    return nil
+                }
+                let components = passcodeHashAndSaltAsString.split(separator: " ")
+                guard components.count == 2 else { return nil }
+                let passcodeHashAsString = String(components[0])
+                let passcodeSaltAsString = String(components[1])
+                guard let passcodeHash = Data(base64Encoded: passcodeHashAsString) else { return nil }
+                guard let passcodeSalt = Data(base64Encoded: passcodeSaltAsString) else { return nil }
+                return (passcodeHash, passcodeSalt)
+            }
+            set {
+                if let (passcodeHash, passcodeSalt) = newValue {
+                    let passcodeHashAsString = passcodeHash.base64EncodedString()
+                    let passcodeSaltAsString = passcodeSalt.base64EncodedString()
+                    let passcodeHashAndSaltAsString = [passcodeHashAsString, passcodeSaltAsString].joined(separator: " ")
+                    userDefaults.set(passcodeHashAndSaltAsString, forKey: Keys.passcodeHashAnsSalt)
+                } else {
+                    userDefaults.removeObject(forKey: Keys.passcodeHashAnsSalt)
+                }
+            }
+        }
+
+        static var passcodeIsPassword: Bool {
+            get {
+                userDefaults.boolOrNil(forKey: Keys.passcodeIsPassword) ?? false
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.passcodeIsPassword)
+            }
+        }
+
+        /// Count the number of times a subset of the previous passcode was typed for the first time.
+        /// 1) the user types "A",
+        /// 2) then "B"  -> "AB"
+        /// 3) then backslash -> "A", here "A" is a subset of "AB", we count on ``passcodeFailedCount``
+        static var passcodeFailedCount: Int {
+            get {
+                userDefaults.integerOrNil(forKey: Keys.passcodeFailedCount) ?? 0
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.passcodeFailedCount)
+            }
+        }
+
+        /// Count the number of first passcode tries, i.e. when the user open a passcode verification view controller and starts to type something
+        static var passcodeAttempsSessions: Int {
+            get {
+                userDefaults.integerOrNil(forKey: Keys.passcodeAttempsSessions) ?? 0
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.passcodeAttempsSessions)
+            }
+        }
+
+        static var passcodeAttemptCount: Int {
+            // We remove 1 attempt, since we concider the first session as correct.
+            passcodeFailedCount + passcodeAttempsSessions - 1
+        }
+
+        static var lockoutUptime: TimeInterval? {
+            get {
+                userDefaults.doubleOrNil(forKey: Keys.lockoutUptime)
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.lockoutUptime)
+            }
+        }
+
+        static var lockoutCleanEphemeral: Bool {
+            get {
+                userDefaults.boolOrNil(forKey: Keys.lockoutCleanEphemeral) ?? false
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.lockoutCleanEphemeral)
+            }
+        }
+
+        static var userHasBeenLockedOut: Bool {
+            get {
+                userDefaults.boolOrNil(forKey: Keys.userHasBeenLockedOut) ?? false
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.userHasBeenLockedOut)
+            }
+        }
+
+        // MARK: Lock Screen Grace Period
+
         /// Possible grace periods (in seconds)
         static let gracePeriods: [TimeInterval] = [0, 5, 60, 60*5, 60*15, 60*60]
         
         static var lockScreenGracePeriod: TimeInterval {
             get {
-                return userDefaults.doubleOrNil(forKey: "settings.privacy.lockScreenGracePeriod") ?? 0
+                return userDefaults.doubleOrNil(forKey: Keys.lockScreenGracePeriod) ?? 0
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.privacy.lockScreenGracePeriod")
+                userDefaults.set(newValue, forKey: Keys.lockScreenGracePeriod)
             }
         }
 
@@ -334,11 +447,11 @@ struct ObvMessengerSettings {
         
         static var hideNotificationContent: HideNotificationContentType {
             get {
-                let raw = userDefaults.integerOrNil(forKey: "settings.privacy.hideNotificationContent") ?? HideNotificationContentType.no.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Keys.hideNotificationContent) ?? HideNotificationContentType.no.rawValue
                 return HideNotificationContentType(rawValue: raw) ?? HideNotificationContentType.no
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: "settings.privacy.hideNotificationContent")
+                userDefaults.set(newValue.rawValue, forKey: Keys.hideNotificationContent)
             }
         }
         
@@ -631,6 +744,14 @@ extension UserDefaults {
             guard let entityName = entityNameAsAny as? String else { return nil }
             return (url, entityName)
         }
+    }
+
+    var getExtensionFailedToWipeAllEphemeralMessagesBeforeDate: Date? {
+        return self.dateOrNil(forKey: ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate)
+    }
+
+    func setExtensionFailedToWipeAllEphemeralMessagesBeforeDate(with date: Date?) {
+        self.setValue(date, forKey: ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate)
     }
 
 }

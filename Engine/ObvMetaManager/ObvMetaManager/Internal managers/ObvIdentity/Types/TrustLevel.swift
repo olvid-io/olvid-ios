@@ -59,6 +59,10 @@ public extension TrustLevel {
         return TrustLevel(major: 3, minor: 0)
     }
 
+    static func forGroupV2() -> TrustLevel {
+        return TrustLevel(major: 1, minor: 0)
+    }
+
     static var zero: TrustLevel {
         return TrustLevel(major: 0, minor: 0)
     }

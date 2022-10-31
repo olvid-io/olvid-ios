@@ -64,10 +64,11 @@ extension MuteDiscussionManager: ScheduleNextTimerOperationDelegate {
     }
 
     func timerFired(timer: Timer) {
+        let timerIsValid = timer.isValid
         Task {
             _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
             let log = MuteDiscussionManager.log
-            guard timer.isValid else { return }
+            guard timerIsValid else { return }
             let now = Date()
             ObvMessengerInternalNotification.cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
                 .postOnDispatchQueue()

@@ -22,13 +22,15 @@ import ObvEngine
 import ObvTypes
 import os.log
 import CoreData
+import ObvCrypto
 
 
-protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate {
+protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate {
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
     var obvEngine: ObvEngine { get }
+    var observationTokens: [NSObjectProtocol] { get set }
 
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToDisplay(persistedMessage message: PersistedMessage)
@@ -100,17 +102,42 @@ extension ObvFlowController {
     private func userWantsToDisplayImpl(persistedDiscussion discussion: PersistedDiscussion, messageToShow: PersistedMessage?) {
                 
         assert(Thread.isMainThread)
-        assert(discussion.managedObjectContext == ObvStack.shared.viewContext)
-        
         os_log("User wants to display persisted discussion", log: log, type: .info)
 
+        let discussionToDisplay: PersistedDiscussion
+        if discussion.managedObjectContext == ObvStack.shared.viewContext {
+            discussionToDisplay = discussion
+        } else {
+            guard let _discussion = try? PersistedDiscussion.get(objectID: discussion.typedObjectID, within: ObvStack.shared.viewContext) else {
+                assertionFailure()
+                return
+            }
+            discussionToDisplay = _discussion
+        }
+        
+        let messageToDisplay: PersistedMessage?
+        if let messageToShow = messageToShow {
+            if messageToShow.managedObjectContext == ObvStack.shared.viewContext {
+                messageToDisplay = messageToShow
+            } else {
+                if let _message = try? PersistedMessage.get(with: messageToShow.typedObjectID, within: ObvStack.shared.viewContext) {
+                    messageToDisplay = _message
+                } else {
+                    assertionFailure()
+                    messageToDisplay = nil
+                }
+            }
+        } else {
+            messageToDisplay = nil
+        }
+        
         // Dismiss any presented view controller
         if let presentedViewController = presentedViewController {
             presentedViewController.dismiss(animated: true, completion: { [weak self] in
-                self?.popOrPushDiscussionViewController(for: discussion, messageToShow: messageToShow)
+                self?.popOrPushDiscussionViewController(for: discussionToDisplay, messageToShow: messageToDisplay)
             })
         } else {
-            popOrPushDiscussionViewController(for: discussion, messageToShow: messageToShow)
+            popOrPushDiscussionViewController(for: discussionToDisplay, messageToShow: messageToDisplay)
         }
     }
 
@@ -184,7 +211,32 @@ extension ObvFlowController {
         }
         setViewControllers(newViewController, animated: true)
     }
+
+
+    /// If a a PersistedGroupV2 gets deleted (e.g., because we were kicked from the group), we want to dismiss any pushed `SingleGroupV2ViewController`.
+    private func removeGroupViewController(persistedGroupV2ObjectId: TypeSafeManagedObjectID<PersistedGroupV2>) {
+        var newViewController = [UIViewController]()
+        for vc in viewControllers {
+            guard let groupVC = vc as? SingleGroupV2ViewController, groupVC.persistedGroupV2ObjectID == persistedGroupV2ObjectId else {
+                newViewController += [vc]
+                continue
+            }
+            // Skip the view controller
+        }
+        setViewControllers(newViewController, animated: true)
+    }
+
     
+    /// This method should be called from the `viewDidLoad` method of all view controllers (conforming to this protocol) if they are susceptible to push a `SingleGroupV2ViewController` on their navigation stack.
+    /// It allows to oberve `PersistedGroupV2WasDeleted` notifications and to update the stack accordingly.
+    func observePersistedGroupV2WasDeletedNotifications() {
+        observationTokens.append(
+            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted(queue: OperationQueue.main) { [weak self] persistedGroupV2ObjectID in
+                self?.removeGroupViewController(persistedGroupV2ObjectId: persistedGroupV2ObjectID)
+            }
+        )
+    }
+
 }
 
 
@@ -197,7 +249,9 @@ extension ObvFlowController {
         let vcToPresent: UIViewController
         
         switch try? discussion.kind {
+            
         case .oneToOne(withContactIdentity: let contactIdentity):
+            
             // In case the title tapped is the one of a one2one discussion, we display the contact sheet of the contact
             guard let contactIdentity = contactIdentity else {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
@@ -205,7 +259,9 @@ extension ObvFlowController {
             }
             vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
             (vcToPresent as? SingleContactIdentityViewHostingController)?.delegate = self
+            
         case .groupV1(withContactGroup: let contactGroup):
+            
             guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 return
@@ -213,9 +269,22 @@ extension ObvFlowController {
             guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup, obvEngine: obvEngine) else { return }
             singleGroupVC.delegate = self
             vcToPresent = singleGroupVC
+            
+        case .groupV2(withGroup: let group):
+            
+            guard let group = group else {
+                os_log("Could find group V2 (this is ok if it was just deleted)", log: log, type: .error)
+                return
+            }
+            
+            guard let singleGroupV2VC = try? SingleGroupV2ViewController(group: group, obvEngine: obvEngine, delegate: self) else { return }
+            vcToPresent = singleGroupV2VC
+
         case .none:
+            
             assertionFailure()
             return
+            
         }
         
         let closeButton = BlockBarButtonItem.forClosing { [weak self] in self?.presentedViewController?.dismiss(animated: true) }
@@ -254,22 +323,54 @@ extension ObvFlowController {
 
 extension ObvFlowController {
 
-    func userWantsToDisplay(persistedContactGroup: PersistedContactGroup, within nav: UINavigationController?) {
+    
+    func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup, within nav: UINavigationController?) {
+        
+        assert(group.groupV1 == nil || group.groupV2 == nil)
         
         let appropriateNav = nav ?? self
+
+        if let groupV1 = group.groupV1 {
+            userWantsToNavigateToSingleGroupView(persistedContactGroup: groupV1, within: appropriateNav)
+        } else if let groupV2 = group.groupV2 {
+            userWantsToNavigateToSingleGroupView(persistedGroupV2: groupV2, within: appropriateNav)
+        } else {
+            assertionFailure()
+        }
         
-        for vc in appropriateNav.children {
+    }
+
+    
+    private func userWantsToNavigateToSingleGroupView(persistedContactGroup: PersistedContactGroup, within nav: UINavigationController) {
+                
+        for vc in nav.children {
             guard let singleGroupViewController = vc as? SingleGroupViewController else { continue }
             guard singleGroupViewController.persistedContactGroup.objectID == persistedContactGroup.objectID else { continue }
             // If we reach this point, there exists an appropriate SingleGroupViewController within the navigation stack, so we pop to this VC and return
-            appropriateNav.popToViewController(singleGroupViewController, animated: true)
+            nav.popToViewController(singleGroupViewController, animated: true)
             return
         }
         // If we reach this point, we could not find an appropriate VC within the navigation stack, so we push a new one
         guard let singleGroupViewController = try? SingleGroupViewController(persistedContactGroup: persistedContactGroup, obvEngine: obvEngine) else { return }
         singleGroupViewController.delegate = self
-        appropriateNav.pushViewController(singleGroupViewController, animated: true)
+        nav.pushViewController(singleGroupViewController, animated: true)
 
+    }
+
+    
+    private func userWantsToNavigateToSingleGroupView(persistedGroupV2: PersistedGroupV2, within nav: UINavigationController) {
+        
+        for vc in nav.children {
+            guard let singleGroupViewController = vc as? SingleGroupV2ViewController else { continue }
+            guard singleGroupViewController.persistedGroupV2ObjectID == persistedGroupV2.typedObjectID else { continue }
+            // If we reach this point, there exists an appropriate SingleGroupV2ViewController within the navigation stack, so we pop to this VC and return
+            nav.popToViewController(singleGroupViewController, animated: true)
+            return
+        }
+        // If we reach this point, we could not find an appropriate VC within the navigation stack, so we push a new one
+        guard let singleGroupViewController = try? SingleGroupV2ViewController(group: persistedGroupV2, obvEngine: obvEngine, delegate: self) else { return }
+        nav.pushViewController(singleGroupViewController, animated: true)
+        
     }
     
     
@@ -395,7 +496,7 @@ extension ObvFlowController {
 }
 
 
-// MARK: - SingleGroupViewControllerDelegate
+// MARK: - SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate
 
 extension ObvFlowController {
     
@@ -417,6 +518,126 @@ extension ObvFlowController {
         
     }
 
+    
+    func userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
+        flowDelegate?.userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: objectID)
+    }
+    
+    
+    func userWantsToCloneGroup(displayedContactGroupObjectID: TypeSafeManagedObjectID<DisplayedContactGroup>) {
+
+        assert(Thread.isMainThread)
+
+        guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: displayedContactGroupObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
+        
+        let ownedCryptoId: ObvCryptoId
+        let initialGroupMembers: Set<ObvCryptoId>
+        let originalGroupName: String?
+        let initialGroupDescription: String?
+        let originalPhotoURL: URL?
+        
+        switch displayedContactGroup.group {
+        case .none:
+            return
+            
+        case .groupV2(group: let group):
+            
+            guard let _ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
+            ownedCryptoId = _ownedCryptoId
+            initialGroupMembers = Set(group.contactsAmongOtherPendingAndNonPendingMembers.map({ $0.cryptoId }))
+            originalGroupName = group.trustedName
+            initialGroupDescription = group.trustedDescription?.mapToNilIfZeroLength()
+            if let url = group.trustedPhotoURL, FileManager.default.fileExists(atPath: url.path) {
+                originalPhotoURL = url
+            } else {
+                originalPhotoURL = nil
+            }
+            
+        case .groupV1(group: let group):
+            
+            guard let ownedIdentity = group.ownedIdentity else { assertionFailure(); return }
+            ownedCryptoId = ownedIdentity.cryptoId
+            // Get a list of contacts that need to be included in the cloned group
+            let candidates: Set<PersistedObvContactIdentity>
+            do {
+                let contactsAmongPendingMembers = Set(group.pendingMembers
+                    .map({ $0.cryptoId })
+                    .compactMap({ try? PersistedObvContactIdentity.get(cryptoId: $0, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any) }))
+                candidates = group.contactIdentities.union(contactsAmongPendingMembers)
+            }
+            // Check that all the candidates have the appropriate capability
+            let candidatesNotSupportingGroupV2 = candidates.filter({ !$0.supportsCapability(.groupsV2) })
+            guard candidatesNotSupportingGroupV2.isEmpty else {
+                displayAlertWhenTryingToCloneGroupV1WithMembersNotSupportingGroupsV2(contactsNotSupportingGroupV2: candidatesNotSupportingGroupV2)
+                return
+            }
+            initialGroupMembers = Set(candidates.map({ $0.cryptoId }))
+            originalGroupName = group.groupName.mapToNilIfZeroLength()
+            initialGroupDescription = nil // The description of a group v1 is only available at the engine level, we don't fetch it here
+            if let url = group.displayPhotoURL, FileManager.default.fileExists(atPath: url.path) {
+                originalPhotoURL = url
+            } else {
+                originalPhotoURL = nil
+            }
+        }
+
+        let initialGroupName: String?
+        if let originalGroupName = originalGroupName, !originalGroupName.isEmpty {
+            initialGroupName = CommonString.clonedGroupNameFromOriginalName(originalGroupName)
+        } else {
+            initialGroupName = nil
+        }
+                
+        let initialPhotoURL: URL?
+        if let originalPhotoURL = originalPhotoURL {
+            // ObvMessengerConstants.containerURL.forProfilePicturesCache.path
+            let randomFilename = UUID().uuidString
+            let randomFileURL = ObvMessengerConstants.containerURL.forProfilePicturesCache.appendingPathComponent(randomFilename, isDirectory: false)
+            do {
+                try FileManager.default.copyItem(at: originalPhotoURL, to: randomFileURL)
+                initialPhotoURL = randomFileURL
+            } catch {
+                assertionFailure()
+                initialPhotoURL = nil
+            }
+        } else {
+            initialPhotoURL = nil
+        }
+        
+        let groupCreationFlowVC = GroupEditionFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            editionType: .cloneGroup(initialGroupMembers: initialGroupMembers, initialGroupName: initialGroupName, initialGroupDescription: initialGroupDescription, initialPhotoURL: initialPhotoURL),
+            obvEngine: obvEngine)
+
+        if let presentedViewController = presentedViewController {
+            presentedViewController.dismiss(animated: true) { [weak self] in
+                self?.present(groupCreationFlowVC, animated: true)
+            }
+        } else {
+            present(groupCreationFlowVC, animated: true)
+        }
+
+    }
+    
+    
+    private func displayAlertWhenTryingToCloneGroupV1WithMembersNotSupportingGroupsV2(contactsNotSupportingGroupV2: Set<PersistedObvContactIdentity>) {
+        
+        
+        let arrrayOfMemberNames = contactsNotSupportingGroupV2.map({ $0.displayedCustomDisplayNameOrFirstNameOrLastName ?? $0.customOrNormalDisplayName })
+        let allMemberNames = ListFormatter.localizedString(byJoining: arrrayOfMemberNames)
+        let title = NSLocalizedString("SOME_GROUP_MEMBERS_MUST_UPGRADE", comment: "")
+        let message = String.localizedStringWithFormat(NSLocalizedString("FOLLOWING_MEMBERS_MUST_UPGRADE_BEFORE_CREATING_GROUP_V2_%@", comment: ""), allMemberNames)
+        
+        let alert = UIAlertController.init(title: title,
+                                           message: message,
+                                           preferredStyle: .alert)
+        
+        alert.addAction(.init(title: CommonString.Word.Ok, style: .cancel))
+        
+        present(alert, animated: true)
+        
+    }
+
 }
 
 
@@ -430,5 +651,6 @@ protocol ObvFlowControllerDelegate: AnyObject {
     func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String)
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: ObvCryptoId, using: ObvIdentityDetails)
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void)
+    func userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 
 }

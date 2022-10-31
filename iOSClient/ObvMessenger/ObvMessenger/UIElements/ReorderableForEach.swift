@@ -21,7 +21,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 @available(iOS 15, *)
-protocol ReorderableItem: Identifiable & Equatable {
+protocol ReorderableItem: Identifiable, Equatable {
 }
 
 @available(iOS 15, *)

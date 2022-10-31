@@ -58,6 +58,11 @@ public enum ObvChannelDialogToSendType {
     case acceptGroupInvite(groupInformation: GroupInformation, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, receivedMessageTimestamp: Date)
     case increaseGroupOwnerTrustLevel(groupInformation: GroupInformation, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, receivedMessageTimestamp: Date)
     
+    // Dialogs related to contact groups V2
+    case acceptGroupV2Invite(inviter: ObvCryptoId, group: ObvGroupV2)
+    case freezeGroupV2Invite(inviter: ObvCryptoId, group: ObvGroupV2)
+
+    
     // A special dialog allowing a protocol instance to notify the "user interface" that is should remove any previous dialog
     case delete
 }

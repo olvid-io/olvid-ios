@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.1 (564)] - 2022-09-22
+
+- It is now possible to define a personalized passcode (either PIN or password) to unlock Olvid!
+- Complete redesign of the screen listing all your groups.
+- When forwarding a message to exactly one discussion, this discussion is displayed.
+- Fixes a few graphical issues occurring under iOS 16.
+- Updates WebRTC to version 5195.
+- Adds an (advanced) panel allowing to evaluate the disk storage of Olvid.
+- Fixes a bug preventing to launch the share extension under iOS 13 and 14.
+- Fixes a potential crash of the app.
+- Other bug fixes.
+- Fixes a few localization issues in French.
+
 ## [0.11.0 (542)] - 2022-07-20
 
 - Starting Olvid is way faster than before!

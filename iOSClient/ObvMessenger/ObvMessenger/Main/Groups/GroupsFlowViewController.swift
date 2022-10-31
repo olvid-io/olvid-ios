@@ -30,7 +30,7 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     let ownedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
 
-    private var observationTokens = [NSObjectProtocol]()
+    var observationTokens = [NSObjectProtocol]()
 
     // Constants
     
@@ -47,7 +47,7 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
         self.ownedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         
-        let allGroupsViewController = AllGroupsViewController(ownedCryptoId: ownedCryptoId)
+        let allGroupsViewController = NewAllGroupsViewController(ownedCryptoId: ownedCryptoId)
         super.init(rootViewController: allGroupsViewController)
         
         allGroupsViewController.delegate = self
@@ -104,15 +104,16 @@ extension GroupsFlowViewController {
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         
         observeContactGroupDeletedNotifications()
+        observePersistedGroupV2WasDeletedNotifications()
         
     }
     
 }
 
 
-// MARK: - AllGroupsViewControllerDelegate
+// MARK: - NewAllGroupsViewControllerDelegate
 
-extension GroupsFlowViewController: AllGroupsViewControllerDelegate {
+extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
     
     func userDidSelect(_ contactGroup: PersistedContactGroup, within nav: UINavigationController?) {
         guard let singleGroupVC = try? SingleGroupViewController(persistedContactGroup: contactGroup, obvEngine: obvEngine) else { return }
@@ -120,16 +121,49 @@ extension GroupsFlowViewController: AllGroupsViewControllerDelegate {
         pushViewController(singleGroupVC, animated: true)
     }
     
-    func userWantsToAddContactGroup() {
-        let ownedCryptoId = self.ownedCryptoId
-        let obvEngine = self.obvEngine
-        DispatchQueue.main.async { [weak self] in
-            let groupCreationFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .create, obvEngine: obvEngine)
-            self?.present(groupCreationFlowVC, animated: true)
-        }
-
+    func userDidSelect(_ group: PersistedGroupV2, within: UINavigationController?) {
+        guard let vc = try? SingleGroupV2ViewController(group: group, obvEngine: obvEngine, delegate: self) else { assertionFailure(); return }
+        pushViewController(vc, animated: true)
     }
     
+    func userWantsToAddContactGroup() {
+        assert(Thread.isMainThread)
+        let ownedCryptoId = self.ownedCryptoId
+        let obvEngine = self.obvEngine
+        
+        // For now, groups v2 can only be created when beta settings are shown.
+        // Otherwise, we only allow the creation of legacy groups.
+        
+        if ObvMessengerSettings.BetaConfiguration.showBetaSettings || ObvMessengerConstants.developmentMode {
+            
+            let alert = UIAlertController(title: NSLocalizedString("CHOOSE_GROUP_TYPE_TITLE", comment: ""),
+                                          message: NSLocalizedString("CHOOSE_GROUP_TYPE_MESSAGE", comment: ""),
+                                          preferredStyleForTraitCollection: self.traitCollection)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V1", comment: ""), style: .default, handler: { [weak self] (action) in
+                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV1, obvEngine: obvEngine)
+                self?.present(groupCreationFlowVC, animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
+                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
+                self?.present(groupCreationFlowVC, animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+            
+            if let presentedViewController = self.presentedViewController {
+                presentedViewController.present(alert, animated: true)
+            } else {
+                self.present(alert, animated: true)
+            }
+
+        } else {
+
+            let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV1, obvEngine: obvEngine)
+            present(groupCreationFlowVC, animated: true)
+            
+        }
+        
+    }
+        
     
     @objc
     func dismissPresentedViewController() {

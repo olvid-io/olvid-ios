@@ -90,9 +90,16 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject {
 
     // MARK: Other variables
     
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
-        set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
+    /// Expected to be non-nil. We never allow setting this identifier to `nil`.
+    private(set) var messageId: MessageIdentifier? {
+        get {
+            guard !isDeleted else { return nil }
+            return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)
+        }
+        set {
+            guard let newValue = newValue else { assertionFailure(); return }
+            self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw
+        }
     }
     
     private(set) var messageUidFromServer: UID? {
@@ -265,14 +272,13 @@ extension OutboxMessage {
             return
         }
         
-        if let timestampFromServer = self.timestampFromServer {
-            _ = DeletedOutboxMessage(messageId: self.messageId, timestampFromServer: timestampFromServer, delegateManager: delegateManager, within: obvContext)
+        if let timestampFromServer = self.timestampFromServer, let messageId = self.messageId {
+            _ = DeletedOutboxMessage(messageId: messageId, timestampFromServer: timestampFromServer, delegateManager: delegateManager, within: obvContext)
             
         }
         
-        let messageId = self.messageId
         let flowId = obvContext.flowId
-        if let timestampFromServer = self.timestampFromServer {
+        if let timestampFromServer = self.timestampFromServer, let messageId = self.messageId {
             try? obvContext.addContextDidSaveCompletionHandler { (error) in
                 guard error == nil else { return }
                 ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId, timestampFromServer)], flowId: flowId)
@@ -292,8 +298,7 @@ extension OutboxMessage {
             return
         }
 
-        if isInserted, let flowId = self.obvContext?.flowId {
-            let messageId = self.messageId
+        if isInserted, let flowId = self.obvContext?.flowId, let messageId = self.messageId {
             DispatchQueue(label: "Queue for calling newOutboxMessage").async {
                 delegateManager.networkSendFlowDelegate.newOutboxMessage(messageId: messageId, flowId: flowId)
             }

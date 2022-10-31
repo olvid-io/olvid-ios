@@ -76,7 +76,7 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
         self.collectionViewLayout = collectionViewLayout
         self.collectionView = UICollectionView.init(frame: CGRect.zero, collectionViewLayout: collectionViewLayout)
         super.init(ownedCryptoId: ownedCryptoId, logCategory: "InvitationsCollectionViewController")
-        self.title = CommonString.Word.Invitations
+        self.setTitle(CommonString.Word.Invitations)
     }
     
     
@@ -412,6 +412,10 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             return collectionView.dequeueReusableCell(withReuseIdentifier: TitledCardCollectionViewCell.identifier, for: indexPath)
         case .oneToOneInvitationReceived:
             return collectionView.dequeueReusableCell(withReuseIdentifier: MultipleButtonsCollectionViewCell.identifier, for: indexPath)
+        case .acceptGroupV2Invite:
+            return collectionView.dequeueReusableCell(withReuseIdentifier: AcceptGroupInviteCollectionViewCell.identifier, for: indexPath)
+        case .freezeGroupV2Invite:
+            return collectionView.dequeueReusableCell(withReuseIdentifier: AcceptGroupInviteCollectionViewCell.identifier, for: indexPath)
         }
     }
     
@@ -750,6 +754,49 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                     obvEngine.respondTo(localDialog)
                 }
             }
+            
+        case .acceptGroupV2Invite(inviter: let inviter, group: let group),
+                .freezeGroupV2Invite(inviter: let inviter, group: let group):
+            guard var cell = cellToConfigure as? AcceptGroupInviteCollectionViewCell else {
+                os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
+                return
+            }
+            guard let inviterContact = try? PersistedObvContactIdentity.get(contactCryptoId: inviter, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else {
+                assertionFailure()
+                return
+            }
+            cell.title = inviterContact.customOrNormalDisplayName
+            cell.subtitle = Strings.AcceptGroupInvite.subtitle
+            cell.date = persistedInvitation.date
+            cell.identityColors = inviterContact.cryptoId.colors
+            cell.details = Strings.AcceptGroupInvite.details(inviterContact.customOrNormalDisplayName)
+            cell.buttonTitle1 = CommonString.Word.Accept
+            cell.buttonTitle2 = CommonString.Word.Decline
+            cell.button1Action = { [weak self] in
+                self?.acceptGroupInvite(dialog: obvDialog)
+            }
+            cell.button2Action = { [weak self] in
+                self?.rejectGroupInvite(dialog: obvDialog, confirmed: false)
+            }
+            cell.setTitle(with: Strings.AcceptGroupInvite.subsubTitle)
+            let list: [String] = group.otherMembers.map {
+                if let memberContact = try? PersistedObvContactIdentity.get(contactCryptoId: $0.identity, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
+                    return memberContact.customOrNormalDisplayName
+                } else if let details = try? ObvIdentityCoreDetails($0.serializedIdentityCoreDetails) {
+                    return details.getDisplayNameWithStyle(.firstNameThenLastName)
+                } else {
+                    assertionFailure()
+                    return Strings.unknownGroupMemberName
+                }
+            }
+            cell.setList(with: list.sorted())
+            // If the invite should be freezed, do it now
+            switch obvDialog.category {
+            case .freezeGroupV2Invite:
+                cell.freeze()
+            default:
+                cell.unfreeze()
+            }
         }
         
 
@@ -847,6 +894,13 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 DispatchQueue(label: "Queue for responding to dialog").async {
                     obvEngine.respondTo(localDialog)
                 }
+            case .acceptGroupV2Invite:
+                var localDialog = dialog
+                try? localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                guard let obvEngine = self?.obvEngine else { assertionFailure(); return }
+                DispatchQueue(label: "Queue for responding to dialog").async {
+                    obvEngine.respondTo(localDialog)
+                }
             default:
                 break
             }
@@ -859,7 +913,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
         DispatchQueue(label: "RespondingToGroupInvitationDialog").async { [weak self] in
             switch dialog.category {
             case .acceptGroupInvite,
-                 .increaseGroupOwnerTrustLevelRequired:
+                    .increaseGroupOwnerTrustLevelRequired,
+                    .acceptGroupV2Invite:
                 if confirmed {
                     var localDialog = dialog
                     switch dialog.category {
@@ -867,7 +922,10 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                         try? localDialog.setResponseToAcceptGroupInvite(acceptInvite: false)
                     case .increaseGroupOwnerTrustLevelRequired:
                         try? localDialog.rejectIncreaseGroupOwnerTrustLevelRequired()
+                    case .acceptGroupV2Invite:
+                        try? localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: false)
                     default:
+                        assertionFailure()
                         return
                     }
                     self?.obvEngine.respondTo(localDialog)
@@ -1109,4 +1167,162 @@ extension InvitationsCollectionViewController {
         }
         return nil
     }
+}
+
+
+// MARK: - Localized strings
+
+extension InvitationsCollectionViewController {
+    
+    struct Strings {
+        
+        static let unknownGroupMemberName = NSLocalizedString("UNKNOWN_GROUP_MEMBER_NAME", comment: "")
+        
+        struct InviteSent {
+            static let subtitle = NSLocalizedString("Your invitation was sent", comment: "Invitation subtitle")
+            static let details = { (name: String) in
+                String.localizedStringWithFormat(NSLocalizedString("If %@ accepts your invitation, you will be notified here.", comment: "Invitation details"), name)
+            }
+        }
+        
+        struct AcceptInvite {
+            static let subtitle = NSLocalizedString("Invitation received", comment: "Invitation subtitle")
+            static let details = { (name: String) in
+                String.localizedStringWithFormat(NSLocalizedString("The invitation appears to come from %@. If you accept this invitation you will guided through the process allowing to make sure that this is the case.", comment: "Invitation details"), name)
+            }
+            static let buttonTitle2 = NSLocalizedString("Ignore", comment: "Button title")
+        }
+
+        struct InvitationAccepted {
+            static let subtitle = NSLocalizedString("Invitation accepted", comment: "Invitation subtitle")
+            static let details = { (name: String) in
+                String.localizedStringWithFormat(NSLocalizedString("We are bootstraping the secure channel between you and %@. Please note that this requires %@'s device to be online.", comment: "Invitation details"), name, name)
+            }
+        }
+
+        struct SasExchange {
+            static let subtitle = NSLocalizedString("Exchange digits", comment: "Invitation subtitle")
+            static let details = { (name: String, sas: String) in
+                String.localizedStringWithFormat(NSLocalizedString("You should communicate your four digits to %@. Your digits are %@. You should also enter the 4 digits of %@.", comment: "Invitation details"), name, sas, name)
+            }
+        }
+
+        struct SasConfirmed {
+            static let subtitle = NSLocalizedString("Digits confirmed", comment: "Invitation subtitle")
+            static let details = { (name: String, sas: String) in
+                String.localizedStringWithFormat(NSLocalizedString("You have successfully entered the 4 digits of %1$@. You should communicate your four digits to %1$@. Your digits are %2$@.", comment: "Invitation details"), name, sas)
+            }
+        }
+
+        struct MutualTrustConfirmed {
+            static let subtitle = NSLocalizedString("MUTUAL_TRUST_CONFIRMED", comment: "Invitation subtitle")
+            static let details = { (name: String) in
+                String.localizedStringWithFormat(NSLocalizedString("MUTUAL_TRUST_CONFIRMED_DETAILS_%@", comment: "Invitation details"), name)
+            }
+
+        }
+
+        static let showContactButtonTitle = NSLocalizedString("Show Contact", comment: "Button title allowing to navigation towards a contact")
+
+        struct AutoconfirmedContactIntroduction {
+            static let subtitle = CommonString.Title.newContact
+            static let details = { (mediatorName: String, contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("%@ was added to your contacts following an introduction by %@.", comment: "Invitation details"), contactName, mediatorName)
+            }
+        }
+
+        struct AcceptMediatorInvite {
+            static let subtitle = CommonString.Title.newSuggestedIntroduction
+            static let details = { (mediatorName: String, contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("%@ wants to introduce you to %@. If you do trust %@ for this, you may accept this invitation and %@ will soon appear in your contacts, with no further actions from your part (provided that %@ also accepts the invitation). If you don't trust %@ or if you simply do not want to be introduced to %@ you can ignore this invitation (neither %@ nor %@ will be notified of this).", comment: "Invitation details"), mediatorName, contactName, mediatorName, contactName, contactName, mediatorName, contactName, contactName, mediatorName)
+            }
+            static let buttonTitle2 = NSLocalizedString("Ignore", comment: "Button title")
+        }
+
+        struct MediatorInviteAccepted {
+            static let subtitle = NSLocalizedString("Introduction Accepted", comment: "Invitation subtitle")
+            static let details = { (mediatorName: String, contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("You accepted to be introduced to %@ by %@. Please wait until %@ also accepts this invitation.", comment: "Invitation details"), contactName, mediatorName, contactName)
+            }
+        }
+        
+        struct IncreaseMediatorTrustLevelRequired {
+            static let subtitle = AcceptInvite.subtitle
+            static let details = { (mediatorName: String, contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("%1@ wants to introduce you to %2@.\n\nOlvid\'s security policy requires you to re-validate the identity of %2@ by exchanging 4-digit codes with them, or to invite %1@ directly.", comment: "Invitation details"), contactName, mediatorName, contactName)
+            }
+            static let buttonTitle1 = { (mediatorName: String) in String.localizedStringWithFormat(NSLocalizedString("Exchange digits with %@", comment: "Button title"), mediatorName) }
+            static let buttonTitle2 = { (contactName: String) in String.localizedStringWithFormat(NSLocalizedString("Invite %@", comment: "Button title"), contactName) }
+        }
+
+        struct AcceptGroupInvite {
+            static let subtitle = CommonString.Title.invitationToJoinGroup
+            static let details = { (groupOwnerName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("YOU_ARE_INVITED_TO_JOIN_A_GROUP_CREATED_BY_%@_EXPLANATION", comment: "Invitation details"), groupOwnerName)
+            }
+            static let subsubTitle = NSLocalizedString("Group Members:", comment: "Title before the list of group members.")
+        }
+
+        struct GroupJoined {
+            static let subtitle = NSLocalizedString("New Group Joined", comment: "Invitation subtitle")
+            static let details = { (groupOwnerName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("You have joined a group created by %@.", comment: "Invitation details"), groupOwnerName)
+            }
+            static let showGroupButtonTitle = NSLocalizedString("Show Group", comment: "Button title allowing to navigation towards a contact group")
+        }
+        
+        struct IncreaseGroupOwnerTrustLevelRequired {
+            static let subtitle = AcceptInvite.subtitle
+            static let details = { (groupOwnerName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("%1$@ is inviting you to a discussion group.\n\nOlvid\'s security policy requires you to re-validate the identity of %1$@ by exchanging 4-digit codes with them.", comment: "Invitation details"), groupOwnerName)
+            }
+            static let buttonTitle = { (groupOwnerName: String) in String.localizedStringWithFormat(NSLocalizedString("Exchange digits with %@", comment: "Button title"), groupOwnerName) }
+        }
+        
+        struct OneToOneInvitationSent {
+            static let subtitle = NSLocalizedString("ONE_TO_ONE_INVITATION_SENT", comment: "")
+            static let details = { (contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("ONE_TO_ONE_DISCUSSION_INVITATION_SENT_TO_%@", comment: "Invitation details"), contactName)
+            }
+        }
+        
+        struct OneToOneInvitationReceived {
+            static let subtitle = NSLocalizedString("ONE_TO_ONE_INVITATION_RECEIVED", comment: "")
+            static let details = { (contactName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("ONE_TO_ONE_DISCUSSION_INVITATION_RECEIVED_FROM_%@", comment: "Invitation details"), contactName)
+            }
+        }
+
+        struct GroupCreated {
+            static let subtitle = NSLocalizedString("Group Created", comment: "Invitation subtitle")
+            static let details = { (groupOwnerName: String) in
+                String.localizedStringWithFormat(NSLocalizedString("All the members of the group created by %@ have accepted the invitation.", comment: "Invitation details"), groupOwnerName)
+            }
+            static let subsubTitle = NSLocalizedString("Confirmed Group Members:", comment: "Title before the list of group members.")
+        }
+        
+        struct AbandonInvitation {
+            static let title = NSLocalizedString("Discard this invitation?", comment: "Action title")
+            static let actionTitleDiscard = NSLocalizedString("Discard invitation", comment: "Action title")
+            static let actionTitleDontDiscard = NSLocalizedString("Do not discard invitation", comment: "Action title")
+        }
+        
+        struct AbandonGroupCreation {
+            static let title = NSLocalizedString("Discard this group creation?", comment: "Action title")
+            static let message = NSLocalizedString("The other group members will not be notified.", comment: "Action message")
+            static let actionTitleDiscard = NSLocalizedString("Discard group creation", comment: "Action title")
+            static let actionTitleDontDiscard = NSLocalizedString("Do not discard group creation", comment: "Action title")
+        }
+                
+        static let chipTitleActionRequired = NSLocalizedString("Action Required", comment: "Chip title")
+        static let chipTitleNew = NSLocalizedString("New", comment: "Chip title")
+        static let chipTitleUpdated = NSLocalizedString("Updated", comment: "Chip title")
+        
+        struct IncorrectSASAlert {
+            static let title = NSLocalizedString("Incorrect code", comment: "Title of an alert")
+            static let message = NSLocalizedString("The core you entered is incorrect. The code you need to enter is the one displayed on your contact's device.", comment: "Message of an alert")
+        }
+        
+    }
+    
 }

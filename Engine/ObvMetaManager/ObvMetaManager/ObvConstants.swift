@@ -19,13 +19,14 @@
 
 import Foundation
 import ObvTypes
+import ObvCrypto
 
 public struct ObvConstants {
-    public static let nonceLength = 32
+    public static let serverSessionNonceLength = 32
     public static let broadcastDeviceUid = UID(uid: Data(repeating: 0xff, count: UID.length))!
     
     public static let standardDelay = 200 // In milliseconds
-    public static let maximumDelay = 60 * 1000 // In milliseconds, 1 minute
+    public static let maximumDelay = 30 * 1000 // In milliseconds, 30 seconds
 
     
     public static let AttachmentCiphertextChunkTypicalLength = 10_485_760 // 2_097_152 = 2MB, 10_485_760 = 10MB
@@ -44,8 +45,6 @@ public struct ObvConstants {
     
     // Constants related to protocols
     public static let defaultNumberOfDigitsForSAS = 4
-    public static let mutualScanNonceLength = 16
-    public static let trustEstablishmentWithMutualScanProtocolPrefix = "mutualScan".data(using: .utf8)!
 
     // Constants related to Trust Levels
     public static let autoAcceptTrustLevelTreshold = TrustLevel(major: 3, minor: 0)
@@ -59,4 +58,8 @@ public struct ObvConstants {
     
     // Keycloak revocation related constants
     public static let keycloakSignatureValidity: TimeInterval = 5_184_000 // In seconds, 60 days
+
+    // Group V2 invitation nonce
+    public static let groupInvitationNonceLength = 16
+    public static let groupLockNonceLength = 32
 }

@@ -31,7 +31,8 @@ public struct IdentityDetailsPublicationProtocol: ConcreteCryptoProtocol {
     static let id = CryptoProtocolId.IdentityDetailsPublication
     
     let finalStateIds: [ConcreteProtocolStateId] = [StateId.DetailsSent,
-                                                    StateId.DetailsReceived]
+                                                    StateId.DetailsReceived,
+                                                    StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

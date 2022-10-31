@@ -26,9 +26,9 @@ import ObvTypes
 public struct PhotoServerKeyAndLabel: Equatable {
     
     public let key: AuthenticatedEncryptionKey
-    public let label: String
+    public let label: UID
     
-    public init(key: AuthenticatedEncryptionKey, label: String) {
+    public init(key: AuthenticatedEncryptionKey, label: UID) {
         self.key = key
         self.label = label
     }
@@ -45,7 +45,7 @@ public struct PhotoServerKeyAndLabel: Equatable {
     }
  
     public static func generate(with prng: PRNGService) -> PhotoServerKeyAndLabel {
-        let label = UID.gen(with: prng).raw.base64EncodedString()
+        let label = UID.gen(with: prng)
         let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption()
         let key = authEnc.generateKey(with: prng)
         return PhotoServerKeyAndLabel(key: key, label: label)
@@ -64,7 +64,7 @@ extension PhotoServerKeyAndLabel: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(key.obvEncode().rawData, forKey: .key)
-        try container.encode(label, forKey: .label)
+        try container.encode(label.raw, forKey: .label)
     }
 
 
@@ -79,7 +79,28 @@ extension PhotoServerKeyAndLabel: Codable {
         let rawEncodedKey = try values.decode(Data.self, forKey: .key)
         guard let encodedKey = ObvEncoded(withRawData: rawEncodedKey) else { throw PhotoServerKeyAndLabel.makeError(message: "Could not parse raw encoded key") }
         let key = try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
-        let label = try values.decode(String.self, forKey: .label)
+        // We make the decoder as resilient as possible
+        let label: UID
+        if let labelAsData = try? values.decode(Data.self, forKey: .label),
+           let labelAsUID = UID(uid: labelAsData) {
+            // Expected
+            label = labelAsUID
+        } else if let labelAsUID = try? values.decode(UID.self, forKey: .label) {
+            label = labelAsUID
+        } else if let labelAsString = try? values.decode(String.self, forKey: .label),
+                  let labelAsData = Data(base64Encoded: labelAsString),
+                  let labelAsUID = UID(uid: labelAsData) {
+            assertionFailure()
+            label = labelAsUID
+        } else if let labelAsString = try? values.decode(String.self, forKey: .label),
+                  let labelAsData = Data(hexString: labelAsString),
+                  let labelAsUID = UID(uid: labelAsData) {
+            assertionFailure()
+            label = labelAsUID
+        } else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not decode UID in decoder of PhotoServerKeyAndLabel")
+        }
         self.init(key: key, label: label)
     }
 

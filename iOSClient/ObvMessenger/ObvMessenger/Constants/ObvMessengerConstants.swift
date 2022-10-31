@@ -67,6 +67,9 @@ struct ObvMessengerConstants {
     static let defaultEmoji = "👍"
     static let forwardIcon: ObvSystemIcon = .arrowshapeTurnUpForward
 
+    static let allowedNumberOfWrongPasscodesBeforeLockOut = 3
+    static let lockOutDuration: TimeInterval = TimeInterval(seconds: 60)
+
     static let iTunesOlvidIdentifier = NSNumber(value: 1414865219) // Found via https://tools.applemediaservices.com
     static let shortLinkToOlvidAppIniTunes = URL(string: "https://apple.co/3lrdOUV")!
     
@@ -147,6 +150,7 @@ struct ObvMessengerConstants {
             return mainAppContainer.appendingPathComponent("LastPersistentHistoryToken", isDirectory: true).appendingPathComponent(appType.pathComponent, isDirectory: true)
         }
 
+        /// Used, in particular, to store group pictures during the creation process
         var forProfilePicturesCache: URL {
             ObvMessengerConstants.containerURL.forCache.appendingPathComponent("ProfilePicture", isDirectory: true)
         }
@@ -204,11 +208,30 @@ struct ObvMessengerConstants {
     
     static let requestIdentifiersOfSilentNotificationsAddedByExtension = "requestIdentifiersOfSilentNotificationsAddedByExtension"
     static let requestIdentifiersOfFullNotificationsAddedByExtension = "requestIdentifiersOfFullNotificationsAddedByExtension"
+
+    // Keys of userDefault properties shared between app and extensions
+
     static let objectsModifiedByShareExtension = "objectsModifiedByShareExtension"
+    static let extensionFailedToWipeAllEphemeralMessagesBeforeDate = "extensionFailedToWipeAllEphemeralMessagesBeforeDate"
     
     // Capabilities
     
     static let supportedObvCapabilities: Set<ObvCapability> = {
-        [.webrtcContinuousICE, .oneToOneContacts]
+        [.webrtcContinuousICE, .oneToOneContacts, .groupsV2]
     }()
+    
+    // Groups V2
+    
+    static let defaultObvGroupV2PermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
+        Set([
+            ObvGroupV2.Permission.sendMessage,
+            ObvGroupV2.Permission.remoteDeleteAnything,
+            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+        ])
+    }()
+
+    static let defaultObvGroupV2PermissionsForAdmin: Set<ObvGroupV2.Permission> = {
+        Set(ObvGroupV2.Permission.allCases)
+    }()
+
 }

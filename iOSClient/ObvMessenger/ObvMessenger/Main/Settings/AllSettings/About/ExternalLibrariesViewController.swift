@@ -601,7 +601,7 @@ apply, that proxy's public statement of acceptance of any version is
 permanent authorization for you to choose that version for the
 Library.
 """
-        case .creativeCommonsAttribution4:return """
+        case .creativeCommonsAttribution4: return """
 Attribution 4.0 International
 
 =======================================================================

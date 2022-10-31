@@ -19,7 +19,7 @@
 
 import Foundation
 import os.log
-import ObvEngine
+import ObvTypes
 import OlvidUtils
 
 
@@ -40,23 +40,32 @@ final class UpdateContactsSortOrderOperation: OperationWithSpecificReasonForCanc
         
         ObvStack.shared.performBackgroundTaskAndWait { context in
 
-            let persistedObvContactIdentites: [PersistedObvContactIdentity]
             do {
-                persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: context)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-            for persistedObvContactIdentity in persistedObvContactIdentites {
-                persistedObvContactIdentity.updateSortOrder(with: newSortOrder)
-            }
-
-            do {
+            
+                // Update the sort order of PersistedObvContactIdentity instances
+                
+                let persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: context)
+                
+                for persistedObvContactIdentity in persistedObvContactIdentites {
+                    persistedObvContactIdentity.updateSortOrder(with: newSortOrder)
+                }
+                
+                // Update the sort order of PersistedGroupV2Member instances (some where already updated thanks to the update made to the PersistedObvContactIdentity instances, but not all)
+                
+                let persistedGroupV2Members = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(with: ownedCryptoId, within: context)
+                
+                for persistedGroupV2Member in persistedGroupV2Members {
+                    persistedGroupV2Member.updateNormalizedSortAndSearchKeys(with: newSortOrder)
+                }
+                
+                // Save the context
+                
                 try context.save(logOnFailure: log)
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
-
+            
             ObvMessengerSettings.Interface.contactsSortOrder = newSortOrder
         }
 

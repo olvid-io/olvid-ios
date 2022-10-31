@@ -21,6 +21,7 @@
 import UIKit
 import CoreData
 import ObvEngine
+import ObvTypes
 
 @available(iOS 15.0, *)
 final class DiscussionsViewController: UIViewController {

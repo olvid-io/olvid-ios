@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,7 +14,6 @@
 		C40D63A62073E25E00047F87 /* ObvContactIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40D63A52073E25E00047F87 /* ObvContactIdentity.swift */; };
 		C422A12723513EF900C2B124 /* ReturnReceiptSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = C422A12623513EF900C2B124 /* ReturnReceiptSender.swift */; };
 		C427D23721F7990300EB47EA /* ObvURLIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C427D23621F7990300EB47EA /* ObvURLIdentity.swift */; };
-		C4463EC421E95C2A009057A8 /* ObvCryptoId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4463EC321E95C2A009057A8 /* ObvCryptoId.swift */; };
 		C446889426ADFF1500762CC8 /* ObvMutualScanUrl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C446889326ADFF1500762CC8 /* ObvMutualScanUrl.swift */; };
 		C4468D2E206D0E58004A4155 /* ObvEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = C4468D2C206D0E58004A4155 /* ObvEngine.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C4468D4F206D0E8C004A4155 /* ObvChannelManager.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4468D4E206D0E87004A4155 /* ObvChannelManager.framework */; };
@@ -151,7 +150,6 @@
 		C40D63A52073E25E00047F87 /* ObvContactIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvContactIdentity.swift; sourceTree = "<group>"; };
 		C422A12623513EF900C2B124 /* ReturnReceiptSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReturnReceiptSender.swift; sourceTree = "<group>"; };
 		C427D23621F7990300EB47EA /* ObvURLIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvURLIdentity.swift; sourceTree = "<group>"; };
-		C4463EC321E95C2A009057A8 /* ObvCryptoId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCryptoId.swift; sourceTree = "<group>"; };
 		C446889326ADFF1500762CC8 /* ObvMutualScanUrl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvMutualScanUrl.swift; sourceTree = "<group>"; };
 		C4468D29206D0E58004A4155 /* ObvEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4468D2C206D0E58004A4155 /* ObvEngine.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObvEngine.h; sourceTree = "<group>"; };
@@ -392,7 +390,6 @@
 		C4A7472720738D6B00E1CCAC /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				C4463EC321E95C2A009057A8 /* ObvCryptoId.swift */,
 				C423BF5F2083C8040009A955 /* Identities */,
 				C49D62292074DA9F006259C9 /* ObvDialog.swift */,
 				C46C9DE620777AF800EA378F /* ObvCurrentDevice.swift */,
@@ -642,6 +639,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0ED3641276E6227005D74CE /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -686,7 +684,6 @@
 				C4A7473220738DD900E1CCAC /* ObvOwnedIdentity.swift in Sources */,
 				C4E29F6124743478004D539D /* TransactionsHistoryReplayer.swift in Sources */,
 				C4CBA2A9241660620030C75C /* ObvBackupKeyInformation.swift in Sources */,
-				C4463EC421E95C2A009057A8 /* ObvCryptoId.swift in Sources */,
 				C40D63A02073DC5C00047F87 /* ObvEngineNotification.swift in Sources */,
 				C4711FC9207E5A8300C7A9A5 /* ObvMessage.swift in Sources */,
 				C4EF8C7824C9BC0600C3C3CA /* ObvTurnCredentials.swift in Sources */,
@@ -815,7 +812,8 @@
 				INCLUDED_SOURCE_FILE_NAMES = "ObvEngineConstants-$(CONFIGURATION).swift";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -837,7 +835,11 @@
 				INFOPLIST_FILE = ObvEngine/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvEngine;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -863,7 +865,11 @@
 				INFOPLIST_FILE = ObvEngine/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvEngine;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

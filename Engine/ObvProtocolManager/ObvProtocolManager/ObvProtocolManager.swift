@@ -47,7 +47,7 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: Initialiser
-    public init(prng: PRNGService, downloadedUserData: URL) {
+    public init(prng: PRNGService, downloadedUserData: URL, uploadingUserData: URL) {
         self.prng = prng
         
         let protocolInstanceInputsCoordinator = ReceivedMessageCoordinator(prng: prng)
@@ -55,6 +55,7 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
         let contactTrustLevelWatcher = ContactTrustLevelWatcher(prng: prng)
         
         delegateManager = ObvProtocolDelegateManager(downloadedUserData: downloadedUserData,
+                                                     uploadingUserData: uploadingUserData,
                                                      receivedMessageDelegate: protocolInstanceInputsCoordinator,
                                                      protocolStarterDelegate: protocolStarterCoordinator,
                                                      contactTrustLevelWatcher: contactTrustLevelWatcher)
@@ -64,7 +65,7 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
         contactTrustLevelWatcher.delegateManager = delegateManager
         
     }
-
+    
 }
 
 // MARK: - Implementing ObvManager
@@ -111,6 +112,19 @@ extension ObvProtocolManager {
 
         await delegateManager.contactTrustLevelWatcher.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
 
+        if forTheFirstTime {
+            deleteOldReceivedMessages(flowId: flowId)
+            Task(priority: .low) {
+                await deleteOldUploadingUserData()
+            }
+        }
+
+    }
+    
+    
+    /// Deletes all received messages that are older than 15 days and that have no associated protocol instance. All other messages should be processed.
+    private func deleteOldReceivedMessages(flowId: FlowIdentifier) {
+        
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator is not set", log: log, type: .fault)
             return
@@ -118,7 +132,7 @@ extension ObvProtocolManager {
         
         let log = self.log
         
-        contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { [weak self] (obvContext) in
 
             guard let _self = self else { return }
             
@@ -164,10 +178,41 @@ extension ObvProtocolManager {
             }
             
         }
-
-        
     }
 
+    
+    /// When updating the photo of a group v2 (for example), we copy the photo passed by the app to a storage managed by the protocol manager.
+    /// This allows to make sure that the photo is available during the upload.
+    /// Although the protocols using this storage should properly delete the files when they are not used anymore, we clean this directory from old files.
+    private func deleteOldUploadingUserData() async {
+        
+        let uploadingUserData = delegateManager.uploadingUserData
+        let includingPropertiesForKeys = [
+            URLResourceKey.creationDateKey,
+            URLResourceKey.isWritableKey,
+            URLResourceKey.isRegularFileKey,
+        ]
+        let fileURLs: [URL]
+        do {
+            fileURLs = try FileManager.default.contentsOfDirectory(at: uploadingUserData, includingPropertiesForKeys: includingPropertiesForKeys, options: .skipsHiddenFiles)
+        } catch {
+            os_log("Could not clean old uploading user data files: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
+        let dateLimit = Date(timeIntervalSinceNow: -TimeInterval(days: 15))
+        assert(dateLimit < Date())
+        for fileURL in fileURLs {
+            guard let attributes = try? fileURL.resourceValues(forKeys: Set(includingPropertiesForKeys)) else { continue }
+            guard attributes.isWritable == true else { return }
+            guard attributes.isRegularFile == true else { return }
+            guard let creationDate = attributes.creationDate, creationDate < dateLimit else { return }
+            // If we reach this point, we should delete the file
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+    }
+    
 }
 
 
@@ -291,7 +336,28 @@ extension ObvProtocolManager {
             return
         }
         
-        let receivedMessage = ReceivedMessage(with: genericReceivedMessage, using: prng, delegateManager: delegateManager, within: obvContext)
+        /* If the GenericReceivedProtocolMessage has a non-nil receivedMessageUID (which is the case when it was downloaded from the server),
+         * we make sure it does not already exist in database before creating it (otherwise, Core Data would raise an error when saving the context,
+         * preventing in particular received network messages to be marked for deletion).
+         */
+        
+        let receivedMessage: ReceivedMessage
+        
+        if let receivedMessageUID = genericReceivedMessage.receivedMessageUID {
+            let messageId = MessageIdentifier(ownedCryptoIdentity: genericReceivedMessage.toOwnedIdentity, uid: receivedMessageUID)
+            if let existingReceivedMessage = ReceivedMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) {
+                os_log("A ReceivedMessage with messageId %{public}@ already exist, we do not try to create a new one", log: log, type: .info, messageId.debugDescription)
+                receivedMessage = existingReceivedMessage
+            } else {
+                os_log("No previous ReceivedMessage with messageId %{public}@ was found, we create it now", log: log, type: .info, messageId.debugDescription)
+                let createdReceivedMessage = ReceivedMessage(with: genericReceivedMessage, using: prng, delegateManager: delegateManager, within: obvContext)
+                receivedMessage = createdReceivedMessage
+            }
+        } else {
+            os_log("We are processing a generic received message without messageId (thus, not downloaded from the network). We create a new ReceivedMessage in database", log: log, type: .info)
+            let createdReceivedMessage = ReceivedMessage(with: genericReceivedMessage, using: prng, delegateManager: delegateManager, within: obvContext)
+            receivedMessage = createdReceivedMessage
+        }
         
         // We notify that a new received message (due to a protocol received message) needs to be processed
         
@@ -442,4 +508,30 @@ extension ObvProtocolManager {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForOneStatusSyncRequest(ownedIdentity: ownedIdentity, contactsToSync: contactsToSync)
     }
     
+    public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, ownRawPermissions: ownRawPermissions, otherGroupMembers: otherGroupMembers, serializedGroupCoreDetails: serializedGroupCoreDetails, photoURL: photoURL, flowId: flowId)
+    }
+    
+    public func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, changeset: changeset, flowId: flowId)
+    }
+
+    public func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, flowId: flowId)
+    }
+    
+    public func getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, flowId: flowId)
+    }
+    
+    public func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, flowId: flowId)
+    }
+
+    /// When a channel is (re)created with a contact device, the engine will call this method so as to make sure our contact knows about the group informations we have about groups v2 that we have in common.
+    public func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactDeviceUID: contactDeviceUID, flowId: flowId)
+
+    }
+
 }

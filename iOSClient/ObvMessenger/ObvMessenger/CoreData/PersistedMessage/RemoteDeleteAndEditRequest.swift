@@ -126,6 +126,36 @@ final class RemoteDeleteAndEditRequest: NSManagedObject {
     /// - Creates a new entry using the parameters passed to that method.
     static func createDeleteRequest(remoteDeleterIdentity: Data, messageReference: MessageReferenceJSON, serverTimestamp: Date, discussion: PersistedDiscussion) throws {
         
+        // Check that the remote deleter identity is allowed to perform deletion
+        
+        // When inserting a delete request, we delete all other previous requests concering this message.
+        // As a consequence, if there is anything to be deleted, we want to make sure that the new delete request is legitimate.
+        // If it is not, we throw it away.
+        // If there is no request to delete for this message, we always store the new delete request, the test will be performed later.
+        
+        if try getRemoteDeleteAndEditRequest(discussion: discussion,
+                                             senderIdentifier: messageReference.senderIdentifier,
+                                             senderThreadIdentifier: messageReference.senderThreadIdentifier,
+                                             senderSequenceNumber: messageReference.senderSequenceNumber) != nil {
+            // Since there already is a RemoteDeleteAndEditRequest in DB, we check whether the new delete request is legitimate
+            switch try discussion.kind {
+            case .oneToOne, .groupV1:
+                break // Always allow creation of the new delete request
+            case .groupV2(withGroup: let group):
+                guard let group = group else { assertionFailure(); return }
+                guard let member = group.otherMembers.first(where: { $0.identity == remoteDeleterIdentity }) else {
+                    // The deleter is not part of the group members, we discard the new delete request
+                    return
+                }
+                guard member.isAllowedToRemoteDeleteAnything || (member.isAllowedToEditOrRemoteDeleteOwnMessages && member.identity == messageReference.senderIdentifier) else {
+                    // The deleter is not allowed to delete this message, we discard the new delete request
+                    return
+                }
+            }
+        }
+        
+        // If we reach this point, we can delete previous requests concerning this message and create the new delete request
+        
         try deleteAllRequests(discussion: discussion,
                               senderIdentifier: messageReference.senderIdentifier,
                               senderThreadIdentifier: messageReference.senderThreadIdentifier,

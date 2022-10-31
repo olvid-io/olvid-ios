@@ -51,7 +51,7 @@ struct ProfilePictureView: View {
 
     static let circleDiameter: CGFloat = 60.0
 
-    var body : some View {
+    var body: some View {
         Group {
             if let profilePicture = profilePicture {
                 Image(uiImage: profilePicture)

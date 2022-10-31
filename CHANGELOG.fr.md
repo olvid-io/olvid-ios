@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.1 (564)] - 2022-09-22
+
+- Il est maintenant possible de choisir un PIN ou un mot de passe personnalisé pour déverrouiller Olvid !
+- Le design de l'écran de liste des groupes a été complètement revu.
+- Après avoir partagé un message vers une autre discussion, cette discussion est maintenant affichée.
+- Corrige des problèmes graphiques sous iOS 16.
+- Mise à jour de WebRTC vers la version 5195.
+- Nouvel écran permettant d'évaluer le stockage occupé par Olvid. Attention, c'est pour les experts ;-)
+- Corrige un bug empêchant le partage vers Olvid sous iOS 13 et 14.
+- Corrige une potentielle source de crash de l'app.
+- Autres corrections
+- Quelques corrections des messages affichés en français.
+
 ## [0.11.0 (542)] - 2022-07-20
 
 - Le démarrage d'Olvid devrait être beaucoup plus rapide qu'avant !
@@ -12,12 +25,12 @@
 
 ## [0.10.3 (533)] - 2022-06-29
 
-- Vous pouvez maintenant choisir la sonnerie associée aux alertes des messages d'une discussion ! N'hésitez pas à essayer nos sons polyphoniques exclusifs, jamais entendus auparavant, absolument uniques :-)
-- Vous pouvez maintenant transférer n'importe quel message vers une ou plusieurs discussion facilement !
+- Vous pouvez maintenant choisir la sonnerie associée aux alertes des messages d'une discussion ! N'hésitez pas à essayer nos sons polyphoniques exclusifs, jamais entendus auparavant, absolument uniques :-)
+- Vous pouvez maintenant transférer n'importe quel message vers une ou plusieurs discussion facilement !
 - Améliore la fiabilité des barres de progression pour les pièces jointes, en envoi et en réception.
 - Améliore la réactivité des boutons de téléchargement manuel des pièces jointes en réception.
 - Pendant la lecture d'un message audio, vous pouvez choisir entre l'écouteur interne et le haut-parleur.
-- En plus de la gallerie de médias, vous pouvez maintenant accéder à une gallerie de tous les documents échangés dans une discussion !
+- En plus de la gallerie de médias, vous pouvez maintenant accéder à une gallerie de tous les documents échangés dans une discussion !
 - Quitter un groupe et le rejoindre à nouveau ne crée plus de « nouvelle » discussion si l'ancienne est encore disponible. Dans ce cas, elle est « réactivée », de manière à pouvoir reprendre la discussion là où vous l'aviez laissée.
 - Ceci est aussi vrai lorsque l'on supprime un contact et qu'on l'ajoute à nouveau par la suite.
 - Corrige un bug qui empêchait parfois l'affichage d'une jolie vignette lorsque l'on partageait une capture d'écran.

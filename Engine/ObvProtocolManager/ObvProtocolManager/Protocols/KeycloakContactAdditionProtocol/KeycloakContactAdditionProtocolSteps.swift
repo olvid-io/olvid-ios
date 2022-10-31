@@ -397,7 +397,7 @@ extension KeycloakContactAdditionProtocol {
                 let trustOrigins = try identityDelegate.getTrustOrigins(forContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 for trustOrigin in trustOrigins {
                     switch trustOrigin {
-                    case .direct, .group, .introduction:
+                    case .direct, .group, .introduction, .serverGroupV2:
                         // Found another kind of trust origin -> We keep the contact
                         return FinishedState()
                     case .keycloak(_, keycloakServer: let keycloakServer):
@@ -408,7 +408,7 @@ extension KeycloakContactAdditionProtocol {
                     }
                 }
                 // The contact is only trusted through the keycloakServer which he just rejected --> delete the contact
-                try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfAGroupJoined: false, within: obvContext)
+                try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfACommonGroup: false, within: obvContext)
 
             }
             // Else if accepted --> everything is fine, do nothing

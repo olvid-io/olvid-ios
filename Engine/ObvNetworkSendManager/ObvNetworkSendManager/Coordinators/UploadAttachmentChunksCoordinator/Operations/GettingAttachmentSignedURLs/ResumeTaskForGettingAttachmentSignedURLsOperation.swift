@@ -121,6 +121,11 @@ final class ResumeTaskForGettingAttachmentSignedURLsOperation: Operation {
             guard let messageUidFromServer = message.messageUidFromServer, let nonceFromServer = message.nonceFromServer else {
                 return cancel(withReason: .messageUidFromServerIsNotSet)
             }
+            
+            guard let messageId = message.messageId else {
+                // This happens if the message has just been deleted
+                return cancel(withReason: .cannotFindMessageInDatabase)
+            }
 
             let serverURL = message.serverURL
             
@@ -138,7 +143,7 @@ final class ResumeTaskForGettingAttachmentSignedURLsOperation: Operation {
             }
 
             // Create a method
-            let method = ObvServerUploadPrivateURLsForAttachmentChunksMethod(ownedIdentity: message.messageId.ownedCryptoIdentity,
+            let method = ObvServerUploadPrivateURLsForAttachmentChunksMethod(ownedIdentity: messageId.ownedCryptoIdentity,
                                                                              serverURL: serverURL,
                                                                              messageUidFromServer: messageUidFromServer,
                                                                              attachmentNumber: attachmentId.attachmentNumber,

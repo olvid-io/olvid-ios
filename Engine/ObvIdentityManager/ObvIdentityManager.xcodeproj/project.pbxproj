@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -32,6 +32,7 @@
 		C4BF0CDC219F6B8F0042F9B8 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4BF0CD9219F6B8B0042F9B8 /* ObvTypes.framework */; };
 		C4BF0CE8219F6BA40042F9B8 /* ObvCrypto.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4BF0CE7219F6BA00042F9B8 /* ObvCrypto.framework */; };
 		C4BF0CF2219F6BBD0042F9B8 /* ObvMetaManager.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4BF0CF1219F6BB90042F9B8 /* ObvMetaManager.framework */; };
+		C4C4142A27FDBFBF0061F3BA /* ContactGroupV2PendingMember.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C4142927FDBFBF0061F3BA /* ContactGroupV2PendingMember.swift */; };
 		C4CAEA61274F8B7C0054FCCE /* JsonKeycloakRevocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CAEA60274F8B7C0054FCCE /* JsonKeycloakRevocation.swift */; };
 		C4D25D8E2747BDFB005BAB17 /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C026E627260A3C7000D0DAD2 /* JWS.framework */; };
 		C4D2C6D321DE44F700DA237D /* OwnedIdentityMaskingUID.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D2C6D221DE44F700DA237D /* OwnedIdentityMaskingUID.swift */; };
@@ -39,6 +40,9 @@
 		C4D5527721EE0FF900F50D3D /* ContactIdentityDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5527621EE0FF900F50D3D /* ContactIdentityDetails.swift */; };
 		C4D5528B21EE1CF400F50D3D /* OwnedIdentityDetailsPublished.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5528A21EE1CF400F50D3D /* OwnedIdentityDetailsPublished.swift */; };
 		C4F1BEEC22846FEC00E0D5A2 /* ObvIdentityManagerError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F1BEEB22846FEC00E0D5A2 /* ObvIdentityManagerError.swift */; };
+		C4FB582527FC83D4006E0AE9 /* ContactGroupV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4FB582427FC83D4006E0AE9 /* ContactGroupV2.swift */; };
+		C4FB585B27FC91C6006E0AE9 /* ContactGroupV2Details.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4FB585A27FC91C6006E0AE9 /* ContactGroupV2Details.swift */; };
+		C4FD466627FF2EE4002FDED4 /* ContactGroupV2Member.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4FD466527FF2EE4002FDED4 /* ContactGroupV2Member.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -116,12 +120,16 @@
 		C4BF0CD3219F6B8B0042F9B8 /* ObvTypes.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvTypes.xcodeproj; path = ../ObvTypes/ObvTypes.xcodeproj; sourceTree = "<group>"; };
 		C4BF0CDD219F6BA00042F9B8 /* ObvCrypto.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvCrypto.xcodeproj; path = ../ObvCrypto/ObvCrypto.xcodeproj; sourceTree = "<group>"; };
 		C4BF0CE9219F6BB80042F9B8 /* ObvMetaManager.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvMetaManager.xcodeproj; path = ../ObvMetaManager/ObvMetaManager.xcodeproj; sourceTree = "<group>"; };
+		C4C4142927FDBFBF0061F3BA /* ContactGroupV2PendingMember.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupV2PendingMember.swift; sourceTree = "<group>"; };
 		C4CAEA60274F8B7C0054FCCE /* JsonKeycloakRevocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JsonKeycloakRevocation.swift; sourceTree = "<group>"; };
 		C4D2C6D221DE44F700DA237D /* OwnedIdentityMaskingUID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityMaskingUID.swift; sourceTree = "<group>"; };
 		C4D47D392019D4970049B538 /* ContactDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactDevice.swift; sourceTree = "<group>"; };
 		C4D5527621EE0FF900F50D3D /* ContactIdentityDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactIdentityDetails.swift; sourceTree = "<group>"; };
 		C4D5528A21EE1CF400F50D3D /* OwnedIdentityDetailsPublished.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityDetailsPublished.swift; sourceTree = "<group>"; };
 		C4F1BEEB22846FEC00E0D5A2 /* ObvIdentityManagerError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvIdentityManagerError.swift; sourceTree = "<group>"; };
+		C4FB582427FC83D4006E0AE9 /* ContactGroupV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupV2.swift; sourceTree = "<group>"; };
+		C4FB585A27FC91C6006E0AE9 /* ContactGroupV2Details.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupV2Details.swift; sourceTree = "<group>"; };
+		C4FD466527FF2EE4002FDED4 /* ContactGroupV2Member.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupV2Member.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -205,6 +213,10 @@
 			isa = PBXGroup;
 			children = (
 				C4D47D392019D4970049B538 /* ContactDevice.swift */,
+				C4FB582427FC83D4006E0AE9 /* ContactGroupV2.swift */,
+				C4FB585A27FC91C6006E0AE9 /* ContactGroupV2Details.swift */,
+				C4C4142927FDBFBF0061F3BA /* ContactGroupV2PendingMember.swift */,
+				C4FD466527FF2EE4002FDED4 /* ContactGroupV2Member.swift */,
 				C407AF70216D0DB400970ABD /* ContactGroup.swift */,
 				C482D6F22281C977000DBB66 /* ContactGroupDetails.swift */,
 				C497F2C22284211300CC67EC /* ContactGroupDetailsLatest.swift */,
@@ -403,6 +415,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0B4A4E2276F5ACE00816D8D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -430,6 +443,7 @@
 				C4D5528B21EE1CF400F50D3D /* OwnedIdentityDetailsPublished.swift in Sources */,
 				C48DA9602018EC22006BBAE3 /* ObvIdentityManagerImplementation.swift in Sources */,
 				C4ACF926205ADA2900F44105 /* ObvIdentityDelegateManager.swift in Sources */,
+				C4FB585B27FC91C6006E0AE9 /* ContactGroupV2Details.swift in Sources */,
 				C4D2C6D321DE44F700DA237D /* OwnedIdentityMaskingUID.swift in Sources */,
 				C45882F0241EDE5700B8D510 /* BackupItemObjectAssociation.swift in Sources */,
 				C4D5527721EE0FF900F50D3D /* ContactIdentityDetails.swift in Sources */,
@@ -441,15 +455,18 @@
 				C482D6F32281C977000DBB66 /* ContactGroupDetails.swift in Sources */,
 				C497F2C32284211300CC67EC /* ContactGroupDetailsLatest.swift in Sources */,
 				C419E365274B8FCA00EF0225 /* KeycloakRevokedIdentity.swift in Sources */,
+				C4FB582527FC83D4006E0AE9 /* ContactGroupV2.swift in Sources */,
 				C09D9F5D25F6A09A00CDCB5F /* ServerUserData.swift in Sources */,
 				C41B08D321EE99BE001F2AAE /* ContactIdentityDetailsTrusted.swift in Sources */,
 				C4F1BEEC22846FEC00E0D5A2 /* ObvIdentityManagerError.swift in Sources */,
 				C0ACB08E25C85137006A8228 /* KeycloakServer.swift in Sources */,
+				C4C4142A27FDBFBF0061F3BA /* ContactGroupV2PendingMember.swift in Sources */,
 				C41C9C4F21B93BB3000B64F6 /* PendingGroupMember.swift in Sources */,
 				C407AF71216D0DB400970ABD /* ContactGroup.swift in Sources */,
 				C497F2C1228420D100CC67EC /* ContactGroupDetailsPublished.swift in Sources */,
 				C41B08CD21EE99B6001F2AAE /* ContactIdentityDetailsPublished.swift in Sources */,
 				C4B18B9520193B94005EB4C7 /* OwnedDevice.swift in Sources */,
+				C4FD466627FF2EE4002FDED4 /* ContactGroupV2Member.swift in Sources */,
 				C482D6FB2281CE11000DBB66 /* ContactGroupJoined.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -569,7 +586,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -591,7 +609,11 @@
 				INFOPLIST_FILE = ObvIdentityManager/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvIdentityManager;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -616,7 +638,11 @@
 				INFOPLIST_FILE = ObvIdentityManager/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvIdentityManager;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;

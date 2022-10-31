@@ -24,7 +24,7 @@ extension UserDefaults {
     /// Returns the integer value associated with the specified key.
     ///
     /// - Parameter defaultName: A key in the current user‘s defaults database.
-    /// - Returns: The integer value associated with the specified key. If the specified key doesn‘t exist, this method returns `nil`.
+    /// - Returns: The Integer value associated with the specified key. If the specified key doesn‘t exist, this method returns `nil`.
     func integerOrNil(forKey defaultName: String) -> Int? {
         guard object(forKey: defaultName) != nil else { return nil }
         return integer(forKey: defaultName)
@@ -53,7 +53,7 @@ extension UserDefaults {
     /// Returns the Date value associated with the specified key.
     ///
     /// - Parameter defaultName: A key in the current user‘s defaults database.
-    /// - Returns: The Double value associated with the specified key. If the specified key doesn‘t exist, this method returns `nil`.
+    /// - Returns: The Date value associated with the specified key. If the specified key doesn‘t exist, this method returns `nil`.
     func dateOrNil(forKey defaultName: String) -> Date? {
         guard object(forKey: defaultName) != nil else { return nil }
         return object(forKey: defaultName) as? Date

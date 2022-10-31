@@ -93,8 +93,17 @@ extension AcceptGroupInviteCollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         cellHeaderView.prepareForReuse()
+        unfreeze()
     }
 
+    func freeze() {
+        self.twoButtonsView.button1?.isEnabled = false
+    }
+    
+    func unfreeze() {
+        self.twoButtonsView.button1?.isEnabled = true
+    }
+    
 }
 
 

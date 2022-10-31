@@ -77,7 +77,7 @@ struct GenericReceivedProtocolMessage {
         guard let (cryptoProtocolId, protocolInstanceUid, protocolMessageRawId, encodedInputs) = GenericReceivedProtocolMessage.decode(obvProtocolReceivedServerResponse.encodedElements) else {
             return nil
         }
-        self.encodedInputs = encodedInputs +  obvProtocolReceivedServerResponse.serverResponseType.getEncodedInputs()
+        self.encodedInputs = encodedInputs + obvProtocolReceivedServerResponse.serverResponseType.getEncodedInputs()
         self.receptionChannelInfo = obvProtocolReceivedServerResponse.receptionChannelInfo
         self.toOwnedIdentity = obvProtocolReceivedServerResponse.toOwnedIdentity
         self.protocolInstanceUid = protocolInstanceUid
@@ -103,13 +103,14 @@ struct GenericReceivedProtocolMessage {
     init?(with message: ConcreteProtocolMessage) {
         guard let receptionChannelInfo = message.receptionChannelInfo else { return nil }
         guard let toOwnedIdentity = message.toOwnedIdentity else { return nil }
+        guard let encodedInputs = try? message.encodedInputs else { assertionFailure(); return nil }
         self.timestamp = message.timestamp
         self.receptionChannelInfo = receptionChannelInfo
         self.toOwnedIdentity = toOwnedIdentity
         self.protocolInstanceUid = message.coreProtocolMessage.protocolInstanceUid
         self.protocolMessageRawId = message.id.rawValue
         self.cryptoProtocolId = message.cryptoProtocolId
-        self.encodedInputs = message.encodedInputs
+        self.encodedInputs = encodedInputs
         self.encodedUserDialogResponse = nil
         self.userDialogUuid = nil
         self.receivedMessageUID = nil

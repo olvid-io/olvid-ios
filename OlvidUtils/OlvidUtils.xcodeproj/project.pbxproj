@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -33,6 +33,7 @@
 		C4A355D22878A44F001EE2D9 /* URLSession+Async.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */; };
 		C4B068072767B4860002DC39 /* ObvBackupable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B068062767B4860002DC39 /* ObvBackupable.swift */; };
 		C4B8E98D26B066B5009F5823 /* AssertQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8E98C26B066B5009F5823 /* AssertQueue.swift */; };
+		C4D8DD7E28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D8DD7D28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift */; };
 		C4F79CDB2760F145004AF9C0 /* OperationQueue+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */; };
 /* End PBXBuildFile section */
 
@@ -66,6 +67,7 @@
 		C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+Async.swift"; sourceTree = "<group>"; };
 		C4B068062767B4860002DC39 /* ObvBackupable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvBackupable.swift; sourceTree = "<group>"; };
 		C4B8E98C26B066B5009F5823 /* AssertQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssertQueue.swift; sourceTree = "<group>"; };
+		C4D8DD7D28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyedEncodingContainer+Utils.swift"; sourceTree = "<group>"; };
 		C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OperationQueue+Utils.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -92,6 +94,7 @@
 				C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */,
 				C475A9CF27C445AA00335FE7 /* AVAudioSession+Utils.swift */,
 				C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */,
+				C4D8DD7D28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift */,
 			);
 			path = TypeExtensions;
 			sourceTree = "<group>";
@@ -247,6 +250,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0B4A4B9276E829100816D8D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -293,6 +297,7 @@
 				C4A355D22878A44F001EE2D9 /* URLSession+Async.swift in Sources */,
 				C4619F38264A964F00523B3A /* CompositionOfThreeContextualOperations.swift in Sources */,
 				C4405CFB263BEA430093CE01 /* RunningLogError.swift in Sources */,
+				C4D8DD7E28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift in Sources */,
 				C4619F30264A82B400523B3A /* ObvContext.swift in Sources */,
 				C4656F6827B7CF0A009D4615 /* ObvErrorMaker.swift in Sources */,
 			);

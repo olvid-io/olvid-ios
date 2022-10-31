@@ -69,6 +69,22 @@ final class SingleDiscussionTitleView: UIView {
         circledInitialsView.configureWith(group.circledInitialsConfiguration)
     }
     
+    convenience init(objectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
+        assert(Thread.isMainThread)
+        guard let group = try? PersistedGroupV2.get(objectID: objectID, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            self.init(title: "", subtitle: "")
+            circledInitialsView.configureWith(.icon(.person3Fill))
+            return
+        }
+        let title = group.displayName
+        let subtitle = group.otherMembersSorted.compactMap({ $0.displayedCustomDisplayNameOrFirstNameOrLastName }).joined(separator: ", ")
+        self.init(title: title,
+                  subtitle: subtitle)
+        circledInitialsView.configureWith(group.circledInitialsConfiguration)
+    }
+
+    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }

@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import ObvEngine
+import ObvTypes
 
 
 final class OlvidSnackBarView: UIView {

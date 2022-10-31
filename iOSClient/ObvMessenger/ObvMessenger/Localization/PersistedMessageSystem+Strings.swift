@@ -32,6 +32,11 @@ extension PersistedMessageSystem {
     
     struct Strings {
         
+        static let ownedIdentityIsPartOfGroupV2Admins = NSLocalizedString("YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2", comment: "")
+        static let ownedIdentityIsNoLongerPartOfGroupV2Admins = NSLocalizedString("YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2", comment: "")
+
+        static let membersOfGroupV2WereUpdated = NSLocalizedString("MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE", comment: "")
+        
         static let contactJoinedGroup: (String, String?) -> String = { (contactDisplayName: String, dateString: String?) in
             if let dateString = dateString {
                 return String.localizedStringWithFormat(NSLocalizedString("%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@", comment: "System message displayed within a group discussion"), contactDisplayName, dateString)

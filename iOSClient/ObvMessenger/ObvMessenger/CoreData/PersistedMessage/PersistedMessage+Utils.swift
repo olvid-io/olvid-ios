@@ -80,9 +80,6 @@ extension PersistedMessage {
 
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessage> {
-        return NSFetchRequest<PersistedMessage>(entityName: PersistedMessage.PersistedMessageEntityName)
-    }
     static func getMessageRightBeforeReceivedMessageInSameSection(_ message: PersistedMessageReceived) throws -> PersistedMessage? {
         guard let context = message.managedObjectContext else { throw NSError() }
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
@@ -98,28 +95,6 @@ extension PersistedMessage {
         return try context.fetch(request).first
     }
 
-    static func getMessage(afterSortIndex sortIndex: Double, in discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K > %lf",
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        sortIndexKey, sortIndex)
-        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
-    static func getMessage(beforeSortIndex sortIndex: Double, in discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        sortIndexKey, sortIndex)
-        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
     static func getMessage(beforeSortIndex sortIndex: Double, inDiscussionWithObjectID objectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> PersistedMessage? {
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K < %lf",
@@ -129,18 +104,6 @@ extension PersistedMessage {
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: false)]
         return try context.fetch(request).first
     }
-
-    static func get(with objectID: TypeSafeManagedObjectID<PersistedMessage>, within context: NSManagedObjectContext) throws -> PersistedMessage? {
-        return try get(with: objectID.objectID, within: context)
-    }
-
-    static func get(with objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedMessage? {
-        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
-        request.predicate = Predicate.withObjectID(objectID)
-        request.fetchLimit = 1
-        return try context.fetch(request).first
-    }
-
 
     static func getAll(with objectIDs: [NSManagedObjectID], within context: NSManagedObjectContext) throws -> [PersistedMessage] {
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
@@ -195,23 +158,6 @@ extension PersistedMessage {
         request.fetchLimit = 1
         request.predicate = Predicate.withinDiscussion(discussion)
         return try context.fetch(request).first
-    }
-
-    static func findMessageFrom(reference referenceJSON: MessageReferenceJSON, within discussion: PersistedDiscussion) throws -> PersistedMessage? {
-        if let message = try PersistedMessageReceived.get(senderSequenceNumber: referenceJSON.senderSequenceNumber,
-                                                          senderThreadIdentifier: referenceJSON.senderThreadIdentifier,
-                                                          contactIdentity: referenceJSON.senderIdentifier,
-                                                          discussion: discussion) {
-            return message
-        } else if let message = try PersistedMessageSent.get(senderSequenceNumber: referenceJSON.senderSequenceNumber,
-                                                             senderThreadIdentifier: referenceJSON.senderThreadIdentifier,
-                                                             ownedIdentity: referenceJSON.senderIdentifier,
-                                                             discussion: discussion) {
-            assert(referenceJSON.senderIdentifier == discussion.ownedIdentity!.cryptoId.getIdentity())
-            return message
-        } else {
-            return nil
-        }
     }
     
 }
@@ -375,12 +321,28 @@ extension PersistedMessage {
         }
     }
     
+
+    /// Returns `true` iff the owned identity is allowed to locally delete this message.
     var deleteMessageActionCanBeMadeAvailable: Bool {
-        if let systemMessage = self as? PersistedMessageSystem {
-            return systemMessage.deleteMessageActionCanBeMadeAvailableForSystemMessage
-        } else {
-            return true
+        guard let ownedCryptoId = self.discussion.ownedIdentity?.cryptoId else { assertionFailure(); return false }
+        return requesterIsAllowedToDeleteMessage(requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .local))
+    }
+
+    
+    /// Returns `true` iff the owned identity is allowed to perform a remote (global) delete of this message.
+    var globalDeleteMessageActionCanBeMadeAvailable: Bool {
+        guard let ownedCryptoId = self.discussion.ownedIdentity?.cryptoId else { assertionFailure(); return false }
+        return requesterIsAllowedToDeleteMessage(requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .global))
+    }
+    
+    
+    func requesterIsAllowedToDeleteMessage(requester: RequesterOfMessageDeletion) -> Bool {
+        do {
+            try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
+        } catch {
+            return false
         }
+        return true
     }
 
 }

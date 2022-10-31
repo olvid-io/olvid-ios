@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvEngine
 import ObvTypes
+import ObvCrypto
 
 @objc(PersistedGroupDiscussion)
 final class PersistedGroupDiscussion: PersistedDiscussion {
@@ -45,7 +46,7 @@ final class PersistedGroupDiscussion: PersistedDiscussion {
     
     // Relationships
 
-    @NSManaged var rawContactGroup: PersistedContactGroup? // If nil, this entity is eventually cascade-deleted
+    @NSManaged var rawContactGroup: PersistedContactGroup? // Nil if we left the group
     
     
     // Other variables
@@ -71,6 +72,7 @@ final class PersistedGroupDiscussion: PersistedDiscussion {
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedGroupDiscussion.entityName,
                       status: status,
+                      shouldApplySharedConfigurationFromGlobalSettings: contactGroup.category == .owned,
                       sharedConfigurationToKeep: sharedConfigurationToKeep,
                       localConfigurationToKeep: localConfigurationToKeep)
         self.contactGroup = contactGroup
@@ -120,7 +122,7 @@ extension PersistedGroupDiscussion {
             case rawOwnerIdentityIdentity = "rawOwnerIdentityIdentity"
             case rawContactGroup = "rawContactGroup"
             static var rawContactGroupContactIdentities: String {
-                [Key.rawContactGroup.rawValue, PersistedContactGroup.contactIdentitiesKey].joined(separator: ".")
+                [Key.rawContactGroup.rawValue, PersistedContactGroup.Predicate.Key.contactIdentities.rawValue].joined(separator: ".")
             }
         }
         static func withGroupUID(_ groupUID: UID) -> NSPredicate {
@@ -132,18 +134,6 @@ extension PersistedGroupDiscussion {
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(PersistedDiscussion.Predicate.Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
-    }
-
-    
-    /// Returns a `NSFetchRequest` for all the group discussions of the owned identity, sorted by the discussion title.
-    static func getFetchRequestForAllActiveGroupDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
-        let fetchRequest: NSFetchRequest<PersistedDiscussion> = NSFetchRequest<PersistedDiscussion>(entityName: PersistedGroupDiscussion.entityName)
-        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withOwnedCryptoId(ownedCryptoId),
-            PersistedDiscussion.Predicate.withStatus(.active),
-        ])
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.Predicate.Key.title.rawValue, ascending: true)]
-        return fetchRequest
     }
 
     

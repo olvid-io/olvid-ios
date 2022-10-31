@@ -60,7 +60,7 @@ struct ReceivedMessage {
     private static func decrypt(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> ObvEncoded? {
         let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
         guard let rawEncodedElements = try? authEnc.decrypt(encryptedContent, with: messageKey) else { return nil }
-        let content = ObvEncoded(withRawData: rawEncodedElements)
+        let content = ObvEncoded(withPaddedRawData: rawEncodedElements)
         return content
     }
     

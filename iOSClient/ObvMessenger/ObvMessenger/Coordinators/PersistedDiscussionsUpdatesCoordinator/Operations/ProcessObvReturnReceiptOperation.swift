@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import os.log
+import ObvTypes
 import ObvEngine
 import OlvidUtils
 
@@ -49,7 +50,7 @@ final class ProcessObvReturnReceiptOperation: ContextualOperationWithSpecificRea
 
             let allMsgSentRcptInfos: Set<PersistedMessageSentRecipientInfos>
             do {
-                allMsgSentRcptInfos = try PersistedMessageSentRecipientInfos.get(withNonce: obvReturnReceipt.nonce, ownedIdentity: obvReturnReceipt.identity, within: obvContext.context)
+                allMsgSentRcptInfos = try PersistedMessageSentRecipientInfos.get(withNonce: obvReturnReceipt.nonce, ownedCryptoId: ObvCryptoId(cryptoIdentity: obvReturnReceipt.identity), within: obvContext.context)
             } catch let error {
                 assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))

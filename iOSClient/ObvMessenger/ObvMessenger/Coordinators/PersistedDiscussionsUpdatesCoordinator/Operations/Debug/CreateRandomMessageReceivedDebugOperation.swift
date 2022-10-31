@@ -54,10 +54,21 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                 
                 try? PersistedDiscussion.insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: discussion.objectID, markAsRead: true, within: obvContext.context)
 
-                let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+                let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
+                let randomBody = CreateRandomMessageReceivedDebugOperation.randomString(length: randomBodySize)
+
+                let messageJSON: MessageJSON
+                
                 switch try discussion.kind {
                 case .oneToOne:
-                    groupId = nil
+                    
+                    messageJSON = MessageJSON(senderSequenceNumber: 0,
+                                              senderThreadIdentifier: UUID(),
+                                              body: randomBody,
+                                              replyTo: nil,
+                                              expiration: nil,
+                                              forwarded: false)
+
                 case .groupV1(withContactGroup: let contactGroup):
                     guard let contactGroup = contactGroup else {
                         return cancel(withReason: .internalError)
@@ -65,19 +76,29 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                     guard let groupOwner = try? ObvCryptoId(identity: contactGroup.ownerIdentity) else {
                         return cancel(withReason: .internalError)
                     }
-                    groupId = (contactGroup.groupUid, groupOwner)
-                }
-                
-                let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
-                let randomBody = CreateRandomMessageReceivedDebugOperation.randomString(length: randomBodySize)
-                
-                let messageJSON = MessageJSON(senderSequenceNumber: 0,
+                    let groupV1Identifier = (contactGroup.groupUid, groupOwner)
+                    messageJSON = MessageJSON(senderSequenceNumber: 0,
                                               senderThreadIdentifier: UUID(),
                                               body: randomBody,
-                                              groupId: groupId,
+                                              groupV1Identifier: groupV1Identifier,
                                               replyTo: nil,
                                               expiration: nil,
                                               forwarded: false)
+                    
+                case .groupV2(withGroup: let group):
+                    guard let groupV2Identifier = group?.groupIdentifier else {
+                        return cancel(withReason: .internalError)
+                    }
+                    messageJSON = MessageJSON(senderSequenceNumber: 0,
+                                              senderThreadIdentifier: UUID(),
+                                              body: randomBody,
+                                              groupV2Identifier: groupV2Identifier,
+                                              replyTo: nil,
+                                              expiration: nil,
+                                              forwarded: false,
+                                              originalServerTimestamp: nil)
+                }
+                
                 
                 let randomMessageIdentifierFromEngine = UID.gen(with: prng).raw
 
@@ -89,7 +110,8 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                                                      messageIdentifierFromEngine: randomMessageIdentifierFromEngine,
                                                      returnReceiptJSON: nil,
                                                      missedMessageCount: 0,
-                                                     discussion: discussion)) != nil else {
+                                                     discussion: discussion,
+                                                     obvMessageContainsAttachments: false)) != nil else {
                     return cancel(withReason: .internalError)
                 }
 
@@ -108,6 +130,8 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
             return contactIdentity
         case .groupV1(withContactGroup: let contactGroup):
             return contactGroup?.contactIdentities.randomElement()
+        case .groupV2(withGroup: let group):
+            return group?.contactsAmongNonPendingOtherMembers.randomElement()
         case .none:
             return nil
         }

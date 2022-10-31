@@ -21,6 +21,7 @@ import Foundation
 import ObvTypes
 import CoreData
 import os.log
+import ObvCrypto
 
 @objcMembers open class ObvOperation: Operation {
     

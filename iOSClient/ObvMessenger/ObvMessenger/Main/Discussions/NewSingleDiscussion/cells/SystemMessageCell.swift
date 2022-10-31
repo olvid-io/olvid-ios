@@ -74,6 +74,8 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
         content.date = message.timestamp
         content.subBody = nil
         switch message.category {
+        case .membersOfGroupV2WereUpdated, .ownedIdentityIsPartOfGroupV2Admins, .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+            content.backgroundColor = appTheme.colorScheme.green
         case .contactRevokedByIdentityProvider:
             content.backgroundColor = appTheme.colorScheme.red
         case .contactJoinedGroup, .notPartOfTheGroupAnymore, .rejoinedGroup:
@@ -146,6 +148,8 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
             default:
                 return nil
             }
+        case .membersOfGroupV2WereUpdated, .ownedIdentityIsPartOfGroupV2Admins, .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+            return .behaveAsIfTheDiscussionTitleWasTapped
         case .contactJoinedGroup,
                 .contactLeftGroup,
                 .numberOfNewMessages,

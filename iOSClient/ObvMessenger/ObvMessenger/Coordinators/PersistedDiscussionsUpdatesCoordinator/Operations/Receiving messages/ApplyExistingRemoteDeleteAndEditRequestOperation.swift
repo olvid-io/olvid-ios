@@ -50,98 +50,96 @@ final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperatio
 
         obvContext.performAndWait {
             
-            // Grab the persisted contact and the appropriate discussion
-            
-            let persistedContactIdentity: PersistedObvContactIdentity
             do {
-                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                
+                // Grab the persisted contact and the appropriate discussion
+                
+                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
-                persistedContactIdentity = _persistedContactIdentity
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
-                return cancel(withReason: .couldNotDetermineOwnedIdentity)
-            }
-
-            let discussion: PersistedDiscussion
-            do {
-                if let groupId = messageJSON.groupId {
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+                
+                guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
+                    return cancel(withReason: .couldNotDetermineOwnedIdentity)
+                }
+                
+                let discussion: PersistedDiscussion
+                switch messageJSON.groupIdentifier {
+                case .none:
+                    guard let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion else {
+                        return cancel(withReason: .couldNotFindDiscussion)
+                    }
+                    discussion = oneToOneDiscussion
+                case .groupV1(groupV1Identifier: let groupV1Identifier):
+                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
-                    discussion = oneToOneDiscussion
-                } else {
-                    return cancel(withReason: .couldNotFindDiscussion)
-                }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            // Look for an existing RemoteDeleteAndEditRequest for the received message in that discussion
-            
-            let remoteRequest: RemoteDeleteAndEditRequest?
-            do {
-                remoteRequest = try RemoteDeleteAndEditRequest.getRemoteDeleteAndEditRequest(discussion: discussion,
-                                                                                             senderIdentifier: obvMessage.fromContactIdentity.cryptoId.getIdentity(),
-                                                                                             senderThreadIdentifier: messageJSON.senderThreadIdentifier,
-                                                                                             senderSequenceNumber: messageJSON.senderSequenceNumber)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            switch remoteRequest {
-
-            case .none:
-                // We found no existing remote request, there is nothing left to do
-                return
-                
-            case .some(let request):
-
-                // A remote request was found. Depending on its type, we execute a WipeMessagesOperation or an EditTextBodyOfReceivedMessageOperation.
-                // We do not queue them in order to prevent a deadlock on the obvContext thread, we take advantage of the reentrant feature of performAndWait.
-
-                switch request.requestType {
-                case .delete:
-                    let op = WipeMessagesOperation(messagesToDelete: [request.messageReferenceJSON],
-                                                   groupId: messageJSON.groupId,
-                                                   requester: obvMessage.fromContactIdentity,
-                                                   messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                                                   saveRequestIfMessageCannotBeFound: false)
-                    op.obvContext = obvContext
-                    op.main()
-                    guard !op.isCancelled else {
-                        guard let reason = op.reasonForCancel else { return cancel(withReason: .unknownReason) }
-                        return cancel(withReason: .wipeMessagesOperationCancelled(reason: reason))
+                case .groupV2(groupV2Identifier: let groupV2Identifier):
+                    guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
-                case .edit:
-                    let op = EditTextBodyOfReceivedMessageOperation(newTextBody: request.body,
-                                                                    requester: obvMessage.fromContactIdentity,
-                                                                    groupId: messageJSON.groupId,
-                                                                    receivedMessageToEdit: request.messageReferenceJSON,
-                                                                    messageUploadTimestampFromServer: request.serverTimestamp,
-                                                                    saveRequestIfMessageCannotBeFound: false)
-                    op.obvContext = obvContext
-                    op.main()
-                    guard !op.isCancelled else {
-                        guard let reason = op.reasonForCancel else { return cancel(withReason: .unknownReason) }
-                        return cancel(withReason: .editTextBodyOfReceivedMessageOperation(reason: reason))
+                    guard let groupDiscussion = group.discussion else {
+                        return cancel(withReason: .couldNotFindDiscussion)
                     }
+                    discussion = groupDiscussion
                 }
                 
-                // If we reach this point, the remote request has been processed, we can delete it
+                // Look for an existing RemoteDeleteAndEditRequest for the received message in that discussion
                 
-                do {
+                let remoteRequest = try RemoteDeleteAndEditRequest.getRemoteDeleteAndEditRequest(
+                    discussion: discussion,
+                    senderIdentifier: obvMessage.fromContactIdentity.cryptoId.getIdentity(),
+                    senderThreadIdentifier: messageJSON.senderThreadIdentifier,
+                    senderSequenceNumber: messageJSON.senderSequenceNumber)
+                
+                switch remoteRequest {
+                    
+                case .none:
+                    // We found no existing remote request, there is nothing left to do
+                    return
+                    
+                case .some(let request):
+                    
+                    // A remote request was found. Depending on its type, we execute a WipeMessagesOperation or an EditTextBodyOfReceivedMessageOperation.
+                    // We do not queue them in order to prevent a deadlock on the obvContext thread, we take advantage of the reentrant feature of performAndWait.
+                    
+                    switch request.requestType {
+                    case .delete:
+                        let op = WipeMessagesOperation(messagesToDelete: [request.messageReferenceJSON],
+                                                       groupIdentifier: messageJSON.groupIdentifier,
+                                                       requester: obvMessage.fromContactIdentity,
+                                                       messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                                       saveRequestIfMessageCannotBeFound: false)
+                        op.obvContext = obvContext
+                        op.main()
+                        guard !op.isCancelled else {
+                            guard let reason = op.reasonForCancel else { return cancel(withReason: .unknownReason) }
+                            return cancel(withReason: .wipeMessagesOperationCancelled(reason: reason))
+                        }
+                    case .edit:
+                        let op = EditTextBodyOfReceivedMessageOperation(newTextBody: request.body,
+                                                                        requester: obvMessage.fromContactIdentity,
+                                                                        groupIdentifier: messageJSON.groupIdentifier,
+                                                                        receivedMessageToEdit: request.messageReferenceJSON,
+                                                                        messageUploadTimestampFromServer: request.serverTimestamp,
+                                                                        saveRequestIfMessageCannotBeFound: false)
+                        op.obvContext = obvContext
+                        op.main()
+                        guard !op.isCancelled else {
+                            guard let reason = op.reasonForCancel else { return cancel(withReason: .unknownReason) }
+                            return cancel(withReason: .editTextBodyOfReceivedMessageOperation(reason: reason))
+                        }
+                    }
+                    
+                    // If we reach this point, the remote request has been processed, we can delete it
+                    
                     try request.delete()
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                    
                 }
+                
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
-            
         }
         
     }

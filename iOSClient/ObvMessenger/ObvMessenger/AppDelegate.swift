@@ -24,19 +24,29 @@ import Intents
 import ObvEngine
 import CoreDataStack
 import AppAuth
+import OlvidUtils
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
 
     private let appMainManager = AppMainManager()
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppDelegate.self))
+    static let errorDomain = "AppDelegate"
+
+    var localAuthenticationDelegate: LocalAuthenticationDelegate? {
+        get async {
+            await appMainManager.localAuthenticationDelegate
+        }
+    }
+    var createPasscodeDelegate: CreatePasscodeDelegate? {
+        get async {
+            await appMainManager.createPasscodeDelegate
+        }
+    }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
 
         os_log("🧦 Application did finish launching with options", log: log, type: .info)
-
-        // Register for remote (push) notifications
-        application.registerForRemoteNotifications()
 
         // Initialize the BackgroundTasksManager as it must registers its tasks
         // Pass it to the App main manager that will register it with the managers holder
@@ -56,7 +66,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                                                userNotificationsManager: userNotificationsManager)
         }
 
+        // Register for remote (push) notifications
+        registerForRemoteNotificationsOnRealDeviceAndFailOnSimulator(application)
+        
         return true
+    }
+    
+    
+    private func registerForRemoteNotificationsOnRealDeviceAndFailOnSimulator(_ application: UIApplication) {
+        if ObvMessengerConstants.isRunningOnRealDevice {
+            application.registerForRemoteNotifications()
+        } else {
+            let error = Self.makeError(message: "Cannot register to remote notifications as we are not running on a real device")
+            Task { [weak self] in
+                await self?.appMainManager.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+            }
+        }
     }
     
     

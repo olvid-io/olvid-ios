@@ -206,7 +206,7 @@ struct ContactIdentityDetailsTrustedBackupItem: Codable, Hashable {
         // Local attributes
         let photoServerKeyEncoded = photoServerKeyAndLabel?.key.obvEncode().rawData
         try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
-        try container.encodeIfPresent(photoServerKeyAndLabel?.label, forKey: .photoServerLabel)
+        try container.encodeIfPresent(photoServerKeyAndLabel?.label.raw, forKey: .photoServerLabel)
     }
 
     init(from decoder: Decoder) throws {
@@ -216,15 +216,43 @@ struct ContactIdentityDetailsTrustedBackupItem: Codable, Hashable {
             throw ContactIdentityDetailsTrustedBackupItem.makeError(message: "Could not create Data from serializedIdentityCoreDetailsAsString")
         }
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetailsAsData
-        if let photoServerKeyEncodedRaw = try values.decodeIfPresent(Data.self, forKey: .photoServerKeyEncoded),
-           let photoServerKeyEncoded = ObvEncoded(withRawData: photoServerKeyEncodedRaw),
-           let key = try? AuthenticatedEncryptionKeyDecoder.decode(photoServerKeyEncoded),
-           let label = try values.decodeIfPresent(String.self, forKey: .photoServerLabel) {
-            self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: label)
+        self.version = try values.decode(Int.self, forKey: .version)
+
+        if values.allKeys.contains(.photoServerLabel) && values.allKeys.contains(.photoServerKeyEncoded) {
+            do {
+                let photoServerKeyEncodedRaw = try values.decode(Data.self, forKey: .photoServerKeyEncoded)
+                guard let photoServerKeyEncoded = ObvEncoded(withRawData: photoServerKeyEncodedRaw) else {
+                    throw Self.makeError(message: "Could not parse photo server key in ContactIdentityDetailsPublishedBackupItem")
+                }
+                let key = try AuthenticatedEncryptionKeyDecoder.decode(photoServerKeyEncoded)
+                if let photoServerLabelAsData = try? values.decodeIfPresent(Data.self, forKey: .photoServerLabel),
+                   let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    // Expected
+                    self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: photoServerLabelAsUID)
+                } else if let photoServerLabelAsUID = try values.decodeIfPresent(UID.self, forKey: .photoServerLabel) {
+                    assertionFailure()
+                    self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: photoServerLabelAsUID)
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(base64Encoded: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: photoServerLabelAsUID)
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(hexString: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: photoServerLabelAsUID)
+                } else {
+                    throw Self.makeError(message: "Could not decode photoServerLabel in the decoder of OwnedIdentityDetailsPublishedBackupItem")
+                }
+            } catch {
+                assertionFailure()
+                throw error
+            }
         } else {
             self.photoServerKeyAndLabel = nil
         }
-        self.version = try values.decode(Int.self, forKey: .version)
+
     }
     
     func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {

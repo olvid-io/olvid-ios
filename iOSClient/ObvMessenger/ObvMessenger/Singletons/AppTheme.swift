@@ -20,13 +20,22 @@
 import UIKit
 import ObvEngine
 import ObvTypes
+import ObvCrypto
 
 final class AppTheme {
     
     static let shared = AppTheme(with: .edmond)
     
     static let appleBadgeRedColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
-    static let appleTableSeparatorColor = UIColor(red: 0.78, green: 0.78, blue: 0.8, alpha: 1.0)
+    static let appleTableSeparatorColor = UIColor { (traitCollection: UITraitCollection) in
+        if traitCollection.userInterfaceStyle == .dark {
+            return UIColor(red: 0.24, green: 0.24, blue: 0.26, alpha: 1.0)
+        } else {
+            return UIColor(red: 0.78, green: 0.78, blue: 0.8, alpha: 1.0)
+
+        }
+    }
+    
     static let appleTableSeparatorHeight: CGFloat = 0.33
     
     fileprivate enum Name {
@@ -127,7 +136,21 @@ extension AppTheme {
             return (background, text)
         }
     }
-    
+
+    func groupV2Colors(forGroupIdentifier groupIdentifier: Data, using style: IdentityColorStyle = .hue) -> (background: UIColor, text: UIColor) {
+        switch style {
+        case .hue:
+            let hue = hueFromBytes(groupIdentifier)
+            let text = UIColor(hue: hue, saturation: 0.46, brightness: 0.91, alpha: 1.0)
+            let background = UIColor(hue: hue, saturation: 0.16, brightness: 0.98, alpha: 1.0)
+            return (background, text)
+        case .richter:
+            let text = UIColor.white.withAlphaComponent(0.8)
+            let background = richterColorFromBytes(groupIdentifier)
+            return (background, text)
+        }
+    }
+
     private func bytesValue(_ bytes: Data) -> Int {
         return bytes.reduce(1 as Int) { (31 * ($0 as Int) + Int($1)) & 0xff }
     }

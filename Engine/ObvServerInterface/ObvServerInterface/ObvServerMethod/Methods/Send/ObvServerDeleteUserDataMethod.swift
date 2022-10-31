@@ -34,12 +34,12 @@ public final class ObvServerDeleteUserDataMethod: ObvServerDataMethod {
     public let isActiveOwnedIdentityRequired = true
     public var serverURL: URL { ownedIdentity.serverURL }
     public let token: Data
-    public let serverLabel: String
+    public let serverLabel: UID
     public let flowId: FlowIdentifier
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(ownedIdentity: ObvCryptoIdentity, token: Data, serverLabel: String, flowId: FlowIdentifier) {
+    public init(ownedIdentity: ObvCryptoIdentity, token: Data, serverLabel: UID, flowId: FlowIdentifier) {
         self.ownedIdentity = ownedIdentity
         self.token = token
         self.serverLabel = serverLabel
@@ -53,9 +53,7 @@ public final class ObvServerDeleteUserDataMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        // The given serverLabel is a base64 of the binary label (created in StartPhotoUploadStep), but the server expects a binary, so we decode the base64 here.
-        guard let binaryServerLabel = Data(base64Encoded: self.serverLabel) else { return nil }
-        return [self.ownedIdentity, self.token, binaryServerLabel].obvEncode().rawData
+        return [self.ownedIdentity, self.token, self.serverLabel].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {

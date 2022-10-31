@@ -19,7 +19,7 @@
 
 import Foundation
 import os.log
-import ObvEngine
+import ObvTypes
 
 
 class BadgeCounterOperation: Operation {

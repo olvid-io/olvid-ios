@@ -40,6 +40,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
     private static let otherDevicesKey = "otherDevices"
     private static let publishedIdentityDetailsKey = "publishedIdentityDetails"
     private static let contactGroupsKey = "contactGroups"
+    private static let contactGroupsV2Key = "contactGroupsV2"
     private static let isActiveKey = "isActive"
     private static let keycloakServerKey = "keycloakServer"
     
@@ -84,6 +85,15 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         }
         set {
             kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.contactGroupsKey)
+        }
+    }
+    private(set) var contactGroupsV2: Set<ContactGroupV2> {
+        get {
+            let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.contactGroupsV2Key) as! Set<ContactGroupV2>
+            return Set(res.map { $0.obvContext = self.obvContext; return $0 })
+        }
+        set {
+            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.contactGroupsV2Key)
         }
     }
     private(set) var contactIdentities: Set<ContactIdentity> {
@@ -203,8 +213,9 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
     }
 
     
-    fileprivate func restoreRelationships(contactGroups: Set<ContactGroup>, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, publishedIdentityDetails: OwnedIdentityDetailsPublished, keycloakServer: KeycloakServer?) {
+    fileprivate func restoreRelationships(contactGroups: Set<ContactGroup>, contactGroupsV2: Set<ContactGroupV2>, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, publishedIdentityDetails: OwnedIdentityDetailsPublished, keycloakServer: KeycloakServer?) {
         self.contactGroups = contactGroups
+        self.contactGroupsV2 = contactGroupsV2
         self.contactIdentities = contactIdentities
         self.currentDevice = currentDevice
         /* maskingUid is nil */
@@ -256,6 +267,12 @@ extension OwnedIdentity {
     
     func deactivate() {
         isActive = false
+        /* After deactivating an owned identity, we must delete all devices and channels */
+        self.contactIdentities.forEach { contactIdentity in
+            contactIdentity.devices.forEach { contactDevice in
+                try? contactDevice.deleteContactDevice()
+            }
+        }
     }
     
     func reactivate() {
@@ -353,7 +370,7 @@ extension OwnedIdentity {
     
 }
 
-// MARK: - ContactDevice management
+// MARK: - OwnedDevice management
 
 extension OwnedIdentity {
     
@@ -372,6 +389,28 @@ extension OwnedIdentity {
     
 }
 
+
+// MARK: - Contact management
+
+extension OwnedIdentity {
+    
+    /// If the `cryptoIdentity` is already a contact of this own identity, this method only adds a trust origin to that contact. If not, this method creates the contact with the appropriate trust origin.
+    /// Note that if the contact already exists, this method does *not* update her details.
+    func addContactOrTrustOrigin(cryptoIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, trustOrigin: TrustOrigin, isOneToOne: Bool, delegateManager: ObvIdentityDelegateManager) throws -> ContactIdentity {
+        guard let obvContext = self.obvContext else { assertionFailure(); throw Self.makeError(message: "Could not find ObvContext") }
+        if let contact = try ContactIdentity.get(contactIdentity: cryptoIdentity, ownedIdentity: self.cryptoIdentity, delegateManager: delegateManager, within: obvContext) {
+            try contact.addTrustOrigin(trustOrigin)
+            return contact
+        } else {
+            guard let contact = ContactIdentity(cryptoIdentity: cryptoIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: self, isOneToOne: isOneToOne, delegateManager: delegateManager) else {
+                throw Self.makeError(message: "Could not create contact identity")
+            }
+            return contact
+        }
+    }
+    
+    
+}
 
 // MARK: - Keychain management
 
@@ -587,6 +626,7 @@ extension OwnedIdentity {
                                        otherDevices: otherDevices,
                                        publishedIdentityDetails: publishedIdentityDetails,
                                        contactGroupsOwned: contactGroupsOwned,
+                                       contactGroupsV2: contactGroupsV2,
                                        keycloakServer: keycloakServer,
                                        isActive: isActive)
     }
@@ -594,7 +634,7 @@ extension OwnedIdentity {
 }
 
 
-struct OwnedIdentityBackupItem: Codable, Hashable {
+struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
     
     fileprivate let apiKey: UUID
     fileprivate let privateIdentity: ObvOwnedCryptoIdentityPrivateBackupItem
@@ -602,27 +642,24 @@ struct OwnedIdentityBackupItem: Codable, Hashable {
     fileprivate let contactIdentities: Set<ContactIdentityBackupItem>
     let publishedIdentityDetails: OwnedIdentityDetailsPublishedBackupItem
     fileprivate let ownedGroups: Set<ContactGroupOwnedBackupItem>?
+    private let contactGroupsV2: Set<ContactGroupV2BackupItem>
     let keycloakServer: KeycloakServerBackupItem?
     let isActive: Bool
 
-    private static let errorDomain = String(describing: Self.self)
+    static let errorDomain = "OwnedIdentityBackupItem"
 
     var ownedCryptoIdentity: ObvOwnedCryptoIdentity? {
         return privateIdentity.getOwnedIdentity(cryptoIdentity: cryptoIdentity)
     }
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
-    fileprivate init(apiKey: UUID, ownedCryptoIdentity: ObvOwnedCryptoIdentity, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, otherDevices: Set<OwnedDevice>, publishedIdentityDetails: OwnedIdentityDetailsPublished, contactGroupsOwned: Set<ContactGroupOwned>, keycloakServer: KeycloakServer?, isActive: Bool) {
+    fileprivate init(apiKey: UUID, ownedCryptoIdentity: ObvOwnedCryptoIdentity, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, otherDevices: Set<OwnedDevice>, publishedIdentityDetails: OwnedIdentityDetailsPublished, contactGroupsOwned: Set<ContactGroupOwned>, contactGroupsV2: Set<ContactGroupV2>, keycloakServer: KeycloakServer?, isActive: Bool) {
         self.apiKey = apiKey
         self.cryptoIdentity = ownedCryptoIdentity.getObvCryptoIdentity()
         self.privateIdentity = ownedCryptoIdentity.privateBackupItem
         self.contactIdentities = Set(contactIdentities.map { $0.backupItem })
         self.publishedIdentityDetails = publishedIdentityDetails.backupItem
         self.ownedGroups = contactGroupsOwned.isEmpty ? nil : Set(contactGroupsOwned.map { $0.backupItem })
+        self.contactGroupsV2 = Set(contactGroupsV2.compactMap({ $0.backupItem }))
         self.keycloakServer = keycloakServer?.backupItem
         self.isActive = isActive
     }
@@ -634,6 +671,7 @@ struct OwnedIdentityBackupItem: Codable, Hashable {
         case contactIdentities = "contact_identities"
         case publishedIdentityDetails = "published_details"
         case ownedGroups = "owned_groups"
+        case contactGroupsV2 = "groups_v2"
         case keycloak = "keycloak"
         case isActive = "active"
     }
@@ -646,6 +684,7 @@ struct OwnedIdentityBackupItem: Codable, Hashable {
         try container.encode(contactIdentities, forKey: .contactIdentities)
         try container.encode(publishedIdentityDetails, forKey: .publishedIdentityDetails)
         try container.encodeIfPresent(ownedGroups, forKey: .ownedGroups)
+        try container.encode(contactGroupsV2, forKey: .contactGroupsV2)
         try container.encode(isActive, forKey: .isActive)
         do {
             try container.encodeIfPresent(keycloakServer, forKey: .keycloak)
@@ -667,6 +706,7 @@ struct OwnedIdentityBackupItem: Codable, Hashable {
         self.contactIdentities = try values.decode(Set<ContactIdentityBackupItem>.self, forKey: .contactIdentities)
         self.publishedIdentityDetails = try values.decode(OwnedIdentityDetailsPublishedBackupItem.self, forKey: .publishedIdentityDetails)
         self.ownedGroups = try values.decodeIfPresent(Set<ContactGroupOwnedBackupItem>.self, forKey: .ownedGroups)
+        self.contactGroupsV2 = try values.decodeIfPresent(Set<ContactGroupV2BackupItem>.self, forKey: .contactGroupsV2) ?? Set<ContactGroupV2BackupItem>()
         do {
             self.keycloakServer = try values.decodeIfPresent(KeycloakServerBackupItem.self, forKey: .keycloak)
         } catch {
@@ -681,15 +721,20 @@ struct OwnedIdentityBackupItem: Codable, Hashable {
     func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations, notificationDelegate: ObvNotificationDelegate) throws {
         let ownedIdentity = try OwnedIdentity(backupItem: self, notificationDelegate: notificationDelegate, within: obvContext)
         try associations.associate(ownedIdentity, to: self)
-        _ = try contactIdentities.map { try $0.restoreInstance(within: obvContext, associations: &associations) }
+        let ownedIdentityIdentity = ownedIdentity.cryptoIdentity.getIdentity()
+        _ = try contactIdentities.map { try $0.restoreInstance(within: obvContext, ownedIdentityIdentity: ownedIdentityIdentity, associations: &associations) }
         try publishedIdentityDetails.restoreInstance(within: obvContext, associations: &associations)
         _ = try ownedGroups?.map { try $0.restoreInstance(within: obvContext, associations: &associations) }
+        try contactGroupsV2.forEach({ try $0.restoreInstance(within: obvContext, associations: &associations, ownedIdentity: ownedIdentity.cryptoIdentity.getIdentity()) })
         try keycloakServer?.restoreInstance(within: obvContext, associations: &associations, rawOwnedIdentity: ownedIdentity.cryptoIdentity.getIdentity())
     }
     
+    
     func restoreRelationships(associations: BackupItemObjectAssociations, prng: PRNGService, within obvContext: ObvContext) throws {
         let ownedIdentity: OwnedIdentity = try associations.getObject(associatedTo: self, within: obvContext)
+        
         // Restore the relationships of this instance
+        
         let contactGroups: Set<ContactGroup>
         do {
             let ownedGroups: Set<ContactGroupOwned> = Set(try self.ownedGroups?.map({ try associations.getObject(associatedTo: $0, within: obvContext) }) ?? [])
@@ -700,27 +745,47 @@ struct OwnedIdentityBackupItem: Codable, Hashable {
             }
             contactGroups = (ownedGroups as Set<ContactGroup>).union(joinedGroups)
         }
+        
+        let contactGroupsV2: Set<ContactGroupV2> = Set(try self.contactGroupsV2.map({ try associations.getObject(associatedTo: $0, within: obvContext) }) )
+        
         let contactIdentities: Set<ContactIdentity> = Set(try self.contactIdentities.map({ try associations.getObject(associatedTo: $0, within: obvContext) }))
+        
         let currentDevice = OwnedDeviceBackupItem.generateNewCurrentDevice(prng: prng, within: obvContext)
+        
         let publishedIdentityDetails: OwnedIdentityDetailsPublished = try associations.getObject(associatedTo: self.publishedIdentityDetails, within: obvContext)
+        
         let keycloakServer: KeycloakServer? = try associations.getObjectIfPresent(associatedTo: self.keycloakServer, within: obvContext)
+        
         ownedIdentity.restoreRelationships(contactGroups: contactGroups,
+                                           contactGroupsV2: contactGroupsV2,
                                            contactIdentities: contactIdentities,
                                            currentDevice: currentDevice,
                                            publishedIdentityDetails: publishedIdentityDetails,
                                            keycloakServer: keycloakServer)
-        // Restore the relationships with this instance relationships
-        _ = try self.contactIdentities.map({ try $0.restoreRelationships(associations: associations, within: obvContext) })
+        
+        // Restore the relationships of this instance relationships
+        
+        try self.contactIdentities.forEach({ try $0.restoreRelationships(associations: associations,
+                                                                         within: obvContext) })
+        
         try self.publishedIdentityDetails.restoreRelationships(associations: associations, within: obvContext)
-        _ = try self.ownedGroups?.map({ try $0.restoreRelationships(associations: associations, within: obvContext) })
+        
+        try self.ownedGroups?.forEach({ try $0.restoreRelationships(associations: associations, within: obvContext) })
+        
+        try self.contactGroupsV2.forEach({ try $0.restoreRelationships(associations: associations, within: obvContext) })
+        
         try self.keycloakServer?.restoreRelationships(associations: associations, within: obvContext)
+        
         // If there is a photoServerLabel within the published details, we create an instance of IdentityServerUserData
+        
         if let photoServerLabel = publishedIdentityDetails.photoServerLabel {
             _ = IdentityServerUserData.createForOwnedIdentityDetails(ownedIdentity: ownedIdentity.cryptoIdentity,
                                                                      label: photoServerLabel,
                                                                      within: obvContext)
         }
+        
         // We scan each owned group. For each, of there is a photoServerLabel within the published details, we create an instance of IdentityServerUserData
+        
         for contactGroup in contactGroups {
             guard let ownedGroup = contactGroup as? ContactGroupOwned else { continue }
             guard let photoServerLabel = ownedGroup.publishedDetails.photoServerLabel else { continue }

@@ -21,13 +21,13 @@ import Foundation
 
 public protocol KDF {
     
-    static func generate<T: SymmetricKey>(from: Seed, _ convertBytesToKey: (_:Data) -> T?) -> T?
+    static func generate<T: SymmetricKey>(from: Seed, _ convertBytesToKey: (_: Data) -> T?) -> T?
     
 }
 
 class KDFFromPRNGWithHMACWithSHA256: KDF {
     
-    static func generate<T: SymmetricKey>(from seed: Seed, _ convertBytesToKey: (_:Data) -> T?) -> T? {
+    static func generate<T: SymmetricKey>(from seed: Seed, _ convertBytesToKey: (_: Data) -> T?) -> T? {
         let prng = PRNGWithHMACWithSHA256(with: seed)
         let keyBytes = prng.genBytes(count: T.length)
         return convertBytesToKey(keyBytes)

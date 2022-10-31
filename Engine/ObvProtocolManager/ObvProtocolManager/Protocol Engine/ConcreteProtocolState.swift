@@ -21,7 +21,7 @@ import Foundation
 
 import ObvEncoder
 
-protocol ConcreteProtocolState: ObvCodable, CustomStringConvertible {
+protocol ConcreteProtocolState: ObvFailableCodable, CustomStringConvertible {
     
     var rawId: Int { get }
     
@@ -54,6 +54,10 @@ extension TypeConcreteProtocolState {
         }
     }
     
+    static func makeError(message: String) -> Error {
+        NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
 }
 
 protocol ConcreteProtocolStateId: ObvCodable {

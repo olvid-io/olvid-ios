@@ -49,76 +49,81 @@ final class ApplyPendingReactionsOperation: ContextualOperationWithSpecificReaso
 
         obvContext.performAndWait {
 
-            // Grab the persisted contact and the appropriate discussion
-
-            let persistedContactIdentity: PersistedObvContactIdentity
             do {
-                guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                
+                // Grab the persisted contact and the appropriate discussion
+                
+                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
-                persistedContactIdentity = _persistedContactIdentity
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-            guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
-                return cancel(withReason: .couldNotDetermineOwnedIdentity)
-            }
-
-            let discussion: PersistedDiscussion
-            do {
-                if let groupId = messageJSON.groupId {
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+                
+                guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
+                    return cancel(withReason: .couldNotDetermineOwnedIdentity)
+                }
+                
+                let discussion: PersistedDiscussion
+                switch messageJSON.groupIdentifier {
+                    
+                case .none:
+                    
+                    guard let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion else {
+                        return cancel(withReason: .couldNotFindDiscussion)
+                    }
+                    discussion = oneToOneDiscussion
+                    
+                case .groupV1(groupV1Identifier: let groupV1Identifier):
+                    
+                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
-                    discussion = oneToOneDiscussion
-                } else {
-                    return cancel(withReason: .couldNotFindDiscussion)
+                    
+                case .groupV2(groupV2Identifier: let groupV2Identifier):
+                    
+                    guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
+                    }
+                    guard let groupDiscussion = group.discussion else {
+                        return cancel(withReason: .couldNotFindDiscussion)
+                    }
+                    discussion = groupDiscussion
+                    
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-            // Look for an existing PendingMessageReaction for the received message in that discussion
-
-            let pendingReaction: PendingMessageReaction?
-            do {
-                pendingReaction = try PendingMessageReaction.getPendingMessageReaction(
+                
+                // Look for an existing PendingMessageReaction for the received message in that discussion
+                
+                let pendingReaction = try PendingMessageReaction.getPendingMessageReaction(
                     discussion: discussion,
                     senderIdentifier: obvMessage.fromContactIdentity.cryptoId.getIdentity(),
                     senderThreadIdentifier: messageJSON.senderThreadIdentifier,
                     senderSequenceNumber: messageJSON.senderSequenceNumber)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-            guard let pendingReaction = pendingReaction else {
-                // We found no existing pending reaction, there is nothing left to do
-                return
-            }
-
-            let op = UpdateReactionsOfMessageOperation(emoji: pendingReaction.emoji,
-                                                       messageReference: pendingReaction.messageReferenceJSON,
-                                                       groupId: messageJSON.groupId,
-                                                       contactIdentity: obvMessage.fromContactIdentity,
-                                                       reactionTimestamp: pendingReaction.serverTimestamp,
-                                                       addPendingReactionIfMessageCannotBeFound: false)
-            op.obvContext = obvContext
-            op.main()
-            guard !op.isCancelled else {
-                guard let reason = op.reasonForCancel else { return cancel(withReason: .unknownReason) }
-                return cancel(withReason: .updateReactionsOperationCancelled(reason: reason))
-            }
-
-            // If we reach this point, the remote request has been processed, we can delete it
-
-            do {
+                
+                guard let pendingReaction = pendingReaction else {
+                    // We found no existing pending reaction, there is nothing left to do
+                    return
+                }
+                
+                let op = UpdateReactionsOfMessageOperation(emoji: pendingReaction.emoji,
+                                                           messageReference: pendingReaction.messageReferenceJSON,
+                                                           groupIdentifier: messageJSON.groupIdentifier,
+                                                           contactIdentity: obvMessage.fromContactIdentity,
+                                                           reactionTimestamp: pendingReaction.serverTimestamp,
+                                                           addPendingReactionIfMessageCannotBeFound: false)
+                op.obvContext = obvContext
+                op.main()
+                guard !op.isCancelled else {
+                    guard let reason = op.reasonForCancel else { return cancel(withReason: .unknownReason) }
+                    return cancel(withReason: .updateReactionsOperationCancelled(reason: reason))
+                }
+                
+                // If we reach this point, the remote request has been processed, we can delete it
+                
                 try pendingReaction.delete()
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
+            
         }
 
     }

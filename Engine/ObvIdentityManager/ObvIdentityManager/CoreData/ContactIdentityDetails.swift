@@ -42,7 +42,7 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     @NSManaged internal var serializedIdentityCoreDetails: Data // Shall *not* be called from outside this class (but cannot be made private, since the setter must remain accessible to its subclasses. I miss the protected keyword...)
     @NSManaged var version: Int
     @NSManaged private var photoServerKeyEncoded: Data?
-    @NSManaged private var photoServerLabel: String?
+    @NSManaged private var rawPhotoServerLabel: Data?
 
     // MARK: - Relationships
     
@@ -52,6 +52,16 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     
     weak var delegateManager: ObvIdentityDelegateManager?
 
+    private var photoServerLabel: UID? {
+        get {
+            guard let rawPhotoServerLabel = rawPhotoServerLabel else { return nil }
+            guard let uid = UID(uid: rawPhotoServerLabel) else { assertionFailure(); return nil }
+            return uid
+        }
+        set {
+            self.rawPhotoServerLabel = newValue?.raw
+        }
+    }
     
     func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
         guard let photoFilename = photoFilename else { return nil }
@@ -120,7 +130,7 @@ extension ContactIdentityDetails {
         
     }
  
-    /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
+    /// Used *exclusively* during a backup restore for creating an instance, relationships are recreater in a second step
     convenience init(serializedIdentityCoreDetails: Data, version: Int, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, entityName: String, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
@@ -233,7 +243,7 @@ extension ContactIdentityDetails {
             case serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
             case photoFilename = "photoFilename"
             case photoServerKeyEncoded = "photoServerKeyEncoded"
-            case photoServerLabel = "photoServerLabel"
+            case rawPhotoServerLabel = "rawPhotoServerLabel"
         }
         static var withoutPhotoFilename: NSPredicate {
             NSPredicate(withNilValueForKey: Key.photoFilename)
@@ -242,7 +252,7 @@ extension ContactIdentityDetails {
             NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
         }
         static var withPhotoServerLabel: NSPredicate {
-            NSPredicate(withNonNilValueForKey: Key.photoServerLabel)
+            NSPredicate(withNonNilValueForKey: Key.rawPhotoServerLabel)
         }
         static var withPhotoServerKeyAndLabel: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [

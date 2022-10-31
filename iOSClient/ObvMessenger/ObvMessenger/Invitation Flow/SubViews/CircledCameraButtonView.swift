@@ -57,18 +57,14 @@ struct CircledCameraButtonView: View {
         var actions: [ProfilePictureAction] = []
         actions += [ProfilePictureAction(title: NSLocalizedString("CHOOSE_PICTURE", comment: "")) {
             self.activeSheet = .libraryPicker
-            if #available(iOS 14.0, *) {
-
-            } else {
+            if #unavailable(iOS 14.0) {
                 self.sheetIsPresented = true
             }
         }]
         if UIImagePickerController.isCameraDeviceAvailable(.front) {
             actions += [ProfilePictureAction(title: NSLocalizedString("TAKE_PICTURE", comment: "")) {
                 self.activeSheet = .cameraPicker
-                if #available(iOS 14.0, *) {
-
-                } else {
+                if #unavailable(iOS 14.0) {
                     self.sheetIsPresented = true
                 }
             }]

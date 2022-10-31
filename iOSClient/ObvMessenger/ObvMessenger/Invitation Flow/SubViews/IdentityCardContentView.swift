@@ -138,6 +138,21 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
         observeNewCachedProfilePictureCandidateNotifications()
     }
 
+    convenience init(contactIdentity: PersistedObvContactIdentity) {
+        assert(Thread.isMainThread)
+        let coreDetails = contactIdentity.identityCoreDetails
+        self.init(firstName: coreDetails.firstName ?? "",
+                  lastName: coreDetails.lastName ?? "",
+                  position: coreDetails.position ?? "",
+                  company: coreDetails.company ?? "",
+                  isKeycloakManaged: contactIdentity.isCertifiedByOwnKeycloak,
+                  showGreenShield: contactIdentity.isCertifiedByOwnKeycloak,
+                  showRedShield: false,
+                  identityColors: contactIdentity.cryptoId.colors,
+                  photoURL: contactIdentity.photoURL,
+                  ownedIdentity: contactIdentity.ownedIdentity)
+    }
+    
     /// This initializer is used during the standard onboarding procedure, when *no* identity server is used
     convenience init(serverAndAPIKeyToShow: ServerAndAPIKey?, identityDetails: ObvIdentityCoreDetails?) {
         self.init(firstName: identityDetails?.firstName ?? "",
@@ -301,7 +316,7 @@ protocol SingleContactIdentityDelegate: AnyObject {
     func userWantsToPerformAnIntroduction(forContact: SingleContactIdentity)
     func userWantsToDeleteContact(_ contact: SingleContactIdentity, completion: @escaping (Bool) -> Void)
     func userWantsToUpdateTrustedIdentityDetails(ofContact: SingleContactIdentity, usingPublishedDetails: ObvIdentityDetails)
-    func userWantsToDisplay(persistedContactGroup: PersistedContactGroup)
+    func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup)
     func userWantsToDisplay(persistedDiscussion: PersistedDiscussion)
     func userWantsToEditContactNickname()
     func userWantsToInviteContactToOneToOne()
@@ -323,8 +338,8 @@ final class SingleContactIdentity: SingleIdentity {
     @Published var contactIsOneToOne: Bool
     @Published var isActive: Bool
     @Published var showReblockView: Bool
-    @Published var tappedGroup: PersistedContactGroup? = nil
-    @Published var groupFetchRequest: NSFetchRequest<PersistedContactGroup>?
+    @Published var tappedGroup: DisplayedContactGroup? = nil
+    @Published var displayedContactGroupFetchRequest: NSFetchRequest<DisplayedContactGroup>
     @Published var oneToOneInvitationSentFetchRequest: NSFetchRequest<PersistedInvitationOneToOneInvitationSent>
 
     let trustOrigins: [ObvTrustOrigin]
@@ -354,7 +369,7 @@ final class SingleContactIdentity: SingleIdentity {
         self.showReblockView = false
         self.observeChangesMadeToContact = false
         self.trustOrigins = trustOrigins
-        self.groupFetchRequest = nil
+        self.displayedContactGroupFetchRequest = DisplayedContactGroup.getFetchRequestWithNoResult()
         self.oneToOneInvitationSentFetchRequest = PersistedInvitationOneToOneInvitationSent.getFetchRequestWithNoResult()
         super.init(firstName: firstName,
                    lastName: lastName,
@@ -381,10 +396,10 @@ final class SingleContactIdentity: SingleIdentity {
         let coreDetails = persistedContact.identityCoreDetails
         self.observeChangesMadeToContact = observeChangesMadeToContact
         self.trustOrigins = trustOrigins
-        if fetchGroups {
-            self.groupFetchRequest = PersistedContactGroup.getFetchRequestForAllContactGroupsOfContact(persistedContact)
+        if let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId, fetchGroups {
+            self.displayedContactGroupFetchRequest = DisplayedContactGroup.getFetchRequestForAllDisplayedContactGroup(ownedIdentity: ownedCryptoId, contactIdentity: persistedContact.cryptoId)
         } else {
-            self.groupFetchRequest = nil
+            self.displayedContactGroupFetchRequest = DisplayedContactGroup.getFetchRequestWithNoResult()
         }
         if let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId {
             self.oneToOneInvitationSentFetchRequest = PersistedInvitationOneToOneInvitationSent.getFetchRequest(fromOwnedIdentity: ownedCryptoId, toContact: persistedContact.cryptoId)
@@ -668,15 +683,19 @@ final class SingleContactIdentity: SingleIdentity {
             .postOnDispatchQueue()
     }
     
-    func userWantsToNavigateToSingleGroupView(_ group: PersistedContactGroup) {
-        delegate?.userWantsToDisplay(persistedContactGroup: group)
+    func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup) {
+        delegate?.userWantsToNavigateToSingleGroupView(group)
     }
 
     func userWantsToDiscuss() {
         guard contactIsOneToOne else { assertionFailure(); return }
         guard let persistedContact = self.persistedContact else { assertionFailure(); return }
-        guard persistedContact.isOneToOne else { assertionFailure("Trying to have a one-to-one discussion with a contact that is not OneToOne"); return }
+        guard persistedContact.isOneToOne else {
+            assertionFailure("Trying to have a one-to-one discussion with a contact that is not OneToOne")
+            return
+        }
         guard let discussion = persistedContact.oneToOneDiscussion else { assertionFailure(); return }
+        
         delegate?.userWantsToDisplay(persistedDiscussion: discussion)
     }
     
@@ -722,13 +741,14 @@ final class SingleContactIdentity: SingleIdentity {
 }
 
 
+/// This is a legacy class that we should not use again in the future. Instead, use `DisplayedContactGroup`.
 final class ContactGroup: Identifiable, Hashable, ObservableObject {
 
     let id = UUID()
     @Published var name: String
     @Published var description: String
     @Published var members: [SingleIdentity]
-    @Published var photoURL: URL?
+    @Published private(set) var photoURL: URL?
     @Published var groupColors: (background: UIColor, text: UIColor)?
     private var initialHash: Int
     var hasChanged: Bool { initialHash != hashValue }
@@ -925,6 +945,7 @@ struct ContactIdentityCardContentView: View {
 
 }
 
+
 struct GroupCardContentView: View {
     
     @ObservedObject var model: ContactGroup
@@ -947,7 +968,7 @@ struct GroupCardContentView: View {
         CircleAndTitlesView(titlePart1: model.name,
                             titlePart2: nil,
                             subtitle: model.description,
-                            subsubtitle: model.members.map { $0.firstNameThenLastName }.joined(separator: ", "),
+                            subsubtitle: nil,
                             circleBackgroundColor: model.groupColors?.background,
                             circleTextColor: model.groupColors?.text,
                             circledTextView: circledTextView,

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -20,7 +20,15 @@
 		C40B6E1520F8C77700DC18FA /* DeviceDiscoveryForRemoteIdentityProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40B6E1420F8C77700DC18FA /* DeviceDiscoveryForRemoteIdentityProtocol.swift */; };
 		C41220D2201F10E600AE66CE /* ProtocolOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41220D1201F10E600AE66CE /* ProtocolOperation.swift */; };
 		C41220D5201F56B800AE66CE /* DeviceDiscoveryForContactIdentityProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41220D4201F56B800AE66CE /* DeviceDiscoveryForContactIdentityProtocol.swift */; };
+		C416509927F7364300ECF472 /* GroupV2Protocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416509827F7364300ECF472 /* GroupV2Protocol.swift */; };
+		C416509B27F7369300ECF472 /* GroupV2ProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416509A27F7369300ECF472 /* GroupV2ProtocolSteps.swift */; };
+		C416509D27F7369A00ECF472 /* GroupV2ProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416509C27F7369A00ECF472 /* GroupV2ProtocolMessages.swift */; };
+		C416509F27F736A100ECF472 /* GroupV2ProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416509E27F736A100ECF472 /* GroupV2ProtocolStates.swift */; };
 		C417627221AD86FC008D2F29 /* ObvProtocolManagerDummy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C417627121AD86FC008D2F29 /* ObvProtocolManagerDummy.swift */; };
+		C41F43E42840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41F43E32840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift */; };
+		C41F43E62840CF9400AE3E21 /* DownloadGroupV2PhotoProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41F43E52840CF9300AE3E21 /* DownloadGroupV2PhotoProtocolStates.swift */; };
+		C41F43E82841489900AE3E21 /* DownloadGroupV2PhotoProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41F43E72841489900AE3E21 /* DownloadGroupV2PhotoProtocolMessages.swift */; };
+		C41F43EA28414D3500AE3E21 /* DownloadGroupV2PhotoProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41F43E928414D3500AE3E21 /* DownloadGroupV2PhotoProtocolSteps.swift */; };
 		C421EF90207D1E560039B9DE /* ChannelCreationWithContactDeviceProtocolInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C421EF8F207D1E560039B9DE /* ChannelCreationWithContactDeviceProtocolInstance.swift */; };
 		C4224DCE243CB2FF008E43B8 /* FullRatchetProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4224DCD243CB2FF008E43B8 /* FullRatchetProtocol.swift */; };
 		C4224DD0243CB308008E43B8 /* FullRatchetProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4224DCF243CB308008E43B8 /* FullRatchetProtocolSteps.swift */; };
@@ -72,6 +80,7 @@
 		C4AF0F0F2023C9E300E6C2FE /* CoreProtocolMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF0F0E2023C9E300E6C2FE /* CoreProtocolMessage.swift */; };
 		C4B8EA992216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8EA982216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift */; };
 		C4B8EADB2216E97D00FA0BC7 /* ContactTrustLevelWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8EADA2216E97D00FA0BC7 /* ContactTrustLevelWatcher.swift */; };
+		C4BA68D82811851D008FC95E /* GroupV2SignatureReceived.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4BA68D72811851D008FC95E /* GroupV2SignatureReceived.swift */; };
 		C4C9E351203DC5CE0006932A /* ChildToParentProtocolMessageInputs.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C9E350203DC5CE0006932A /* ChildToParentProtocolMessageInputs.swift */; };
 		C4CB7B8321FB09130010228A /* DownloadIdentityPhotoChildProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CB7B8221FB09130010228A /* DownloadIdentityPhotoChildProtocol.swift */; };
 		C4CB7B8521FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CB7B8421FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift */; };
@@ -153,7 +162,15 @@
 		C4121D64262E46D300CD07AF /* JWS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = JWS.xcodeproj; path = ../JWS/JWS.xcodeproj; sourceTree = "<group>"; };
 		C41220D1201F10E600AE66CE /* ProtocolOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolOperation.swift; sourceTree = "<group>"; };
 		C41220D4201F56B800AE66CE /* DeviceDiscoveryForContactIdentityProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscoveryForContactIdentityProtocol.swift; sourceTree = "<group>"; };
+		C416509827F7364300ECF472 /* GroupV2Protocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupV2Protocol.swift; sourceTree = "<group>"; };
+		C416509A27F7369300ECF472 /* GroupV2ProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupV2ProtocolSteps.swift; sourceTree = "<group>"; };
+		C416509C27F7369A00ECF472 /* GroupV2ProtocolMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupV2ProtocolMessages.swift; sourceTree = "<group>"; };
+		C416509E27F736A100ECF472 /* GroupV2ProtocolStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupV2ProtocolStates.swift; sourceTree = "<group>"; };
 		C417627121AD86FC008D2F29 /* ObvProtocolManagerDummy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvProtocolManagerDummy.swift; sourceTree = "<group>"; };
+		C41F43E32840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadGroupV2PhotoProtocol.swift; sourceTree = "<group>"; };
+		C41F43E52840CF9300AE3E21 /* DownloadGroupV2PhotoProtocolStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadGroupV2PhotoProtocolStates.swift; sourceTree = "<group>"; };
+		C41F43E72841489900AE3E21 /* DownloadGroupV2PhotoProtocolMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadGroupV2PhotoProtocolMessages.swift; sourceTree = "<group>"; };
+		C41F43E928414D3500AE3E21 /* DownloadGroupV2PhotoProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadGroupV2PhotoProtocolSteps.swift; sourceTree = "<group>"; };
 		C421EF8F207D1E560039B9DE /* ChannelCreationWithContactDeviceProtocolInstance.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChannelCreationWithContactDeviceProtocolInstance.swift; sourceTree = "<group>"; };
 		C4224DCD243CB2FF008E43B8 /* FullRatchetProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullRatchetProtocol.swift; sourceTree = "<group>"; };
 		C4224DCF243CB308008E43B8 /* FullRatchetProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullRatchetProtocolSteps.swift; sourceTree = "<group>"; };
@@ -207,6 +224,7 @@
 		C4AF0F0E2023C9E300E6C2FE /* CoreProtocolMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreProtocolMessage.swift; sourceTree = "<group>"; };
 		C4B8EA982216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift; sourceTree = "<group>"; };
 		C4B8EADA2216E97D00FA0BC7 /* ContactTrustLevelWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactTrustLevelWatcher.swift; sourceTree = "<group>"; };
+		C4BA68D72811851D008FC95E /* GroupV2SignatureReceived.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupV2SignatureReceived.swift; sourceTree = "<group>"; };
 		C4C9E350203DC5CE0006932A /* ChildToParentProtocolMessageInputs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildToParentProtocolMessageInputs.swift; sourceTree = "<group>"; };
 		C4CB7B8221FB09130010228A /* DownloadIdentityPhotoChildProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadIdentityPhotoChildProtocol.swift; sourceTree = "<group>"; };
 		C4CB7B8421FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadIdentityPhotoChildProtocolSteps.swift; sourceTree = "<group>"; };
@@ -347,6 +365,47 @@
 			path = Protocols;
 			sourceTree = "<group>";
 		};
+		C416509327F7362F00ECF472 /* GroupV2Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				C41F43E12840CE9E00AE3E21 /* GroupV2Protocol */,
+				C41F43E22840CEBA00AE3E21 /* DownloadGroupV2PhotoProtocol */,
+			);
+			path = GroupV2Protocols;
+			sourceTree = "<group>";
+		};
+		C41F43DC2840CE6900AE3E21 /* GroupV1Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				C4FDA729228C38350050B49F /* GroupManagementProtocol */,
+				C4744F6A228ABE9C003312D9 /* GroupInvitationProtocol */,
+				C0AFFDE6259E1BDC00653FE9 /* DownloadGroupPhotoProtocol */,
+			);
+			path = GroupV1Protocols;
+			sourceTree = "<group>";
+		};
+		C41F43E12840CE9E00AE3E21 /* GroupV2Protocol */ = {
+			isa = PBXGroup;
+			children = (
+				C416509827F7364300ECF472 /* GroupV2Protocol.swift */,
+				C416509A27F7369300ECF472 /* GroupV2ProtocolSteps.swift */,
+				C416509C27F7369A00ECF472 /* GroupV2ProtocolMessages.swift */,
+				C416509E27F736A100ECF472 /* GroupV2ProtocolStates.swift */,
+			);
+			path = GroupV2Protocol;
+			sourceTree = "<group>";
+		};
+		C41F43E22840CEBA00AE3E21 /* DownloadGroupV2PhotoProtocol */ = {
+			isa = PBXGroup;
+			children = (
+				C41F43E32840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift */,
+				C41F43E928414D3500AE3E21 /* DownloadGroupV2PhotoProtocolSteps.swift */,
+				C41F43E72841489900AE3E21 /* DownloadGroupV2PhotoProtocolMessages.swift */,
+				C41F43E52840CF9300AE3E21 /* DownloadGroupV2PhotoProtocolStates.swift */,
+			);
+			path = DownloadGroupV2PhotoProtocol;
+			sourceTree = "<group>";
+		};
 		C4224DCA243CB2E4008E43B8 /* FullRatchetProtocol */ = {
 			isa = PBXGroup;
 			children = (
@@ -413,9 +472,8 @@
 		C4744F69228ABE8A003312D9 /* GroupProtocols */ = {
 			isa = PBXGroup;
 			children = (
-				C4FDA729228C38350050B49F /* GroupManagementProtocol */,
-				C4744F6A228ABE9C003312D9 /* GroupInvitationProtocol */,
-				C0AFFDE6259E1BDC00653FE9 /* DownloadGroupPhotoProtocol */,
+				C41F43DC2840CE6900AE3E21 /* GroupV1Protocols */,
+				C416509327F7362F00ECF472 /* GroupV2Protocols */,
 			);
 			path = GroupProtocols;
 			sourceTree = "<group>";
@@ -503,6 +561,7 @@
 				C486261425B9B3D800788B96 /* TrustEstablishmentCommitmentReceived.swift */,
 				C4B8EA982216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift */,
 				C44687BE26ADBFF500762CC8 /* MutualScanSignatureReceived.swift */,
+				C4BA68D72811851D008FC95E /* GroupV2SignatureReceived.swift */,
 			);
 			path = CoreData;
 			sourceTree = "<group>";
@@ -712,6 +771,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0B4A506276F7DAD00816D8D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -741,9 +801,11 @@
 				C0AFFDEE259E1EAA00653FE9 /* DownloadGroupPhotoChildProtocolSteps.swift in Sources */,
 				C4CB7B8321FB09130010228A /* DownloadIdentityPhotoChildProtocol.swift in Sources */,
 				C4DCD991201B9963004FF917 /* ProtocolInstance.swift in Sources */,
+				C416509D27F7369A00ECF472 /* GroupV2ProtocolMessages.swift in Sources */,
 				C476934E202223FC008E2E28 /* ConcreteProtocolMessage.swift in Sources */,
 				C0AFFDEA259E1DBC00653FE9 /* DownloadGroupPhotoChildProtocol.swift in Sources */,
 				C4FDA731228C399B0050B49F /* GroupManagementProtocolMessages.swift in Sources */,
+				C41F43E82841489900AE3E21 /* DownloadGroupV2PhotoProtocolMessages.swift in Sources */,
 				C4808C4D2361C92800BF98E5 /* TrustEstablishmentWithSASProtocol.swift in Sources */,
 				C4ACF72A205A863E00F44105 /* ProtocolStarterCoordinator.swift in Sources */,
 				C44686D526AD8C5B00762CC8 /* TrustEstablishmentWithMutualScanProtocolMessages.swift in Sources */,
@@ -762,14 +824,17 @@
 				C4E9A6B121FA208200DAD46F /* IdentityDetailsPublicationProtocol.swift in Sources */,
 				C4EF525222D363B800B505B0 /* ContactManagementProtocolSteps.swift in Sources */,
 				C4EE42FE201E8D7700637081 /* ObvProtocolManager.swift in Sources */,
+				C41F43E42840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift in Sources */,
 				C4FDA733228C39A10050B49F /* GroupManagementProtocolStates.swift in Sources */,
 				C4E4B6A520DBCA45007B46E2 /* TrustEstablishmentProtocol.swift in Sources */,
 				C4E9A6B521FA218C00DAD46F /* IdentityDetailsPublicationProtocolMessages.swift in Sources */,
+				C416509927F7364300ECF472 /* GroupV2Protocol.swift in Sources */,
 				C4744F70228ABF58003312D9 /* GroupInvitationProtocolMessages.swift in Sources */,
 				C4744F6C228ABEBD003312D9 /* GroupInvitationProtocol.swift in Sources */,
 				C4FF1695203D858E00A51E3F /* LinkBetweenProtocolInstances.swift in Sources */,
 				C4EE4303201E927F00637081 /* ReceivedMessageDelegate.swift in Sources */,
 				C461DAED210685D300A936FA /* ContactMutualIntroductionProtocol.swift in Sources */,
+				C4BA68D82811851D008FC95E /* GroupV2SignatureReceived.swift in Sources */,
 				C09DA07625F7BA1800CDCB5F /* KeycloakContactAdditionProtocolSteps.swift in Sources */,
 				C4808C4F2361C93000BF98E5 /* TrustEstablishmentWithSASProtocolSteps.swift in Sources */,
 				C461DAEF210688A100A936FA /* ContactMutualIntroductionProtocolSteps.swift in Sources */,
@@ -778,6 +843,7 @@
 				C44686D726AD975700762CC8 /* TrustEstablishmentWithMutualScanProtocolMessagesSteps.swift in Sources */,
 				C4C9E351203DC5CE0006932A /* ChildToParentProtocolMessageInputs.swift in Sources */,
 				C4FDA72D228C383F0050B49F /* GroupManagementProtocol.swift in Sources */,
+				C41F43E62840CF9400AE3E21 /* DownloadGroupV2PhotoProtocolStates.swift in Sources */,
 				C417627221AD86FC008D2F29 /* ObvProtocolManagerDummy.swift in Sources */,
 				C0AFFDF4259E1F8600653FE9 /* DownloadGroupPhotoChildProtocolStates.swift in Sources */,
 				C4A9F6E120DCF30D00306839 /* TrustEstablishmentProtocolStates.swift in Sources */,
@@ -794,6 +860,7 @@
 				C0AFFDF1259E1F3B00653FE9 /* DownloadGroupPhotoChildProtocolMessages.swift in Sources */,
 				C44687BF26ADBFF500762CC8 /* MutualScanSignatureReceived.swift in Sources */,
 				C4A9F6E520DCFBA000306839 /* TrustEstablishmentProtocolSteps.swift in Sources */,
+				C41F43EA28414D3500AE3E21 /* DownloadGroupV2PhotoProtocolSteps.swift in Sources */,
 				C09DA07225F7B75D00CDCB5F /* KeycloakContactAdditionProtocol.swift in Sources */,
 				C4EF525622D363C400B505B0 /* ContactManagementProtocolStates.swift in Sources */,
 				C4808C532361C94000BF98E5 /* TrustEstablishmentWithSASProtocolStates.swift in Sources */,
@@ -818,12 +885,14 @@
 				C4808C512361C93700BF98E5 /* TrustEstablishmentWithSASProtocolMessages.swift in Sources */,
 				C4B8EA992216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift in Sources */,
 				C4CB7B8521FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift in Sources */,
+				C416509B27F7369300ECF472 /* GroupV2ProtocolSteps.swift in Sources */,
 				C47693522022243F008E2E28 /* CryptoProtocolId.swift in Sources */,
 				C4DCD993201B9B0B004FF917 /* ReceivedMessage.swift in Sources */,
 				C4CB7B8921FB092A0010228A /* DownloadIdentityPhotoChildProtocolStates.swift in Sources */,
 				C4FC8E2620E13DDA00467BE8 /* ChannelCreationWithContactDeviceProtocolSteps.swift in Sources */,
 				C40B6E1520F8C77700DC18FA /* DeviceDiscoveryForRemoteIdentityProtocol.swift in Sources */,
 				C4255A3025B586AF00DBDA39 /* ChannelCreationPingSignatureReceived.swift in Sources */,
+				C416509F27F736A100ECF472 /* GroupV2ProtocolStates.swift in Sources */,
 				C4FC8E2220E1348400467BE8 /* ChannelCreationWithContactDeviceProtocolStates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -943,7 +1012,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -965,7 +1035,11 @@
 				INFOPLIST_FILE = ObvProtocolManager/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvProtocolManager;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -990,7 +1064,11 @@
 				INFOPLIST_FILE = ObvProtocolManager/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvProtocolManager;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;

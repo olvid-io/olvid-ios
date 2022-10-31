@@ -46,6 +46,7 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
     @Published private(set) var selectedOwnedIdentity: PersistedObvOwnedIdentity
     @Published private(set) var messageIsSending: Bool = false
     @Published private(set) var bodyTextHasBeenSet: Bool = false
+    @Published var isAuthenticated: Bool = false
 
     private var viewIsClosing: Bool = false
     private(set) var hardlinks: [HardLinkToFyle?]? = nil
@@ -110,12 +111,17 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
         return model
     }
 
+    var isDisabled: Bool {
+        // Disable the view until authentication was performed
+        // Disable the view until bodyTexts have been set
+        !self.isAuthenticated || !self.bodyTextHasBeenSet
+    }
+
     var textBinding: Binding<String> {
         .init {
             self.text
         } set: {
-            // Allow to disable TextField until bodyTexts have been set
-            guard self.bodyTextHasBeenSet else { return }
+            guard !self.isDisabled else { return }
             self.text = $0
         }
 
@@ -187,8 +193,7 @@ struct ShareView: View {
 
     @ObservedObject var model: ShareViewModel
     @State private var activeSheet: ActiveSheet? = nil
-    @available(iOSApplicationExtension 15.0, *)
-    @FocusState private var isFocused: Bool
+    @State private var isFocused: Bool = true
     
     var body: some View {
         VStack(spacing: 0) {
@@ -223,7 +228,7 @@ struct ShareView: View {
             Group {
                 if #available(iOSApplicationExtension 15.0, *) {
                     TextEditor(text: model.textBinding)
-                        .focused($isFocused)
+                        .obvFocused(state: $isFocused)
                 } else if #available(iOSApplicationExtension 14.0, *) {
                     TextEditor(text: model.textBinding)
                 } else {
@@ -284,13 +289,6 @@ struct ShareView: View {
             .disabled(model.messageIsSending)
             .padding()
         }
-        .onAppear {
-            if #available(iOSApplicationExtension 15.0, *) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-                    self.isFocused = true
-                }
-            }
-        }
         .onDisappear(perform: {
             model.viewIsDisappeared()
         })
@@ -315,5 +313,6 @@ struct ShareView: View {
                 }
             }
         }
+        .disabled(model.isDisabled)
     }
 }

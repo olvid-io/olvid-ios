@@ -223,7 +223,13 @@ class MessageSystemCollectionViewCell: UICollectionViewCell {
             label.textColor = .white
         case .numberOfNewMessages:
             self.label.text = message.textBody?.localizedUppercase
+            self.label.textAlignment = .center
             roundedView.backgroundColor = AppTheme.appleBadgeRedColor
+            label.textColor = .white
+        case .membersOfGroupV2WereUpdated, .ownedIdentityIsPartOfGroupV2Admins, .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+            self.label.text = message.textBody
+            self.label.textAlignment = .center
+            roundedView.backgroundColor = AppTheme.shared.colorScheme.green
             label.textColor = .white
         case .callLogItem:
             self.label.text = message.textBody?.localizedUppercase

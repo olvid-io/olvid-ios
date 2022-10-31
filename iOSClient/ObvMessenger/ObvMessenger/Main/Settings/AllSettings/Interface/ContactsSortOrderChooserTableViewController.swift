@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import ObvEngine
+import ObvTypes
 
 class ContactsSortOrderChooserTableViewController: UITableViewController {
 

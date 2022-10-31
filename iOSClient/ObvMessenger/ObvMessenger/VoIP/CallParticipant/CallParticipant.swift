@@ -19,6 +19,7 @@
   
 
 import UIKit
+import ObvTypes
 import ObvEngine
 
 

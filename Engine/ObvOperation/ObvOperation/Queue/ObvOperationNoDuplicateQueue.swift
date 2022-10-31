@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvTypes
+import ObvCrypto
 
 private class ObvOperationWrapperForNoDuplicateQueue<WrappedObvOperationType: ObvOperation>: ObvOperationWrapper<WrappedObvOperationType> {
     

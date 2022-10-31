@@ -43,24 +43,35 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: OperationWith
         
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
 
-            let persistedContact: PersistedObvContactIdentity
             do {
-                guard let _contact = try PersistedObvContactIdentity.get(persisted: fromContactIdentity, whereOneToOneStatusIs: .any, within: context) else {
+                
+                guard let persistedContact = try PersistedObvContactIdentity.get(persisted: fromContactIdentity, whereOneToOneStatusIs: .any, within: context) else {
                     return cancel(withReason: .contactCannotBeFound)
                 }
-                persistedContact = _contact
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            do {
-                if let groupId = discussionSharedConfiguration.groupId {
+                
+                switch discussionSharedConfiguration.groupIdentifier {
+                    
+                case .none:
+                    
+                    // The configuration concerns the one2one discussion we have with the contact
+                    guard let oneToOneDiscussion = persistedContact.oneToOneDiscussion else {
+                        return cancel(withReason: .discussionCannotBeFound)
+                    }
+                    let sharedConfiguration = oneToOneDiscussion.sharedConfiguration
+                    guard try sharedConfiguration.merge(with: discussionSharedConfiguration, initiator: fromContactIdentity.cryptoId) else {
+                        // There was nothing to do
+                        return
+                    }
+                    self.updatedDiscussionObjectID = oneToOneDiscussion.objectID
+                    
+                case .groupV1(groupV1Identifier: let groupV1Identifier):
+                    
                     // The configuration concerns a group discussion
                     guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: fromContactIdentity.ownedIdentity, within: context) else {
                         return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
                     }
                     let contactGroup: PersistedContactGroup
-                    guard let _contactGroup = try PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedOwnedIdentity) else {
+                    guard let _contactGroup = try PersistedContactGroupJoined.getContactGroup(groupId: groupV1Identifier, ownedIdentity: persistedOwnedIdentity) else {
                         return cancel(withReason: .contactGroupCannotBeFound)
                     }
                     contactGroup = _contactGroup
@@ -73,27 +84,34 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: OperationWith
                         return
                     }
                     self.updatedDiscussionObjectID = contactGroup.discussion.objectID
-                } else if let oneToOneDiscussion = persistedContact.oneToOneDiscussion {
-                    // The configuration concerns the one2one discussion we have with the contact
-                    let sharedConfiguration = oneToOneDiscussion.sharedConfiguration
+                    
+                case .groupV2(groupV2Identifier: let groupV2Identifier):
+                    
+                    // The configuration concerns a group v2 discussion
+                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: fromContactIdentity.ownedIdentity, within: context) else {
+                        return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
+                    }
+                    guard let group = try PersistedGroupV2.get(ownIdentity: persistedOwnedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        return cancel(withReason: .contactGroupCannotBeFound)
+                    }
+                    guard let discussion = group.discussion else {
+                        return cancel(withReason: .discussionCannotBeFound)
+                    }
+                    let sharedConfiguration = discussion.sharedConfiguration
                     guard try sharedConfiguration.merge(with: discussionSharedConfiguration, initiator: fromContactIdentity.cryptoId) else {
                         // There was nothing to do
                         return
                     }
-                    self.updatedDiscussionObjectID = oneToOneDiscussion.objectID
-                } else {
-                    return cancel(withReason: .discussionCannotBeFound)
+                    self.updatedDiscussionObjectID = discussion.objectID
+                    
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            do {
+                
                 try context.save(logOnFailure: log)
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
-
+                
         }
         
     }

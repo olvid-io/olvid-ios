@@ -89,7 +89,7 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
     }
 
 
-    @objc func wipe() throws {
+    func wipe() throws {
         self.isWiped = true
         self.fyle = nil
         self.fileName = ""

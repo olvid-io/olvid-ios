@@ -23,21 +23,22 @@ import os.log
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 
 /// This method is typically called when we receive a request to delete some messages by a contact willing to globally delete these messages
 final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCancel<WipeMessagesOperationReasonForCancel> {
     
-    private let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+    private let groupIdentifier: GroupIdentifier?
     private let messagesToDelete: [MessageReferenceJSON]
     private let requester: ObvContactIdentity
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: WipeMessagesOperation.self))
     private let saveRequestIfMessageCannotBeFound: Bool
     private let messageUploadTimestampFromServer: Date
     
-    init(messagesToDelete: [MessageReferenceJSON], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, requester: ObvContactIdentity, messageUploadTimestampFromServer: Date, saveRequestIfMessageCannotBeFound: Bool) {
+    init(messagesToDelete: [MessageReferenceJSON], groupIdentifier: GroupIdentifier?, requester: ObvContactIdentity, messageUploadTimestampFromServer: Date, saveRequestIfMessageCannotBeFound: Bool) {
         self.messagesToDelete = messagesToDelete
-        self.groupId = groupId
+        self.groupIdentifier = groupIdentifier
         self.requester = requester
         self.saveRequestIfMessageCannotBeFound = saveRequestIfMessageCannotBeFound
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
@@ -76,14 +77,32 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             
             let discussion: PersistedDiscussion
             do {
-                if let groupId = self.groupId {
-                    guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
-                        return cancel(withReason: .couldNotFindGroupDiscussion)
+                if let groupIdentifier = self.groupIdentifier {
+                    switch groupIdentifier {
+                    case .groupV1(let groupV1Identifier):
+                        guard let group = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
+                            return cancel(withReason: .couldNotFindGroupDiscussion)
+                        }
+                        guard group.contactIdentities.contains(contact) || group.ownerIdentity == requester.cryptoId.getIdentity() else {
+                            return cancel(withReason: .wipeRequestedByNonGroupMember)
+                        }
+                        discussion = group.discussion
+                    case .groupV2(let groupV2Identifier):
+                        guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                            return cancel(withReason: .couldNotFindGroupDiscussion)
+                        }
+                        guard let requester = group.otherMembers.first(where: { $0.identity == requester.cryptoId.getIdentity() }) else {
+                            return cancel(withReason: .wipeRequestedByNonGroupMember)
+                        }
+                        guard requester.isAllowedToRemoteDeleteAnything || requester.isAllowedToEditOrRemoteDeleteOwnMessages else {
+                            assertionFailure()
+                            return cancel(withReason: .wipeRequestedByMemberNotAllowedToRemoteDelete)
+                        }
+                        guard let _discussion = group.discussion else {
+                            return cancel(withReason: .couldNotFindGroupDiscussion)
+                        }
+                        discussion = _discussion
                     }
-                    guard group.contactIdentities.contains(contact) || group.ownerIdentity == requester.cryptoId.getIdentity() else {
-                        return cancel(withReason: .wipeRequestedByNonGroupMember)
-                    }
-                    discussion = group.discussion
                 } else if let oneToOneDiscussion = contact.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {
@@ -137,13 +156,18 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             
             for message in sentMessagesToWipe {
                 messageUriRepresentations.insert(message.typedObjectID.downcast.uriRepresentation())
-                try? message.wipe(requester: contact)
+                let requesterOfDeletion = RequesterOfMessageDeletion.contact(ownedCryptoId: ownedIdentity.cryptoId,
+                                                                             contactCryptoId: contact.cryptoId,
+                                                                             messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                try? message.wipe(requester: requesterOfDeletion)
                 objectIDOfWipedMessages.insert(message.typedObjectID.downcast)
             }
             
             for message in receivedMessagesToWipe {
                 messageUriRepresentations.insert(message.typedObjectID.downcast.uriRepresentation())
-                try? message.wipe(requester: contact)
+                try? message.wipeByContact(ownedCryptoId: ownedIdentity.cryptoId,
+                                           contactCryptoId: contact.cryptoId,
+                                           messageUploadTimestampFromServer: messageUploadTimestampFromServer)
                 objectIDOfWipedMessages.insert(message.typedObjectID.downcast)
             }
             
@@ -182,10 +206,13 @@ enum WipeMessagesOperationReasonForCancel: LocalizedErrorWithLogType {
     case couldNotFindGroupDiscussion
     case couldNotFindContact
     case wipeRequestedByNonGroupMember
+    case wipeRequestedByMemberNotAllowedToRemoteDelete
     case couldNotFindDiscussion
 
     var logType: OSLogType {
         switch self {
+        case .wipeRequestedByMemberNotAllowedToRemoteDelete:
+            return .error
         case .coreDataError, .couldNotFindOwnedIdentity, .couldNotFindGroupDiscussion, .couldNotFindContact, .wipeRequestedByNonGroupMember, .contextIsNil, .couldNotFindDiscussion:
             return .fault
         }
@@ -207,6 +234,8 @@ enum WipeMessagesOperationReasonForCancel: LocalizedErrorWithLogType {
             return "The message wipe was requested by a contact that is not part of the group"
         case .couldNotFindDiscussion:
             return "Could not find discussion"
+        case .wipeRequestedByMemberNotAllowedToRemoteDelete:
+            return "The message wipe was requested by a member who is not allowed to perform remote delete"
         }
     }
 

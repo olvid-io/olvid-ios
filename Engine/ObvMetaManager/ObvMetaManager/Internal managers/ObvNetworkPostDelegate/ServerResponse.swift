@@ -41,12 +41,18 @@ public struct ServerResponse {
 }
 
 extension ServerResponse {
-    
+        
     public enum ResponseType {
         case deviceDiscovery(of: ObvCryptoIdentity, deviceUids: [UID])
         case putUserData
-        case getUserData(of: ObvCryptoIdentity, userDataPath: String)
+        case getUserData(result: GetUserDataResult)
         case checkKeycloakRevocation(verificationSuccessful: Bool)
+        case createGroupBlob(uploadResult: UploadResult)
+        case getGroupBlob(result: GetGroupBlobResult)
+        case deleteGroupBlob(groupDeletionWasSuccessful: Bool)
+        case putGroupLog
+        case requestGroupBlobLock(result: RequestGroupBlobLockResult)
+        case updateGroupBlob(uploadResult: UploadResult)
 
         private var rawValue: Int {
             switch self {
@@ -58,6 +64,18 @@ extension ServerResponse {
                 return 2
             case .checkKeycloakRevocation:
                 return 3
+            case .createGroupBlob:
+                return 4
+            case .getGroupBlob:
+                return 5
+            case .deleteGroupBlob:
+                return 6
+            case .putGroupLog:
+                return 7
+            case .requestGroupBlobLock:
+                return 8
+            case .updateGroupBlob:
+                return 9
             }
         }
         
@@ -68,10 +86,22 @@ extension ServerResponse {
                 return [rawValue.obvEncode(), identity.obvEncode(), listOfEncodedDeviceUids.obvEncode()].obvEncode()
             case .putUserData:
                 return [rawValue.obvEncode()].obvEncode()
-            case .getUserData(of: let identity, userDataPath: let userDataPath):
-                return [rawValue.obvEncode(), identity.obvEncode(), userDataPath.obvEncode()].obvEncode()
+            case .getUserData(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
             case .checkKeycloakRevocation(verificationSuccessful: let verificationSuccessful):
                 return [rawValue.obvEncode(), verificationSuccessful.obvEncode()].obvEncode()
+            case .createGroupBlob(uploadResult: let uploadResult):
+                return [rawValue.obvEncode(), uploadResult.obvEncode()].obvEncode()
+            case .getGroupBlob(let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .deleteGroupBlob(let groupDeletionWasSuccessful):
+                return [rawValue.obvEncode(), groupDeletionWasSuccessful.obvEncode()].obvEncode()
+            case .putGroupLog:
+                return [rawValue.obvEncode()].obvEncode()
+            case .requestGroupBlobLock(let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .updateGroupBlob(uploadResult: let uploadResult):
+                return [rawValue.obvEncode(), uploadResult.obvEncode()].obvEncode()
             }
         }
         
@@ -93,15 +123,38 @@ extension ServerResponse {
             case 1:
                 self = .putUserData
             case 2:
-                guard listOfEncoded.count == 3 else { return nil }
-                guard let identity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
-                guard let userDataPath = String(listOfEncoded[2]) else { return nil }
-                self = .getUserData(of: identity, userDataPath: userDataPath)
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = GetUserDataResult(listOfEncoded[1]) else { return nil }
+                self = .getUserData(result: result)
             case 3:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let verificationSuccessful = Bool(listOfEncoded[1]) else { return nil }
                 self = .checkKeycloakRevocation(verificationSuccessful: verificationSuccessful)
+            case 4:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let uploadResult = UploadResult(listOfEncoded[1]) else { return nil }
+                self = .createGroupBlob(uploadResult: uploadResult)
+            case  5:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = GetGroupBlobResult(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .getGroupBlob(result: result)
+            case 6:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let groupDeletionWasSuccessful = Bool(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .deleteGroupBlob(groupDeletionWasSuccessful: groupDeletionWasSuccessful)
+            case 7:
+                guard listOfEncoded.count == 1 else { return nil }
+                self = .putGroupLog
+            case 8:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = RequestGroupBlobLockResult(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .requestGroupBlobLock(result: result)
+            case 9:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let uploadResult = UploadResult(listOfEncoded[1]) else { return nil }
+                self = .updateGroupBlob(uploadResult: uploadResult)
             default:
+                assertionFailure()
                 return nil
             }
         }

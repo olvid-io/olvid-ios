@@ -482,11 +482,6 @@ extension ContactMutualIntroductionProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                throw Self.makeError(message: "The solve challenge delegate is not set")
-            }
-
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let mediatorIdentity = startState.mediatorIdentity
@@ -499,10 +494,8 @@ extension ContactMutualIntroductionProtocol {
             // We check the signature
 
             do {
-                let identities = [mediatorIdentity, ownedIdentity, contactIdentity]
-                let challenge = identities.reduce(Data()) { $0 + $1.getIdentity() }
-                let prefix = ContactMutualIntroductionProtocol.signatureChallengePrefix
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: contactIdentity) else {
+                let challengeType = ChallengeType.mutualIntroduction(mediatorIdentity: mediatorIdentity, firstIdentity: ownedIdentity, secondIdentity: contactIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: contactIdentity) else {
                     os_log("The signature verification failed", log: log, type: .error)
                     return CancelledState()
                 }
@@ -863,10 +856,8 @@ extension ProtocolStep {
 
         let signature: Data
         do {
-            let identities = [mediatorIdentity, contactIdentity, ownedIdentity]
-            let challenge = identities.reduce(Data()) { $0 + $1.getIdentity() }
-            let prefix = ContactMutualIntroductionProtocol.signatureChallengePrefix
-            guard let sig = try? solveChallengeDelegate.solveChallenge(challenge, prefixedWith: prefix, for: ownedIdentity, using: prng, within: obvContext) else {
+            let challengeType = ChallengeType.mutualIntroduction(mediatorIdentity: mediatorIdentity, firstIdentity: contactIdentity, secondIdentity: ownedIdentity)
+            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
                 os_log("Could not compute signature", log: log, type: .fault)
                 throw Self.makeError(message: "Could not compute signature")
             }

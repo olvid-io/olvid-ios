@@ -96,6 +96,7 @@ final class BootstrapWorker {
                 // We cannot call this method in the finalizeInitialization method because the generated notifications would not be received by the app
                 self?.rescheduleAllInboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
                 delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId)
+                self?.postAllPendingServerQuery(delegateManager: delegateManager, flowId: flowId)
             }
         }
         
@@ -368,5 +369,9 @@ extension BootstrapWorker {
         delegateManager.serverUserDataDelegate.cleanUserData(flowId: flowId)
     }
 
+    
+    private func postAllPendingServerQuery(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) {
+        delegateManager.serverQueryDelegate.postAllPendingServerQuery(flowId: flowId)
+    }
     
 }

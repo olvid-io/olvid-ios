@@ -19,7 +19,7 @@
 
 import Foundation
 import ObvEncoder
-import ObvTypes
+
 
 public final class ObvCryptoIdentity: NSObject, NSCopying, ObvCodable {
     

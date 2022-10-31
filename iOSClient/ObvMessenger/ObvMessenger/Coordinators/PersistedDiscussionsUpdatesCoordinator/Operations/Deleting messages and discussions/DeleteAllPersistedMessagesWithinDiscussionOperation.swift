@@ -21,18 +21,23 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvTypes
 
 /// This operation replaces the discussion (either one-to-one or group) by another empty discussion of the same type.
 /// Before saving the context, this operation deletes the old discussion, which cascade deletes its messages.
 /// If this operation finishes without cancelling, `newDiscussionObjectID` is set to the objectID of the new discussion if a new discussion was created during this operation.
-final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<DeleteAllPersistedMessagesWithinDiscussionOperationReasonForCancel> {
+final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<DeleteAllPersistedMessagesWithinDiscussionOperationReasonForCancel>, ObvErrorMaker {
         
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllPersistedMessagesWithinDiscussionOperation.self))
 
     private let persistedDiscussionObjectID: NSManagedObjectID
+    private let requester: RequesterOfMessageDeletion
     
-    init(persistedDiscussionObjectID: NSManagedObjectID) {
+    static let errorDomain = "DeleteAllPersistedMessagesWithinDiscussionOperation"
+    
+    init(persistedDiscussionObjectID: NSManagedObjectID, requester: RequesterOfMessageDeletion) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID
+        self.requester = requester
         super.init()
     }
     
@@ -53,9 +58,19 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                 // Deleting all messages is implemented as a deletion of a discussion.
                 // If the deleted discussion is active, it is replaced by a new one with the same configuration.
                 // In practice, this behavior allows to efficiently delete all messages.
+                atLeastOneMessageWasDeleted = !discussion.messages.isEmpty
                 switch discussion.status {
                 case .preDiscussion, .locked:
-                    break
+                    switch requester {
+                    case .ownedIdentity:
+                        do {
+                            try discussion.deleteDiscussion(requester: nil)
+                        } catch {
+                            return cancel(withReason: .coreDataError(error: error))
+                        }
+                    case .contact:
+                        return cancel(withReason: .coreDataError(error: Self.makeError(message: "A contact cannot delete a pre or locked discussion") ))
+                    }
                 case .active:
                     let sharedConfigurationToKeep = discussion.sharedConfiguration
                     let localConfigurationToKeep = discussion.localConfiguration
@@ -63,6 +78,11 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                         switch try discussion.kind {
                         case .oneToOne(withContactIdentity: let contactIdentity):
                             if let contactIdentity = contactIdentity {
+                                do {
+                                    try discussion.deleteDiscussion(requester: requester) // Must be called before creating the new discussion
+                                } catch {
+                                    return cancel(withReason: .coreDataError(error: error))
+                                }
                                 let newDiscussion = try PersistedOneToOneDiscussion(
                                     contactIdentity: contactIdentity,
                                     status: .active,
@@ -76,6 +96,11 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                         case .groupV1(withContactGroup: let contactGroup):
                             if let contactGroup = contactGroup, let ownedIdentity = discussion.ownedIdentity {
                                 let groupName = discussion.title
+                                do {
+                                    try discussion.deleteDiscussion(requester: requester) // Must be called before creating the new discussion
+                                } catch {
+                                    return cancel(withReason: .coreDataError(error: error))
+                                }
                                 let newDiscussion = try PersistedGroupDiscussion(
                                     contactGroup: contactGroup,
                                     groupName: groupName,
@@ -88,13 +113,28 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID
                             }
+                        case .groupV2(withGroup: let group):
+                            if let group = group {
+                                do {
+                                    try discussion.deleteDiscussion(requester: requester) // Must be called before creating the new discussion
+                                } catch {
+                                    return cancel(withReason: .coreDataError(error: error))
+                                }
+                                let newDiscussion = try PersistedGroupV2Discussion(
+                                    persistedGroupV2: group,
+                                    insertDiscussionIsEndToEndEncryptedSystemMessage: false,
+                                    shouldApplySharedConfigurationFromGlobalSettings: false,
+                                    sharedConfigurationToKeep: sharedConfigurationToKeep,
+                                    localConfigurationToKeep: localConfigurationToKeep)
+                                try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
+                                assert(newDiscussionObjectID == nil)
+                                newDiscussionObjectID = newDiscussion.objectID
+                            }
                         }
                     } catch {
                         return cancel(withReason: .unknownDiscussionType)
                     }
                 }
-                atLeastOneMessageWasDeleted = !discussion.messages.isEmpty
-                try discussion.delete()
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

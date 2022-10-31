@@ -23,5 +23,6 @@ protocol SingleGroupViewControllerDelegate: AnyObject {
     
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToDisplay(persistedContact: PersistedObvContactIdentity, within: UINavigationController?)
+    func userWantsToCloneGroup(displayedContactGroupObjectID: TypeSafeManagedObjectID<DisplayedContactGroup>)
 
 }

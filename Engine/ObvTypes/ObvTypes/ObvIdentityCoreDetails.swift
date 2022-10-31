@@ -147,7 +147,7 @@ extension ObvIdentityCoreDetails: Codable {
     }
     
     
-    static func jsonDecode(_ data: Data) throws -> ObvIdentityCoreDetails {
+    public static func jsonDecode(_ data: Data) throws -> ObvIdentityCoreDetails {
         let decoder = JSONDecoder()
         return try decoder.decode(ObvIdentityCoreDetails.self, from: data)
     }

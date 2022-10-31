@@ -79,7 +79,7 @@ extension DownloadIdentityPhotoChildProtocol {
             // Get the encrypted photo
 
             let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ServerQuery(ownedIdentity: ownedIdentity))
-            let concreteMessage = ServerGetPhotoMessage.init(coreProtocolMessage: coreMessage)
+            let concreteMessage = ServerGetPhotoMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: receivedMessage.contactIdentity, label: label)
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
@@ -125,8 +125,7 @@ extension DownloadIdentityPhotoChildProtocol {
 
             let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption()
 
-            let encryptedPhoto = EncryptedData(data: encryptedPhotoData)
-            guard let photo = try? authEnc.decrypt(encryptedPhoto, with: photoServerKeyAndLabel.key) else {
+            guard let photo = try? authEnc.decrypt(encryptedPhotoData, with: photoServerKeyAndLabel.key) else {
                 os_log("Could not decrypt the photo", log: log, type: .fault)
                 return CancelledState()
             }

@@ -20,6 +20,7 @@
 import Foundation
 import ObvTypes
 import ObvMetaManager
+import ObvCrypto
 
 
 public struct ObvBackupKeyInformation {

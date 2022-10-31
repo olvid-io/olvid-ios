@@ -19,7 +19,6 @@
 
 import Foundation
 
-import ObvTypes
 
 
 public extension Array where Element == ObvEncoded {
@@ -97,11 +96,20 @@ public extension Array where Element == ObvEncoded {
 }
 
 
-// The following extension leverages the previous one so as to make [ObvEncodable] conform to ObvEncodable.
 extension Array: ObvEncodable where Element == ObvEncodable {
     
     public func obvEncode() -> ObvEncoded {
         let arrayOfObvEncoded = self.map { $0.obvEncode() }
+        return arrayOfObvEncoded.obvEncode()
+    }
+    
+}
+
+
+extension Array: ObvFailableEncodable where Element == ObvFailableEncodable {
+    
+    public func obvEncode() throws -> ObvEncoded {
+        let arrayOfObvEncoded = try self.map { try $0.obvEncode() }
         return arrayOfObvEncoded.obvEncode()
     }
     

@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import ObvEngine
+import ObvTypes
 
 protocol ObvSubTabBarControllerDelegate: AnyObject {
     var ownedCryptoId: ObvCryptoId { get }

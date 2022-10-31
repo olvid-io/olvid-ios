@@ -146,6 +146,21 @@ final class SyncPersistedContactGroupsWithEngineOperation: ContextualOperationWi
                     }
                 }
                 
+                // Make sure that all remaining persisted contact groups do have an associated display contact group.
+                // For those that have one, make sure it is in sync.
+                
+                if let persistedGroups = try? PersistedContactGroup.getAllContactGroups(ownedIdentity: ownedIdentity, within: obvContext.context) {
+                    for group in persistedGroups {
+                        guard !group.isDeleted else { continue }
+                        do {
+                            try group.createOrUpdateTheAssociatedDisplayedContactGroup()
+                        } catch {
+                            os_log("Could not create or update the underlying displayed contact group of a persisted contact group: %{public}@", log: log, type: .fault, error.localizedDescription)
+                            assertionFailure() // In production, continue anyway
+                        }
+                    }
+                }
+                
             } // End ownedIdentities.forEach
             
         } // End obvContext.performAndWait

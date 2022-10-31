@@ -144,6 +144,13 @@ public final class ObvContext: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(self.uuid)
     }
+    
+    public func createChildObvContext() -> ObvContext {
+        let childContext = NSManagedObjectContext(concurrencyType: self.context.concurrencyType)
+        childContext.parent = self.context
+        return ObvContext(context: childContext, flowId: flowId, file: file, line: line, function: function)
+    }
+    
 }
 
 // MARK: - Replicating NSManagedObjectContext methods

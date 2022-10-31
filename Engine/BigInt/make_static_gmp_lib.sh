@@ -3,7 +3,7 @@
 GMP_VERSION="6.2.1"
 PLATFORMPATH="/Applications/Xcode.app/Contents/Developer/Platforms"
 TOOLSPATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
-export IPHONEOS_DEPLOYMENT_TARGET="13.0" # can be set to 10.3 with Xcode 8.3.3
+export IPHONEOS_DEPLOYMENT_TARGET="13.0"
 pwd=`pwd`
 
 findLatestSDKVersion()
@@ -36,19 +36,25 @@ buildit()
         hostarget="i386"
     elif [[ $hosttarget == "arm64" ]]; then
         hosttarget="arm"
+	if [[ $platform == "iPhoneSimulator" ]]; then
+	    target_simulator="-target arm64-apple-ios13.0-simulator"
+	else
+	    target_simulator=""
+	fi
     fi
+
 
     export CC="$(xcrun -sdk iphoneos -find clang)"
     export CPP="$CC -E"
-    export CFLAGS="-arch ${target} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$IPHONEOS_DEPLOYMENT_TARGET -flto"
+    export CFLAGS="-arch ${target} ${target_simulator} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$IPHONEOS_DEPLOYMENT_TARGET -flto"
     export AR=$(xcrun -sdk iphoneos -find ar)
     export RANLIB=$(xcrun -sdk iphoneos -find ranlib)
-    export CPPFLAGS="-arch ${target}  -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$IPHONEOS_DEPLOYMENT_TARGET"
+    export CPPFLAGS="-arch ${target} ${target_simulator} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk -miphoneos-version-min=$IPHONEOS_DEPLOYMENT_TARGET"
     export LDFLAGS="-arch ${target} -isysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk --sysroot $PLATFORMPATH/$platform.platform/Developer/SDKs/$platform$SDKVERSION.sdk"
     export CC_FOR_BUILD="IPHONEOS_DEPLOYMENT_TARGET='' clang"
 
-    if [ -d $pwd/builds/gmp-$GMP_VERSION/$target ]; then
-	echo "A build already exists for GMP v$GMP_VERSION for target $target."
+    if [ -d $pwd/builds/gmp-$GMP_VERSION/$platform/$target ]; then
+	echo "A build already exists for GMP v$GMP_VERSION for platform $platform and target $target."
     else
 	echo "Starting the build for GMP v$GMP_VERSION for target $target."
 	echo -e "\thosttarget = $hosttarget"
@@ -61,9 +67,9 @@ buildit()
 	echo -e "\tLDFLAGS    = $LDFLAGS"
 	echo -e "\tCC         = $CC"
 
-	mkdir -p $pwd/builds/gmp-$GMP_VERSION/$target
+	mkdir -p $pwd/builds/gmp-$GMP_VERSION/$platform/$target
 
-	./configure --prefix="$pwd/builds/gmp-$GMP_VERSION/$target" --disable-shared --enable-static --host=$hosttarget-apple-darwin --disable-assembly
+	./configure --prefix="$pwd/builds/gmp-$GMP_VERSION/$platform/$target" --disable-shared --enable-static --host=$hosttarget-apple-darwin --disable-assembly
 
 	make clean
 	make
@@ -100,15 +106,20 @@ distclean
 
 # Step 3: Build
 
-buildit arm64 iPhoneOS
+buildit arm64 iPhoneSimulator
 distclean
 buildit x86_64 iPhoneSimulator
 distclean
+buildit arm64 iPhoneOS
+distclean
 
-# Step 4: Lipo the libraries for the various architectures into one static library.
+# Step 4: Lipo the libraries for the various architectures for the simulator into one static library.
 
-echo "Building universal static library..."
+echo "Building universal static library for the simulator..."
+platform="iPhoneSimulator"
 LIPO=$(xcrun -sdk iphoneos -find lipo)
-mkdir -p $pwd/builds/gmp-$GMP_VERSION/universal
-$LIPO -create $pwd/builds/gmp-$GMP_VERSION/arm64/lib/libgmp.a $pwd/builds/gmp-$GMP_VERSION/x86_64/lib/libgmp.a -output $pwd/builds/gmp-$GMP_VERSION/universal/libgmp.a
-cp $pwd/builds/gmp-$GMP_VERSION/arm64/include/gmp.h $pwd/builds/gmp-$GMP_VERSION/universal/
+mkdir -p $pwd/builds/gmp-$GMP_VERSION/$platform/universal
+$LIPO -create $pwd/builds/gmp-$GMP_VERSION/$platform/arm64/lib/libgmp.a $pwd/builds/gmp-$GMP_VERSION/$platform/x86_64/lib/libgmp.a -output $pwd/builds/gmp-$GMP_VERSION/$platform/universal/libgmp.a
+cp $pwd/builds/gmp-$GMP_VERSION/$platform/arm64/include/gmp.h $pwd/builds/gmp-$GMP_VERSION/$platform/universal/
+
+# No need to create a universal lib for the iPhone since there is only one architecture

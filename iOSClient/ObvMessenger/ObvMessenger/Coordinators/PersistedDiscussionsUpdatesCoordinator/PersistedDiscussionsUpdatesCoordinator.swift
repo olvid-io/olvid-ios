@@ -56,7 +56,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
 
         if forTheFirstTime {
             periodicallyRefreshReceivedAttachmentProgress()
-            bootstrapProcessUnprocessedPersistedMessageSent()
+            processUnprocessedRecipientInfosThatCanNowBeProcessed()
             deleteEmptyLockedDiscussion()
             trashOrphanedFilesFoundInTheFylesDirectory()
             deleteRecipientInfosThatHaveNoMsgIdentifierFromEngineAndAssociatedToDeletedContact()
@@ -76,6 +76,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
         // The following bootstrap methods are always called, not only the first time the app appears on screen
         
         bootstrapMessagesDecryptedWithinNotificationExtension()
+        wipeReadOnceAndLimitedVisibilityMessagesThatTheShareExtensionDidNotHaveTimeToWipe()
 
     }
     
@@ -155,19 +156,20 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 self?.processNewDraftToSendNotification(persistedDraftObjectID: persistedDraftObjectID)
             },
             ObvMessengerCoreDataNotification.observeNewPersistedObvContactDevice() { [weak self] (contactDeviceObjectID, _) in
-                self?.processNewPersistedObvContactDeviceNotifications(persistedObvContactDeviceObjectID: contactDeviceObjectID)
+                self?.sendAppropriateDiscussionSharedConfigurationsToContact(input: .contactDevice(contactDeviceObjectID: contactDeviceObjectID), sendSharedConfigOfOneToOneDiscussion: true)
+                self?.processUnprocessedRecipientInfosThatCanNowBeProcessed()
             },
             ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities() { [weak self] (persistedContactGroupObjectID, insertedContacts, removedContacts) in
                 self?.processPersistedContactGroupHasUpdatedContactIdentitiesNotification(persistedContactGroupObjectID: persistedContactGroupObjectID, insertedContacts: insertedContacts, removedContacts: removedContacts)
             },
-            ObvMessengerInternalNotification.observePersistedMessageReceivedWasDeleted() { [weak self] (_, messageIdentifierFromEngine, ownedCryptoId, _, _) in
+            PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted() { [weak self] (_, messageIdentifierFromEngine, ownedCryptoId, _, _) in
                 self?.processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedMessage() { [weak self] (persistedMessageObjectID, deletionType) in
-                self?.processUserRequestedDeletionOfPersistedMessageNotification(persistedMessageObjectID: persistedMessageObjectID, deletionType: deletionType)
+            ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedMessage() { [weak self] (ownedCryptoId, persistedMessageObjectID, deletionType) in
+                self?.processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ownedCryptoId, persistedMessageObjectID: persistedMessageObjectID, deletionType: deletionType)
             },
             ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedDiscussion() { [weak self] (persistedDiscussionObjectID, deletionType, completionHandler) in
-                self?.deletePersistedDiscussion(withObjectID: persistedDiscussionObjectID, deletionType: deletionType, requestedBy: nil, completionHandler: completionHandler)
+                self?.processUserRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: persistedDiscussionObjectID, deletionType: deletionType, completionHandler: completionHandler)
             },
             ObvMessengerInternalNotification.observeMessagesAreNotNewAnymore() { [weak self] persistedMessageObjectIDs in
                 self?.processMessagesAreNotNewAnymore(persistedMessageObjectIDs: persistedMessageObjectIDs)
@@ -195,10 +197,10 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToReadReceivedMessagesThatRequiresUserAction { [weak self] (persistedMessageObjectIDs) in
                 self?.processUserWantsToReadReceivedMessagesThatRequiresUserActionNotification(persistedMessageObjectIDs: persistedMessageObjectIDs)
             },
-            ObvMessengerInternalNotification.observePersistedMessageReceivedWasRead { (persistedMessageReceivedObjectID) in
+            PersistedMessageReceivedNotification.observePersistedMessageReceivedWasRead { (persistedMessageReceivedObjectID) in
                 Task { [weak self] in await self?.processPersistedMessageReceivedWasReadNotification(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID) }
             },
-            ObvMessengerInternalNotification.observeReceivedFyleJoinHasBeenMarkAsOpened { (receivedFyleJoinID) in
+            ReceivedFyleMessageJoinWithStatusNotifications.observeReceivedFyleJoinHasBeenMarkAsOpened { (receivedFyleJoinID) in
                 Task { [weak self] in await self?.processReceivedFyleJoinHasBeenMarkAsOpenedNotification(receivedFyleJoinID: receivedFyleJoinID) }
             },
             ObvMessengerCoreDataNotification.observeAReadOncePersistedMessageSentWasSent { [weak self] (persistedMessageSentObjectID, persistedDiscussionObjectID) in
@@ -207,14 +209,17 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration { [weak self] (persistedDiscussionObjectID, expirationJSON, ownedCryptoId) in
                 self?.processUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: persistedDiscussionObjectID, expirationJSON: expirationJSON, ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observePersistedDiscussionSharedConfigurationShouldBeSent { [weak self] (persistedDiscussionObjectID) in
-                self?.processPersistedDiscussionSharedConfigurationShouldBeSentNotification(persistedDiscussionObjectID: persistedDiscussionObjectID)
+            ObvMessengerCoreDataNotification.observeAnOldDiscussionSharedConfigurationWasReceived { [weak self] (persistedDiscussionObjectID) in
+                self?.processAnOldDiscussionSharedConfigurationWasReceivedNotification(persistedDiscussionObjectID: persistedDiscussionObjectID)
+            },
+            ObvMessengerCoreDataNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
+                self?.processUserWantsToUpdateDiscussionLocalConfigurationNotification(with: value, localConfigurationObjectID: localConfigurationObjectID)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, persistedDiscussionObjectID, completionHandler) in
+                self?.processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with: value, persistedDiscussionObjectID: persistedDiscussionObjectID, completionHandler: completionHandler)
             },
             ObvMessengerInternalNotification.observeApplyAllRetentionPoliciesNow { [weak self] (launchedByBackgroundTask, completionHandler) in
                 self?.processApplyAllRetentionPoliciesNowNotification(launchedByBackgroundTask: launchedByBackgroundTask, completionHandler: completionHandler)
-            },
-            ObvMessengerCoreDataNotification.observeAnOldDiscussionSharedConfigurationWasReceived { [weak self] (persistedDiscussionObjectID) in
-                self?.processAnOldDiscussionSharedConfigurationWasReceivedNotification(persistedDiscussionObjectID: persistedDiscussionObjectID)
             },
             ObvMessengerInternalNotification.observeUserWantsToSendEditedVersionOfSentMessage { [weak self] (sentMessageObjectID, newTextBody) in
                 self?.processUserWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: sentMessageObjectID, newTextBody: newTextBody)
@@ -224,12 +229,6 @@ final class PersistedDiscussionsUpdatesCoordinator {
             },
             ObvMessengerInternalNotification.observeUserWantsToRemoveDraftFyleJoin { [weak self] (draftFyleJoinObjectID) in
                 self?.processUserWantsToRemoveDraftFyleJoinNotification(draftFyleJoinObjectID: draftFyleJoinObjectID)
-            },
-            ObvMessengerCoreDataNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
-                self?.processUserWantsToUpdateDiscussionLocalConfigurationNotification(with: value, localConfigurationObjectID: localConfigurationObjectID)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, persistedDiscussionObjectID, completionHandler) in
-                self?.processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with: value, persistedDiscussionObjectID: persistedDiscussionObjectID, completionHandler: completionHandler)
             },
             ObvMessengerCoreDataNotification.observePersistedContactWasDeleted { [weak self ] _, _ in
                 self?.processPersistedContactWasDeletedNotification()
@@ -258,8 +257,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToMarkAsReadMessageWithinTheNotificationExtension { persistedContactObjectID, messageIdentifierFromEngine, completionHandler in
                 Task { [weak self] in await self?.processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, completionHandler: completionHandler) }
             },
-            ObvMessengerInternalNotification.observeUserWantsToWipeFyleMessageJoinWithStatus { [weak self] objectIDs in
-                self?.processUserWantsToWipeFyleMessageJoinWithStatus(objectIDs: objectIDs)
+            ObvMessengerInternalNotification.observeUserWantsToWipeFyleMessageJoinWithStatus { [weak self] (ownedCryptoId, objectIDs) in
+                self?.processUserWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ownedCryptoId, objectIDs: objectIDs)
             },
             ObvMessengerInternalNotification.observeUserWantsToForwardMessage { [weak self] messageID, discussionIDs in
                 self?.processUserWantsToForwardMessage(messageObjectID: messageID, discussionObjectIDs: discussionIDs)
@@ -273,19 +272,22 @@ final class PersistedDiscussionsUpdatesCoordinator {
             NewSingleDiscussionNotification.observeUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus { [weak self] joinObjectID in
                 self?.processUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: joinObjectID)
             },
-            ObvMessengerInternalNotification.observeADeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus { [weak self] (returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine, attachmentNumber) in
+            ReceivedFyleMessageJoinWithStatusNotifications.observeADeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus { [weak self] (returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine, attachmentNumber) in
                 self?.processADeliveredReturnReceiptShouldBeSent(returnReceipt: returnReceipt, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
             },
-            ObvMessengerInternalNotification.observeADeliveredReturnReceiptShouldBeSentForPersistedMessageReceived { [weak self] returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine in
+            PersistedMessageReceivedNotification.observeADeliveredReturnReceiptShouldBeSentForPersistedMessageReceived { [weak self] returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine in
                 self?.processADeliveredReturnReceiptShouldBeSent(returnReceipt: returnReceipt, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: nil)
+            },
+            ObvMessengerInternalNotification.observeTooManyWrongPasscodeAttemptsCausedLockOut { [weak self] in
+                self?.processTooManyWrongPasscodeAttemptsCausedLockOut()
             },
         ])
         
         // Internal VoIP notifications
         
         observationTokens.append(contentsOf: [
-            VoIPNotification.observeReportCallEvent { [weak self] (callUUID, callReport, groupId, ownedCryptoId) in
-                self?.processReportCallEvent(callUUID: callUUID, callReport: callReport, groupId: groupId, ownedCryptoId: ownedCryptoId)
+            VoIPNotification.observeReportCallEvent { [weak self] (callUUID, callReport, groupIdentifier, ownedCryptoId) in
+                self?.processReportCallEvent(callUUID: callUUID, callReport: callReport, groupIdentifier: groupIdentifier, ownedCryptoId: ownedCryptoId)
             },
             VoIPNotification.observeCallHasBeenUpdated { [weak self] callUUID, updateKind in
                 self?.processCallHasBeenUpdated(callUUID: callUUID, updateKind: updateKind)
@@ -372,6 +374,10 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvEngineNotificationNew.observeAPersistedDialogWasDeleted(within: NotificationCenter.default) { [weak self] uuid in
                 self?.processAPersistedDialogWasDeleted(uuid: uuid)
             },
+            ObvMessengerCoreDataNotification.observeAPersistedGroupV2MemberChangedFromPendingToNonPending { [weak self] contactObjectID in
+                self?.sendAppropriateDiscussionSharedConfigurationsToContact(input: .contact(contactObjectID: contactObjectID), sendSharedConfigOfOneToOneDiscussion: false)
+                self?.processUnprocessedRecipientInfosThatCanNowBeProcessed()
+            },
         ])
 
         // Bootstrapping
@@ -380,6 +386,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
 
         // Share extension
         observeNewSentMessagesAddedByExtension()
+        observeExtensionFailedToWipeAllEphemeralMessagesBeforeDate()
     }
  
     deinit {
@@ -428,7 +435,18 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
         kvoTokens.append(token)
+    }
 
+    
+    private func observeExtensionFailedToWipeAllEphemeralMessagesBeforeDate() {
+        guard let userDefaults = self.userDefaults else {
+            os_log("The user defaults database is not set", log: log, type: .fault)
+            return
+        }
+        let token = userDefaults.observe(\.extensionFailedToWipeAllEphemeralMessagesBeforeDate) { [weak self] (userDefaults, change) in
+            self?.wipeReadOnceAndLimitedVisibilityMessagesThatTheShareExtensionDidNotHaveTimeToWipe()
+        }
+        kvoTokens.append(token)
     }
     
     
@@ -456,6 +474,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     
     private func cleanJsonMessagesSavedByNotificationExtension() {
+        assert(!Thread.isMainThread)
         let op = DeleteAllJsonMessagesSavedByNotificationExtension()
         internalQueue.addOperations([op], waitUntilFinished: true)
         op.logReasonIfCancelled(log: log)
@@ -504,35 +523,19 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
         
     }
-    
 
-    /// This method process all the messages that are still unprocessed
-    private func bootstrapProcessUnprocessedPersistedMessageSent() {
-        assert(OperationQueue.current != internalQueue)
-        let log = self.log
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
 
-            let infosOfUnprocessedSentMessages: [PersistedMessageSentRecipientInfos]
-            do {
-                infosOfUnprocessedSentMessages = try PersistedMessageSentRecipientInfos.getAllUnprocessed(within: context)
-            } catch let error {
-                os_log("Could not get all unprocessed message sent recipients infos: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assert(false)
-                return
-            }
-
-            let discussionsWithUnprocessedMessages = Set(infosOfUnprocessedSentMessages.map { $0.messageSent.discussion })
-
-            guard !discussionsWithUnprocessedMessages.isEmpty else { return }
-
-            for discussion in discussionsWithUnprocessedMessages {
-                self?.sendUnprocessedMessages(within: discussion)
-            }
-
-        }
+    private func wipeReadOnceAndLimitedVisibilityMessagesThatTheShareExtensionDidNotHaveTimeToWipe() {
+        guard let userDefaults = userDefaults else { return }
+        let op = WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation(userDefaults: userDefaults,
+                                                                                  appType: .mainApp,
+                                                                                  wipeType: .finishIfRequiredWipeStartedByAnExtension)
+        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: self.log, flowId: FlowIdentifier())
+        self.internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: self.log)
     }
     
-    
+
     private func bootstrapMessagesToBeWiped(preserveReceivedMessages: Bool) {
         do {
             let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: preserveReceivedMessages, restrictToDiscussionWithObjectID: nil)
@@ -703,7 +706,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             return
         }
     }
-
+    
     
     private func processInsertDebugMessagesInAllExistingDiscussions() {
         #if DEBUG
@@ -738,35 +741,55 @@ extension PersistedDiscussionsUpdatesCoordinator {
         #endif
     }
 
-    /// When receiving a NewPersistedObvContactDevice, we check whether there exists "related" unsent message in the .unprocessed status. If this is the case, we can now post them.
-    private func processNewPersistedObvContactDeviceNotifications(persistedObvContactDeviceObjectID: NSManagedObjectID) {
+    /// When receiving a NewPersistedObvContactDevice, we check whether there exists "related" unsent message. If this is the case, we can now post them.
+    private func processUnprocessedRecipientInfosThatCanNowBeProcessed() {
         
-        let log = self.log
-        
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            
-            guard let contactDevice = try? context.existingObject(with: persistedObvContactDeviceObjectID) as? PersistedObvContactDevice else {
-                return
+        let op = FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentByEngineOperation()
+        op.queuePriority = .low
+        internalQueue.addOperations([op], waitUntilFinished: true)
+        guard !op.isCancelled else {
+            assertionFailure()
+            return
+        }
+        for persistedMessageSentObjectID in op.persistedMessageSentObjectIDs {
+            let op1 = SendUnprocessedPersistedMessageSentOperation(persistedMessageSentObjectID: persistedMessageSentObjectID, extendedPayloadProvider: nil, obvEngine: obvEngine)
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            composedOp.queuePriority = .low
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            if composedOp.isCancelled {
+                assertionFailure()
+                // In production, continue anyway
             }
-            
-            guard let contactIdentity = contactDevice.identity else {
-                os_log("Could not find contact identity. This is ok if it was just deleted.", log: log, type: .error)
-                return
-            }
-            
-            // Send all the unprocessed messages waiting in the one2one discussion with the contact.
-            // The discussion does not exist if the contact is not oneToOne
-            if let oneToOneDiscussion = contactIdentity.oneToOneDiscussion {
-                self?.sendUnprocessedMessages(within: oneToOneDiscussion)
-            }
-            
-            // Send all the unprocessed messages waiting in all the contact group discussions we have with this contact
-            for contactGroup in contactIdentity.contactGroups {
-                self?.sendUnprocessedMessages(within: contactGroup.discussion)
-            }
-            
         }
 
+    }
+    
+    
+    /// When receiving a NewPersistedObvContactDevice notification of a contact, we look for all group v2 discussions where this contact is a member and that we administrate.
+    /// For each discussion found, we send the shared configuration.
+    /// We also send the shared configuration of the one-to-one discussion we have with this contact.
+    /// This method is also used when a contact that was a pending group v2 member accepts the invitation.
+    private func sendAppropriateDiscussionSharedConfigurationsToContact(input: FindAdministratedGroupV2DiscussionsAndOneToOneDiscussionWithContactOperation.Input, sendSharedConfigOfOneToOneDiscussion: Bool) {
+        
+        let op1 = FindAdministratedGroupV2DiscussionsAndOneToOneDiscussionWithContactOperation(input: input, includeOneToOneDiscussionInResult: sendSharedConfigOfOneToOneDiscussion)
+        let op = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        op.queuePriority = .low
+        internalQueue.addOperations([op], waitUntilFinished: true)
+        guard !op.isCancelled else {
+            assertionFailure()
+            return
+        }
+        
+        for persistedDiscussionObjectID in op1.persistedDiscussionObjectIDs {
+            let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID.objectID, obvEngine: obvEngine)
+            op.queuePriority = .low
+            internalQueue.addOperations([op], waitUntilFinished: true)
+            if op.isCancelled {
+                assertionFailure()
+                // In production, continue anyway
+            }
+        }
+        
     }
 
     
@@ -817,7 +840,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     os_log("Could not get PersistedContactGroupOwned: %{public}@", log: log, type: .fault, error.localizedDescription)
                     return
                 }
-                let op = SendPersistedDiscussionSharedConfigurationOperation(persistedDiscussionObjectID: discussionObjectID, obvEngine: obvEngine)
+                let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: discussionObjectID, obvEngine: obvEngine)
                 internalQueue.addOperations([op], waitUntilFinished: true)
                 op.logReasonIfCancelled(log: log)
             }
@@ -837,7 +860,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processUserRequestedDeletionOfPersistedMessageNotification(persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType) {
+    private func processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ObvCryptoId, persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType) {
         
         switch deletionType {
         case .local:
@@ -854,7 +877,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
             op.logReasonIfCancelled(log: log)
         }
         do {
-            let op1 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: Set([persistedMessageObjectID]))
+            let requester = RequesterOfMessageDeletion.ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .local)
+            let op1 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: Set([persistedMessageObjectID]), requester: requester)
             let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
             composedOp.logReasonIfCancelled(log: log)
@@ -875,17 +899,27 @@ extension PersistedDiscussionsUpdatesCoordinator {
             .postOnDispatchQueue()
     }
 
+
+    private func processUserRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, completionHandler: @escaping (Bool) -> Void) {
+
+        ObvStack.shared.performBackgroundTask { [weak self] context in
+            guard let discussion = try? PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
+                return
+            }
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
+            self?.deletePersistedDiscussion(
+                withObjectID: persistedDiscussionObjectID,
+                requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: deletionType),
+                completionHandler: completionHandler)
+        }
+
+    }
+    
     
     /// This methods properly deletes a discussion. It is typically called when the user requests the deletion of all messages within a discussion. But it is also called when a contact performs a global delete of a discussion, in which case `requestedBy` is non `nil`.
-    private func deletePersistedDiscussion(withObjectID persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, requestedBy: (obvContactId: ObvContactIdentity, messageUploadTimestampFromServer: Date)?, completionHandler: @escaping (Bool) -> Void) {
+    private func deletePersistedDiscussion(withObjectID persistedDiscussionObjectID: NSManagedObjectID, requester: RequesterOfMessageDeletion, completionHandler: @escaping (Bool) -> Void) {
         
         assert(OperationQueue.current != internalQueue)
-        
-        guard requestedBy == nil || deletionType == .local else {
-            // When performing a deletion requested by a contact, we make sure not to perfom "another" global deletion, only a local one
-            assertionFailure()
-            return
-        }
 
         /*
          * If Alice sends us a message, then deletes the discussion, the following occurs:
@@ -897,16 +931,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
          */
         cleanJsonMessagesSavedByNotificationExtension()
         
-        switch deletionType {
-        case .local:
-            break // We will do the work below
-        case .global:
-            let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+        switch requester {
+        case .contact:
+            // We are performing a local deletion, request by a contact. We will do the work below
+            break
+        case .ownedIdentity(_, let deletionType):
+            switch deletionType {
+            case .local:
+                break // We will do the work below
+            case .global:
+                let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
+                internalQueue.addOperations([op], waitUntilFinished: true)
+                op.logReasonIfCancelled(log: log)
+            }
         }
         
         // We first cancel the upload of all unprocessed messages
+        
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             do {
                 let allProcessingMessageSent = try PersistedMessageSent.getAllProcessingWithinDiscussion(persistedDiscussionObjectID: persistedDiscussionObjectID, within: context)
@@ -921,12 +962,16 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let newDiscussionObjectID: NSManagedObjectID?
         let atLeastOneMessageWasDeleted: Bool
         do {
-            let op1 = DeleteAllPersistedMessagesWithinDiscussionOperation(persistedDiscussionObjectID: persistedDiscussionObjectID)
+            let op1 = DeleteAllPersistedMessagesWithinDiscussionOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, requester: requester)
             let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
             composedOp.logReasonIfCancelled(log: log)
             DispatchQueue.main.async {
                 completionHandler(!composedOp.isCancelled)
+            }
+            guard !composedOp.isCancelled else {
+                os_log("DeleteAllPersistedMessagesWithinDiscussionOperation cancelled: %{public}@", log: log, type: .error, composedOp.reasonForCancel?.localizedDescription ?? "")
+                return
             }
             newDiscussionObjectID = op1.newDiscussionObjectID
             atLeastOneMessageWasDeleted = op1.atLeastOneMessageWasDeleted
@@ -946,14 +991,17 @@ extension PersistedDiscussionsUpdatesCoordinator {
         ObvMessengerInternalNotification.trashShouldBeEmptied
             .postOnDispatchQueue()
 
-        if let (obvContactId, messageUploadTimestampFromServer) = requestedBy {
+        switch requester {
+        case .ownedIdentity:
+            break
+        case .contact(let ownedCryptoId, let contactCryptoId, let messageUploadTimestampFromServer):
             // This happens when this discussion was globally deleted by a contact.
             // In that case, we expect the newDiscussionObjectID to be non nil
             assert(newDiscussionObjectID != nil)
             if let objectID = newDiscussionObjectID, atLeastOneMessageWasDeleted {
                 var contactIdentityObjectID: NSManagedObjectID? = nil
                 ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                    if let contact = try? PersistedObvContactIdentity.get(persisted: obvContactId, whereOneToOneStatusIs: .any, within: context) {
+                    if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: context) {
                         contactIdentityObjectID = contact.objectID
                     }
                 }
@@ -967,7 +1015,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 op.logReasonIfCancelled(log: log)
             }
         }
+        
     }
+
     
     private func processMessagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>) {
         assert(OperationQueue.current != internalQueue)
@@ -1026,16 +1076,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     throw _self.makeError(message: "Could not find PersistedCallLogItem")
                 }
 
-                guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: item.ownedCryptoId, within: context) else {
-                    throw _self.makeError(message: "Could not find PersistedObvOwnedIdentity")
-                }
-
                 let discussion: PersistedDiscussion
-                if let groupId = try item.getGroupId() {
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
-                        throw _self.makeError(message: "Could not find PersistedObvOwnedIdentity")
+                if let groupId = try item.getGroupIdentifier() {
+                    switch groupId {
+                    case .groupV1(let objectID):
+                        guard let contactGroup = try PersistedContactGroup.get(objectID: objectID.objectID, within: context) else {
+                            throw _self.makeError(message: "Could not find PersistedContactGroup")
+                        }
+                        discussion = contactGroup.discussion
+                    case .groupV2(let objectID):
+                        guard let group = try PersistedGroupV2.get(objectID: objectID, within: context) else {
+                            throw _self.makeError(message: "Could not find PersistedGroupV2")
+                        }
+                        guard let _discussion = group.discussion else {
+                            throw _self.makeError(message: "Could not find PersistedGroupV2Discussion")
+                        }
+                        discussion = _discussion
                     }
-                    discussion = contactGroup.discussion
                 } else {
                     if item.isIncoming {
                         guard let caller = item.logContacts.first(where: {$0.isCaller}),
@@ -1204,19 +1261,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
             op.logReasonIfCancelled(log: log)
         }
         do {
-            let op = SendPersistedDiscussionSharedConfigurationOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
+            let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
         }
     }
     
-    
-    private func processPersistedDiscussionSharedConfigurationShouldBeSentNotification(persistedDiscussionObjectID: NSManagedObjectID) {
-        let op = SendPersistedDiscussionSharedConfigurationOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
-    }
-
     
     private func processApplyAllRetentionPoliciesNowNotification(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void) {
         var success = true
@@ -1254,7 +1304,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     
     private func processAnOldDiscussionSharedConfigurationWasReceivedNotification(persistedDiscussionObjectID: NSManagedObjectID) {
-        let op = SendPersistedDiscussionSharedConfigurationOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
+        let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
         internalQueue.addOperations([op], waitUntilFinished: true)
         op.logReasonIfCancelled(log: log)
     }
@@ -1790,50 +1840,64 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     private func processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: @escaping () -> Void) async {
         
+        let log = self.log
+        
         // The following method call adds the received message decrypted by the notification extension into the database.
         // This allows to be sure that we will be able to mark it as read.
         bootstrapMessagesDecryptedWithinNotificationExtension()
 
-        let op = MarkAsReadReceivedMessageOperation(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-
-        guard !op.isCancelled else {
-            DispatchQueue.main.async {
-                completionHandler()
+        let op = MarkAsReadReceivedMessageOperation(persistedContactObjectID: persistedContactObjectID,
+                                                    messageIdentifierFromEngine: messageIdentifierFromEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op,
+                                                             contextCreator: ObvStack.shared,
+                                                             log: log,
+                                                             flowId: FlowIdentifier())
+        
+        composedOp.completionBlock = {
+            
+            Task { [weak self] in
+                
+                guard !op.isCancelled else {
+                    DispatchQueue.main.async {
+                        completionHandler()
+                    }
+                    return
+                }
+                
+                // Post a read receipt if required. Normally, this is triggered by a change in the database that eventually calls this coordinator back.
+                // Here, we cannot wait until this happens (because we have a completion handler to call), so we post a read receipt immediately.
+                // Yes, we might be sending two read receipts...
+                
+                if let persistedMessageReceivedObjectID = op.persistedMessageReceivedObjectID {
+                    do {
+                        try await self?.postMessageReadReceiptIfRequired(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID)
+                    } catch {
+                        os_log("Could not post read receipt", log: log, type: .fault)
+                        assertionFailure()
+                        // Continue anyway
+                    }
+                }
+                
+                // Recompute all badges
+                
+                ObvMessengerInternalNotification.needToRecomputeAllBadges { _ in
+                    DispatchQueue.main.async {
+                        completionHandler()
+                    }
+                }.postOnDispatchQueue()
+                
             }
-            return
         }
-
-        // Post a read receipt if required. Normally, this is triggered by a change in the database that eventually calls this coordinator back.
-        // Here, we cannot wait until this happens (because we have a completion handler to call), so we post a read receipt immediately.
-        // Yes, we might be sending two read receipts...
         
-        if let persistedMessageReceivedObjectID = op.persistedMessageReceivedObjectID {
-            do {
-                try await postMessageReadReceiptIfRequired(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID)
-            } catch {
-                os_log("Could not post read receipt", log: log, type: .fault)
-                assertionFailure()
-                // Continue anyway
-            }
-        }
-        
-        // Recompute all badges
-        
-        ObvMessengerInternalNotification.needToRecomputeAllBadges { _ in
-            DispatchQueue.main.async {
-                completionHandler()
-            }
-        }.postOnDispatchQueue()
+        internalQueue.addOperation(composedOp)
         
     }
     
     
-    private func processUserWantsToWipeFyleMessageJoinWithStatus(objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) {
+    private func processUserWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ObvCryptoId, objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) {
         do {
-            let op1 = WipeFyleMessageJoinsWithStatusOperation(joinObjectIDs: objectIDs)
+            let requester = RequesterOfMessageDeletion.ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .local)
+            let op1 = WipeFyleMessageJoinsWithStatusOperation(joinObjectIDs: objectIDs, requester: requester)
             let op2 = DeletePersistedMessagesOperation(operationProvidingPersistedMessageObjectIDsToDelete: op1)
             let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
@@ -1896,6 +1960,17 @@ extension PersistedDiscussionsUpdatesCoordinator {
             os_log("🧾 Failed to post return receipt", log: log, type: .fault)
         }
         
+    }
+
+    
+    private func processTooManyWrongPasscodeAttemptsCausedLockOut() {
+        guard ObvMessengerSettings.Privacy.lockoutCleanEphemeral else { return }
+        let op1 = WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation(userDefaults: userDefaults,
+                                                                                   appType: .mainApp,
+                                                                                   wipeType: .startWipeFromAppOrShareExtension)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
     }
 
 }
@@ -2051,7 +2126,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         if let deleteMessagesJSON = persistedItemJSON.deleteMessagesJSON {
             os_log("The message is a delete message JSON", log: log, type: .debug)
             let op = WipeMessagesOperation(messagesToDelete: deleteMessagesJSON.messagesToDelete,
-                                           groupId: deleteMessagesJSON.groupId,
+                                           groupIdentifier: deleteMessagesJSON.groupIdentifier,
                                            requester: obvMessage.fromContactIdentity,
                                            messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
                                            saveRequestIfMessageCannotBeFound: true)
@@ -2064,14 +2139,19 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
             os_log("The message is a delete discussion JSON", log: log, type: .debug)
-            let op = GetAppropriateActiveDiscussionOperation(contact: obvMessage.fromContactIdentity, groupId: deleteDiscussionJSON.groupId)
+            let op = GetAppropriateActiveDiscussionOperation(contact: obvMessage.fromContactIdentity,
+                                                             groupIdentifier: deleteDiscussionJSON.groupIdentifier)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
             assert(op.discussionObjectID != nil || op.isCancelled)
-            if let discussionObjectID = op.discussionObjectID {
-                // An appropriate discussion to delete was found, we can delete it
-                deletePersistedDiscussion(withObjectID: discussionObjectID, deletionType: .local, requestedBy: (obvMessage.fromContactIdentity, obvMessage.downloadTimestampFromServer), completionHandler: { _ in })
-            }
+            guard let discussionObjectID = op.discussionObjectID else { return }
+            // An appropriate discussion to delete was found, we can delete it
+            let requester = RequesterOfMessageDeletion.contact(ownedCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
+                                                               contactCryptoId: obvMessage.fromContactIdentity.cryptoId,
+                                                               messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
+            deletePersistedDiscussion(withObjectID: discussionObjectID,
+                                      requester: requester,
+                                      completionHandler: { _ in })
         }
         
         // Case #6: The ObvMessage contains a JSON message indicating that a received message has been edited by the original sender
@@ -2080,7 +2160,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             os_log("The message is an update message JSON", log: log, type: .debug)
             let op = EditTextBodyOfReceivedMessageOperation(newTextBody: updateMessageJSON.newTextBody,
                                                             requester: obvMessage.fromContactIdentity,
-                                                            groupId: updateMessageJSON.groupId,
+                                                            groupIdentifier: updateMessageJSON.groupIdentifier,
                                                             receivedMessageToEdit: updateMessageJSON.messageToEdit,
                                                             messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
                                                             saveRequestIfMessageCannotBeFound: true)
@@ -2099,6 +2179,16 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
                 internalQueue.addOperations([composedOp], waitUntilFinished: true)
                 composedOp.logReasonIfCancelled(log: log)
+        }
+        
+        // Case #8: The ObvMessage contains a JSON message containing a request for a group v2 discussion shared settings
+        
+        if let querySharedSettingsJSON = persistedItemJSON.querySharedSettingsJSON {
+            let op = RespondToQuerySharedSettingsOperation(fromContactIdentity: obvMessage.fromContactIdentity,
+                                                           querySharedSettingsJSON: querySharedSettingsJSON)
+            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            composedOp.logReasonIfCancelled(log: log)
         }
         
         // The inbox message has been processed, we can call the completion handler.
@@ -2131,8 +2221,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
     }
 
-    private func processReportCallEvent(callUUID: UUID, callReport: CallReport, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, ownedCryptoId: ObvCryptoId) {
-        let op = ReportCallEventOperation(callUUID: callUUID, callReport: callReport, groupId: groupId, ownedCryptoId: ownedCryptoId)
+    private func processReportCallEvent(callUUID: UUID, callReport: CallReport, groupIdentifier: GroupIdentifierBasedOnObjectID?, ownedCryptoId: ObvCryptoId) {
+        let op = ReportCallEventOperation(callUUID: callUUID,
+                                          callReport: callReport,
+                                          groupIdentifier: groupIdentifier,
+                                          ownedCryptoId: ownedCryptoId)
         self.internalQueue.addOperations([op], waitUntilFinished: true)
         op.logReasonIfCancelled(log: self.log)
     }
@@ -2194,8 +2287,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
     }
     
-    /// This method allows to post messages that were still `unprocessed` within a discussion. This typically happens when the user post a message within a discussion
-    /// before the channel with the contact is established (i.e., before a contact device is added), or when the user post a message in an empty group and adds a member
+    /// This method allows to post messages that were still `unprocessed` within a discussion. This typically happens when the user posts a message within a discussion
+    /// before the channel with the contact is established (i.e., before a contact device is added), or when the user posts a message in an empty group and adds a member
     /// afterwards.
     private func sendUnprocessedMessages(within discussion: PersistedDiscussion) {
         assert(OperationQueue.current != internalQueue)
@@ -2225,5 +2318,9 @@ fileprivate struct MessageIdentifierFromEngineAndOwnedCryptoId: Hashable {
 private extension UserDefaults {
     @objc dynamic var objectsModifiedByShareExtension: String {
         return ObvMessengerConstants.objectsModifiedByShareExtension
+    }
+
+    @objc dynamic var extensionFailedToWipeAllEphemeralMessagesBeforeDate: String {
+        return ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate
     }
 }

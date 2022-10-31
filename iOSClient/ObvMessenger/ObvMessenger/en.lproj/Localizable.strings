@@ -106,9 +106,6 @@ On My iPhone > Olvid";
 /* Invitation subtitle */
 "Group Created" = "Group Created";
 
-/* No comment provided by engineer. */
-"Group creation started" = "Group creation started";
-
 /* Title before the list of group members. */
 "Group Members:" = "Group Members:";
 
@@ -203,9 +200,6 @@ On My iPhone > Olvid";
 
 /* Invitation details */
 "We are bootstraping the secure channel between you and %@. Please note that this requires %@'s device to be online." = "We are bootstraping the secure channel between you and %@. Please wait...";
-
-/* No comment provided by engineer. */
-"We started a new discussion group creation for you. Go to the Invitations tab to see who accepted your invitation so far." = "We started a new discussion group creation for you.";
 
 /* Invitation details */
 "MUTUAL_TRUST_CONFIRMED_DETAILS_%@" = "Well done! %1$@ is now part of your contacts and you can have a private discussion with them.";
@@ -726,7 +720,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "File exported to Files App" = "File exported to Files App";
 
 /* Alert title */
-"Contact cannot be deleted for now" = "Contact cannot be deleted for now";
+"Contact cannot be deleted for now" = "This user cannot be deleted for now";
 
 /* Alert message */
 "You cannot remove %@ from your contacts as both of you belong to some common groups. You will need to leave these groups to proceed." = "You cannot delete the user %@ as both of you belong to some common groups. You will need to leave these groups to proceed.";
@@ -803,17 +797,31 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Privacy" = "Privacy";
 
-"Log in with passcode" = "Log in with passcode";
-"Log in with Touch ID" = "Log in with Touch ID";
-"Log in with Face ID" = "Log in with Face ID";
+"LOGIN_WITH_SYSTEM_PASSCODE_TITLE" = "Log in with your device's passcode";
+"LOGIN_WITH_TOUCH_ID_SYSTEM_PASSCODE_TITLE" = "Log in with Touch ID or your device's passcode";
+"LOGIN_WITH_FACE_ID_SYSTEM_PASSCODE_TITLE" = "Log in with Face ID or your device's passcode";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_SYSTEM_PASSCODE_TITLE" = "Log in with Touch ID, Face ID, or your device's passcode";
+
+"LOGIN_WITH_CUSTOM_PASSCODE_TITLE" = "Log in with a custom passcode";
+"LOGIN_WITH_TOUCH_ID_CUSTOM_PASSCODE_TITLE" = "Log in with Touch ID or a custom passcode";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_CUSTOM_PASSCODE_TITLE" = "Log in with Touch ID, Face ID, or a custom passcode";
+"LOGIN_WITH_FACE_ID_CUSTOM_PASSCODE_TITLE" = "Log in with Face ID or a custom passcode";
+
+"LOGIN_WITH_SYSTEM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using your device's passcode.";
+"LOGIN_WITH_TOUCH_ID_SYSTEM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using Touch ID or your device's passcode";
+"LOGIN_WITH_FACE_ID_SYSTEM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using Face ID or your device's passcode";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_SYSTEM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using Touch ID, Face ID, or your device's passcode";
+
+"NO_AUTHENTICATION_EXPLANATION" = "Olvid's screen won't be locked.";
+
+"LOGIN_WITH_CUSTOM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using a custom passcode.";
+"LOGIN_WITH_TOUCH_ID_CUSTOM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using Touch ID or a custom passcode";
+"LOGIN_WITH_FACE_ID_CUSTOM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using Face ID or a custom passcode";
+"LOGIN_WITH_TOUCH_ID_FACE_ID_CUSTOM_PASSCODE_EXPLANATION" = "This option allows you to protect Olvid using Touch ID, Face ID, or a custom passcode";
 
 "Authenticate" = "Authenticate";
 
 "Please authenticate to start Olvid" = "Please authenticate to start Olvid";
-
-"Explanation for Log in with passcode" = "Activating this option allows you to protect Olvid using the passcode you already use to unlock your iPhone";
-"Explanation for Log in with Touch ID" = "Activating this option allows you to protect Olvid using Touch ID.";
-"Explanation for Log in with Face ID" = "Activating this option allows you to protect Olvid using Face ID.";
 
 "After" = "After";
 
@@ -823,7 +831,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "No passcode set on this iPhone." = "No passcode set on this iPhone.";
 
-"😧 Oups..." = "😧 Oups...";
+"😧 Oups..." = "😧 Oops...";
 
 /* Used within a HUD to indicate to the user that she should choose a discussion for AirDrop'ed files */
 "Choose Discussion" = "Choose a Discussion";
@@ -1120,7 +1128,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "USE_CALLKIT" = "Use CallKit";
 
-"BUTTON_TITLE_AUTHENTICATE" = "Tap to authenticate";
+"BUTTON_TITLE_AUTHENTICATE" = "Authenticate";
 
 "VoIP" = "VoIP";
 
@@ -1166,11 +1174,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Exclude" = "Exclude";
 
-//"MESSAGE_VOIP_BETA" = "It is now possible to use Olvid for secure audio calls!\n\nThe feature will remain free for all Olvid users for a limited period of time. After that, placing calls will require a paid subscription, but all Olvid users will still be able to receive calls from users with a subscription.\n\nNote that audio calls are only possible with users using the latest Olvid version. Calling a user with an older vesion will result in a call timeout.";
-
 "DO_NO_SHOW_MSG_AGAIN" = "Do not show this message again";
-
-//"TITLE_SECURE_CALLS_BETA" = "Secure Calls";
 
 "TITLE_RESET_ALL_ALERTS" = "Reset all alerts";
 
@@ -1592,7 +1596,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "GLOBAL_EXPIRATION_SETTINGS_EXPLANATION" = "The settings below will be applied to all new one-to-one discussions and to all new group discussions that you create. Please note that these settings will be shared among all the participant of the discussion.";
 
-"ONLY_GROUP_OWNER_CAN_MODIFY" = "Only the group owner can modify these settings.";
+"ONLY_GROUP_OWNER_CAN_MODIFY" = "Only a group administrator can modify these settings.";
 
 "UNREAD_EPHEMERAL_MESSAGE" = "Unread ephemeral message";
 
@@ -2273,13 +2277,29 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "SHOW_IN_DISCUSSION" = "Show in discussion";
 
-"NOT_PART_OF_THE_GROUP_ANYMORE" = "You are not part of this group anymore, either because you left it, or because an administrator removed you.";
+"NOT_PART_OF_THE_GROUP_ANYMORE" = "You are not part of this group anymore, either because you left it, because an administrator removed you, or because the group was deleted 🥲.";
 
 "REJOINED_GROUP" = "You are again part of this group ✌️.";
 
 "CONTACT_%@_IS_ONE_TO_ONE_AGAIN" = "%@ is part of your contacts again, you can continue your discussion where you left off 🤗.";
 
 "Medias" = "Medias";
+
+"UNKNOWN_USER" = "Unknown user";
+
+"CREATE_GROUP_WITH_OWN_PERMISSION_ADMIN" = "Create a group";
+
+"CREATE_FIRST_GROUP_WITH_OWN_PERMISSION_ADMIN" = "Create your first group";
+
+"GROUPS_THAT_YOU_ADMINISTER" = "Groups that you administer";
+
+"CHOOSE_GROUP_TYPE_TITLE" = "Which type of group do you wish to create?";
+
+"CHOOSE_GROUP_TYPE_MESSAGE" = "Olvid is currently rolling out a new group format that allows multiple administrators per group. Only contacts using a version of Olvid that support this new group format can be added to these groups.\n\nDo you wish to create a group with the new format, or a legacy group?";
+
+"CHOOSE_GROUP_V1" = "Legacy";
+
+"CHOOSE_GROUP_V2" = "New format";
 
 "Forward" = "Forward";
 
@@ -2392,3 +2412,133 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "NOTIFICATION_SOUNDS_SUBTITLE_POLYPHONIC" = "When receiving a message, a random note of the selected instrument will be played. Give it a try by tapping your preferred choice several times 😉.";
 
 "SYSTEM_SOUND" = "System sound";
+
+"GRACE_PERIOD" = "Require authentication";
+
+"PIN" = "PIN";
+
+"PASSWORD" = "Password";
+
+"CREATE_YOUR_PASSCODE" = "Create your passcode";
+
+"CONFIRM_YOUR_PASSCODE" = "Confirm your passcode";
+
+"ENTER_YOUR_PASSCODE" = "Enter your passcode";
+
+"CREATE_MY_PASSCODE" = "Create my passcode";
+
+"LOCKED_OUT_FOR" = "Locked for ";
+
+"LOCKED_OUT" = "Locked Out";
+
+"RETRY_WITH_TOUCH_ID" = "Retry with Touch ID";
+
+"RETRY_WITH_FACE_ID" = "Retry with Face ID";
+
+"LOCKED_OUT_EXPLANATION" = "Olvid is locked following too many wrong passcode attempts.";
+
+"LOCKOUT_CLEAN_EPHEMERAL_TITLE" = "Erase sensitive messages after 3 bad passcode attempts";
+
+"LOCKOUT_CLEAN_EPHEMERAL_EXPLANATION" = "When activated, entering a wrong passcode 3 times in a row will silently erase all read once and limited visibility messages.";
+
+"BIOMETRY_NOT_ENROLLED_ERROR_TITLE" = "Please set up Face ID or Touch ID";
+
+"BIOMETRY_NOT_ENROLLED_ERROR_MESSAGE" = "To use this feature, you need to set up either Face ID or Touch ID in the Settings app.";
+
+"NO_GRACE_PERIOD_EXPLANATION" = "Olvid will be locked immediately after being closed.";
+
+"GRACE_PERIOD_EXPLANATION_%@" = "After being closed, Olvid will be locked after %@.";
+
+"GRACE_PERIOD_TITLE_%@" = "after %@";
+
+"OTHER_GROUP_MEMBERS" = "Other group members";
+
+"EDIT_GROUP_MEMBERS" = "Edit group members";
+
+"IS_ADMIN" = "Admin";
+
+"IS_NOT_ADMIN" = "Not admin";
+
+"ADD_GROUP_MEMBERS" = "Add group members";
+
+"PUBLISH" = "Publish";
+
+"GROUP_V2_PUBLISHED_DETAILS_EXPLANATION_%@" = "The group details were updated. If you wish to use these new details instead of the ones on your %@, please tap the button bellow.";
+
+"CHOOSE_GROUP_NICKNAME" = "Choose a group nickname";
+
+"ADD_MEMBER_BY_TAPPING_EDIT_GROUP_MEMBERS_BUTTON" = "You are the only member of this group 😅. Start adding group members by tapping the \"Edit members\" button above ☝️.";
+
+"GROUP_UPDATE_IN_PROGRESS_EXPLANATION_TITLE" = "Update in progress";
+
+"GROUP_UPDATE_IN_PROGRESS_EXPLANATION_BODY" = "An update of this group is in progress. Please wait until it is done to make further modifications.";
+
+"MANUAL_RESYNC_OF_GROUP_V2" = "Resynchronize this group";
+
+"SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_TITLE" = "You cannot leave the group for now";
+
+"SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_MESSAGE" = "Since you are the only administrator of this group, you cannot leave it now (you would leave the group with no administrator). You can name another administrator among the other group members and try again.";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_TITLE" = "Do you really wish to leave this group?";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_MESSAGE" = "Please note that this action is irreversible (unless a group administrator decides to invite you again later on).";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_BUTTON_TITLE" = "Leave this group";
+
+"LEAVE_GROUP" = "Leave this group";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_TITLE" = "Heads-up! Do you really wish to disband this group?";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_MESSAGE" = "Please note that this action is irreversible. I you confirm, this group will be deleted for all members.";
+
+"SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_BUTTON_TITLE" = "Delete this group for all members";
+
+"DISBAND_GROUP" = "Disband this group";
+
+"UNKNOWN_GROUP_MEMBER_NAME" = "Unknown name";
+
+"IS_PENDING" = "Pending";
+
+"IS_PENDING_ADMIN" = "Pending\nadmin";
+
+"SAVE_CUSTOM_GROUP_VALUES" = "Save your modifications";
+
+"EDIT_GROUP_DETAILS_AS_ADMINISTRATOR_BUTTON_TITLE" = "Edit title";
+
+"EDIT_GROUP_MEMBERS_AS_ADMINISTRATOR_BUTTON_TITLE" = "Edit members";
+
+"CHOOSE_GROUP_CUSTOM_NAME_AND_PHOTO_TITLE" = "Custom photo and group name";
+
+"GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN" = "Group with no name 😅";
+
+"MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE" = "Group members have been updated. Tap to learn more.";
+
+"CHOSEN_GROUP_MEMBERS" = "Chosen group members";
+
+"CLONE_THIS_GROUP" = "Clone this group";
+
+"CLONE_THIS_GROUP_V1_TO_GROUP_V2" = "Create a group V2 from this group";
+
+"SOME_GROUP_MEMBERS_MUST_UPGRADE" = "Some members must upgrade Olvid";
+
+"FOLLOWING_MEMBERS_MUST_UPGRADE_BEFORE_CREATING_GROUP_V2_%@" = "In order to create a group V2, all group members must use a recent version of Olvid 🤓. Please try again after asking the following members to upgrade to the latest version of Olvid:\n%@.";
+
+"YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" = "You are now a group administrator 😎.";
+
+"YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" = "You are no longer a group administrator.";
+
+"PLEASE_AUTHENTICATE" = "Authentication required";
+
+"PLEASE_NOTE_THAT_YOUR_CUSTOM_PASSCODE_CANNOT_BE_RECOVERED" = "Please note that if you forget your passcode, it cannot be recovered and you won't be able to access Olvid anymore.";
+
+"CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@" = "Copy of %@";
+
+"DISK_USAGE" = "Storage used";
+
+"REFERENCED_BY_DATABASE" = "Referenced by database";
+
+"APP_DIRECTORIES" = "Directories within the app";
+
+"ENGINE_DIRECTORIES" = "Directories within the engine";
+
+"ABOUT_DISKUSAGEVIEW_%@" = "This screen allows you to evaluate the storage used by Olvid on your %@. Beware though, the total storage is not the sum of all the values indicated here (as Olvid uses deduplication techniques). To evaluate the total storage, it is in general sufficient to consider the values referenced by the database";

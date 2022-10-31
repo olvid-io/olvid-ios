@@ -41,9 +41,9 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     // MARK: Attributes
     
     @NSManaged private var photoServerKeyEncoded: Data?
-    @NSManaged private(set) var photoServerLabel: String?
+    @NSManaged private var rawPhotoServerLabel: Data?
     @NSManaged private var photoFilename: String?
-    @NSManaged private var serializedIdentityCoreDetails: Data
+    @NSManaged private(set) var serializedIdentityCoreDetails: Data
     @NSManaged private(set) var version: Int
 
     // MARK: Relationships
@@ -53,8 +53,19 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     // MARK: Other variables
     
     private var notificationRelatedChanges: NotificationRelatedChanges = []
-    private var labelToDelete: String?
+    private var labelToDelete: UID?
 
+    private(set) var photoServerLabel: UID? {
+        get {
+            guard let rawPhotoServerLabel = rawPhotoServerLabel else { return nil }
+            guard let uid = UID(uid: rawPhotoServerLabel) else { assertionFailure(); return nil }
+            return uid
+        }
+        set {
+            self.rawPhotoServerLabel = newValue?.raw
+        }
+    }
+    
     func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
         guard let photoFilename = photoFilename else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
@@ -253,7 +264,7 @@ extension OwnedIdentityDetailsPublished {
 
     struct Predicate {
         enum Key: String {
-            case photoServerLabel = "photoServerLabel"
+            case rawPhotoServerLabel = "rawPhotoServerLabel"
             case photoServerKeyEncoded = "photoServerKeyEncoded"
             case photoFilename = "photoFilename"
             case ownedIdentity = "ownedIdentity"
@@ -265,7 +276,7 @@ extension OwnedIdentityDetailsPublished {
             NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
         }
         static var withPhotoServerLabel: NSPredicate {
-            NSPredicate(withNonNilValueForKey: Key.photoServerLabel)
+            NSPredicate(withNonNilValueForKey: Key.rawPhotoServerLabel)
         }
         static var withPhotoServerKeyAndLabel: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -297,14 +308,14 @@ extension OwnedIdentityDetailsPublished {
     }
     
     
-    static func getAllPhotoServerLabels(ownedIdentity: OwnedIdentity) throws -> Set<String> {
+    static func getAllPhotoServerLabels(ownedIdentity: OwnedIdentity) throws -> Set<UID> {
         guard let obvContext = ownedIdentity.obvContext else { throw makeError(message: "ObvContext is not set on owned identity") }
         let request: NSFetchRequest<OwnedIdentityDetailsPublished> = OwnedIdentityDetailsPublished.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withPhotoServerLabel,
             Predicate.forOwnedIdentity(ownedIdentity: ownedIdentity),
         ])
-        request.propertiesToFetch = [Predicate.Key.photoServerLabel.rawValue]
+        request.propertiesToFetch = [Predicate.Key.rawPhotoServerLabel.rawValue]
         let details = try obvContext.fetch(request)
         let photoServerLabels = Set(details.compactMap({ $0.photoServerLabel }))
         assert(photoServerLabels.count == details.count)
@@ -378,7 +389,7 @@ struct OwnedIdentityDetailsPublishedBackupItem: Codable, Hashable {
     
     fileprivate let serializedIdentityCoreDetails: Data
     fileprivate let photoServerKeyEncoded: Data?
-    fileprivate let photoServerLabel: String?
+    fileprivate let photoServerLabel: UID?
     fileprivate let version: Int
 
     // Allows to prevent association failures in two items have identical variables
@@ -397,7 +408,7 @@ struct OwnedIdentityDetailsPublishedBackupItem: Codable, Hashable {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    fileprivate init(serializedIdentityCoreDetails: Data, photoServerKeyEncoded: Data?, photoServerLabel: String?, version: Int) {
+    fileprivate init(serializedIdentityCoreDetails: Data, photoServerKeyEncoded: Data?, photoServerLabel: UID?, version: Int) {
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
         self.photoServerKeyEncoded = photoServerKeyEncoded
         self.photoServerLabel = photoServerLabel
@@ -422,7 +433,7 @@ struct OwnedIdentityDetailsPublishedBackupItem: Codable, Hashable {
         try container.encode(serializedIdentityCoreDetailsAsString, forKey: .serializedIdentityCoreDetails)
         // Local attributes
         try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
-        try container.encodeIfPresent(photoServerLabel, forKey: .photoServerLabel)
+        try container.encodeIfPresent(photoServerLabel?.raw, forKey: .photoServerLabel)
         try container.encode(version, forKey: .version)
     }
     
@@ -433,8 +444,39 @@ struct OwnedIdentityDetailsPublishedBackupItem: Codable, Hashable {
             throw OwnedIdentityDetailsPublishedBackupItem.makeError(message: "Could not create Data from serializedIdentityCoreDetailsAsString")
         }
         self.serializedIdentityCoreDetails = serializedIdentityCoreDetailsAsData
-        self.photoServerKeyEncoded = try values.decodeIfPresent(Data.self, forKey: .photoServerKeyEncoded)
-        self.photoServerLabel = try values.decodeIfPresent(String.self, forKey: .photoServerLabel)
+        
+        if values.allKeys.contains(.photoServerLabel) && values.allKeys.contains(.photoServerKeyEncoded) {
+            do {
+                self.photoServerKeyEncoded = try values.decode(Data.self, forKey: .photoServerKeyEncoded)
+                if let photoServerLabelAsData = try? values.decodeIfPresent(Data.self, forKey: .photoServerLabel),
+                   let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    // Expected
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsUID = try values.decodeIfPresent(UID.self, forKey: .photoServerLabel) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(base64Encoded: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(hexString: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else {
+                    throw Self.makeError(message: "Could not decode photoServerLabel in the decoder of OwnedIdentityDetailsPublishedBackupItem")
+                }
+            } catch {
+                assertionFailure()
+                throw error
+            }
+        } else {
+            self.photoServerKeyEncoded = nil
+            self.photoServerLabel = nil
+        }
+        
         self.version = try values.decode(Int.self, forKey: .version)
     }
     

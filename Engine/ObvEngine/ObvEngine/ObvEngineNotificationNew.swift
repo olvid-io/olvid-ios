@@ -20,6 +20,7 @@
 import Foundation
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -85,6 +86,9 @@ public enum ObvEngineNotificationNew {
 	case OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvOwnedIdentity)
 	case newUserDialogToPresent(obvDialog: ObvDialog)
 	case aPersistedDialogWasDeleted(uuid: UUID)
+	case groupV2WasCreatedOrUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
+	case groupV2WasDeleted(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
+	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
 
 	private enum Name {
 		case newBackupKeyGenerated
@@ -140,6 +144,9 @@ public enum ObvEngineNotificationNew {
 		case OwnedIdentityCapabilitiesWereUpdated
 		case newUserDialogToPresent
 		case aPersistedDialogWasDeleted
+		case groupV2WasCreatedOrUpdated
+		case groupV2WasDeleted
+		case groupV2UpdateDidFail
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -205,6 +212,9 @@ public enum ObvEngineNotificationNew {
 			case .OwnedIdentityCapabilitiesWereUpdated: return Name.OwnedIdentityCapabilitiesWereUpdated.name
 			case .newUserDialogToPresent: return Name.newUserDialogToPresent.name
 			case .aPersistedDialogWasDeleted: return Name.aPersistedDialogWasDeleted.name
+			case .groupV2WasCreatedOrUpdated: return Name.groupV2WasCreatedOrUpdated.name
+			case .groupV2WasDeleted: return Name.groupV2WasDeleted.name
+			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
 			}
 		}
 	}
@@ -462,6 +472,21 @@ public enum ObvEngineNotificationNew {
 		case .aPersistedDialogWasDeleted(uuid: let uuid):
 			info = [
 				"uuid": uuid,
+			]
+		case .groupV2WasCreatedOrUpdated(obvGroupV2: let obvGroupV2, initiator: let initiator):
+			info = [
+				"obvGroupV2": obvGroupV2,
+				"initiator": initiator,
+			]
+		case .groupV2WasDeleted(ownedIdentity: let ownedIdentity, appGroupIdentifier: let appGroupIdentifier):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"appGroupIdentifier": appGroupIdentifier,
+			]
+		case .groupV2UpdateDidFail(ownedIdentity: let ownedIdentity, appGroupIdentifier: let appGroupIdentifier):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"appGroupIdentifier": appGroupIdentifier,
 			]
 		}
 		return info
@@ -937,6 +962,33 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let uuid = notification.userInfo!["uuid"] as! UUID
 			block(uuid)
+		}
+	}
+
+	public static func observeGroupV2WasCreatedOrUpdated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvGroupV2, ObvGroupV2.CreationOrUpdateInitiator) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2WasCreatedOrUpdated.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvGroupV2 = notification.userInfo!["obvGroupV2"] as! ObvGroupV2
+			let initiator = notification.userInfo!["initiator"] as! ObvGroupV2.CreationOrUpdateInitiator
+			block(obvGroupV2, initiator)
+		}
+	}
+
+	public static func observeGroupV2WasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2WasDeleted.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
+			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
+			block(ownedIdentity, appGroupIdentifier)
+		}
+	}
+
+	public static func observeGroupV2UpdateDidFail(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2UpdateDidFail.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
+			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
+			block(ownedIdentity, appGroupIdentifier)
 		}
 	}
 

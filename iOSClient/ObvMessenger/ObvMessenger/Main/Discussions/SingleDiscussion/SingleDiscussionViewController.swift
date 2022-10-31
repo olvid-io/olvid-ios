@@ -90,6 +90,9 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
             return true
         case .groupV1(withContactGroup: let contactGroup):
             return contactGroup?.hasAtLeastOneRemoteContactDevice() ?? false
+        case .groupV2(withGroup: let group):
+            guard let group = group else { return false }
+            return !group.otherMembers.isEmpty
         case .none:
             assertionFailure()
             return false
@@ -344,12 +347,18 @@ extension SingleDiscussionViewController {
             ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [contactID], groupId: nil)
                 .postOnDispatchQueue()
         case .groupV1(withContactGroup: let contactGroup):
-            if let contactGroup = contactGroup,
-               let groupId = try? contactGroup.getGroupId() {
+            if let contactGroup = contactGroup {
+                let objectID = contactGroup.typedObjectID
                 let contactIdentities = contactGroup.contactIdentities
-                
-                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: .groupV1(objectID))
+                    .postOnDispatchQueue()
             }
+        case .groupV2(withGroup: let group):
+            guard let group = group else { return }
+            let objectID = group.typedObjectID
+            let contactIDs = group.contactsAmongNonPendingOtherMembers.filter({ $0.isActive }).map({ $0.typedObjectID })
+            ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIDs, groupId: .groupV2(objectID))
+                .postOnDispatchQueue()
         case .none:
             assertionFailure()
         }
@@ -1137,7 +1146,7 @@ extension SingleDiscussionViewController {
                 let action = UIAction(title: CommonString.Word.Call) { (_) in
                     guard let messageSystem = message as? PersistedMessageSystem else { return }
                     guard let item = messageSystem.optionalCallLogItem else { return }
-                    let groupId = try? item.getGroupId()
+                    let groupId = try? item.getGroupIdentifier()
 
                     var contactsToCall = [TypeSafeManagedObjectID<PersistedObvContactIdentity>]()
                     for logContact in item.logContacts {
@@ -1354,6 +1363,17 @@ extension SingleDiscussionViewController {
                     tapPerformedOnFyleMessageJoinWithStatus(atIndex: index, within: messageCell)
                     return // We detected an appropriate tap, we can return
                 }
+            }
+        }
+        
+        // Detact tap on a group v2 cell indicating that members changed
+        
+        if let systemMessage = (cell as? MessageSystemCollectionViewCell)?.messageSystem {
+            switch systemMessage.category {
+            case .membersOfGroupV2WereUpdated:
+                titleTapped()
+            default:
+                break
             }
         }
 
@@ -1711,7 +1731,7 @@ extension SingleDiscussionViewController {
                 self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: .local, withinCell: cell)
             }))
             
-            if !persistedMessage.isRemoteWiped && (persistedMessage is PersistedMessageSent || persistedMessage is PersistedMessageReceived) {
+            if persistedMessage.globalDeleteMessageActionCanBeMadeAvailable {
                 alert.addAction(UIAlertAction(title: CommonString.AlertButton.performGlobalDeletionAction, style: .destructive, handler: { [weak self] (action) in
                     self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: .global, withinCell: cell)
                 }))
@@ -1725,7 +1745,13 @@ extension SingleDiscussionViewController {
             
         case .some(let deletionType):
             
-            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedMessage(persistedMessageObjectID: objectId, deletionType: deletionType)
+            assert(Thread.isMainThread)
+            guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
+                return
+            }
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { assertionFailure(); return }
+            
+            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedMessage(ownedCryptoId: ownedCryptoId, persistedMessageObjectID: objectId, deletionType: deletionType)
                 .postOnDispatchQueue()
 
         }
@@ -1763,6 +1789,18 @@ extension SingleDiscussionViewController {
                     return
                 }
                 let contactsCryptoIds = contactGroup.contactIdentities.map { $0.cryptoId }
+                guard contactsCryptoIds.contains(contactCryptoId) else { return }
+                // If we reach this point, we simply reload all visible cells that correspond to a received message
+                // We need to refresh the context since the changed object is not among the one that are fetcheded
+                _self.fetchedResultsController.managedObjectContext.refreshAllObjects()
+                let visibleIps = _self.collectionView.indexPathsForVisibleItems.filter { _self.collectionView.cellForItem(at: $0) is MessageReceivedCollectionViewCell }
+                _self.collectionView.reloadItems(at: visibleIps)
+            case .groupV2(withGroup: let group):
+                guard let group = group else {
+                    os_log("Could find group v2 (this is ok if it was just deleted)", log: log, type: .error)
+                    return
+                }
+                let contactsCryptoIds = group.otherMembers.compactMap({ $0.cryptoId })
                 guard contactsCryptoIds.contains(contactCryptoId) else { return }
                 // If we reach this point, we simply reload all visible cells that correspond to a received message
                 // We need to refresh the context since the changed object is not among the one that are fetcheded
@@ -1816,7 +1854,7 @@ extension SingleDiscussionViewController {
             alert = UIAlertController(title: Strings.Alerts.WaitingForChannel.title,
                                       message: Strings.Alerts.WaitingForChannel.message,
                                       preferredStyle: .alert)
-        case .groupV1:
+        case .groupV1, .groupV2:
             alert = UIAlertController(title: Strings.Alerts.WaitingForFirstGroupMember.title,
                                       message: Strings.Alerts.WaitingForFirstGroupMember.message,
                                       preferredStyle: .alert)
@@ -1838,6 +1876,9 @@ extension SingleDiscussionViewController {
         case .groupV1(withContactGroup: let contactGroup):
             guard let contactGroup = contactGroup else { assertionFailure(); return true }
             return !contactGroup.hasAtLeastOneRemoteContactDevice()
+        case .groupV2(withGroup: let group):
+            guard let group = group else { assertionFailure(); return true }
+            return group.otherMembers.isEmpty
         case .none:
             assertionFailure()
             return true
@@ -1952,7 +1993,7 @@ extension SingleDiscussionViewController {
     /// system message indicating the number of new messages. If this is the case, we must update (potentially delete)
     /// the system message.
     private func observeCertainMessageDeletionToUpdateNumberOfNewMessagesSystemMessage() {
-        observationTokens.append(ObvMessengerInternalNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, sortIndex, _) in
+        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, sortIndex, _) in
             guard let _self = self else { return }
             guard let numberOfNewMessagesSystemMessage = try? PersistedMessageSystem.getNumberOfNewMessagesSystemMessage(in: _self.discussion) else { return }
             guard _self.objectIDsOfNewMessages.contains(objectID) else { return }

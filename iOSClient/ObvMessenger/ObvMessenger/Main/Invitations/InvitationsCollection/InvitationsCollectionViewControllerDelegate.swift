@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import ObvEngine
+import ObvTypes
 
 protocol InvitationsCollectionViewControllerDelegate: AnyObject {
     

@@ -43,7 +43,7 @@ class ObvDeepLinkTests: XCTestCase {
             case .invitations:
                 _testLink(link: ObvDeepLink.invitations)
             case .contactGroupDetails:
-                _testLink(link: ObvDeepLink.contactGroupDetails(contactGroupURI: url))
+                _testLink(link: ObvDeepLink.contactGroupDetails(displayedContactGroupURI: url))
             case .contactIdentityDetails:
                 _testLink(link: ObvDeepLink.contactIdentityDetails(contactIdentityURI: url))
             case .airDrop:

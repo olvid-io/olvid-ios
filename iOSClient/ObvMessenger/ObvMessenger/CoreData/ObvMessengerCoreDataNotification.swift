@@ -20,6 +20,8 @@
 import Foundation
 import CoreData
 import ObvEngine
+import ObvCrypto
+import ObvTypes
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -63,6 +65,9 @@ enum ObvMessengerCoreDataNotification {
 	case draftFyleJoinWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>)
 	case fyleMessageJoinWasWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinUriRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>)
 	case persistedDiscussionStatusChanged(objectID: TypeSafeManagedObjectID<PersistedDiscussion>)
+	case persistedGroupV2UpdateIsFinished(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
+	case persistedGroupV2WasDeleted(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
+	case aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 
 	private enum Name {
 		case newDraftToSend
@@ -96,6 +101,9 @@ enum ObvMessengerCoreDataNotification {
 		case draftFyleJoinWasDeleted
 		case fyleMessageJoinWasWiped
 		case persistedDiscussionStatusChanged
+		case persistedGroupV2UpdateIsFinished
+		case persistedGroupV2WasDeleted
+		case aPersistedGroupV2MemberChangedFromPendingToNonPending
 
 		private var namePrefix: String { String(describing: ObvMessengerCoreDataNotification.self) }
 
@@ -139,6 +147,9 @@ enum ObvMessengerCoreDataNotification {
 			case .draftFyleJoinWasDeleted: return Name.draftFyleJoinWasDeleted.name
 			case .fyleMessageJoinWasWiped: return Name.fyleMessageJoinWasWiped.name
 			case .persistedDiscussionStatusChanged: return Name.persistedDiscussionStatusChanged.name
+			case .persistedGroupV2UpdateIsFinished: return Name.persistedGroupV2UpdateIsFinished.name
+			case .persistedGroupV2WasDeleted: return Name.persistedGroupV2WasDeleted.name
+			case .aPersistedGroupV2MemberChangedFromPendingToNonPending: return Name.aPersistedGroupV2MemberChangedFromPendingToNonPending.name
 			}
 		}
 	}
@@ -287,6 +298,18 @@ enum ObvMessengerCoreDataNotification {
 		case .persistedDiscussionStatusChanged(objectID: let objectID):
 			info = [
 				"objectID": objectID,
+			]
+		case .persistedGroupV2UpdateIsFinished(objectID: let objectID):
+			info = [
+				"objectID": objectID,
+			]
+		case .persistedGroupV2WasDeleted(objectID: let objectID):
+			info = [
+				"objectID": objectID,
+			]
+		case .aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: let contactObjectID):
+			info = [
+				"contactObjectID": contactObjectID,
 			]
 		}
 		return info
@@ -581,6 +604,30 @@ enum ObvMessengerCoreDataNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
 			block(objectID)
+		}
+	}
+
+	static func observePersistedGroupV2UpdateIsFinished(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>) -> Void) -> NSObjectProtocol {
+		let name = Name.persistedGroupV2UpdateIsFinished.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
+			block(objectID)
+		}
+	}
+
+	static func observePersistedGroupV2WasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>) -> Void) -> NSObjectProtocol {
+		let name = Name.persistedGroupV2WasDeleted.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
+			block(objectID)
+		}
+	}
+
+	static func observeAPersistedGroupV2MemberChangedFromPendingToNonPending(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
+		let name = Name.aPersistedGroupV2MemberChangedFromPendingToNonPending.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let contactObjectID = notification.userInfo!["contactObjectID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
+			block(contactObjectID)
 		}
 	}
 

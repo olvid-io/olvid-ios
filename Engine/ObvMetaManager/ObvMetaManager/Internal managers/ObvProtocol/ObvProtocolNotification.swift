@@ -36,11 +36,13 @@ public enum ObvProtocolNotification {
 	case mutualScanContactAdded(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, signature: Data)
 	case protocolMessageToProcess(protocolMessageId: MessageIdentifier, flowId: FlowIdentifier)
 	case protocolMessageProcessed(protocolMessageId: MessageIdentifier, flowId: FlowIdentifier)
+	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data, flowId: FlowIdentifier)
 
 	private enum Name {
 		case mutualScanContactAdded
 		case protocolMessageToProcess
 		case protocolMessageProcessed
+		case groupV2UpdateDidFail
 
 		private var namePrefix: String { String(describing: ObvProtocolNotification.self) }
 
@@ -56,6 +58,7 @@ public enum ObvProtocolNotification {
 			case .mutualScanContactAdded: return Name.mutualScanContactAdded.name
 			case .protocolMessageToProcess: return Name.protocolMessageToProcess.name
 			case .protocolMessageProcessed: return Name.protocolMessageProcessed.name
+			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
 			}
 		}
 	}
@@ -76,6 +79,12 @@ public enum ObvProtocolNotification {
 		case .protocolMessageProcessed(protocolMessageId: let protocolMessageId, flowId: let flowId):
 			info = [
 				"protocolMessageId": protocolMessageId,
+				"flowId": flowId,
+			]
+		case .groupV2UpdateDidFail(ownedIdentity: let ownedIdentity, appGroupIdentifier: let appGroupIdentifier, flowId: let flowId):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"appGroupIdentifier": appGroupIdentifier,
 				"flowId": flowId,
 			]
 		}
@@ -116,6 +125,16 @@ public enum ObvProtocolNotification {
 			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! MessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(protocolMessageId, flowId)
+		}
+	}
+
+	public static func observeGroupV2UpdateDidFail(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, Data, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2UpdateDidFail.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(ownedIdentity, appGroupIdentifier, flowId)
 		}
 	}
 

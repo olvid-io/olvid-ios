@@ -18,9 +18,10 @@
  */
 
 import Foundation
-
 import ObvTypes
 import ObvEncoder
+import ObvCrypto
+
 
 struct ChildToParentProtocolMessageInputs {
     
@@ -28,10 +29,10 @@ struct ChildToParentProtocolMessageInputs {
     let childProtocolInstanceReachedStateRawId: Int
     let childProtocolInstanceEncodedReachedState: ObvEncoded // The the state reached by the child protocol instance, as an ObvEncoded
 
-    init(childProtocolInstanceUid: UID, childProtocolInstanceReachedState: ConcreteProtocolState) {
+    init(childProtocolInstanceUid: UID, childProtocolInstanceReachedState: ConcreteProtocolState) throws {
         self.childProtocolInstanceUid = childProtocolInstanceUid
         self.childProtocolInstanceReachedStateRawId = childProtocolInstanceReachedState.rawId
-        self.childProtocolInstanceEncodedReachedState = childProtocolInstanceReachedState.obvEncode()
+        self.childProtocolInstanceEncodedReachedState = try childProtocolInstanceReachedState.obvEncode()
     }
     
     init?(_ listOfEncoded: [ObvEncoded]) {

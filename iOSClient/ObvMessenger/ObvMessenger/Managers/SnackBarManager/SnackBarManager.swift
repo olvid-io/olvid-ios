@@ -18,10 +18,11 @@
  */
 
 import Foundation
-import ObvEngine
+import ObvTypes
 import os.log
 import UIKit
 import AVFAudio
+import ObvEngine
 
 
 final class SnackBarManager {
@@ -61,10 +62,14 @@ final class SnackBarManager {
     private func listenToNotifications() {
         let didEnterBackgroundNotification = UIApplication.didEnterBackgroundNotification
         observationTokens.append(contentsOf: [
-            NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: internalQueue) { [weak self] _ in
-                self?.alreadyCheckedIdentities.removeAll()
+            NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+                self?.internalQueue.addOperation { [weak self] in
+                    self?.alreadyCheckedIdentities.removeAll()
+                }
             },
             ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged(queue: internalQueue) { [weak self] newOwnedCryptoId, _ in
+                guard let _self = self else { return }
+                guard _self.currentCryptoId != newOwnedCryptoId else { return }
                 self?.currentCryptoId = newOwnedCryptoId
             },
             ObvMessengerInternalNotification.observeUserDismissedSnackBarForLater(queue: internalQueue) { [weak self] ownedCryptoId, snackBarCategory in

@@ -39,8 +39,8 @@ public enum ObvIdentityNotificationNew {
 	case ownedIdentityWasReactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case deletedContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, flowId: FlowIdentifier)
 	case newContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, flowId: FlowIdentifier)
-	case serverLabelHasBeenDeleted(ownedIdentity: ObvCryptoIdentity, label: String)
-	case contactWasDeleted(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity, contactTrustedIdentityDetails: ObvIdentityDetails)
+	case serverLabelHasBeenDeleted(ownedIdentity: ObvCryptoIdentity, label: UID)
+	case contactWasDeleted(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity)
 	case latestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: UID, ownedIdentity: ObvCryptoIdentity)
 	case publishedPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: UID, ownedIdentity: ObvCryptoIdentity)
 	case publishedPhotoOfContactGroupJoinedHasBeenUpdated(groupUid: UID, ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity)
@@ -56,6 +56,9 @@ public enum ObvIdentityNotificationNew {
 	case ownedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case contactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case contactTrustLevelWasIncreased(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, trustLevelOfContactIdentity: TrustLevel, isOneToOne: Bool, flowId: FlowIdentifier)
+	case groupV2WasCreated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
+	case groupV2WasUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
+	case groupV2WasDeleted(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data)
 
 	private enum Name {
 		case contactIdentityIsNowTrusted
@@ -81,6 +84,9 @@ public enum ObvIdentityNotificationNew {
 		case ownedIdentityCapabilitiesWereUpdated
 		case contactIdentityOneToOneStatusChanged
 		case contactTrustLevelWasIncreased
+		case groupV2WasCreated
+		case groupV2WasUpdated
+		case groupV2WasDeleted
 
 		private var namePrefix: String { String(describing: ObvIdentityNotificationNew.self) }
 
@@ -116,6 +122,9 @@ public enum ObvIdentityNotificationNew {
 			case .ownedIdentityCapabilitiesWereUpdated: return Name.ownedIdentityCapabilitiesWereUpdated.name
 			case .contactIdentityOneToOneStatusChanged: return Name.contactIdentityOneToOneStatusChanged.name
 			case .contactTrustLevelWasIncreased: return Name.contactTrustLevelWasIncreased.name
+			case .groupV2WasCreated: return Name.groupV2WasCreated.name
+			case .groupV2WasUpdated: return Name.groupV2WasUpdated.name
+			case .groupV2WasDeleted: return Name.groupV2WasDeleted.name
 			}
 		}
 	}
@@ -161,11 +170,10 @@ public enum ObvIdentityNotificationNew {
 				"ownedIdentity": ownedIdentity,
 				"label": label,
 			]
-		case .contactWasDeleted(ownedCryptoIdentity: let ownedCryptoIdentity, contactCryptoIdentity: let contactCryptoIdentity, contactTrustedIdentityDetails: let contactTrustedIdentityDetails):
+		case .contactWasDeleted(ownedCryptoIdentity: let ownedCryptoIdentity, contactCryptoIdentity: let contactCryptoIdentity):
 			info = [
 				"ownedCryptoIdentity": ownedCryptoIdentity,
 				"contactCryptoIdentity": contactCryptoIdentity,
-				"contactTrustedIdentityDetails": contactTrustedIdentityDetails,
 			]
 		case .latestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: let groupUid, ownedIdentity: let ownedIdentity):
 			info = [
@@ -252,6 +260,21 @@ public enum ObvIdentityNotificationNew {
 				"isOneToOne": isOneToOne,
 				"flowId": flowId,
 			]
+		case .groupV2WasCreated(obvGroupV2: let obvGroupV2, initiator: let initiator):
+			info = [
+				"obvGroupV2": obvGroupV2,
+				"initiator": initiator,
+			]
+		case .groupV2WasUpdated(obvGroupV2: let obvGroupV2, initiator: let initiator):
+			info = [
+				"obvGroupV2": obvGroupV2,
+				"initiator": initiator,
+			]
+		case .groupV2WasDeleted(ownedIdentity: let ownedIdentity, appGroupIdentifier: let appGroupIdentifier):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"appGroupIdentifier": appGroupIdentifier,
+			]
 		}
 		return info
 	}
@@ -323,22 +346,21 @@ public enum ObvIdentityNotificationNew {
 		}
 	}
 
-	public static func observeServerLabelHasBeenDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, String) -> Void) -> NSObjectProtocol {
+	public static func observeServerLabelHasBeenDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, UID) -> Void) -> NSObjectProtocol {
 		let name = Name.serverLabelHasBeenDeleted.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let label = notification.userInfo!["label"] as! String
+			let label = notification.userInfo!["label"] as! UID
 			block(ownedIdentity, label)
 		}
 	}
 
-	public static func observeContactWasDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, ObvIdentityDetails) -> Void) -> NSObjectProtocol {
+	public static func observeContactWasDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.contactWasDeleted.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
 			let contactCryptoIdentity = notification.userInfo!["contactCryptoIdentity"] as! ObvCryptoIdentity
-			let contactTrustedIdentityDetails = notification.userInfo!["contactTrustedIdentityDetails"] as! ObvIdentityDetails
-			block(ownedCryptoIdentity, contactCryptoIdentity, contactTrustedIdentityDetails)
+			block(ownedCryptoIdentity, contactCryptoIdentity)
 		}
 	}
 
@@ -484,6 +506,33 @@ public enum ObvIdentityNotificationNew {
 			let isOneToOne = notification.userInfo!["isOneToOne"] as! Bool
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(ownedIdentity, contactIdentity, trustLevelOfContactIdentity, isOneToOne, flowId)
+		}
+	}
+
+	public static func observeGroupV2WasCreated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvGroupV2, ObvGroupV2.CreationOrUpdateInitiator) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2WasCreated.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let obvGroupV2 = notification.userInfo!["obvGroupV2"] as! ObvGroupV2
+			let initiator = notification.userInfo!["initiator"] as! ObvGroupV2.CreationOrUpdateInitiator
+			block(obvGroupV2, initiator)
+		}
+	}
+
+	public static func observeGroupV2WasUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvGroupV2, ObvGroupV2.CreationOrUpdateInitiator) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2WasUpdated.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let obvGroupV2 = notification.userInfo!["obvGroupV2"] as! ObvGroupV2
+			let initiator = notification.userInfo!["initiator"] as! ObvGroupV2.CreationOrUpdateInitiator
+			block(obvGroupV2, initiator)
+		}
+	}
+
+	public static func observeGroupV2WasDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, Data) -> Void) -> NSObjectProtocol {
+		let name = Name.groupV2WasDeleted.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
+			block(ownedIdentity, appGroupIdentifier)
 		}
 	}
 

@@ -3,13 +3,17 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		C0DEA3B525D2EDBD002A9A31 /* AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEA3B425D2EDBD002A9A31 /* AppInfo.swift */; };
 		C42E0F05279700E700C05190 /* OlvidUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42E0F04279700E100C05190 /* OlvidUtils.framework */; };
 		C42E0F0E2797011400C05190 /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42E0F0D2797010E00C05190 /* JWS.framework */; };
+		C433577F281004C00023F06C /* ObvEncoder.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C433577D281004BB0023F06C /* ObvEncoder.framework */; };
+		C43357DB281007170023F06C /* ObvGroupV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43357DA281007170023F06C /* ObvGroupV2.swift */; };
+		C43357F0281007830023F06C /* ObvCrypto.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C43357ED2810077E0023F06C /* ObvCrypto.framework */; };
+		C433587228100A540023F06C /* ObvCryptoId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C433587128100A540023F06C /* ObvCryptoId.swift */; };
 		C45E191827916D7900EE9446 /* ObvCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45E191727916D7900EE9446 /* ObvCapability.swift */; };
 		C4765C8F273E8AAF000F3797 /* SignedUserDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */; };
 		C47980F11FA7EA830084E097 /* NSManagedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47980F01FA7EA830084E097 /* NSManagedObject.swift */; };
@@ -22,15 +26,12 @@
 		C4C11F731FA0879800D5E44B /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4C11F691FA0879800D5E44B /* ObvTypes.framework */; };
 		C4C11F781FA0879800D5E44B /* ObvTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C11F771FA0879800D5E44B /* ObvTypesTests.swift */; };
 		C4C11F7A1FA0879800D5E44B /* ObvTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = C4C11F6C1FA0879800D5E44B /* ObvTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		C4C11F841FA087BD00D5E44B /* UID.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C11F831FA087BD00D5E44B /* UID.swift */; };
 		C4CCBBA121E8C2BC00E82E1A /* ObvIdentityCoreDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CCBBA021E8C2BC00E82E1A /* ObvIdentityCoreDetails.swift */; };
 		C4D25D742747BB88005BAB17 /* ObvKeycloakState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D25D732747BB88005BAB17 /* ObvKeycloakState.swift */; };
 		C4D25D762747BBA9005BAB17 /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4D25D752747BBA9005BAB17 /* JWS.framework */; };
 		C4D3BF5C1FD1657A00985810 /* ObvPushNotificationType.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D3BF5B1FD1657A00985810 /* ObvPushNotificationType.swift */; };
 		C4D5524921EDF2E700F50D3D /* ObvIdentityDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5524821EDF2E700F50D3D /* ObvIdentityDetails.swift */; };
-		C4E47E281FEA69EB005C5AD9 /* KeyId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E47E271FEA69EB005C5AD9 /* KeyId.swift */; };
 		C4F408EC277CAFB100CA4112 /* OlvidUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4F408EB277CAFB100CA4112 /* OlvidUtils.framework */; };
-		C4F5343D209C9D4700F5D2BB /* Data+hexString.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F5343C209C9D4700F5D2BB /* Data+hexString.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +49,20 @@
 			remoteGlobalIDString = C026E59D260A367400D0DAD2;
 			remoteInfo = JWS;
 		};
+		C433577C281004BB0023F06C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C4335775281004BB0023F06C /* ObvEncoder.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C4B20C2D1F5F066900DFAADD;
+			remoteInfo = ObvEncoder;
+		};
+		C43357EC2810077E0023F06C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C43357E42810077E0023F06C /* ObvCrypto.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C47BB4FA1F6952C900B6E189;
+			remoteInfo = ObvCrypto;
+		};
 		C4C11F741FA0879800D5E44B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C4C11F601FA0879800D5E44B /* Project object */;
@@ -62,6 +77,10 @@
 		C0DEA3B425D2EDBD002A9A31 /* AppInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfo.swift; sourceTree = "<group>"; };
 		C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = OlvidUtils.xcodeproj; path = ../../OlvidUtils/OlvidUtils.xcodeproj; sourceTree = "<group>"; };
 		C42E0F082797010E00C05190 /* JWS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = JWS.xcodeproj; path = ../JWS/JWS.xcodeproj; sourceTree = "<group>"; };
+		C4335775281004BB0023F06C /* ObvEncoder.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvEncoder.xcodeproj; path = ../ObvEncoder/ObvEncoder.xcodeproj; sourceTree = "<group>"; };
+		C43357DA281007170023F06C /* ObvGroupV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvGroupV2.swift; sourceTree = "<group>"; };
+		C43357E42810077E0023F06C /* ObvCrypto.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvCrypto.xcodeproj; path = ../ObvCrypto/ObvCrypto.xcodeproj; sourceTree = "<group>"; };
+		C433587128100A540023F06C /* ObvCryptoId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCryptoId.swift; sourceTree = "<group>"; };
 		C45E191727916D7900EE9446 /* ObvCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCapability.swift; sourceTree = "<group>"; };
 		C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignedUserDetails.swift; sourceTree = "<group>"; };
 		C47980F01FA7EA830084E097 /* NSManagedObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSManagedObject.swift; sourceTree = "<group>"; };
@@ -77,15 +96,12 @@
 		C4C11F721FA0879800D5E44B /* ObvTypesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ObvTypesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4C11F771FA0879800D5E44B /* ObvTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvTypesTests.swift; sourceTree = "<group>"; };
 		C4C11F791FA0879800D5E44B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C4C11F831FA087BD00D5E44B /* UID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UID.swift; sourceTree = "<group>"; };
 		C4CCBBA021E8C2BC00E82E1A /* ObvIdentityCoreDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvIdentityCoreDetails.swift; sourceTree = "<group>"; };
 		C4D25D732747BB88005BAB17 /* ObvKeycloakState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvKeycloakState.swift; sourceTree = "<group>"; };
 		C4D25D752747BBA9005BAB17 /* JWS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = JWS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4D3BF5B1FD1657A00985810 /* ObvPushNotificationType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvPushNotificationType.swift; sourceTree = "<group>"; };
 		C4D5524821EDF2E700F50D3D /* ObvIdentityDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvIdentityDetails.swift; sourceTree = "<group>"; };
-		C4E47E271FEA69EB005C5AD9 /* KeyId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyId.swift; sourceTree = "<group>"; };
 		C4F408EB277CAFB100CA4112 /* OlvidUtils.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = OlvidUtils.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		C4F5343C209C9D4700F5D2BB /* Data+hexString.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+hexString.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,8 +112,10 @@
 				C47D6EBF1FAE76130035D1BC /* CoreData.framework in Frameworks */,
 				C4D25D762747BBA9005BAB17 /* JWS.framework in Frameworks */,
 				C4F408EC277CAFB100CA4112 /* OlvidUtils.framework in Frameworks */,
+				C43357F0281007830023F06C /* ObvCrypto.framework in Frameworks */,
 				C42E0F0E2797011400C05190 /* JWS.framework in Frameworks */,
 				C42E0F05279700E700C05190 /* OlvidUtils.framework in Frameworks */,
+				C433577F281004C00023F06C /* ObvEncoder.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,9 +146,27 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		C4335776281004BB0023F06C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C433577D281004BB0023F06C /* ObvEncoder.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C43357E52810077E0023F06C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C43357ED2810077E0023F06C /* ObvCrypto.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		C47D6EBD1FAE76060035D1BC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C43357E42810077E0023F06C /* ObvCrypto.xcodeproj */,
+				C4335775281004BB0023F06C /* ObvEncoder.xcodeproj */,
 				C42E0F082797010E00C05190 /* JWS.xcodeproj */,
 				C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */,
 				C4F408EB277CAFB100CA4112 /* OlvidUtils.framework */,
@@ -165,11 +201,8 @@
 			children = (
 				C4C11F6C1FA0879800D5E44B /* ObvTypes.h */,
 				C4C11F6D1FA0879800D5E44B /* Info.plist */,
-				C4C11F831FA087BD00D5E44B /* UID.swift */,
 				C47980F01FA7EA830084E097 /* NSManagedObject.swift */,
 				C4D3BF5B1FD1657A00985810 /* ObvPushNotificationType.swift */,
-				C4E47E271FEA69EB005C5AD9 /* KeyId.swift */,
-				C4F5343C209C9D4700F5D2BB /* Data+hexString.swift */,
 				C4CCBBA021E8C2BC00E82E1A /* ObvIdentityCoreDetails.swift */,
 				C4D5524821EDF2E700F50D3D /* ObvIdentityDetails.swift */,
 				C497F2D7228425A900CC67EC /* ObvGroupCoreDetails.swift */,
@@ -180,6 +213,8 @@
 				C4765C8E273E8AAF000F3797 /* SignedUserDetails.swift */,
 				C4D25D732747BB88005BAB17 /* ObvKeycloakState.swift */,
 				C45E191727916D7900EE9446 /* ObvCapability.swift */,
+				C43357DA281007170023F06C /* ObvGroupV2.swift */,
+				C433587128100A540023F06C /* ObvCryptoId.swift */,
 				C4B8B2022859427B00C732DC /* ObvBackgroundTaskManager.swift */,
 			);
 			path = ObvTypes;
@@ -284,6 +319,14 @@
 					ProjectRef = C42E0F082797010E00C05190 /* JWS.xcodeproj */;
 				},
 				{
+					ProductGroup = C43357E52810077E0023F06C /* Products */;
+					ProjectRef = C43357E42810077E0023F06C /* ObvCrypto.xcodeproj */;
+				},
+				{
+					ProductGroup = C4335776281004BB0023F06C /* Products */;
+					ProjectRef = C4335775281004BB0023F06C /* ObvEncoder.xcodeproj */;
+				},
+				{
 					ProductGroup = C42E0F00279700E000C05190 /* Products */;
 					ProjectRef = C42E0EFF279700E000C05190 /* OlvidUtils.xcodeproj */;
 				},
@@ -311,6 +354,20 @@
 			remoteRef = C42E0F0C2797010E00C05190 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		C433577D281004BB0023F06C /* ObvEncoder.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = ObvEncoder.framework;
+			remoteRef = C433577C281004BB0023F06C /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C43357ED2810077E0023F06C /* ObvCrypto.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = ObvCrypto.framework;
+			remoteRef = C43357EC2810077E0023F06C /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 /* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -333,6 +390,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0B4A542276FE5C100816D8D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -357,16 +415,16 @@
 			files = (
 				C4765C8F273E8AAF000F3797 /* SignedUserDetails.swift in Sources */,
 				C4D3BF5C1FD1657A00985810 /* ObvPushNotificationType.swift in Sources */,
-				C4C11F841FA087BD00D5E44B /* UID.swift in Sources */,
 				C4B2B5002540E3F000269E26 /* APIKeyStatus.swift in Sources */,
 				C47980F11FA7EA830084E097 /* NSManagedObject.swift in Sources */,
 				C4D5524921EDF2E700F50D3D /* ObvIdentityDetails.swift in Sources */,
-				C4E47E281FEA69EB005C5AD9 /* KeyId.swift in Sources */,
+				C43357DB281007170023F06C /* ObvGroupV2.swift in Sources */,
 				C45E191827916D7900EE9446 /* ObvCapability.swift in Sources */,
 				C4D25D742747BB88005BAB17 /* ObvKeycloakState.swift in Sources */,
 				C0DEA3B525D2EDBD002A9A31 /* AppInfo.swift in Sources */,
 				C497F2DA2284274F00CC67EC /* ObvGroupDetails.swift in Sources */,
 				C4CCBBA121E8C2BC00E82E1A /* ObvIdentityCoreDetails.swift in Sources */,
+				C433587228100A540023F06C /* ObvCryptoId.swift in Sources */,
 				C497F2D8228425A900CC67EC /* ObvGroupCoreDetails.swift in Sources */,
 				C4AEE8A6255AD8880059FB66 /* BackupRestoreError.swift in Sources */,
 				C4B8B2032859427B00C732DC /* ObvBackgroundTaskManager.swift in Sources */,
@@ -507,7 +565,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -528,7 +587,11 @@
 				INFOPLIST_FILE = ObvTypes/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvTypes;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -552,7 +615,11 @@
 				INFOPLIST_FILE = ObvTypes/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvTypes;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -568,7 +635,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 4879F8N45X;
 				INFOPLIST_FILE = ObvTypesTests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvTypesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -583,7 +654,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 4879F8N45X;
 				INFOPLIST_FILE = ObvTypesTests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvTypesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;

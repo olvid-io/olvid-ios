@@ -18,9 +18,8 @@
  */
 
 import Foundation
-
 import ObvEncoder
-import ObvTypes
+
 
 public final class Seed: NSObject, NSCopying, ObvCodable {
     
@@ -139,4 +138,15 @@ public class SeedTransformer: ValueTransformer {
 
 public extension NSValueTransformerName {
     static let seedTransformerName = NSValueTransformerName(rawValue: "SeedTransformer")
+}
+
+
+// MARK: - Overriding CustomDebugStringConvertible
+
+extension Seed {
+    
+    public override var debugDescription: String {
+        return self.raw.hexString()
+    }
+    
 }

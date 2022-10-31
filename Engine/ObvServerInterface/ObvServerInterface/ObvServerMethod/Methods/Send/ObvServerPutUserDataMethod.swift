@@ -34,13 +34,13 @@ public final class ObvServerPutUserDataMethod: ObvServerDataMethod {
     public let isActiveOwnedIdentityRequired = true
     public var serverURL: URL { ownedIdentity.serverURL }
     public let token: Data
-    public let serverLabel: String
+    public let serverLabel: UID
     public let data: EncryptedData
     public let flowId: FlowIdentifier
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(ownedIdentity: ObvCryptoIdentity, token: Data, serverLabel: String, data: EncryptedData, flowId: FlowIdentifier) {
+    public init(ownedIdentity: ObvCryptoIdentity, token: Data, serverLabel: UID, data: EncryptedData, flowId: FlowIdentifier) {
         self.ownedIdentity = ownedIdentity
         self.token = token
         self.serverLabel = serverLabel
@@ -50,31 +50,32 @@ public final class ObvServerPutUserDataMethod: ObvServerDataMethod {
 
     public enum PossibleReturnStatus: UInt8 {
         case ok = 0x00
+        case invalidSession = 0x04
         case generalError = 0xff
     }
 
     lazy public var dataToSend: Data? = {
-        // The given serverLabel is a base64 of the binary label (created in StartPhotoUploadStep), but the server expects a binary, so we decode the base64 here.
-        guard let binaryServerLabel = Data(base64Encoded: self.serverLabel) else { return nil }
-        return [self.ownedIdentity, self.token, binaryServerLabel, self.data].obvEncode().rawData
+        return [self.ownedIdentity, self.token, self.serverLabel, self.data].obvEncode().rawData
     }()
 
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<PossibleReturnStatus, Error> {
 
         guard let (rawServerReturnedStatus, _) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
-            return nil
+            let error = Self.makeError(message: "Could not parse the server response")
+            return .failure(error)
         }
 
         guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
-            return nil
+            let error = Self.makeError(message: "The returned server status is invalid")
+            return .failure(error)
         }
 
-        return serverReturnedStatus
+        return .success(serverReturnedStatus)
+
     }
 
 
 
 }
-    

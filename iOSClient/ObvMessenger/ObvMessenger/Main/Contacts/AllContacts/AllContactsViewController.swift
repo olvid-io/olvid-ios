@@ -19,7 +19,7 @@
 
 import UIKit
 import os.log
-import ObvEngine
+import ObvTypes
 import CoreData
 
 final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, OlvidMenuProvider, ViewControllerWithEllipsisCircleRightBarButtonItem {
@@ -176,7 +176,7 @@ extension AllContactsViewController {
 
     
     private func addAndConfigureContactsTableViewController() {
-        let mode: MultipleContactsMode = .all(oneToOneStatus: self.oneToOneStatus)
+        let mode: MultipleContactsMode = .all(oneToOneStatus: self.oneToOneStatus, requiredCapabilitites: nil)
         guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: false, allowMultipleSelection: false, showExplanation: showExplanation, floatingButtonModel: nil) else { assertionFailure(); return }
         viewController.delegate = self
         navigationItem.searchController = viewController.searchController

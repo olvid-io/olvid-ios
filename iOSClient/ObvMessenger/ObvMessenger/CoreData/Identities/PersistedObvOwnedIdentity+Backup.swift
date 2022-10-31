@@ -25,11 +25,14 @@ extension PersistedObvOwnedIdentity {
 
     var backupItem: PersistedObvOwnedIdentityBackupItem {
         let contacts = self.contacts.map { $0.backupItem }.filter { !$0.isEmpty }
-        let groups = self.contactGroups.map { $0.backupItem }.filter { !$0.isEmpty }
-        return PersistedObvOwnedIdentityBackupItem(
+        let groupsV1 = self.contactGroups.map { $0.backupItem }.filter { !$0.isEmpty }
+        let groupsV2 = self.contactGroupsV2.map { $0.backupItem }
+        let backupItem = PersistedObvOwnedIdentityBackupItem(
             identity: self.identity,
             contacts: contacts.isEmpty ? nil : contacts,
-            groups: groups.isEmpty ? nil : groups)
+            groupsV1: groupsV1.isEmpty ? nil : groupsV1,
+            groupsV2: groupsV2.isEmpty ? nil : groupsV2.isEmpty ? nil : groupsV2)
+        return backupItem
     }
 
 }
@@ -52,7 +55,7 @@ extension PersistedObvOwnedIdentityBackupItem {
             }
             contact.updateExistingInstance(persistedContact)
         }
-        for group in groups ?? [] {
+        for group in groupsV1 ?? [] {
             guard let persistedGroup = ownedIdentity.contactGroups.first(where: {
                 $0.groupUid == group.groupUid &&
                 $0.ownerIdentity == group.groupOwnerIdentity })
@@ -62,7 +65,17 @@ extension PersistedObvOwnedIdentityBackupItem {
             }
             group.updateExistingInstance(persistedGroup)
         }
-
+        for groupV2 in groupsV2 ?? [] {
+            guard let persistedGroupV2 = ownedIdentity.contactGroupsV2.first(where: {
+                $0.groupIdentifier == groupV2.groupIdentifier &&
+                $0.ownedIdentityIdentity == identity
+            })
+            else {
+                assertionFailure()
+                continue
+            }
+            groupV2.updateExistingInstance(persistedGroupV2)
+        }
     }
 
 }

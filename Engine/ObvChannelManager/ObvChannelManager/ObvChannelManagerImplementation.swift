@@ -332,6 +332,17 @@ extension ObvChannelManagerImplementation {
     }
     
     
+    public func getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, remoteIdentities: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>] {
+        try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
+        var result = [ObvCryptoIdentity: Set<UID>]()
+        for remoteIdentity in remoteIdentities {
+            let deviceUids = try getRemoteDeviceUidsOfRemoteIdentity(remoteIdentity, forWhichAConfirmedObliviousChannelExistsWithTheCurrentDeviceOfOwnedIdentity: ownedIdentity, within: obvContext)
+            result[remoteIdentity] = Set(deviceUids)
+        }
+        return result
+    }
+    
+    
     public func getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         return try ObvObliviousChannel.getAllKnownRemoteDeviceUids(within: obvContext)

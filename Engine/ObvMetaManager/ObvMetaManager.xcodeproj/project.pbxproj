@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -18,6 +18,7 @@
 		C410D1AF21112CD500E77E59 /* TrustOrigin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C410D1AE21112CD500E77E59 /* TrustOrigin.swift */; };
 		C413451A20F81DA6007EBDF2 /* ObvChannelServerResponseMessageToSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = C413451920F81DA6007EBDF2 /* ObvChannelServerResponseMessageToSend.swift */; };
 		C416E5C7215D866B0001CCC9 /* ObvFlowDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416E5C6215D866B0001CCC9 /* ObvFlowDelegate.swift */; };
+		C4192D0E28902ADD00CD748E /* RequestGroupBlobLockResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4192D0D28902ADD00CD748E /* RequestGroupBlobLockResult.swift */; };
 		C41CE468200E7009008D40D5 /* ObvNetworkFetchDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41CE467200E7009008D40D5 /* ObvNetworkFetchDelegate.swift */; };
 		C41CE46A200E70B5008D40D5 /* ObvNetworkReceivedMessageEncrypted.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41CE469200E70B5008D40D5 /* ObvNetworkReceivedMessageEncrypted.swift */; };
 		C41CE46C200E712D008D40D5 /* ObvNetworkFetchAttachmentInfos.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41CE46B200E712D008D40D5 /* ObvNetworkFetchAttachmentInfos.swift */; };
@@ -42,12 +43,15 @@
 		C43A410D2014D2A100EB3517 /* ObvProtocolReceptionChannelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43A410C2014D2A100EB3517 /* ObvProtocolReceptionChannelInfo.swift */; };
 		C43A646D21EF670B00BD8547 /* IdentityDetailsElements.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43A646C21EF670B00BD8547 /* IdentityDetailsElements.swift */; };
 		C43AB6012059934C000C6E22 /* ObvIdentityNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43AB6002059934C000C6E22 /* ObvIdentityNotification.swift */; };
+		C443A47D2849121400A3C1B6 /* UploadResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = C443A47C2849121400A3C1B6 /* UploadResult.swift */; };
+		C45DDC9D2886B3A100764F11 /* GetGroupBlobResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45DDC9C2886B3A100764F11 /* GetGroupBlobResult.swift */; };
 		C46AA8F5203F064500B366F0 /* ObvChannelDialogMessageToSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46AA8F4203F064500B366F0 /* ObvChannelDialogMessageToSend.swift */; };
 		C4781C7121AE10DE00295AAC /* ObvSimpleFlowDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4781C7021AE10DE00295AAC /* ObvSimpleFlowDelegate.swift */; };
 		C47878BB2040771F004029CF /* ObvChannelDialogResponseMessageToSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47878BA2040771F004029CF /* ObvChannelDialogResponseMessageToSend.swift */; };
 		C47BA16D25F0056300B731B7 /* PhotoServerKeyAndLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47BA16C25F0056300B731B7 /* PhotoServerKeyAndLabel.swift */; };
 		C47E783927B319BB001200AA /* ObvNetworkFetchNotificationNew.yml in Resources */ = {isa = PBXBuildFile; fileRef = C47E783827B319BB001200AA /* ObvNetworkFetchNotificationNew.yml */; };
 		C47E783F27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47E783E27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift */; };
+		C483DD22289C8AEA004C51A7 /* GetUserDataResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = C483DD21289C8AEA004C51A7 /* GetUserDataResult.swift */; };
 		C48A32E3247D777700684F8B /* AppType.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A32E2247D777700684F8B /* AppType.swift */; };
 		C497F2D22284242D00CC67EC /* GroupInformation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C497F2D12284242D00CC67EC /* GroupInformation.swift */; };
 		C4998D2921F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4998D2821F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift */; };
@@ -70,7 +74,6 @@
 		C4D47D5C2019F0680049B538 /* ObvIdentityDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D47D5B2019F0680049B538 /* ObvIdentityDelegate.swift */; };
 		C4D7FC8D200E73B8000CD649 /* ObvManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D7FC8C200E73B8000CD649 /* ObvManager.swift */; };
 		C4D98DA4216E2B9D00525D87 /* CryptoIdentityWithCoreDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D98DA3216E2B9D00525D87 /* CryptoIdentityWithCoreDetails.swift */; };
-		C4D98DA6216E2BA800525D87 /* CryptoIdentityWithCoreDetailsAndDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D98DA5216E2BA800525D87 /* CryptoIdentityWithCoreDetailsAndDevices.swift */; };
 		C4E1A872221ABAE400367165 /* ObvConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E1A871221ABAE400367165 /* ObvConstants.swift */; };
 		C4E76FF5200CEC600026D9A3 /* ObvMetaManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C4E76FE7200CEC600026D9A3 /* ObvMetaManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C4E77012200CF56F0026D9A3 /* ObvNetworkPostDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E77011200CF56F0026D9A3 /* ObvNetworkPostDelegate.swift */; };
@@ -84,6 +87,7 @@
 		C4EE3C582424159100182F1F /* MessageIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE3C572424159100182F1F /* MessageIdentifier.swift */; };
 		C4EE3C62242415B800182F1F /* AttachmentIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE3C61242415B800182F1F /* AttachmentIdentifier.swift */; };
 		C4F1BEDF228463A800E0D5A2 /* GroupStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F1BEDE228463A800E0D5A2 /* GroupStructure.swift */; };
+		C4F2697527FB219A00DFC20E /* GroupV2+Structures.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F2697427FB219A00DFC20E /* GroupV2+Structures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,6 +134,7 @@
 		C410D1AE21112CD500E77E59 /* TrustOrigin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustOrigin.swift; sourceTree = "<group>"; };
 		C413451920F81DA6007EBDF2 /* ObvChannelServerResponseMessageToSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelServerResponseMessageToSend.swift; sourceTree = "<group>"; };
 		C416E5C6215D866B0001CCC9 /* ObvFlowDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvFlowDelegate.swift; sourceTree = "<group>"; };
+		C4192D0D28902ADD00CD748E /* RequestGroupBlobLockResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestGroupBlobLockResult.swift; sourceTree = "<group>"; };
 		C41CE467200E7009008D40D5 /* ObvNetworkFetchDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvNetworkFetchDelegate.swift; sourceTree = "<group>"; };
 		C41CE469200E70B5008D40D5 /* ObvNetworkReceivedMessageEncrypted.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvNetworkReceivedMessageEncrypted.swift; sourceTree = "<group>"; };
 		C41CE46B200E712D008D40D5 /* ObvNetworkFetchAttachmentInfos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvNetworkFetchAttachmentInfos.swift; sourceTree = "<group>"; };
@@ -154,12 +159,15 @@
 		C43A410C2014D2A100EB3517 /* ObvProtocolReceptionChannelInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvProtocolReceptionChannelInfo.swift; sourceTree = "<group>"; };
 		C43A646C21EF670B00BD8547 /* IdentityDetailsElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityDetailsElements.swift; sourceTree = "<group>"; };
 		C43AB6002059934C000C6E22 /* ObvIdentityNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvIdentityNotification.swift; sourceTree = "<group>"; };
+		C443A47C2849121400A3C1B6 /* UploadResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadResult.swift; sourceTree = "<group>"; };
+		C45DDC9C2886B3A100764F11 /* GetGroupBlobResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetGroupBlobResult.swift; sourceTree = "<group>"; };
 		C46AA8F4203F064500B366F0 /* ObvChannelDialogMessageToSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelDialogMessageToSend.swift; sourceTree = "<group>"; };
 		C4781C7021AE10DE00295AAC /* ObvSimpleFlowDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvSimpleFlowDelegate.swift; sourceTree = "<group>"; };
 		C47878BA2040771F004029CF /* ObvChannelDialogResponseMessageToSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelDialogResponseMessageToSend.swift; sourceTree = "<group>"; };
 		C47BA16C25F0056300B731B7 /* PhotoServerKeyAndLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoServerKeyAndLabel.swift; sourceTree = "<group>"; };
 		C47E783827B319BB001200AA /* ObvNetworkFetchNotificationNew.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = ObvNetworkFetchNotificationNew.yml; sourceTree = "<group>"; };
 		C47E783E27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ObvNetworkFetchNotificationNew.swift; sourceTree = "<group>"; };
+		C483DD21289C8AEA004C51A7 /* GetUserDataResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetUserDataResult.swift; sourceTree = "<group>"; };
 		C48A32E2247D777700684F8B /* AppType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppType.swift; sourceTree = "<group>"; };
 		C497F2D12284242D00CC67EC /* GroupInformation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInformation.swift; sourceTree = "<group>"; };
 		C4998D2821F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoIdentityWithFullDisplayName.swift; sourceTree = "<group>"; };
@@ -182,7 +190,6 @@
 		C4D47D5B2019F0680049B538 /* ObvIdentityDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvIdentityDelegate.swift; sourceTree = "<group>"; };
 		C4D7FC8C200E73B8000CD649 /* ObvManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvManager.swift; sourceTree = "<group>"; };
 		C4D98DA3216E2B9D00525D87 /* CryptoIdentityWithCoreDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoIdentityWithCoreDetails.swift; sourceTree = "<group>"; };
-		C4D98DA5216E2BA800525D87 /* CryptoIdentityWithCoreDetailsAndDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoIdentityWithCoreDetailsAndDevices.swift; sourceTree = "<group>"; };
 		C4E1A871221ABAE400367165 /* ObvConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvConstants.swift; sourceTree = "<group>"; };
 		C4E76FE4200CEC600026D9A3 /* ObvMetaManager.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvMetaManager.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4E76FE7200CEC600026D9A3 /* ObvMetaManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObvMetaManager.h; sourceTree = "<group>"; };
@@ -198,6 +205,7 @@
 		C4EE3C572424159100182F1F /* MessageIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageIdentifier.swift; sourceTree = "<group>"; };
 		C4EE3C61242415B800182F1F /* AttachmentIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentIdentifier.swift; sourceTree = "<group>"; };
 		C4F1BEDE228463A800E0D5A2 /* GroupStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupStructure.swift; sourceTree = "<group>"; };
+		C4F2697427FB219A00DFC20E /* GroupV2+Structures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GroupV2+Structures.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -368,7 +376,6 @@
 			children = (
 				C4998D2821F8CC26003533F9 /* CryptoIdentityWithFullDisplayName.swift */,
 				C4D98DA3216E2B9D00525D87 /* CryptoIdentityWithCoreDetails.swift */,
-				C4D98DA5216E2BA800525D87 /* CryptoIdentityWithCoreDetailsAndDevices.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -383,6 +390,7 @@
 				C4B8EAA72216D38C00FA0BC7 /* TrustLevel.swift */,
 				C056627325B5DD5100DBAB35 /* UserData.swift */,
 				C47BA16C25F0056300B731B7 /* PhotoServerKeyAndLabel.swift */,
+				C4F2697427FB219A00DFC20E /* GroupV2+Structures.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -499,6 +507,10 @@
 				C48A32E2247D777700684F8B /* AppType.swift */,
 				C434EDF1248C23B2002BBB4C /* Chunk.swift */,
 				C4C3008824C8F666003C7396 /* TurnCredentials.swift */,
+				C443A47C2849121400A3C1B6 /* UploadResult.swift */,
+				C45DDC9C2886B3A100764F11 /* GetGroupBlobResult.swift */,
+				C4192D0D28902ADD00CD748E /* RequestGroupBlobLockResult.swift */,
+				C483DD21289C8AEA004C51A7 /* GetUserDataResult.swift */,
 			);
 			path = CommonTypes;
 			sourceTree = "<group>";
@@ -635,6 +647,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0B4A4E9276F5AF100816D8D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -661,8 +674,8 @@
 				C49D60012074C8DA006259C9 /* ObvChannelNotification.swift in Sources */,
 				C4B432E227515507003D1410 /* ObvIdentityNotificationNew.swift in Sources */,
 				C41CE490200E72BF008D40D5 /* ObvEngineDelegateType.swift in Sources */,
-				C4D98DA6216E2BA800525D87 /* CryptoIdentityWithCoreDetailsAndDevices.swift in Sources */,
 				C4D98DA4216E2B9D00525D87 /* CryptoIdentityWithCoreDetails.swift in Sources */,
+				C443A47D2849121400A3C1B6 /* UploadResult.swift in Sources */,
 				C4E7FAC02353B4EE00DE42FD /* ReturnReceipt.swift in Sources */,
 				C4C3008924C8F666003C7396 /* TurnCredentials.swift in Sources */,
 				C4AA45D224080BDB007F45DA /* ObvBackupableManager.swift in Sources */,
@@ -681,7 +694,9 @@
 				C43A40FB2014CC7C00EB3517 /* ObvChannelDelegate.swift in Sources */,
 				C4CBDABF21AC160C007D89B5 /* ObvNetworkReceivedMessageDecrypted.swift in Sources */,
 				C47E783F27B31C42001200AA /* ObvNetworkFetchNotificationNew.swift in Sources */,
+				C4192D0E28902ADD00CD748E /* RequestGroupBlobLockResult.swift in Sources */,
 				C43A40FD2014CDBE00EB3517 /* ObvChannelMessageToSend.swift in Sources */,
+				C483DD22289C8AEA004C51A7 /* GetUserDataResult.swift in Sources */,
 				C4EE3C582424159100182F1F /* MessageIdentifier.swift in Sources */,
 				C41CE486200E7243008D40D5 /* ObvProcessDownloadedMessageDelegate.swift in Sources */,
 				C4D47D5C2019F0680049B538 /* ObvIdentityDelegate.swift in Sources */,
@@ -695,6 +710,7 @@
 				C4AA45D824080D59007F45DA /* ObvBackupNotification.swift in Sources */,
 				C405812620F8A23000496995 /* ServerResponse.swift in Sources */,
 				C413451A20F81DA6007EBDF2 /* ObvChannelServerResponseMessageToSend.swift in Sources */,
+				C45DDC9D2886B3A100764F11 /* GetGroupBlobResult.swift in Sources */,
 				C4E1A872221ABAE400367165 /* ObvConstants.swift in Sources */,
 				C4E7713C200D1EAC0026D9A3 /* ObvCreateContextDelegate.swift in Sources */,
 				C4781C7121AE10DE00295AAC /* ObvSimpleFlowDelegate.swift in Sources */,
@@ -720,6 +736,7 @@
 				C03C7F4725A4756D00C7F1BF /* GroupDetailsElements.swift in Sources */,
 				C43A41012014CE1A00EB3517 /* ObvChannelMessageType.swift in Sources */,
 				C4ACF7AF205ABB9000F44105 /* ObvNotificationDelegate.swift in Sources */,
+				C4F2697527FB219A00DFC20E /* GroupV2+Structures.swift in Sources */,
 				C4E77084200CF6D20026D9A3 /* ObvNetworkMessageToSend.swift in Sources */,
 				C43A40FF2014CDED00EB3517 /* ObvChannelSendChannelType.swift in Sources */,
 			);
@@ -840,7 +857,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -862,7 +880,11 @@
 				INFOPLIST_FILE = ObvMetaManager/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvMetaManager;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -887,7 +909,11 @@
 				INFOPLIST_FILE = ObvMetaManager/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvMetaManager;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;

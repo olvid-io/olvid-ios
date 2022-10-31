@@ -187,6 +187,12 @@ extension Fyle {
         return fyles.first
     }
         
+    static func getAll(within context: NSManagedObjectContext) throws -> [Fyle] {
+        let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
+        request.fetchBatchSize = 500
+        return try context.fetch(request)
+    }
+
     static func getAllOrphaned(within context: NSManagedObjectContext) throws -> [Fyle] {
         let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
         request.predicate = Predicate.isOrphaned

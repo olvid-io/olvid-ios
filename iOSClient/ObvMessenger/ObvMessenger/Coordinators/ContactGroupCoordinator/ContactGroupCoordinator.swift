@@ -23,6 +23,8 @@ import CoreData
 import ObvEngine
 import CoreDataStack
 import ObvTypes
+import ObvCrypto
+import OlvidUtils
 
 final class ContactGroupCoordinator {
     
@@ -150,6 +152,27 @@ extension ContactGroupCoordinator {
             },
             ObvEngineNotificationNew.observePublishedPhotoOfContactGroupOwnedHasBeenUpdated(within: NotificationCenter.default, queue: internalQueue) { [weak self] (obvContactGroup) in
                 self?.processPublishedPhotoOfContactGroupOwnedHasBeenUpdated(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeGroupV2WasCreatedOrUpdated(within: NotificationCenter.default) { [weak self] obvGroupV2, initiator in
+                self?.processGroupV2WasCreatedOrUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
+            },
+            ObvEngineNotificationNew.observeGroupV2WasDeleted(within: NotificationCenter.default) { [weak self] (ownedIdentity, appGroupIdentifier) in
+                self?.processGroupV2WasDeleted(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+            },
+            ObvEngineNotificationNew.observeGroupV2UpdateDidFail(within: NotificationCenter.default) { [weak self] ownedIdentity, appGroupIdentifier in
+                self?.processGroupV2UpdateDidFail(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUpdateGroupV2() { [weak self] groupObjectID, changeset in
+                self?.processUserWantsToUpdateGroupV2(groupObjectID: groupObjectID, changeset: changeset)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUpdateCustomNameAndGroupV2Photo() { [weak self] groupObjectID, customName, customPhotoURL in
+                self?.processUserWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: groupObjectID, customName: customName, customPhotoURL: customPhotoURL)
+            },
+            ObvMessengerInternalNotification.observeUserHasSeenPublishedDetailsOfGroupV2() { [weak self] groupObjectID in
+                self?.processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: groupObjectID)
+            },
+            ObvMessengerGroupV2Notifications.observeGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails { [weak self] ownCryptoId, groupIdentifier in
+                self?.processGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ownCryptoId, groupIdentifier: groupIdentifier)
             },
         ])
     }
@@ -600,4 +623,80 @@ extension ContactGroupCoordinator {
         
     }
 
+    
+    private func processGroupV2WasCreatedOrUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator) {
+        let op1 = CreateOrUpdatePersistedGroupV2Operation(obvGroupV2: obvGroupV2, initiator: initiator, obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
+    
+    private func processGroupV2WasDeleted(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data) {
+        let op1 = DeletePersistedGroupV2Operation(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
+    
+    private func processGroupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data) {
+        let op1 = RemoveUpdateInProgressForGroupV2Operation(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+
+    
+    private func processUserWantsToUpdateGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) {
+        let op1 = UpdateGroupV2Operation(groupObjectID: groupObjectID, changeset: changeset, obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
+    
+    private func processUserWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, customName: String?, customPhotoURL: URL?) {
+        let op1 = UpdateCustomNameAndGroupV2PhotoOperation(groupObjectID: groupObjectID, customName: customName, customPhotoURL: customPhotoURL)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+
+    
+    private func processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
+        let op1 = MarkPublishedDetailsOfGroupV2AsSeenOperation(groupV2ObjectID: groupObjectID)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+
+    
+    private func processGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ObvCryptoId, groupIdentifier: Data) {
+        do {
+            try obvEngine.replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: ownCryptoId, groupIdentifier: groupIdentifier)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+    
+    
 }

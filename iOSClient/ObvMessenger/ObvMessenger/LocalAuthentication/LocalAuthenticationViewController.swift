@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import LocalAuthentication
+
 
 class LocalAuthenticationViewController: UIViewController {
 
@@ -27,20 +27,34 @@ class LocalAuthenticationViewController: UIViewController {
         case shouldPerformLocalAuthentication
         case authenticated
         case authenticationFailed
+        case lockedOut
+
+        var isLockedOut: Bool {
+            self == .lockedOut
+        }
     }
     
     private var authenticationStatus = AuthenticationStatus.initial
-    private let imageView = UIImageView()
     private var observationTokens = [NSObjectProtocol]()
-    private var isAuthenticating = false
-    private var isAuthenticated = !ObvMessengerSettings.Privacy.lockScreen
-    private let authenticateButton = UIButton()
-    private var uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?
-    var usedByShareExtension = false
+    private var explanationLabel = UILabel()
+    private let authenticateButton = ObvImageButton()
+    private var lockoutTimer: Timer?
 
-    
-    weak var delegate: LocalAuthenticationViewControllerDelegate?
-    
+    private let durationFormatter = DurationFormatter()
+
+    private(set) weak var delegate: LocalAuthenticationViewControllerDelegate?
+    private(set) weak var localAuthenticationDelegate: LocalAuthenticationDelegate?
+
+    init(localAuthenticationDelegate: LocalAuthenticationDelegate, delegate: LocalAuthenticationViewControllerDelegate) {
+        self.localAuthenticationDelegate = localAuthenticationDelegate
+        self.delegate = delegate
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @objc required dynamic init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         // Use the LaunchScreen's view to ensure a smooth transition
@@ -48,32 +62,48 @@ class LocalAuthenticationViewController: UIViewController {
         guard let launchViewController = launchScreenStoryBoard.instantiateInitialViewController() else { assertionFailure(); return }
         self.view.addSubview(launchViewController.view)
         self.view.pinAllSidesToSides(of: launchViewController.view)
+
+        self.view.addSubview(authenticateButton)
         authenticateButton.translatesAutoresizingMaskIntoConstraints = false
         authenticateButton.addTarget(self, action: #selector(authenticateButtonTapped), for: .touchUpInside)
         authenticateButton.setTitle(Strings.authenticate, for: .normal)
-        self.view.addSubview(authenticateButton)
+
+        self.view.addSubview(explanationLabel)
+        explanationLabel.translatesAutoresizingMaskIntoConstraints = false
+        explanationLabel.text = Strings.lockedOutExplanation
+        explanationLabel.textColor = .white
+        explanationLabel.font = UIFont.preferredFont(forTextStyle: .callout)
+        explanationLabel.numberOfLines = 0
+        explanationLabel.textAlignment = .center
+
         let constraints = [
             authenticateButton.centerXAnchor.constraint(equalTo: self.view.centerXAnchor, constant: 0.0),
             authenticateButton.centerYAnchor.constraint(equalTo: self.view.centerYAnchor, constant: 100.0),
+            explanationLabel.centerXAnchor.constraint(equalTo: self.view.centerXAnchor, constant: 0.0),
+            explanationLabel.bottomAnchor.constraint(equalTo: authenticateButton.topAnchor, constant: -16.0),
+            explanationLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 273),
+            authenticateButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 273),
         ]
         NSLayoutConstraint.activate(constraints)
+
         configure()
     }
-    
-    
-    /// If the app was initialized and goes to the background at a time the user was authenticated, we reset the `uptimeAtTheTimeOfChangeoverToNotActiveState`.
-    /// As for now, this is called from the Scene Delegate.
-    func setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow() {
-        uptimeAtTheTimeOfChangeoverToNotActiveState = TimeInterval.getUptime()
-    }
-    
-        
+
     private func setAuthenticationStatus(to newAuthenticationStatus: AuthenticationStatus) {
         assert(Thread.isMainThread)
         authenticationStatus = newAuthenticationStatus
-        if authenticationStatus == .authenticated {
+        switch authenticationStatus {
+        case .initial:
+            break
+        case .shouldPerformLocalAuthentication:
+            break
+        case .authenticated:
             delegate?.userLocalAuthenticationDidSucceedOrWasNotRequired()
             authenticationStatus = .initial
+        case .authenticationFailed:
+            break
+        case .lockedOut:
+            delegate?.tooManyWrongPasscodeAttemptsCausedLockOut()
         }
         configure()
     }
@@ -92,6 +122,54 @@ class LocalAuthenticationViewController: UIViewController {
         case .authenticationFailed:
             authenticateButton.isHidden = false
             authenticateButton.isEnabled = true
+        case .lockedOut:
+            authenticateButton.isHidden = false
+            authenticateButton.isEnabled = false
+        }
+
+        if authenticationStatus.isLockedOut {
+            explanationLabel.isHidden = false
+            configureLockoutTimer()
+            refreshButton()
+        } else {
+            explanationLabel.isHidden = true
+            invalidateLockoutTimer()
+            authenticateButton.setTitle(Strings.authenticate, for: .normal)
+        }
+    }
+
+    private func configureLockoutTimer() {
+        guard lockoutTimer == nil else { return }
+        lockoutTimer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(refreshButton), userInfo: nil, repeats: true)
+    }
+
+    private func invalidateLockoutTimer() {
+        lockoutTimer?.invalidate()
+        self.lockoutTimer = nil
+    }
+
+    @objc(refreshButton)
+    private func refreshButton() {
+        guard let localAuthenticationDelegate = self.localAuthenticationDelegate else {
+            return
+        }
+        Task {
+            guard await localAuthenticationDelegate.isLockedOut else {
+                DispatchQueue.main.async {
+                    self.setAuthenticationStatus(to: .authenticationFailed)
+                }
+                return
+            }
+
+            guard let remainingLockoutTime = await localAuthenticationDelegate.remainingLockoutTime else {
+                return
+            }
+
+            if let duration = durationFormatter.string(from: remainingLockoutTime) {
+                DispatchQueue.main.async {
+                    self.authenticateButton.setTitle(duration, for: .normal)
+                }
+            }
         }
     }
     
@@ -106,48 +184,21 @@ class LocalAuthenticationViewController: UIViewController {
     }
 
     @MainActor
-    func performLocalAuthentication(completion: ((Bool) -> Void)? = nil) {
-        assert(Thread.isMainThread)
-        let userIsAlreadyAuthenticated: Bool
-        if let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveState {
-            let timeIntervalSinceLastChangeoverToNotActiveState = TimeInterval.getUptime() - uptimeAtTheTimeOfChangeoverToNotActiveState
-            assert(0 <= timeIntervalSinceLastChangeoverToNotActiveState)
-            userIsAlreadyAuthenticated = (timeIntervalSinceLastChangeoverToNotActiveState < ObvMessengerSettings.Privacy.lockScreenGracePeriod)
-        } else {
-            userIsAlreadyAuthenticated = false
-        }
-        if userIsAlreadyAuthenticated {
-            setAuthenticationStatus(to: .authenticated)
-            completion?(true)
+    func performLocalAuthentication() {
+        guard let localAuthenticationDelegate = self.localAuthenticationDelegate else {
+            assertionFailure()
             return
-        } else {
-            guard self.view.window?.isKeyWindow == true else { assertionFailure(); return }
-            let laContext = LAContext()
-            var error: NSError?
-            laContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
-            guard error == nil else {
-                if error!.code == LAError.Code.passcodeNotSet.rawValue {
-                    ObvMessengerSettings.Privacy.lockScreen = false
-                    setAuthenticationStatus(to: .authenticated)
-                    completion?(true)
-                    return
-                }
-                setAuthenticationStatus(to: .authenticationFailed)
-                completion?(false)
-                return
-            }
-            assert(Thread.isMainThread)
-            delegate?.userWillTryToAuthenticate()
-            laContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: Strings.startOlvid) { [weak self] (success, error) in
-                DispatchQueue.main.sync {
-                    self?.delegate?.userDidTryToAuthenticated()
-                    if success {
-                        self?.setAuthenticationStatus(to: .authenticated)
-                        completion?(true)
-                    } else {
-                        self?.setAuthenticationStatus(to: .authenticationFailed)
-                        completion?(false)
-                    }
+        }
+        Task {
+            let laResult = await localAuthenticationDelegate.performLocalAuthentication(viewController: self, localizedReason: Strings.startOlvid)
+            DispatchQueue.main.async { [ weak self] in
+                switch laResult {
+                case .authenticated:
+                    self?.setAuthenticationStatus(to: .authenticated)
+                case .cancelled:
+                    self?.setAuthenticationStatus(to: .authenticationFailed)
+                case .lockedOut:
+                    self?.setAuthenticationStatus(to: .lockedOut)
                 }
             }
         }
@@ -163,7 +214,8 @@ private extension LocalAuthenticationViewController {
         
         static let startOlvid = NSLocalizedString("Please authenticate to start Olvid", comment: "")
         static let authenticate = NSLocalizedString("BUTTON_TITLE_AUTHENTICATE", comment: "")
-        
+        static let lockedOutExplanation = NSLocalizedString("LOCKED_OUT_EXPLANATION", comment: "")
+
     }
     
 }

@@ -654,8 +654,14 @@ extension EngineCoordinator {
     
     private func processNewConfirmedObliviousChannelNotification(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) {
 
+        /* When a new confirmed channel is created with a remote crypto identity, we send to her all the information we have about
+         * all the groups V2 that we have in common.
+         */
+        
+        sendBatchKeysAboutSharedGroupsV2(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
+
         /* When a new confirmed channel is created with a remote crypto identity, we check whether this identity is
-         * a pending member or a member in some group we own. If she is pending, we should invite this remote identy again since
+         * a pending member or a member in some group V1 that we own. If she is pending, we should invite this remote identy again since
          * the protocol step that was supposed to add her certainly failed. If she is a member, she might not be aware of this in case
          * we are in the middle of a backup restore and there is a discrepancy between the restored list of group members and the list
          * she has on her side. For these reasons, we execute a ReinviteAndUpdateMembers step of the (owned) group management protocol
@@ -671,8 +677,55 @@ extension EngineCoordinator {
          */
         
         askForTheLatestGroupMembersOfAllTheGroupsWeJoinedAndOwnedByTheRemoteCryptoIdentity(currentDeviceUid: currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity)
-                
+                        
     }
+    
+    
+    private func sendBatchKeysAboutSharedGroupsV2(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) {
+        
+        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
+        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
+        guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
+        guard let channelDelegate = delegateManager?.channelDelegate else { assertionFailure(); return }
+
+        let prng = self.prng
+        let log = self.log
+
+        let flowId = FlowIdentifier()
+        createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { [weak self] (obvContext) in
+            
+            guard let _self = self else { return }
+            
+            guard let ownedCryptoIdentity = try? identityDelegate.getOwnedIdentityOfCurrentDeviceUid(currentDeviceUid, within: obvContext) else {
+                os_log("The device uid does not correspond to any owned identity", log: _self.log, type: .fault)
+                return
+            }
+            
+            guard (try? identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedCryptoIdentity, within: obvContext)) == true else {
+                return
+            }
+            
+            guard (try? identityDelegate.isContactIdentityActive(ownedIdentity: ownedCryptoIdentity, contactIdentity: remoteCryptoIdentity, within: obvContext)) == true else {
+                os_log("Asking for the latest group members of groups owned by an inactive identity", log: _self.log, type: .fault)
+                return
+            }
+
+            do {
+                let message = try protocolDelegate.getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ownedCryptoIdentity,
+                                                                                                       contactIdentity: remoteCryptoIdentity,
+                                                                                                       contactDeviceUID: remoteDeviceUid,
+                                                                                                       flowId: flowId)
+                _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+            } catch {
+                os_log("We failed to initiate a batch keys resend following a new confirmed channel with a contact: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+            
+        }
+        
+    }
+    
     
     private func askForTheLatestGroupMembersOfAllTheGroupsWeJoinedAndOwnedByTheRemoteCryptoIdentity(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity) {
     

@@ -30,7 +30,7 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
     let ownedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
 
-    private var observationTokens = [NSObjectProtocol]()
+    var observationTokens = [NSObjectProtocol]()
 
     // Constants
     
@@ -88,6 +88,8 @@ extension ContactsFlowViewController {
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
         
+        observePersistedGroupV2WasDeletedNotifications()
+
     }
     
 }

@@ -147,16 +147,18 @@ final class PersistedMessageReceived: PersistedMessage {
         self.readOnce || self.visibilityDuration != nil
     }
 
-    /// Called when a received message was globally wiped
-    func wipe(requester: PersistedObvContactIdentity) throws {
-        guard !isRemoteWiped else { return }
+    /// Called when a received message was globally wiped by a contact
+    func wipeByContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, messageUploadTimestampFromServer: Date) throws {
+        let requester = RequesterOfMessageDeletion.contact(ownedCryptoId: ownedCryptoId,
+                                                           contactCryptoId: contactCryptoId,
+                                                           messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
         for join in fyleMessageJoinWithStatuses {
             try join.wipe()
         }
         self.deleteBody()
         try? self.reactions.forEach { try $0.delete() }
-        let remoteCryptoId = requester.cryptoId
-        try addMetadata(kind: .remoteWiped(remoteCryptoId: remoteCryptoId), date: Date())
+        try addMetadata(kind: .remoteWiped(remoteCryptoId: contactCryptoId), date: Date())
     }
 
     
@@ -204,7 +206,14 @@ final class PersistedMessageReceived: PersistedMessage {
 
 extension PersistedMessageReceived {
     
-    convenience init(messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messageJSON: MessageJSON, contactIdentity: PersistedObvContactIdentity, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, missedMessageCount: Int, discussion: PersistedDiscussion) throws {
+    convenience init(messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messageJSON: MessageJSON, contactIdentity: PersistedObvContactIdentity, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, missedMessageCount: Int, discussion: PersistedDiscussion, obvMessageContainsAttachments: Bool) throws {
+        
+        // Disallow the creation of an "empty" message
+        let messageBodyIsEmpty = (messageJSON.body == nil || messageJSON.body?.isEmpty == true)
+        guard !messageBodyIsEmpty || obvMessageContainsAttachments else {
+            assertionFailure()
+            throw Self.makeError(message: "Trying to create an empty PersistedMessageReceived")
+        }
         
         guard let context = discussion.managedObjectContext else { throw PersistedMessageReceived.makeError(message: "Could not find context") }
         
@@ -235,6 +244,22 @@ extension PersistedMessageReceived {
                 os_log("The PersistedGroupDiscussion list of contacts does not contain the contact that sent a message within this discussion", log: PersistedMessageReceived.log, type: .error)
                 assertionFailure()
                 throw PersistedMessageReceived.makeError(message: "The PersistedGroupDiscussion list of contacts does not contain the contact that sent a message within this discussion")
+            }
+        case .groupV2(withGroup: let group):
+            guard let group = group else {
+                os_log("Could find group v2 (this is ok if it was just deleted)", log: PersistedMessageReceived.log, type: .error)
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "Could find group v2 (this is ok if it was just deleted)")
+            }
+            guard let member = group.otherMembers.first(where: { $0.identity == contactIdentity.identity }) else {
+                os_log("The list of other members of the group does not contain the contact that sent a message within this discussion", log: PersistedMessageReceived.log, type: .error)
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "The list of other members of the group does not contain the contact that sent a message within this discussion")
+            }
+            guard member.isAllowedToSendMessage else {
+                os_log("We received a group v2 message from a member who is not allowed to send messages. We discard the message.", log: PersistedMessageReceived.log, type: .error)
+                assertionFailure()
+                throw PersistedMessageReceived.makeError(message: "We received a group v2 message from a member who is not allowed to send messages. We discard the message.")
             }
         }
         
@@ -661,7 +686,46 @@ extension PersistedMessageReceived {
         let messages = try context.fetch(request)
         return Set(messages)
     }
+
+
+    /// Return readOnce and limited visibility messages with a timestamp less or equal to the specified date.
+    /// As we expect these messages to be deleted, we only fetch a limited number of properties.
+    /// This method should only be used to fetch messages that will eventually be deleted.
+    static func getAllReadOnceAndLimitedVisibilityReceivedMessagesToDelete(until date: Date, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
+
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        let orPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+            Predicate.hasVisibilityDuration,
+            Predicate.readOnce,
+        ])
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            orPredicate,
+            PersistedMessage.Predicate.createdBeforeIncluded(date: date)
+        ])
+        request.predicate = predicate
+        
+        request.relationshipKeyPathsForPrefetching = [PersistedMessage.Predicate.Key.discussion.rawValue] // The delete() method needs the discussion to return infos
+        request.propertiesToFetch = [PersistedMessage.timestampKey] // The WipeAllEphemeralMessages operation needs the timestamp
+        request.fetchBatchSize = 100 // Keep memory footprint low
+        
+       return try context.fetch(request)
+    }
+
     
+    static func getDateOfLatestReceivedMessageWithLimitedVisibilityOrReadOnce(within context: NSManagedObjectContext) throws -> Date? {
+
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+            Predicate.hasVisibilityDuration,
+            Predicate.readOnce,
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.timestampKey, ascending: false)]
+        request.propertiesToFetch = [PersistedMessage.timestampKey]
+        request.fetchLimit = 1
+        let message = try context.fetch(request).first
+        return message?.timestamp
+    }
+
     
     static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
         guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
@@ -983,16 +1047,16 @@ extension PersistedMessageReceived {
                 assertionFailure()
                 return
             }
-            ObvMessengerInternalNotification.persistedMessageReceivedWasDeleted(objectID: objectID, messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, sortIndex: sortIndex, discussionObjectID: discussionObjectID)
+            PersistedMessageReceivedNotification.persistedMessageReceivedWasDeleted(objectID: objectID, messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, sortIndex: sortIndex, discussionObjectID: discussionObjectID)
                 .postOnDispatchQueue()
             
         } else if (self.changedKeys.contains(PersistedMessageReceived.rawStatusKey) || isInserted) {
             if self.status == .read {
-                ObvMessengerInternalNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.typedObjectID)
+                PersistedMessageReceivedNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.typedObjectID)
                     .postOnDispatchQueue()
             }
             if isInserted, let returnReceipt = self.returnReceipt, let contactCryptoId = contactIdentity?.cryptoId, let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId {
-                ObvMessengerInternalNotification.aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived(
+                PersistedMessageReceivedNotification.aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived(
                     returnReceipt: returnReceipt,
                     contactCryptoId: contactCryptoId,
                     ownedCryptoId: ownedCryptoId,
@@ -1002,7 +1066,7 @@ extension PersistedMessageReceived {
         }
         
         if self.changedKeys.contains(PersistedMessage.bodyKey) {
-            ObvMessengerInternalNotification.theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: self.objectID)
+            PersistedMessageReceivedNotification.theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: self.objectID)
                 .postOnDispatchQueue()
         }
     }

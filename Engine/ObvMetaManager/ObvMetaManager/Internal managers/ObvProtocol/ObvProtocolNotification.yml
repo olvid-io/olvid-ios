@@ -23,3 +23,8 @@ notifications:
   params:
   - {name: protocolMessageId, type: MessageIdentifier}
   - {name: flowId, type: FlowIdentifier}
+- name: groupV2UpdateDidFail
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: appGroupIdentifier, type: Data}
+  - {name: flowId, type: FlowIdentifier}

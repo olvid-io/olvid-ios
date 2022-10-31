@@ -56,6 +56,8 @@ fileprivate struct TrustOriginCell: View {
             return Image(systemIcon: .person3Fill)
         case .keycloak:
             return Image(systemIcon: .serverRack)
+        case .serverGroupV2:
+            return Image(systemIcon: .person3Fill)
         }
     }
     
@@ -73,6 +75,8 @@ fileprivate struct TrustOriginCell: View {
             return Text("TRUST_ORIGIN_TITLE_GROUP")
         case .keycloak:
             return Text("IDENTITY_SERVER")
+        case .serverGroupV2:
+            return Text("TRUST_ORIGIN_TITLE_GROUP")
         }
     }
     
@@ -82,6 +86,7 @@ fileprivate struct TrustOriginCell: View {
         case .introduction: return .blue
         case .group: return .pink
         case .keycloak: return Color(#colorLiteral(red: 0.9411764741, green: 0.4980392158, blue: 0.3529411852, alpha: 1))
+        case .serverGroupV2: return .pink
         }
     }
     

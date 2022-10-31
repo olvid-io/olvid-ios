@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -21,15 +21,18 @@
 		C40F855B26C3E0B7000AB07C /* OlvidUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C40F855A26C3E0B1000AB07C /* OlvidUtils.framework */; };
 		C40F863126C56E07000AB07C /* ObvServerDownloadMessageExtendedPayloadMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40F863026C56E07000AB07C /* ObvServerDownloadMessageExtendedPayloadMethod.swift */; };
 		C4140E8220C0ACC800C45B2C /* ObvServerUploadMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4140E8120C0ACC800C45B2C /* ObvServerUploadMethod.swift */; };
+		C41FC71F2825463400A871C7 /* ObvServerPutGroupLogServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41FC71E2825463400A871C7 /* ObvServerPutGroupLogServerMethod.swift */; };
 		C4204FBF2350E80C009DEFE4 /* ObvServerUploadReturnReceipt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4204FBE2350E80C009DEFE4 /* ObvServerUploadReturnReceipt.swift */; };
 		C43045C32546DA5B009A3F76 /* QueryApiKeyStatusServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43045C22546DA5B009A3F76 /* QueryApiKeyStatusServerMethod.swift */; };
 		C433E5AF24242ADD004FAB12 /* ObvMetaManager.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C433E5AC24242AD7004FAB12 /* ObvMetaManager.framework */; };
+		C443A3BE28488CE700A3C1B6 /* ObvServerGroupBlobUpdateServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C443A3BD28488CE700A3C1B6 /* ObvServerGroupBlobUpdateServerMethod.swift */; };
 		C44AA2A922DA87CF00D07021 /* ObvS3Method.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AA2A822DA87CE00D07021 /* ObvS3Method.swift */; };
 		C44AA2AB22DA883800D07021 /* ObvS3UploadMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AA2AA22DA883800D07021 /* ObvS3UploadMethod.swift */; };
 		C44AA2AF22DA897100D07021 /* ObvS3UploadAttachmentChunkMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AA2AE22DA897100D07021 /* ObvS3UploadAttachmentChunkMethod.swift */; };
 		C456BCE81FB3B8530055A339 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C456BCE51FB3B8490055A339 /* ObvTypes.framework */; };
 		C45BE6AE20F7C4970074052B /* ObvServerDeviceDiscoveryMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45BE6AD20F7C4970074052B /* ObvServerDeviceDiscoveryMethod.swift */; };
 		C46A1EBF25E31CBF00301B32 /* URLSessionConfiguration+DefaultConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46A1EBE25E31CBF00301B32 /* URLSessionConfiguration+DefaultConfiguration.swift */; };
+		C46E424828466D5F006C1163 /* ObvServerGroupBlobLockServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46E424728466D5F006C1163 /* ObvServerGroupBlobLockServerMethod.swift */; };
 		C4781D43254C849B00F49FBC /* VerifyReceiptMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4781D42254C849B00F49FBC /* VerifyReceiptMethod.swift */; };
 		C48668BB1FC787D200200830 /* ObvServerGetTokenMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48668BA1FC787D200200830 /* ObvServerGetTokenMethod.swift */; };
 		C486ECDC219CDF5400B30789 /* ObvServerInterfaceConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = C486ECDB219CDF5400B30789 /* ObvServerInterfaceConstants.swift */; };
@@ -39,8 +42,11 @@
 		C4B0DBA31FB343BA00136E8F /* ObvServerInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B0DB951FB343BA00136E8F /* ObvServerInterface.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C4B1F7F222E1FD5B00375C93 /* ObvServerCancelAttachmentUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B1F7F122E1FD5B00375C93 /* ObvServerCancelAttachmentUpload.swift */; };
 		C4BEED8B22E5D08500F01BAD /* ObvServerUploadPrivateURLsForAttachmentChunksMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4BEED8A22E5D08500F01BAD /* ObvServerUploadPrivateURLsForAttachmentChunksMethod.swift */; };
+		C4BF1C0B2800403900ACA74A /* ObvServerCreateGroupBlobServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4BF1C0A2800403900ACA74A /* ObvServerCreateGroupBlobServerMethod.swift */; };
+		C4C2618628076D270026ADA1 /* ObvServerGetGroupBlobServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C2618528076D270026ADA1 /* ObvServerGetGroupBlobServerMethod.swift */; };
 		C4C7832822DF5BA700766B3C /* RefreshInboxAttachmentSignedUrlServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C7832722DF5BA700766B3C /* RefreshInboxAttachmentSignedUrlServerMethod.swift */; };
 		C4C7FC011FC7335000B5DD8A /* ObvServerRequestChallengeMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C7FC001FC7335000B5DD8A /* ObvServerRequestChallengeMethod.swift */; };
+		C4C99EA82809572F005B5C72 /* ObvServerDeleteGroupBlobServerMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C99EA72809572F005B5C72 /* ObvServerDeleteGroupBlobServerMethod.swift */; };
 		C4D31F7120F609D300E643AD /* ObvServerDownloadMessagesAndListAttachmentsMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D31F7020F609D300E643AD /* ObvServerDownloadMessagesAndListAttachmentsMethod.swift */; };
 		C4D3BF521FD14CE100985810 /* ObvServerDeleteMessageAndAttachmentsMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D3BF511FD14CE100985810 /* ObvServerDeleteMessageAndAttachmentsMethod.swift */; };
 		C4D3BF5E1FD17E1B00985810 /* ObvServerRegisterPushNotificationMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D3BF5D1FD17E1B00985810 /* ObvServerRegisterPushNotificationMethod.swift */; };
@@ -110,15 +116,18 @@
 		C40F855026C3E0B1000AB07C /* OlvidUtils.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = OlvidUtils.xcodeproj; path = ../../OlvidUtils/OlvidUtils.xcodeproj; sourceTree = "<group>"; };
 		C40F863026C56E07000AB07C /* ObvServerDownloadMessageExtendedPayloadMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerDownloadMessageExtendedPayloadMethod.swift; sourceTree = "<group>"; };
 		C4140E8120C0ACC800C45B2C /* ObvServerUploadMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerUploadMethod.swift; sourceTree = "<group>"; };
+		C41FC71E2825463400A871C7 /* ObvServerPutGroupLogServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerPutGroupLogServerMethod.swift; sourceTree = "<group>"; };
 		C4204FBE2350E80C009DEFE4 /* ObvServerUploadReturnReceipt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerUploadReturnReceipt.swift; sourceTree = "<group>"; };
 		C43045C22546DA5B009A3F76 /* QueryApiKeyStatusServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryApiKeyStatusServerMethod.swift; sourceTree = "<group>"; };
 		C433E5A224242AD7004FAB12 /* ObvMetaManager.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvMetaManager.xcodeproj; path = ../ObvMetaManager/ObvMetaManager.xcodeproj; sourceTree = "<group>"; };
+		C443A3BD28488CE700A3C1B6 /* ObvServerGroupBlobUpdateServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerGroupBlobUpdateServerMethod.swift; sourceTree = "<group>"; };
 		C44AA2A822DA87CE00D07021 /* ObvS3Method.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvS3Method.swift; sourceTree = "<group>"; };
 		C44AA2AA22DA883800D07021 /* ObvS3UploadMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvS3UploadMethod.swift; sourceTree = "<group>"; };
 		C44AA2AE22DA897100D07021 /* ObvS3UploadAttachmentChunkMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvS3UploadAttachmentChunkMethod.swift; sourceTree = "<group>"; };
 		C456BCDB1FB3B8490055A339 /* ObvTypes.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ObvTypes.xcodeproj; path = ../ObvTypes/ObvTypes.xcodeproj; sourceTree = "<group>"; };
 		C45BE6AD20F7C4970074052B /* ObvServerDeviceDiscoveryMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerDeviceDiscoveryMethod.swift; sourceTree = "<group>"; };
 		C46A1EBE25E31CBF00301B32 /* URLSessionConfiguration+DefaultConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSessionConfiguration+DefaultConfiguration.swift"; sourceTree = "<group>"; };
+		C46E424728466D5F006C1163 /* ObvServerGroupBlobLockServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerGroupBlobLockServerMethod.swift; sourceTree = "<group>"; };
 		C4781D42254C849B00F49FBC /* VerifyReceiptMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifyReceiptMethod.swift; sourceTree = "<group>"; };
 		C48668BA1FC787D200200830 /* ObvServerGetTokenMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerGetTokenMethod.swift; sourceTree = "<group>"; };
 		C486ECDB219CDF5400B30789 /* ObvServerInterfaceConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerInterfaceConstants.swift; sourceTree = "<group>"; };
@@ -130,8 +139,11 @@
 		C4B0DB961FB343BA00136E8F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C4B1F7F122E1FD5B00375C93 /* ObvServerCancelAttachmentUpload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerCancelAttachmentUpload.swift; sourceTree = "<group>"; };
 		C4BEED8A22E5D08500F01BAD /* ObvServerUploadPrivateURLsForAttachmentChunksMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerUploadPrivateURLsForAttachmentChunksMethod.swift; sourceTree = "<group>"; };
+		C4BF1C0A2800403900ACA74A /* ObvServerCreateGroupBlobServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerCreateGroupBlobServerMethod.swift; sourceTree = "<group>"; };
+		C4C2618528076D270026ADA1 /* ObvServerGetGroupBlobServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerGetGroupBlobServerMethod.swift; sourceTree = "<group>"; };
 		C4C7832722DF5BA700766B3C /* RefreshInboxAttachmentSignedUrlServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshInboxAttachmentSignedUrlServerMethod.swift; sourceTree = "<group>"; };
 		C4C7FC001FC7335000B5DD8A /* ObvServerRequestChallengeMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerRequestChallengeMethod.swift; sourceTree = "<group>"; };
+		C4C99EA72809572F005B5C72 /* ObvServerDeleteGroupBlobServerMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerDeleteGroupBlobServerMethod.swift; sourceTree = "<group>"; };
 		C4D31F7020F609D300E643AD /* ObvServerDownloadMessagesAndListAttachmentsMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerDownloadMessagesAndListAttachmentsMethod.swift; sourceTree = "<group>"; };
 		C4D3BF511FD14CE100985810 /* ObvServerDeleteMessageAndAttachmentsMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerDeleteMessageAndAttachmentsMethod.swift; sourceTree = "<group>"; };
 		C4D3BF5D1FD17E1B00985810 /* ObvServerRegisterPushNotificationMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvServerRegisterPushNotificationMethod.swift; sourceTree = "<group>"; };
@@ -287,6 +299,12 @@
 				C056623B25B59BD300DBAB35 /* ObvServerRefreshUserDataMethod.swift */,
 				C056624325B59D6700DBAB35 /* ObvServerDeleteUserDataMethod.swift */,
 				C0A9ACC125FB67EE0052AE99 /* ObvServerCheckKeycloakRevocationMethod.swift */,
+				C4BF1C0A2800403900ACA74A /* ObvServerCreateGroupBlobServerMethod.swift */,
+				C4C2618528076D270026ADA1 /* ObvServerGetGroupBlobServerMethod.swift */,
+				C4C99EA72809572F005B5C72 /* ObvServerDeleteGroupBlobServerMethod.swift */,
+				C41FC71E2825463400A871C7 /* ObvServerPutGroupLogServerMethod.swift */,
+				C46E424728466D5F006C1163 /* ObvServerGroupBlobLockServerMethod.swift */,
+				C443A3BD28488CE700A3C1B6 /* ObvServerGroupBlobUpdateServerMethod.swift */,
 			);
 			path = Send;
 			sourceTree = "<group>";
@@ -482,6 +500,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0A76951276FED8F00D22EE4 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -515,10 +534,14 @@
 				C09C4195257940B800AE8E11 /* ObvServerPutUserDataMethod.swift in Sources */,
 				C4F0E62024C88BE10057F44B /* GetTurnCredentialsServerMethod.swift in Sources */,
 				C404328820C00DBF003E5224 /* ObvServerDownloadMethod.swift in Sources */,
+				C4C99EA82809572F005B5C72 /* ObvServerDeleteGroupBlobServerMethod.swift in Sources */,
 				C40ABEB822DCAA54005AC092 /* ObvS3DownloadAttachmentChunkMethod.swift in Sources */,
+				C46E424828466D5F006C1163 /* ObvServerGroupBlobLockServerMethod.swift in Sources */,
+				C4C2618628076D270026ADA1 /* ObvServerGetGroupBlobServerMethod.swift in Sources */,
 				C44AA2AF22DA897100D07021 /* ObvS3UploadAttachmentChunkMethod.swift in Sources */,
 				C4C7832822DF5BA700766B3C /* RefreshInboxAttachmentSignedUrlServerMethod.swift in Sources */,
 				C404328E20C00EA9003E5224 /* ObvServerGetPoWChallengeMethod.swift in Sources */,
+				C4BF1C0B2800403900ACA74A /* ObvServerCreateGroupBlobServerMethod.swift in Sources */,
 				C056623C25B59BD300DBAB35 /* ObvServerRefreshUserDataMethod.swift in Sources */,
 				C46A1EBF25E31CBF00301B32 /* URLSessionConfiguration+DefaultConfiguration.swift in Sources */,
 				C486ECDC219CDF5400B30789 /* ObvServerInterfaceConstants.swift in Sources */,
@@ -534,10 +557,12 @@
 				C4C7FC011FC7335000B5DD8A /* ObvServerRequestChallengeMethod.swift in Sources */,
 				C40CD3EA20EAD840003768F5 /* ObvServerDataMethod.swift in Sources */,
 				C49D930520F503DE006DF0DD /* ObvServerUploadMessageAndGetUidsMethod.swift in Sources */,
+				C443A3BE28488CE700A3C1B6 /* ObvServerGroupBlobUpdateServerMethod.swift in Sources */,
 				C4B1F7F222E1FD5B00375C93 /* ObvServerCancelAttachmentUpload.swift in Sources */,
 				C0A9ACC225FB67EE0052AE99 /* ObvServerCheckKeycloakRevocationMethod.swift in Sources */,
 				C40CD3E420EAD677003768F5 /* ObvServerMethod.swift in Sources */,
 				C09C425A257FDDBB00AE8E11 /* ObvServerGetUserDataMethod.swift in Sources */,
+				C41FC71F2825463400A871C7 /* ObvServerPutGroupLogServerMethod.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -656,7 +681,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -678,7 +704,11 @@
 				INFOPLIST_FILE = ObvServerInterface/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.cryptosystems.ObvServerInterface;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -703,7 +733,11 @@
 				INFOPLIST_FILE = ObvServerInterface/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.cryptosystems.ObvServerInterface;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;

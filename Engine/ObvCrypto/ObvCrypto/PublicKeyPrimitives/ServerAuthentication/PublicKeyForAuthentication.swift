@@ -35,8 +35,8 @@ extension PublicKeyForAuthentication {
     }
 }
 
-final class PublicKeyForAuthenticationDecoder: ObvDecoder {
-    static func obvDecode(_ encodedPublicKey: ObvEncoded) -> PublicKeyForAuthentication? {
+public final class PublicKeyForAuthenticationDecoder: ObvDecoder {
+    public static func obvDecode(_ encodedPublicKey: ObvEncoded) -> PublicKeyForAuthentication? {
         guard encodedPublicKey.byteId == .publicKey else { return nil }
         guard let (algorithmClassByteId, implementationByteIdValue, obvDic) = CryptographicKeyDecoder.obvDecode(encodedPublicKey) else { return nil }
         guard algorithmClassByteId == .authentication else { return nil }

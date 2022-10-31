@@ -22,6 +22,7 @@ import os.log
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvCrypto
 
 
 final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -30,13 +31,13 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
 
     let callUUID: UUID
     let callReport: CallReport
-    let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+    let groupIdentifier: GroupIdentifierBasedOnObjectID?
     let ownedCryptoId: ObvCryptoId
 
-    init(callUUID: UUID, callReport: CallReport, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, ownedCryptoId: ObvCryptoId) {
+    init(callUUID: UUID, callReport: CallReport, groupIdentifier: GroupIdentifierBasedOnObjectID?, ownedCryptoId: ObvCryptoId) {
         self.callUUID = callUUID
         self.callReport = callReport
-        self.groupId = groupId
+        self.groupIdentifier = groupIdentifier
         self.ownedCryptoId = ownedCryptoId
 
         super.init()
@@ -55,7 +56,12 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
                     item = _item
                     isItemCreatedOrUpdated = false
                 } else {
-                    item = PersistedCallLogItem(callUUID: callUUID, ownedCryptoId: ownedCryptoId, isIncoming: callReport.isIncoming, unknownContactsCount: 0, groupId: groupId, within: context)
+                    item = PersistedCallLogItem(callUUID: callUUID,
+                                                ownedCryptoId: ownedCryptoId,
+                                                isIncoming: callReport.isIncoming,
+                                                unknownContactsCount: 0,
+                                                groupIdentifier: groupIdentifier,
+                                                within: context)
                     isItemCreatedOrUpdated = true
                 }
             } catch(let error) {

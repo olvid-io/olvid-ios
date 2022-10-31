@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import ObvEngine
 import OlvidUtils
+import ObvCrypto
+import ObvTypes
 
 
 @objc(PersistedOneToOneDiscussion)
@@ -66,6 +68,7 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedOneToOneDiscussion.entityName,
                       status: status,
+                      shouldApplySharedConfigurationFromGlobalSettings: true,
                       sharedConfigurationToKeep: sharedConfigurationToKeep,
                       localConfigurationToKeep: localConfigurationToKeep)
 

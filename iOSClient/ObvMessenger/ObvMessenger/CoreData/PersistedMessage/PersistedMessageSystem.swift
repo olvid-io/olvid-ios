@@ -21,10 +21,11 @@ import Foundation
 import CoreData
 import ObvEngine
 import os.log
+import OlvidUtils
 
 
 @objc(PersistedMessageSystem)
-final class PersistedMessageSystem: PersistedMessage {
+final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
 
     private static let optionalCallLogItemKey = "optionalCallLogItem"
     static let entityName = "PersistedMessageSystem"
@@ -34,13 +35,8 @@ final class PersistedMessageSystem: PersistedMessage {
     
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSystem")
 
-    private static let errorDomain = "PersistedMessageSystem"
+    static let errorDomain = "PersistedMessageSystem"
     
-    static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
     // MARK: System message categories
 
     enum Category: Int, CustomStringConvertible, CaseIterable {
@@ -56,6 +52,10 @@ final class PersistedMessageSystem: PersistedMessage {
         case notPartOfTheGroupAnymore = 9
         case rejoinedGroup = 10
         case contactIsOneToOneAgain = 11
+        case membersOfGroupV2WereUpdated = 12
+        case ownedIdentityIsPartOfGroupV2Admins = 13
+        case ownedIdentityIsNoLongerPartOfGroupV2Admins = 14
+
 
         var description: String {
             switch self {
@@ -71,6 +71,9 @@ final class PersistedMessageSystem: PersistedMessage {
             case .notPartOfTheGroupAnymore: return "notPartOfTheGroupAnymore"
             case .rejoinedGroup: return "rejoinedGroup"
             case .contactIsOneToOneAgain: return "contactIsOneToOneAgain"
+            case .membersOfGroupV2WereUpdated: return "membersOfGroupV2WereUpdated"
+            case .ownedIdentityIsPartOfGroupV2Admins: return "ownedIdentityIsPartOfGroupV2Admins"
+            case .ownedIdentityIsNoLongerPartOfGroupV2Admins: return "ownedIdentityIsNoLongerPartOfGroupV2Admins"
             }
         }
 
@@ -89,7 +92,10 @@ final class PersistedMessageSystem: PersistedMessage {
                     .contactRevokedByIdentityProvider,
                     .notPartOfTheGroupAnymore,
                     .rejoinedGroup,
-                    .contactIsOneToOneAgain:
+                    .contactIsOneToOneAgain,
+                    .membersOfGroupV2WereUpdated,
+                    .ownedIdentityIsPartOfGroupV2Admins,
+                    .ownedIdentityIsNoLongerPartOfGroupV2Admins:
                 return false
             }
         }
@@ -105,7 +111,10 @@ final class PersistedMessageSystem: PersistedMessage {
                     .contactRevokedByIdentityProvider,
                     .notPartOfTheGroupAnymore,
                     .rejoinedGroup,
-                    .contactIsOneToOneAgain:
+                    .contactIsOneToOneAgain,
+                    .membersOfGroupV2WereUpdated,
+                    .ownedIdentityIsPartOfGroupV2Admins,
+                    .ownedIdentityIsNoLongerPartOfGroupV2Admins:
                 return true
                 
             case .numberOfNewMessages,
@@ -126,7 +135,10 @@ final class PersistedMessageSystem: PersistedMessage {
             case .notPartOfTheGroupAnymore: return true
             case .rejoinedGroup: return true
             case .contactIsOneToOneAgain: return true
-                
+            case .membersOfGroupV2WereUpdated: return true
+            case .ownedIdentityIsPartOfGroupV2Admins: return true
+            case .ownedIdentityIsNoLongerPartOfGroupV2Admins: return true
+
             case .numberOfNewMessages: return false
             case .discussionIsEndToEndEncrypted: return false
             }
@@ -198,6 +210,12 @@ final class PersistedMessageSystem: PersistedMessage {
         let dateString = df.string(from: self.timestamp)
         let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
         switch self.category {
+        case .ownedIdentityIsPartOfGroupV2Admins:
+            return Strings.ownedIdentityIsPartOfGroupV2Admins
+        case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+            return Strings.ownedIdentityIsNoLongerPartOfGroupV2Admins
+        case .membersOfGroupV2WereUpdated:
+            return Strings.membersOfGroupV2WereUpdated
         case .contactJoinedGroup:
             return Strings.contactJoinedGroup(contactDisplayName, dateString)
         case .contactLeftGroup:
@@ -227,7 +245,7 @@ final class PersistedMessageSystem: PersistedMessage {
                     assertionFailure()
                     return nil
                 }
-            case .groupV1, .none:
+            case .groupV1, .groupV2, .none:
                 assertionFailure()
                 return nil
             }
@@ -249,7 +267,7 @@ final class PersistedMessageSystem: PersistedMessage {
                 participantsCount += initialParticipantCount - 1
             }
             var oneParticipant: String?
-            if participantsCount > 1 || item.groupUid != nil {
+            if participantsCount > 1 || item.groupIdentifier != nil {
                 let sortedLogContacts = item.logContacts.sorted {
                     if $0.isCaller { return true }
                     if $1.isCaller { return false }
@@ -303,6 +321,12 @@ final class PersistedMessageSystem: PersistedMessage {
     var textBodyWithoutTimestamp: String? {
         let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
         switch self.category {
+        case .ownedIdentityIsPartOfGroupV2Admins:
+            return Strings.ownedIdentityIsPartOfGroupV2Admins
+        case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+            return Strings.ownedIdentityIsNoLongerPartOfGroupV2Admins
+        case .membersOfGroupV2WereUpdated:
+            return Strings.membersOfGroupV2WereUpdated
         case .contactJoinedGroup:
             return Strings.contactJoinedGroup(contactDisplayName, nil)
         case .contactLeftGroup:
@@ -336,7 +360,7 @@ final class PersistedMessageSystem: PersistedMessage {
                 participantsCount += initialParticipantCount - 1
             }
             var oneParticipant: String?
-            if participantsCount > 1 || item.groupUid != nil {
+            if participantsCount > 1 || item.groupIdentifier != nil {
                 let sortedLogContacts = item.logContacts.sorted {
                     if $0.isCaller { return true }
                     if $1.isCaller { return false }
@@ -525,9 +549,25 @@ extension PersistedMessageSystem {
                           optionalCallLogItem: nil,
                           discussion: discussion)
     }
+
     
+    static func insertNotPartOfTheGroupAnymoreSystemMessage(within discussion: PersistedGroupV2Discussion) throws {
+        _ = try self.init(.notPartOfTheGroupAnymore,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+
     
     static func insertRejoinedGroupSystemMessage(within discussion: PersistedGroupDiscussion) throws {
+        _ = try self.init(.rejoinedGroup,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+
+    
+    static func insertRejoinedGroupSystemMessage(within discussion: PersistedGroupV2Discussion) throws {
         _ = try self.init(.rejoinedGroup,
                           optionalContactIdentity: nil,
                           optionalCallLogItem: nil,
@@ -544,6 +584,29 @@ extension PersistedMessageSystem {
     }
 
     
+    static func insertMembersOfGroupV2WereUpdatedSystemMessage(within discussion: PersistedGroupV2Discussion) throws {
+        _ = try self.init(.membersOfGroupV2WereUpdated,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+
+    
+    static func insertOwnedIdentityIsPartOfGroupV2AdminsMessage(within discussion: PersistedGroupV2Discussion) throws {
+        _ = try self.init(.ownedIdentityIsPartOfGroupV2Admins,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+
+    
+    static func insertOwnedIdentityIsNoLongerPartOfGroupV2AdminsMessage(within discussion: PersistedGroupV2Discussion) throws {
+        _ = try self.init(.ownedIdentityIsNoLongerPartOfGroupV2Admins,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+
 }
 
 
@@ -586,24 +649,6 @@ extension PersistedMessageSystem {
         return discussion.isCallAvailable
     }
     
-    var deleteMessageActionCanBeMadeAvailableForSystemMessage: Bool {
-        switch category {
-        case .contactJoinedGroup,
-                .contactLeftGroup,
-                .contactWasDeleted,
-                .callLogItem,
-                .updatedDiscussionSharedSettings,
-                .contactRevokedByIdentityProvider,
-                .discussionWasRemotelyWiped,
-                .notPartOfTheGroupAnymore,
-                .rejoinedGroup,
-                .contactIsOneToOneAgain:
-            return true
-        case .numberOfNewMessages,
-                .discussionIsEndToEndEncrypted:
-            return false
-        }
-    }
 }
 
 

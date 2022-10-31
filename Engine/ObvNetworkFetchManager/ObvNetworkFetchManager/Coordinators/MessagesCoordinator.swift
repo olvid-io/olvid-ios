@@ -160,6 +160,8 @@ extension MessagesCoordinator: MessagesDelegate {
     
     func downloadMessagesAndListAttachments(for identity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
         
+        assert(!Thread.isMainThread)
+
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
@@ -514,6 +516,8 @@ extension MessagesCoordinator: URLSessionDataDelegate {
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         
+        assert(!Thread.isMainThread)
+        
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
@@ -536,7 +540,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             os_log("🌊 Got infos from task. The flow is %{public}@", log: log, type: .debug, flowId.debugDescription)
                         
             guard error == nil else {
-                os_log("The DownloadMessagesAndListAttachmentsCoordinator task failed for identity %{public}@: %@", log: log, type: .error, ownedIdentity.debugDescription, error!.localizedDescription)
+                os_log("The DownloadMessagesAndListAttachmentsCoordinator task failed for identity %{public}@: %{public}@", log: log, type: .error, ownedIdentity.debugDescription, error!.localizedDescription)
                 _ = removeInfoFor(task)
                 queueForCallingDelegate.async {
                     delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)

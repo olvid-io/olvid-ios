@@ -32,6 +32,7 @@ enum TappedStuffForCell {
     case replyTo(replyToMessageObjectID: NSManagedObjectID)
     case systemCellShowingUpdatedDiscussionSharedSettings
     case systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission
+    case behaveAsIfTheDiscussionTitleWasTapped
 }
 
 

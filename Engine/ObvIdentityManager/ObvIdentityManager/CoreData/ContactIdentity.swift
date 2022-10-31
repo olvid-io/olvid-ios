@@ -36,6 +36,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     private static let entityName = "ContactIdentity"
     static let cryptoIdentityKey = "cryptoIdentity"
     private static let devicesKey = "devices"
+    private static let groupMembershipsKey = "groupMemberships"
     static let ownedIdentityKey = "ownedIdentity"
     private static let ownedIdentityCryptoIdentityKey = [ownedIdentityKey, OwnedIdentity.cryptoIdentityKey].joined(separator: ".")
     private static let persistedTrustOriginsKey = "persistedTrustOrigins"
@@ -54,11 +55,12 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
 
     // MARK: Attributes
     
-    @NSManaged private(set) var cryptoIdentity: ObvCryptoIdentity // Unique (together with `ownedIdentity`)
+    @NSManaged private(set) var cryptoIdentity: ObvCryptoIdentity // Unique (together with `ownedIdentityIdentity`)
     @NSManaged private(set) var isCertifiedByOwnKeycloak: Bool
     @NSManaged private(set) var isForcefullyTrustedByUser: Bool
     @NSManaged private(set) var isRevokedAsCompromised: Bool
     @NSManaged private(set) var isOneToOne: Bool
+    @NSManaged private(set) var ownedIdentityIdentity: Data // Unique (together with `cryptoIdentity`)
     @NSManaged private var trustLevelRaw: String
     
     // MARK: Relationships
@@ -90,6 +92,18 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
             kvoSafeSetPrimitiveValue(newValue, forKey: ContactIdentity.devicesKey)
         }
     }
+    private(set) var groupMemberships: Set<ContactGroupV2Member> {
+        get {
+            let res = kvoSafePrimitiveValue(forKey: ContactIdentity.groupMembershipsKey) as! Set<ContactGroupV2Member>
+            return Set(res.map { $0.obvContext = self.obvContext; return $0 })
+        }
+        set {
+            kvoSafeSetPrimitiveValue(newValue, forKey: ContactIdentity.groupMembershipsKey)
+        }
+    }
+    
+    
+    
     // Unique (together with `cryptoIdentity`)
     private(set) var ownedIdentity: OwnedIdentity {
         get {
@@ -99,6 +113,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
             return res
         }
         set {
+            self.ownedIdentityIdentity = newValue.cryptoIdentity.getIdentity()
             kvoSafeSetPrimitiveValue(newValue, forKey: ContactIdentity.ownedIdentityKey)
         }
     }
@@ -145,7 +160,6 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     
     // The following vars are only used to implement the ContactDeleted notification
     private var ownedIdentityCryptoIdentityOnDeletion: ObvCryptoIdentity?
-    private var trustedContactIdentityDetailsOnDeletion: ObvIdentityDetails?
     
     private var trustLevelWasIncreased = false
     
@@ -198,6 +212,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         // Simple relationships
         self.contactGroups = Set<ContactGroup>()
         self.devices = Set<ContactDevice>()
+        self.groupMemberships = Set<ContactGroupV2Member>()
         self.ownedIdentity = ownedIdentity
         guard let trustedIdentityDetails = ContactIdentityDetailsTrusted(contactIdentity: self,
                                                                          identityCoreDetails: identityCoreDetails,
@@ -228,7 +243,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    fileprivate convenience init(backupItem: ContactIdentityBackupItem, within obvContext: ObvContext) {
+    fileprivate convenience init(backupItem: ContactIdentityBackupItem, ownedIdentityIdentity: Data, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: ContactIdentity.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.cryptoIdentity = backupItem.cryptoIdentity
@@ -236,6 +251,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         self.isRevokedAsCompromised = backupItem.isRevokedAsCompromised
         self.isForcefullyTrustedByUser = backupItem.isForcefullyTrustedByUser
         self.isOneToOne = backupItem.isOneToOne
+        self.ownedIdentityIdentity = ownedIdentityIdentity
     }
     
     fileprivate func restoreRelationships(contactGroupsOwned: Set<ContactGroupJoined>, persistedTrustOrigins: Set<PersistedTrustOrigin>, publishedIdentityDetails: ContactIdentityDetailsPublished?, trustedIdentityDetails: ContactIdentityDetailsTrusted) {
@@ -249,8 +265,19 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     }
 
     
-    func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) {
+    func delete(delegateManager: ObvIdentityDelegateManager, failIfContactIsPartOfACommonGroup: Bool, within obvContext: ObvContext) throws {
         self.delegateManager = delegateManager
+        if failIfContactIsPartOfACommonGroup {
+            let numberOfCommonGroupV2 = try ContactGroupV2.countAllContactGroupV2WithContact(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: self.cryptoIdentity, delegateManager: delegateManager, within: obvContext)
+            guard numberOfCommonGroupV2 == 0 else {
+                assertionFailure()
+                throw Self.makeError(message: "Cannot delete a contact if she is part of a common group v2")
+            }
+            guard contactGroups.isEmpty && contactGroupsOwned.isEmpty else {
+                assertionFailure()
+                throw Self.makeError(message: "Cannot delete a contact if she is part of a common group v1")
+            }
+        }
         obvContext.delete(self)
     }
     
@@ -482,7 +509,7 @@ extension ContactIdentity {
             self.devices.forEach { contactDevice in
                 let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactIdentity.entityName)
                 do {
-                    try contactDevice.delete() // This will eventually delete the secure channels
+                    try contactDevice.deleteContactDevice() // This will eventually delete the secure channels
                 } catch {
                     os_log("Could not delete a device of a revoked contact. We continue.", log: log, type: .fault, error.localizedDescription)
                     assertionFailure()
@@ -500,7 +527,7 @@ extension ContactIdentity {
             self.devices.forEach { contactDevice in
                 let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactIdentity.entityName)
                 do {
-                    try contactDevice.delete() // This will eventually delete the secure channels
+                    try contactDevice.deleteContactDevice() // This will eventually delete the secure channels
                 } catch {
                     os_log("Could not delete a device of a revoked contact. We continue.", log: log, type: .fault, error.localizedDescription)
                     assertionFailure()
@@ -576,11 +603,7 @@ extension ContactIdentity {
             throw makeError(message: "Could not find contact device")
         }
         device.setRawCapabilities(newRawCapabilities: newRawCapabilities)
-        // If, after setting the own capabilities of the device, we see that the contact does not support the .oneToOneContacts
-        // Capability, we upgrade her to OneToOne.
-        if let allCapabilities = self.allCapabilities, !allCapabilities.contains(.oneToOneContacts) {
-            setIsOneToOne(to: true)
-        }
+        // Before v0.11.1, we used to call setIsOneToOne(to: true) for contacts not having the oneToneContacts capability, for legacy reasons. We don't do that anymore.
     }
     
     
@@ -622,10 +645,11 @@ extension ContactIdentity {
     struct Predicate {
         enum Key: String {
             case isOneToOne = "isOneToOne"
+            case cryptoIdentity = "cryptoIdentity"
         }
     }
 
-    class func get(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> ContactIdentity? {
+    static func get(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> ContactIdentity? {
         let request: NSFetchRequest<ContactIdentity> = ContactIdentity.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
                                         ContactIdentity.cryptoIdentityKey, contactIdentity,
@@ -658,11 +682,7 @@ extension ContactIdentity {
     
     override func prepareForDeletion() {
         super.prepareForDeletion()
-        
-        guard let delegateManager = delegateManager else { assertionFailure(); return }
         ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
-        trustedContactIdentityDetailsOnDeletion = trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
-        
     }
     
     override func willSave() {
@@ -718,8 +738,7 @@ extension ContactIdentity {
                         
             os_log("Sending a ContactWasDeleted notification", log: log, type: .debug)
             ObvIdentityNotificationNew.contactWasDeleted(ownedCryptoIdentity: ownedIdentityCryptoIdentityOnDeletion!,
-                                                         contactCryptoIdentity: cryptoIdentity,
-                                                         contactTrustedIdentityDetails: trustedContactIdentityDetailsOnDeletion!)
+                                                         contactCryptoIdentity: cryptoIdentity)
                 .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             
         } else {
@@ -874,8 +893,8 @@ struct ContactIdentityBackupItem: Codable, Hashable {
         self.isOneToOne = try values.decodeIfPresent(Bool.self, forKey: .isOneToOne) ?? true
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-        let contactIdentity = ContactIdentity(backupItem: self, within: obvContext)
+    func restoreInstance(within obvContext: ObvContext, ownedIdentityIdentity: Data, associations: inout BackupItemObjectAssociations) throws {
+        let contactIdentity = ContactIdentity(backupItem: self, ownedIdentityIdentity: ownedIdentityIdentity, within: obvContext)
         try associations.associate(contactIdentity, to: self)
         _ = try persistedTrustOrigins.map { try $0.restoreInstance(within: obvContext, associations: &associations) }
         try publishedIdentityDetails?.restoreInstance(within: obvContext, associations: &associations)

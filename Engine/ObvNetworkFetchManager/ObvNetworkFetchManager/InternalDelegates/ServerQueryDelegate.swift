@@ -28,4 +28,5 @@ protocol ServerQueryDelegate {
     func postServerQuery(withObjectId objectId: NSManagedObjectID, flowId: FlowIdentifier)
 
     func postAllPendingServerQuery(for ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+    func postAllPendingServerQuery(flowId: FlowIdentifier)
 }

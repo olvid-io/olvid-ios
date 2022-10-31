@@ -122,6 +122,9 @@ extension TrustOriginsTableViewController {
         case .keycloak(timestamp: let timestamp, keycloakServer: let keycloakServer):
             cell.titleLabel.text = Strings.TrustOrigin.keycloak(keycloakServer.relativeString)
             cell.subtitleLabel.text = dateFormater.string(from: timestamp)
+        case .serverGroupV2(timestamp: let timestamp, groupIdentifier: _):
+            cell.titleLabel.text = Strings.TrustOrigin.group
+            cell.subtitleLabel.text = dateFormater.string(from: timestamp)
         }
         return cell
     }

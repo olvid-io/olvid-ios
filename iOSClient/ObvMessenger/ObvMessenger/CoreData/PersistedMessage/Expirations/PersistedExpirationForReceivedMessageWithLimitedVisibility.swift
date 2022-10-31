@@ -32,7 +32,7 @@ final class PersistedExpirationForReceivedMessageWithLimitedVisibility: Persiste
 
     // MARK: - Relationships
 
-    @NSManaged private(set) var messageReceivedWithLimitedVisibility: PersistedMessageReceived
+    @NSManaged private(set) var messageReceivedWithLimitedVisibility: PersistedMessageReceived?
 
     // MARK: - Initializer
 

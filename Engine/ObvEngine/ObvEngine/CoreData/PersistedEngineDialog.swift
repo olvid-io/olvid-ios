@@ -48,7 +48,8 @@ final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
         }
         set {
             guard let newValue = newValue else { assertionFailure(); return }
-            kvoSafeSetPrimitiveValue(newValue.obvEncode(), forKey: PersistedEngineDialog.encodedObvDialogKey)
+            guard let encodedValue = try? newValue.obvEncode() else { assertionFailure(); return }
+            kvoSafeSetPrimitiveValue(encodedValue, forKey: PersistedEngineDialog.encodedObvDialogKey)
         }
     }
     /// Returns `true` iff the serialized dialog cannot be deserialized, meaning that the type does not exist anymore in the current app version.

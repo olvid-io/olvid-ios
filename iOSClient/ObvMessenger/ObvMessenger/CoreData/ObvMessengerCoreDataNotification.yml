@@ -2,6 +2,8 @@ import:
   - Foundation
   - CoreData
   - ObvEngine
+  - ObvCrypto
+  - ObvTypes
 notifications:
 - name: newDraftToSend
   params:
@@ -115,3 +117,12 @@ notifications:
 - name: persistedDiscussionStatusChanged
   params:
   - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: persistedGroupV2UpdateIsFinished
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+- name: persistedGroupV2WasDeleted
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+- name: aPersistedGroupV2MemberChangedFromPendingToNonPending
+  params:
+  - {name: contactObjectID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}

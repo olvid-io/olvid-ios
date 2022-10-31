@@ -22,6 +22,7 @@ import os.log
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
+import ObvCrypto
 
 
 final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {

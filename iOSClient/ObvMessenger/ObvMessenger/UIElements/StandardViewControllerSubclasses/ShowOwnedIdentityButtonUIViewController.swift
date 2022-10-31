@@ -41,16 +41,10 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override var title: String? {
-        get {
-            return super.title
-        }
-        set {
-            titleLabel.text = newValue
-            super.title = newValue
-        }
+    func setTitle(_ title: String?) {
+        self.titleLabel.text = title
+        self.navigationItem.title = title
     }
-    
     
     func replaceOwnedIdentityButton(byIcon icon: ObvSystemIcon, target: Any, action: Selector) {
         let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
@@ -79,7 +73,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
         
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = UIFont.systemFont(ofSize: 20.0, weight: .heavy)
-        titleLabel.text = self.title
+        titleLabel.text = self.navigationItem.title
         self.navigationItem.titleView = titleLabel
         if let appearance = self.navigationController?.navigationBar.standardAppearance.copy() {
             appearance.configureWithTransparentBackground()

@@ -84,6 +84,8 @@ public extension ObvServerMethod {
         
     }
 
+    static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
 }
 
 public enum ObvServerMethodError: Error {

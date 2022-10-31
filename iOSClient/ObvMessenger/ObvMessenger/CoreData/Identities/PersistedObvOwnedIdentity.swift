@@ -24,6 +24,7 @@ import ObvEngine
 import Intents
 import os.log
 import OlvidUtils
+import ObvCrypto
 
 @objc(PersistedObvOwnedIdentity)
 final class PersistedObvOwnedIdentity: NSManagedObject {
@@ -53,6 +54,7 @@ final class PersistedObvOwnedIdentity: NSManagedObject {
     @NSManaged private(set) var photoURL: URL?
 
     @NSManaged private(set) var contactGroups: Set<PersistedContactGroup>
+    @NSManaged private(set) var contactGroupsV2: Set<PersistedGroupV2>
     @NSManaged private(set) var contacts: Set<PersistedObvContactIdentity>
     @NSManaged private(set) var invitations: Set<PersistedInvitation>
     

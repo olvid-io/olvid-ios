@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import ObvEngine
 import OlvidUtils
+import ObvTypes
+
 
 /// This operation is typically used when the user decides to update the text body of one of here sent messages. This operation assumes that the persisted message sent body has already been updated within the given context (typically, using a `EditTextBodyOfSentMessageOperation`).
 final class SendUpdateMessageJSONOperation: ContextualOperationWithSpecificReasonForCancel<SendUpdateMessageJSONOperationReasonForCancel> {

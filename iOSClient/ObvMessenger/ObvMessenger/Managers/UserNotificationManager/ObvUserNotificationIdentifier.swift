@@ -61,7 +61,7 @@ enum ObvUserNotificationIdentifier {
     // Receiving a reaction message
     case newReactionNotificationWithHiddenContent
     case newReaction(messageURI: URL, contactURI: URL)
-    // Receiving a invitation message
+    // Receiving an invitation message
     case acceptInvite(persistedInvitationUUID: UUID)
     case sasExchange(persistedInvitationUUID: UUID)
     case mutualTrustConfirmed(persistedInvitationUUID: UUID)

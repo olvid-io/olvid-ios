@@ -177,7 +177,7 @@ extension BootstrapWorker {
             let outboxMessageIdentifiers: [MessageIdentifier]
             do {
                 let outboxMessages = try OutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
-                outboxMessageIdentifiers = outboxMessages.map { $0.messageId }
+                outboxMessageIdentifiers = outboxMessages.compactMap { $0.messageId }
             } catch {
                 os_log("Could not reschedule existing OutboxMessages", log: log, type: .fault)
                 assertionFailure()
@@ -230,11 +230,12 @@ extension BootstrapWorker {
             // We look for the message. If it does not exist, we do not notify the app. It will eventually be notified when we will deal with the change containing the deletion of the message.
             guard let outboxMessage = try? obvContext.existingObject(with: change.changedObjectID) as? OutboxMessage else { continue }
             guard let timestampFromServer = outboxMessage.timestampFromServer else { assertionFailure(); continue }
-            guard !notificationPosted.contains(outboxMessage.messageId) else { continue }
-            notificationPosted.insert(outboxMessage.messageId)
+            guard let messageId = outboxMessage.messageId else { assertionFailure(); continue }
+            guard !notificationPosted.contains(messageId) else { continue }
+            notificationPosted.insert(messageId)
             os_log("Sending a outboxMessageWasUploaded notification (bootstraped update transaction) for messageId: %{public}@", log: log, type: .info, outboxMessage.messageId.debugDescription)
             
-            ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: outboxMessage.messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: outboxMessage.isAppMessageWithUserContent, isVoipMessage: outboxMessage.isVoipMessage, flowId: obvContext.flowId)
+            ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: outboxMessage.isAppMessageWithUserContent, isVoipMessage: outboxMessage.isVoipMessage, flowId: obvContext.flowId)
                 .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
         }
@@ -330,7 +331,8 @@ extension BootstrapWorker {
             }
             for msg in uploadedMessages {
                 guard let timestampFromServer = msg.timestampFromServer else { assertionFailure(); continue }
-                ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: msg.messageId,
+                guard let messageId = msg.messageId else { assertionFailure(); continue }
+                ObvNetworkPostNotification.outboxMessageWasUploaded(messageId: messageId,
                                                                     timestampFromServer: timestampFromServer,
                                                                     isAppMessageWithUserContent: msg.isAppMessageWithUserContent,
                                                                     isVoipMessage: msg.isVoipMessage,
@@ -401,7 +403,7 @@ extension BootstrapWorker {
             let existingMessageIds: Set<MessageIdentifier>
             do {
                 let existingMessages = try OutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
-                existingMessageIds = Set(existingMessages.map({ $0.messageId }))
+                existingMessageIds = Set(existingMessages.compactMap({ $0.messageId }))
             } catch {
                 os_log("Could not clean outbox: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return

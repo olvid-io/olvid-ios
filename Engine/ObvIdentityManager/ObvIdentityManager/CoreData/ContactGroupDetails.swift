@@ -40,7 +40,7 @@ class ContactGroupDetails: NSManagedObject, ObvManagedObject {
     // MARK: - Attributes
     
     @NSManaged private var photoServerKeyEncoded: Data?
-    @NSManaged private(set) var photoServerLabel: String?
+    @NSManaged private(set) var rawPhotoServerLabel: Data?
     @NSManaged private var photoFilename: String?
     @NSManaged private var serializedCoreDetails: Data
     @NSManaged private(set) var version: Int
@@ -48,6 +48,17 @@ class ContactGroupDetails: NSManagedObject, ObvManagedObject {
     // MARK: - Relationships
     
     // MARK: - Computed variables
+    
+    private(set) var photoServerLabel: UID? {
+        get {
+            guard let rawPhotoServerLabel = rawPhotoServerLabel else { return nil }
+            guard let uid = UID(uid: rawPhotoServerLabel) else { assertionFailure(); return nil }
+            return uid
+        }
+        set {
+            self.rawPhotoServerLabel = newValue?.raw
+        }
+    }
     
     var photoServerKeyAndLabel: PhotoServerKeyAndLabel? {
         get {
@@ -270,7 +281,7 @@ extension ContactGroupDetails {
         enum Key: String {
             case photoFilename = "photoFilename"
             case photoServerKeyEncoded = "photoServerKeyEncoded"
-            case photoServerLabel = "photoServerLabel"
+            case rawPhotoServerLabel = "rawPhotoServerLabel"
         }
         static var withoutPhotoFilename: NSPredicate {
             NSPredicate(withNilValueForKey: Key.photoFilename)
@@ -279,7 +290,7 @@ extension ContactGroupDetails {
             NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
         }
         static var withPhotoServerLabel: NSPredicate {
-            NSPredicate(withNonNilValueForKey: Key.photoServerLabel)
+            NSPredicate(withNonNilValueForKey: Key.rawPhotoServerLabel)
         }
         static var withPhotoServerKeyAndLabel: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -326,7 +337,7 @@ extension ContactGroupDetails {
 struct ContactGroupDetailsBackupItem: Codable, Hashable {
     
     fileprivate let photoServerKeyEncoded: Data?
-    fileprivate let photoServerLabel: String?
+    fileprivate let photoServerLabel: UID?
     fileprivate let serializedCoreDetails: Data
     fileprivate let version: Int
 
@@ -340,7 +351,7 @@ struct ContactGroupDetailsBackupItem: Codable, Hashable {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    fileprivate init(photoServerKeyEncoded: Data?, photoServerLabel: String?, serializedCoreDetails: Data, version: Int) {
+    fileprivate init(photoServerKeyEncoded: Data?, photoServerLabel: UID?, serializedCoreDetails: Data, version: Int) {
         self.photoServerKeyEncoded = photoServerKeyEncoded
         self.photoServerLabel = photoServerLabel
         self.serializedCoreDetails = serializedCoreDetails
@@ -366,7 +377,7 @@ struct ContactGroupDetailsBackupItem: Codable, Hashable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
-        try container.encodeIfPresent(photoServerLabel, forKey: .photoServerLabel)
+        try container.encodeIfPresent(photoServerLabel?.raw, forKey: .photoServerLabel)
         guard let serializedCoreDetailsAsString = String(data: serializedCoreDetails, encoding: .utf8) else {
             throw ContactGroupDetailsBackupItem.makeError(message: "Could not represent serializedCoreDetails as String")
         }
@@ -376,8 +387,39 @@ struct ContactGroupDetailsBackupItem: Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        self.photoServerKeyEncoded = try values.decodeIfPresent(Data.self, forKey: .photoServerKeyEncoded)
-        self.photoServerLabel = try values.decodeIfPresent(String.self, forKey: .photoServerLabel)
+        
+        if values.allKeys.contains(.photoServerLabel) && values.allKeys.contains(.photoServerKeyEncoded) {
+            do {
+                self.photoServerKeyEncoded = try values.decode(Data.self, forKey: .photoServerKeyEncoded)
+                if let photoServerLabelAsData = try? values.decodeIfPresent(Data.self, forKey: .photoServerLabel),
+                   let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    // Expected
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsUID = try values.decodeIfPresent(UID.self, forKey: .photoServerLabel) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(base64Encoded: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(hexString: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else {
+                    throw Self.makeError(message: "Could not decode photoServerLabel in the decoder of OwnedIdentityDetailsPublishedBackupItem")
+                }
+            } catch {
+                assertionFailure()
+                throw error
+            }
+        } else {
+            self.photoServerKeyEncoded = nil
+            self.photoServerLabel = nil
+        }
+
         let serializedCoreDetailsAsString = try values.decode(String.self, forKey: .serializedCoreDetails)
         guard let serializedCoreDetailsAsData = serializedCoreDetailsAsString.data(using: .utf8) else {
             throw ContactGroupDetailsBackupItem.makeError(message: "Could not represent serializedCoreDetails as Data")

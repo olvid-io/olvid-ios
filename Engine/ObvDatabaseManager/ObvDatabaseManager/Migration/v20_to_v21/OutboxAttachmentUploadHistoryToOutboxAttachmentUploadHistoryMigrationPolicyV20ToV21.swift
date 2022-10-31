@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import ObvTypes
+import ObvCrypto
 
 fileprivate let errorDomain = "ObvEngineMigrationV20ToV21"
 fileprivate let debugPrintPrefix = "[\(errorDomain)][OutboxAttachmentUploadHistoryToOutboxAttachmentUploadHistoryMigrationPolicyV20ToV21]"

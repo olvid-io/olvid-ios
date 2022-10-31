@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import ObvTypes
+
 
 public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Equatable {
 

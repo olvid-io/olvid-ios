@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvEngine
+import ObvTypes
 
 
 final class ProcessNewReceivedJoinProgressesReceivedFromEngineOperation: Operation {

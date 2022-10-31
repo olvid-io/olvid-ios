@@ -22,16 +22,12 @@ import CoreData
 import ObvEngine
 import ObvCrypto
 import os.log
+import ObvTypes
 
 @objc(PersistedMessageSentRecipientInfos)
 final class PersistedMessageSentRecipientInfos: NSManagedObject {
     
     private static let entityName = "PersistedMessageSentRecipientInfos"
-    private static let messageIdentifierFromEngineKey = "messageIdentifierFromEngine"
-    private static let recipientIdentityKey = "recipientIdentity"
-    private static let returnReceiptNonceKey = "returnReceiptNonce"
-    private static let timestampDeliveredKey = "timestampDelivered"
-    private static let ownedIdentityKey = ["messageSent", PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSentRecipientInfos")
     
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -86,26 +82,20 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
         timestampMessageSent != nil && timestampAllAttachmentsSent != nil
     }
 
-}
 
-
-// MARK: - Initializer
-
-extension PersistedMessageSentRecipientInfos {
+    // MARK: - Initializer
     
     /// Shall *only* be called from within the intialiazer of `PersistedMessageSent`.
-    convenience init?(recipientIdentity: Data, messageSent: PersistedMessageSent) {
+    convenience init(recipientIdentity: Data, messageSent: PersistedMessageSent) throws {
      
-        guard let context = messageSent.managedObjectContext else { return nil }
+        guard let context = messageSent.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedMessageSentRecipientInfos.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         
-        do {
-            _ = try ObvCryptoId(identity: recipientIdentity)
-        } catch {
-            return nil
-        }
+        _ = try ObvCryptoId(identity: recipientIdentity)
         
         self.messageIdentifierFromEngine = nil
         self.recipientIdentity = recipientIdentity
@@ -121,12 +111,17 @@ extension PersistedMessageSentRecipientInfos {
 
     }
     
-}
+    
+    func delete() throws {
+        guard let context = self.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
+        context.delete(self)
+        messageSent.refreshStatus()
+    }
 
 
-// MARK: - Other methods
-
-extension PersistedMessageSentRecipientInfos {
+    // MARK: - Other methods
     
     func setMessageIdentifierFromEngine(to messageIdentifierFromEngine: Data, andReturnReceiptElementsTo elements: (nonce: Data, key: Data)) {
         assert(elements.nonce.count == 16)
@@ -135,7 +130,7 @@ extension PersistedMessageSentRecipientInfos {
         self.returnReceiptKey = elements.key
         self.messageSent.refreshStatus()
     }
-
+    
     func setTimestampMessageSent(to timestamp: Date) {
         guard self.timestampMessageSent != timestamp else { return }
         assert(self.timestampMessageSent == nil) // Otherwise, it means of have been sent two distinct sent timestamp, which would be a bug
@@ -186,12 +181,45 @@ extension PersistedMessageSentRecipientInfos {
         }
     }
 
-}
 
-
-// MARK: - Convenience DB getters
-
-extension PersistedMessageSentRecipientInfos {
+    // MARK: - Convenience DB getters
+    
+    struct Predicate {
+        enum Key: String {
+            case messageIdentifierFromEngine = "messageIdentifierFromEngine"
+            case recipientIdentity = "recipientIdentity"
+            case returnReceiptNonce = "returnReceiptNonce"
+            case timestampDelivered = "timestampDelivered"
+            case messageSent = "messageSent"
+            static var ownedIdentity: String = [
+                Key.messageSent.rawValue,
+                PersistedMessage.Predicate.Key.discussion.rawValue,
+                PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue,
+                PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
+            static var discussion: String = [
+                Key.messageSent.rawValue,
+                PersistedMessage.Predicate.Key.discussion.rawValue,
+            ].joined(separator: ".")
+        }
+        static func withMessageIdentifierFromEngine(equalTo messageIdentifierFromEngine: Data) -> NSPredicate {
+            NSPredicate(Key.messageIdentifierFromEngine, EqualToData: messageIdentifierFromEngine)
+        }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentity, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static func withRecipientIdentity(_ recipientIdentity: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.recipientIdentity, EqualToData: recipientIdentity.getIdentity())
+        }
+        static func withReturnReceiptNonce(_ returnReceiptNonce: Data) -> NSPredicate {
+            NSPredicate(Key.returnReceiptNonce, EqualToData: returnReceiptNonce)
+        }
+        static var withNoMessageIdentifierFromEngine: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.messageIdentifierFromEngine)
+        }
+        static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.discussion, discussion)
+        }
+    }
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageSentRecipientInfos> {
         return NSFetchRequest<PersistedMessageSentRecipientInfos>(entityName: PersistedMessageSentRecipientInfos.entityName)
@@ -200,17 +228,17 @@ extension PersistedMessageSentRecipientInfos {
 
     static func getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: Data, within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@",
-                                        messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg)
+        request.predicate = Predicate.withMessageIdentifierFromEngine(equalTo: messageIdentifierFromEngine)
         return try context.fetch(request)
     }
 
     
     static func getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg,
-                                        ownedIdentityKey, ownedCryptoId.getIdentity() as NSData)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withMessageIdentifierFromEngine(equalTo: messageIdentifierFromEngine),
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+        ])
         return try context.fetch(request)
     }
 
@@ -218,7 +246,7 @@ extension PersistedMessageSentRecipientInfos {
     /// This methods returns all the `PersistedMessageSentRecipientInfos` that are still unprocessed, i.e., that have no message identifier from the engine.
     static func getAllUnprocessed(within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == nil", messageIdentifierFromEngineKey)
+        request.predicate = Predicate.withNoMessageIdentifierFromEngine
         return try context.fetch(request)
     }
 
@@ -226,20 +254,50 @@ extension PersistedMessageSentRecipientInfos {
     static func getAllUnprocessedForSpecificContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "%K == nil", messageIdentifierFromEngineKey),
-            NSPredicate(format: "%K == %@", recipientIdentityKey, contactCryptoId.getIdentity() as NSData),
-            NSPredicate(format: "%K == %@", ownedIdentityKey, ownedCryptoId.getIdentity() as NSData),
+            Predicate.withNoMessageIdentifierFromEngine,
+            Predicate.withRecipientIdentity(contactCryptoId),
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+        ])
+        return try context.fetch(request)
+    }
+
+    
+    static func countAllUnprocessedForSpecificContact(contactCryptoId: ObvCryptoId, ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
+        guard let context = ownedIdentity.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
+        let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withNoMessageIdentifierFromEngine,
+            Predicate.withRecipientIdentity(contactCryptoId),
+            Predicate.withOwnedCryptoId(ownedIdentity.cryptoId),
+        ])
+        return try context.count(for: request)
+    }
+
+    
+    static func getAllUnprocessedForContact(contactCryptoId: ObvCryptoId, forMessagesWithinDiscussion discussion: PersistedDiscussion) throws -> [PersistedMessageSentRecipientInfos] {
+        guard let context = discussion.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
+        let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withNoMessageIdentifierFromEngine,
+            Predicate.withRecipientIdentity(contactCryptoId),
+            Predicate.withinDiscussion(discussion),
         ])
         return try context.fetch(request)
     }
 
     
     /// This methods returns all the `PersistedMessageSentRecipientInfos` with the appropriate `nonce` and recipient
-    static func get(withNonce nonce: Data, ownedIdentity: ObvCryptoIdentity, within context: NSManagedObjectContext) throws -> Set<PersistedMessageSentRecipientInfos> {
+    static func get(withNonce nonce: Data, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<PersistedMessageSentRecipientInfos> {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        returnReceiptNonceKey, nonce as NSData,
-                                        ownedIdentityKey, ownedIdentity.getIdentity() as NSData)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withReturnReceiptNonce(nonce),
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+        ])
         return Set(try context.fetch(request))
     }
+
 }

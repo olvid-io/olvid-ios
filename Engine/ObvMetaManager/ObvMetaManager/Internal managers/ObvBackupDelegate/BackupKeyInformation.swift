@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvTypes
+import ObvCrypto
 
 public struct BackupKeyInformation {
     

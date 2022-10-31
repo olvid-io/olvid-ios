@@ -19,10 +19,12 @@
 
 import UIKit
 
-protocol AllGroupsViewControllerDelegate: AnyObject {
-    
+
+protocol NewAllGroupsViewControllerDelegate: AnyObject {
+
     func userDidSelect(_: PersistedContactGroup, within: UINavigationController?)
-    
+    func userDidSelect(_: PersistedGroupV2, within: UINavigationController?)
+
     func userWantsToAddContactGroup()
     
 }

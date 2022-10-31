@@ -156,8 +156,10 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     /// We keep in memory a list of all messages that were "recently" deleted. This prevents the re-creation of a message that we would list from the server and delete at the same time.
     /// Every 10 minutes or so, we remove old entries.
-    private static var messagesRecentlyDeleted = [MessageIdentifier: Date]()
+    private static var _messagesRecentlyDeleted = [MessageIdentifier: Date]()
     
+    /// This queue allows to synchronise access to `_messagesRecentlyDeleted`
+    private static var messagesRecentlyDeletedQueue = DispatchQueue(label: "MessagesRecentlyDeletedQueue", attributes: .concurrent)
     
     /// Allows to keep track of the date when we last removed old entries from `messagesRecentlyDeleted`
     private static var lastRemovalOfOldEntriesInMessagesRecentlyDeleted = Date.distantPast
@@ -170,19 +172,27 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         lastRemovalOfOldEntriesInMessagesRecentlyDeleted = Date()
         let threshold = Date(timeInterval: -TimeInterval(minutes: 10), since: lastRemovalOfOldEntriesInMessagesRecentlyDeleted)
         // Keep the most recent values in messagesRecentlyDeleted
-        messagesRecentlyDeleted = messagesRecentlyDeleted.filter({ $0.value > threshold })
+        messagesRecentlyDeletedQueue.async(flags: .barrier) {
+            _messagesRecentlyDeleted = _messagesRecentlyDeleted.filter({ $0.value > threshold })
+        }
     }
     
     
     /// Returns `true` iff we recently deleted a message with the given message identifier.
     private static func thisMessageWasRecentlyDeleted(messageId: MessageIdentifier) -> Bool {
         removeOldEntriesFromMessagesRecentlyDeletedIfAppropriate()
-        return messagesRecentlyDeleted.keys.contains(messageId)
+        var result = false
+        messagesRecentlyDeletedQueue.sync {
+            result = _messagesRecentlyDeleted.keys.contains(messageId)
+        }
+        return result
     }
 
     
     private static func trackRecentlyDeletedMessage(messageId: MessageIdentifier) {
-        messagesRecentlyDeleted[messageId] = Date()
+        messagesRecentlyDeletedQueue.async(flags: .barrier) {
+            _messagesRecentlyDeleted[messageId] = Date()
+        }
     }
     
 }
@@ -276,6 +286,8 @@ extension InboxMessage {
             case rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
             case rawMessageIdUidKey = "rawMessageIdUid"
             case downloadTimestampFromServer = "downloadTimestampFromServer"
+            case messageUploadTimestampFromServer = "messageUploadTimestampFromServer"
+            case markedForDeletion = "markedForDeletion"
         }
         static func withMessageIdOwnedCryptoId(_ ownedCryptoId: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(Key.rawMessageIdOwnedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
@@ -294,6 +306,12 @@ extension InboxMessage {
                 NSPredicate(withNilValueForKey: Key.fromCryptoIdentityKey),
                 NSPredicate(withNilValueForKey: Key.messagePayloadKey),
             ])
+        }
+        static var isMarkedForDeletion: NSPredicate {
+            NSPredicate(Key.markedForDeletion, is: true)
+        }
+        static var isNotMarkedForDeletion: NSPredicate {
+            NSPredicate(Key.markedForDeletion, is: false)
         }
     }
     
@@ -316,8 +334,12 @@ extension InboxMessage {
     
     static func getBatchOfUnprocessedMessages(batchSize: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
-        request.predicate = Predicate.isUnprocessed
-        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.downloadTimestampFromServer.rawValue, ascending: true)]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.isUnprocessed,
+            Predicate.isNotMarkedForDeletion,
+        ])
+        
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
         request.fetchLimit = batchSize
         return try obvContext.fetch(request)
     }

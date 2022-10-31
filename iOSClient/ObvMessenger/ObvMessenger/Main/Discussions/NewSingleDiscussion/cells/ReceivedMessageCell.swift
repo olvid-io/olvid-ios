@@ -107,7 +107,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         switch try? message.discussion.kind {
         case .oneToOne:
             content.alwaysHideContactPictureAndNameView = true
-        case .groupV1, .none:
+        case .groupV1, .groupV2, .none:
             content.alwaysHideContactPictureAndNameView = false
         }
         content.previousMessageIsFromSameContact = previousMessageIsFromSameContact

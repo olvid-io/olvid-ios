@@ -22,22 +22,28 @@ import Foundation
 import ObvEngine
 import OlvidUtils
 import os.log
-import LocalAuthentication
 import SwiftUI
 import CoreData
 import CoreDataStack
 
 @objc(ShareViewController)
-final class ShareViewController: UIViewController, ShareViewHostingControllerDelegate, ShareExtensionErrorViewControllerDelegate {
+final class ShareViewController: UIViewController, ShareExtensionErrorViewControllerDelegate {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: "ShareViewController"))
     private let runningLog = RunningLogError()
+    private let localAuthenticationDelegate: LocalAuthenticationDelegate = LocalAuthenticationManager()
+    private let internalQueue = OperationQueue.createSerialQueue(name: "ShareViewController internal queue", qualityOfService: .userInitiated)
+    private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
 
     private var shareViewHostingController: ShareViewHostingController?
-    private var obvEngine: ObvEngine!
-    private var isAuthenticated: Bool = false
+    private var localAuthenticationViewController: LocalAuthenticationViewController?
 
-    private static var uptimeOfTheLastCompleteRequest: TimeInterval?
+    private var obvEngine: ObvEngine!
+    private var model: ShareViewModel!
+
+    private var wipeOp: WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation?
+
+    private var observationTokens = [NSObjectProtocol]()
 
     private static let errorDomain = "ShareViewController"
     private static func makeError(message: String) -> Error { NSError(domain: Self.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -52,12 +58,15 @@ final class ShareViewController: UIViewController, ShareViewHostingControllerDel
     }
 
     private func observeNotifications() {
-        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] (notification) in
-            if ObvMessengerSettings.Privacy.lockScreen {
-                // Cancel to close the view if the share extention enter background mode, to avoid to stay authenticate indefinitely in background.
-                self?.cancelRequest()
+        observationTokens.append(contentsOf: [
+            NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] (notification) in
+                if ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
+                    // Cancel to close the view if the share extention enter background mode, to avoid to stay authenticate indefinitely in background.
+                    self?.cancelRequest()
+                }
+                self?.earlyAbortWipe()
             }
-        }
+        ])
     }
 
     override func viewDidLoad() {
@@ -84,35 +93,93 @@ final class ShareViewController: UIViewController, ShareViewHostingControllerDel
             }
         }
 
+        // Make sure at least one owned identity has been generated within the main app
+        
         do {
-            self.shareViewHostingController = try ShareViewHostingController(obvEngine: obvEngine)
-            if let shareViewHostingController = shareViewHostingController {
-                shareViewHostingController.delegate = self
-                self.addChild(shareViewHostingController)
-                shareViewHostingController.view.translatesAutoresizingMaskIntoConstraints = false
-                self.view.addSubview(shareViewHostingController.view)
-                shareViewHostingController.view.pinAllSidesToSides(of: self.view)
+            let allOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: ObvStack.shared.viewContext)
+            guard !allOwnedIdentities.isEmpty else {
+                throw Self.makeError(message: "Cannot find any owned identity")
             }
-        } catch let error {
-            os_log("📤 Could not initialize share view controller: %{public}@", log: log, type: .fault, error.localizedDescription)
+            self.model = ShareViewModel(allOwnedIdentities: allOwnedIdentities)
+        } catch {
             let vc = ShareExtensionErrorViewController()
             vc.delegate = self
             vc.reason = .shouldLaunchTheApp
             displayContentController(content: vc)
+            return
         }
+
+        // Instantiate the two view controllers that we might need and add them as child view controllers
+        // The appropriate vc view will be added as a subview later, in showAppropriateViewControllerView()
+        
+        let shareViewHostingController = ShareViewHostingController(obvEngine: self.obvEngine,
+                                                                    model: self.model,
+                                                                    internalQueue: internalQueue,
+                                                                    userDefaults: userDefaults)
+        shareViewHostingController.delegate = self
+        self.addChild(shareViewHostingController)
+        shareViewHostingController.didMove(toParent: self)
+        self.shareViewHostingController = shareViewHostingController
+
+        let localAuthenticationViewController = LocalAuthenticationViewController(localAuthenticationDelegate: localAuthenticationDelegate,
+                                                                                  delegate: self)
+        self.addChild(localAuthenticationViewController)
+        localAuthenticationViewController.didMove(toParent: self)
+        self.localAuthenticationViewController = localAuthenticationViewController
+
+        // Show the appropriate view controller
+        
+        showAppropriateViewControllerView()
+
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        authenticateIfRequired()
+    }
 
-        self.requireLocalAuthenticationIfNeeded { error in
-            guard error == nil else {
-                os_log("📤 Could not perform local authentification: %{public}@", log: self.log, type: .fault, error!.localizedDescription)
-                self.isAuthenticated = false
-                self.cancelRequest()
-                return
-            }
-            self.isAuthenticated = true
+    
+    private func showAppropriateViewControllerView() {
+        
+        guard let localAuthenticationViewController = localAuthenticationViewController else { assertionFailure(); return }
+        guard let shareViewHostingController = shareViewHostingController else { assertionFailure(); return }
+
+        let vcToShow = !model.isAuthenticated ? localAuthenticationViewController : shareViewHostingController
+        let vcToHide = model.isAuthenticated ? localAuthenticationViewController : shareViewHostingController
+
+        guard vcToShow.view.superview == nil else {
+            // Nothing to do, the vc to show is already shown
+            return
+        }
+        
+        self.view.addSubview(vcToShow.view)
+        vcToShow.view.translatesAutoresizingMaskIntoConstraints = false
+        self.view.pinAllSidesToSides(of: vcToShow.view)
+        vcToShow.view.alpha = 0.0
+
+        guard vcToHide.view.superview != nil else {
+            // There is no vc to hide, we only show the vc to show without animation
+            vcToShow.view.alpha = 1.0
+            return
+        }
+        
+        // If we reach this point, we can animate the transition from the vc to hide to the vc to show
+        
+        assert(vcToHide.view.superview != nil)
+        assert(vcToShow.view.superview != nil)
+
+        UIView.animate(withDuration: 0.1) {
+            vcToShow.view.alpha = 1.0
+        } completion: { finished in
+            vcToHide.view.removeFromSuperview()
+        }
+
+    }
+    
+    
+    private func authenticateIfRequired() {
+        if !model.isAuthenticated {
+            localAuthenticationViewController?.performLocalAuthentication()
         }
     }
 
@@ -131,43 +198,35 @@ final class ShareViewController: UIViewController, ShareViewHostingControllerDel
             throw Self.makeError(message: "Could not initialize the Oblivious Engine")
         }
     }
+    
+    private func completeRequest() {
+        os_log("📤 Complete request.", log: self.log, type: .info)
+        doCompleteRequest()
+    }
 
-    private func requireLocalAuthenticationIfNeeded(completionHandler: @escaping (Error?) -> Void) {
-        guard ObvMessengerSettings.Privacy.lockScreen else {
-            completionHandler(nil)
-            return
-        }
-        let userIsAlreadyAuthenticated: Bool
-        if let uptimeOfTheLastCompleteRequest = Self.uptimeOfTheLastCompleteRequest {
-            let timeIntervalSinceLastCompleteRequest = TimeInterval.getUptime() - uptimeOfTheLastCompleteRequest
-            assert(0 <= timeIntervalSinceLastCompleteRequest)
-            userIsAlreadyAuthenticated = (timeIntervalSinceLastCompleteRequest < ObvMessengerSettings.Privacy.lockScreenGracePeriod)
-        } else {
-            userIsAlreadyAuthenticated = false
-        }
-        guard !userIsAlreadyAuthenticated else {
-            completionHandler(nil)
-            return
-        }
-        let laContext = LAContext()
-        var error: NSError?
-        laContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
-        guard error == nil else {
-            completionHandler(error!)
-            return
-        }
-        let startOlvid = NSLocalizedString("Please authenticate to send message", comment: "")
-        laContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: startOlvid) { (success, error) in
-            guard error == nil else {
-                completionHandler(error!)
-                return
-            }
-            if success {
-                completionHandler(nil)
-            } else {
-                completionHandler(Self.makeError(message: "Authentication failed"))
-            }
-        }
+    private func doCompleteRequest() {
+        shareViewHostingController = nil
+        localAuthenticationViewController = nil
+        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        self.earlyAbortWipe()
+    }
+
+    // In the case where the share view is dismiss or put in backgroung while a wipe operation is running, we stop the operation ti be sure to have enough time to save the context even if the some messages was not deleted.
+    // The operation take care to inform the app to finish to wipe.
+    private func earlyAbortWipe() {
+        // If `wipeOp` is nil, no wipe is in progress
+        wipeOp?.earlyAbortWipe = true
+    }
+
+}
+
+extension ShareViewController: ShareViewHostingControllerDelegate {
+
+    var firstInputItems: NSExtensionItem? {
+        extensionContext?.inputItems.first as? NSExtensionItem
     }
 
     func showProgress(progress: Progress) {
@@ -200,69 +259,79 @@ final class ShareViewController: UIViewController, ShareViewHostingControllerDel
         doCompleteRequest()
     }
 
-    
-    private func completeRequest() {
-        os_log("📤 Complete request.", log: self.log, type: .info)
-        doCompleteRequest()
+
+}
+
+extension ShareViewController: LocalAuthenticationViewControllerDelegate {
+
+    func userLocalAuthenticationDidSucceedOrWasNotRequired() {
+        assert(Thread.isMainThread)
+        self.model.isAuthenticated = true
+        showAppropriateViewControllerView()
     }
 
-    private func doCompleteRequest() {
-        shareViewHostingController = nil
-        if isAuthenticated {
-            Self.uptimeOfTheLastCompleteRequest = TimeInterval.getUptime()
-        } else {
-            Self.uptimeOfTheLastCompleteRequest = nil
-        }
-        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
-    }
+    func tooManyWrongPasscodeAttemptsCausedLockOut() {
+        assert(Thread.isMainThread)
+        let flowId = FlowIdentifier()
+        let obvContext = ObvStack.shared.newBackgroundContext(flowId: flowId)
 
-    
-    var firstInputItems: NSExtensionItem? {
-        extensionContext?.inputItems.first as? NSExtensionItem
+        guard ObvMessengerSettings.Privacy.lockoutCleanEphemeral else { return }
+
+        wipeOp = WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation(userDefaults: userDefaults,
+                                                                                  appType: .shareExtension,
+                                                                                  wipeType: .startWipeFromAppOrShareExtension)
+        guard let wipeOp = wipeOp else { assertionFailure(); return }
+
+        wipeOp.viewContext = ObvStack.shared.viewContext
+        wipeOp.obvContext = obvContext
+        internalQueue.addOperations([wipeOp], waitUntilFinished: false)
+
+        let saveOp = SaveContextOperation(userDefaults: userDefaults)
+        saveOp.viewContext = ObvStack.shared.viewContext
+        saveOp.obvContext = obvContext
+        internalQueue.addOperations([saveOp], waitUntilFinished: false)
     }
 
 }
 
 protocol ShareViewHostingControllerDelegate: AnyObject {
+    var firstInputItems: NSExtensionItem? { get }
+
     func showProgress(progress: Progress)
     func showSuccessAndCompleteRequestAfter(deadline: DispatchTime)
     func showErrorAndCancelRequest()
     func cancelRequest()
-    var firstInputItems: NSExtensionItem? { get }
 }
 
 
 final class ShareViewHostingController: UIHostingController<ShareView>, ShareViewModelDelegate {
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: "ShareViewHostingController"))
-    private let internalQueue = OperationQueue.createSerialQueue(name: "ShareViewHostingController internal queue", qualityOfService: .userInitiated)
-    private let flowId: FlowIdentifier
-
     private static let errorDomain = "ShareViewHostingController"
     private static func makeError(message: String) -> Error { NSError(domain: Self.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    private var obvEngine: ObvEngine
-    private var obvContext: ObvContext
+    private let flowId: FlowIdentifier
+    private let obvEngine: ObvEngine
+    private let obvContext: ObvContext
+    private let model: ShareViewModel
+    private let internalQueue: OperationQueue
+    private let userDefaults: UserDefaults?
+
     private var fyleJoinsProvider: FyleJoinsProvider?
-    private var model: ShareViewModel
     private var hardLinksToFylesManager: HardLinksToFylesManager!
-    private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
 
     weak var delegate: ShareViewHostingControllerDelegate?
 
-    init(obvEngine: ObvEngine) throws {
+    init(obvEngine: ObvEngine, model: ShareViewModel, internalQueue: OperationQueue, userDefaults: UserDefaults?) {
         assert(Thread.isMainThread)
         
         self.flowId = FlowIdentifier()
         self.obvContext = ObvStack.shared.newBackgroundContext(flowId: flowId)
         self.obvEngine = obvEngine
+        self.model = model
+        self.internalQueue = internalQueue
+        self.userDefaults = userDefaults
 
-        let allOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: ObvStack.shared.viewContext)
-        guard !allOwnedIdentities.isEmpty else {
-            throw Self.makeError(message: "Cannot find any owned identity")
-        }
-
-        self.model = ShareViewModel(allOwnedIdentities: allOwnedIdentities)
         let shareView = ShareView(model: model)
         super.init(rootView: shareView)
         self.model.delegate = self
@@ -375,8 +444,8 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
                 os_log("📤 [%{public}@/%{public}@] Create Unprocessed Persisted Message Sent From Fyles And Strings done.", log: Self.log, type: .info, String(index + 1), String(discussions.count))
             }
             createMsgOps.append(op)
+            internalQueue.addOperation(op)
         }
-        internalQueue.addOperations(createMsgOps, waitUntilFinished: false)
 
         // Create the operation that saves the global context
         

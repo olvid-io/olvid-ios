@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 
 
@@ -30,7 +31,7 @@ fileprivate enum UpdateReactionsOfMessageOperationInput {
     
     case contact(emoji: String?,
                  messageReference: MessageReferenceJSON,
-                 groupId: (groupUid: UID, groupOwner: ObvCryptoId)?,
+                 groupIdentifier: GroupIdentifier?,
                  contactIdentity: ObvContactIdentity,
                  addPendingReactionIfMessageCannotBeFound: Bool)
     case owned(emoji: String?,
@@ -59,13 +60,13 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
 
     init(emoji: String?,
          messageReference: MessageReferenceJSON,
-         groupId: (groupUid: UID, groupOwner: ObvCryptoId)?,
+         groupIdentifier: GroupIdentifier?,
          contactIdentity: ObvContactIdentity,
          reactionTimestamp: Date,
          addPendingReactionIfMessageCannotBeFound: Bool) {
         self.input = .contact(emoji: emoji,
                               messageReference: messageReference,
-                              groupId: groupId,
+                              groupIdentifier: groupIdentifier,
                               contactIdentity: contactIdentity,
                               addPendingReactionIfMessageCannotBeFound: addPendingReactionIfMessageCannotBeFound)
         self.reactionTimestamp = reactionTimestamp
@@ -75,7 +76,7 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
     init(contactIdentity: ObvContactIdentity, reactionJSON: ReactionJSON, reactionTimestamp: Date, addPendingReactionIfMessageCannotBeFound: Bool) {
         self.input = .contact(emoji: reactionJSON.emoji,
                               messageReference: reactionJSON.messageReference,
-                              groupId: reactionJSON.groupId,
+                              groupIdentifier: reactionJSON.groupIdentifier,
                               contactIdentity: contactIdentity,
                               addPendingReactionIfMessageCannotBeFound: addPendingReactionIfMessageCannotBeFound)
         self.reactionTimestamp = reactionTimestamp
@@ -93,49 +94,48 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
 
             var message: PersistedMessage?
 
-            switch input {
-
-            case .contact(let emoji, let messageReference, let groupId, let contactIdentity, let addPendingReactionIfMessageCannotBeFound):
-
-                // Get the contact and the owned identities
-
-                let persistedContactIdentity: PersistedObvContactIdentity
-                do {
-                    do {
-                        guard let _persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: contactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
-                            return cancel(withReason: .couldNotFindContact)
-                        }
-                        persistedContactIdentity = _persistedContactIdentity
-                    } catch {
-                        return cancel(withReason: .coreDataError(error: error))
+            do {
+                
+                switch input {
+                    
+                case .contact(let emoji, let messageReference, let groupIdentifier, let contactIdentity, let addPendingReactionIfMessageCannotBeFound):
+                    
+                    // Get the contact and the owned identities
+                    
+                    guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: contactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                        return cancel(withReason: .couldNotFindContact)
                     }
-                }
-
-                guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
-                    return cancel(withReason: .couldNotFindOwnedIdentity)
-                }
-
-                // Recover the appropriate discussion
-
-                let discussion: PersistedDiscussion
-                do {
-                    if let groupId = groupId {
-                        guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+                    
+                    guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
+                        return cancel(withReason: .couldNotFindOwnedIdentity)
+                    }
+                    
+                    // Recover the appropriate discussion
+                    
+                    let discussion: PersistedDiscussion
+                    switch groupIdentifier {
+                    case .none:
+                        guard let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion else {
+                            return cancel(withReason: .couldNotFindDiscussion)
+                        }
+                        discussion = oneToOneDiscussion
+                    case .groupV1(groupV1Identifier: let groupV1Identifier):
+                        guard let group = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                             return cancel(withReason: .couldNotFindGroupDiscussion)
                         }
                         discussion = group.discussion
-                    } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
-                        discussion = oneToOneDiscussion
-                    } else {
-                        return cancel(withReason: .couldNotFindDiscussion)
+                    case .groupV2(groupV2Identifier: let groupV2Identifier):
+                        guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                            return cancel(withReason: .couldNotFindGroupDiscussion)
+                        }
+                        guard let groupDiscussion = group.discussion else {
+                            return cancel(withReason: .couldNotFindDiscussion)
+                        }
+                        discussion = groupDiscussion
                     }
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
-                }
-
-                // Get the message on which we will add a reaction
-                
-                do {
+                    
+                    // Get the message on which we will add a reaction
+                    
                     if let sentMessage = try PersistedMessageSent.get(
                         senderSequenceNumber: messageReference.senderSequenceNumber,
                         senderThreadIdentifier: messageReference.senderThreadIdentifier,
@@ -149,52 +149,32 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
                         discussion: discussion) {
                         message = receivedMessage
                     }
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
-                }
-                
-                // If a message was found, we can update its reactions. If not, we create a pending reaction  if appropriate.
-
-                if let message = message {
-                    do {
+                    
+                    // If a message was found, we can update its reactions. If not, we create a pending reaction if appropriate.
+                    
+                    if let message = message {
                         try message.setReactionFromContact(persistedContactIdentity, withEmoji: emoji, reactionTimestamp: reactionTimestamp)
-                    } catch {
-                        return cancel(withReason: .coreDataError(error: error))
-                    }
-                } else if addPendingReactionIfMessageCannotBeFound {
-                    do {
+                    } else if addPendingReactionIfMessageCannotBeFound {
                         try PendingMessageReaction.createPendingMessageReactionIfAppropriate(
                             emoji: emoji,
                             messageReference: messageReference,
                             serverTimestamp: reactionTimestamp,
                             discussion: discussion)
-                    } catch {
-                        return cancel(withReason: .coreDataError(error: error))
-                    }
-                } else {
-                    return cancel(withReason: .couldNotFindMessage)
-                }
-                
-            case .owned(emoji: let emoji, message: let messageObjectID):
-                do {
-                    guard let _message = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
+                    } else {
                         return cancel(withReason: .couldNotFindMessage)
                     }
-                    message = _message
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
-                }
-                
-                guard let message = message else {
-                    assertionFailure(); return
-                }
-                
-                do {
+                    
+                case .owned(emoji: let emoji, message: let messageObjectID):
+                    guard let message = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
+                        return cancel(withReason: .couldNotFindMessage)
+                    }
+                    
                     try message.setReactionFromOwnedIdentity(withEmoji: emoji, reactionTimestamp: reactionTimestamp)
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
+                    
                 }
                 
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
             }
 
             // If the message was registered in the view context, we refresh it

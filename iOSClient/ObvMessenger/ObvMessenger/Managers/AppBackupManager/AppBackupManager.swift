@@ -24,6 +24,7 @@ import ObvTypes
 import CloudKit
 import OlvidUtils
 import SwiftUI
+import ObvCrypto
 
 
 final class AppBackupManager: ObvBackupable {
@@ -571,6 +572,10 @@ extension AppBackupManager {
     }
 
     private static func incrementalCleanCloudBackups(currentCount: Int, cleanAllDevices: Bool, completionHandler: @escaping (Result<Int, AppBackupError>) -> Void) {
+        assert(!Thread.isMainThread)
+        if Thread.isMainThread {
+            os_log("🧽 incrementalCleanCloudBackups is running on the main thread", log: self.log, type: .fault)
+        }
         guard let identifierForVendor = UIDevice.current.identifierForVendor else {
             completionHandler(.failure(.operationError(Self.makeError(message: "Cannot get identifierForVendor"))))
             return
@@ -696,6 +701,12 @@ extension AppBackupManager {
         let ativityController = UIActivityViewController(activityItems: [backupFile], applicationActivities: nil)
         ativityController.popoverPresentationController?.sourceView = sourceView
         ativityController.completionWithItemsHandler = { [weak self] (activityType, completed, returnedItems, error) in
+            guard completed else {
+                try? backupFile.deleteData()
+                ObvMessengerInternalNotification.userCancelledBackupForExportNow
+                    .postOnDispatchQueue()
+                return
+            }
             guard completed || activityType == nil else {
                 return
             }

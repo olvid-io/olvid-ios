@@ -595,7 +595,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) async throws {
         try await requestHardlinkForFyleMessageJoinWithStatus(with: objectID)
         guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { assertionFailure(); throw Self.makeError(message: "Internal error") }
-        try await requestImageForHardlink(hardlink: hardlink, size: size)
+        _ = try await requestImageForHardlink(hardlink: hardlink, size: size)
         assert(getCachedImageForHardlink(hardlink: hardlink, size: size) != nil)
         assert(getCachedPreparedImage(for: objectID, size: size) != nil)
     }

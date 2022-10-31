@@ -85,7 +85,7 @@ extension ChannelCreationWithContactDeviceProtocol {
     }
 
     
-    // MARK: - ContactMightNowBeTrustedMessage
+    // MARK: - PingMessage
     
     struct PingMessage: ConcreteProtocolMessage {
         

@@ -74,6 +74,25 @@ final class AutoAcceptPendingGroupInvitesIfPossibleOperation: ContextualOperatio
                             obvEngine.respondTo(localDialog)
                         }
                         
+                    case .acceptGroupV2Invite(inviter: let inviter, group: _):
+                        
+                        switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
+                        case .noOne:
+                            continue
+                        case .oneToOneContactsOnly:
+                            let inviterContact = try PersistedObvContactIdentity.get(cryptoId: inviter, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .oneToOne)
+                            let groupOwnerIsAOneToOneContact = (inviterContact != nil)
+                            if groupOwnerIsAOneToOneContact {
+                                var localDialog = obvDialog
+                                try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                                obvEngine.respondTo(localDialog)
+                            }
+                        case .everyone:
+                            var localDialog = obvDialog
+                            try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                            obvEngine.respondTo(localDialog)
+                        }
+
                     default:
 
                         assertionFailure("There is a bug with the getAllGroupInvites query")

@@ -33,6 +33,10 @@ final class ObvProtocolDelegateManager {
     // MARK: Instance variables (internal delegates)
 
     let downloadedUserData: URL
+    
+    /// Directory where we store, e.g., photos during their upload.
+    /// This directory is regularly cleaned (deleting files older than 15 days).
+    let uploadingUserData: URL
 
     let receivedMessageDelegate: ReceivedMessageDelegate
     let protocolStarterDelegate: ProtocolStarterDelegate
@@ -68,8 +72,9 @@ final class ObvProtocolDelegateManager {
     }
 
     // MARK: Initialiazer
-    init(downloadedUserData: URL, receivedMessageDelegate: ReceivedMessageDelegate, protocolStarterDelegate: ProtocolStarterDelegate, contactTrustLevelWatcher: ContactTrustLevelWatcher) {
+    init(downloadedUserData: URL, uploadingUserData: URL, receivedMessageDelegate: ReceivedMessageDelegate, protocolStarterDelegate: ProtocolStarterDelegate, contactTrustLevelWatcher: ContactTrustLevelWatcher) {
         self.downloadedUserData = downloadedUserData
+        self.uploadingUserData = uploadingUserData
         self.receivedMessageDelegate = receivedMessageDelegate
         self.protocolStarterDelegate = protocolStarterDelegate
         self.contactTrustLevelWatcher = contactTrustLevelWatcher

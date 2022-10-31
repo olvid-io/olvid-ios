@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData
-import ObvEngine
+import ObvTypes
 
 final class RefreshBadgeForNewMessagesOperation: BadgeCounterOperation {
     

@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import ObvEngine
 import OlvidUtils
+import ObvTypes
+
 
 final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForCancel<SendReactionJSONOperationReasonForCancel> {
 

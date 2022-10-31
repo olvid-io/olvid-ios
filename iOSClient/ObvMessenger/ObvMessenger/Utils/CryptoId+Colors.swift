@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import ObvEngine
+import ObvTypes
 
 extension ObvCryptoId {
     

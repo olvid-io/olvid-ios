@@ -45,7 +45,9 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
             // In the case the ObvDialog is a group invite, it might be possible to auto-accept the invitation
                         
             switch obvDialog.category {
+                
             case .acceptGroupInvite(groupMembers: _, groupOwner: let groupOwner):
+                
                 switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
                 case .everyone:
                     var localDialog = obvDialog
@@ -75,6 +77,39 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
                 case .noOne:
                     break
                 }
+                
+            case .acceptGroupV2Invite(inviter: let inviter, group: _):
+                
+                switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
+                case .everyone:
+                    var localDialog = obvDialog
+                    do {
+                        try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                    } catch {
+                        return cancel(withReason: .couldNotRespondToDialog(error: error))
+                    }
+                    obvEngine.respondTo(localDialog)
+                    return
+                case .oneToOneContactsOnly:
+                    do {
+                        let inviterContact = try PersistedObvContactIdentity.get(contactCryptoId: inviter, ownedIdentityCryptoId: obvDialog.ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: obvContext.context)
+                        if inviterContact != nil {
+                            var localDialog = obvDialog
+                            do {
+                                try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                            } catch {
+                                return cancel(withReason: .couldNotRespondToDialog(error: error))
+                            }
+                            obvEngine.respondTo(localDialog)
+                            return
+                        }
+                    } catch {
+                        return cancel(withReason: .coreDataError(error: error))
+                    }
+                case .noOne:
+                    break
+                }
+
             default:
                 break
             }

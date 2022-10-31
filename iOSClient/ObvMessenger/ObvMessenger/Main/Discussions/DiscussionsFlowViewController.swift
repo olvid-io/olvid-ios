@@ -19,6 +19,7 @@
 
 import UIKit
 import os.log
+import ObvTypes
 import ObvEngine
 
 final class DiscussionsFlowViewController: UINavigationController, ObvFlowController {
@@ -28,7 +29,7 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
     let ownedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
     
-    private var observationTokens = [NSObjectProtocol]()
+    var observationTokens = [NSObjectProtocol]()
 
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
 
@@ -36,7 +37,7 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
         self.obvEngine = obvEngine
         
         let recentDiscussionsVC = RecentDiscussionsViewController(ownedCryptoId: ownedCryptoId, logCategory: "RecentDiscussionsViewController")
-        recentDiscussionsVC.title = CommonString.Word.Discussions
+        recentDiscussionsVC.setTitle(CommonString.Word.Discussions)
         super.init(rootViewController: recentDiscussionsVC)
 
         recentDiscussionsVC.delegate = self
@@ -79,7 +80,9 @@ extension DiscussionsFlowViewController {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
-        
+     
+        observePersistedGroupV2WasDeletedNotifications()
+
     }
     
 }
@@ -95,20 +98,26 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         let alert = UIAlertController(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.title,
                                       message: Strings.AlertConfirmAllDiscussionMessagesDeletion.message,
                                       preferredStyleForTraitCollection: self.traitCollection)
-        switch persistedDiscussion.status {
-        case .active:
+        
+        // Global delete action (if possible)
+
+        if persistedDiscussion.globalDeleteActionCanBeMadeAvailable {
             alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAllGlobally, style: .destructive, handler: { [weak self] (action) in
                 alert.dismiss(animated: true) {
                     self?.ensureUserWantsToGloballyDeleteDiscussion(persistedDiscussion, completionHandler: completionHandler)
                 }
             }))
-        case .preDiscussion, .locked:
-            break
         }
+        
+        // Local delete action
+        
         alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAll, style: .destructive, handler: { (action) in
             ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: persistedDiscussion.objectID, deletionType: .local, completionHandler: completionHandler)
                 .postOnDispatchQueue()
         }))
+        
+        // Cancel action
+        
         alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel) { (action) in
             completionHandler(false)
         })

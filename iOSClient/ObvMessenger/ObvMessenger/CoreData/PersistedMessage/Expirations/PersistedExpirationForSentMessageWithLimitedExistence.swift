@@ -34,7 +34,7 @@ final class PersistedExpirationForSentMessageWithLimitedExistence: PersistedMess
 
     // MARK: - Relationships
 
-    @NSManaged private(set) var messageSentWithLimitedExistence: PersistedMessageSent
+    @NSManaged private(set) var messageSentWithLimitedExistence: PersistedMessageSent?
 
     // MARK: - Initializer
 

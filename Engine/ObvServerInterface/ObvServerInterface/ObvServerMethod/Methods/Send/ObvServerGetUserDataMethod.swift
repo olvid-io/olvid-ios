@@ -34,12 +34,12 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
     public var isActiveOwnedIdentityRequired = true
     public var serverURL: URL { toIdentity.serverURL }
     public let toIdentity: ObvCryptoIdentity
-    public let serverLabel: String
+    public let serverLabel: UID
     public let flowId: FlowIdentifier
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(ownedIdentity: ObvCryptoIdentity, toIdentity: ObvCryptoIdentity, serverLabel: String, flowId: FlowIdentifier) {
+    public init(ownedIdentity: ObvCryptoIdentity, toIdentity: ObvCryptoIdentity, serverLabel: UID, flowId: FlowIdentifier) {
         self.ownedIdentity = ownedIdentity
         self.toIdentity = toIdentity
         self.serverLabel = serverLabel
@@ -47,9 +47,7 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        /// The given serverLabel is a base64 of the binary label (created in StartPhotoUploadStep), but the server expects a binary, so we decode the base64 here.
-        guard let binaryServerLabel = Data(base64Encoded: self.serverLabel) else { return nil }
-        return [self.toIdentity, binaryServerLabel].obvEncode().rawData
+        return [self.toIdentity, self.serverLabel].obvEncode().rawData
     }()
 
     public enum PossibleReturnStatus: UInt8 {
@@ -58,7 +56,7 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
         case generalError = 0xff
     }
 
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog, downloadedUserData: URL, serverLabel: String) -> (status: PossibleReturnStatus, userDataPath: String?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog, downloadedUserData: URL, serverLabel: UID) -> (status: PossibleReturnStatus, userDataPath: String?)? {
 
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
@@ -83,12 +81,8 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
             let encryptedData = EncryptedData(data: data)
             // Ugly hack: the filename contains a timestamp after which the file is considered "orphan" and can be deleted
             let expiration = Int(Date().addingTimeInterval(ObvConstants.getUserDataLocalFileLifespan).timeIntervalSince1970)
-            guard let binaryServerLabel = Data(base64Encoded: serverLabel) else {
-                os_log("We could not convert serverLavel into data", log: log, type: .error)
-                return nil
-            }
             /// REMARK This file name is parsed in ServerUserDataCoordinator#initialQueueing
-            let filename = String(expiration) + "." + binaryServerLabel.hexString()
+            let filename = String(expiration) + "." + serverLabel.hexString()
             let userDataPath = downloadedUserData.appendingPathComponent(filename)
 
             do {

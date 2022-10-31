@@ -19,8 +19,9 @@
 
 import Foundation
 import CoreData
-
+import ObvTypes
 import ObvEngine
+
 
 @objc(PersistedObvContactDevice)
 final class PersistedObvContactDevice: NSManagedObject, Identifiable {
@@ -69,6 +70,7 @@ final class PersistedObvContactDevice: NSManagedObject, Identifiable {
     
     // MARK: - Initializer
     
+    /// Shall **only** be called from the ``func insert(_ device: ObvContactDevice) throws`` method of a `PersistedObvContactIdentity`.
     convenience init(obvContactDevice device: ObvContactDevice, within context: NSManagedObjectContext) throws {
         
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactDevice.entityName, in: context)!
@@ -116,6 +118,10 @@ extension PersistedObvContactDevice {
         object.contactIdentityCryptoIdForDeletion = object.identity?.cryptoId
         context.delete(object)
 
+    }
+    
+    static func get(contactDeviceObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedObvContactDevice? {
+        return try context.existingObject(with: contactDeviceObjectID) as? PersistedObvContactDevice
     }
     
 }

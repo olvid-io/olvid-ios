@@ -123,7 +123,8 @@ final class UploadAttachmentChunksCoordinator: NSObject {
     // Calls must be in sync with localQueue
     private var _stillUploadingCancelledAttachments = [MessageIdentifier: [AttachmentIdentifier]]()
     private func addStillUploadingCancelledAttachmentsOfMessage(_ message: OutboxMessage) {
-        _stillUploadingCancelledAttachments[message.messageId] = message.attachments.filter({ !$0.acknowledged }).map({ $0.attachmentId })
+        guard let messageId = message.messageId else { assertionFailure(); return }
+        _stillUploadingCancelledAttachments[messageId] = message.attachments.filter({ !$0.acknowledged }).map({ $0.attachmentId })
     }
     /// This method removes the attachmentIds from the list of still uploading attachments of the message.
     private func removeStillUploadingCancelledAttachments(attachmentId: AttachmentIdentifier) {

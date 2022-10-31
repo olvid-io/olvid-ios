@@ -19,6 +19,7 @@
   
 
 import UIKit
+import ObvTypes
 import ObvEngine
 import OlvidUtils
 
@@ -160,11 +161,22 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
                     var dialogsForEngine = [ObvDialog]()
                     for groupInvite in groupInvites {
                         guard var localDialog = groupInvite.obvDialog else { assertionFailure(); throw Self.makeError(message: "Missing dialog") }
-                        try localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
-                        dialogsForEngine.append(localDialog)
+                        switch localDialog.category {
+                        case .acceptInvite:
+                            try localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
+                            dialogsForEngine.append(localDialog)
+                        case .acceptGroupV2Invite:
+                            try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                            dialogsForEngine.append(localDialog)
+                        default:
+                            assertionFailure()
+                        }
                     }
+                    let queueForRespondingToDialog = DispatchQueue(label: "Queue for responding to dialog")
                     for dialog in dialogsForEngine {
-                        self?.obvEngine.respondTo(dialog)
+                        queueForRespondingToDialog.async { [weak self] in
+                            self?.obvEngine.respondTo(dialog)
+                        }
                     }
                 } catch {
                     continuation.resume(throwing: error)

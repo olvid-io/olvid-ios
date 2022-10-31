@@ -44,7 +44,9 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     
     private var mainFlowViewController: MainFlowViewController?
     private var onboardingFlowViewController: OnboardingFlowViewController?
-    
+
+    private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+
     private let callBannerView = CallBannerView()
     private let viewOnTopOfCallBannerView = UIView()
     
@@ -58,11 +60,15 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     private var viewDidAppearWasCalled = false
     private var completionHandlersToCallOnViewDidAppear = [() -> Void]()
 
+    // Shall only be accessed on the main thread
+    private var automaticallyNavigateToCreatedDisplayedContactGroup = false
+    
     private let obvEngine: ObvEngine
     
-    init(obvEngine: ObvEngine) {
+    init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate) {
         
         self.obvEngine = obvEngine
+        self.createPasscodeDelegate = createPasscodeDelegate
         
         super.init(nibName: nil, bundle: nil)
         
@@ -102,14 +108,20 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         // App notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeCreateNewGroup { [weak self] (groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL) in
-                self?.processCreateNewGroup(groupName: groupName, groupDescription: groupDescription, groupMembersCryptoIds: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
-            },
             ObvMessengerInternalNotification.observeUserWantsToRestartChannelEstablishmentProtocol { [weak self] (contactCryptoId, ownedCryptoId) in
                 self?.processUserWantsToRestartChannelEstablishmentProtocol(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
             ObvMessengerInternalNotification.observeUserWantsToReCreateChannelEstablishmentProtocol() { [weak self] (contactCryptoId, ownedCryptoId) in
                 self?.processUserWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV1(queue: OperationQueue.main) { [weak self] (groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL) in
+                self?.processUserWantsToCreateNewGroupV1(groupName: groupName, groupDescription: groupDescription, groupMembersCryptoIds: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV2(queue: OperationQueue.main) { [weak self] (groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL) in
+                self?.processUserWantsToCreateNewGroupV2(groupCoreDetails: groupCoreDetails, ownPermissions: ownPermissions, otherGroupMembers: otherGroupMembers, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
+            },
+            ObvMessengerGroupV2Notifications.observeDisplayedContactGroupWasJustCreated(queue: OperationQueue.main) { [weak self] objectID in
+                self?.processDisplayedContactGroupWasJustCreated(objectID: objectID)
             },
         ])
         
@@ -309,7 +321,14 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
+        // We send the metaFlowControllerViewDidAppear notification here.
         // This notification is fundamental as it eventually triggers many bootstrap methods waiting for this view controller to appear.
+        // We need to register to the UIApplication.didBecomeActiveNotification so as to send the metaFlowControllerViewDidAppear when the app is launched while it still was in the background since, in that case, the viewDidAppear method is not called.
+        observationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard self?.viewDidAppearWasCalled == true else { return }
+            ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
+                .postOnDispatchQueue()
+        })
         ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
             .postOnDispatchQueue()
         
@@ -412,7 +431,10 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
             currentOwnedCryptoId = ownedIdentity.cryptoId
 
             if mainFlowViewController == nil {
-                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedIdentity.cryptoId, obvEngine: obvEngine)
+                guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+                    assertionFailure(); return
+                }
+                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedIdentity.cryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate)
             }
 
             guard let mainFlowViewController = mainFlowViewController else {
@@ -552,30 +574,7 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
 
 extension MetaFlowController {
     
-    private func processCreateNewGroup(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?) {
-        do {
-            try obvEngine.startGroupCreationProtocol(groupName: groupName,
-                                                     groupDescription: groupDescription,
-                                                     groupMembers: groupMembersCryptoIds,
-                                                     ownedCryptoId: ownedCryptoId,
-                                                     photoURL: photoURL)
-        } catch {
-            os_log("Could not start group creation protocol", log: log, type: .fault)
-            return
-        }
-        
-        do {
-            DispatchQueue.main.async { [weak self] in
-                let alert = UIAlertController(title: Strings.AlertGroupCreated.title,
-                                              message: Strings.AlertGroupCreated.message,
-                                              preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil))
-                self?.present(alert, animated: true)
-            }
-        }
-    }
-
-
+    
     private func observeUserWantsToDeleteOwnedContactGroupNotifications() {
         let NotificationType = MessengerInternalNotification.UserWantsToDeleteOwnedContactGroup.self
         let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
@@ -810,22 +809,24 @@ extension MetaFlowController {
 
 extension MetaFlowController {
     
-    @MainActor
     private func processUserWantsToRestartChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        assert(Thread.isMainThread)
         do {
             try obvEngine.restartAllOngoingChannelEstablishmentProtocolsWithContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
         } catch {
-            let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestartedFailed.title, message: "", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-            present(alert, animated: true)
+            DispatchQueue.main.async { [weak self] in
+                let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestartedFailed.title, message: "", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
+                self?.present(alert, animated: true)
+            }
             return
         }
         
         // Display a feedback alert
-        let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestarted.title, message: "", preferredStyle: .alert)
-        alert.addAction(UIAlertAction.init(title: CommonString.Word.Ok, style: .default))
-        present(alert, animated: true)
+        DispatchQueue.main.async { [weak self] in
+            let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestarted.title, message: "", preferredStyle: .alert)
+            alert.addAction(UIAlertAction.init(title: CommonString.Word.Ok, style: .default))
+            self?.present(alert, animated: true)
+        }
 
     }
     
@@ -853,20 +854,73 @@ extension MetaFlowController {
     }
     
     
-    @MainActor
     private func processUserWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        assert(Thread.isMainThread)
-        do {
-            try obvEngine.reCreateAllChannelEstablishmentProtocolsWithContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
-        } catch {
-            let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestartedFailed.title, message: "", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-            present(alert, animated: true)
-            return
+        let obvEngine = self.obvEngine
+        DispatchQueue(label: "Background queue for recreating secure channel with contact").async {
+            do {
+                try obvEngine.reCreateAllChannelEstablishmentProtocolsWithContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
+            } catch {
+                DispatchQueue.main.async { [weak self] in
+                    let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestartedFailed.title, message: "", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
+                    self?.present(alert, animated: true)
+                }
+            }
+            // No feedback alert in case of success
         }
+    }
 
-        // No feedback alert in case of success
+    
+    private func processUserWantsToCreateNewGroupV1(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?) {
+        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
+        automaticallyNavigateToCreatedDisplayedContactGroup = true
+        let obvEngine = self.obvEngine
+        let log = self.log
+        DispatchQueue(label: "Background queue for calling obvEngine.startGroupCreationProtocol").async {
+            do {
+                try obvEngine.startGroupCreationProtocol(groupName: groupName, groupDescription: groupDescription, groupMembers: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
+            } catch {
+                os_log("Failed to create GroupV1: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+        }
+    }
+    
+    
+    private func processUserWantsToCreateNewGroupV2(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?) {
+        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
+        automaticallyNavigateToCreatedDisplayedContactGroup = true
+        let obvEngine = self.obvEngine
+        let log = self.log
+        DispatchQueue(label: "Background queue for calling obvEngine.startGroupV2CreationProtocol").async {
+            do {
+                let serializedGroupCoreDetails = try groupCoreDetails.jsonEncode()
+                try obvEngine.startGroupV2CreationProtocol(serializedGroupCoreDetails: serializedGroupCoreDetails,
+                                                           ownPermissions: ownPermissions,
+                                                           otherGroupMembers: otherGroupMembers,
+                                                           ownedCryptoId: ownedCryptoId,
+                                                           photoURL: photoURL)
+            } catch {
+                os_log("Failed to create GroupV2: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+        }
+    }
 
+    
+    private func processDisplayedContactGroupWasJustCreated(objectID: TypeSafeManagedObjectID<DisplayedContactGroup>) {
+        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
+        guard automaticallyNavigateToCreatedDisplayedContactGroup else { return }
+        guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext) else { return }
+        // We only automatically navigate to groups we juste created, where we are admin
+        guard displayedContactGroup.ownPermissionAdmin else { return }
+        // Navigate to the group
+        automaticallyNavigateToCreatedDisplayedContactGroup = false
+        let deepLink = ObvDeepLink.contactGroupDetails(displayedContactGroupURI: objectID.uriRepresentation().url)
+        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+            .postOnDispatchQueue()
     }
 
 }

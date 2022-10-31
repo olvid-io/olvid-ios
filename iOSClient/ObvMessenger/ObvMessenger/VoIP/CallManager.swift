@@ -26,6 +26,7 @@ import PushKit
 import AVKit
 import WebRTC
 import OlvidUtils
+import ObvCrypto
 
 
 final actor CallManager: ObvErrorMaker {
@@ -63,9 +64,10 @@ final actor CallManager: ObvErrorMaker {
 
     init(obvEngine: ObvEngine) {
         let cxProvider = CXObvProvider(configuration: CallManager.providerConfiguration)
+        let ncxProvider = NCXObvProvider.instance
         self.obvEngine = obvEngine
         self.cxProvider = cxProvider
-        self.ncxProvider = NCXObvProvider.instance
+        self.ncxProvider = ncxProvider
         self.pushRegistryHandler = ObvPushRegistryHandler(obvEngine: obvEngine, cxObvProvider: cxProvider)
         ncxProvider.setConfiguration(CallManager.providerConfiguration)
         cxProvider.setDelegate(self, queue: nil)
@@ -215,7 +217,7 @@ final actor CallManager: ObvErrorMaker {
     }
 
 
-    private func createOutgoingCall(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) async throws -> Call {
+    private func createOutgoingCall(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?) async throws -> Call {
         let outgoingCall = try await Call.createOutgoingCall(contactIds: contactIds,
                                                              delegate: self,
                                                              usesCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled,
@@ -711,7 +713,7 @@ extension CallManager {
     }
 
 
-    private func processUserWantsToCallNotification(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) async {
+    private func processUserWantsToCallNotification(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?) async {
 
         debugPrint("Call to processUserWantsToCallNotification")
         
@@ -804,7 +806,7 @@ extension CallManager {
 
 extension CallManager {
 
-    private func initiateCall(with contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) async {
+    private func initiateCall(with contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?) async {
 
         guard !contactIds.isEmpty else { assertionFailure(); return }
 
@@ -1024,7 +1026,11 @@ extension CallManager: ObvProviderDelegate {
     func provider(perform action: ObvSetMutedCallAction) async {
         os_log("☎️ Provider perform set muted call action", log: Self.log, type: .info)
         guard let call = currentCalls.first(where: { $0.uuid == action.callUUID }) else { action.fail(); return }
-        await action.isMuted ? call.muteSelfForOtherParticipants(): call.unmuteSelfForOtherParticipants()
+        if action.isMuted {
+            await call.muteSelfForOtherParticipants()
+        } else {
+            await call.unmuteSelfForOtherParticipants()
+        }
         action.fulfill()
     }
 

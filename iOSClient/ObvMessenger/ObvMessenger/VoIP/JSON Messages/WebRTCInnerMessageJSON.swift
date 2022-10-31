@@ -20,6 +20,8 @@
 import Foundation
 import ObvEngine
 import ObvTypes
+import ObvCrypto
+
 
 protocol WebRTCInnerMessageJSON: Codable {
 
@@ -69,7 +71,7 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
     let turnPassword: String
     let turnServers: [String]? /// REMARK Can be optional to be compatible with previous version where the server urls was hardcoded. 2022-03-11: we do not use this info anymore if we are a call participant, we discard it and use hardcoded servers (prevents an attack from caller).
     let participantCount: Int
-    let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+    let groupIdentifier: GroupIdentifier?
     private let compressedSessionDescription: Data
     private let rawGatheringPolicy: Int? /// REMARK Can be optional to be compatible with previous version where gathering policy was hardcoded
 
@@ -83,6 +85,7 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         case groupUid = "gi"
         case groupOwner = "go"
         case rawGatheringPolicy = "gp"
+        case groupV2Identifier = "gid2"
     }
 
     func jsonEncode() throws -> Data {
@@ -99,13 +102,18 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         try container.encode(turnServers, forKey: .turnServers)
         try container.encode(participantCount, forKey: .participantCount)
         try container.encode(rawGatheringPolicy, forKey: .rawGatheringPolicy)
-        if let groupId = groupId {
-            try container.encode(groupId.groupUid.raw, forKey: .groupUid)
-            try container.encode(groupId.groupOwner.getIdentity(), forKey: .groupOwner)
+        switch groupIdentifier {
+        case .groupV1(groupV1Identifier: let groupV1Identifier):
+            try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
+            try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
+        case .groupV2(groupV2Identifier: let groupV2Identifier):
+            try container.encode(groupV2Identifier, forKey: .groupV2Identifier)
+        case .none:
+            break
         }
     }
 
-    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, gatheringPolicy: GatheringPolicy) throws {
+    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupIdentifier: GroupIdentifier?, gatheringPolicy: GatheringPolicy) throws {
         self.sessionDescriptionType = sessionDescriptionType
         self.sessionDescription = sessionDescription
         self.turnUserName = turnUserName
@@ -114,7 +122,7 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
         self.compressedSessionDescription = try ObvCompressor.compress(data)
         self.participantCount = participantCount
-        self.groupId = groupId
+        self.groupIdentifier = groupIdentifier
         self.rawGatheringPolicy = gatheringPolicy.rawValue
     }
 
@@ -131,17 +139,15 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         self.sessionDescription = sessionDescription
         self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
 
-        let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
-        let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
-        if groupUidRaw == nil && groupOwnerIdentity == nil {
-            self.groupId = nil
-        } else if let groupUidRaw = groupUidRaw,
-                  let groupOwnerIdentity = groupOwnerIdentity,
-                  let groupUid = UID(uid: groupUidRaw),
-                  let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupId = (groupUid, groupOwner)
+        if let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid),
+           let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner),
+           let groupUid = UID(uid: groupUidRaw),
+           let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
+            self.groupIdentifier = .groupV1(groupV1Identifier: (groupUid, groupOwner))
+        } else if let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier) {
+            self.groupIdentifier = .groupV2(groupV2Identifier: groupV2Identifier)
         } else {
-            throw Self.makeError(message: "Could determine if the message is part of a group or not. Discarding the message.")
+            self.groupIdentifier = nil
         }
     }
 

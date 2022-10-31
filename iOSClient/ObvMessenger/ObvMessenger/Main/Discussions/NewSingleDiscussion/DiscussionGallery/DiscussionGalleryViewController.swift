@@ -368,7 +368,10 @@ extension JoinGalleryViewController {
     
     private func wipeFyleMessageJoinWithStatus(joinObjectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>, confirmed: Bool, completionHandler: @escaping (Bool) -> Void) {
         if confirmed {
-            ObvMessengerInternalNotification.userWantsToWipeFyleMessageJoinWithStatus(objectIDs: joinObjectIDs)
+            assert(Thread.isMainThread)
+            guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
+            ObvMessengerInternalNotification.userWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ownedCryptoId, objectIDs: joinObjectIDs)
                 .postOnDispatchQueue()
             delegate?.setEditing(false, animated: true)
             completionHandler(true)

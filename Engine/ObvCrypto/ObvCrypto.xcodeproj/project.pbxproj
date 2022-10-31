@@ -3,10 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C034E74528778D650071ED87 /* PBKDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = C034E74428778D640071ED87 /* PBKDF.swift */; };
 		C404E7751F6D79EA006A404D /* MAC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C404E7741F6D79EA006A404D /* MAC.swift */; };
 		C404E7771F6D81C5006A404D /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C404E7761F6D81C5006A404D /* Utils.swift */; };
 		C4078DAA1F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4078DA91F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift */; };
@@ -22,12 +23,14 @@
 		C416CDCD1F956A9C00A6418A /* DH.swift in Sources */ = {isa = PBXBuildFile; fileRef = C416CDCC1F956A9C00A6418A /* DH.swift */; };
 		C41D5B861F977BA800DB5A5C /* ProofOfWorkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41D5B851F977BA800DB5A5C /* ProofOfWorkEngine.swift */; };
 		C4254EA81F7DAE9B00B99EF6 /* KEM.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4254EA71F7DAE9B00B99EF6 /* KEM.swift */; };
+		C4335818281009620023F06C /* UID.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4335817281009620023F06C /* UID.swift */; };
+		C43358282810099C0023F06C /* Data+hexString.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43358272810099C0023F06C /* Data+hexString.swift */; };
+		C4335833281009D20023F06C /* KeyId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4335832281009D20023F06C /* KeyId.swift */; };
 		C43B2AF41F878A8E00432E6F /* CryptographicKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B2AF31F878A8E00432E6F /* CryptographicKey.swift */; };
 		C43B2AFA1F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43B2AF91F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift */; };
 		C44AABE31F7CED6B00091F66 /* ObvCryptoSuite.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AABE21F7CED6B00091F66 /* ObvCryptoSuite.swift */; };
 		C44AABF51F7D509100091F66 /* KDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = C44AABF41F7D509100091F66 /* KDF.swift */; };
 		C458E9231F69900400BFFCCF /* BlockCipher.swift in Sources */ = {isa = PBXBuildFile; fileRef = C458E9221F69900400BFFCCF /* BlockCipher.swift */; };
-		C45B3B482162C8D500A03934 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C45B3B452162C8D100A03934 /* ObvTypes.framework */; };
 		C45B3B512162C8E200A03934 /* ObvEncoder.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C45B3B502162C8DE00A03934 /* ObvEncoder.framework */; };
 		C45B3B5B2162C90B00A03934 /* BigInt.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C45B3B582162C90700A03934 /* BigInt.framework */; };
 		C46B324B1F86259E006BABC7 /* PublicKeyEncryption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46B324A1F86259E006BABC7 /* PublicKeyEncryption.swift */; };
@@ -108,6 +111,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C034E74428778D640071ED87 /* PBKDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PBKDF.swift; sourceTree = "<group>"; };
 		C0B4A4C6276E858900816D8D /* .swiftlint.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
 		C404E7741F6D79EA006A404D /* MAC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAC.swift; sourceTree = "<group>"; };
 		C404E7761F6D81C5006A404D /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
@@ -124,6 +128,9 @@
 		C416CDCC1F956A9C00A6418A /* DH.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DH.swift; sourceTree = "<group>"; };
 		C41D5B851F977BA800DB5A5C /* ProofOfWorkEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofOfWorkEngine.swift; sourceTree = "<group>"; };
 		C4254EA71F7DAE9B00B99EF6 /* KEM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KEM.swift; sourceTree = "<group>"; };
+		C4335817281009620023F06C /* UID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UID.swift; sourceTree = "<group>"; };
+		C43358272810099C0023F06C /* Data+hexString.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+hexString.swift"; sourceTree = "<group>"; };
+		C4335832281009D20023F06C /* KeyId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyId.swift; sourceTree = "<group>"; };
 		C43B2AF31F878A8E00432E6F /* CryptographicKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicKey.swift; sourceTree = "<group>"; };
 		C43B2AF91F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptographicAlgorithmClassByteId.swift; sourceTree = "<group>"; };
 		C44AABE21F7CED6B00091F66 /* ObvCryptoSuite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCryptoSuite.swift; sourceTree = "<group>"; };
@@ -180,7 +187,6 @@
 			files = (
 				C45B3B5B2162C90B00A03934 /* BigInt.framework in Frameworks */,
 				C45B3B512162C8E200A03934 /* ObvEncoder.framework in Frameworks */,
-				C45B3B482162C8D500A03934 /* ObvTypes.framework in Frameworks */,
 				C413034A1FB5F3240087CC75 /* CoreData.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -229,6 +235,7 @@
 				C4078DAD1F9CD5DE003FB744 /* SymmetricEncryption */,
 				C4078DA41F9CD441003FB744 /* Authenticated Encryption */,
 				C4D1FEC21F97486400E21D98 /* Commitment.swift */,
+				C034E74428778D640071ED87 /* PBKDF.swift */,
 			);
 			path = SymmetricPrimitives;
 			sourceTree = "<group>";
@@ -313,6 +320,9 @@
 				C49B3DCA1F7E313B00EF010A /* PublicKeyPrimitives */,
 				C44AABF31F7D4BE200091F66 /* SupportingFiles */,
 				C41D5B801F977B8500DB5A5C /* ProofOfWork */,
+				C4335817281009620023F06C /* UID.swift */,
+				C43358272810099C0023F06C /* Data+hexString.swift */,
+				C4335832281009D20023F06C /* KeyId.swift */,
 			);
 			path = ObvCrypto;
 			sourceTree = "<group>";
@@ -537,6 +547,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0B4A4CD276E859400816D8D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -579,15 +590,18 @@
 				C4CFF0911FBDB71C009452C8 /* BlockCipherImplementationByteId.swift in Sources */,
 				C43B2AF41F878A8E00432E6F /* CryptographicKey.swift in Sources */,
 				C416CDCB1F9569D800A6418A /* PrivateKeyForDH.swift in Sources */,
+				C43358282810099C0023F06C /* Data+hexString.swift in Sources */,
 				C416CDCD1F956A9C00A6418A /* DH.swift in Sources */,
 				C404E7751F6D79EA006A404D /* MAC.swift in Sources */,
 				C4D0BFEF1F83E731009FBD2C /* PublicKeyForPublicKeyEncryption.swift in Sources */,
 				C4078DAA1F9CD462003FB744 /* AuthenticatedEncryptionByteId.swift in Sources */,
 				C4254EA81F7DAE9B00B99EF6 /* KEM.swift in Sources */,
+				C4335833281009D20023F06C /* KeyId.swift in Sources */,
 				C4D911EC1F99F76D005F414D /* CryptographicKeyForAuthentication.swift in Sources */,
 				C416CDC51F95680400A6418A /* PublicKeyEncryptionImplementationByteId.swift in Sources */,
 				C49B3DC51F7E30F100EF010A /* SymmetricKey.swift in Sources */,
 				C407A03320421CA0003B072B /* SAS.swift in Sources */,
+				C034E74528778D650071ED87 /* PBKDF.swift in Sources */,
 				C49D1E6F1F6FE3AE00ED3FE0 /* PRNG.swift in Sources */,
 				C43B2AFA1F878B0F00432E6F /* CryptographicAlgorithmClassByteId.swift in Sources */,
 				C48C0E3C1F99F24F00E0FFAB /* ObvOwnedCryptoIdentity.swift in Sources */,
@@ -605,6 +619,7 @@
 				C4CFF08C1FBDA58F009452C8 /* MACKey.swift in Sources */,
 				C49545A91F6AE25300EC6E62 /* EncryptedData.swift in Sources */,
 				C416CDC31F9567DB00A6418A /* DHImplementationByteId.swift in Sources */,
+				C4335818281009620023F06C /* UID.swift in Sources */,
 				C4D1E3A01F9793CD00167D34 /* ProofOfWorkMatrix.swift in Sources */,
 				C4CFF08A1FBDA4EE009452C8 /* MACImplementationByteId.swift in Sources */,
 				C49934401F96603500669232 /* SignatureImplementationByteId.swift in Sources */,
@@ -733,8 +748,9 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Dependencies/CommonCrypto";
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -756,7 +772,11 @@
 				INFOPLIST_FILE = "$(SRCROOT)/ObvCrypto/SupportingFiles/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvCrypto;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -782,7 +802,11 @@
 				INFOPLIST_FILE = "$(SRCROOT)/ObvCrypto/SupportingFiles/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvCrypto;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;

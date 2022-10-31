@@ -81,8 +81,8 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
             return item
         }
         set {
-            guard let value = newValue else { assertionFailure(); return }
-            self.messageId = value.messageId
+            guard let value = newValue, let messageId = value.messageId else { assertionFailure(); return }
+            self.messageId = messageId
             kvoSafeSetPrimitiveValue(value, forKey: OutboxAttachment.messageKey)
         }
     }
@@ -150,7 +150,10 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
         guard let obvContext = message.obvContext else {
             throw Self.makeError(message: "Cannot find obvContext")
         }
-        guard try OutboxAttachment.get(attachmentId: AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber), within: obvContext) == nil else {
+        guard let messageId = message.messageId else {
+            throw Self.makeError(message: "Could not determine the message Id")
+        }
+        guard try OutboxAttachment.get(attachmentId: AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber), within: obvContext) == nil else {
             throw Self.makeError(message: "An OutboxAttachment with the same primary key already exists")
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachment.entityName, in: obvContext)!

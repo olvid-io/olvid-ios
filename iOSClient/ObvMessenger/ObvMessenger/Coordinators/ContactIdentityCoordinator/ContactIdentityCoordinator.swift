@@ -272,7 +272,7 @@ extension ContactIdentityCoordinator {
             let missingDevices = engineContactDevices.filter { !localContactDevicesIdentifiers.contains($0.identifier) }
             for missingDevice in missingDevices {
                 do {
-                    _ = try PersistedObvContactDevice(obvContactDevice: missingDevice, within: context)
+                    try persistedContactIdentity.insert(missingDevice)
                 } catch {
                     assertionFailure()
                     os_log("Could not add missing device: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -419,17 +419,18 @@ extension ContactIdentityCoordinator {
                         var noGroupWhereContactIsPending = false
                         var contactName = ""
                         do {
-                            let commonGroups = try PersistedContactGroup.getAllContactGroups(whereContactIdentitiesInclude: persistedContact, within: context)
-                            let pendingGroups = try PersistedContactGroup.getAllContactGroups(wherePendingMembersInclude: persistedContact, within: context)
-                            noCommonGroup = commonGroups.isEmpty
-                            noGroupWhereContactIsPending = pendingGroups.isEmpty
+                            let commonGroupsV1 = try PersistedContactGroup.getAllContactGroups(whereContactIdentitiesInclude: persistedContact, within: context)
+                            let pendingGroupsV1 = try PersistedContactGroup.getAllContactGroups(wherePendingMembersInclude: persistedContact, within: context)
+                            let commonGroupsV2 = try PersistedGroupV2.getAllPersistedGroupV2(whereContactIdentitiesInclude: persistedContact)
+                            noCommonGroup = commonGroupsV1.isEmpty && commonGroupsV2.isEmpty
+                            noGroupWhereContactIsPending = pendingGroupsV1.isEmpty
                             contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
                         }
                         
                         guard noCommonGroup else {
-                            
+
                             // Subcase 1
-                            
+
                             DispatchQueue.main.async {
                                 let alert = UIAlertController(title: Strings.AlertCommonGroupOnContactDeletion.title,
                                                               message: Strings.AlertCommonGroupOnContactDeletion.message(contactName), preferredStyle: .alert)
@@ -594,15 +595,7 @@ extension ContactIdentityCoordinator {
         let log = self.log
         observationTokens.append(ObvEngineNotificationNew.observeNewObliviousChannelWithContactDevice(within: NotificationCenter.default, queue: internalQueue) { (contactDevice) in
             
-            var discussionObjectID: NSManagedObjectID?
-            
             ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                
-                guard (try? PersistedObvContactDevice(obvContactDevice: contactDevice, within: context)) != nil else {
-                    os_log("We could not create a device for a contact identity", log: log, type: .fault)
-                    assertionFailure()
-                    return
-                }
                 
                 let contact: PersistedObvContactIdentity
                 do {
@@ -617,7 +610,13 @@ extension ContactIdentityCoordinator {
                     return
                 }
                 
-                discussionObjectID = contact.oneToOneDiscussion?.objectID // The discussion is nil if contact is not one2one
+                do {
+                    try contact.insert(contactDevice)
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    os_log("We could not insert the new device for the contact identity associated with the new channel: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    return
+                }
                 
                 do {
                     try context.save(logOnFailure: log)
@@ -628,11 +627,6 @@ extension ContactIdentityCoordinator {
                 }
             }
             
-            if let objectID = discussionObjectID {
-                ObvMessengerInternalNotification.persistedDiscussionSharedConfigurationShouldBeSent(persistedDiscussionObjectID: objectID)
-                    .postOnDispatchQueue()
-            }
-
         })
 
     }

@@ -107,7 +107,7 @@ final class MessageReceivedCollectionViewCell: MessageCollectionViewCell {
         switch try? message.discussion.kind {
         case .oneToOne, .none:
             authorNameLabel.isHidden = true
-        case .groupV1:
+        case .groupV1, .groupV2:
             authorNameLabelPaddingView.isHidden = false
             authorNameLabel.text = message.contactIdentity?.customDisplayName ?? message.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
             authorNameLabel.textColor = message.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel

@@ -373,7 +373,6 @@ extension ObvObliviousChannel {
     }
 
     /// This method returns an ObvObliviousChannel if one is found.
-    /// It leverages the obliviousChannelLockerDelegate to make sure that the returned channel can be safely used.
     static func get(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, necessarilyConfirmed: Bool, within obvContext: ObvContext) throws -> ObvObliviousChannel? {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         if necessarilyConfirmed {
@@ -404,7 +403,6 @@ extension ObvObliviousChannel {
     }
 
     /// This method returns an array of ObvObliviousChannels.
-    /// It leverages the obliviousChannelLockerDelegate to make sure that the returned channels can be safely used.
     static func get(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUids: [UID], necessarilyConfirmed: Bool, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         if necessarilyConfirmed {
@@ -425,7 +423,6 @@ extension ObvObliviousChannel {
     
     
     /// This method returns an array of ObvObliviousChannels.
-    /// It leverages the obliviousChannelLockerDelegate to make sure that the returned channels can be safely used.
     static func getAllConfirmedChannels(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",

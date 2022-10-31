@@ -77,6 +77,18 @@ extension ObvServerChannel {
                 serverQueryType = .getUserData(of: identity, label: label)
             case .checkKeycloakRevocation(keycloakServerUrl: let keycloakServerUrl, signedContactDetails: let signedContactDetails):
                 serverQueryType = .checkKeycloakRevocation(keycloakServerUrl: keycloakServerUrl, signedContactDetails: signedContactDetails)
+            case .createGroupBlob(groupIdentifier: let groupIdentifier, serverAuthenticationPublicKey: let serverAuthenticationPublicKey, encryptedBlob: let encryptedBlob):
+                serverQueryType = .createGroupBlob(groupIdentifier: groupIdentifier, serverAuthenticationPublicKey: serverAuthenticationPublicKey, encryptedBlob: encryptedBlob)
+            case .getGroupBlob(groupIdentifier: let groupIdentifier):
+                serverQueryType = .getGroupBlob(groupIdentifier: groupIdentifier)
+            case .deleteGroupBlob(groupIdentifier: let groupIdentifier, signature: let signature):
+                serverQueryType = .deleteGroupBlob(groupIdentifier: groupIdentifier, signature: signature)
+            case .putGroupLog(groupIdentifier: let groupIdentifier, querySignature: let querySignature):
+                serverQueryType = .putGroupLog(groupIdentifier: groupIdentifier, querySignature: querySignature)
+            case .requestGroupBlobLock(groupIdentifier: let groupIdentifier, lockNonce: let lockNonce, signature: let signature):
+                serverQueryType = .requestGroupBlobLock(groupIdentifier: groupIdentifier, lockNonce: lockNonce, signature: signature)
+            case .updateGroupBlob(groupIdentifier: let groupIdentifier, encodedServerAdminPublicKey: let encodedServerAdminPublicKey, encryptedBlob: let encryptedBlob, lockNonce: let lockNonce, signature: let signature):
+                serverQueryType = .updateGroupBlob(groupIdentifier: groupIdentifier, encodedServerAdminPublicKey: encodedServerAdminPublicKey, encryptedBlob: encryptedBlob, lockNonce: lockNonce, signature: signature)
             }
             
             let serverQuery = ServerQuery(ownedIdentity: ownedIdentity, queryType: serverQueryType, encodedElements: message.encodedElements)

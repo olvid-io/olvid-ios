@@ -133,6 +133,12 @@ extension PendingServerQuery {
         return try obvContext.fetch(request)
     }
 
+    static func getAllServerQuery(delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
+        let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
+        request.fetchBatchSize = 1_000
+        return try obvContext.fetch(request)
+    }
+
 }
 
 // MARK: - Managing Change Events

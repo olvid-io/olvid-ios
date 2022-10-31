@@ -19,6 +19,7 @@
 
 import UIKit
 import ObvTypes
+import ObvCrypto
 
 protocol PersistedDiscussionUI: PersistedDiscussion {
     var title: String { get }
@@ -59,6 +60,21 @@ extension PersistedGroupDiscussion: PersistedDiscussionUI {
     var photoURL: URL? {
         assert(contactGroup?.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         return self.contactGroup?.displayPhotoURL
+    }
+    var isLocked: Bool { false }
+    var isGroupDiscussion: Bool { true }
+    var showGreenShield: Bool { false }
+    var showRedShield: Bool { false }
+}
+
+extension PersistedGroupV2Discussion: PersistedDiscussionUI {
+    @MainActor
+    var identityColors: (background: UIColor, text: UIColor)? {
+        return AppTheme.shared.groupV2Colors(forGroupIdentifier: groupIdentifier)
+    }
+    @MainActor
+    var photoURL: URL? {
+        return self.group?.displayPhotoURL
     }
     var isLocked: Bool { false }
     var isGroupDiscussion: Bool { true }

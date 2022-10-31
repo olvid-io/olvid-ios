@@ -18,6 +18,7 @@
  */
 
 import SwiftUI
+import ObvTypes
 import ObvEngine
 
 struct SendInviteOrShowSecondQRCodeView: View {
@@ -107,7 +108,7 @@ struct SendInviteOrShowSecondQRCodeView: View {
         }
         .navigationBarTitle(Text("Confirm invite"), displayMode: .inline)
         .onAppear(perform: {
-            // This prevents a creash of the SwiftUI preview
+            // This prevents a crash of the SwiftUI preview
             #if DEBUG
             if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" { return }
             #endif
@@ -249,6 +250,12 @@ struct InviteLocallySection: View {
     let contactAlreadyKnown: Bool
     let smallScreenMode: Bool
 
+    private func copyMutualScanURLToPasteboard() {
+        guard !ObvMessengerConstants.isRunningOnRealDevice else { return }
+        guard let mutualScanURL = mutualScanURL else { return }
+        UIPasteboard.general.string = mutualScanURL.urlRepresentation.absoluteString
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if !showQRCodeFullScreen {
@@ -259,6 +266,7 @@ struct InviteLocallySection: View {
                               mutualScanURL: mutualScanURL,
                               contactAlreadyKnown: contactAlreadyKnown,
                               smallScreenMode: smallScreenMode)
+            .onLongPressGesture(perform: copyMutualScanURLToPasteboard)
         }
     }
 }

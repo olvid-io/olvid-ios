@@ -24,6 +24,7 @@ import ObvCrypto
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
+import ObvEncoder
 
 
 @objc(PersistedTrustOrigin)
@@ -39,6 +40,7 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
     @NSManaged private var identityServer: URL?
     @NSManaged private var mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity?
     @NSManaged private var mediatorOrGroupOwnerTrustLevelMajor: NSNumber?
+    @NSManaged private var rawObvGroupV2Identifier: Data?
     @NSManaged private(set) var timestamp: Date
     @NSManaged private var trustTypeRaw: Int
     
@@ -77,6 +79,7 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
             self.mediatorOrGroupOwnerCryptoIdentity = nil
             self.mediatorOrGroupOwnerTrustLevelMajor = nil
             self.identityServer = nil
+            self.rawObvGroupV2Identifier = nil
         case .group(timestamp: _, groupOwner: let cryptoIdentity),
              .introduction(timestamp: _, mediator: let cryptoIdentity):
             guard let mediatorOrGroupOwner = try? ContactIdentity.get(contactIdentity: cryptoIdentity,
@@ -86,8 +89,12 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
             self.mediatorOrGroupOwnerCryptoIdentity = cryptoIdentity
             self.mediatorOrGroupOwnerTrustLevelMajor = NSNumber(value: mediatorOrGroupOwner.trustLevel.major)
             self.identityServer = nil
+            self.rawObvGroupV2Identifier = nil
         case .keycloak(timestamp: _, keycloakServer: let keycloakServer):
             self.identityServer = keycloakServer
+            self.rawObvGroupV2Identifier = nil
+        case .serverGroupV2(timestamp: _, groupIdentifier: let groupIdentifier):
+            self.rawObvGroupV2Identifier = groupIdentifier.obvEncode().rawData
         }
         
         self.contact = contact
@@ -95,8 +102,8 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         self.delegateManager = delegateManager
         
         // Sanity checks
-        guard self.trustOrigin != nil else { return nil }
-        guard self.trustLevel != nil else { return nil }
+        guard self.trustOrigin != nil else { assertionFailure(); return nil }
+        guard self.trustLevel != nil else { assertionFailure(); return nil }
         
     }
     
@@ -109,6 +116,7 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         self.mediatorOrGroupOwnerTrustLevelMajor = backupItem.mediatorOrGroupOwnerTrustLevelMajor
         self.timestamp = backupItem.timestamp
         self.trustTypeRaw = backupItem.trustTypeRaw
+        self.rawObvGroupV2Identifier = backupItem.rawObvGroupV2Identifier
     }
 }
 
@@ -131,7 +139,13 @@ extension PersistedTrustOrigin {
         case 3:
             guard let keycloakServer = self.identityServer else { return nil }
             return .keycloak(timestamp: self.timestamp, keycloakServer: keycloakServer)
+        case 4:
+            guard let rawObvGroupV2Identifier = self.rawObvGroupV2Identifier,
+                  let encoded = ObvEncoded(withRawData: rawObvGroupV2Identifier),
+                  let obvGroupV2Identifier = ObvGroupV2.Identifier(encoded) else { assertionFailure(); return nil }
+            return .serverGroupV2(timestamp: self.timestamp, groupIdentifier: obvGroupV2Identifier)
         default:
+            assertionFailure()
             return nil
         }
         
@@ -150,6 +164,8 @@ extension PersistedTrustOrigin {
             return TrustLevel.forGroupOrIntroduction(withMinor: minor)
         case 3:
             return TrustLevel.forServer()
+        case 4:
+            return TrustLevel.forGroupV2()
         default:
             return nil
         }
@@ -169,6 +185,7 @@ private extension TrustOrigin {
         case .group: return 1
         case .introduction: return 2
         case .keycloak: return 3
+        case .serverGroupV2: return 4
         }
     }
     
@@ -178,6 +195,7 @@ private extension TrustOrigin {
         case .group(timestamp: let timestamp, groupOwner: _): return timestamp
         case .introduction(timestamp: let timestamp, mediator: _): return timestamp
         case .keycloak(timestamp: let timestamp, keycloakServer: _): return timestamp
+        case .serverGroupV2(timestamp: let timestamp, groupIdentifier: _): return timestamp
         }
     }
     
@@ -193,7 +211,8 @@ extension PersistedTrustOrigin {
                                               mediatorOrGroupOwnerCryptoIdentity: mediatorOrGroupOwnerCryptoIdentity,
                                               mediatorOrGroupOwnerTrustLevelMajor: mediatorOrGroupOwnerTrustLevelMajor,
                                               timestamp: timestamp,
-                                              trustTypeRaw: trustTypeRaw)
+                                              trustTypeRaw: trustTypeRaw,
+                                              rawObvGroupV2Identifier: rawObvGroupV2Identifier)
     }
     
 
@@ -207,6 +226,7 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
     fileprivate let mediatorOrGroupOwnerTrustLevelMajor: NSNumber?
     fileprivate let timestamp: Date
     fileprivate let trustTypeRaw: Int
+    fileprivate let rawObvGroupV2Identifier: Data?
 
     // Allows to prevent association failures in two items have identical variables
     private let transientUuid = UUID()
@@ -218,12 +238,13 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    fileprivate init(identityServer: URL?, mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity?, mediatorOrGroupOwnerTrustLevelMajor: NSNumber?, timestamp: Date, trustTypeRaw: Int) {
+    fileprivate init(identityServer: URL?, mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity?, mediatorOrGroupOwnerTrustLevelMajor: NSNumber?, timestamp: Date, trustTypeRaw: Int, rawObvGroupV2Identifier: Data?) {
         self.identityServer = identityServer
         self.mediatorOrGroupOwnerCryptoIdentity = mediatorOrGroupOwnerCryptoIdentity
         self.mediatorOrGroupOwnerTrustLevelMajor = mediatorOrGroupOwnerTrustLevelMajor
         self.timestamp = timestamp
         self.trustTypeRaw = trustTypeRaw
+        self.rawObvGroupV2Identifier = rawObvGroupV2Identifier
     }
 
     enum CodingKeys: String, CodingKey {
@@ -232,6 +253,7 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
         case mediatorOrGroupOwnerTrustLevelMajor = "mediator_or_group_owner_trust_level_major"
         case timestamp = "timestamp"
         case trustTypeRaw = "trust_type"
+        case rawObvGroupV2Identifier = "raw_obv_group_v2_identifier"
     }
     
     func encode(to encoder: Encoder) throws {
@@ -241,6 +263,7 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
         try container.encodeIfPresent(mediatorOrGroupOwnerTrustLevelMajor?.intValue, forKey: .mediatorOrGroupOwnerTrustLevelMajor)
         try container.encodeIfPresent(Int(timestamp.timeIntervalSince1970 * 1000), forKey: .timestamp)
         try container.encodeIfPresent(trustTypeRaw, forKey: .trustTypeRaw)
+        try container.encodeIfPresent(rawObvGroupV2Identifier, forKey: .rawObvGroupV2Identifier)
     }
 
     init(from decoder: Decoder) throws {
@@ -263,6 +286,7 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
         let timestamp = try values.decode(Int.self, forKey: .timestamp)
         self.timestamp = Date(timeIntervalSince1970: Double(timestamp)/1000.0)
         self.trustTypeRaw = try values.decode(Int.self, forKey: .trustTypeRaw)
+        self.rawObvGroupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .rawObvGroupV2Identifier)
     }
  
     func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {

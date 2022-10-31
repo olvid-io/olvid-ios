@@ -22,6 +22,7 @@ import ObvEngine
 import os.log
 import OlvidUtils
 import ObvTypes
+import ObvCrypto
 
 
 class NotificationService: UNNotificationServiceExtension {
@@ -248,11 +249,14 @@ class NotificationService: UNNotificationServiceExtension {
                 return
             }
 
-            let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+            let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
+            let groupV2Identifier: Data?
             if let messageJSON = persistedItemJSON.message {
-                groupId = messageJSON.groupId
+                groupV1Identifier = messageJSON.groupV1Identifier
+                groupV2Identifier = messageJSON.groupV2Identifier
             } else if let reactionJSON = persistedItemJSON.reactionJSON {
-                groupId = reactionJSON.groupId
+                groupV1Identifier = reactionJSON.groupV1Identifier
+                groupV2Identifier = reactionJSON.groupV2Identifier
             } else {
                 os_log("The received item should be a message or a reaction", log: log, type: .fault)
                 assertionFailure()
@@ -261,15 +265,27 @@ class NotificationService: UNNotificationServiceExtension {
             
             let discussion: PersistedDiscussion
             do {
-                if let groupId = groupId {
+                if let groupV1Identifier = groupV1Identifier {
                     guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
                         os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
                         return
                     }
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                         throw Self.makeError(message: "Could not find contact group")
                     }
                     discussion = contactGroup.discussion
+                } else if let groupV2Identifier = groupV2Identifier {
+                    guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
+                        os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
+                        return
+                    }
+                    guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity.cryptoId, appGroupIdentifier: groupV2Identifier, within: context) else {
+                        throw Self.makeError(message: "Could not find group v2")
+                    }
+                    guard let _discussion = group.discussion else {
+                        throw Self.makeError(message: "Could not find discussion of group v2")
+                    }
+                    discussion = _discussion
                 } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
                     discussion = oneToOneDiscussion
                 } else {

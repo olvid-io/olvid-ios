@@ -29,9 +29,7 @@ struct SingleContactIdentityView: View {
     @ObservedObject var contact: SingleContactIdentity
 
     var body: some View {
-        SingleContactIdentityInnerView(contact: contact,
-                                       contactStatus: $contact.contactStatus,
-                                       tappedGroup: $contact.tappedGroup)
+        SingleContactIdentityInnerView(contact: contact)
             .environment(\.managedObjectContext, ObvStack.shared.viewContext)
     }
     
@@ -42,11 +40,15 @@ struct SingleContactIdentityView: View {
 struct SingleContactIdentityInnerView: View {
     
     @ObservedObject var contact: SingleContactIdentity
-    @Binding var contactStatus: PersistedObvContactIdentity.Status
-    @Binding var tappedGroup: PersistedContactGroup?
-    
+
+    private var displayedContactGroupFetchRequest: FetchRequest<DisplayedContactGroup>
     @State private var showAlertCannotDiscussWithNonOneToOne = false
 
+    init(contact: SingleContactIdentity) {
+        self.contact = contact
+        self.displayedContactGroupFetchRequest = FetchRequest(fetchRequest: contact.displayedContactGroupFetchRequest)
+    }
+    
     @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
@@ -98,11 +100,11 @@ struct SingleContactIdentityInnerView: View {
                         .padding(.top, 16)
                         .padding(.bottom, 16)
 
-                    if let groupFetchRequest = contact.groupFetchRequest {
-                        GroupsCardView(groupFetchRequest: groupFetchRequest,
+                    if !displayedContactGroupFetchRequest.wrappedValue.isEmpty {
+                        GroupsCardView(displayedContactGroups: displayedContactGroupFetchRequest.wrappedValue,
                                        userWantsToNavigateToSingleGroupView: contact.userWantsToNavigateToSingleGroupView,
-                                       tappedGroup: $tappedGroup)
-                            .padding(.top, 16)
+                                       tappedGroup: $contact.tappedGroup)
+                        .padding(.top, 16)
                     }
 
                     TrustOriginsCardView(trustOrigins: contact.trustOrigins)
@@ -135,21 +137,20 @@ struct SingleContactIdentityInnerView: View {
 
 fileprivate struct GroupsCardView: View {
     
-    private var fetchRequest: FetchRequest<PersistedContactGroup>
-    let groupFetchRequest: NSFetchRequest<PersistedContactGroup>
-    let userWantsToNavigateToSingleGroupView: (PersistedContactGroup) -> Void
-    @Binding var tappedGroup: PersistedContactGroup?
+    let displayedContactGroups: FetchedResults<DisplayedContactGroup>
+    let userWantsToNavigateToSingleGroupView: (DisplayedContactGroup) -> Void
+    @Binding var tappedGroup: DisplayedContactGroup?
 
-    init(groupFetchRequest: NSFetchRequest<PersistedContactGroup>,
-         userWantsToNavigateToSingleGroupView: @escaping (PersistedContactGroup) -> Void, tappedGroup: Binding<PersistedContactGroup?>) {
-        self.fetchRequest = FetchRequest(fetchRequest: groupFetchRequest)
-        self.groupFetchRequest = groupFetchRequest
+    init(displayedContactGroups: FetchedResults<DisplayedContactGroup>,
+         userWantsToNavigateToSingleGroupView: @escaping (DisplayedContactGroup) -> Void,
+         tappedGroup: Binding<DisplayedContactGroup?>) {
+        self.displayedContactGroups = displayedContactGroups
         self.userWantsToNavigateToSingleGroupView = userWantsToNavigateToSingleGroupView
         self._tappedGroup = tappedGroup
     }
     
     var body: some View {
-        if fetchRequest.wrappedValue.isEmpty {
+        if displayedContactGroups.isEmpty {
             EmptyView()
         } else {
             VStack(alignment: .leading) {
@@ -159,7 +160,7 @@ fileprivate struct GroupsCardView: View {
                     Spacer()
                 }
                 ObvCardView {
-                    GroupCellsStackView(groupFetchRequest: groupFetchRequest,
+                    GroupCellsStackView(displayedContactGroups: displayedContactGroups,
                                         userWantsToNavigateToSingleGroupView: userWantsToNavigateToSingleGroupView,
                                         tappedGroup: $tappedGroup)
                 }
@@ -173,21 +174,22 @@ fileprivate struct GroupsCardView: View {
 
 fileprivate struct GroupCellsStackView: View {
     
-    private var fetchRequest: FetchRequest<PersistedContactGroup>
-    let userWantsToNavigateToSingleGroupView: (PersistedContactGroup) -> Void
-    @Binding var tappedGroup: PersistedContactGroup?
+    let displayedContactGroups: FetchedResults<DisplayedContactGroup>
+    let userWantsToNavigateToSingleGroupView: (DisplayedContactGroup) -> Void
+    @Binding var tappedGroup: DisplayedContactGroup?
     @State private var forceUpdate: Bool = false // Dirty bugfix
 
-    init(groupFetchRequest: NSFetchRequest<PersistedContactGroup>,
-         userWantsToNavigateToSingleGroupView: @escaping (PersistedContactGroup) -> Void, tappedGroup: Binding<PersistedContactGroup?>) {
-        self.fetchRequest = FetchRequest(fetchRequest: groupFetchRequest)
+    init(displayedContactGroups: FetchedResults<DisplayedContactGroup>,
+         userWantsToNavigateToSingleGroupView: @escaping (DisplayedContactGroup) -> Void,
+         tappedGroup: Binding<DisplayedContactGroup?>) {
+        self.displayedContactGroups = displayedContactGroups
         self.userWantsToNavigateToSingleGroupView = userWantsToNavigateToSingleGroupView
         self._tappedGroup = tappedGroup
     }
     
     var body: some View {
         VStack(alignment: .leading) {
-            ForEach(fetchRequest.wrappedValue, id: \.self) { group in
+            ForEach(displayedContactGroups) { group in
                 GroupCellView(group: group, showChevron: true, selected: tappedGroup == group)
                     .onTapGesture {
                         withAnimation {
@@ -206,13 +208,65 @@ fileprivate struct GroupCellsStackView: View {
                             }
                         }
                     }
-                if group != fetchRequest.wrappedValue.last {
+                if group != displayedContactGroups.last {
                     SeparatorView()
                 }
             }
         }
     }
     
+}
+
+
+
+private struct GroupCellView: View {
+
+    @ObservedObject var group: DisplayedContactGroup
+    let showChevron: Bool
+    let selected: Bool
+
+    var body: some View {
+        HStack {
+
+            CircleAndTitlesView(titlePart1: group.displayedTitle,
+                                titlePart2: nil,
+                                subtitle: group.subtitle,
+                                subsubtitle: nil,
+                                circleBackgroundColor: group.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
+                                circleTextColor: group.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared),
+                                circledTextView: nil,
+                                systemImage: .person3Fill,
+                                profilePicture: group.displayedImage,
+                                showGreenShield: false,
+                                showRedShield: false,
+                                editionMode: .none,
+                                displayMode: .normal)
+
+            Spacer()
+
+            if showChevron {
+                
+                if let groupV1 = group.groupV1 {
+                    if let joinedGroup = groupV1 as? PersistedContactGroupJoined {
+                        switch joinedGroup.status {
+                        case .noNewPublishedDetails:
+                            EmptyView()
+                        case .unseenPublishedDetails:
+                            Image(systemName: "person.crop.rectangle")
+                                .foregroundColor(.red)
+                        case .seenPublishedDetails:
+                            Image(systemName: "person.crop.rectangle")
+                                .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                        }
+                    }
+                }
+                
+                ObvChevron(selected: selected)
+            }
+        }
+        .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+    }
+
 }
 
 
@@ -524,7 +578,7 @@ struct ContactIdentityCardView: View {
         ObvCardView(padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 if let text = self.topLeftText {
-                    TopLeftText(text: text)
+                    TopLeftTextForCardView(text: text)
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     ContactIdentityCardContentView(model: contact,
@@ -553,31 +607,8 @@ struct ContactIdentityCardView: View {
 
 
 
-fileprivate struct TopLeftText: View {
-    
-    let text: Text
-    let backgroundColor = Color.green
-    let textColor = Color.white
-    
-    var body: some View {
-        text
-            .font(.footnote)
-            .fontWeight(.medium)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .foregroundColor(.white)
-            .background(
-                ObvRoundedRectangle(tl: 16, tr: 0, bl: 0, br: 16)
-                    .foregroundColor(.green)
-            )
-    }
-    
-}
-
-
-
 struct SingleContactIdentityView_Previews: PreviewProvider {
-    
+
     static let otherCoreDetails = try! ObvIdentityCoreDetails(firstName: "Steve",
                                                               lastName: "Jobs",
                                                               company: "Apple",
@@ -585,7 +616,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                               signedUserDetails: nil)
     static let otherIdentityDetails = ObvIdentityDetails(coreDetails: otherCoreDetails,
                                                          photoURL: nil)
-    
+
     static let contact = SingleContactIdentity(firstName: "Tim",
                                                lastName: "Cooks",
                                                position: "CEO",
@@ -596,7 +627,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                contactIsOneToOne: true,
                                                isActive: true,
                                                trustOrigins: trustOrigins)
-    
+
     static let contactWithOtherDetails = SingleContactIdentity(firstName: "Steve",
                                                                lastName: "Jobs",
                                                                position: "CEO",
@@ -607,7 +638,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                                contactIsOneToOne: true,
                                                                isActive: true,
                                                                trustOrigins: trustOrigins)
-    
+
     static let contactWithoutDevice = SingleContactIdentity(firstName: "Some",
                                                             lastName: "User",
                                                             position: "Without Device",
@@ -619,7 +650,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                             isActive: true,
                                                             trustOrigins: trustOrigins)
 
-    
+
     static let someDate = Date(timeIntervalSince1970: 1_600_000_000)
 
     static let trustOrigins: [ObvTrustOrigin] = [
@@ -627,23 +658,15 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
         .introduction(timestamp: someDate, mediator: nil),
             .group(timestamp: someDate, groupOwner: nil),
     ]
-    
+
     static var previews: some View {
         Group {
-            SingleContactIdentityInnerView(contact: contact,
-                                           contactStatus: .constant(contact.contactStatus),
-                                           tappedGroup: .constant(nil))
-            SingleContactIdentityInnerView(contact: contactWithOtherDetails,
-                                           contactStatus: .constant(contact.contactStatus),
-                                           tappedGroup: .constant(nil))
-            SingleContactIdentityInnerView(contact: contactWithOtherDetails,
-                                           contactStatus: .constant(contact.contactStatus),
-                                           tappedGroup: .constant(nil))
+            SingleContactIdentityInnerView(contact: contact)
+            SingleContactIdentityInnerView(contact: contactWithOtherDetails)
+            SingleContactIdentityInnerView(contact: contactWithOtherDetails)
                 .environment(\.colorScheme, .dark)
                 .environment(\.locale, .init(identifier: "fr"))
-            SingleContactIdentityInnerView(contact: contactWithoutDevice,
-                                           contactStatus: .constant(contact.contactStatus),
-                                           tappedGroup: .constant(nil))
+            SingleContactIdentityInnerView(contact: contactWithoutDevice)
         }
     }
 }

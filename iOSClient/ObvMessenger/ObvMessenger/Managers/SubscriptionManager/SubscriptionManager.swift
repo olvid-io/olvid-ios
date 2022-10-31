@@ -21,6 +21,7 @@ import Foundation
 import os.log
 import ObvEngine
 import StoreKit
+import ObvTypes
 
 
 final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProductsRequestDelegate {

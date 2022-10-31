@@ -4,6 +4,7 @@ import:
   - ObvTypes
   - ObvEngine
   - OlvidUtils
+  - ObvCrypto
 notifications:
 - name: userWantsToKickParticipant
   params:
@@ -25,7 +26,7 @@ notifications:
   params:
   - {name: callUUID, type: UUID}
   - {name: callReport, type: CallReport}
-  - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
+  - {name: groupId, type: "GroupIdentifierBasedOnObjectID?"}
   - {name: ownedCryptoId, type: ObvCryptoId}
 - name: showCallViewControllerForAnsweringNonCallKitIncomingCall
   params:

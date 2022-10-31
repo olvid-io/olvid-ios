@@ -55,6 +55,7 @@ final class PersistedObvContactIdentity: NSManagedObject {
 
     // MARK: - Relationships
 
+    @NSManaged private var asGroupV2Member: Set<PersistedGroupV2Member>
     @NSManaged private(set) var contactGroups: Set<PersistedContactGroup>
     @NSManaged private(set) var devices: Set<PersistedObvContactDevice>
     @NSManaged private var rawOneToOneDiscussion: PersistedOneToOneDiscussion?
@@ -168,6 +169,42 @@ final class PersistedObvContactIdentity: NSManagedObject {
     func hasAtLeastOneRemoteContactDevice() -> Bool {
         return !self.devices.isEmpty
     }
+    
+    var displayedFirstName: String? {
+        guard customDisplayName == nil else { return nil }
+        return identityCoreDetails.firstName
+    }
+    
+    var firstName: String? {
+        return identityCoreDetails.firstName
+    }
+    
+    var lastName: String? {
+        return identityCoreDetails.lastName
+    }
+
+    var displayedCustomDisplayNameOrLastName: String? {
+        customDisplayName ?? identityCoreDetails.lastName
+    }
+
+    var displayedCustomDisplayNameOrFirstNameOrLastName: String? {
+        customDisplayName ?? identityCoreDetails.firstName ?? identityCoreDetails.lastName
+    }
+
+    var displayedCompany: String? {
+        return identityCoreDetails.company
+    }
+
+    var displayedPosition: String? {
+        return identityCoreDetails.position
+    }
+
+    var displayedProfilePicture: UIImage? {
+        guard let photoURL = customPhotoURL ?? photoURL else { return nil }
+        guard FileManager.default.fileExists(atPath: photoURL.path) else { assertionFailure(); return nil }
+        return UIImage(contentsOfFile: photoURL.path)
+    }
+    
 }
 
 
@@ -214,6 +251,17 @@ extension PersistedObvContactIdentity {
                 self.rawOneToOneDiscussion = nil
             }
         }
+        
+        /* When a contact is inserted, we look for Group v2 instances where this user is a member. More precisely, we look for PersistedGroupV2Member instances corresponding to this new contact identity, for this owned identity. When found, we update these PersistedGroupV2Member instances so that they point to this new PersistedObvContactIdentity instance. */
+        
+        let membersCorrespondingToThisNewContact = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(
+            with: contactIdentity.ownedIdentity.cryptoId,
+            withIdentity: self.cryptoId,
+            within: context)
+        for member in membersCorrespondingToThisNewContact {
+            try member.updateWith(persistedContact: self)
+        }
+
     }
     
     
@@ -233,22 +281,14 @@ extension PersistedObvContactIdentity {
 
     private func getNormalizedSortAndSearchKey(with sortOrder: ContactsSortOrder) -> String {
         let coreDetails = self.identityCoreDetails
-
-        var allComponents: [String?] = [self.customDisplayName]
-        switch sortOrder {
-        case .byFirstName:
-            allComponents += [coreDetails.firstName, coreDetails.lastName]
-        case .byLastName:
-            allComponents += [coreDetails.lastName, coreDetails.firstName]
-        }
-        allComponents += [coreDetails.position, coreDetails.company]
-
-        let components = allComponents.compactMap { $0 }
-        return components.map({
-            $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
-        }).joined(separator: "_")
+        return sortOrder.computeNormalizedSortAndSearchKey(
+            customDisplayName: self.customDisplayName,
+            firstName: coreDetails.firstName,
+            lastName: coreDetails.lastName,
+            position: coreDetails.position,
+            company: coreDetails.company)
     }
+        
 
     func updateSortOrder(with newSortOrder: ContactsSortOrder) {
         self.sortDisplayName = getNormalizedSortAndSearchKey(with: newSortOrder)
@@ -332,8 +372,11 @@ extension PersistedObvContactIdentity {
 extension PersistedObvContactIdentity {
     
     func insert(_ device: ObvContactDevice) throws {
-        guard device.contactIdentity.cryptoId == self.cryptoId else { throw NSError() }
-        guard let context = self.managedObjectContext else { throw NSError() }
+        guard device.contactIdentity.cryptoId == self.cryptoId else {
+            throw Self.makeError(message: "Unexpected contact identity") }
+        guard let context = self.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
         let knownDeviceIdentifiers: Set<Data> = Set(self.devices.compactMap { $0.identifier })
         if !knownDeviceIdentifiers.contains(device.identifier) {
             _ = try PersistedObvContactDevice(obvContactDevice: device, within: context)
@@ -443,6 +486,9 @@ extension PersistedObvContactIdentity {
             case isActive = "isActive"
             case isCertifiedByOwnKeycloak = "isCertifiedByOwnKeycloak"
             case capabilityWebrtcContinuousICE = "capabilityWebrtcContinuousICE"
+            case capabilityOneToOneContacts = "capabilityOneToOneContacts"
+            case capabilityGroupsV2 = "capabilityGroupsV2"
+
             case isOneToOne = "isOneToOne"
             static var ownedIdentityIdentity: String {
                 [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
@@ -493,6 +539,20 @@ extension PersistedObvContactIdentity {
             case .any:
                 return NSPredicate(value: true)
             }
+        }
+        static func requiredCapability(_ capability: ObvCapability) -> NSPredicate {
+            switch capability {
+            case .webrtcContinuousICE:
+                return NSPredicate(Key.capabilityWebrtcContinuousICE, is: true)
+            case .groupsV2:
+                return NSPredicate(Key.capabilityGroupsV2, is: true)
+            case .oneToOneContacts:
+                return NSPredicate(Key.capabilityOneToOneContacts, is: true)
+            }
+        }
+        static func requiredCapabilities(_ capabilities: [ObvCapability]) -> NSPredicate {
+            guard !capabilities.isEmpty else { return NSPredicate(value: true) }
+            return NSCompoundPredicate(andPredicateWithSubpredicates: capabilities.map({ Self.requiredCapability($0) }))
         }
     }
     
@@ -612,19 +672,33 @@ extension PersistedObvContactIdentity {
 
 extension PersistedObvContactIdentity {
             
-    static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus) -> NSPredicate {
+    static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, requiredCapabilities: [ObvCapability]?) -> NSPredicate {
+        let predicateOnCapabilities: NSPredicate
+        if let requiredCapabilities = requiredCapabilities {
+            predicateOnCapabilities = Predicate.requiredCapabilities(requiredCapabilities)
+        } else {
+            predicateOnCapabilities = NSPredicate(value: true)
+        }
         return NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
             Predicate.forOneToOneStatus(oneToOneStatus),
+            predicateOnCapabilities,
         ])
     }
 
     
-    static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, excludedContactCryptoIds: Set<ObvCryptoId>, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus) -> NSPredicate {
+    static func getPredicateForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, excludedContactCryptoIds: Set<ObvCryptoId>, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, requiredCapabilities: [ObvCapability]) -> NSPredicate {
+        let predicateOnCapabilities: NSPredicate
+        if requiredCapabilities.isEmpty {
+            predicateOnCapabilities = NSPredicate(value: true)
+        } else {
+            predicateOnCapabilities = Predicate.requiredCapabilities(requiredCapabilities)
+        }
         return NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
             Predicate.excludedContactCryptoIds(excludedIdentities: excludedContactCryptoIds),
             Predicate.forOneToOneStatus(oneToOneStatus),
+            predicateOnCapabilities,
         ])
     }
 
@@ -799,6 +873,10 @@ extension PersistedObvContactIdentity {
         
         if isUpdated {
             changedKeys = Set<String>(self.changedValues().keys)
+        }
+        
+        if !changedKeys.isEmpty {
+            asGroupV2Member.forEach { $0.updateWhenPersistedObvContactIdentityIsUpdated() }
         }
         
     }

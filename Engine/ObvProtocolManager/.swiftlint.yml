@@ -32,6 +32,7 @@ disabled_rules:
   - redundant_objc_attribute
   - nsobject_prefer_isequal
   - unused_setter_value
+  - colon
 custom_rules:
   commented_code:
     regex: '(?<!:|\/)\/\/\h*[a-z.](?!wiftlint)'

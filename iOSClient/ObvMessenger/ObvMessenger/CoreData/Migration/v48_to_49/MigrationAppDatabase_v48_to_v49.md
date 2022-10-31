@@ -1,4 +1,4 @@
-# App database migration from v47 to v48
+# App database migration from v48 to v49
 
 ## PersistedAttachmentSentRecipientInfos - New entity
 

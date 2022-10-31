@@ -23,19 +23,20 @@ import os.log
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpecificReasonForCancel<EditTextBodyOfReceivedMessageOperationReasonForCancel> {
     
-    private let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+    private let groupIdentifier: GroupIdentifier?
     private let requester: ObvContactIdentity
     private let newTextBody: String?
     private let receivedMessageToEdit: MessageReferenceJSON
     private let messageUploadTimestampFromServer: Date
     private let saveRequestIfMessageCannotBeFound: Bool
 
-    init(newTextBody: String?, requester: ObvContactIdentity, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, receivedMessageToEdit: MessageReferenceJSON, messageUploadTimestampFromServer: Date, saveRequestIfMessageCannotBeFound: Bool) {
+    init(newTextBody: String?, requester: ObvContactIdentity, groupIdentifier: GroupIdentifier?, receivedMessageToEdit: MessageReferenceJSON, messageUploadTimestampFromServer: Date, saveRequestIfMessageCannotBeFound: Bool) {
         self.newTextBody = newTextBody
-        self.groupId = groupId
+        self.groupIdentifier = groupIdentifier
         self.requester = requester
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
         self.receivedMessageToEdit = receivedMessageToEdit
@@ -79,16 +80,26 @@ final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpeci
             
             let discussion: PersistedDiscussion
             do {
-                if let groupId = self.groupId {
-                    guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+                switch groupIdentifier {
+                case .none:
+                    guard let oneToOneDiscussion = contact.oneToOneDiscussion else {
+                        return cancel(withReason: .couldNotFindAnyDiscussion)
+                    }
+                    discussion = oneToOneDiscussion
+                case .groupV1(groupV1Identifier: let groupV1Identifier):
+                    guard let group = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                         return cancel(withReason: .couldNotFindGroupDiscussion)
                     }
                     discussion = group.discussion
-                } else if let oneToOneDiscussion = contact.oneToOneDiscussion {
-                    discussion = oneToOneDiscussion
-                } else {
-                    return cancel(withReason: .couldNotFindAnyDiscussion)
-                }
+                case .groupV2(groupV2Identifier: let groupV2Identifier):
+                    guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        return cancel(withReason: .couldNotFindGroupDiscussion)
+                    }
+                    guard let _discussion = group.discussion else {
+                        return cancel(withReason: .couldNotFindAnyDiscussion)
+                    }
+                    discussion = _discussion
+                }                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

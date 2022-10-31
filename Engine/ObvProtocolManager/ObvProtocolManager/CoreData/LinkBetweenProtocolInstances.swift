@@ -93,15 +93,15 @@ extension LinkBetweenProtocolInstances {
         return NSFetchRequest<LinkBetweenProtocolInstances>(entityName: LinkBetweenProtocolInstances.entityName)
     }
     
-    class func getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, reachesState childState: ConcreteProtocolState, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> [GenericProtocolMessageToSend] {
+    class func getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid childUid: UID, andOwnedIdentity childOwnedCryptoIdentity: ObvCryptoIdentity, reachesState childState: ConcreteProtocolState, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [GenericProtocolMessageToSend] {
         let request: NSFetchRequest<LinkBetweenProtocolInstances> = LinkBetweenProtocolInstances.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d",
                                         childProtocolInstanceUidKey, childUid,
                                         childProtocolInstanceOwnedCryptoIdentityKey, childOwnedCryptoIdentity,
                                         expectedChildStateRawIdKey, childState.rawId)
         guard let links = try? obvContext.fetch(request) else { return [GenericProtocolMessageToSend]() }
-        let encodedInputs = ChildToParentProtocolMessageInputs(childProtocolInstanceUid: childUid,
-                                                               childProtocolInstanceReachedState: childState).toListOfEncoded()
+        let encodedInputs = try ChildToParentProtocolMessageInputs(childProtocolInstanceUid: childUid,
+                                                                   childProtocolInstanceReachedState: childState).toListOfEncoded()
         let messages: [GenericProtocolMessageToSend] = links.map { link in
             return GenericProtocolMessageToSend(channelType: .Local(ownedIdentity: link.parentProtocolInstance.ownedCryptoIdentity),
                                                 cryptoProtocolId: link.parentProtocolInstance.cryptoProtocolId,

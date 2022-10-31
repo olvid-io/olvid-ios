@@ -22,4 +22,24 @@ import Foundation
 enum ContactsSortOrder: Int, CaseIterable {
     case byFirstName = 0
     case byLastName = 1
+    
+    func computeNormalizedSortAndSearchKey(customDisplayName: String?, firstName: String?, lastName: String?, position: String?, company: String?) -> String {
+
+        var allComponents: [String?] = [customDisplayName]
+        switch self {
+        case .byFirstName:
+            allComponents += [firstName, lastName]
+        case .byLastName:
+            allComponents += [lastName, firstName]
+        }
+        allComponents += [position, company]
+
+        let components = allComponents.compactMap { $0 }
+        return components.map({
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
+        }).joined(separator: "_")
+    }
+
+    
 }

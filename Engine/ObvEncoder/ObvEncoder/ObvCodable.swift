@@ -29,3 +29,10 @@ public protocol ObvEncodable {
 public protocol ObvDecodable {
     init?(_: ObvEncoded)
 }
+
+
+public typealias ObvFailableCodable = ObvDecodable & ObvFailableEncodable
+
+public protocol ObvFailableEncodable {
+    func obvEncode() throws -> ObvEncoded
+}

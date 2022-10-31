@@ -4,17 +4,11 @@ import:
   - ObvTypes
   - ObvEngine
   - OlvidUtils
+  - ObvCrypto
 notifications:
 - name: messagesAreNotNewAnymore
   params:
   - {name: persistedMessageObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedMessage>>}
-- name: persistedMessageReceivedWasDeleted
-  params:
-  - {name: objectID, type: NSManagedObjectID}
-  - {name: messageIdentifierFromEngine, type: Data}
-  - {name: ownedCryptoId, type: ObvCryptoId}
-  - {name: sortIndex, type: Double}
-  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
 - name: userWantsToRefreshContactGroupJoined
   params:
   - {name: obvContactGroup, type: ObvContactGroup}
@@ -28,6 +22,7 @@ notifications:
   params:
   - {name: sourceView, type: UIView}
   - {name: sourceViewController, type: UIViewController}
+- name: userCancelledBackupForExportNow
 - name: newMuteExpiration
   params:
   - {name: expirationDate, type: Date}
@@ -38,15 +33,15 @@ notifications:
 - name: userWantsToCallAndIsAllowedTo
   params:
   - {name: contactIds, type: [OlvidUserId]}
-  - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
+  - {name: groupId, type: "GroupIdentifierBasedOnObjectID?"}
 - name: userWantsToSelectAndCallContacts
   params:
   - {name: contactIDs, type: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]}
-  - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
+  - {name: groupId, type: "GroupIdentifierBasedOnObjectID?"}
 - name: userWantsToCallButWeShouldCheckSheIsAllowedTo
   params:
   - {name: contactIDs, type: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]}
-  - {name: groupId, type: "(groupUid: UID, groupOwner: ObvCryptoId)?"}
+  - {name: groupId, type: "GroupIdentifierBasedOnObjectID?"}
 - name: newWebRTCMessageWasReceived
   params:
   - {name: webrtcMessage, type: WebRTCMessageJSON}
@@ -71,6 +66,7 @@ notifications:
 - name: rejectedIncomingCallBecauseUserDeniedRecordPermission
 - name: userRequestedDeletionOfPersistedMessage
   params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: persistedMessageObjectID, type: NSManagedObjectID}
   - {name: deletionType, type: DeletionType}
 - name: trashShouldBeEmptied
@@ -119,12 +115,6 @@ notifications:
   - {name: size, type: CGSize}
   - {name: thumbnailType, type: ThumbnailType}
   - {name: completionHandler, type: ((Thumbnail) -> Void), escaping: true}
-- name: persistedMessageReceivedWasRead
-  params:
-  - {name: persistedMessageReceivedObjectID, type: TypeSafeManagedObjectID<PersistedMessageReceived>}
-- name: receivedFyleJoinHasBeenMarkAsOpened
-  params:
-  - {name: receivedFyleJoinID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
 - name: userHasOpenedAReceivedAttachment
   params:
   - {name: receivedFyleJoinID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
@@ -133,9 +123,6 @@ notifications:
   - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
   - {name: expirationJSON, type: ExpirationJSON}
   - {name: ownedCryptoId, type: ObvCryptoId}
-- name: persistedDiscussionSharedConfigurationShouldBeSent
-  params:
-  - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
 - name: userWantsToDeleteContact
   params:
   - {name: contactCryptoId, type: ObvCryptoId}
@@ -159,9 +146,6 @@ notifications:
   params:
   - {name: sentMessageObjectID, type: NSManagedObjectID}
   - {name: newTextBody, type: String}
-- name: theBodyOfPersistedMessageReceivedDidChange
-  params:
-  - {name: persistedMessageReceivedObjectID, type: NSManagedObjectID}
 - name: newProfilePictureCandidateToCache
   params:
   - {name: requestUUID, type: UUID}
@@ -361,18 +345,30 @@ notifications:
   - {name: completionHandler, type: () -> Void, escaping: true}
 - name: userWantsToWipeFyleMessageJoinWithStatus
   params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: objectIDs, type: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>}
-- name: userWantsToForwardMessage
-  params:
-  - {name: messageObjectID, type: TypeSafeManagedObjectID<PersistedMessage>}
-  - {name: discussionObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedDiscussion>>}
-- name: createNewGroup
+- name: userWantsToCreateNewGroupV1
   params:
   - {name: groupName, type: String}
   - {name: groupDescription, type: "String?"}
   - {name: groupMembersCryptoIds, type: Set<ObvCryptoId>}
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: photoURL, type: "URL?"}
+- name: userWantsToCreateNewGroupV2
+  params:
+  - {name: groupCoreDetails, type: GroupV2CoreDetails}
+  - {name: ownPermissions, type: Set<ObvGroupV2.Permission>}
+  - {name: otherGroupMembers, type: Set<ObvGroupV2.IdentityAndPermissions>}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: photoURL, type: "URL?"}
+- name: userWantsToForwardMessage
+  params:
+  - {name: messageObjectID, type: TypeSafeManagedObjectID<PersistedMessage>}
+  - {name: discussionObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedDiscussion>>}
+- name: userWantsToUpdateGroupV2
+  params:
+  - {name: groupObjectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+  - {name: changeset, type: ObvGroupV2.Changeset}
 - name: inviteContactsToGroupOwned
   params:
   - {name: groupUid, type: UID}
@@ -395,16 +391,12 @@ notifications:
   params:
   - {name: completion, type: (RunningLogError) -> Void}
 - name: metaFlowControllerViewDidAppear
-- name: aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus
+- name: userWantsToUpdateCustomNameAndGroupV2Photo
   params:
-  - {name: returnReceipt, type: ReturnReceiptJSON}
-  - {name: contactCryptoId, type: ObvCryptoId}
-  - {name: ownedCryptoId, type: ObvCryptoId}
-  - {name: messageIdentifierFromEngine, type: Data}
-  - {name: attachmentNumber, type: Int}
-- name: aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived
+  - {name: groupObjectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+  - {name: customName, type: "String?"}
+  - {name: customPhotoURL, type: "URL?"}
+- name: userHasSeenPublishedDetailsOfGroupV2
   params:
-  - {name: returnReceipt, type: ReturnReceiptJSON}
-  - {name: contactCryptoId, type: ObvCryptoId}
-  - {name: ownedCryptoId, type: ObvCryptoId}
-  - {name: messageIdentifierFromEngine, type: Data}
+  - {name: groupObjectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+- name: tooManyWrongPasscodeAttemptsCausedLockOut

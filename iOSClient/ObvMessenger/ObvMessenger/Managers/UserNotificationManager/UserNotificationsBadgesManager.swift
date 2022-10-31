@@ -20,7 +20,7 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
+import ObvTypes
 import UserNotifications
 
 final class UserNotificationsBadgesManager: NSObject {

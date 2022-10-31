@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import ObvTypes
+
 
 public protocol PRNGService: PRNG {
     static var sharedInstance: PRNGService { get }

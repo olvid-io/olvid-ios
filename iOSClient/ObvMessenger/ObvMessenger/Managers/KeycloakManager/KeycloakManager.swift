@@ -655,6 +655,11 @@ actor KeycloakManager: NSObject {
 
     private func synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ObvCryptoId, ignoreSynchronizationInterval: Bool, failedAttempts: Int = 0) async {
         
+        assert(!Thread.isMainThread)
+        if Thread.isMainThread {
+            os_log("🧥 Call to synchronizeOwnedIdentityWithKeycloakServer on the main thread", log: KeycloakManager.log, type: .fault)
+        }
+        
         os_log("🧥 Call to synchronizeOwnedIdentityWithKeycloakServer", log: KeycloakManager.log, type: .info)
         
         guard !currentlySyncingOwnedIdentities.contains(ownedCryptoId) else {

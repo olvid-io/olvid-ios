@@ -52,14 +52,14 @@ final class MessageHeader: NSManagedObject, ObvManagedObject {
             return value
         }
         set {
-            if delegateManager == nil {
-                delegateManager = newValue!.delegateManager
-            }
-            if let value = newValue {
-                self.messageId = value.messageId
-            } else {
+            guard let newValue = newValue, let messageId = newValue.messageId else {
                 assertionFailure()
+                return
             }
+            if delegateManager == nil {
+                delegateManager = newValue.delegateManager
+            }
+            self.messageId = messageId
             kvoSafeSetPrimitiveValue(newValue, forKey: MessageHeader.messageKey)
         }
     }
@@ -82,13 +82,18 @@ final class MessageHeader: NSManagedObject, ObvManagedObject {
         
         let entityDescription = NSEntityDescription.entity(forEntityName: MessageHeader.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
+
+        guard let messageId = message.messageId else {
+            assertionFailure()
+            return nil
+        }
         
         self.toCryptoIdentity = toCryptoIdentity
         self.deviceUid = deviceUid
         self.wrappedKey = wrappedKey
         
         self.message = message
-        self.messageId = message.messageId
+        self.messageId = messageId
     }
 
 }

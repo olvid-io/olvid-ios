@@ -36,6 +36,9 @@ class SingleGroupViewController: UIViewController {
     @IBOutlet weak var circlePlaceholder: UIView!
     @IBOutlet weak var titleLabel: UILabel!
     
+    @IBOutlet weak var cloneButtonContainerView: UIView!
+    private let cloneButton = ObvImageButton()
+    
     @IBOutlet weak var membersStackView: UIStackView!
     @IBOutlet weak var membersLabel: UILabel!
     @IBOutlet weak var membersLeadingPaddingConstraint: NSLayoutConstraint!
@@ -172,11 +175,19 @@ extension SingleGroupViewController {
         
         circlePlaceholder.backgroundColor = .clear
         titleLabel.textColor = AppTheme.shared.colorScheme.label
+        let titleLabelStyle = UIFont.TextStyle.title1
+        let titleLabelFontDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: titleLabelStyle).withDesign(.rounded)?.withSymbolicTraits(.traitBold) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: titleLabelStyle)
+        titleLabel.font = UIFont(descriptor: titleLabelFontDescriptor, size: 0)
 
         circledInitials = (Bundle.main.loadNibNamed(CircledInitials.nibName, owner: nil, options: nil)!.first as! CircledInitials)
-        circledInitials.withShadow = true
+        circledInitials.withShadow = false
         circlePlaceholder.addSubview(circledInitials)
         circlePlaceholder.pinAllSidesToSides(of: circledInitials)
+        
+        cloneButtonContainerView.addSubview(cloneButton)
+        cloneButton.translatesAutoresizingMaskIntoConstraints = false
+        cloneButton.setTitle(NSLocalizedString("CLONE_THIS_GROUP_V1_TO_GROUP_V2", comment: ""), for: .normal)
+        cloneButton.setImage(.docOnDoc, for: .normal)
 
         membersLabel.textColor = AppTheme.shared.colorScheme.label
         membersLabel.text = Strings.members
@@ -269,6 +280,8 @@ extension SingleGroupViewController {
             removeMembersButton.addTarget(self, action: #selector(removeMembersButtonTapped), for: .touchUpInside)
         }
         
+        setupContraints()
+        
         observePersistedContactGroupChanges()
         observeEngineNotifications()
         observeIdentityColorStyleDidChangeNotifications()
@@ -276,6 +289,32 @@ extension SingleGroupViewController {
         // We refresh the group each time we load this view controller
         if obvContactGroup.groupType == .joined {
             refreshGroup()
+        }
+        
+        cloneButton.addTarget(self, action: #selector(cloneGroupButtonTapped), for: .touchUpInside)
+
+    }
+    
+    
+    @objc private func cloneGroupButtonTapped() {
+        guard let displayedContactGroup = persistedContactGroup.displayedContactGroup else { return }
+        delegate?.userWantsToCloneGroup(displayedContactGroupObjectID: displayedContactGroup.typedObjectID)
+    }
+    
+    
+    private func setupContraints() {
+        if ObvMessengerSettings.BetaConfiguration.showBetaSettings || ObvMessengerConstants.developmentMode {
+            NSLayoutConstraint.activate([
+                cloneButton.leadingAnchor.constraint(equalTo: cloneButtonContainerView.leadingAnchor, constant: 16),
+                cloneButton.trailingAnchor.constraint(equalTo: cloneButtonContainerView.trailingAnchor, constant: -16),
+                cloneButton.topAnchor.constraint(equalTo: cloneButtonContainerView.topAnchor, constant: 28),
+                cloneButton.bottomAnchor.constraint(equalTo: cloneButtonContainerView.bottomAnchor, constant: -16),
+            ])
+        } else {
+            cloneButton.isHidden = true
+            NSLayoutConstraint.activate([
+                cloneButtonContainerView.heightAnchor.constraint(equalToConstant: 0)
+            ])
         }
     }
 
@@ -286,11 +325,9 @@ extension SingleGroupViewController {
 
         if !persistedContactGroup.contactIdentities.isEmpty {
             items += [BlockBarButtonItem(systemIcon: .phoneFill) {
-                if let groupId = try? self.persistedContactGroup.getGroupId() {
-                    let contactIdentities = self.persistedContactGroup.contactIdentities
-
-                    ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
-                }
+                let groupId = self.persistedContactGroup.typedObjectID
+                let contactIdentities = self.persistedContactGroup.contactIdentities
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: .groupV1(groupId)).postOnDispatchQueue()
             }]
         }
 
@@ -558,9 +595,9 @@ extension SingleGroupViewController {
             self.present(alert, animated: true)
             
         case .owned:
-            let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(
+            let ownedGroupEditionFlowVC = GroupEditionFlowViewController(
                 ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
-                editionType: .editGroupDetails(obvContactGroup: obvContactGroup), obvEngine: obvEngine)
+                editionType: .editGroupV1Details(obvContactGroup: obvContactGroup), obvEngine: obvEngine)
             DispatchQueue.main.async { [weak self] in
                 self?.present(ownedGroupEditionFlowVC, animated: true)
             }
@@ -751,9 +788,9 @@ extension SingleGroupViewController {
         let currentGroupMembers = Set(obvContactGroup.groupMembers.map { $0.cryptoId })
         let currentPendingMembers = obvContactGroup.pendingGroupMembers.map { $0.cryptoId }
         let groupMembersAndPendingMembers = currentGroupMembers.union(currentPendingMembers)
-        let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
-                                                                          editionType: .addGroupMembers(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers),
-                                                                          obvEngine: obvEngine)
+        let ownedGroupEditionFlowVC = GroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
+                                                                     editionType: .addGroupV1Members(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers),
+                                                                     obvEngine: obvEngine)
         DispatchQueue.main.async { [weak self] in
             self?.present(ownedGroupEditionFlowVC, animated: true)
         }
@@ -765,9 +802,9 @@ extension SingleGroupViewController {
         let currentGroupMembers = Set(obvContactGroup.groupMembers.map { $0.cryptoId })
         let currentPendingMembers = obvContactGroup.pendingGroupMembers.map { $0.cryptoId }
         let groupMembersAndPendingMembers = currentGroupMembers.union(currentPendingMembers)
-        let ownedGroupEditionFlowVC = OwnedGroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
-                                                                          editionType: .removeGroupMembers(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers),
-                                                                          obvEngine: obvEngine)
+        let ownedGroupEditionFlowVC = GroupEditionFlowViewController(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
+                                                                     editionType: .removeGroupV1Members(groupUid: obvContactGroup.groupUid, currentGroupMembers: groupMembersAndPendingMembers),
+                                                                     obvEngine: obvEngine)
         DispatchQueue.main.async { [weak self] in
             self?.present(ownedGroupEditionFlowVC, animated: true)
         }

@@ -19,7 +19,7 @@
 
 import SwiftUI
 import AVKit
-import ObvEngine
+import ObvTypes
 import CoreData
 import os.log
 
@@ -484,8 +484,8 @@ fileprivate struct InnerCallView: View {
         .sheet(isPresented: $showAddParticipantView) {
             let contactsToExclude = Set(callParticipantDatas.compactMap { $0.callParticipant?.remoteCryptoId })
             // We allow to call any contact (even non OneToOne) when this is done via a group discussion.
-            let mode = MultipleContactsMode.excluded(from: contactsToExclude, oneToOneStatus: .any)
-            MultipleContactsView(ownedCryptoId: ownedIdentity, mode: mode, button: .floating(title: CommonString.Word.Call, systemIcon: .phoneFill), disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { selectedContacts in
+            let mode = MultipleContactsMode.excluded(from: contactsToExclude, oneToOneStatus: .any, requiredCapabilitites: nil)
+            MultipleContactsView(ownedCryptoId: ownedIdentity, mode: mode, button: .floating(title: CommonString.Word.Call, systemIcon: .phoneFill), disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false) { selectedContacts in
                 actionAddParticipant(selectedContacts)
                 showAddParticipantView = false
             } dismissAction: {

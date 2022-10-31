@@ -92,7 +92,7 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
     }
 
     
-    func delete() throws {
+    func deleteContactDevice() throws {
         guard let obvContext = self.obvContext else {
             assertionFailure()
             throw ContactDevice.makeError(message: "Could not find contact --> could not delete device")

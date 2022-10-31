@@ -34,6 +34,10 @@ struct ObvActivityIndicator: UIViewRepresentable {
         if let color = self.color {
             uiView.color = color
         }
-        isAnimating ? uiView.startAnimating() : uiView.stopAnimating()
+        if isAnimating {
+            uiView.startAnimating()
+        } else {
+            uiView.stopAnimating()
+        }
     }
 }

@@ -19,7 +19,6 @@
 
 import Foundation
 import BigInt
-import ObvTypes
 
 
 public protocol PRNG {

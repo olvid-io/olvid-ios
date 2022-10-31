@@ -298,6 +298,18 @@ extension ObvEngine {
             ObvIdentityNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, flowId in
                 self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, flowId: flowId)
             },
+            ObvIdentityNotificationNew.observeGroupV2WasCreated(within: notificationDelegate) { [weak self] (obvGroupV2, initiator) in
+                self?.processGroupV2WasCreated(obvGroupV2: obvGroupV2, initiator: initiator)
+            },
+            ObvIdentityNotificationNew.observeGroupV2WasUpdated(within: notificationDelegate) { [weak self] (obvGroupV2, initiator) in
+                self?.processGroupV2WasUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
+            },
+            ObvIdentityNotificationNew.observeGroupV2WasDeleted(within: notificationDelegate) { [weak self] (ownedIdentity, appGroupIdentifier) in
+                self?.processGroupV2WasDeleted(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+            },
+            ObvProtocolNotification.observeGroupV2UpdateDidFail(within: notificationDelegate) { [weak self] ownedIdentity, appGroupIdentifier, flowId in
+                self?.processGroupV2UpdateDidFail(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier, flowId: flowId)
+            },
         ])
         
         do {
@@ -744,6 +756,31 @@ extension ObvEngine {
 
     }
     
+    
+    private func processGroupV2WasCreated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator) {
+        ObvEngineNotificationNew.groupV2WasCreatedOrUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
+    private func processGroupV2WasUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator) {
+        ObvEngineNotificationNew.groupV2WasCreatedOrUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+    
+    
+    private func processGroupV2WasDeleted(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data) {
+        ObvEngineNotificationNew.groupV2WasDeleted(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), appGroupIdentifier: appGroupIdentifier)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
+    private func processGroupV2UpdateDidFail(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data, flowId: FlowIdentifier) {
+        ObvEngineNotificationNew.groupV2UpdateDidFail(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), appGroupIdentifier: appGroupIdentifier)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
     private func processContactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
         guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
@@ -910,7 +947,7 @@ extension ObvEngine {
     
     private func registerToContactWasDeletedNotifications(notificationDelegate: ObvNotificationDelegate) {
         let log = self.log
-        let token = ObvIdentityNotificationNew.observeContactWasDeleted(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, contactCryptoIdentity, contactTrustedIdentityDetails) in
+        let token = ObvIdentityNotificationNew.observeContactWasDeleted(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, contactCryptoIdentity) in
             
             guard let _self = self else { return }
             

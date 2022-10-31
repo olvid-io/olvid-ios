@@ -87,7 +87,8 @@ public final class ObvEngine: ObvManager {
         guard let database = ObvEngine.createAndConfigureBox("database", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the database box") }
         guard let identityPhotos = ObvEngine.createAndConfigureBox("identityPhotos", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the identityPhotos box") }
         guard let downloadedUserData = ObvEngine.createAndConfigureBox("downloadedUserData", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the downloadedUserData box") }
-
+        guard let uploadingUserData = ObvEngine.createAndConfigureBox("uploadingUserData", mainContainerURL: mainContainerURL) else { throw makeError(message: "Could not create and configure the uploadingUserData box") }
+                
         // We create all the internal managers
         var obvManagers = [ObvManager]()
         
@@ -117,7 +118,7 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(channelManager)
         
         // ObvProtocolDelegate, ObvFullRatchetProtocolStarterDelegate
-        obvManagers.append(ObvProtocolManager(prng: prng, downloadedUserData: downloadedUserData))
+        obvManagers.append(ObvProtocolManager(prng: prng, downloadedUserData: downloadedUserData, uploadingUserData: uploadingUserData))
         
         // ObvNotificationDelegate
         obvManagers.append(ObvNotificationCenter())
@@ -453,6 +454,7 @@ extension ObvEngine: ObvErrorMaker {
     
     
     public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(_ arg: [(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)]) {
+        assert(!Thread.isMainThread)
         guard let networkPostDelegate = networkPostDelegate else { assertionFailure(); return  }
         let flowId = FlowIdentifier()
         let messageIdentifiers = arg.compactMap { MessageIdentifier(rawOwnedCryptoIdentity: $0.ownedIdentity.cryptoIdentity.getIdentity(), rawUid: $0.messageIdentifierFromEngine) }
@@ -1889,6 +1891,8 @@ extension ObvEngine {
     /// This method first delete all channels and device uids with the contact identity. It then performs a device discovery. This enough, since the device discovery will eventually add devices and thus, new channels will be created.
     public func reCreateAllChannelEstablishmentProtocolsWithContactIdentity(with contactCryptoId: ObvCryptoId, ofOwnedIdentyWith ownedCryptoId: ObvCryptoId) throws {
         
+        assert(!Thread.isMainThread)
+        
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
         guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
         
@@ -1912,6 +1916,8 @@ extension ObvEngine {
     
     
     private func reCreateAllChannelEstablishmentProtocolsWithContactIdentity(with contactCryptoIdentity: ObvCryptoIdentity, ofOwnedIdentyWith ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        assert(!Thread.isMainThread)
         
         guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
@@ -1973,10 +1979,8 @@ extension ObvEngine {
         var fullDisplayName: String?
 
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier()) { obvContext in
-            let identities = [remoteCryptoId, ownedCryptoId.cryptoIdentity]
-            let challenge = identities.reduce(Data()) { $0 + $1.getIdentity() }
-            let prefix = ObvConstants.trustEstablishmentWithMutualScanProtocolPrefix
-            guard let sig = try? solveChallengeDelegate.solveChallenge(challenge, prefixedWith: prefix, for: ownedCryptoId.cryptoIdentity, using: prng, within: obvContext) else {
+            let challengeType = ChallengeType.mutualScan(firstIdentity: remoteCryptoId, secondIdentity: ownedCryptoId.cryptoIdentity)
+            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedCryptoId.cryptoIdentity, using: prng, within: obvContext) else {
                 os_log("Could not compute signature", log: log, type: .fault)
                 throw makeError(message: "Could not compute signature")
             }
@@ -1992,12 +1996,9 @@ extension ObvEngine {
     }
     
     
-    public func verifyMutualScanUrl(ownedCryptoId: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) throws -> Bool {
-        guard let solveChallengeDelegate = solveChallengeDelegate else { throw makeError(message: "The solve challenge delegate is not set") }
-        let identities = [ownedCryptoId.cryptoIdentity, mutualScanUrl.cryptoId.cryptoIdentity]
-        let challenge = identities.reduce(Data()) { $0 + $1.getIdentity() }
-        let prefix = ObvConstants.trustEstablishmentWithMutualScanProtocolPrefix
-        return solveChallengeDelegate.checkResponse(mutualScanUrl.signature, toChallenge: challenge, prefixedWith: prefix, from: mutualScanUrl.cryptoId.cryptoIdentity)
+    public func verifyMutualScanUrl(ownedCryptoId: ObvCryptoId, mutualScanUrl: ObvMutualScanUrl) -> Bool {
+        let challengeType = ChallengeType.mutualScan(firstIdentity: ownedCryptoId.cryptoIdentity, secondIdentity: mutualScanUrl.cryptoId.cryptoIdentity)
+        return ObvSolveChallengeStruct.checkResponse(mutualScanUrl.signature, to: challengeType, from: mutualScanUrl.cryptoId.cryptoIdentity)
     }
     
     
@@ -2039,6 +2040,243 @@ extension ObvEngine {
 
     }
     
+}
+
+// MARK: - Public API for managing groups V2
+
+extension ObvEngine {
+    
+    public func startGroupV2CreationProtocol(serializedGroupCoreDetails: Data, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?) throws {
+
+        // The photoURL typically points to a photo stored in a cache directory managed by the app.
+        // When requesting the protocol message to the protocol manager, it creates a local copy of this photo that it will manage.
+        
+        guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
+
+        let log = self.log
+        
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        let otherMembers: Set<GroupV2.IdentityAndPermissions> = Set(otherGroupMembers.map({ GroupV2.IdentityAndPermissions(from: $0) }))
+        let ownRawPermissions: Set<String> = Set(ownPermissions.map({ GroupV2.Permission(obvGroupV2Permission: $0) }).map({ $0.rawValue }))
+        
+        assert(otherMembers.count == otherGroupMembers.count)
+        
+        let message = try protocolDelegate.getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                             ownRawPermissions: ownRawPermissions,
+                                                                                             otherGroupMembers: otherMembers,
+                                                                                             serializedGroupCoreDetails: serializedGroupCoreDetails,
+                                                                                             photoURL: photoURL,
+                                                                                             flowId: flowId)
+        
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            
+            // Make sure all the other group members have the appropriate capability
+            
+            for otherGroupMember in otherGroupMembers.map({ $0.identity }) {
+                guard let capabilities = try identityDelegate.getCapabilitiesOfContactIdentity(
+                    ownedIdentity: ownedCryptoId.cryptoIdentity,
+                    contactIdentity: otherGroupMember.cryptoIdentity,
+                    within: obvContext),
+                      capabilities.contains(.groupsV2)
+                else {
+                    throw Self.makeError(message: "One of the requested group members hasn't the groupv2 capability")
+                }
+            }
+
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            
+            try obvContext.save(logOnFailure: log)
+        }
+        
+    }
+    
+
+    public func getAllObvGroupV2OfOwnedIdentity(with ownedCryptoId: ObvCryptoId) throws -> Set<ObvGroupV2> {
+        guard let createContextDelegate = self.createContextDelegate else { throw makeError(message: "The create context delegate is not set") }
+        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
+        var groups = Set<ObvGroupV2>()
+        let randomFlowId = FlowIdentifier()
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { obvContext in
+            groups = try identityDelegate.getAllObvGroupV2(of: ownedCryptoId.cryptoIdentity, within: obvContext)
+        }
+        return groups
+    }
+    
+    
+    public func updateGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, changeset: ObvGroupV2.Changeset) throws {
+
+        assert(!Thread.isMainThread)
+        
+        guard !changeset.isEmpty else { return }
+
+        guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
+
+        guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
+              let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse group identifier")
+        }
+        
+        let log = self.log
+
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        let message = try protocolDelegate.getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                           groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier),
+                                                                                           changeset: changeset,
+                                                                                           flowId: flowId)
+
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            
+            
+            // Make sure all the other group members have the appropriate capability
+
+            for change in changeset.changes {
+                switch change {
+                case .memberAdded(contactCryptoId: let otherGroupMember, permissions: _):
+                    guard let capabilities = try identityDelegate.getCapabilitiesOfContactIdentity(
+                        ownedIdentity: ownedCryptoId.cryptoIdentity,
+                        contactIdentity: otherGroupMember.cryptoIdentity,
+                        within: obvContext),
+                          capabilities.contains(.groupsV2)
+                    else {
+                        throw Self.makeError(message: "One of the requested group members hasn't the groupv2 capability")
+                    }
+                default:
+                    continue
+                }
+            }
+            
+            // If we reach this point, we can update the group
+            
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+
+    }
+
+    
+    public func replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+        
+        guard let createContextDelegate = self.createContextDelegate else { throw makeError(message: "The create context delegate is not set") }
+        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
+
+        guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
+              let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
+        else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse group identifier")
+        }
+
+        let randomFlowId = FlowIdentifier()
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { obvContext in
+            try identityDelegate.replaceTrustedDetailsByPublishedDetailsOfGroupV2(withGroupWithIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier),
+                                                                                  of: ownedCryptoId.cryptoIdentity,
+                                                                                  within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+        
+    }
+    
+    
+    public func leaveGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+        
+        guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+
+        let log = self.log
+        
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
+              let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
+        else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse group identifier")
+        }
+
+        let message = try protocolDelegate.getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                          groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier),
+                                                                                          flowId: flowId)
+        
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+
+    }
+    
+    
+    public func performReDownloadOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+
+        guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+
+        let log = self.log
+
+        guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
+              let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
+        else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse group identifier")
+        }
+
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        let message = try protocolDelegate.getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                               groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier),
+                                                                                               flowId: flowId)
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+
+    }
+
+    
+    public func performDisbandOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+
+        assert(!Thread.isMainThread)
+
+        guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+
+        let log = self.log
+
+        guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
+              let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
+        else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse group identifier")
+        }
+
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        let message = try protocolDelegate.getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                                    groupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier),
+                                                                                                    flowId: flowId)
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+
+    }
+
 }
 
 
@@ -3231,7 +3469,36 @@ extension ObvEngine {
         
         try await backupDelegate.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier)
         
+        // If we reach this point, the backup was successfully restored
+        // We perform post-restore tasks
+        
+        // Perform a re-download of all group v2
+        try performReDownloadOfAllGroupV2AfterBackupRestore(backupRequestIdentifier: backupRequestIdentifier)
+        
     }
+    
+    
+    private func performReDownloadOfAllGroupV2AfterBackupRestore(backupRequestIdentifier: FlowIdentifier) throws {
+        
+        guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
+        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identityDelegate is not set") }
+
+        var allGroupsV2 = [ObvCryptoIdentity: Set<ObvGroupV2>]()
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { obvContext in
+            let allOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+            for identity in allOwnedIdentities {
+                allGroupsV2[identity] = try identityDelegate.getAllObvGroupV2(of: identity, within: obvContext)
+            }
+        }
+        
+        for (ownedIdentiy, groupsV2) in allGroupsV2 {
+            for groupV2 in groupsV2 {
+                try performReDownloadOfGroupV2(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentiy), groupIdentifier: groupV2.appGroupIdentifier)
+            }
+        }
+        
+    }
+    
     
     public func registerAppBackupableObject(_ appBackupableObject: ObvBackupable) throws {
         guard let backupDelegate = self.backupDelegate else {
@@ -3485,11 +3752,20 @@ extension ObvEngine: ObvUserInterfaceChannelDelegate {
                             return
                         }
                         category = ObvDialog.Category.oneToOneInvitationReceived(contactIdentity: obvContact.getGenericIdentity())
+                    
+                    case .acceptGroupV2Invite(inviter: let inviter, group: let group):
+                        category = ObvDialog.Category.acceptGroupV2Invite(inviter: inviter, group: group)
+                        
+                    case .freezeGroupV2Invite(inviter: let inviter, group: let group):
+                        category = ObvDialog.Category.freezeGroupV2Invite(inviter: inviter, group: group)
+
                     case .delete:
-                        // This is a special case: we simply delete any existing realted PersistedEngineDialog and return
+                        // This is a special case: we simply delete any existing realated PersistedEngineDialog and return
                         PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext)
                         return
                     }
+                    
+                    
                 }
                 
                 // Construct the dialog

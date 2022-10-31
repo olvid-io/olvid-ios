@@ -51,11 +51,13 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
                 }
                 draftToSend = _draftToSend
             } catch {
+                assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))
             }
             
             // Make sure the draft is not empty
             guard draftToSend.isNotEmpty else {
+                assertionFailure()
                 return cancel(withReason: .draftIsEmpty)
             }
             
@@ -65,12 +67,15 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
             do {
                 persistedMessageSent = try PersistedMessageSent(draft: draftToSend)
             } catch {
+                tryToResetDraftOnHardFailure(draftObjectID: draftToSend.typedObjectID)
+                assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))
             }
             
             do {
                 try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
             } catch {
+                assertionFailure()
                 return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
             }
                         
@@ -92,6 +97,15 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
             
         }
         
+    }
+    
+    
+    private func tryToResetDraftOnHardFailure(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+        ObvStack.shared.performBackgroundTaskAndWait { context in
+            guard let draftToReset = try? PersistedDraft.get(objectID: draftObjectID, within: context) else { return }
+            draftToReset.reset()
+            try? context.save()
+        }
     }
     
 }

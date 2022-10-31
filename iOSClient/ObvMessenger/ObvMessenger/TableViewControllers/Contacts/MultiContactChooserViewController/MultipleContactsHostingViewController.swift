@@ -88,14 +88,14 @@ final class MultipleContactsHostingViewController: UIHostingController<ContactsV
 
 enum MultipleContactsMode {
     case restricted(to: Set<ObvCryptoId>, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus)
-    case excluded(from: Set<ObvCryptoId>, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus)
-    case all(oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus)
+    case excluded(from: Set<ObvCryptoId>, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, requiredCapabilitites: [ObvCapability]?)
+    case all(oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, requiredCapabilitites: [ObvCapability]?)
     
     var oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus {
         switch self {
         case .restricted(to: _, oneToOneStatus: let oneToOneStatus),
-                .excluded(from: _, oneToOneStatus: let oneToOneStatus),
-                .all(oneToOneStatus: let oneToOneStatus):
+                .excluded(from: _, oneToOneStatus: let oneToOneStatus, requiredCapabilitites: _),
+                .all(oneToOneStatus: let oneToOneStatus, requiredCapabilitites: _):
             return oneToOneStatus
         }
     }
@@ -107,14 +107,24 @@ extension MultipleContactsMode {
         switch self {
         case .restricted(to: let restrictedToContactCryptoIds, oneToOneStatus: let oneToOneStatus):
             return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, restrictedToContactCryptoIds: restrictedToContactCryptoIds, whereOneToOneStatusIs: oneToOneStatus)
-        case .excluded(from: let excludedContactCryptoIds, oneToOneStatus: let oneToOneStatus):
+        case .excluded(from: let excludedContactCryptoIds, oneToOneStatus: let oneToOneStatus, requiredCapabilitites: let requiredCapabilitites):
             if excludedContactCryptoIds.isEmpty { /// Should be .all
-                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: oneToOneStatus)
+                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(
+                    with: ownedCryptoId,
+                    whereOneToOneStatusIs: oneToOneStatus,
+                    requiredCapabilities: requiredCapabilitites)
             } else {
-                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, excludedContactCryptoIds: excludedContactCryptoIds, whereOneToOneStatusIs: oneToOneStatus)
+                return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(
+                    with: ownedCryptoId,
+                    excludedContactCryptoIds: excludedContactCryptoIds,
+                    whereOneToOneStatusIs: oneToOneStatus,
+                    requiredCapabilities: requiredCapabilitites ?? [])
             }
-        case .all(oneToOneStatus: let oneToOneStatus):
-            return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: oneToOneStatus)
+        case .all(oneToOneStatus: let oneToOneStatus, requiredCapabilitites: let requiredCapabilitites):
+            return PersistedObvContactIdentity.getPredicateForAllContactsOfOwnedIdentity(
+                with: ownedCryptoId,
+                whereOneToOneStatusIs: oneToOneStatus,
+                requiredCapabilities: requiredCapabilitites)
         }
     }
 }
@@ -134,6 +144,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
     let disableContactsWithoutDevice: Bool
     let allowMultipleSelection: Bool
     let showExplanation: Bool
+    let allowEmptySetOfContacts: Bool
     var selectionStyle: SelectionStyle? = nil
 
     var doneAction: (Set<PersistedObvContactIdentity>) -> Void
@@ -146,7 +157,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
 
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
-    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, button: MultipleContactsButton, defaultSelectedContacts: Set<PersistedObvContactIdentity> = Set(), disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
+    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, button: MultipleContactsButton, defaultSelectedContacts: Set<PersistedObvContactIdentity> = Set(), disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, allowEmptySetOfContacts: Bool, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
 
         self.ownedCryptoId = ownedCryptoId
         self.mode = mode
@@ -159,6 +170,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
         self.doneAction = doneAction
         self.dismissAction = dismissAction
         self.selectedContacts = Set()
+        self.allowEmptySetOfContacts = allowEmptySetOfContacts
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -197,7 +209,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
         case .floating:
             break
         }
-        doneButtonItem?.isEnabled = !selectedContacts.isEmpty
+        doneButtonItem?.isEnabled = allowEmptySetOfContacts || !selectedContacts.isEmpty
         self.navigationItem.setRightBarButton(doneButtonItem, animated: false)
         let cancelButtonItem = BlockBarButtonItem.forClosing { [weak self] in
             self?.dismissAction()
@@ -227,7 +239,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
     }
 
     var isDoneButtonEnabled: Bool {
-        !selectedContacts.isEmpty
+        allowEmptySetOfContacts || !selectedContacts.isEmpty
     }
 
     func updateParentNavigationItem() {
@@ -248,6 +260,7 @@ struct MultipleContactsView: UIViewControllerRepresentable {
     let disableContactsWithoutDevice: Bool
     let allowMultipleSelection: Bool
     let showExplanation: Bool
+    let allowEmptySetOfContacts: Bool
     var selectionStyle: SelectionStyle? = nil
     var doneAction: (Set<PersistedObvContactIdentity>) -> Void
     var dismissAction: () -> Void
@@ -255,16 +268,17 @@ struct MultipleContactsView: UIViewControllerRepresentable {
     private var doneButtonItem: BlockBarButtonItem?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(allowEmptySetOfContacts: allowEmptySetOfContacts)
     }
 
-    init(ownedCryptoId: ObvCryptoId?, mode: MultipleContactsMode, button: MultipleContactsButton, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
+    init(ownedCryptoId: ObvCryptoId?, mode: MultipleContactsMode, button: MultipleContactsButton, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, allowEmptySetOfContacts: Bool, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
         self.ownedCryptoId = ownedCryptoId
         self.mode = mode
         self.button = button
         self.disableContactsWithoutDevice = disableContactsWithoutDevice
         self.allowMultipleSelection = allowMultipleSelection
         self.showExplanation = showExplanation
+        self.allowEmptySetOfContacts = allowEmptySetOfContacts
         self.selectionStyle = selectionStyle
         self.doneAction = doneAction
         self.dismissAction = dismissAction
@@ -320,6 +334,7 @@ struct MultipleContactsView: UIViewControllerRepresentable {
 
     class Coordinator: NSObject, MultiContactChooserViewControllerDelegate {
         var selectedContacts: Set<PersistedObvContactIdentity>
+        var allowEmptySetOfContacts: Bool
 
         func userDidSelect(_ contact: PersistedObvContactIdentity) {
             selectedContacts.insert(contact)
@@ -337,7 +352,7 @@ struct MultipleContactsView: UIViewControllerRepresentable {
         }
 
         var isDoneButtonEnabled: Bool {
-            !selectedContacts.isEmpty
+            allowEmptySetOfContacts || !selectedContacts.isEmpty
         }
 
         func updateParentNavigationItem() {
@@ -352,8 +367,9 @@ struct MultipleContactsView: UIViewControllerRepresentable {
         weak var doneButtonItem: UIBarButtonItem?
         weak var contactsViewController: MultipleContactsHostingViewController?
 
-        override init() {
+        init(allowEmptySetOfContacts: Bool) {
             self.selectedContacts = Set()
+            self.allowEmptySetOfContacts = allowEmptySetOfContacts
             super.init()
         }
     }
@@ -643,6 +659,9 @@ fileprivate struct ContactsScrollingView: View {
     var body: some View {
         if fetchRequest.wrappedValue.isEmpty {
             Spacer()
+            if let floatingButtonModel = floatingButtonModel {
+                FloatingButtonView(model: floatingButtonModel)
+            }
         } else {
             ZStack {
                 if #available(iOS 14.0, *) {

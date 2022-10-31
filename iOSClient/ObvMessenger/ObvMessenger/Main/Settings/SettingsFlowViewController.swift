@@ -18,43 +18,33 @@
  */
 
 import UIKit
+import ObvTypes
 import ObvEngine
+
 
 final class SettingsFlowViewController: UINavigationController {
 
     private(set) var ownedCryptoId: ObvCryptoId!
     private(set) var obvEngine: ObvEngine!
-    
-    // MARK: - Factory
 
-    // Factory (required because creating a custom init does not work under iOS 12)
-    static func create(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) -> SettingsFlowViewController {
+    private weak var createPasscodeDelegate: CreatePasscodeDelegate?
 
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate) {
         let allSettingsTableViewController = AllSettingsTableViewController(ownedCryptoId: ownedCryptoId)
 
-        let vc = self.init(rootViewController: allSettingsTableViewController)
+        super.init(rootViewController: allSettingsTableViewController)
 
-        vc.ownedCryptoId = ownedCryptoId
-        vc.obvEngine = obvEngine
+        self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
+        self.createPasscodeDelegate = createPasscodeDelegate
 
-        allSettingsTableViewController.delegate = vc
+        allSettingsTableViewController.delegate = self
 
-        vc.title = CommonString.Word.Settings
+        self.title = CommonString.Word.Settings
 
         let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
         let image = UIImage(systemName: "gear", withConfiguration: symbolConfiguration)
-        vc.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
-
-        return vc
-    }
-    
-    override init(rootViewController: UIViewController) {
-        super.init(rootViewController: rootViewController)
-    }
-        
-    // Required in order to prevent a crash under iOS 12
-    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        self.tabBarItem = UITabBarItem(title: nil, image: image, tag: 0)
     }
     
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
@@ -94,7 +84,10 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         case .discussions:
             settingViewController = DiscussionsDefaultSettingsHostingViewController()
         case .privacy:
-            settingViewController = PrivacyTableViewController(ownedCryptoId: ownedCryptoId)
+            guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+                assertionFailure(); return
+            }
+            settingViewController = PrivacyTableViewController(ownedCryptoId: ownedCryptoId, createPasscodeDelegate: createPasscodeDelegate)
         case .backup:
             settingViewController = BackupTableViewController(obvEngine: obvEngine)
         case .about:

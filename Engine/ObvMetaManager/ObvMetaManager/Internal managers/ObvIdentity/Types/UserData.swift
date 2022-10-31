@@ -23,11 +23,11 @@ import ObvTypes
 
 public struct UserData: Hashable {
     public let ownedIdentity: ObvCryptoIdentity
-    public let label: String
+    public let label: UID
     public let nextRefreshTimestamp: Date
     public let kind: UserDataKind
 
-    public init(ownedIdentity: ObvCryptoIdentity, label: String, nextRefreshTimestamp: Date, kind: UserDataKind) {
+    public init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, kind: UserDataKind) {
         self.ownedIdentity = ownedIdentity
         self.label = label
         self.nextRefreshTimestamp = nextRefreshTimestamp

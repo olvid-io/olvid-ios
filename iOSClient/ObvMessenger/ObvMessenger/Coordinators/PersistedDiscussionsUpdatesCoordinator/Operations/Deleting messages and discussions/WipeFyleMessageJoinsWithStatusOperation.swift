@@ -23,18 +23,21 @@ import OlvidUtils
 
 
 /// This operation is typically called when the user selects several "attachments" (more precisely, `FyleMessageJoinWithStatus` instances) in the gallery of a discussion, and then requests their deletion. In practice, these joins are wiped.
-final class WipeFyleMessageJoinsWithStatusOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, OperationProvidingPersistedMessageObjectIDsToDelete {
+final class WipeFyleMessageJoinsWithStatusOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel>, OperationProvidingPersistedMessageObjectIDsToDelete, ObvErrorMaker {
     
     private let joinObjectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>
+    static let errorDomain = "WipeFyleMessageJoinsWithStatusOperation"
     
     /// When wiping an attachment (aka `FyleMessageJoinWithStatus`), we might end with an "empty" message. In that case we want to delete this message atomically.
     /// We do *not* delete this message in this operation. Instead we add its objectID to this set. The coordinator is in charge of queueing the appropriate operation that will delete
     /// the message properly.
     private(set) var persistedMessageObjectIDsToDelete = Set<TypeSafeManagedObjectID<PersistedMessage>>()
+    let requester: RequesterOfMessageDeletion
     private let queueForPostingNotifications = DispatchQueue(label: "WipeFyleMessageJoinsWithStatusOperation internal queue for posting notifications")
     
-    init(joinObjectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) {
+    init(joinObjectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>, requester: RequesterOfMessageDeletion) {
         self.joinObjectIDs = joinObjectIDs
+        self.requester = requester
         super.init()
     }
     
@@ -45,6 +48,14 @@ final class WipeFyleMessageJoinsWithStatusOperation: ContextualOperationWithSpec
         }
 
         guard !joinObjectIDs.isEmpty else { return }
+        
+        switch requester {
+        case .ownedIdentity:
+            break
+        case .contact:
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: Self.makeError(message: "Unexpected deletion requester")))
+        }
         
         obvContext.performAndWait {
             

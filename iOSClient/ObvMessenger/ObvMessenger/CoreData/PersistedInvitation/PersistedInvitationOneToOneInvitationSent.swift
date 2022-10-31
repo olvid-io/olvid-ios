@@ -22,6 +22,7 @@ import Foundation
 import CoreData
 import ObvEngine
 import OlvidUtils
+import ObvTypes
 
 
 @objc(PersistedInvitationOneToOneInvitationSent)

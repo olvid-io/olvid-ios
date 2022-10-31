@@ -20,8 +20,9 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
+import ObvTypes
 import OlvidUtils
+import ObvEngine
 
 final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReasonForCancel<SendGlobalDeleteDiscussionJSONOperationReasonForCancel> {
 
@@ -79,6 +80,8 @@ final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReason
             } catch {
                 return cancel(withReason: .failedToEncodePersistedItemJSON)
             }
+            
+            guard !contactCryptoIds.isEmpty else { return }
             
             do {
                 _ = try obvEngine.post(messagePayload: payload,

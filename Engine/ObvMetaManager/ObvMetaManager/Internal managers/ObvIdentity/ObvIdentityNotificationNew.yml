@@ -41,12 +41,11 @@ notifications:
 - name: serverLabelHasBeenDeleted
   params:
   - {name: ownedIdentity, type: ObvCryptoIdentity}
-  - {name: label, type: String}
+  - {name: label, type: UID}
 - name: contactWasDeleted
   params:
   - {name: ownedCryptoIdentity, type: ObvCryptoIdentity}
   - {name: contactCryptoIdentity, type: ObvCryptoIdentity}
-  - {name: contactTrustedIdentityDetails, type: ObvIdentityDetails}
 - name: latestPhotoOfContactGroupOwnedHasBeenUpdated
   params:
   - {name: groupUid, type: UID}
@@ -117,3 +116,15 @@ notifications:
   - {name: trustLevelOfContactIdentity, type: TrustLevel}
   - {name: isOneToOne, type: Bool}
   - {name: flowId, type: FlowIdentifier}
+- name: groupV2WasCreated
+  params:
+  - {name: obvGroupV2, type: ObvGroupV2}
+  - {name: initiator, type: ObvGroupV2.CreationOrUpdateInitiator}
+- name: groupV2WasUpdated
+  params:
+  - {name: obvGroupV2, type: ObvGroupV2}
+  - {name: initiator, type: ObvGroupV2.CreationOrUpdateInitiator}
+- name: groupV2WasDeleted
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: appGroupIdentifier, type: Data}

@@ -25,7 +25,7 @@ import CoreData
 
 
 protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
-    func userWantsToDisplay(persistedContactGroup: PersistedContactGroup, within nav: UINavigationController?)
+    func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup, within nav: UINavigationController?)
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToEditContactNickname(persistedContactObjectId: NSManagedObjectID)
     func userWantsToInviteContactToOneToOne(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
@@ -147,9 +147,10 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
             assertionFailure()
         }
     }
+
     
-    func userWantsToDisplay(persistedContactGroup: PersistedContactGroup) {
-        delegate?.userWantsToDisplay(persistedContactGroup: persistedContactGroup, within: navigationController)
+    func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup) {
+        delegate?.userWantsToNavigateToSingleGroupView(group, within: navigationController)
     }
 
     

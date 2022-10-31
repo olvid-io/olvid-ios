@@ -19,52 +19,42 @@
 
 import UIKit
 import LocalAuthentication
-import ObvEngine
+import OlvidUtils
+import ObvTypes
 
 
+final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
 
-final class PrivacyTableViewController: UITableViewController {
+    static let errorDomain = "PrivacyTableViewController"
 
     let ownedCryptoId: ObvCryptoId
-    
-    private var titleForLocalAuthentication: String
-    private var explanationForLocalAuthentication: String
-    
+
+    private var authenticationMethod: AuthenticationMethod
+    private var observationTokens = [NSObjectProtocol]()
+
+    private(set) weak var createPasscodeDelegate: CreatePasscodeDelegate?
+
     let dateComponentsFormatter: DateComponentsFormatter = {
         let df = DateComponentsFormatter()
         df.allowedUnits = [.hour, .minute, .second]
         df.unitsStyle = .full
         return df
     }()
-    
-    init(ownedCryptoId: ObvCryptoId) {
+
+    init(ownedCryptoId: ObvCryptoId, createPasscodeDelegate: CreatePasscodeDelegate) {
         self.ownedCryptoId = ownedCryptoId
-        // Check for available authentication methods
-        var error: NSError?
-        let laContext = LAContext()
-        // We first check whether Touch ID or Face ID is unavailable or not enrolled
-        let userIsEnrolledWithBiometrics = laContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
-        if userIsEnrolledWithBiometrics {
-            // Distinguish Touch ID from FaceID
-            laContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
-            switch laContext.biometryType {
-            case .none:
-                self.titleForLocalAuthentication = Strings.loginWith.passcode
-                self.explanationForLocalAuthentication = Strings.explanationLoginWith.passcode
-            case .touchID:
-                self.titleForLocalAuthentication = Strings.loginWith.touchID
-                self.explanationForLocalAuthentication = Strings.explanationLoginWith.touchID
-            case .faceID:
-                self.titleForLocalAuthentication = Strings.loginWith.faceID
-                self.explanationForLocalAuthentication = Strings.explanationLoginWith.faceID
-            @unknown default:
-                fatalError()
-            }
-        } else {
-            self.titleForLocalAuthentication = Strings.loginWith.passcode
-            self.explanationForLocalAuthentication = Strings.explanationLoginWith.passcode
-        }
+        self.createPasscodeDelegate = createPasscodeDelegate
+        self.authenticationMethod = AuthenticationMethod.bestAvailableAuthenticationMethod()
         super.init(style: Self.settingsTableStyle)
+
+        observeNotifications()
+    }
+
+    private func observeNotifications() {
+        let token = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.reload()
+        }
+        observationTokens += [token]
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -78,17 +68,27 @@ final class PrivacyTableViewController: UITableViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        self.reload()
+    }
+
+    private func reload() {
+        self.authenticationMethod = AuthenticationMethod.bestAvailableAuthenticationMethod()
         tableView.reloadData()
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-    }
-    
     // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return ObvMessengerSettings.Privacy.lockScreen ? 3 : 2
+        var count = 0
+        count += 1 // NotificationContentPrivacyStyle
+        count += 1 // LocalAuthenticationPolicy
+        if ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
+            count += 1 // Grace periods
+            if ObvMessengerSettings.Privacy.localAuthenticationPolicy.useCustomPasscode {
+                count += 1 // Lockout clean ephemeral
+            }
+        }
+        return count
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -96,9 +96,11 @@ final class PrivacyTableViewController: UITableViewController {
         case 0:
             return 1
         case 1:
-            return 1
+            return LocalAuthenticationPolicy.allCases.count
         case 2:
-            return ObvMessengerSettings.Privacy.gracePeriods.count
+            return 1
+        case 3:
+            return 1
         default:
             return 0
         }
@@ -108,76 +110,303 @@ final class PrivacyTableViewController: UITableViewController {
         let cell: UITableViewCell
         switch indexPath.section {
         case 0:
-            let _cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            _cell.textLabel?.text = Strings.notificationContentPrivacyStyle.title
+            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+            cell.textLabel?.text = Strings.notificationContentPrivacyStyle.title
             switch ObvMessengerSettings.Privacy.hideNotificationContent {
             case .no:
-                _cell.detailTextLabel?.text = CommonString.Word.No
+                cell.detailTextLabel?.text = CommonString.Word.No
             case .partially:
-                _cell.detailTextLabel?.text = CommonString.Word.Partially
+                cell.detailTextLabel?.text = CommonString.Word.Partially
             case .completely:
-                _cell.detailTextLabel?.text = CommonString.Word.Completely
+                cell.detailTextLabel?.text = CommonString.Word.Completely
             }
-            _cell.accessoryType = .disclosureIndicator
-            cell = _cell
+            cell.accessoryType = .disclosureIndicator
         case 1:
-            switch indexPath.row {
-            case 0:
-                let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "LockScreenCell")
-                _cell.title = titleForLocalAuthentication
-                _cell.switchIsOn = ObvMessengerSettings.Privacy.lockScreen
-                _cell.blockOnSwitchValueChanged = { [weak self] (value) in self?.lockScreenChangedTo(value)  }
-                cell = _cell
-            default:
+            cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            if let policy = LocalAuthenticationPolicy(rawValue: indexPath.row) {
+                let isPolicyAvailable = policy.isAvailable(whenBestAvailableAuthenticationMethodIs: authenticationMethod)
+                let title = policy.title(authenticationMethod: authenticationMethod)
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = title
+                    configuration.textProperties.color = isPolicyAvailable ? AppTheme.shared.colorScheme.label : AppTheme.shared.colorScheme.secondaryLabel
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = title
+                    cell.textLabel?.isEnabled = isPolicyAvailable
+                }
+                if ObvMessengerSettings.Privacy.localAuthenticationPolicy == policy {
+                    cell.accessoryType = .checkmark
+                } else {
+                    cell.accessoryType = .none
+                }
+            } else {
                 assertionFailure()
-                cell = UITableViewCell()
             }
         case 2:
-            let _cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            let gracePeriod = ObvMessengerSettings.Privacy.gracePeriods[indexPath.row]
+            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+            let gracePeriod = ObvMessengerSettings.Privacy.lockScreenGracePeriod
+            let title = CommonString.Title.gracePeriod
+            var details: String?
             if gracePeriod == 0 {
-                _cell.textLabel?.text = CommonString.Word.Immediately
-            } else {
-                _cell.textLabel?.text = CommonString.Word.After + " " + dateComponentsFormatter.string(from: gracePeriod)!
+                details = CommonString.Word.Immediately
+            } else if let duration = dateComponentsFormatter.string(from: gracePeriod) {
+                details = CommonString.gracePeriodTitle(duration)
             }
-            if ObvMessengerSettings.Privacy.gracePeriods[indexPath.row] == ObvMessengerSettings.Privacy.lockScreenGracePeriod {
-                _cell.accessoryType = .checkmark
+            if #available(iOS 14, *) {
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = title
+                configuration.secondaryText = details
+                cell.contentConfiguration = configuration
+            } else {
+                cell.textLabel?.text = title
+                cell.detailTextLabel?.text = details
+            }
+            cell.accessoryType = .disclosureIndicator
+        case 3:
+            let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: nil)
+            _cell.title = Strings.lockoutCleanEphemeralTitle
+            _cell.switchIsOn = ObvMessengerSettings.Privacy.lockoutCleanEphemeral
+            _cell.blockOnSwitchValueChanged = { (value) in
+                ObvMessengerSettings.Privacy.lockoutCleanEphemeral = value
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                    tableView.reloadRows(at: [indexPath], with: .none) // The footer disappears under iOS 16 if calling reloadData() here
+                }
             }
             cell = _cell
         default:
-            cell = UITableViewCell()
+            assertionFailure()
+            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
         }
-        cell.selectionStyle = .none
         return cell
     }
 
-    
-    private func lockScreenChangedTo(_ value: Bool) {
-        guard ObvMessengerSettings.Privacy.lockScreen != value else { return }
-        let laContext = LAContext()
-        var error: NSError?
-        laContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
-        laContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: Strings.changingSettingRequiresAuthentication) { (success, error) in
-            DispatchQueue.main.async { [weak self] in
-                if success {
-                    ObvMessengerSettings.Privacy.lockScreen = value
-                    self?.tableView.reloadData()
-                } else {
-                    self?.tableView.reloadRows(at: [IndexPath(row: 0, section: 1)], with: .automatic)
-                    if (error as NSError?)?.code == LAError.Code.passcodeNotSet.rawValue {
-                        let alert = UIAlertController(title: CommonString.Word.Oups,
-                                                      message: Strings.passcodeNotSetAlert.message,
-                                                      preferredStyle: .alert)
-                        let abortAction = UIAlertAction(title: CommonString.Word.Abort, style: .cancel, handler: nil)
-                        alert.addAction(abortAction)
-                        self?.present(alert, animated: true)
-                    }
-                }
+    private func localAuthenticationPolicy(changeTo newPolicy: LocalAuthenticationPolicy, completionHandler: @escaping () -> Void) {
+        let currentPolicy = ObvMessengerSettings.Privacy.localAuthenticationPolicy
+        guard currentPolicy != newPolicy else {
+            DispatchQueue.main.async {
+                completionHandler()
             }
+            return
         }
 
+        Task {
+            do {
+                switch currentPolicy {
+                case .none:
+                    switch newPolicy {
+                    case .none: assertionFailure(); return
+
+                    case .deviceOwnerAuthentication:
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
+
+                    case .biometricsWithCustomPasscodeFallback:
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthenticationWithBiometrics)
+                        try await startCustomPasscodeDefinitionWorkflow()
+
+                    case .customPasscode:
+                        try await startCustomPasscodeDefinitionWorkflow()
+                    }
+                case .deviceOwnerAuthentication:
+                    switch newPolicy {
+                    case .none:
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
+
+                    case .deviceOwnerAuthentication: assertionFailure(); return
+
+                    case .biometricsWithCustomPasscodeFallback:
+                        try checkBiometricEnrollement()
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
+                        try await startCustomPasscodeDefinitionWorkflow()
+
+                    case .customPasscode:
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
+                        try await startCustomPasscodeDefinitionWorkflow()
+                    }
+                case .biometricsWithCustomPasscodeFallback:
+                    switch newPolicy {
+                    case .none:
+                        try await requestCustomPasscode()
+                        await clearCustomPasscode()
+
+                    case .deviceOwnerAuthentication:
+                        try await requestCustomPasscode()
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
+                        await clearCustomPasscode()
+
+                    case .biometricsWithCustomPasscodeFallback: assertionFailure(); return
+
+                    case .customPasscode:
+                        try await requestCustomPasscode()
+
+                    }
+                case .customPasscode:
+                    switch newPolicy {
+                    case .none:
+                        try await requestCustomPasscode()
+                        await clearCustomPasscode()
+
+                    case .deviceOwnerAuthentication:
+                        try await requestCustomPasscode()
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
+                        await clearCustomPasscode()
+
+                    case .biometricsWithCustomPasscodeFallback:
+                        try await requestCustomPasscode()
+                        try await requestLocalAuthentication(with: .deviceOwnerAuthenticationWithBiometrics)
+
+                    case .customPasscode: assertionFailure(); return
+                    }
+                }
+            } catch(let error) {
+                showErrorDialog(with: error)
+                DispatchQueue.main.async {
+                    completionHandler()
+                }
+                return
+            }
+
+            ObvMessengerSettings.Privacy.localAuthenticationPolicy = newPolicy
+            DispatchQueue.main.async {
+                completionHandler()
+            }
+        }
     }
     
+    
+    private func clearSelection(animated: Bool) {
+        tableView.indexPathsForSelectedRows?.forEach({ (indexPath) in
+            tableView.deselectRow(at: indexPath, animated: animated)
+        })
+    }
+
+
+    enum ObvLAError: LocalizedError {
+        case biometryNotEnrolled
+        case userCancelled
+        case internalError
+        case lockedOut
+        var errorDescription: String {
+            switch self {
+            case .biometryNotEnrolled:
+                return NSLocalizedString("BIOMETRY_NOT_ENROLLED_ERROR_MESSAGE", comment: "")
+            case .userCancelled:
+                return CommonString.Word.Cancel // Never shown
+            case .lockedOut:
+                return NSLocalizedString("LOCKED_OUT", comment: "")
+            case .internalError:
+                return CommonString.Word.Error
+            }
+        }
+    }
+
+    private func showErrorDialog(with error: Error) {
+        let title: String
+        let message: String?
+        if let error = error as? ObvLAError {
+            // Do not want to show dialog if the user has cancelled
+            guard error != .userCancelled else { return }
+            message = error.errorDescription
+            switch error {
+            case .biometryNotEnrolled:
+                title = NSLocalizedString("BIOMETRY_NOT_ENROLLED_ERROR_TITLE", comment: "")
+            case .userCancelled, .internalError, .lockedOut:
+                title = CommonString.Word.Oups
+            }
+        } else if let code = LAError.Code(rawValue: (error as NSError).code) {
+            guard code != .userCancel else { return }
+            switch code {
+            case .biometryNotEnrolled:
+                title = NSLocalizedString("BIOMETRY_NOT_ENROLLED_ERROR_TITLE", comment: "")
+                message = NSLocalizedString("BIOMETRY_NOT_ENROLLED_ERROR_MESSAGE", comment: "")
+            default:
+                title = error.localizedDescription
+                message = nil
+            }
+        } else {
+            message = error.localizedDescription
+            title = CommonString.Word.Oups
+        }
+        let alert = UIAlertController(title: title,
+                                      message: message,
+                                      preferredStyle: .alert)
+        let abortAction = UIAlertAction(title: CommonString.Word.Ok, style: .cancel) { [weak self] _ in
+            self?.clearSelection(animated: true)
+        }
+        alert.addAction(abortAction)
+        self.present(alert, animated: true)
+    }
+
+
+    private func checkBiometricEnrollement() throws {
+        guard AuthenticationMethod.currentBiometricEnrollement() != nil else {
+            throw ObvLAError.biometryNotEnrolled
+        }
+    }
+
+    private func requestLocalAuthentication(with policy: LAPolicy) async throws {
+        let laContext = LAContext()
+        var error: NSError?
+        guard laContext.canEvaluatePolicy(policy, error: &error) else {
+            if let error = error {
+                throw error
+            } else {
+                assertionFailure()
+                throw ObvLAError.internalError
+            }
+        }
+        try await laContext.evaluatePolicy(policy, localizedReason: Strings.changingSettingRequiresAuthentication)
+
+    }
+
+    private func startCustomPasscodeDefinitionWorkflow() async throws {
+        let (passcode, passcodeIsPassword) = try await defineCustomPasscode()
+        try await saveCustomPasscode(passcode: passcode, passcodeIsPassword: passcodeIsPassword)
+    }
+
+    private func defineCustomPasscode() async throws -> (passcode: String, passcodeIsPassword: Bool) {
+        let passcodeViewController = CreatePasscodeViewController()
+        self.present(passcodeViewController, animated: true)
+        let result = await passcodeViewController.getResult()
+        switch result {
+        case .passcode(passcode: let passcode, passcodeIsPassword: let passcodeIsPassword):
+            return (passcode, passcodeIsPassword)
+        case .cancelled:
+            throw ObvLAError.userCancelled
+        }
+    }
+
+    private func requestCustomPasscode() async throws {
+        do {
+            guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+                assertionFailure()
+                throw ObvLAError.internalError
+            }
+            let laResult = await createPasscodeDelegate.requestCustomPasscode(viewController: self)
+            switch laResult {
+            case .authenticated:
+                return
+            case .cancelled:
+                throw ObvLAError.userCancelled
+            case .lockedOut:
+                throw ObvLAError.lockedOut
+            }
+        }
+    }
+
+    private func clearCustomPasscode() async {
+        guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+            assertionFailure(); return
+        }
+        await createPasscodeDelegate.clearPasscode()
+    }
+
+    private func saveCustomPasscode(passcode: String, passcodeIsPassword: Bool) async throws {
+        guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+            assertionFailure(); return
+        }
+        try await createPasscodeDelegate.savePasscode(passcode, passcodeIsPassword: passcodeIsPassword)
+    }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         switch indexPath.section {
@@ -186,10 +415,17 @@ final class PrivacyTableViewController: UITableViewController {
             let vc = NotificationContentPrivacyStyleChooserTableViewController()
             self.navigationController?.pushViewController(vc, animated: true)
         case 1:
-            return
+            guard let policy = LocalAuthenticationPolicy(rawValue: indexPath.row) else {
+                assertionFailure(); return
+            }
+            localAuthenticationPolicy(changeTo: policy) { [weak self] in
+                self?.tableView.reloadData()
+                self?.tableView.deselectRow(at: indexPath, animated: true)
+            }
         case 2:
-            ObvMessengerSettings.Privacy.lockScreenGracePeriod = ObvMessengerSettings.Privacy.gracePeriods[indexPath.row]
-            tableView.reloadData()
+            guard indexPath.row == 0 else { return }
+            let vc = GracePeriodsChooserTableViewController()
+            self.navigationController?.pushViewController(vc, animated: true)
         default:
             return
         }
@@ -211,15 +447,78 @@ final class PrivacyTableViewController: UITableViewController {
         switch section {
         case 0:
             switch ObvMessengerSettings.Privacy.hideNotificationContent {
-            case .no: return PrivacyTableViewController.Strings.notificationContentPrivacyStyle.explanation.whenNo
-            case .partially: return PrivacyTableViewController.Strings.notificationContentPrivacyStyle.explanation.whenPartially
-            case .completely: return PrivacyTableViewController.Strings.notificationContentPrivacyStyle.explanation.whenCompletely
+            case .no: return Strings.notificationContentPrivacyStyle.explanation.whenNo
+            case .partially: return Strings.notificationContentPrivacyStyle.explanation.whenPartially
+            case .completely: return Strings.notificationContentPrivacyStyle.explanation.whenCompletely
             }
         case 1:
-            return self.explanationForLocalAuthentication
+            return ObvMessengerSettings.Privacy.localAuthenticationPolicy.explanation(authenticationMethod: authenticationMethod)
+        case 2:
+            if ObvMessengerSettings.Privacy.lockScreenGracePeriod == 0 {
+                return Strings.noGracePeriodExplanation
+            } else {
+                guard let duration = dateComponentsFormatter.string(from: ObvMessengerSettings.Privacy.lockScreenGracePeriod) else {
+                    assertionFailure(); return nil
+                }
+                return Strings.gracePeriodExplanation(duration)
+            }
+        case 3:
+            return Strings.lockoutCleanEphemeralExplanation
         default:
             return nil
         }
     }
         
+}
+
+fileprivate extension LocalAuthenticationPolicy {
+
+    private func localizedString(for method: AuthenticationMethod, systemOrCustom: Bool, titleOrExplanation: Bool) -> String {
+        var component = ["LOGIN_WITH"]
+        switch method {
+        case .none:
+            // Biometry method is unknown we show both.
+            component += ["TOUCH_ID", "FACE_ID"]
+        case .passcode:
+            break
+        case .touchID:
+            component += ["TOUCH_ID"]
+        case .faceID:
+            component += ["FACE_ID"]
+        }
+        component += systemOrCustom ? ["SYSTEM"] : ["CUSTOM"]
+        component += ["PASSCODE"]
+        component += titleOrExplanation ? ["TITLE"] : ["EXPLANATION"]
+        return NSLocalizedString(component.joined(separator: "_"), comment: "")
+    }
+
+    func title(authenticationMethod method: AuthenticationMethod) -> String {
+        switch self {
+        case .none: return CommonString.Word.None
+        case .deviceOwnerAuthentication:
+            return localizedString(for: method, systemOrCustom: true, titleOrExplanation: true)
+        case .biometricsWithCustomPasscodeFallback:
+            var method = method
+            if method == .passcode {
+                method = .none // We only want biometry in this case
+            }
+            return localizedString(for: method, systemOrCustom: false, titleOrExplanation: true)
+        case .customPasscode:
+            return localizedString(for: .passcode, systemOrCustom: false, titleOrExplanation: true)
+        }
+    }
+
+    func explanation(authenticationMethod method: AuthenticationMethod) -> String {
+        switch self {
+        case .none:
+            return NSLocalizedString("NO_AUTHENTICATION_EXPLANATION", comment: "")
+        case .deviceOwnerAuthentication:
+            return localizedString(for: method, systemOrCustom: true, titleOrExplanation: false)
+        case .biometricsWithCustomPasscodeFallback:
+            return localizedString(for: method, systemOrCustom: false, titleOrExplanation: false)
+        case .customPasscode:
+            return localizedString(for: .passcode, systemOrCustom: false, titleOrExplanation: false)
+        }
+    }
+
 }

@@ -20,6 +20,7 @@
 import Foundation
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 public struct ObvEngineNotification {
     

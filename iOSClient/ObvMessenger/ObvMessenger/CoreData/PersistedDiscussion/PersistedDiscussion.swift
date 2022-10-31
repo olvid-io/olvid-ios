@@ -20,7 +20,7 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
+import ObvTypes
 
 
 @objc(PersistedDiscussion)
@@ -78,6 +78,7 @@ class PersistedDiscussion: NSManagedObject {
     enum Kind {
         case oneToOne(withContactIdentity: PersistedObvContactIdentity?)
         case groupV1(withContactGroup: PersistedContactGroup?)
+        case groupV2(withGroup: PersistedGroupV2?)
     }
     
     
@@ -87,6 +88,8 @@ class PersistedDiscussion: NSManagedObject {
                 return .oneToOne(withContactIdentity: discussionOneToOne.contactIdentity)
             } else if let discussionGroupV1 = self as? PersistedGroupDiscussion {
                 return .groupV1(withContactGroup: discussionGroupV1.contactGroup)
+            } else if let discussionGroupV2 = self as? PersistedGroupV2Discussion {
+                return .groupV2(withGroup: discussionGroupV2.group)
             } else {
                 assertionFailure()
                 throw Self.makeError(message: "Unknown discussion type")
@@ -97,7 +100,7 @@ class PersistedDiscussion: NSManagedObject {
     
     // MARK: - Initializer
 
-    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, status: Status, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, status: Status, shouldApplySharedConfigurationFromGlobalSettings: Bool, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
         
         guard let context = ownedIdentity.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -118,13 +121,8 @@ class PersistedDiscussion: NSManagedObject {
             self.sharedConfiguration = sharedConfigurationToKeep!
         } else {
             let sharedConfiguration = try PersistedDiscussionSharedConfiguration(discussion: self)
-            switch try self.kind {
-            case .oneToOne:
+            if shouldApplySharedConfigurationFromGlobalSettings {
                 sharedConfiguration.setValuesUsingSettings()
-            case .groupV1(withContactGroup: let contactGroup):
-                if let contactGroup = contactGroup, contactGroup.category == .owned {
-                    sharedConfiguration.setValuesUsingSettings()
-                }
             }
             self.sharedConfiguration = sharedConfiguration
         }
@@ -146,11 +144,145 @@ class PersistedDiscussion: NSManagedObject {
     }
 
     
-    func delete() throws {
+    // MARK: Performing deletions
+        
+    /// Deletes this discussion after making sure the `requester` is allowed to do so. If the `requester` is `nil`, this discussion is deleted without any check. This makes it possible to easily perform cleaning.
+    func deleteDiscussion(requester: RequesterOfMessageDeletion?) throws {
+        
+        // Make sure the deletion is allowed
+        
+        if let requester = requester {
+            try throwIfRequesterIsNotAllowedToDeleteDiscussion(requester: requester)
+        }
+                
+        // The deletion is allowed, we can perform it now
+        
         guard let context = self.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
         }
         context.delete(self)
+        
+    }
+    
+    
+    /// This methods throws an error if the requester of the discussion deletion is not allowed to perform such a deletion.
+    ///
+    /// The `deletionType` parameter only makes sense when the requester is an owned identity, and the discussion is a group v2 discussion:
+    /// - for a `.local` deletion, deletion is always allowed
+    /// - for a `.global` deletion, we make sure the owned identity is allowed to perform a global deletion in the corresponding group
+    func throwIfRequesterIsNotAllowedToDeleteDiscussion(requester: RequesterOfMessageDeletion) throws {
+        
+        // Locked and preDiscussion can only be locally deleted by an owned identity
+        
+        switch status {
+        case .locked, .preDiscussion:
+            switch requester {
+            case .contact:
+                throw Self.makeError(message: "A contact cannot delete a locked or preDiscussion")
+            case .ownedIdentity(let ownedCryptoId, let deletionType):
+                guard let discussionOwnedCryptoId = ownedIdentity?.cryptoId else {
+                    return // Rare case, we allow deletion
+                }
+                guard (discussionOwnedCryptoId == ownedCryptoId) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Unexpected owned identity for deleting this discussion")
+                }
+                switch deletionType {
+                case .local:
+                    return // Allow deletion
+                case .global:
+                    throw Self.makeError(message: "We cannot globally delete a locked or preDiscussion")
+                }
+            }
+        case .active:
+            break // We need to consider the discussion kind to decide whether we should throw or not
+        }
+        
+        // If we reach this point, we are considering an active discussion
+
+        switch try kind {
+            
+        case .oneToOne, .groupV1:
+            
+            // It is always ok to delete a oneToOne or a groupV1 discussion
+            return
+            
+        case .groupV2(withGroup: let group):
+                        
+            guard let group = group else {
+                
+                // If the group cannot be found (which is unexpected), we allow the deletion of the discussion only if the request comes from an owned identity.
+
+                switch requester {
+                case .ownedIdentity(ownedCryptoId: _, deletionType: let deletionType):
+                    switch deletionType {
+                    case .local:
+                        return // Allow deletion
+                    case .global:
+                        throw Self.makeError(message: "Since we cannot find the group, we disallow global deletion by owned identity")
+                    }
+                case .contact:
+                    assertionFailure()
+                    throw Self.makeError(message: "Since we cannot find the group, we disallow deletion by a contact")
+                }
+
+            }
+            
+            // For a group v2 discussion, we make sure the requester is either the owned identity or a member with the appropriate rights.
+
+            switch requester {
+                
+            case .ownedIdentity(ownedCryptoId: let ownedCryptoId, deletionType: let deletionType):
+                
+                guard (try group.ownCryptoId == ownedCryptoId) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Unexpected owned identity for deleting this discussion")
+                }
+                switch deletionType {
+                case .local:
+                    return // Allow deletion
+                case .global:
+                    guard group.ownedIdentityIsAllowedToRemoteDeleteAnything else {
+                        throw Self.makeError(message: "Owned identity is not allowed to perform a global (remote) delete")
+                    }
+                    return // Allow deletion
+                }
+                
+            case .contact(let ownedCryptoId, let contactCryptoId, _):
+                
+                guard (try group.ownCryptoId == ownedCryptoId) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Unexpected owned identity associated to contact for deleting this discussion")
+                }
+                guard let member = group.otherMembers.first(where: { $0.identity == contactCryptoId.getIdentity() }) else {
+                    throw Self.makeError(message: "The deletion requester is not part of the group")
+                }
+                guard member.isAllowedToRemoteDeleteAnything else {
+                    assertionFailure()
+                    throw Self.makeError(message: "The member is not allowed to delete this discussion")
+                }
+                return // Allow deletion
+            }
+
+        }
+        
+    }
+    
+    
+    func requesterIsAllowedToDeleteDiscussion(requester: RequesterOfMessageDeletion) -> Bool {
+        do {
+            try throwIfRequesterIsNotAllowedToDeleteDiscussion(requester: requester)
+        } catch {
+            return false
+        }
+        return true
+    }
+    
+    
+    var globalDeleteActionCanBeMadeAvailable: Bool {
+        guard let ownedCryptoId = ownedIdentity?.cryptoId else { return false }
+        let requester = RequesterOfMessageDeletion.ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .global)
+        return requesterIsAllowedToDeleteDiscussion(requester: requester)
     }
     
     
@@ -195,22 +327,33 @@ extension PersistedDiscussion {
     
     
     func getAllActiveParticipants() throws -> (ownCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) {
+
         let contactCryptoIds: Set<ObvCryptoId>
         let ownCryptoId: ObvCryptoId
-        if let oneToOneDiscussion = self as? PersistedOneToOneDiscussion {
-            guard let contactIdentity = oneToOneDiscussion.contactIdentity else {
+
+        switch try kind {
+
+        case .oneToOne(withContactIdentity: let contactIdentity):
+            
+            guard let contactIdentity = contactIdentity else {
                 throw Self.makeError(message: "Could not find contact identity")
+            }
+            guard let oneToOneDiscussion = self as? PersistedOneToOneDiscussion else {
+                assertionFailure()
+                throw Self.makeError(message: "Unexpected discussion kind")
             }
             contactCryptoIds = contactIdentity.isActive ? Set([contactIdentity.cryptoId]) : Set([])
             guard let _ownCryptoId = oneToOneDiscussion.ownedIdentity?.cryptoId else {
                 throw Self.makeError(message: "Could not determine owned cryptoId (1)")
             }
             ownCryptoId = _ownCryptoId
-        } else if let groupDiscussion = self as? PersistedGroupDiscussion {
-            guard let contactGroup = groupDiscussion.contactGroup else {
+            
+        case .groupV1(withContactGroup: let group):
+            
+            guard let contactGroup = group else {
                 throw Self.makeError(message: "Could not find contact group")
             }
-            guard let _ownCryptoId = groupDiscussion.ownedIdentity?.cryptoId else {
+            guard let _ownCryptoId = ownedIdentity?.cryptoId else {
                 throw Self.makeError(message: "Could not determine owned cryptoId (2)")
             }
             ownCryptoId = _ownCryptoId
@@ -229,10 +372,20 @@ extension PersistedDiscussion {
                 }
                 contactCryptoIds = cryptoIds
             }
-        } else {
-            throw Self.makeError(message: "Unexpected discussion type: \(type(of: self))")
+            
+        case .groupV2(withGroup: let group):
+            
+            guard let group = group else {
+                throw Self.makeError(message: "Could not find group v2")
+            }
+            
+            ownCryptoId = try group.ownCryptoId
+            contactCryptoIds = Set(group.contactsAmongNonPendingOtherMembers.filter({ $0.isActive }).map({ $0.cryptoId }))
+
         }
+        
         return (ownCryptoId, contactCryptoIds)
+        
     }
     
 
@@ -250,6 +403,12 @@ extension PersistedDiscussion {
                 } else {
                     return false
                 }
+            case .groupV2(withGroup: let group):
+                if let group = group {
+                    return !group.otherMembers.isEmpty
+                } else {
+                    return false
+                }
             case .none:
                 assertionFailure()
                 return false
@@ -262,9 +421,27 @@ extension PersistedDiscussion {
             return oneToOne.contactIdentity?.identityCoreDetails.positionAtCompany() ?? ""
         } else if let groupDiscussion = self as? PersistedGroupDiscussion {
             return groupDiscussion.contactGroup?.sortedContactIdentities.map({ $0.customOrFullDisplayName }).joined(separator: ", ") ?? ""
+        } else if let groupDiscussion = self as? PersistedGroupV2Discussion {
+            return groupDiscussion.group?.otherMembersSorted.compactMap({ $0.displayedCustomDisplayNameOrFirstNameOrLastName }).joined(separator: ", ") ?? ""
         } else {
             assertionFailure()
             return ""
+        }
+    }
+    
+    
+    /// This variable is `true` iff the owned identity is allowed to send messages within this discussion.
+    /// In oneToOne and group V1 discussions, the owned identity is always allowed to send messages.
+    /// For group V2 discussions, it depends from the rights of the owned identity.
+    var ownedIdentityIsAllowedToSendMessagesInThisDiscussion: Bool {
+        get throws {
+            switch try self.kind {
+            case .oneToOne, .groupV1:
+                return true // We are always allowed to send messages in oneToOne and groupV1 discussions
+            case .groupV2(withGroup: let group):
+                guard let group = group else { return false }
+                return group.ownedIdentityIsAllowedToSendMessage
+            }
         }
     }
     
@@ -353,6 +530,9 @@ extension PersistedDiscussion {
                 [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
             }
         }
+        static func withOwnCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownCryptoId.getIdentity())
+        }
         static func persistedDiscussion(withObjectID objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(format: "SELF == %@", objectID)
         }
@@ -364,6 +544,18 @@ extension PersistedDiscussion {
         }
         static var withMessages: NSPredicate {
             NSPredicate(format: "%K.@count > 0", PersistedDiscussion.Predicate.Key.messages.rawValue)
+        }
+        static fileprivate var isPersistedGroupDiscussion: NSPredicate {
+            NSPredicate(withEntity: PersistedGroupDiscussion.entity())
+        }
+        static fileprivate var isPersistedGroupV2Discussion: NSPredicate {
+            NSPredicate(withEntity: PersistedGroupV2Discussion.entity())
+        }
+        static fileprivate var isGroupDiscussion: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                isPersistedGroupDiscussion,
+                isPersistedGroupV2Discussion,
+            ])
         }
     }
     
@@ -402,6 +594,18 @@ extension PersistedDiscussion {
 
 extension PersistedDiscussion {
     
+    /// Returns a `NSFetchRequest` for all the group discussions (both V1 and V2) of the owned identity, sorted by the discussion title.
+    static func getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
+        let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnCryptoId(ownedCryptoId),
+            Predicate.isGroupDiscussion,
+        ])
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.title.rawValue, ascending: true)]
+        return fetchRequest
+    }
+
     /// Returns a `NSFetchRequest` for the non-empty discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
     static func getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
         
@@ -469,13 +673,16 @@ extension PersistedDiscussion {
     }
     
     enum StructureKind {
-        case groupDiscussion(structure: PersistedGroupDiscussion.Structure)
         case oneToOneDiscussion(structure: PersistedOneToOneDiscussion.Structure)
+        case groupDiscussion(structure: PersistedGroupDiscussion.Structure)
+        case groupV2Discussion(structure: PersistedGroupV2Discussion.Structure)
         var objectID: NSManagedObjectID {
             switch self {
             case .groupDiscussion(let structure):
                 return structure.typedObjectID.objectID
             case .oneToOneDiscussion(let structure):
+                return structure.typedObjectID.objectID
+            case .groupV2Discussion(let structure):
                 return structure.typedObjectID.objectID
             }
         }
@@ -485,6 +692,8 @@ extension PersistedDiscussion {
                 return structure.title
             case .oneToOneDiscussion(let structure):
                 return structure.title
+            case .groupV2Discussion(let structure):
+                return structure.title
             }
         }
         var localConfiguration: PersistedDiscussionLocalConfiguration.Structure {
@@ -493,17 +702,29 @@ extension PersistedDiscussion {
                 return structure.localConfiguration
             case .oneToOneDiscussion(let structure):
                 return structure.localConfiguration
+            case .groupV2Discussion(let structure):
+                return structure.localConfiguration
             }
         }
     }
     
     func toStruct() throws -> StructureKind {
-        if let oneToOneDiscussion = self as? PersistedOneToOneDiscussion {
+        switch try kind {
+        case .oneToOne:
+            guard let oneToOneDiscussion = self as? PersistedOneToOneDiscussion else {
+                throw Self.makeError(message: "Internal error")
+            }
             return .oneToOneDiscussion(structure: try oneToOneDiscussion.toStruct())
-        } else if let groupDiscussion = self as? PersistedGroupDiscussion {
+        case .groupV1:
+            guard let groupDiscussion = self as? PersistedGroupDiscussion else {
+                throw Self.makeError(message: "Internal error")
+            }
             return .groupDiscussion(structure: try groupDiscussion.toStruct())
-        } else {
-            throw Self.makeError(message: "Unexpected discussion type")
+        case .groupV2:
+            guard let groupV2Discussion = self as? PersistedGroupV2Discussion else {
+                throw Self.makeError(message: "Internal error")
+            }
+            return .groupV2Discussion(structure: try groupV2Discussion.toStruct())
         }
     }
     

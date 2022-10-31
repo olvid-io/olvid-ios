@@ -44,7 +44,7 @@ final class DeleteAllEmptyLockedDiscussionsOperation: ContextualOperationWithSpe
             guard !persistedDiscussionLockedWithNoMessage.isEmpty else { return }
             for discussion in persistedDiscussionLockedWithNoMessage {
                 do {
-                    try discussion.delete()
+                    try discussion.deleteDiscussion(requester: nil)
                 } catch {
                     os_log("One of the empty locked discussion could not be deleted", log: log, type: .fault)
                 }

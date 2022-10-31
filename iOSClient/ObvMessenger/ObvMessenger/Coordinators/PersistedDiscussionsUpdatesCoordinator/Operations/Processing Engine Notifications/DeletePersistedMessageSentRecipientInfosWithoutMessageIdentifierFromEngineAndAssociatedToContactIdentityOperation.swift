@@ -20,10 +20,10 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
+import ObvTypes
 
 
-/// This operation deletes all `PersistedMessageSentRecipientInfos` instances associated to the contact identity the  that have no `messageIdentifierFromEngine`. It appropriately recompute the status of the associated messages.
+/// This operation deletes all `PersistedMessageSentRecipientInfos` instances associated to the contact identity the that have no `messageIdentifierFromEngine`. It appropriately recompute the status of the associated messages.
 ///
 /// This operation is typically called when a contact is deleted. Yet, we do not test whether the contact is indeed deleted since, when receiving the information from the engine, the `PersistedObvContactIdentity` might not have been deleted already.
 final class DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFromEngineAndAssociatedToContactIdentityOperation: Operation {

@@ -109,15 +109,6 @@ final class ContactGroupJoined: ContactGroup {
                                                 publishedDetails: publishedDetails)
     }
 
-    func updatePhotoURL(with url: URL?, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
-        if self.publishedDetails.version == version {
-            try self.publishedDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
-        }
-        if self.trustedDetails.version == version {
-            try self.trustedDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
-        }
-    }
-
     func updatePhoto(withData photoData: Data, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedDetails.version == version {
             try self.publishedDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)

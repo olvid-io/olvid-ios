@@ -90,18 +90,3 @@ extension CryptoIdentityWithCoreDetails: Comparable {
     }
     
 }
-
-
-extension Data: Comparable {
-    
-    public static func < (lhs: Data, rhs: Data) -> Bool {
-        guard lhs.count == rhs.count else { return lhs.count < rhs.count }
-        let bytesPair = zip(lhs, rhs)
-        for bytes in bytesPair {
-            guard bytes.0 != bytes.1 else { continue }
-            return bytes.0 < bytes.1
-        }
-        return false
-    }
-    
-}

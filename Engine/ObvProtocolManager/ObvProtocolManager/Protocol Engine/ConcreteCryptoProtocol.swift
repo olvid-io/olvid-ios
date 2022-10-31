@@ -57,7 +57,7 @@ protocol ConcreteCryptoProtocol: CustomStringConvertible {
     func reachesFinalState(with state: ConcreteProtocolState) -> Bool
     func reachedFinalState() -> Bool
     
-    func transitionedTo(_:ConcreteProtocolState) -> ConcreteCryptoProtocol    
+    func transitionedTo(_: ConcreteProtocolState) -> ConcreteCryptoProtocol    
 }
 
 

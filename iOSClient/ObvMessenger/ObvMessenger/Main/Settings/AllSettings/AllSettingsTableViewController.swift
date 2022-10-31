@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import ObvEngine
+import ObvTypes
 
 
 class AllSettingsTableViewController: UITableViewController {
@@ -68,7 +68,7 @@ class AllSettingsTableViewController: UITableViewController {
 
         var isAvailable: Bool {
             switch self {
-            case .voip: return ObvMessengerConstants.developmentMode || ObvMessengerConstants.isTestFlight || ObvMessengerSettings.BetaConfiguration.showBetaSettings
+            case .voip: return ObvMessengerConstants.showExperimentalFeature
             case .advanced: return true
             default: return true
             }

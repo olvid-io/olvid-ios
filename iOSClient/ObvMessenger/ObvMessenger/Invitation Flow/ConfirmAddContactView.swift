@@ -18,8 +18,8 @@
  */
 
 import SwiftUI
+import ObvTypes
 import ObvEngine
-
 
 struct ConfirmAddContactView: View {
     

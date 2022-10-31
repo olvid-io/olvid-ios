@@ -20,6 +20,7 @@
 import Foundation
 import ObvCrypto
 import ObvEncoder
+import ObvTypes
 
 
 public struct ObvMutualScanUrl {

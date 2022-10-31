@@ -22,6 +22,7 @@ import CoreData
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvCrypto
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -35,17 +36,17 @@ fileprivate struct OptionalWrapper<T> {
 
 enum ObvMessengerInternalNotification {
 	case messagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
-	case persistedMessageReceivedWasDeleted(objectID: NSManagedObjectID, messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, sortIndex: Double, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
 	case userWantsToRefreshContactGroupJoined(obvContactGroup: ObvContactGroup)
 	case currentOwnedCryptoIdChanged(newOwnedCryptoId: ObvCryptoId, apiKey: UUID)
 	case userWantsToPerfomCloudKitBackupNow
 	case externalTransactionsWereMergedIntoViewContext
 	case userWantsToPerfomBackupForExportNow(sourceView: UIView, sourceViewController: UIViewController)
+	case userCancelledBackupForExportNow
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
-	case userWantsToSelectAndCallContacts(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
-	case userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?)
+	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?)
+	case userWantsToSelectAndCallContacts(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?)
+	case userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?)
 	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, contactId: OlvidUserId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data)
 	case newObvMessageWasReceivedViaPushKitNotification(obvMessage: ObvMessage)
 	case newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool)
@@ -55,7 +56,7 @@ enum ObvMessengerInternalNotification {
 	case outgoingCallFailedBecauseUserDeniedRecordPermission
 	case voiceMessageFailedBecauseUserDeniedRecordPermission
 	case rejectedIncomingCallBecauseUserDeniedRecordPermission
-	case userRequestedDeletionOfPersistedMessage(persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType)
+	case userRequestedDeletionOfPersistedMessage(ownedCryptoId: ObvCryptoId, persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType)
 	case trashShouldBeEmptied
 	case userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, completionHandler: (Bool) -> Void)
 	case newCallLogItem(objectID: TypeSafeManagedObjectID<PersistedCallLogItem>)
@@ -69,18 +70,14 @@ enum ObvMessengerInternalNotification {
 	case useLoadBalancedTurnServersDidChange
 	case userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>)
 	case requestThumbnail(fyleElement: FyleElement, size: CGSize, thumbnailType: ThumbnailType, completionHandler: ((Thumbnail) -> Void))
-	case persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
-	case receivedFyleJoinHasBeenMarkAsOpened(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case userHasOpenedAReceivedAttachment(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoId: ObvCryptoId)
-	case persistedDiscussionSharedConfigurationShouldBeSent(persistedDiscussionObjectID: NSManagedObjectID)
 	case userWantsToDeleteContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, viewController: UIViewController, completionHandler: ((Bool) -> Void))
 	case cleanExpiredMessagesBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case applyRetentionPoliciesBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case updateBadgeBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case applyAllRetentionPoliciesNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
 	case userWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: NSManagedObjectID, newTextBody: String)
-	case theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: NSManagedObjectID)
 	case newProfilePictureCandidateToCache(requestUUID: UUID, profilePicture: UIImage)
 	case newCachedProfilePictureCandidate(requestUUID: UUID, url: URL)
 	case newCustomContactPictureCandidateToSave(requestUUID: UUID, profilePicture: UIImage)
@@ -136,26 +133,29 @@ enum ObvMessengerInternalNotification {
 	case userRepliedToReceivedMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, textBody: String, completionHandler: () -> Void)
 	case userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: () -> Void)
 	case userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: () -> Void)
-	case userWantsToWipeFyleMessageJoinWithStatus(objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>)
+	case userWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ObvCryptoId, objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>)
+	case userWantsToCreateNewGroupV1(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?)
+	case userWantsToCreateNewGroupV2(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?)
 	case userWantsToForwardMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, discussionObjectIDs: Set<TypeSafeManagedObjectID<PersistedDiscussion>>)
-	case createNewGroup(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?)
+	case userWantsToUpdateGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset)
 	case inviteContactsToGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, newGroupMembers: Set<ObvCryptoId>)
 	case removeContactsFromGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, removedContacts: Set<ObvCryptoId>)
 	case badgeForNewMessagesHasBeenUpdated(ownedCryptoId: ObvCryptoId, newCount: Int)
 	case badgeForInvitationsHasBeenUpdated(ownedCryptoId: ObvCryptoId, newCount: Int)
 	case requestRunningLog(completion: (RunningLogError) -> Void)
 	case metaFlowControllerViewDidAppear
-	case aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus(returnReceipt: ReturnReceiptJSON, contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
-	case aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived(returnReceipt: ReturnReceiptJSON, contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data)
+	case userWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, customName: String?, customPhotoURL: URL?)
+	case userHasSeenPublishedDetailsOfGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>)
+	case tooManyWrongPasscodeAttemptsCausedLockOut
 
 	private enum Name {
 		case messagesAreNotNewAnymore
-		case persistedMessageReceivedWasDeleted
 		case userWantsToRefreshContactGroupJoined
 		case currentOwnedCryptoIdChanged
 		case userWantsToPerfomCloudKitBackupNow
 		case externalTransactionsWereMergedIntoViewContext
 		case userWantsToPerfomBackupForExportNow
+		case userCancelledBackupForExportNow
 		case newMuteExpiration
 		case wipeAllMessagesThatExpiredEarlierThanNow
 		case userWantsToCallAndIsAllowedTo
@@ -184,18 +184,14 @@ enum ObvMessengerInternalNotification {
 		case useLoadBalancedTurnServersDidChange
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
 		case requestThumbnail
-		case persistedMessageReceivedWasRead
-		case receivedFyleJoinHasBeenMarkAsOpened
 		case userHasOpenedAReceivedAttachment
 		case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration
-		case persistedDiscussionSharedConfigurationShouldBeSent
 		case userWantsToDeleteContact
 		case cleanExpiredMessagesBackgroundTaskWasLaunched
 		case applyRetentionPoliciesBackgroundTaskWasLaunched
 		case updateBadgeBackgroundTaskWasLaunched
 		case applyAllRetentionPoliciesNow
 		case userWantsToSendEditedVersionOfSentMessage
-		case theBodyOfPersistedMessageReceivedDidChange
 		case newProfilePictureCandidateToCache
 		case newCachedProfilePictureCandidate
 		case newCustomContactPictureCandidateToSave
@@ -252,16 +248,19 @@ enum ObvMessengerInternalNotification {
 		case userRepliedToMissedCallWithinTheNotificationExtension
 		case userWantsToMarkAsReadMessageWithinTheNotificationExtension
 		case userWantsToWipeFyleMessageJoinWithStatus
+		case userWantsToCreateNewGroupV1
+		case userWantsToCreateNewGroupV2
 		case userWantsToForwardMessage
-		case createNewGroup
+		case userWantsToUpdateGroupV2
 		case inviteContactsToGroupOwned
 		case removeContactsFromGroupOwned
 		case badgeForNewMessagesHasBeenUpdated
 		case badgeForInvitationsHasBeenUpdated
 		case requestRunningLog
 		case metaFlowControllerViewDidAppear
-		case aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus
-		case aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived
+		case userWantsToUpdateCustomNameAndGroupV2Photo
+		case userHasSeenPublishedDetailsOfGroupV2
+		case tooManyWrongPasscodeAttemptsCausedLockOut
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -275,12 +274,12 @@ enum ObvMessengerInternalNotification {
 		static func forInternalNotification(_ notification: ObvMessengerInternalNotification) -> NSNotification.Name {
 			switch notification {
 			case .messagesAreNotNewAnymore: return Name.messagesAreNotNewAnymore.name
-			case .persistedMessageReceivedWasDeleted: return Name.persistedMessageReceivedWasDeleted.name
 			case .userWantsToRefreshContactGroupJoined: return Name.userWantsToRefreshContactGroupJoined.name
 			case .currentOwnedCryptoIdChanged: return Name.currentOwnedCryptoIdChanged.name
 			case .userWantsToPerfomCloudKitBackupNow: return Name.userWantsToPerfomCloudKitBackupNow.name
 			case .externalTransactionsWereMergedIntoViewContext: return Name.externalTransactionsWereMergedIntoViewContext.name
 			case .userWantsToPerfomBackupForExportNow: return Name.userWantsToPerfomBackupForExportNow.name
+			case .userCancelledBackupForExportNow: return Name.userCancelledBackupForExportNow.name
 			case .newMuteExpiration: return Name.newMuteExpiration.name
 			case .wipeAllMessagesThatExpiredEarlierThanNow: return Name.wipeAllMessagesThatExpiredEarlierThanNow.name
 			case .userWantsToCallAndIsAllowedTo: return Name.userWantsToCallAndIsAllowedTo.name
@@ -309,18 +308,14 @@ enum ObvMessengerInternalNotification {
 			case .useLoadBalancedTurnServersDidChange: return Name.useLoadBalancedTurnServersDidChange.name
 			case .userWantsToReadReceivedMessagesThatRequiresUserAction: return Name.userWantsToReadReceivedMessagesThatRequiresUserAction.name
 			case .requestThumbnail: return Name.requestThumbnail.name
-			case .persistedMessageReceivedWasRead: return Name.persistedMessageReceivedWasRead.name
-			case .receivedFyleJoinHasBeenMarkAsOpened: return Name.receivedFyleJoinHasBeenMarkAsOpened.name
 			case .userHasOpenedAReceivedAttachment: return Name.userHasOpenedAReceivedAttachment.name
 			case .userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration: return Name.userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration.name
-			case .persistedDiscussionSharedConfigurationShouldBeSent: return Name.persistedDiscussionSharedConfigurationShouldBeSent.name
 			case .userWantsToDeleteContact: return Name.userWantsToDeleteContact.name
 			case .cleanExpiredMessagesBackgroundTaskWasLaunched: return Name.cleanExpiredMessagesBackgroundTaskWasLaunched.name
 			case .applyRetentionPoliciesBackgroundTaskWasLaunched: return Name.applyRetentionPoliciesBackgroundTaskWasLaunched.name
 			case .updateBadgeBackgroundTaskWasLaunched: return Name.updateBadgeBackgroundTaskWasLaunched.name
 			case .applyAllRetentionPoliciesNow: return Name.applyAllRetentionPoliciesNow.name
 			case .userWantsToSendEditedVersionOfSentMessage: return Name.userWantsToSendEditedVersionOfSentMessage.name
-			case .theBodyOfPersistedMessageReceivedDidChange: return Name.theBodyOfPersistedMessageReceivedDidChange.name
 			case .newProfilePictureCandidateToCache: return Name.newProfilePictureCandidateToCache.name
 			case .newCachedProfilePictureCandidate: return Name.newCachedProfilePictureCandidate.name
 			case .newCustomContactPictureCandidateToSave: return Name.newCustomContactPictureCandidateToSave.name
@@ -377,16 +372,19 @@ enum ObvMessengerInternalNotification {
 			case .userRepliedToMissedCallWithinTheNotificationExtension: return Name.userRepliedToMissedCallWithinTheNotificationExtension.name
 			case .userWantsToMarkAsReadMessageWithinTheNotificationExtension: return Name.userWantsToMarkAsReadMessageWithinTheNotificationExtension.name
 			case .userWantsToWipeFyleMessageJoinWithStatus: return Name.userWantsToWipeFyleMessageJoinWithStatus.name
+			case .userWantsToCreateNewGroupV1: return Name.userWantsToCreateNewGroupV1.name
+			case .userWantsToCreateNewGroupV2: return Name.userWantsToCreateNewGroupV2.name
 			case .userWantsToForwardMessage: return Name.userWantsToForwardMessage.name
-			case .createNewGroup: return Name.createNewGroup.name
+			case .userWantsToUpdateGroupV2: return Name.userWantsToUpdateGroupV2.name
 			case .inviteContactsToGroupOwned: return Name.inviteContactsToGroupOwned.name
 			case .removeContactsFromGroupOwned: return Name.removeContactsFromGroupOwned.name
 			case .badgeForNewMessagesHasBeenUpdated: return Name.badgeForNewMessagesHasBeenUpdated.name
 			case .badgeForInvitationsHasBeenUpdated: return Name.badgeForInvitationsHasBeenUpdated.name
 			case .requestRunningLog: return Name.requestRunningLog.name
 			case .metaFlowControllerViewDidAppear: return Name.metaFlowControllerViewDidAppear.name
-			case .aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus: return Name.aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus.name
-			case .aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived: return Name.aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived.name
+			case .userWantsToUpdateCustomNameAndGroupV2Photo: return Name.userWantsToUpdateCustomNameAndGroupV2Photo.name
+			case .userHasSeenPublishedDetailsOfGroupV2: return Name.userHasSeenPublishedDetailsOfGroupV2.name
+			case .tooManyWrongPasscodeAttemptsCausedLockOut: return Name.tooManyWrongPasscodeAttemptsCausedLockOut.name
 			}
 		}
 	}
@@ -396,14 +394,6 @@ enum ObvMessengerInternalNotification {
 		case .messagesAreNotNewAnymore(persistedMessageObjectIDs: let persistedMessageObjectIDs):
 			info = [
 				"persistedMessageObjectIDs": persistedMessageObjectIDs,
-			]
-		case .persistedMessageReceivedWasDeleted(objectID: let objectID, messageIdentifierFromEngine: let messageIdentifierFromEngine, ownedCryptoId: let ownedCryptoId, sortIndex: let sortIndex, discussionObjectID: let discussionObjectID):
-			info = [
-				"objectID": objectID,
-				"messageIdentifierFromEngine": messageIdentifierFromEngine,
-				"ownedCryptoId": ownedCryptoId,
-				"sortIndex": sortIndex,
-				"discussionObjectID": discussionObjectID,
 			]
 		case .userWantsToRefreshContactGroupJoined(obvContactGroup: let obvContactGroup):
 			info = [
@@ -423,6 +413,8 @@ enum ObvMessengerInternalNotification {
 				"sourceView": sourceView,
 				"sourceViewController": sourceViewController,
 			]
+		case .userCancelledBackupForExportNow:
+			info = nil
 		case .newMuteExpiration(expirationDate: let expirationDate):
 			info = [
 				"expirationDate": expirationDate,
@@ -478,8 +470,9 @@ enum ObvMessengerInternalNotification {
 			info = nil
 		case .rejectedIncomingCallBecauseUserDeniedRecordPermission:
 			info = nil
-		case .userRequestedDeletionOfPersistedMessage(persistedMessageObjectID: let persistedMessageObjectID, deletionType: let deletionType):
+		case .userRequestedDeletionOfPersistedMessage(ownedCryptoId: let ownedCryptoId, persistedMessageObjectID: let persistedMessageObjectID, deletionType: let deletionType):
 			info = [
+				"ownedCryptoId": ownedCryptoId,
 				"persistedMessageObjectID": persistedMessageObjectID,
 				"deletionType": deletionType,
 			]
@@ -542,14 +535,6 @@ enum ObvMessengerInternalNotification {
 				"thumbnailType": thumbnailType,
 				"completionHandler": completionHandler,
 			]
-		case .persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: let persistedMessageReceivedObjectID):
-			info = [
-				"persistedMessageReceivedObjectID": persistedMessageReceivedObjectID,
-			]
-		case .receivedFyleJoinHasBeenMarkAsOpened(receivedFyleJoinID: let receivedFyleJoinID):
-			info = [
-				"receivedFyleJoinID": receivedFyleJoinID,
-			]
 		case .userHasOpenedAReceivedAttachment(receivedFyleJoinID: let receivedFyleJoinID):
 			info = [
 				"receivedFyleJoinID": receivedFyleJoinID,
@@ -559,10 +544,6 @@ enum ObvMessengerInternalNotification {
 				"persistedDiscussionObjectID": persistedDiscussionObjectID,
 				"expirationJSON": expirationJSON,
 				"ownedCryptoId": ownedCryptoId,
-			]
-		case .persistedDiscussionSharedConfigurationShouldBeSent(persistedDiscussionObjectID: let persistedDiscussionObjectID):
-			info = [
-				"persistedDiscussionObjectID": persistedDiscussionObjectID,
 			]
 		case .userWantsToDeleteContact(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId, viewController: let viewController, completionHandler: let completionHandler):
 			info = [
@@ -592,10 +573,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"sentMessageObjectID": sentMessageObjectID,
 				"newTextBody": newTextBody,
-			]
-		case .theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: let persistedMessageReceivedObjectID):
-			info = [
-				"persistedMessageReceivedObjectID": persistedMessageReceivedObjectID,
 			]
 		case .newProfilePictureCandidateToCache(requestUUID: let requestUUID, profilePicture: let profilePicture):
 			info = [
@@ -849,22 +826,36 @@ enum ObvMessengerInternalNotification {
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
 				"completionHandler": completionHandler,
 			]
-		case .userWantsToWipeFyleMessageJoinWithStatus(objectIDs: let objectIDs):
+		case .userWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: let ownedCryptoId, objectIDs: let objectIDs):
 			info = [
+				"ownedCryptoId": ownedCryptoId,
 				"objectIDs": objectIDs,
 			]
-		case .userWantsToForwardMessage(messageObjectID: let messageObjectID, discussionObjectIDs: let discussionObjectIDs):
-			info = [
-				"messageObjectID": messageObjectID,
-				"discussionObjectIDs": discussionObjectIDs,
-			]
-		case .createNewGroup(groupName: let groupName, groupDescription: let groupDescription, groupMembersCryptoIds: let groupMembersCryptoIds, ownedCryptoId: let ownedCryptoId, photoURL: let photoURL):
+		case .userWantsToCreateNewGroupV1(groupName: let groupName, groupDescription: let groupDescription, groupMembersCryptoIds: let groupMembersCryptoIds, ownedCryptoId: let ownedCryptoId, photoURL: let photoURL):
 			info = [
 				"groupName": groupName,
 				"groupDescription": OptionalWrapper(groupDescription),
 				"groupMembersCryptoIds": groupMembersCryptoIds,
 				"ownedCryptoId": ownedCryptoId,
 				"photoURL": OptionalWrapper(photoURL),
+			]
+		case .userWantsToCreateNewGroupV2(groupCoreDetails: let groupCoreDetails, ownPermissions: let ownPermissions, otherGroupMembers: let otherGroupMembers, ownedCryptoId: let ownedCryptoId, photoURL: let photoURL):
+			info = [
+				"groupCoreDetails": groupCoreDetails,
+				"ownPermissions": ownPermissions,
+				"otherGroupMembers": otherGroupMembers,
+				"ownedCryptoId": ownedCryptoId,
+				"photoURL": OptionalWrapper(photoURL),
+			]
+		case .userWantsToForwardMessage(messageObjectID: let messageObjectID, discussionObjectIDs: let discussionObjectIDs):
+			info = [
+				"messageObjectID": messageObjectID,
+				"discussionObjectIDs": discussionObjectIDs,
+			]
+		case .userWantsToUpdateGroupV2(groupObjectID: let groupObjectID, changeset: let changeset):
+			info = [
+				"groupObjectID": groupObjectID,
+				"changeset": changeset,
 			]
 		case .inviteContactsToGroupOwned(groupUid: let groupUid, ownedCryptoId: let ownedCryptoId, newGroupMembers: let newGroupMembers):
 			info = [
@@ -894,21 +885,18 @@ enum ObvMessengerInternalNotification {
 			]
 		case .metaFlowControllerViewDidAppear:
 			info = nil
-		case .aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus(returnReceipt: let returnReceipt, contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
+		case .userWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: let groupObjectID, customName: let customName, customPhotoURL: let customPhotoURL):
 			info = [
-				"returnReceipt": returnReceipt,
-				"contactCryptoId": contactCryptoId,
-				"ownedCryptoId": ownedCryptoId,
-				"messageIdentifierFromEngine": messageIdentifierFromEngine,
-				"attachmentNumber": attachmentNumber,
+				"groupObjectID": groupObjectID,
+				"customName": OptionalWrapper(customName),
+				"customPhotoURL": OptionalWrapper(customPhotoURL),
 			]
-		case .aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived(returnReceipt: let returnReceipt, contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine):
+		case .userHasSeenPublishedDetailsOfGroupV2(groupObjectID: let groupObjectID):
 			info = [
-				"returnReceipt": returnReceipt,
-				"contactCryptoId": contactCryptoId,
-				"ownedCryptoId": ownedCryptoId,
-				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"groupObjectID": groupObjectID,
 			]
+		case .tooManyWrongPasscodeAttemptsCausedLockOut:
+			info = nil
 		}
 		return info
 	}
@@ -943,18 +931,6 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedMessageObjectIDs = notification.userInfo!["persistedMessageObjectIDs"] as! Set<TypeSafeManagedObjectID<PersistedMessage>>
 			block(persistedMessageObjectIDs)
-		}
-	}
-
-	static func observePersistedMessageReceivedWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, Data, ObvCryptoId, Double, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessageReceivedWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let sortIndex = notification.userInfo!["sortIndex"] as! Double
-			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(objectID, messageIdentifierFromEngine, ownedCryptoId, sortIndex, discussionObjectID)
 		}
 	}
 
@@ -998,6 +974,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
+	static func observeUserCancelledBackupForExportNow(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.userCancelledBackupForExportNow.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
 	static func observeNewMuteExpiration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Date) -> Void) -> NSObjectProtocol {
 		let name = Name.newMuteExpiration.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1015,31 +998,31 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([OlvidUserId], (groupUid: UID, groupOwner: ObvCryptoId)?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([OlvidUserId], GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToCallAndIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let contactIds = notification.userInfo!["contactIds"] as! [OlvidUserId]
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<(groupUid: UID, groupOwner: ObvCryptoId)>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
 			let groupId = groupIdWrapper.value
 			block(contactIds, groupId)
 		}
 	}
 
-	static func observeUserWantsToSelectAndCallContacts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], (groupUid: UID, groupOwner: ObvCryptoId)?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSelectAndCallContacts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSelectAndCallContacts.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let contactIDs = notification.userInfo!["contactIDs"] as! [TypeSafeManagedObjectID<PersistedObvContactIdentity>]
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<(groupUid: UID, groupOwner: ObvCryptoId)>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
 			let groupId = groupIdWrapper.value
 			block(contactIDs, groupId)
 		}
 	}
 
-	static func observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], (groupUid: UID, groupOwner: ObvCryptoId)?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let contactIDs = notification.userInfo!["contactIDs"] as! [TypeSafeManagedObjectID<PersistedObvContactIdentity>]
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<(groupUid: UID, groupOwner: ObvCryptoId)>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
 			let groupId = groupIdWrapper.value
 			block(contactIDs, groupId)
 		}
@@ -1117,12 +1100,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserRequestedDeletionOfPersistedMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, DeletionType) -> Void) -> NSObjectProtocol {
+	static func observeUserRequestedDeletionOfPersistedMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, NSManagedObjectID, DeletionType) -> Void) -> NSObjectProtocol {
 		let name = Name.userRequestedDeletionOfPersistedMessage.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let persistedMessageObjectID = notification.userInfo!["persistedMessageObjectID"] as! NSManagedObjectID
 			let deletionType = notification.userInfo!["deletionType"] as! DeletionType
-			block(persistedMessageObjectID, deletionType)
+			block(ownedCryptoId, persistedMessageObjectID, deletionType)
 		}
 	}
 
@@ -1239,22 +1223,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observePersistedMessageReceivedWasRead(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedMessageReceived>) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessageReceivedWasRead.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageReceivedObjectID = notification.userInfo!["persistedMessageReceivedObjectID"] as! TypeSafeManagedObjectID<PersistedMessageReceived>
-			block(persistedMessageReceivedObjectID)
-		}
-	}
-
-	static func observeReceivedFyleJoinHasBeenMarkAsOpened(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
-		let name = Name.receivedFyleJoinHasBeenMarkAsOpened.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let receivedFyleJoinID = notification.userInfo!["receivedFyleJoinID"] as! TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>
-			block(receivedFyleJoinID)
-		}
-	}
-
 	static func observeUserHasOpenedAReceivedAttachment(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
 		let name = Name.userHasOpenedAReceivedAttachment.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1270,14 +1238,6 @@ enum ObvMessengerInternalNotification {
 			let expirationJSON = notification.userInfo!["expirationJSON"] as! ExpirationJSON
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(persistedDiscussionObjectID, expirationJSON, ownedCryptoId)
-		}
-	}
-
-	static func observePersistedDiscussionSharedConfigurationShouldBeSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedDiscussionSharedConfigurationShouldBeSent.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! NSManagedObjectID
-			block(persistedDiscussionObjectID)
 		}
 	}
 
@@ -1331,14 +1291,6 @@ enum ObvMessengerInternalNotification {
 			let sentMessageObjectID = notification.userInfo!["sentMessageObjectID"] as! NSManagedObjectID
 			let newTextBody = notification.userInfo!["newTextBody"] as! String
 			block(sentMessageObjectID, newTextBody)
-		}
-	}
-
-	static func observeTheBodyOfPersistedMessageReceivedDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
-		let name = Name.theBodyOfPersistedMessageReceivedDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageReceivedObjectID = notification.userInfo!["persistedMessageReceivedObjectID"] as! NSManagedObjectID
-			block(persistedMessageReceivedObjectID)
 		}
 	}
 
@@ -1826,11 +1778,39 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToWipeFyleMessageJoinWithStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToWipeFyleMessageJoinWithStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToWipeFyleMessageJoinWithStatus.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let objectIDs = notification.userInfo!["objectIDs"] as! Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>
-			block(objectIDs)
+			block(ownedCryptoId, objectIDs)
+		}
+	}
+
+	static func observeUserWantsToCreateNewGroupV1(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (String, String?, Set<ObvCryptoId>, ObvCryptoId, URL?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToCreateNewGroupV1.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let groupName = notification.userInfo!["groupName"] as! String
+			let groupDescriptionWrapper = notification.userInfo!["groupDescription"] as! OptionalWrapper<String>
+			let groupDescription = groupDescriptionWrapper.value
+			let groupMembersCryptoIds = notification.userInfo!["groupMembersCryptoIds"] as! Set<ObvCryptoId>
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let photoURLWrapper = notification.userInfo!["photoURL"] as! OptionalWrapper<URL>
+			let photoURL = photoURLWrapper.value
+			block(groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL)
+		}
+	}
+
+	static func observeUserWantsToCreateNewGroupV2(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GroupV2CoreDetails, Set<ObvGroupV2.Permission>, Set<ObvGroupV2.IdentityAndPermissions>, ObvCryptoId, URL?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToCreateNewGroupV2.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let groupCoreDetails = notification.userInfo!["groupCoreDetails"] as! GroupV2CoreDetails
+			let ownPermissions = notification.userInfo!["ownPermissions"] as! Set<ObvGroupV2.Permission>
+			let otherGroupMembers = notification.userInfo!["otherGroupMembers"] as! Set<ObvGroupV2.IdentityAndPermissions>
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let photoURLWrapper = notification.userInfo!["photoURL"] as! OptionalWrapper<URL>
+			let photoURL = photoURLWrapper.value
+			block(groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL)
 		}
 	}
 
@@ -1843,17 +1823,12 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeCreateNewGroup(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (String, String?, Set<ObvCryptoId>, ObvCryptoId, URL?) -> Void) -> NSObjectProtocol {
-		let name = Name.createNewGroup.name
+	static func observeUserWantsToUpdateGroupV2(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>, ObvGroupV2.Changeset) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdateGroupV2.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let groupName = notification.userInfo!["groupName"] as! String
-			let groupDescriptionWrapper = notification.userInfo!["groupDescription"] as! OptionalWrapper<String>
-			let groupDescription = groupDescriptionWrapper.value
-			let groupMembersCryptoIds = notification.userInfo!["groupMembersCryptoIds"] as! Set<ObvCryptoId>
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let photoURLWrapper = notification.userInfo!["photoURL"] as! OptionalWrapper<URL>
-			let photoURL = photoURLWrapper.value
-			block(groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL)
+			let groupObjectID = notification.userInfo!["groupObjectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
+			let changeset = notification.userInfo!["changeset"] as! ObvGroupV2.Changeset
+			block(groupObjectID, changeset)
 		}
 	}
 
@@ -1910,26 +1885,30 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeADeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ReturnReceiptJSON, ObvCryptoId, ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
-		let name = Name.aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus.name
+	static func observeUserWantsToUpdateCustomNameAndGroupV2Photo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>, String?, URL?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdateCustomNameAndGroupV2Photo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let returnReceipt = notification.userInfo!["returnReceipt"] as! ReturnReceiptJSON
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
-			let attachmentNumber = notification.userInfo!["attachmentNumber"] as! Int
-			block(returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine, attachmentNumber)
+			let groupObjectID = notification.userInfo!["groupObjectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
+			let customNameWrapper = notification.userInfo!["customName"] as! OptionalWrapper<String>
+			let customName = customNameWrapper.value
+			let customPhotoURLWrapper = notification.userInfo!["customPhotoURL"] as! OptionalWrapper<URL>
+			let customPhotoURL = customPhotoURLWrapper.value
+			block(groupObjectID, customName, customPhotoURL)
 		}
 	}
 
-	static func observeADeliveredReturnReceiptShouldBeSentForPersistedMessageReceived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ReturnReceiptJSON, ObvCryptoId, ObvCryptoId, Data) -> Void) -> NSObjectProtocol {
-		let name = Name.aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived.name
+	static func observeUserHasSeenPublishedDetailsOfGroupV2(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>) -> Void) -> NSObjectProtocol {
+		let name = Name.userHasSeenPublishedDetailsOfGroupV2.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let returnReceipt = notification.userInfo!["returnReceipt"] as! ReturnReceiptJSON
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
-			block(returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine)
+			let groupObjectID = notification.userInfo!["groupObjectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
+			block(groupObjectID)
+		}
+	}
+
+	static func observeTooManyWrongPasscodeAttemptsCausedLockOut(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.tooManyWrongPasscodeAttemptsCausedLockOut.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
 		}
 	}
 

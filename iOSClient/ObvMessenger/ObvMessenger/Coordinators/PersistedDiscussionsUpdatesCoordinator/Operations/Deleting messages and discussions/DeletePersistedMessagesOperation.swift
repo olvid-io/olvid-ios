@@ -28,14 +28,14 @@ final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificRea
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeletePersistedMessagesOperation.self))
 
     private enum Input {
-        case persistedMessageObjectIDs(_: Set<NSManagedObjectID>)
+        case persistedMessageObjectIDs(_: Set<NSManagedObjectID>, requester: RequesterOfMessageDeletion)
         case provider(_: OperationProvidingPersistedMessageObjectIDsToDelete)
     }
     
     private let input: Input
     
-    init(persistedMessageObjectIDs: Set<NSManagedObjectID>) {
-        self.input = .persistedMessageObjectIDs(persistedMessageObjectIDs)
+    init(persistedMessageObjectIDs: Set<NSManagedObjectID>, requester: RequesterOfMessageDeletion) {
+        self.input = .persistedMessageObjectIDs(persistedMessageObjectIDs, requester: requester)
         super.init()
     }
     
@@ -49,11 +49,14 @@ final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificRea
     override func main() {
                 
         let persistedMessageObjectIDs: Set<NSManagedObjectID>
+        let requester: RequesterOfMessageDeletion
         switch input {
-        case .persistedMessageObjectIDs(let objectIDs):
+        case .persistedMessageObjectIDs(let objectIDs, let _requester):
             persistedMessageObjectIDs = objectIDs
+            requester = _requester
         case .provider(let provider):
             persistedMessageObjectIDs = Set(provider.persistedMessageObjectIDsToDelete.map({ $0.objectID }))
+            requester = provider.requester
         }
         
         guard !persistedMessageObjectIDs.isEmpty else { return }
@@ -64,36 +67,29 @@ final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificRea
         
         obvContext.performAndWait {
 
-            var messageUriRepresentationsForDiscussion = [TypeSafeURL<PersistedDiscussion>: Set<TypeSafeURL<PersistedMessage>>]()
-            
+            var infos = [InfoAboutWipedOrDeletedPersistedMessage]()
+
             for persistedMessageObjectID in persistedMessageObjectIDs {
-                
-                let infos: (discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>)
-                
                 do {
                     guard let messageToDelete = try PersistedMessage.get(with: persistedMessageObjectID, within: obvContext.context) else { return }
-                    infos = (messageToDelete.discussion.typedObjectID.uriRepresentation(), messageToDelete.typedObjectID.uriRepresentation())
-                    try messageToDelete.delete()
+                    let info = try messageToDelete.delete(requester: requester)
+                    infos += [info]
                 } catch {
                     return cancel(withReason: .coreDataError(error: error))
                 }
-                
-                if var previous = messageUriRepresentationsForDiscussion[infos.discussionUriRepresentation] {
-                    previous.insert(infos.messageUriRepresentation)
-                    messageUriRepresentationsForDiscussion[infos.discussionUriRepresentation] = previous
-                } else {
-                    messageUriRepresentationsForDiscussion[infos.discussionUriRepresentation] = Set([infos.messageUriRepresentation])
-                }
-
             }
             
             
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
-                    for (discussionUriRepresentation, messageUriRepresentations) in messageUriRepresentationsForDiscussion {
-                        ObvMessengerCoreDataNotification.persistedMessagesWereDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
-                            .postOnDispatchQueue()
+                    // We deleted some persisted messages. We notify about that.
+
+                    InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
+
+                    // Refresh objects in the view context
+                    if let viewContext = self.viewContext {
+                        InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
                     }
                 }
             } catch {
@@ -109,6 +105,7 @@ final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificRea
 
 protocol OperationProvidingPersistedMessageObjectIDsToDelete: Operation {
     var persistedMessageObjectIDsToDelete: Set<TypeSafeManagedObjectID<PersistedMessage>> { get }
+    var requester: RequesterOfMessageDeletion { get }
 }
 
 

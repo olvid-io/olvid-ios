@@ -21,10 +21,12 @@ import Foundation
 import CoreData
 import CoreDataStack
 import os.log
+import OlvidUtils
 
-final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMessengerPersistentContainer> {
+final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMessengerPersistentContainer>, ObvErrorMaker {
 
     private let log = OSLog(subsystem: "io.olvid.messenger", category: "CoreDataStack")
+    static let errorDomain = "DataMigrationManagerForObvMessenger"
 
     enum ObvMessengerModelVersion: String {
 
@@ -77,9 +79,10 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case version47 = "ObvMessengerModel-v47"
         case version48 = "ObvMessengerModel-v48"
         case version49 = "ObvMessengerModel-v49"
+        case version50 = "ObvMessengerModel-v50"
 
         static var latest: ObvMessengerModelVersion {
-            return .version49
+            return .version50
         }
 
         var identifier: String {
@@ -87,9 +90,15 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         }
 
         init(model: NSManagedObjectModel) throws {
-            guard model.versionIdentifiers.count == 1 else { throw NSError() }
-            guard let versionIdentifier = model.versionIdentifiers.first! as? String else { throw NSError() }
-            guard let version = ObvMessengerModelVersion.init(rawValue: versionIdentifier) else { throw NSError() }
+            guard model.versionIdentifiers.count == 1 else {
+                throw DataMigrationManagerForObvMessenger.makeError(message: "Unexpected number of version identifiers found. Got \(model.versionIdentifiers.count) although 1 is expected")
+            }
+            guard let versionIdentifier = model.versionIdentifiers.first! as? String else {
+                throw DataMigrationManagerForObvMessenger.makeError(message: "Could not recover the version identifier of the model")
+            }
+            guard let version = ObvMessengerModelVersion.init(rawValue: versionIdentifier) else {
+                throw DataMigrationManagerForObvMessenger.makeError(message: "Could not cast the version identifier of the model")
+            }
             self = version
         }
 
@@ -99,11 +108,17 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
     private func getManagedObjectModel(version: ObvMessengerModelVersion) throws -> NSManagedObjectModel {
         let allModels = try getAllManagedObjectModels()
         let model = try allModels.filter {
-            guard $0.versionIdentifiers.count == 1 else { throw NSError() }
-            guard let versionIdentifier = $0.versionIdentifiers.first! as? String else { throw NSError() }
+            guard $0.versionIdentifiers.count == 1 else {
+                throw Self.makeError(message: "Unexpected count of version identifiers. Expecting 1, got \($0.versionIdentifiers.count)")
+            }
+            guard let versionIdentifier = $0.versionIdentifiers.first! as? String else {
+                throw Self.makeError(message: "Could not cast the version identifier")
+            }
             return versionIdentifier == version.identifier
         }
-        guard model.count == 1 else { throw NSError() }
+        guard model.count == 1 else {
+            throw Self.makeError(message: "After filtering all available models, \(model.count) appropriate models were found instead of 1")
+        }
         return model.first!
     }
 
@@ -165,7 +180,8 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case .version46: migrationType = .lightweight; destinationVersion = .version47
         case .version47: migrationType = .lightweight; destinationVersion = .version48
         case .version48: migrationType = .heavyweight; destinationVersion = .version49
-        case .version49: migrationType = .heavyweight; destinationVersion = .version49
+        case .version49: migrationType = .heavyweight; destinationVersion = .version50
+        case .version50: migrationType = .heavyweight; destinationVersion = .version50
         }
 
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

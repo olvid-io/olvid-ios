@@ -21,9 +21,10 @@ import Foundation
 import ObvEncoder
 import ObvCrypto
 import ObvTypes
+import ObvMetaManager
 
 
-public struct ObvDialog: ObvCodable, Equatable {
+public struct ObvDialog: ObvFailableCodable, Equatable {
     
     // Allow to store the encodedElements
     public let uuid: UUID
@@ -117,6 +118,16 @@ public struct ObvDialog: ObvCodable, Equatable {
     }
 
     
+    public mutating func setResponseToAcceptGroupV2Invite(acceptInvite: Bool) throws {
+        switch category {
+        case .acceptGroupV2Invite:
+            encodedResponse = acceptInvite.obvEncode()
+        default:
+            throw Self.makeError(message: "Bad category")
+        }
+    }
+
+    
     public var actionRequired: Bool {
         switch self.category {
         case .inviteSent,
@@ -124,7 +135,8 @@ public struct ObvDialog: ObvCodable, Equatable {
              .mutualTrustConfirmed,
              .mediatorInviteAccepted,
              .oneToOneInvitationSent,
-             .autoconfirmedContactIntroduction:
+             .autoconfirmedContactIntroduction,
+             .freezeGroupV2Invite:
             return false
         case .acceptInvite,
              .sasExchange,
@@ -133,7 +145,8 @@ public struct ObvDialog: ObvCodable, Equatable {
              .acceptGroupInvite,
              .increaseMediatorTrustLevelRequired,
              .oneToOneInvitationReceived,
-             .increaseGroupOwnerTrustLevelRequired:
+             .increaseGroupOwnerTrustLevelRequired,
+             .acceptGroupV2Invite:
             return true
         }
     }
@@ -142,7 +155,7 @@ public struct ObvDialog: ObvCodable, Equatable {
 // MARK: ObvDialog Category
 extension ObvDialog {
     
-    public enum Category: ObvCodable, CustomStringConvertible, Equatable {
+    public enum Category: ObvFailableCodable, CustomStringConvertible, Equatable {
         
         case inviteSent(contactIdentity: ObvURLIdentity) // Used within the protocol allowing establish trust
         case acceptInvite(contactIdentity: ObvGenericIdentity) // Used within the protocol allowing establish trust
@@ -164,6 +177,10 @@ extension ObvDialog {
         // Dialogs related to OneToOne invitations
         case oneToOneInvitationSent(contactIdentity: ObvGenericIdentity)
         case oneToOneInvitationReceived(contactIdentity: ObvGenericIdentity)
+        
+        // Dialogs related to Groups V2
+        case acceptGroupV2Invite(inviter: ObvCryptoId, group: ObvGroupV2)
+        case freezeGroupV2Invite(inviter: ObvCryptoId, group: ObvGroupV2)
 
         private var raw: Int {
             switch self {
@@ -181,6 +198,8 @@ extension ObvDialog {
             case .autoconfirmedContactIntroduction: return 13
             case .oneToOneInvitationSent: return 14
             case .oneToOneInvitationReceived: return 15
+            case .acceptGroupV2Invite: return 16
+            case .freezeGroupV2Invite: return 17
             }
         }
         
@@ -284,10 +303,24 @@ extension ObvDialog {
                 default:
                     return false
                 }
+            case .acceptGroupV2Invite(inviter: let a1, group: let b1):
+                switch rhs {
+                case .acceptGroupV2Invite(inviter: let a2, group: let b2):
+                    return a1 == a2 && b1 == b2
+                default:
+                    return false
+                }
+            case .freezeGroupV2Invite(inviter: let a1, group: let b1):
+                switch rhs {
+                case .freezeGroupV2Invite(inviter: let a2, group: let b2):
+                    return a1 == a2 && b1 == b2
+                default:
+                    return false
+                }
             }
         }
         
-        public func obvEncode() -> ObvEncoded {
+        public func obvEncode() throws -> ObvEncoded {
             let encodedVars: ObvEncoded
             switch self {
             case .inviteSent(contactIdentity: let contactIdentity):
@@ -320,6 +353,10 @@ extension ObvDialog {
                 encodedVars = [contactIdentity].obvEncode()
             case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
                 encodedVars = [contactIdentity].obvEncode()
+            case .acceptGroupV2Invite(inviter: let inviter, group: let group):
+                encodedVars = [inviter.obvEncode(), try group.obvEncode()].obvEncode()
+            case .freezeGroupV2Invite(inviter: let inviter, group: let group):
+                encodedVars = [inviter.obvEncode(), try group.obvEncode()].obvEncode()
             }
             let encodedObvDialog = [raw.obvEncode(), encodedVars].obvEncode()
             return encodedObvDialog
@@ -414,7 +451,18 @@ extension ObvDialog {
                 guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 1) else { return nil }
                 guard let contactIdentity = try? encodedVars[0].obvDecode() as ObvGenericIdentity else { return nil }
                 self = .oneToOneInvitationReceived(contactIdentity: contactIdentity)
-
+            case 16:
+                /* acceptGroupV2Invite */
+                guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { assertionFailure(); return nil }
+                guard let inviter = try? encodedVars[0].obvDecode() as ObvCryptoId else { assertionFailure(); return nil }
+                guard let group = try? encodedVars[1].obvDecode() as ObvGroupV2 else { assertionFailure(); return nil }
+                self = .acceptGroupV2Invite(inviter: inviter, group: group)
+            case 17:
+                /* freezeGroupV2Invite */
+                guard let encodedVars = [ObvEncoded](listOfEncoded[1], expectedCount: 2) else { assertionFailure(); return nil }
+                guard let inviter = try? encodedVars[0].obvDecode() as ObvCryptoId else { assertionFailure(); return nil }
+                guard let group = try? encodedVars[1].obvDecode() as ObvGroupV2 else { assertionFailure(); return nil }
+                self = .freezeGroupV2Invite(inviter: inviter, group: group)
             default:
                 return nil
             }
@@ -450,6 +498,10 @@ extension ObvDialog {
                 return "oneToOneInvitationSent"
             case .oneToOneInvitationReceived:
                 return "oneToOneInvitationReceived"
+            case .acceptGroupV2Invite:
+                return "acceptGroupV2Invite"
+            case .freezeGroupV2Invite:
+                return "freezeGroupV2Invite"
             }
         }
 
@@ -464,14 +516,13 @@ extension ObvDialog {
         do { uuid = try listOfEncoded[0].obvDecode() } catch { return nil }
         encodedElements = listOfEncoded[1]
         do {
-            let ownedCryptoIdentity: ObvCryptoIdentity = try listOfEncoded[2].obvDecode()
-            self.ownedCryptoId = ObvCryptoId.init(cryptoIdentity: ownedCryptoIdentity)
+            self.ownedCryptoId = try listOfEncoded[2].obvDecode()
         } catch { return nil }
         do { category = try listOfEncoded[3].obvDecode() } catch { return nil }
     }
     
-    public func obvEncode() -> ObvEncoded {
-        return [uuid.obvEncode(), encodedElements, ownedCryptoId.cryptoIdentity.obvEncode(), category.obvEncode()].obvEncode()
+    public func obvEncode() throws -> ObvEncoded {
+        return [uuid.obvEncode(), encodedElements, ownedCryptoId.obvEncode(), try category.obvEncode()].obvEncode()
     }
     
     public static func decode(_ rawData: Data) -> ObvDialog? {

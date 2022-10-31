@@ -18,7 +18,7 @@
  */
 
 import SwiftUI
-import ObvEngine
+import ObvTypes
 import CoreData
 
 protocol DiscussionsHostingViewControllerDelegate: AnyObject {

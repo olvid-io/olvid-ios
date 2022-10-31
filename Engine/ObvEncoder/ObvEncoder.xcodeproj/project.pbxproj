@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -13,7 +13,6 @@
 		C414392F1F602C2E00089D01 /* ObvEncoded.swift in Sources */ = {isa = PBXBuildFile; fileRef = C414392E1F602C2E00089D01 /* ObvEncoded.swift */; };
 		C414E31C1F66B95E000442DC /* ObvDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C414E31B1F66B95E000442DC /* ObvDictionary.swift */; };
 		C4167B612163BCDB00CFBE95 /* BigInt.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4167B5E2163BCD500CFBE95 /* BigInt.framework */; };
-		C4167B6B2163BCEB00CFBE95 /* ObvTypes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4167B682163BCE800CFBE95 /* ObvTypes.framework */; };
 		C41C13831FB5F7800075DC47 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42F53A11FB11E3600604470 /* CoreData.framework */; };
 		C436172920936DAE00AFCAA9 /* URL+ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C436172820936DAE00AFCAA9 /* URL+ObvCodable.swift */; };
 		C45AFBFC1F9B526A00DB82A6 /* ObvDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45AFBFB1F9B526A00DB82A6 /* ObvDecoder.swift */; };
@@ -24,9 +23,7 @@
 		C499100B2072406F006CD9CA /* DataAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499100A2072406F006CD9CA /* DataAsObvCodable.swift */; };
 		C499100D2072408F006CD9CA /* BigIntAsObbvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */; };
 		C4991023207242D5006CD9CA /* ArrayAsObvEncodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4991022207242D5006CD9CA /* ArrayAsObvEncodable.swift */; };
-		C499102E20724CC0006CD9CA /* UIDAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */; };
 		C499103420724D1E006CD9CA /* BoolAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499103320724D1E006CD9CA /* BoolAsObvCodable.swift */; };
-		C499103620724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */; };
 		C499103A20724E2B006CD9CA /* DictionaryAsObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */; };
 		C4A619C02071245200D25473 /* ObvCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A619BF2071245200D25473 /* ObvCodable.swift */; };
 		C4AC7C601FA3E68700E2AEC3 /* ObvEncodedTransformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AC7C5F1FA3E68700E2AEC3 /* ObvEncodedTransformer.swift */; };
@@ -84,9 +81,7 @@
 		C499100A2072406F006CD9CA /* DataAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataAsObvCodable.swift; sourceTree = "<group>"; };
 		C499100C2072408F006CD9CA /* BigIntAsObbvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigIntAsObbvCodable.swift; sourceTree = "<group>"; };
 		C4991022207242D5006CD9CA /* ArrayAsObvEncodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayAsObvEncodable.swift; sourceTree = "<group>"; };
-		C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIDAsObvCodable.swift; sourceTree = "<group>"; };
 		C499103320724D1E006CD9CA /* BoolAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoolAsObvCodable.swift; sourceTree = "<group>"; };
-		C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvPushNotificationTypeAsObvEncodable.swift; sourceTree = "<group>"; };
 		C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryAsObvCodable.swift; sourceTree = "<group>"; };
 		C4A619BF2071245200D25473 /* ObvCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvCodable.swift; sourceTree = "<group>"; };
 		C4AC7C5F1FA3E68700E2AEC3 /* ObvEncodedTransformer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvEncodedTransformer.swift; sourceTree = "<group>"; };
@@ -100,7 +95,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C4167B6B2163BCEB00CFBE95 /* ObvTypes.framework in Frameworks */,
 				C4167B612163BCDB00CFBE95 /* BigInt.framework in Frameworks */,
 				C41C13831FB5F7800075DC47 /* CoreData.framework in Frameworks */,
 			);
@@ -137,10 +131,8 @@
 				C410D1C3211133F300E77E59 /* Date+ObvCodable.swift */,
 				C499103920724E2B006CD9CA /* DictionaryAsObvCodable.swift */,
 				C499100520723F59006CD9CA /* IntAsObvCodable.swift */,
-				C499103520724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift */,
 				C4618B75215F79A100D4E13B /* Range+ObvCodable.swift */,
 				C40D966620AAE1B6000776E2 /* String+ObvCodable.swift */,
-				C499102D20724CC0006CD9CA /* UIDAsObvCodable.swift */,
 				C48A224B2080A59000353F8C /* UUID+ObvCodable.swift */,
 				C436172820936DAE00AFCAA9 /* URL+ObvCodable.swift */,
 				C410D1C5211135E300E77E59 /* UInt8+ObvCodable.swift */,
@@ -312,6 +304,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		C0A76958276FEE3700D22EE4 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -338,9 +331,7 @@
 				C499100D2072408F006CD9CA /* BigIntAsObbvCodable.swift in Sources */,
 				C45AFBFC1F9B526A00DB82A6 /* ObvDecoder.swift in Sources */,
 				C48A224C2080A59000353F8C /* UUID+ObvCodable.swift in Sources */,
-				C499102E20724CC0006CD9CA /* UIDAsObvCodable.swift in Sources */,
 				C40D966720AAE1B6000776E2 /* String+ObvCodable.swift in Sources */,
-				C499103620724D8B006CD9CA /* ObvPushNotificationTypeAsObvEncodable.swift in Sources */,
 				C4991023207242D5006CD9CA /* ArrayAsObvEncodable.swift in Sources */,
 				C499103A20724E2B006CD9CA /* DictionaryAsObvCodable.swift in Sources */,
 				C410D1C4211133F300E77E59 /* Date+ObvCodable.swift in Sources */,
@@ -472,7 +463,8 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -495,7 +487,11 @@
 				INFOPLIST_FILE = "$(SRCROOT)/../ObvTypes/ObvTypes/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvEncoder;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -522,7 +518,11 @@
 				INFOPLIST_FILE = "$(SRCROOT)/../ObvTypes/ObvTypes/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.ObvEncoder;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;

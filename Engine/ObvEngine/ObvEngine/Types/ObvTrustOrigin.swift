@@ -30,6 +30,7 @@ public enum ObvTrustOrigin: Hashable {
     case group(timestamp: Date, groupOwner: ObvContactIdentity?)
     case introduction(timestamp: Date, mediator: ObvContactIdentity?)
     case keycloak(timestamp: Date, keycloakServer: URL)
+    case serverGroupV2(timestamp: Date, groupIdentifier: ObvGroupV2.Identifier)
 
     public var date: Date {
         switch self {
@@ -37,6 +38,7 @@ public enum ObvTrustOrigin: Hashable {
         case .group(timestamp: let date, groupOwner: _): return date
         case .introduction(timestamp: let date, mediator: _): return date
         case .keycloak(timestamp: let date, keycloakServer: _): return date
+        case .serverGroupV2(timestamp: let date, groupIdentifier: _): return date
         }
     }
 }
@@ -70,6 +72,9 @@ extension ObvTrustOrigin {
 
             case .keycloak(timestamp: let timestamp, keycloakServer: let keycloakServer):
                 return ObvTrustOrigin.keycloak(timestamp: timestamp, keycloakServer: keycloakServer)
+                
+            case .serverGroupV2(timestamp: let timestamp, groupIdentifier: let groupIdentifier):
+                return ObvTrustOrigin.serverGroupV2(timestamp: timestamp, groupIdentifier: groupIdentifier)
 
             }
         }

@@ -37,7 +37,7 @@ protocol ConcreteProtocolMessage: GenericProtocolMessageToSendGenerator {
     var timestamp: Date { get }
     
     // Used to easily implement a function generating a message to send
-    var encodedInputs: [ObvEncoded] { get }
+    var encodedInputs: [ObvEncoded] { get throws }
 }
 
 extension ConcreteProtocolMessage {
@@ -60,6 +60,7 @@ extension ConcreteProtocolMessage {
     
     func generateGenericProtocolMessageToSend() -> GenericProtocolMessageToSend? {
         guard let channelType = coreProtocolMessage.channelType else { return nil }
+        guard let encodedInputs = try? encodedInputs else { return nil }
         let genericProtocolMessageToSend =  GenericProtocolMessageToSend(channelType: channelType,
                                                                          cryptoProtocolId: cryptoProtocolId,
                                                                          protocolInstanceUid: coreProtocolMessage.protocolInstanceUid,

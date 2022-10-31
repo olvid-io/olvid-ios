@@ -24,6 +24,7 @@ import ObvEngine
 import os.log
 import ObvTypes
 import WebRTC
+import ObvCrypto
 
 
 actor Call: GenericCall, ObvErrorMaker {
@@ -36,7 +37,7 @@ actor Call: GenericCall, ObvErrorMaker {
     let direction: CallDirection
 
     let uuidForWebRTC: UUID
-    let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+    let groupId: GroupIdentifierBasedOnObjectID?
     let ownedIdentity: ObvCryptoId
     private var callParticipants = Set<HashableCallParticipant>()
 
@@ -255,7 +256,7 @@ actor Call: GenericCall, ObvErrorMaker {
     }
 
     
-    private init(direction: CallDirection, uuid: UUID, usesCallKit: Bool, uuidForWebRTC: UUID?, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data?, messageUploadTimestampFromServer: Date?, initialParticipantCount: Int, turnCredentialsReceivedFromCaller: TurnCredentials?, obvTurnCredentials: ObvTurnCredentials?, queueForPostingNotifications: DispatchQueue) {
+    private init(direction: CallDirection, uuid: UUID, usesCallKit: Bool, uuidForWebRTC: UUID?, groupId: GroupIdentifierBasedOnObjectID?, ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data?, messageUploadTimestampFromServer: Date?, initialParticipantCount: Int, turnCredentialsReceivedFromCaller: TurnCredentials?, obvTurnCredentials: ObvTurnCredentials?, queueForPostingNotifications: DispatchQueue) {
         
         self.uuid = uuid
         self.usesCallKit = usesCallKit
@@ -285,11 +286,29 @@ actor Call: GenericCall, ObvErrorMaker {
         
         let callParticipant = await CallParticipantImpl.createCaller(startCallMessage: startCallMessage, contactId: contactId)
 
+        var groupId: GroupIdentifierBasedOnObjectID?
+        switch startCallMessage.groupIdentifier {
+        case .none:
+            groupId = nil
+        case .groupV1(groupV1Identifier: let groupV1Identifier):
+            ObvStack.shared.performBackgroundTaskAndWait { context in
+                if let persistedGroup = try? PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedCryptoId: callParticipant.ownedIdentity, within: context) {
+                    groupId = .groupV1(persistedGroup.typedObjectID)
+                }
+            }
+        case .groupV2(groupV2Identifier: let groupV2Identifier):
+            ObvStack.shared.performBackgroundTaskAndWait { context in
+                if let group = try? PersistedGroupV2.get(ownIdentity: callParticipant.ownedIdentity, appGroupIdentifier: groupV2Identifier, within: context) {
+                    groupId = .groupV2(group.typedObjectID)
+                }
+            }
+        }
+        
         let call = Call(direction: .incoming,
                         uuid: uuid,
                         usesCallKit: useCallKit,
                         uuidForWebRTC: uuidForWebRTC,
-                        groupId: startCallMessage.groupId,
+                        groupId: groupId,
                         ownedIdentity: callParticipant.ownedIdentity,
                         messageIdentifierFromEngine: messageIdentifierFromEngine,
                         messageUploadTimestampFromServer: messageUploadTimestampFromServer,
@@ -311,7 +330,7 @@ actor Call: GenericCall, ObvErrorMaker {
     
     // MARK: Creating an outgoing call
 
-    static func createOutgoingCall(contactIds: [OlvidUserId], delegate: OutgoingCallDelegate, usesCallKit: Bool, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, queueForPostingNotifications: DispatchQueue) async throws -> Call {
+    static func createOutgoingCall(contactIds: [OlvidUserId], delegate: OutgoingCallDelegate, usesCallKit: Bool, groupId: GroupIdentifierBasedOnObjectID?, queueForPostingNotifications: DispatchQueue) async throws -> Call {
 
         var callParticipants = [CallParticipantImpl]()
         for contactId in contactIds {
@@ -833,26 +852,36 @@ extension Call: CallParticipantDelegate {
             throw Self.makeError(message: "The turn servers are not set, which is unexpected at this point")
         }
 
-        var flitredGroupId: (groupUid: UID, groupOwner: ObvCryptoId)? = nil
-        if let groupId = groupId {
+        var filteredGroupId: GroupIdentifier?
+        switch groupId {
+        case .groupV1(let objectID):
             let participantIdentity = callParticipant.remoteCryptoId
-            ObvStack.shared.viewContext.performAndWait {
-                guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity, within: ObvStack.shared.viewContext) else {
-                    os_log("Could not find ownedIdentity", log: log, type: .fault)
-                    return
-                }
-                guard let contactGroup = try? PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
+            ObvStack.shared.performBackgroundTaskAndWait { context in
+                guard let contactGroup = try? PersistedContactGroup.get(objectID: objectID.objectID, within: context) else {
                     os_log("Could not find contactGroup", log: log, type: .fault)
                     return
                 }
                 let groupMembers = Set(contactGroup.contactIdentities.map { $0.cryptoId })
-                if groupMembers.contains(participantIdentity) {
-                    flitredGroupId = groupId
+                if groupMembers.contains(participantIdentity), let groupV1Identifier = try? contactGroup.getGroupId() {
+                    filteredGroupId = .groupV1(groupV1Identifier: groupV1Identifier)
                 }
-                return
             }
+        case .groupV2(let objectID):
+            let participantIdentity = callParticipant.remoteCryptoId
+            ObvStack.shared.performBackgroundTaskAndWait { context in
+                guard let group = try? PersistedGroupV2.get(objectID: objectID, within: context) else {
+                    os_log("Could not find PersistedGroupV2", log: log, type: .fault)
+                    return
+                }
+                let groupMembers = Set(group.otherMembers.compactMap({ $0.cryptoId }))
+                if groupMembers.contains(participantIdentity) {
+                    filteredGroupId = .groupV2(groupV2Identifier: group.groupIdentifier)
+                }
+            }
+        case .none:
+            filteredGroupId = nil
         }
-
+    
         let message = try StartCallMessageJSON(
             sessionDescriptionType: RTCSessionDescription.string(for: sessionDescription.type),
             sessionDescription: sessionDescription.sdp,
@@ -860,7 +889,7 @@ extension Call: CallParticipantDelegate {
             turnPassword: turnCredentials.turnPassword,
             turnServers: turnServers,
             participantCount: callParticipants.count,
-            groupId: flitredGroupId,
+            groupIdentifier: filteredGroupId,
             gatheringPolicy: gatheringPolicy)
         
         try await sendWebRTCMessage(to: callParticipant, innerMessage: message, forStartingCall: true)

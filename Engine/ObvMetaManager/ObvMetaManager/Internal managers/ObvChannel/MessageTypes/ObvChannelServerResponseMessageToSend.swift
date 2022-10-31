@@ -46,12 +46,19 @@ public struct ObvChannelServerResponseMessageToSend: ObvChannelMessageToSend {
 // MARK: - QueryType
 
 extension ObvChannelServerResponseMessageToSend {
-    
+
     public enum ResponseType {
         case deviceDiscovery(of: ObvCryptoIdentity, deviceUids: [UID])
         case putUserData
-        case getUserData(of: ObvCryptoIdentity, userDataPath: String)
+        case getUserData(result: GetUserDataResult)
         case checkKeycloakRevocation(verificationSuccessful: Bool)
+        case createGroupBlob(uploadResult: UploadResult)
+        case getGroupBlob(result: GetGroupBlobResult)
+        case deleteGroupBlob(groupDeletionWasSuccessful: Bool)
+        case putGroupLog
+        case requestGroupBlobLock(result: RequestGroupBlobLockResult)
+        case updateGroupBlob(uploadResult: UploadResult)
+
 
         public func getEncodedInputs() -> [ObvEncoded] {
             switch self {
@@ -60,10 +67,22 @@ extension ObvChannelServerResponseMessageToSend {
                 return [listOfEncodedUids.obvEncode()]
             case .putUserData:
                 return []
-            case .getUserData(of: _, userDataPath: let userDataPath):
-                return [userDataPath.obvEncode()]
+            case .getUserData(result: let result):
+                return [result.obvEncode()]
             case .checkKeycloakRevocation(verificationSuccessful: let verificationSuccessful):
                 return [verificationSuccessful.obvEncode()]
+            case .createGroupBlob(uploadResult: let uploadResult):
+                return [uploadResult.obvEncode()]
+            case .getGroupBlob(let result):
+                return [result.obvEncode()]
+            case .deleteGroupBlob(let groupDeletionWasSuccessful):
+                return [groupDeletionWasSuccessful.obvEncode()]
+            case .putGroupLog:
+                return []
+            case .requestGroupBlobLock(let result):
+                return [result.obvEncode()]
+            case .updateGroupBlob(uploadResult: let uploadResult):
+                return [uploadResult.obvEncode()]
             }
         }
     }

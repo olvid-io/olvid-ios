@@ -285,14 +285,14 @@ extension ReceivedFyleMessageJoinWithStatus {
         }
         
         if changedKeys.contains(Predicate.Key.wasOpened.rawValue), wasOpened {
-            ObvMessengerInternalNotification.receivedFyleJoinHasBeenMarkAsOpened(receivedFyleJoinID: self.typedObjectID)
+            ReceivedFyleMessageJoinWithStatusNotifications.receivedFyleJoinHasBeenMarkAsOpened(receivedFyleJoinID: self.typedObjectID)
                 .postOnDispatchQueue()
         }
                 
         let statusChanged = changedKeys.contains(FyleMessageJoinWithStatus.Predicate.Key.rawStatus.rawValue)
         
         if !isDeleted && (statusChanged || isInserted), status == .complete, let returnReceipt = receivedMessage.returnReceipt, let contactCryptoId = receivedMessage.contactIdentity?.cryptoId, let ownedCryptoId = receivedMessage.contactIdentity?.ownedIdentity?.cryptoId {
-            ObvMessengerInternalNotification.aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus(
+            ReceivedFyleMessageJoinWithStatusNotifications.aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus(
                 returnReceipt: returnReceipt,
                 contactCryptoId: contactCryptoId,
                 ownedCryptoId: ownedCryptoId,

@@ -53,7 +53,7 @@ final class ObvTitleAndSwitchTableViewCell: UITableViewCell {
         set { self.uiSwitch.isEnabled = newValue }
     }
     
-    init(reuseIdentifier: String) {
+    init(reuseIdentifier: String?) {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
         setup()
     }

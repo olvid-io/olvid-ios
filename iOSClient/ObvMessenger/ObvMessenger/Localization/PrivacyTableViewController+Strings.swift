@@ -25,18 +25,6 @@ extension PrivacyTableViewController {
     struct Strings {
         
         static let laEvaluatePolicyReason = NSLocalizedString("Authenticate", comment: "")
-        
-        struct loginWith {
-            static let passcode = NSLocalizedString("Log in with passcode", comment: "Cell label")
-            static let touchID = NSLocalizedString("Log in with Touch ID", comment: "Cell label")
-            static let faceID = NSLocalizedString("Log in with Face ID", comment: "Cell label")
-        }
-        
-        struct explanationLoginWith {
-            static let passcode = NSLocalizedString("Explanation for Log in with passcode", comment: "Cell label")
-            static let touchID = NSLocalizedString("Explanation for Log in with Touch ID", comment: "Cell label")
-            static let faceID = NSLocalizedString("Explanation for Log in with Face ID", comment: "Cell label")
-        }
                 
         struct notificationContentPrivacyStyle {
             static let title = NSLocalizedString("Hide notifications content", comment: "Cell label")
@@ -51,10 +39,16 @@ extension PrivacyTableViewController {
         static let screenLock = NSLocalizedString("Screen Lock", comment: "")
         
         static let changingSettingRequiresAuthentication = NSLocalizedString("Please authenticate in order to change this setting.", comment: "Cell label")
-        
-        struct passcodeNotSetAlert {
-            static let message = NSLocalizedString("No passcode set on this iPhone.", comment: "Alert title")
+
+        static let noGracePeriodExplanation = NSLocalizedString("NO_GRACE_PERIOD_EXPLANATION", comment: "")
+
+        static let gracePeriodExplanation = { (duration: String) in
+            return String.localizedStringWithFormat(NSLocalizedString("GRACE_PERIOD_EXPLANATION_%@", comment: ""), duration)
         }
+
+        static let lockoutCleanEphemeralTitle = NSLocalizedString("LOCKOUT_CLEAN_EPHEMERAL_TITLE", comment: "")
+
+        static let lockoutCleanEphemeralExplanation = NSLocalizedString("LOCKOUT_CLEAN_EPHEMERAL_EXPLANATION", comment: "")
     }
     
 }

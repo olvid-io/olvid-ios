@@ -27,7 +27,7 @@ enum CircledInitialsIcon: Hashable {
 
     var icon: ObvSystemIcon {
         switch self {
-        case .lockFill: return .lockFill
+        case .lockFill: return .lock(.fill)
         case .person: return .person
         case .person3Fill: return .person3Fill
         case .personFillXmark: return .personFillXmark
@@ -88,6 +88,19 @@ enum CircledInitialsConfiguration: Hashable {
         }
     }
 
+    var photo: UIImage? {
+        let url: URL?
+        switch self {
+        case .contact(initial: _, photoURL: let photoURL, showGreenShield: _, showRedShield: _, colors: _):
+            url = photoURL
+        case .group(photoURL: let photoURL, colors: _):
+            url = photoURL
+        case .icon:
+            url = nil
+        }
+        guard let url = url else { return nil }
+        return UIImage(contentsOfFile: url.path)
+    }
 }
 
 /// Square view, with a rounded clip view allowing to display either an icon, an initial (letter), or a photo.

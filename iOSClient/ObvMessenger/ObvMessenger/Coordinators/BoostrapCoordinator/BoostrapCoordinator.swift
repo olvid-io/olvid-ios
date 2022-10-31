@@ -20,15 +20,17 @@
 import Foundation
 import os.log
 import CoreData
-import ObvEngine
+import ObvTypes
 import LinkPresentation
 import OlvidUtils
+import ObvEngine
 
 
 final class BootstrapCoordinator {
     
     private let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
     private let internalQueue: OperationQueue
 
@@ -48,7 +50,6 @@ final class BootstrapCoordinator {
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         // Bootstrap now
         syncPersistedContactDevicesWithEngineObliviousChannelsOnOwnedIdentityChangedNotifications()
-        processRequestSyncAppDatabasesWithEngine(completion: { _ in })
         if let userDefaults = self.userDefaults {
             userDefaults.resetObjectsModifiedByShareExtension()
         }
@@ -63,6 +64,7 @@ final class BootstrapCoordinator {
         resetOwnObvCapabilities()
         autoAcceptPendingGroupInvitesIfPossible()
         if forTheFirstTime {
+            processRequestSyncAppDatabasesWithEngine(completion: { _ in })
             deleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
         }
     }
@@ -139,8 +141,8 @@ extension BootstrapCoordinator {
                 let obvDialogsFromEngine = try await obvEngine.getAllDialogsWithinEngine()
                 let op1 = SyncPersistedInvitationsWithEngineOperation(obvDialogsFromEngine: obvDialogsFromEngine, obvEngine: obvEngine)
                 let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-                internalQueue.addOperations([composedOp], waitUntilFinished: true)
-                composedOp.logReasonIfCancelled(log: log)
+                composedOp.completionBlock = { composedOp.logReasonIfCancelled(log: Self.log) }
+                internalQueue.addOperation(composedOp)
             } catch {
                 os_log("Could not get all the dialog from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
             }
@@ -206,7 +208,8 @@ extension BootstrapCoordinator {
         let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
         let op2 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
         let op3 = SyncPersistedContactGroupsWithEngineOperation(obvEngine: obvEngine)
-        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        let op4 = SyncPersistedContactGroupsV2WithEngineOperation(obvEngine: obvEngine)
+        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
         if composedOp.isCancelled {

@@ -410,6 +410,8 @@ extension NetworkFetchFlowCoordinator {
     
     func processUnprocessedMessages(flowId: FlowIdentifier) {
         
+        assert(!Thread.isMainThread)
+        
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
@@ -419,6 +421,10 @@ extension NetworkFetchFlowCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
         os_log("Processing unprocessed messages within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+
+        if Thread.isMainThread {
+            os_log("processUnprocessedMessages is running on the main thread", log: log, type: .fault)
+        }
 
         guard let notificationDelegate = delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)
@@ -443,6 +449,7 @@ extension NetworkFetchFlowCoordinator {
             maxNumberOfOperations -= 1
             assert(maxNumberOfOperations > 0, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
             
+            os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (maxNumberOfOperations is %d)", log: log, type: .info, maxNumberOfOperations)
             let op1 = ProcessBatchOfUnprocessedMessagesOperation(queueForPostingNotifications: queueForPostingNotifications,
                                                                  notificationDelegate: notificationDelegate,
                                                                  processDownloadedMessageDelegate: processDownloadedMessageDelegate,
@@ -451,10 +458,15 @@ extension NetworkFetchFlowCoordinator {
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
             composedOp.logReasonIfCancelled(log: log)
             if composedOp.isCancelled {
+                os_log("The ProcessBatchOfUnprocessedMessagesOperation cancelled: %{public}@", log: log, type: .fault, composedOp.reasonForCancel?.localizedDescription ?? "No reason given")
                 assertionFailure(composedOp.reasonForCancel.debugDescription)
                 moreUnprocessedMessagesRemain = false
             } else {
+                os_log("The ProcessBatchOfUnprocessedMessagesOperation succeeded", log: log, type: .info)
                 moreUnprocessedMessagesRemain = op1.moreUnprocessedMessagesRemain ?? false
+                if moreUnprocessedMessagesRemain {
+                    os_log("More unprocessed messages remain", log: log, type: .info)
+                }
             }
             
         }
@@ -927,6 +939,7 @@ extension NetworkFetchFlowCoordinator {
 
             guard let serverResponseType = serverQuery.responseType else {
                 os_log("The server response type is not set", log: log, type: .fault)
+                assertionFailure()
                 return
             }
 
@@ -936,10 +949,22 @@ extension NetworkFetchFlowCoordinator {
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.deviceDiscovery(of: contactIdentity, deviceUids: deviceUids)
             case .putUserData:
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.putUserData
-            case .getUserData(of: let contactIdentity, userDataPath: let userDataPath):
-                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.getUserData(of: contactIdentity, userDataPath: userDataPath)
+            case .getUserData(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.getUserData(result: result)
             case .checkKeycloakRevocation(verificationSuccessful: let verificationSuccessful):
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.checkKeycloakRevocation(verificationSuccessful: verificationSuccessful)
+            case .createGroupBlob(uploadResult: let uploadResult):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.createGroupBlob(uploadResult: uploadResult)
+            case .getGroupBlob(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.getGroupBlob(result: result)
+            case .deleteGroupBlob(let groupDeletionWasSuccessful):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.deleteGroupBlob(groupDeletionWasSuccessful: groupDeletionWasSuccessful)
+            case .putGroupLog:
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.putGroupLog
+            case .requestGroupBlobLock(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.requestGroupBlobLock(result: result)
+            case .updateGroupBlob(uploadResult: let uploadResult):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.updateGroupBlob(uploadResult: uploadResult)
             }
 
             let aResponseMessageShouldBePosted: Bool

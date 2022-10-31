@@ -44,6 +44,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
     case KeycloakContactAddition = 15
     case ContactCapabilitiesDiscovery = 16
     case OneToOneContactInvitation = 17
+    case GroupV2 = 18
+    case DownloadGroupV2Photo = 19
 
     func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
         var concreteCryptoProtocol: ConcreteCryptoProtocol?
@@ -82,6 +84,10 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
             concreteCryptoProtocol = DeviceCapabilitiesDiscoveryProtocol(protocolInstance: instance, prng: prng)
         case .OneToOneContactInvitation:
             concreteCryptoProtocol = OneToOneContactInvitationProtocol(protocolInstance: instance, prng: prng)
+        case .GroupV2:
+            concreteCryptoProtocol = GroupV2Protocol(protocolInstance: instance, prng: prng)
+        case .DownloadGroupV2Photo:
+            concreteCryptoProtocol = DownloadGroupV2PhotoProtocol(protocolInstance: instance, prng: prng)
         }
         return concreteCryptoProtocol
     }
@@ -207,6 +213,20 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
                                                      delegateManager: delegateManager,
                                                      prng: prng,
                                                      within: obvContext)
+        case .GroupV2:
+            return GroupV2Protocol(instanceUid: instanceUid,
+                                   currentState: ConcreteProtocolInitialState(),
+                                   ownedCryptoIdentity: ownedCryptoIdentity,
+                                   delegateManager: delegateManager,
+                                   prng: prng,
+                                   within: obvContext)
+        case .DownloadGroupV2Photo:
+            return DownloadGroupV2PhotoProtocol(instanceUid: instanceUid,
+                                                currentState: ConcreteProtocolInitialState(),
+                                                ownedCryptoIdentity: ownedCryptoIdentity,
+                                                delegateManager: delegateManager,
+                                                prng: prng,
+                                                within: obvContext)
         }
     }
 }
@@ -232,6 +252,8 @@ extension CryptoProtocolId {
         case .TrustEstablishmentWithMutualScan: return "TrustEstablishmentWithMutualScan"
         case .ContactCapabilitiesDiscovery: return "ContactCapabilitiesDiscovery"
         case .OneToOneContactInvitation: return "OneToOneContactInvitation"
+        case .GroupV2: return "GroupV2"
+        case .DownloadGroupV2Photo: return "DownloadGroupV2Photo"
         }
     }
 

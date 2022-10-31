@@ -39,7 +39,6 @@ extension RecentDiscussionsViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         addAndConfigureDiscussionsTableViewController()
-        title = CommonString.Word.Discussions
         
         var rightBarButtonItems = [UIBarButtonItem]()
 
@@ -81,7 +80,7 @@ extension RecentDiscussionsViewController {
         discussionsTVC.setFetchRequestsAndImages([
             (PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "clock")!),
             (PersistedOneToOneDiscussion.getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person")!),
-            (PersistedGroupDiscussion.getFetchRequestForAllActiveGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
+            (PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
         ])
 
         discussionsTVC.view.translatesAutoresizingMaskIntoConstraints = false

@@ -40,6 +40,8 @@ extension PersistedDiscussion {
                 return contactIdentity?.circledInitialsConfiguration
             case .groupV1(withContactGroup: let contactGroup):
                 return contactGroup?.circledInitialsConfiguration
+            case .groupV2(withGroup: let group):
+                return group?.circledInitialsConfiguration
             case .none:
                 assertionFailure()
                 return .icon(.lockFill)

@@ -20,6 +20,7 @@
 import Foundation
 import ObvEncoder
 import ObvCrypto
+import CryptoKit
 
 /// This structure allows to transfer a server query from the engine to the server. This is for example used to ask the server about the list of device uids of a given identity.
 public struct ObvChannelServerQueryMessageToSend: ObvChannelMessageToSend {
@@ -45,9 +46,15 @@ extension ObvChannelServerQueryMessageToSend {
     
     public enum QueryType {
         case deviceDiscovery(of: ObvCryptoIdentity)
-        case putUserData(label: String, dataURL: URL, dataKey: AuthenticatedEncryptionKey)
-        case getUserData(of: ObvCryptoIdentity, label: String)
+        case putUserData(label: UID, dataURL: URL, dataKey: AuthenticatedEncryptionKey)
+        case getUserData(of: ObvCryptoIdentity, label: UID)
         case checkKeycloakRevocation(keycloakServerUrl: URL, signedContactDetails: String)
+        case createGroupBlob(groupIdentifier: GroupV2.Identifier, serverAuthenticationPublicKey: PublicKeyForAuthentication, encryptedBlob: EncryptedData)
+        case getGroupBlob(groupIdentifier: GroupV2.Identifier)
+        case deleteGroupBlob(groupIdentifier: GroupV2.Identifier, signature: Data)
+        case putGroupLog(groupIdentifier: GroupV2.Identifier, querySignature: Data)
+        case requestGroupBlobLock(groupIdentifier: GroupV2.Identifier, lockNonce: Data, signature: Data)
+        case updateGroupBlob(groupIdentifier: GroupV2.Identifier, encodedServerAdminPublicKey: ObvEncoded, encryptedBlob: EncryptedData, lockNonce: Data, signature: Data)
     }
     
 }

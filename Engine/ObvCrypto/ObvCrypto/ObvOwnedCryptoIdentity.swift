@@ -19,7 +19,6 @@
 
 import Foundation
 import ObvEncoder
-import ObvTypes
 
 
 public final class ObvOwnedCryptoIdentity: NSObject, NSCopying {

@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvEngine
 import ObvTypes
+import ObvCrypto
 
 
 @objc(PersistedDiscussionSharedConfiguration)
@@ -207,6 +208,21 @@ extension PersistedDiscussionSharedConfiguration {
                 guard contactGroup.ownerIdentity == initiator.getIdentity() else {
                     throw makeError(message: "The initiator of the change is not the group owner")
                 }
+            case .groupV2(withGroup: let group):
+                guard let group = group else {
+                    throw makeError(message: "Cannot find group v2")
+                }
+                if try group.ownCryptoId == initiator {
+                    guard group.ownedIdentityIsAllowedToChangeSettings else {
+                        throw makeError(message: "The initiator is not allowed to change settings")
+                    }
+                } else if let initiatorAsMember = group.otherMembers.first(where: { $0.identity == initiator.getIdentity() }) {
+                    guard initiatorAsMember.isAllowedToChangeSettings else {
+                        throw makeError(message: "The initiator is not allowed to change settings")
+                    }
+                } else {
+                    throw makeError(message: "The initiator is not part of the group")
+                }
             case .none:
                 assertionFailure()
                 throw makeError(message: "Unknown discussion type")
@@ -227,6 +243,9 @@ extension PersistedDiscussionSharedConfiguration {
             case .groupV1(withContactGroup: let contactGroup):
                 guard let contactGroup = contactGroup else { assertionFailure(); return false }
                 return contactGroup.category == .owned
+            case .groupV2(withGroup: let group):
+                guard let group = group else { assertionFailure(); return false }
+                return group.ownedIdentityIsAllowedToChangeSettings
             case .none:
                 assertionFailure()
                 return false
@@ -277,17 +296,18 @@ extension PersistedDiscussionSharedConfiguration {
     
     func toJSON() throws -> DiscussionSharedConfigurationJSON {
         let expiration = self.toExpirationJSON()
-        let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
         switch try discussion?.kind {
         case .oneToOne, .none:
-            groupId = nil
+            return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration)
         case .groupV1(withContactGroup: let contactGroup):
             guard let contactGroup = contactGroup else { throw makeError(message: "Could not find contact group of group discussion") }
-            groupId = try contactGroup.getGroupId()
+            let groupV1Identifier = try contactGroup.getGroupId()
+            return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration, groupV1Identifier: groupV1Identifier)
+        case .groupV2(withGroup: let group):
+            guard let group = group else { throw makeError(message: "Could not find group v2 of group discussion") }
+            let groupV2Identifier = group.groupIdentifier
+            return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration, groupV2Identifier: groupV2Identifier)
         }
-        return DiscussionSharedConfigurationJSON(version: self.version,
-                                                 expiration: expiration,
-                                                 groupId: groupId)
     }
     
 }

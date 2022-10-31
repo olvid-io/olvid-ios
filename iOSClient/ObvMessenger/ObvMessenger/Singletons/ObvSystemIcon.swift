@@ -21,6 +21,34 @@ import Foundation
 import SwiftUI
 import CryptoKit
 
+enum FillOption {
+    case none
+    case fill
+
+    var complement: String {
+        switch self {
+        case .none:
+            return ""
+        case .fill:
+            return ".fill"
+        }
+    }
+}
+
+enum ShieldOption {
+    case none
+    case shield
+
+    var complement: String {
+        switch self {
+        case .none:
+            return ""
+        case .shield:
+            return ".shield"
+        }
+    }
+}
+
 enum CircleCircleFillOption {
     case circle
     case circleFill
@@ -71,6 +99,7 @@ enum ObvSystemIcon: Hashable {
     case arrowshapeTurnUpLeft2
     case arrowshapeTurnUpLeftCircleFill
     case arrowTriangle2CirclepathCircle
+    case arrowTriangle2CirclepathCircleFill
     case book
     case bookmark
     case bubbleLeftAndBubbleRight
@@ -124,7 +153,7 @@ enum ObvSystemIcon: Hashable {
     case icloudFill
     case infoCircle
     case link
-    case lockFill
+    case lock(_: FillOption = .none, _: ShieldOption = .none)
     case network
     case micCircle
     case micCircleFill
@@ -191,6 +220,7 @@ enum ObvSystemIcon: Hashable {
     case xmark
     case xmarkCircle
     case xmarkCircleFill
+    case xmarkOctagon
     case xmarkOctagonFill
     case heartSlashFill
 
@@ -224,7 +254,13 @@ enum ObvSystemIcon: Hashable {
             if #available(iOS 14, *) {
                 return "arrow.triangle.2.circlepath.circle"
             } else {
-                return "arrow.clockwise"
+                return "arrow.clockwise.circle"
+            }
+        case .arrowTriangle2CirclepathCircleFill:
+            if #available(iOS 14, *) {
+                return "arrow.triangle.2.circlepath.circle.fill"
+            } else {
+                return "arrow.clockwise.circle.fill"
             }
         case .trashCircle:
             return "trash.circle"
@@ -330,8 +366,8 @@ enum ObvSystemIcon: Hashable {
             return "creditcard.fill"
         case .link:
             return "link"
-        case .lockFill:
-            return "lock.fill"
+        case .lock(let fill, let shield):
+            return "lock" + shield.complement + fill.complement
         case .giftcardFill:
             if #available(iOS 14, *) {
                 return "giftcard.fill"
@@ -422,6 +458,8 @@ enum ObvSystemIcon: Hashable {
             return "xmark.circle"
         case .xmarkCircleFill:
             return "xmark.circle.fill"
+        case .xmarkOctagon:
+            return "xmark.octagon"
         case .xmarkOctagonFill:
             return "xmark.octagon.fill"
         case .squareAndArrowUp:

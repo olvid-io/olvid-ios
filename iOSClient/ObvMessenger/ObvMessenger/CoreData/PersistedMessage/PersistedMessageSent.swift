@@ -84,7 +84,6 @@ final class PersistedMessageSent: PersistedMessage {
             }
         }
         set {
-            guard self.status < newValue else { return }
             self.rawStatus = newValue.rawValue
             switch self.status {
             case .unprocessed:
@@ -94,18 +93,18 @@ final class PersistedMessageSent: PersistedMessage {
             case .sent:
                 // When a sent message is marked as "sent", we check whether it has a limited visibility.
                 // If this is the case, we immediately create an appropriate expiration for this message.
-                if let visibilityDuration = self.visibilityDuration {
-                    assert(self.expirationForSentLimitedVisibility == nil)
-                    self.expirationForSentLimitedVisibility = PersistedExpirationForSentMessageWithLimitedVisibility(messageSentWithLimitedVisibility: self,
-                                                                                                                     visibilityDuration: visibilityDuration,
-                                                                                                                     retainWipedMessageSent: retainWipedOutboundMessages)
+                if let visibilityDuration = self.visibilityDuration, self.expirationForSentLimitedVisibility == nil {
+                    self.expirationForSentLimitedVisibility = PersistedExpirationForSentMessageWithLimitedVisibility(
+                        messageSentWithLimitedVisibility: self,
+                        visibilityDuration: visibilityDuration,
+                        retainWipedMessageSent: retainWipedOutboundMessages)
                 }
                 // When a sent message is marked as "sent", we check whether it has a limited existence.
                 // If this is the case, we immediately create an appropriate expiration for this message.
-                if let existenceDuration = self.existenceDuration {
-                    assert(self.expirationForSentLimitedExistence == nil)
-                    self.expirationForSentLimitedExistence =  PersistedExpirationForSentMessageWithLimitedExistence(messageSentWithLimitedExistence: self,
-                                                                                                                    existenceDuration: existenceDuration)
+                if let existenceDuration = self.existenceDuration, self.expirationForSentLimitedExistence == nil {
+                    self.expirationForSentLimitedExistence =  PersistedExpirationForSentMessageWithLimitedExistence(
+                        messageSentWithLimitedExistence: self,
+                        existenceDuration: existenceDuration)
                 }
             case .delivered:
                 break
@@ -128,26 +127,33 @@ final class PersistedMessageSent: PersistedMessage {
 
     
     /// This method is typically called each time a PersistedMessageSentRecipientInfos is updated.
-    /// It loops through all infos and set the status to the "minimum" possible status.
+    /// It loops through all infos and set the status to an appropriate status :
+    /// - **unprocessed**: if no info has an identifier from the engine.
+    /// - **processing**: if at least one info has an idenfier from the engine but cannot be marked as sent, delivered, nor read.
+    /// - **sent**: If all infos that have an identifier from engine also are such that `messageAndAttachmentsAreSent` is `true` but cannot be marked as delivered nor read.
+    /// - **delivered**: If all infos that have an identifier from engine also are such that `timestampDelivered` is not `nil` but cannot be marked as read.
+    /// - **read**: If all infos that have an identifier from engine also are such that `timestampRead` is not `nil`.
     func refreshStatus() {
         let notDeletedUnsortedRecipientsInfos = unsortedRecipientsInfos.filter { !$0.isDeleted }
+        
+        let infosWithIdentifierFromEngine = notDeletedUnsortedRecipientsInfos
+            .filter({ $0.messageIdentifierFromEngine != nil })
 
-        let atLeastOneInfoHasMessageIdentifierFromEngine = notDeletedUnsortedRecipientsInfos.contains(where: { $0.messageIdentifierFromEngine != nil })
-        let allMessageAndAttachmentsAreSent = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.messageAndAttachmentsAreSent }
-        let allInfosHaveTimestampDelivered = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.timestampDelivered != nil }
-        let allInfosHaveTimestampRead = notDeletedUnsortedRecipientsInfos.allSatisfy { $0.timestampRead != nil }
-
-        if allInfosHaveTimestampRead {
-            self.status = .read
-        } else if allInfosHaveTimestampDelivered {
-            self.status = .delivered
-        } else if allMessageAndAttachmentsAreSent {
-            self.status = .sent
-        } else if atLeastOneInfoHasMessageIdentifierFromEngine {
-            self.status = .processing
-        } else {
+        guard !infosWithIdentifierFromEngine.isEmpty else {
             self.status = .unprocessed
+            return
         }
+        
+        if infosWithIdentifierFromEngine.allSatisfy({ $0.timestampRead != nil }) {
+            self.status = .read
+        } else if infosWithIdentifierFromEngine.allSatisfy({ $0.timestampDelivered != nil }) {
+            self.status = .delivered
+        } else if infosWithIdentifierFromEngine.allSatisfy({ $0.messageAndAttachmentsAreSent }) {
+            self.status = .sent
+        } else {
+            self.status = .processing
+        }
+
     }
     
 
@@ -259,13 +265,19 @@ extension PersistedMessageSent {
 
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw PersistedMessageSent.makeError(message: "Could not find context") }
 
-        // Received messages can only be created when the discussion status is 'active'
+        // Sent messages can only be created when the discussion status is 'active'
         
         switch discussion.status {
         case .locked, .preDiscussion:
             throw Self.makeError(message: "Cannot create PersistedMessageSent, the discussion is not active")
         case .active:
             break
+        }
+        
+        // To send a message in a group v2 discussion, we must be allowed to do so
+        
+        guard try discussion.ownedIdentityIsAllowedToSendMessagesInThisDiscussion else {
+            throw Self.makeError(message: "The owned identity is not allowed to send messages in this discussion")
         }
 
         let timestamp = Date()
@@ -302,9 +314,13 @@ extension PersistedMessageSent {
         }
 
         // Create the recipient infos entries for the contact(s) that are part of the discussion
+        
         self.unsortedRecipientsInfos = Set<PersistedMessageSentRecipientInfos>()
+        
         switch try? discussion.kind {
+            
         case .oneToOne(withContactIdentity: let contactIdentity):
+            
             guard let contactIdentity = contactIdentity else {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
                 throw makeError(message: "Could not find contact identity. This is ok if it has just been deleted.")
@@ -314,12 +330,12 @@ extension PersistedMessageSent {
                 throw makeError(message: "Trying to create PersistedMessageSentRecipientInfos for an inactive contact, which is not allowed.")
             }
             let recipientIdentity = contactIdentity.cryptoId.getIdentity()
-            guard let infos = PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity,
-                                                                 messageSent: self) else {
-                throw makeError(message: "Could not find PersistedMessageSentRecipientInfos")
-            }
+            let infos = try PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity,
+                                                               messageSent: self)
             self.unsortedRecipientsInfos.insert(infos)
+            
         case .groupV1(withContactGroup: let contactGroup):
+            
             guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
                 throw makeError(message: "Could find contact group (this is ok if it was just deleted)")
@@ -330,15 +346,36 @@ extension PersistedMessageSent {
                     continue
                 }
                 let recipientIdentity = recipient.cryptoId.getIdentity()
-                guard let infos = PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self) else {
-                    throw makeError(message: "Could not find PersistedMessageSentRecipientInfos")
-                }
+                let infos = try PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self)
                 self.unsortedRecipientsInfos.insert(infos)
             }
             guard !self.unsortedRecipientsInfos.isEmpty else {
                 os_log("We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case", log: log, type: .error)
                 throw makeError(message: "We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case")
             }
+            
+        case .groupV2(withGroup: let group):
+            
+            guard let group = group else {
+                os_log("Could find group v2 (this is ok if it was just deleted)", log: log, type: .error)
+                throw makeError(message: "Could find group v2 (this is ok if it was just deleted)")
+            }
+            for recipient in group.otherMembers {
+                if let contact = recipient.contact {
+                    guard contact.isActive else {
+                        os_log("One of the group contacts is inactive. We do not create PersistedMessageSentRecipientInfos for this contact.", log: log, type: .error)
+                        continue
+                    }
+                }
+                let recipientIdentity = recipient.identity
+                let infos = try PersistedMessageSentRecipientInfos(recipientIdentity: recipientIdentity, messageSent: self)
+                self.unsortedRecipientsInfos.insert(infos)
+            }
+            guard !self.unsortedRecipientsInfos.isEmpty else {
+                os_log("We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case", log: log, type: .error)
+                throw makeError(message: "We created no recipient infos. This happens when all the contacts of a group are inactive. We do not create a PersistedMessageSent in this case")
+            }
+            
         case .none:
             throw makeError(message: "Unexpected discussion type.")
         }
@@ -356,29 +393,6 @@ extension PersistedMessageSent {
                       visibilityDuration: draft.visibilityDuration,
                       existenceDuration: draft.existenceDuration,
                       forwarded: false)
-    }
-    
-    
-    /// Called when a sent message with limited visibility reached the end of this visibility (in which case the requester is nil)
-    /// or when a message was globally wiped (in which case the requester is non nil)
-    func wipe(requester: PersistedObvContactIdentity? = nil) throws {
-        if requester == nil {
-            guard !isLocallyWiped else { return }
-        } else {
-            guard !isRemoteWiped else { return }
-        }
-        for join in fyleMessageJoinWithStatuses {
-            try join.wipe()
-        }
-        self.deleteBody()
-        try? self.reactions.forEach { try $0.delete() }
-        if let remoteCryptoId = requester?.cryptoId {
-            try addMetadata(kind: .remoteWiped(remoteCryptoId: remoteCryptoId), date: Date())
-        } else {
-            try addMetadata(kind: .wiped, date: Date())
-        }
-        // It makes no sens to keep an existing visibility expiration (if one exists) since we just wiped the message.
-        try expirationForSentLimitedVisibility?.delete()
     }
     
 }
@@ -463,10 +477,26 @@ extension PersistedMessageSent {
     
     
     func toJSON() -> MessageJSON? {
-        let groupId: (groupUid: UID, groupOwner: ObvCryptoId)?
+        
+        let replyToJSON: MessageReferenceJSON?
+        switch self.repliesTo {
+        case .available(message: let replyTo):
+            replyToJSON = replyTo.toMessageReferenceJSON()
+        case .none, .deleted:
+            replyToJSON = nil
+        }
+
         switch try? discussion.kind {
+            
         case .oneToOne, .none:
-            groupId = nil
+
+            return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
+                               senderThreadIdentifier: self.discussion.senderThreadIdentifier,
+                               body: self.textBodyToSend,
+                               replyTo: replyToJSON,
+                               expiration: self.expirationJSON,
+                               forwarded: self.forwarded)
+            
         case .groupV1(withContactGroup: let contactGroup):
             guard let contactGroup = contactGroup else {
                 os_log("Could find contact group (this is ok if it was just deleted)", log: log, type: .error)
@@ -489,32 +519,69 @@ extension PersistedMessageSent {
             } else {
                 return nil
             }
-            groupId = (groupUid, groupOwner)
-        }
+            let groupV1Identifier = (groupUid, groupOwner)
+            
+            return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
+                               senderThreadIdentifier: self.discussion.senderThreadIdentifier,
+                               body: self.textBodyToSend,
+                               groupV1Identifier: groupV1Identifier,
+                               replyTo: replyToJSON,
+                               expiration: self.expirationJSON,
+                               forwarded: self.forwarded)
 
-        let replyToJSON: MessageReferenceJSON?
-        switch self.repliesTo {
-        case .available(message: let replyTo):
-            replyToJSON = replyTo.toMessageReferenceJSON()
-        case .none, .deleted:
-            replyToJSON = nil
+        case .groupV2(withGroup: let group):
+            guard let group = group else {
+                os_log("Could find group v2 (this is ok if it was just deleted)", log: log, type: .error)
+                return nil
+            }
+            let groupV2Identifier = group.groupIdentifier
+            
+            let originalServerTimestamp = unsortedRecipientsInfos.compactMap({ $0.timestampMessageSent }).min()
+            
+            return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
+                               senderThreadIdentifier: self.discussion.senderThreadIdentifier,
+                               body: self.textBodyToSend,
+                               groupV2Identifier: groupV2Identifier,
+                               replyTo: replyToJSON,
+                               expiration: self.expirationJSON,
+                               forwarded: self.forwarded,
+                               originalServerTimestamp: originalServerTimestamp)
+
         }
         
-        return MessageJSON(senderSequenceNumber: self.senderSequenceNumber,
-                           senderThreadIdentifier: self.discussion.senderThreadIdentifier,
-                           body: self.textBodyToSend,
-                           groupId: groupId,
-                           replyTo: replyToJSON,
-                           expiration: self.expirationJSON,
-                           forwarded: self.forwarded)
     }
     
     
+    /// Called when serializing a message before sending it
     private var expirationJSON: ExpirationJSON? {
+        
         guard isEphemeralMessage else {
             return nil
         }
-        return ExpirationJSON(readOnce: readOnce, visibilityDuration: visibilityDuration, existenceDuration: existenceDuration)
+
+        // Special treatment for existence duration if there is one
+
+        let existenceDurationToUseInExpirationJSON: TimeInterval?
+        if let existenceDuration = existenceDuration {
+            /* In case the message to be sent has a limited existence, we must consider two cases (only occurring for group v2):
+             * - this is the first time we send this message
+             * - the message has already been sent (e.g. to other members of the group), and we are sending it again as new group members joined.
+             * In the first case, no problem, the existence duration to send is exactly the value found in self.existenceDuration. In the second case,
+             * we must send the *remaining* existence duration. For example, if the original existence duration was 30 minutes but the contact took 5 minutes to accept
+             * the group invitation, the existence that we must associate to the message is 25 minutes.
+             * In order to determine if we are sending this message for the first time or not, we check whether expirationForSentLimitedExistence is nil or not.
+             */
+            if let expirationForSentLimitedExistence = self.expirationForSentLimitedExistence {
+                existenceDurationToUseInExpirationJSON = max(0, expirationForSentLimitedExistence.expirationDate.timeIntervalSinceNow)
+            } else {
+                existenceDurationToUseInExpirationJSON = existenceDuration
+            }
+        } else {
+            existenceDurationToUseInExpirationJSON = nil
+        }
+        
+        return ExpirationJSON(readOnce: readOnce, visibilityDuration: visibilityDuration, existenceDuration: existenceDurationToUseInExpirationJSON)
+        
     }
 }
 
@@ -680,7 +747,45 @@ extension PersistedMessageSent {
         request.fetchBatchSize = 1_000
         return try context.fetch(request)
     }
+
+    /// Return readOnce and limited visibility messages with a timestamp less or equal to the specified date.
+    /// As we expect these messages to be deleted, we only fetch a limited number of properties.
+    /// This method should only be used to fetch messages that will eventually be deleted.
+    static func getAllReadOnceAndLimitedVisibilitySentMessagesToDelete(until date: Date, within context: NSManagedObjectContext) throws -> [PersistedMessageSent] {
+
+        let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
+        let orPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+            Predicate.readOnce,
+            Predicate.expiresForSentLimitedVisibility
+        ])
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            orPredicate,
+            PersistedMessage.Predicate.createdBeforeIncluded(date: date)
+        ])
+        request.predicate = predicate
+        
+        request.relationshipKeyPathsForPrefetching = [PersistedMessage.Predicate.Key.discussion.rawValue] // The delete() method needs the discussion to return infos
+        request.propertiesToFetch = [PersistedMessage.timestampKey] // The WipeAllEphemeralMessages operation needs the timestamp
+        request.fetchBatchSize = 100 // Keep memory footprint low
+        
+        return try context.fetch(request)
+    }
+
     
+    static func getDateOfLatestSentMessageWithLimitedVisibilityOrReadOnce(within context: NSManagedObjectContext) throws -> Date? {
+
+        let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
+        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+            Predicate.readOnce,
+            Predicate.expiresForSentLimitedVisibility
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.timestampKey, ascending: false)]
+        request.propertiesToFetch = [PersistedMessage.timestampKey]
+        request.fetchLimit = 1
+        let message = try context.fetch(request).first
+        return message?.timestamp
+    }
+
     
     /// This method returns the number of outbound messages within the specified discussion that are at least in the `sent` state.
     /// This method is typically used for later deleting messages so as to respect a count based retention policy.

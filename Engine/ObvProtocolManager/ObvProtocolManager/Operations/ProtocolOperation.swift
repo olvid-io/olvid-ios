@@ -28,7 +28,7 @@ import OlvidUtils
 
 /// This operation is queued by the `ProtocolStepMetaOperationsCoordinator`. Its purpose is to find a match between the protocol instance inputs and an existing protocol instance. If a match is found, it determines the correct step to execute. This step, itself, is an operation that we queue here on an internal queue.
 /// Note that this operation receives a context. This context is used within the protocol step operation (if one is executed). This context is only commited by the coordinator.
-final class ProtocolOperation: ObvOperation {
+final class ProtocolOperation: ObvOperation, ObvErrorMaker {
     
     private static let logCategory = "ProtocolOperation"
     let log: OSLog
@@ -36,6 +36,8 @@ final class ProtocolOperation: ObvOperation {
     override var className: String {
         return "ProtocolOperation"
     }
+    
+    static let errorDomain = "ProtocolOperation"
     
     // MARK: Instance variables and constants
     
@@ -213,13 +215,13 @@ final class ProtocolOperation: ObvOperation {
         }
 
         do {
-            let messagesToSend = LinkBetweenProtocolInstances.getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid: concreteCryptoProtocolInNewState.instanceUid,
-                                                                                                                       andOwnedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
-                                                                                                                       reachesState: concreteCryptoProtocolInNewState.currentState,
-                                                                                                                       delegateManager: delegateManager,
-                                                                                                                       within: obvContext)
+            let messagesToSend = try LinkBetweenProtocolInstances.getGenericProtocolMessageToSendWhenChildProtocolInstance(withUid: concreteCryptoProtocolInNewState.instanceUid,
+                                                                                                                           andOwnedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
+                                                                                                                           reachesState: concreteCryptoProtocolInNewState.currentState,
+                                                                                                                           delegateManager: delegateManager,
+                                                                                                                           within: obvContext)
             for message in messagesToSend {
-                guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else { throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend") }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
         } catch let error {
@@ -250,6 +252,9 @@ final class ProtocolOperation: ObvOperation {
             os_log("Protocol instance with uid %@ and owned identity %@ was found: %@", log: log, type: .debug, protocolInstanceUid.debugDescription, ownedIdentity.debugDescription, protocolInstance.cryptoProtocolId.debugDescription)
             
             concreteCryptoProtocol = cryptoProtocolId.getConcreteCryptoProtocol(from: protocolInstance, prng: prng)
+            if concreteCryptoProtocol == nil {
+                assertionFailure()
+            }
             
         } else {
             
@@ -350,7 +355,7 @@ final class ProtocolOperation: ObvOperation {
         
         guard let delegateManager = delegateManager else {
             os_log("The delegate manager is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The delegate manager is not set")
         }
 
         let cryptoProtocolId = type(of: concreteCryptoProtocolInNewState).id
@@ -360,10 +365,10 @@ final class ProtocolOperation: ObvOperation {
                                                           ownedIdentity: concreteCryptoProtocolInNewState.ownedIdentity,
                                                           delegateManager: delegateManager,
                                                           within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not get protocol instance")
         }
         
-        protocolInstance.updateCurrentState(with: concreteCryptoProtocolInNewState.currentState)
+        try protocolInstance.updateCurrentState(with: concreteCryptoProtocolInNewState.currentState)
     }
     
     

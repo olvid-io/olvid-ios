@@ -158,10 +158,17 @@ struct CommonString {
         static let markAsRead = NSLocalizedString("MARK_AS_READ", comment: "Title")
         static let noNotificationSounds = NSLocalizedString("NO_SOUNDS", comment: "Title")
         static let systemSound = NSLocalizedString("SYSTEM_SOUND", comment: "Title")
+        static let gracePeriod = NSLocalizedString("GRACE_PERIOD", comment: "")
     }
     
     static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")
     static let removeNickname = NSLocalizedString("Remove nickname", comment: "UIAlertController action")
     static let restoreBackupTitle = NSLocalizedString("Restore a backup", comment: "Button title, Navigation controller title")
+    static let gracePeriodTitle = { (duration: String) in
+        String.localizedStringWithFormat(NSLocalizedString("GRACE_PERIOD_TITLE_%@", comment: "Notification body"), duration)
+    }
+    static let clonedGroupNameFromOriginalName = { (originalName: String) in
+        String.localizedStringWithFormat(NSLocalizedString("CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@", comment: ""), originalName)
+    }
 
 }

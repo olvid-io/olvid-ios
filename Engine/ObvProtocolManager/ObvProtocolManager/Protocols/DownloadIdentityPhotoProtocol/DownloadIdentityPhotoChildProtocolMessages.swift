@@ -81,7 +81,7 @@ extension DownloadIdentityPhotoChildProtocol {
         let id: ConcreteProtocolMessageId = MessageId.ServerGetPhoto
         let coreProtocolMessage: CoreProtocolMessage
 
-        let encryptedPhoto: Data?
+        let encryptedPhoto: EncryptedData?
         let photoPathToDelete: String?
         
         var encodedInputs: [ObvEncoded] { return [] }
@@ -89,15 +89,53 @@ extension DownloadIdentityPhotoChildProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            self.photoPathToDelete = String(encodedElements[0])
-            guard let downloadedUserData = message.delegateManager?.downloadedUserData else { throw NSError() }
 
-            if let photoPathToDelete = self.photoPathToDelete, !photoPathToDelete.isEmpty {
-                let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
-                self.encryptedPhoto = try Data(contentsOf: url)
+            if let photoPathToDelete = String(encodedElements[0]) {
+
+                // Legacy decoding (changed on 2022-08-05)
+
+                self.photoPathToDelete = photoPathToDelete
+                guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                    throw Self.makeError(message: "Could not get downloaded user data")
+                }
+                
+                if let photoPathToDelete = self.photoPathToDelete, !photoPathToDelete.isEmpty {
+                    let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
+                    self.encryptedPhoto = EncryptedData(data: try Data(contentsOf: url))
+                } else {
+                    // If the photo was deleted from the server, the GetUserDataServerMethod return an empty String
+                    self.encryptedPhoto = nil
+                }
+
+            } else if let result = GetUserDataResult(encodedElements[0]) {
+
+                // Current decoding
+                
+                switch result {
+                case .deletedFromServer:
+                    self.encryptedPhoto = nil
+                    self.photoPathToDelete = nil
+                case .downloaded(let userDataPath):
+                    self.photoPathToDelete = userDataPath
+                    guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                        throw Self.makeError(message: "Could not get downloaded user data")
+                    }
+                    
+                    if let photoPathToDelete = self.photoPathToDelete, !photoPathToDelete.isEmpty {
+                        let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
+                        self.encryptedPhoto = EncryptedData(data: try Data(contentsOf: url))
+                    } else {
+                        // If the photo was deleted from the server, the GetUserDataServerMethod return an empty String
+                        self.encryptedPhoto = nil
+                    }
+                }
+
             } else {
-                // If the photo was deleted from the server, the GetUserDataServerMethod return an empty String
+                
+                assertionFailure()
                 self.encryptedPhoto = nil
+                self.photoPathToDelete = nil
+
             }
         }
         

@@ -100,16 +100,6 @@ final class ContactGroupOwned: ContactGroup {
     }
 
 
-    func updatePhotoURL(with url: URL?, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
-        if self.publishedDetails.version == version && self.publishedDetails.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) != url {
-            try self.publishedDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
-        }
-        if self.latestDetails.version == version {
-            try self.latestDetails.setGroupPhoto(with: url, delegateManager: delegateManager)
-        }
-    }
-
-    
     func updatePhoto(withData photoData: Data, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedDetails.version == version {
             try self.publishedDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
@@ -558,7 +548,7 @@ struct ContactGroupOwnedBackupItem: Codable, Hashable {
                                                                   pendingGroupMembers: pendingGroupMembers,
                                                                   publishedDetails: publishedDetails)
         
-        // Restore the relationships with this instance relationships
+        // Restore the relationships of this instance relationships
         
         _ = try self.pendingGroupMembers.map({ try $0.restoreRelationships(associations: associations, within: obvContext) })
         try self.publishedDetails.restoreRelationships(associations: associations, within: obvContext)

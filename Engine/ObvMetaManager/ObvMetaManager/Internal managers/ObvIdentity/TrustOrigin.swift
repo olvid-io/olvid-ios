@@ -20,10 +20,12 @@
 import Foundation
 import ObvCrypto
 import ObvEncoder
+import ObvTypes
 
 public enum TrustOrigin {
     case direct(timestamp: Date)
     case group(timestamp: Date, groupOwner: ObvCryptoIdentity)
     case introduction(timestamp: Date, mediator: ObvCryptoIdentity)
     case keycloak(timestamp: Date, keycloakServer: URL)
+    case serverGroupV2(timestamp: Date, groupIdentifier: ObvGroupV2.Identifier)
 }

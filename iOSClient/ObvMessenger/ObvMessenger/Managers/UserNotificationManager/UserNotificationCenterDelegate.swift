@@ -270,11 +270,13 @@ extension UserNotificationCenterDelegate {
     private func handleCallBackAction(callUUID: UUID) async throws {
         guard let item = try PersistedCallLogItem.get(callUUID: callUUID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
         let contacts = item.logContacts.compactMap { $0.contactIdentity?.typedObjectID }
-        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contacts, groupId: try? item.getGroupId())
+        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(
+            contactIDs: contacts,
+            groupId: try? item.getGroupIdentifier())
             .postOnDispatchQueue()
     }
 
-    
+
     @MainActor
     private func handleInvitationActions(action: UserNotificationAction, persistedInvitationUuid: UUID) async throws {
         
@@ -320,6 +322,13 @@ extension UserNotificationCenterDelegate {
         case .acceptGroupInvite:
             var localDialog = obvDialog
             try localDialog.setResponseToAcceptGroupInvite(acceptInvite: acceptInvite)
+            let dialogForResponse = localDialog
+            DispatchQueue(label: "Background queue for responding to a dialog").async {
+                obvEngine.respondTo(dialogForResponse)
+            }
+        case .acceptGroupV2Invite:
+            var localDialog = obvDialog
+            try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: acceptInvite)
             let dialogForResponse = localDialog
             DispatchQueue(label: "Background queue for responding to a dialog").async {
                 obvEngine.respondTo(dialogForResponse)

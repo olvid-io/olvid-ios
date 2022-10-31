@@ -48,3 +48,39 @@ struct Concurrency {
     }
 
 }
+
+/// Stores a continuation to resume it later when the result it available and passed to ``setResult``
+/// This actor can be used in a ``withCheckedContinuation`` block.
+actor CheckedContinuationHolder<T> {
+
+    private(set) var result: T? = nil
+    private var continuation: CheckedContinuation<T, Never>?
+    private var continuationHasBeenSet = false
+
+    /// Set the continuation and resume it if the result is set, must be called only once
+    func setContinuation(_ continuation: CheckedContinuation<T, Never>) {
+        guard !continuationHasBeenSet else { assertionFailure(); return }
+        if let result = self.result {
+            // ``result`` has been set by ``setResult()`` we can resume the continuation
+            continuation.resume(returning: result)
+        } else {
+            // Store continuation, to resume it with ``setResult()``
+            guard self.continuation == nil else { assertionFailure(); return }
+            self.continuation = continuation
+            self.continuationHasBeenSet = true
+        }
+    }
+
+    /// Set the result and resume the continuation if it is set, do nothing if the result is already set.
+    func setResult(_ result: T) {
+        if let continuation = self.continuation {
+            continuation.resume(returning: result)
+            self.continuation = nil // To be sure to not resume the continuation twice
+        } else {
+            guard self.result == nil else { return }
+            // Store result to pass it later to continuation that will be set by ``setContinuation``
+            self.result = result
+        }
+    }
+
+}

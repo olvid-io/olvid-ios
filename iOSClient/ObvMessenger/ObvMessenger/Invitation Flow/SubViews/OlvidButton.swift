@@ -30,6 +30,9 @@ fileprivate extension OlvidButton.Style {
         case .standardWithBlueText: return Color(AppTheme.shared.colorScheme.systemFill)
         case .standardAlt: return Color.white.opacity(0.2)
         case .clearBackgroundAndWhiteForeground: return .clear
+        case .green: return .green
+        case .red: return .red
+        case .redOnTransparentBackground: return .clear
         }
     }
 
@@ -42,11 +45,15 @@ fileprivate extension OlvidButton.Style {
         case .standardWithBlueText: return Color(AppTheme.shared.colorScheme.olvidLight)
         case .standardAlt: return .white
         case .clearBackgroundAndWhiteForeground: return .white
+        case .green: return .white
+        case .red: return .white
+        case .redOnTransparentBackground: return .red
         }
     }
 }
 
 /// This SwiftUI view represents a large blue or standard button with rounded corners.
+/// This `View` is the equivalent of the `ObvImageButton` in UIKit
 struct OlvidButton: View {
     
     static let height: CGFloat = 50
@@ -59,6 +66,9 @@ struct OlvidButton: View {
         case standardWithBlueText
         case standardAlt
         case clearBackgroundAndWhiteForeground
+        case green
+        case red
+        case redOnTransparentBackground
     }
     
     let style: Style
@@ -165,56 +175,94 @@ struct OlvidButtonSquare: View {
 struct OlvidButton_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            OlvidButton(style: .blue, title: Text("Share"), action: {})
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .light)
-                .previewDisplayName("Blue example in light mode")
-            OlvidButton(style: .standard, title: Text("Share"), action: {})
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .light)
-                .previewDisplayName("Standard example in light mode")
-            OlvidButton(style: .blue, title: Text("Share"), action: {})
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .dark)
-                .previewDisplayName("Blue example in dark mode")
-            OlvidButton(style: .standard, title: Text("Share"), action: {})
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .dark)
-                .previewDisplayName("Standard example in dark mode")
-            OlvidButton(style: .blue, title: Text("Share"), systemIcon: .squareAndArrowUp, action: {})
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .light)
-                .previewDisplayName("Blue example in light mode")
-            OlvidButton(style: .blue, title: Text("Share"), systemIcon: .squareAndArrowUp, action: {})
-                .disabled(true)
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .light)
-                .previewDisplayName("Disabled example in light mode")
-            OlvidButton(style: .standard, title: Text("Share"), systemIcon: .squareAndArrowUp, action: {})
-                .disabled(true)
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .dark)
-                .previewDisplayName("Disabled example in light mode")
-            OlvidButtonSquare(style: .blue, systemIcon: .gearshapeFill, action: {})
-                .padding()
-                .previewLayout(.sizeThatFits)
-                .background(Color(.systemBackground))
-                .environment(\.colorScheme, .light)
-                .previewDisplayName("Blue example in light mode")
+            Group {
+                OlvidButton(style: .blue, title: Text("Share"), action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Blue example in light mode")
+                OlvidButton(style: .standard, title: Text("Share"), action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Standard example in light mode")
+                OlvidButton(style: .blue, title: Text("Share"), action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .dark)
+                    .previewDisplayName("Blue example in dark mode")
+                OlvidButton(style: .standard, title: Text("Share"), action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .dark)
+                    .previewDisplayName("Standard example in dark mode")
+                OlvidButton(style: .blue, title: Text("Share"), systemIcon: .squareAndArrowUp, action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Blue example in light mode")
+                OlvidButton(style: .blue, title: Text("Share"), systemIcon: .squareAndArrowUp, action: {})
+                    .disabled(true)
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Disabled example in light mode")
+                OlvidButton(style: .standard, title: Text("Share"), systemIcon: .squareAndArrowUp, action: {})
+                    .disabled(true)
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .dark)
+                    .previewDisplayName("Disabled example in light mode")
+                OlvidButtonSquare(style: .blue, systemIcon: .gearshapeFill, action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Blue example in light mode without label")
+                OlvidButton(style: .green, title: Text("PUBLISH"), systemIcon: .checkmarkCircle, action: {})
+                    .disabled(false)
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Green example in light mode")
+                OlvidButton(style: .green, title: Text("PUBLISH"), systemIcon: .checkmarkCircle, action: {})
+                    .disabled(false)
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .dark)
+                    .previewDisplayName("Green example in dark mode")
+            }
+            Group {
+                OlvidButton(style: .red, title: Text("CANCEL"), systemIcon: .xmarkCircle, action: {})
+                    .disabled(false)
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .dark)
+                    .previewDisplayName("Red example in dark mode")
+                OlvidButton(style: .red, title: Text("CANCEL"), systemIcon: .xmarkCircle, action: {})
+                    .disabled(false)
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Red example in light mode")
+                OlvidButtonSquare(style: .redOnTransparentBackground, systemIcon: .trash, action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Blue example in light mode without label")
+            }
         }
     }
 }

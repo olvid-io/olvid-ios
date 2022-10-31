@@ -44,8 +44,6 @@ public struct ContactMutualIntroductionProtocol: ConcreteCryptoProtocol {
     let instanceUid: UID
     
     static func makeError(message: String) -> Error { NSError(domain: "ContactMutualIntroductionProtocol", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
-    static let signatureChallengePrefix = "mutualIntroduction".data(using: .utf8)!
     
     init(instanceUid: UID, currentState: ConcreteProtocolState, ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, prng: PRNGService, within obvContext: ObvContext) {
         self.currentState = currentState

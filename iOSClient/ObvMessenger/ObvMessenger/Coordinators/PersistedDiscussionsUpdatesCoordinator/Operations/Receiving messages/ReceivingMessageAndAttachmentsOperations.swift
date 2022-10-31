@@ -70,23 +70,56 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 }
                 
                 let discussion: PersistedDiscussion
-                if let groupId = messageJSON.groupId {
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) else {
-                        return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
-                    }
-                    discussion = contactGroup.discussion
-                } else if let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion {
+                
+                switch messageJSON.groupIdentifier {
+                    
+                case .none:
+                    
                     guard persistedContactIdentity.isOneToOne else {
                         return cancel(withReason: .cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact)
                     }
+                    guard let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion else {
+                        return cancel(withReason: .couldNotFindDiscussion)
+                    }
                     discussion = oneToOneDiscussion
-                } else {
-                    return cancel(withReason: .couldNotFindDiscussion)
+
+                case .groupV1(groupV1Identifier: let groupV1Identifier):
+                    
+                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
+                        return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
+                    }
+                    discussion = contactGroup.discussion
+
+                case .groupV2(groupV2Identifier: let groupV2Identifier):
+                    
+                    guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
+                    }
+                    guard let groupDiscussion = group.discussion else {
+                        return cancel(withReason: .couldNotFindDiscussion)
+                    }
+                    discussion = groupDiscussion
+
                 }
                 
                 // Try to insert a EndToEndEncryptedSystemMessage if the discussion is empty
                 
                 try? PersistedDiscussion.insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: discussion.objectID, markAsRead: true, within: obvContext.context)
+                
+                /* Determine an appropriate `messageUploadTimestampFromServer`, needed to create the `PersistedMessageReceived` instance. For oneToOne and GroupV1 discussions, this is simply the date indicated in the ObvMessage. For GroupV2 discussions, we look for the original server timestamp that may exist in the messageJSON. If it exists, we use it (this is usefull to properly sort many "old" messages that were sent in a Group v2 discussion before we our acceptance to become a group member).
+                 */
+                
+                let messageUploadTimestampFromServer: Date
+                switch try discussion.kind {
+                case .oneToOne, .groupV1:
+                    messageUploadTimestampFromServer = obvMessage.messageUploadTimestampFromServer
+                case .groupV2:
+                    if let originalServerTimestamp = messageJSON.originalServerTimestamp {
+                        messageUploadTimestampFromServer = min(originalServerTimestamp, obvMessage.messageUploadTimestampFromServer)
+                    } else {
+                        messageUploadTimestampFromServer = obvMessage.messageUploadTimestampFromServer
+                    }
+                }
                 
                 // If overridePreviousPersistedMessage is true, we update any previously stored message from DB. If no such message exists, we create it.
                 // If overridePreviousPersistedMessage is false, we make sure that no existing PersistedMessageReceived exists in DB. If this is the case, we create the message.
@@ -107,7 +140,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                             try previousMessage.update(withMessageJSON: messageJSON,
                                                        messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
                                                        returnReceiptJSON: returnReceiptJSON,
-                                                       messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                                       messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                                                        downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
                                                        localDownloadTimestamp: obvMessage.localDownloadTimestamp,
                                                        discussion: discussion)
@@ -126,7 +159,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                             senderThreadIdentifier: messageJSON.senderThreadIdentifier,
                             senderSequenceNumber: messageJSON.senderSequenceNumber)
                         
-                        guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                        guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                                                              downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
                                                              localDownloadTimestamp: obvMessage.localDownloadTimestamp,
                                                              messageJSON: messageJSON,
@@ -134,7 +167,8 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                                                              messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
                                                              returnReceiptJSON: returnReceiptJSON,
                                                              missedMessageCount: missedMessageCount,
-                                                             discussion: discussion)) != nil
+                                                             discussion: discussion,
+                                                             obvMessageContainsAttachments: !obvMessage.attachments.isEmpty)) != nil
                         else {
                             return cancel(withReason: .couldNotCreatePersistedMessageReceived)
                         }
@@ -179,7 +213,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                         senderThreadIdentifier: messageJSON.senderThreadIdentifier,
                         senderSequenceNumber: messageJSON.senderSequenceNumber)
                     
-                    guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                    guard (try? PersistedMessageReceived(messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                                                          downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
                                                          localDownloadTimestamp: obvMessage.localDownloadTimestamp,
                                                          messageJSON: messageJSON,
@@ -187,7 +221,8 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                                                          messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
                                                          returnReceiptJSON: returnReceiptJSON,
                                                          missedMessageCount: missedMessageCount,
-                                                         discussion: discussion)) != nil
+                                                         discussion: discussion,
+                                                         obvMessageContainsAttachments: !obvMessage.attachments.isEmpty)) != nil
                     else {
                         return cancel(withReason: .couldNotCreatePersistedMessageReceived)
                     }

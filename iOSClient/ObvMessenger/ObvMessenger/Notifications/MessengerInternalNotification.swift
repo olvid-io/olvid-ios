@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import ObvTypes
 import ObvEngine
+import ObvCrypto
 
 struct MessengerInternalNotification {
     
@@ -38,7 +39,6 @@ struct MessengerInternalNotification {
             return objectID
         }
     }
-    
     
     // MARK: - ApplicationIconBadgeNumberWasUpdated
     

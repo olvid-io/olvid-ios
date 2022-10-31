@@ -19,7 +19,8 @@
 
 import UIKit
 
-// When setting this class within a storyboard, the type should be set to "custom"
+/// When setting this class within a storyboard, the type should be set to "custom"
+/// This is an old class. See `ObvImageButton` instead.
 class ObvButton: UIButton {
     
     internal let sidePadding: CGFloat = 16.0

@@ -25,7 +25,9 @@ import ObvEncoder
 
 public protocol AuthenticationCommon {
     static func solve(_: Data, prefixedWith: Data, with: PrivateKeyForAuthentication, and: PublicKeyForAuthentication, using: PRNGService) -> Data?
+    static func solve(_: Data, prefixedWith: Data, with: PrivateKeyForAuthentication, using: PRNGService) -> Data?
     static func check(response: Data, toChallenge: Data, prefixedWith: Data, using: PublicKeyForAuthentication) -> Bool
+    static func areKeysMatching(publicKey: PublicKeyForAuthentication, privateKey: PrivateKeyForAuthentication) -> Bool
 }
 
 public protocol AuthenticationConcrete: AuthenticationCommon {
@@ -56,6 +58,11 @@ public final class Authentication: AuthenticationGeneric {
         return solve(challenge, prefixedWith: prefix, with: ownedIdentity.privateKeyForAuthentication, and: ownedIdentity.publicKeyForAuthentication, using: prng)
     }
     
+    public static func solve(_ challenge: Data, prefixedWith prefix: Data, with privateKey: PrivateKeyForAuthentication, using prng: PRNGService) -> Data? {
+        let algorithmImplementation = privateKey.algorithmImplementationByteId.algorithmImplementation
+        return algorithmImplementation.solve(challenge, prefixedWith: prefix, with: privateKey, using: prng)
+    }
+    
     public static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, using pk: PublicKeyForAuthentication) -> Bool {
         let algorithmImplementation = pk.algorithmImplementationByteId.algorithmImplementation
         return algorithmImplementation.check(response: response, toChallenge: challenge, prefixedWith: prefix, using: pk)
@@ -65,6 +72,12 @@ public final class Authentication: AuthenticationGeneric {
         return check(response: response, toChallenge: challenge, prefixedWith: prefix, using: identity.publicKeyForAuthentication)
     }
 
+    public static func areKeysMatching(publicKey: PublicKeyForAuthentication, privateKey: PrivateKeyForAuthentication) -> Bool {
+        guard publicKey.algorithmClass == privateKey.algorithmClass,
+              publicKey.algorithmImplementationByteId == privateKey.algorithmImplementationByteId else { return false }
+        let algorithmImplementation = privateKey.algorithmImplementationByteId.algorithmImplementation
+        return algorithmImplementation.areKeysMatching(publicKey: publicKey, privateKey: privateKey)
+    }
 }
 
 fileprivate struct AuthenticationFromSignatureOnEdwardsCurveConstants {
@@ -97,7 +110,15 @@ extension AuthenticationFromSignatureOnEdwardsCurve {
         response.append(signature)
         return response
     }
-    
+
+    static func solve(_ challenge: Data, prefixedWith prefix: Data, with _privateKey: PrivateKeyForAuthentication, using prng: PRNGService) -> Data? {
+        guard let privateKey = _privateKey as? PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve,
+              let point = curve.scalarMultiplication(scalar: privateKey.scalar, point: privateKey.curve.parameters.G),
+              let publicKey = PublicKeyForAuthenticationFromSignatureOnEdwardsCurve(point: point) else { assertionFailure(); return nil }
+        let response = solve(challenge, prefixedWith: prefix, with: privateKey, and: publicKey, using: prng)
+        return response
+    }
+
     static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, using _publicKey: PublicKeyForAuthentication) -> Bool {
         guard let publicKey = _publicKey as? PublicKeyForAuthenticationFromSignatureOnEdwardsCurve else { return false }
         guard response.count > AuthenticationFromSignatureOnEdwardsCurveConstants.lengthOfRandomFormattedChallengeSuffix else { return false }
@@ -109,6 +130,16 @@ extension AuthenticationFromSignatureOnEdwardsCurve {
         return Signature.verify(signature, on: formattedChallenge, with: publicKey.publicKeyForSignatureOnEdwardsCurve) ?? false
     }
 
+    static func areKeysMatching(publicKey: PublicKeyForAuthentication, privateKey: PrivateKeyForAuthentication) -> Bool {
+        guard let publicKey = publicKey as? PublicKeyForAuthenticationFromSignatureOnEdwardsCurve else { assertionFailure(); return false }
+        guard let privateKey = privateKey as? PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve else { assertionFailure(); return false }
+        guard publicKey.algorithmClass == privateKey.algorithmClass,
+              publicKey.algorithmImplementationByteId == privateKey.algorithmImplementationByteId,
+              publicKey.curveByteId == privateKey.curveByteId else { return false }
+        let computedPoint = curve.scalarMultiplication(scalar: privateKey.scalar, point: privateKey.curve.parameters.G)
+        return publicKey.point == computedPoint
+    }
+    
 }
 
 final class AuthenticationFromSignatureOnMDC: AuthenticationFromSignatureOnEdwardsCurve {

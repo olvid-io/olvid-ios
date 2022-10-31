@@ -18,8 +18,10 @@
  */
 
 import Foundation
+import ObvEncoder
+import ObvCrypto
 
-public enum ObvPushNotificationType: CustomDebugStringConvertible {
+public enum ObvPushNotificationType: CustomDebugStringConvertible, ObvEncodable {
     
     case remote(pushToken: Data, voipToken: Data?, maskingUID: UID, parameters: ObvPushNotificationParameters)
     case polling(pollingInterval: TimeInterval)
@@ -75,6 +77,74 @@ public enum ObvPushNotificationType: CustomDebugStringConvertible {
             }
         }
     }
+    
+    // ObvCodable
+    
+    public func obvEncode() -> ObvEncoded {
+        switch self {
+        case .remote(pushToken: let pushToken, voipToken: let voipToken, maskingUID: let maskingUID, parameters: let parameters):
+            if let _voipToken = voipToken {
+                return [Data([byteId]).obvEncode(), pushToken.obvEncode(), _voipToken.obvEncode(), maskingUID.obvEncode(), parameters.obvEncode()].obvEncode()
+            } else {
+                return [Data([byteId]).obvEncode(), pushToken.obvEncode(), maskingUID.obvEncode(), parameters.obvEncode()].obvEncode()
+            }
+        case .polling(let pollingInterval):
+            return [Data([byteId]).obvEncode(), Int(pollingInterval).obvEncode()].obvEncode()
+        case .registerDeviceUid(parameters: let parameters):
+            return [Data([byteId]).obvEncode(), parameters.obvEncode()].obvEncode()
+        }
+    }
+    
+    public static func decode(_ obvEncoded: ObvEncoded) -> ObvPushNotificationType? {
+        guard let decodedList = [ObvEncoded](obvEncoded) else {
+            assertionFailure()
+            return nil
+        }
+        guard let encodedByteId = decodedList.first else {
+            assertionFailure()
+            return nil
+        }
+        guard let byteIdAsData = Data(encodedByteId) else {
+            assertionFailure()
+            return nil
+        }
+        guard byteIdAsData.count == 1 else {
+            assertionFailure()
+            return nil
+        }
+        let byteId: UInt8 = byteIdAsData.first!
+        
+        switch byteId {
+        case 0x00:
+            if decodedList.count == 4 {
+                guard let pushToken = Data(decodedList[1]) else { assertionFailure(); return nil }
+                guard let maskingUID = UID(decodedList[2]) else { assertionFailure(); return nil }
+                guard let parameters = ObvPushNotificationParameters.decode(decodedList[3]) else { assertionFailure(); return nil }
+                return .remote(pushToken: pushToken, voipToken: nil, maskingUID: maskingUID, parameters: parameters)
+            } else if decodedList.count == 5 {
+                guard let pushToken = Data(decodedList[1]) else { assertionFailure(); return nil }
+                guard let voipToken = Data(decodedList[2]) else { assertionFailure(); return nil }
+                guard let maskingUID = UID(decodedList[3]) else { assertionFailure(); return nil }
+                guard let parameters = ObvPushNotificationParameters.decode(decodedList[4]) else { assertionFailure(); return nil }
+                return .remote(pushToken: pushToken, voipToken: voipToken, maskingUID: maskingUID, parameters: parameters)
+            } else {
+                return nil
+            }
+        case 0xff:
+            guard decodedList.count == 2 else { return nil }
+            guard let pollingInterval = Int(decodedList[1]) else { assertionFailure(); return nil }
+            return ObvPushNotificationType.polling(pollingInterval: TimeInterval(pollingInterval))
+        case 0x01:
+            guard decodedList.count == 2 else { return nil }
+            guard let parameters = ObvPushNotificationParameters.decode(decodedList[1]) else { assertionFailure(); return nil }
+            return ObvPushNotificationType.registerDeviceUid(parameters: parameters)
+        default:
+            assertionFailure()
+            return nil
+        }
+    }
+
+    
 }
 
 // MARK: - CustomDebugStringConvertible
@@ -94,7 +164,7 @@ public extension ObvPushNotificationType {
 }
 
 
-public struct ObvPushNotificationParameters: CustomDebugStringConvertible {
+public struct ObvPushNotificationParameters: CustomDebugStringConvertible, ObvEncodable {
 
     public let kickOtherDevices: Bool
     public let useMultiDevice: Bool
@@ -107,6 +177,20 @@ public struct ObvPushNotificationParameters: CustomDebugStringConvertible {
 
     public var debugDescription: String {
         return "kickOtherDevices: \(kickOtherDevices), useMultiDevice: \(useMultiDevice)"
+    }
+
+    // ObvCodable
+    
+    public func obvEncode() -> ObvEncoded {
+        return [kickOtherDevices, useMultiDevice].obvEncode()
+    }
+    
+    public static func decode(_ obvEncoded: ObvEncoded) -> ObvPushNotificationParameters? {
+        guard let decodedList = [ObvEncoded](obvEncoded) else { return nil }
+        guard decodedList.count == 2 else { assertionFailure(); return nil }
+        guard let kickOtherDevices = Bool(decodedList[0]) else { assertionFailure(); return nil }
+        guard let useMultiDevice = Bool(decodedList[1]) else { assertionFailure(); return nil }
+        return self.init(kickOtherDevices: kickOtherDevices, useMultiDevice: useMultiDevice)
     }
 
 }

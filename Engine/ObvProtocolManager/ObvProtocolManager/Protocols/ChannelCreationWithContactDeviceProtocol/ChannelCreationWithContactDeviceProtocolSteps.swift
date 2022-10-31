@@ -70,9 +70,7 @@ extension ChannelCreationWithContactDeviceProtocol {
         
     }
     
-    static let challengePrefix = "channelCreation".data(using: .utf8)!
 
-    
     // MARK: - SendPingStep
     
     final class SendPingStep: ProtocolStep, TypedConcreteProtocolStep {
@@ -95,11 +93,6 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactDeviceUid = receivedMessage.contactDeviceUid
             
@@ -160,9 +153,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             let signature: Data
             do {
-                let prefix = ChannelCreationWithContactDeviceProtocol.challengePrefix + contactDeviceUid.raw + currentDeviceUid.raw
-                let challenge = contactIdentity.getIdentity() + ownedIdentity.getIdentity()
-                guard let res = try? solveChallengeDelegate.solveChallenge(challenge, prefixedWith: prefix, for: ownedIdentity, using: prng, within: obvContext) else {
+                let challengeType = ChallengeType.channelCreation(firstDeviceUid: contactDeviceUid, secondDeviceUid: currentDeviceUid, firstIdentity: contactIdentity, secondIdentity: ownedIdentity)
+                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
                     os_log("Could not solve challenge", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -215,11 +207,6 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-
             let contactIdentity = receivedMessage.contactIdentity
             let contactDeviceUid = receivedMessage.contactDeviceUid
             let signature = receivedMessage.signature
@@ -240,9 +227,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-                let prefix = ChannelCreationWithContactDeviceProtocol.challengePrefix + currentDeviceUid.raw + contactDeviceUid.raw
-                let challenge = ownedIdentity.getIdentity() + contactIdentity.getIdentity()
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: contactIdentity) else {
+                let challengeType = ChallengeType.channelCreation(firstDeviceUid: currentDeviceUid, secondDeviceUid: contactDeviceUid, firstIdentity: ownedIdentity, secondIdentity: contactIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: contactIdentity) else {
                     os_log("The signature is invalid", log: log, type: .error)
                     return CancelledState()
                 }
@@ -312,9 +298,8 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             let ownSignature: Data
             do {
-                let prefix = ChannelCreationWithContactDeviceProtocol.challengePrefix + contactDeviceUid.raw + currentDeviceUid.raw
-                let challenge = contactIdentity.getIdentity() + ownedIdentity.getIdentity()
-                guard let res = try? solveChallengeDelegate.solveChallenge(challenge, prefixedWith: prefix, for: ownedIdentity, using: prng, within: obvContext) else {
+                let challengeType = ChallengeType.channelCreation(firstDeviceUid: contactDeviceUid, secondDeviceUid: currentDeviceUid, firstIdentity: contactIdentity, secondIdentity: ownedIdentity)
+                guard let res = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
                     os_log("Could not solve challenge (1)", log: log, type: .fault)
                     return CancelledState()
                 }
@@ -408,11 +393,6 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ChannelCreationWithContactDeviceProtocol.logCategory)
 
-            guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
-                os_log("The solve challenge delegate is not set", log: log, type: .fault)
-                return CancelledState()
-            }
-            
             let contactIdentity = receivedMessage.contactIdentity
             let contactDeviceUid = receivedMessage.contactDeviceUid
             let contactEphemeralPublicKey = receivedMessage.contactEphemeralPublicKey
@@ -434,9 +414,8 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-                let prefix = ChannelCreationWithContactDeviceProtocol.challengePrefix + currentDeviceUid.raw + contactDeviceUid.raw
-                let challenge = ownedIdentity.getIdentity() + contactIdentity.getIdentity()
-                guard solveChallengeDelegate.checkResponse(signature, toChallenge: challenge, prefixedWith: prefix, from: contactIdentity) else {
+                let challengeType = ChallengeType.channelCreation(firstDeviceUid: currentDeviceUid, secondDeviceUid: contactDeviceUid, firstIdentity: ownedIdentity, secondIdentity: contactIdentity)
+                guard ObvSolveChallengeStruct.checkResponse(signature, to: challengeType, from: contactIdentity) else {
                     os_log("The signature is invalid", log: log, type: .error)
                     return CancelledState()
                 }

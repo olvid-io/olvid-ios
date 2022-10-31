@@ -39,7 +39,21 @@ class ProtocolStep {
     
     let identityDelegate: ObvIdentityDelegate
     let channelDelegate: ObvChannelDelegate
+    let solveChallengeDelegate: ObvSolveChallengeDelegate
+    let notificationDelegate: ObvNotificationDelegate
     
+    var ownedIdentity: ObvCryptoIdentity {
+        concreteCryptoProtocol.ownedIdentity
+    }
+    
+    var prng: PRNGService {
+        concreteCryptoProtocol.prng
+    }
+    
+    var protocolInstanceUid: UID {
+        return concreteCryptoProtocol.instanceUid
+    }
+
     init?(expectedToIdentity: ObvCryptoIdentity, expectedReceptionChannelInfo: ObvProtocolReceptionChannelInfo, receivedMessage: ConcreteProtocolMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
         
         let log = OSLog(subsystem: concreteCryptoProtocol.delegateManager.logSubsystem, category: "ProtocolStepOperation")
@@ -65,6 +79,19 @@ class ProtocolStep {
             return nil
         }
         self.channelDelegate = _channelDelegate
+
+        guard let _solveChallengeDelegate = concreteCryptoProtocol.delegateManager.solveChallengeDelegate else {
+            os_log("The solve challenge delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return nil
+        }
+        self.solveChallengeDelegate = _solveChallengeDelegate
+        guard let _notificationDelegate = concreteCryptoProtocol.delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return nil
+        }
+        self.notificationDelegate = _notificationDelegate
 
         do {
             guard try expectedReceptionChannelInfo.accepts(receivedMessageReceptionChannelInfo, identityDelegate: identityDelegate, within: concreteCryptoProtocol.obvContext) else {

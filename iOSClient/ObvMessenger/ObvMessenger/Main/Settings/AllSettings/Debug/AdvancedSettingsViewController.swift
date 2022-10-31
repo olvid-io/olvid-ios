@@ -18,13 +18,14 @@
  */
 
 import UIKit
-import ObvEngine
+import ObvTypes
 import LinkPresentation
 import OlvidUtils
 import os.log
 
 
-class AdvancedSettingsViewController: UITableViewController {
+@MainActor
+final class AdvancedSettingsViewController: UITableViewController {
 
     let ownedCryptoId: ObvCryptoId
     
@@ -40,11 +41,8 @@ class AdvancedSettingsViewController: UITableViewController {
     }
         
     private var currentWebSocketStatus: (state: URLSessionTask.State, pingInterval: TimeInterval?)?
-    
-    private var showExperimentalSettings: Bool {
-        ObvMessengerConstants.developmentMode || ObvMessengerConstants.isTestFlight || ObvMessengerSettings.BetaConfiguration.showBetaSettings
-    }
-    
+    private static let websocketRefreshTimeInterval = 2 // In seconds
+        
     override func viewDidLoad() {
         super.viewDidLoad()
         title = CommonString.Word.Advanced
@@ -63,6 +61,145 @@ class AdvancedSettingsViewController: UITableViewController {
         "\(Int(pingInterval * 1000.0)) ms"
     }
     
+    private enum Section: CaseIterable {
+        case clearCache
+        case customKeyboards
+        case websockedStatus
+        case diskUsage
+        case logs
+        case exportsDatabasesAndCopyURLs
+        
+        static var shown: [Section] {
+            var result = [Section.clearCache, .customKeyboards, .websockedStatus, .diskUsage]
+            if ObvMessengerConstants.showExperimentalFeature {
+                result += [Section.logs, .exportsDatabasesAndCopyURLs]
+            }
+            return result
+        }
+        
+        var numberOfItems: Int {
+            switch self {
+            case .clearCache: return ClearCacheItem.shown.count
+            case .customKeyboards: return CustomKeyboardsItem.shown.count
+            case .websockedStatus: return WebsockedStatusItem.shown.count
+            case .diskUsage: return DiskUsageItem.shown.count
+            case .logs: return LogsItem.shown.count
+            case .exportsDatabasesAndCopyURLs: return ExportsDatabasesAndCopyURLsItem.shown.count
+            }
+        }
+        
+        static func shownSectionAt(section: Int) -> Section? {
+            guard section < shown.count else { assertionFailure(); return nil }
+            return shown[section]
+        }
+
+    }
+
+    
+    private enum ClearCacheItem: CaseIterable {
+        case clearCache
+        static var shown: [ClearCacheItem] {
+            return self.allCases
+        }
+        static func shownItemAt(item: Int) -> ClearCacheItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .clearCache: return "ClearCacheCell"
+            }
+        }
+    }
+    
+    private enum CustomKeyboardsItem: CaseIterable {
+        case customKeyboards
+        static var shown: [CustomKeyboardsItem] {
+            return self.allCases
+        }
+        static func shownItemAt(item: Int) -> CustomKeyboardsItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .customKeyboards: return "AllowCustomKeyboardsCell"
+            }
+        }
+    }
+    
+    private enum WebsockedStatusItem: CaseIterable {
+        case websockedStatus
+        static var shown: [WebsockedStatusItem] {
+            return self.allCases
+        }
+        static func shownItemAt(item: Int) -> WebsockedStatusItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .websockedStatus: return "WebSocketStateCell"
+            }
+        }
+    }
+    
+    private enum DiskUsageItem: CaseIterable {
+        case diskUsage
+        static var shown: [DiskUsageItem] {
+            return self.allCases
+        }
+        static func shownItemAt(item: Int) -> DiskUsageItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .diskUsage: return "DiskUsage"
+            }
+        }
+    }
+    
+    private enum LogsItem: CaseIterable {
+        case logs
+        static var shown: [LogsItem] {
+            return ObvMessengerConstants.showExperimentalFeature ? self.allCases : []
+        }
+        static func shownItemAt(item: Int) -> LogsItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .logs: return "DisplayableLogs"
+            }
+        }
+    }
+    
+    private enum ExportsDatabasesAndCopyURLsItem: CaseIterable {
+        case copyDocumentsURL
+        case copyDatabaseURL
+        case exportAppDatabase
+        case exportEngineDatabase
+        case allowAnyAPIKeyActivation
+        static var shown: [ExportsDatabasesAndCopyURLsItem] {
+            return ObvMessengerConstants.showExperimentalFeature ? self.allCases : []
+        }
+        static func shownItemAt(item: Int) -> ExportsDatabasesAndCopyURLsItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .copyDocumentsURL: return "CopyDocumentsURL"
+            case .copyDatabaseURL: return "CopyAppDatabaseURL"
+            case .exportAppDatabase: return "ExportAppDatabase"
+            case .exportEngineDatabase: return "ExportEngineDatabase"
+            case .allowAnyAPIKeyActivation: return "AllowAPIKeyActivationWithBadKeyStatusCell"
+            }
+        }
+    }
+    
 }
 
 
@@ -71,112 +208,154 @@ class AdvancedSettingsViewController: UITableViewController {
 extension AdvancedSettingsViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return showExperimentalSettings ? 5 : 3
+        return Section.shown.count
     }
     
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch section {
-        case 0: return 1
-        case 1: return 1 // Custom keyboards
-        case 2: return 1 // WebSocket state
-        case 3: return showExperimentalSettings ? 5 : 0
-        case 4: return showExperimentalSettings ? 1 : 0 // For logs
-        default: return 0
-        }
+        guard let section = Section.shownSectionAt(section: section) else { return 0 }
+        return section.numberOfItems
     }
+
     
-    @MainActor
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        switch indexPath.section {
-        case 0:
-            let cell = tableView.dequeueReusableCell(withIdentifier: "ClearCacheCell") ?? UITableViewCell(style: .default, reuseIdentifier: "ClearCacheCell")
-            cell.textLabel?.text = Strings.clearCache
-            cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
-            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self] in
-                guard let tableView = self?.tableView else { return }
-                guard tableView.numberOfSections >= indexPath.section && tableView.numberOfRows(inSection: indexPath.section) >= indexPath.row else { return }
-                tableView.reloadRows(at: [indexPath], with: .automatic)
+        
+        let cellInCaseOfError = UITableViewCell(style: .default, reuseIdentifier: nil)
+        
+        guard let section = Section.shownSectionAt(section: indexPath.section) else {
+            assertionFailure()
+            return cellInCaseOfError
+        }
+
+        switch section {
+            
+        case .clearCache:
+            guard let item = ClearCacheItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .clearCache:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = Strings.clearCache
+                cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
+                return cell
             }
-            return cell
-        case 1:
-            let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "AllowCustomKeyboardsCell")
-            cell.selectionStyle = .none
-            cell.title = Strings.allowCustomKeyboards
-            cell.switchIsOn = ObvMessengerSettings.Advanced.allowCustomKeyboards
-            cell.blockOnSwitchValueChanged = { (value) in
-                ObvMessengerSettings.Advanced.allowCustomKeyboards = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
-                    tableView.reloadData()
+            
+        case .customKeyboards:
+            guard let item = CustomKeyboardsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .customKeyboards:
+                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.selectionStyle = .none
+                cell.title = Strings.allowCustomKeyboards
+                cell.switchIsOn = ObvMessengerSettings.Advanced.allowCustomKeyboards
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Advanced.allowCustomKeyboards = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
                 }
+                return cell
             }
-            return cell
-        case 2:
-            let cell = tableView.dequeueReusableCell(withIdentifier: "WebSocketStateCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "WebSocketStateCell")
-            if let status = currentWebSocketStatus {
-                cell.textLabel?.text = status.state.description
-                if let pingInterval = status.pingInterval {
-                    cell.detailTextLabel?.text = pingIntervalFormatter(pingInterval: pingInterval)
+            
+        case .websockedStatus:
+            guard let item = WebsockedStatusItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .websockedStatus:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .value1, reuseIdentifier: item.cellIdentifier)
+                if let status = currentWebSocketStatus {
+                    cell.textLabel?.text = status.state.description
+                    if let pingInterval = status.pingInterval {
+                        cell.detailTextLabel?.text = pingIntervalFormatter(pingInterval: pingInterval)
+                    } else {
+                        cell.detailTextLabel?.text = nil
+                    }
                 } else {
+                    cell.textLabel?.text = CommonString.Word.Unavailable
                     cell.detailTextLabel?.text = nil
                 }
-            } else {
-                cell.textLabel?.text = CommonString.Word.Unavailable
-                cell.detailTextLabel?.text = nil
-            }
-            cell.selectionStyle = .none
-            let toDoIfPingsTakesTooLong = DispatchWorkItem { [weak self] in
-                self?.currentWebSocketStatus = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-                    guard let tableView = self?.tableView else { return }
-                    guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                    tableView.reloadRows(at: [indexPath], with: .none)
-                }
-            }
-            let ownedCryptoId = self.ownedCryptoId
-            Task {
-                let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5), execute: toDoIfPingsTakesTooLong)
-                obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { [weak self] result in
-                    toDoIfPingsTakesTooLong.cancel()
-                    switch result {
-                    case .failure:
-                        break
-                    case .success(let webSocketStatus):
-                        self?.currentWebSocketStatus = webSocketStatus
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
+                cell.selectionStyle = .none
+                let toDoIfPingsTakesTooLong = DispatchWorkItem { [weak self] in
+                    self?.currentWebSocketStatus = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) {
                         guard let tableView = self?.tableView else { return }
                         guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                        tableView.reloadRows(at: [indexPath], with: .none)
+                        if #available(iOS 15, *) {
+                            tableView.reconfigureRows(at: [indexPath])
+                        } else {
+                            tableView.reloadRows(at: [indexPath], with: .none)
+                        }
                     }
                 }
+                let ownedCryptoId = self.ownedCryptoId
+                Task {
+                    let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval * 5), execute: toDoIfPingsTakesTooLong)
+                    obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { [weak self] result in
+                        toDoIfPingsTakesTooLong.cancel()
+                        switch result {
+                        case .failure:
+                            break
+                        case .success(let webSocketStatus):
+                            self?.currentWebSocketStatus = webSocketStatus
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) {
+                            guard let tableView = self?.tableView else { return }
+                            guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
+                            if #available(iOS 15, *) {
+                                tableView.reconfigureRows(at: [indexPath])
+                            } else {
+                                tableView.reloadRows(at: [indexPath], with: .none)
+                            }
+                        }
+                    }
+                }
+                return cell
             }
-            return cell
-        case 3:
-            switch indexPath.row {
-            case 0:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "CopyDocumentsURL") ?? UITableViewCell(style: .default, reuseIdentifier: "CopyDocumentsURL")
+            
+        case .diskUsage:
+            guard let item = DiskUsageItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .diskUsage:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = Strings.diskUsageTitle
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+            
+        case .logs:
+            guard let item = LogsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .logs:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = "Logs"
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+            
+        case .exportsDatabasesAndCopyURLs:
+            guard let item = ExportsDatabasesAndCopyURLsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .copyDocumentsURL:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
                 cell.textLabel?.text = Strings.copyDocumentsURL
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 return cell
-            case 1:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "CopyAppDatabaseURL") ?? UITableViewCell(style: .default, reuseIdentifier: "CopyAppDatabaseURL")
+            case .copyDatabaseURL:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
                 cell.textLabel?.text = Strings.copyAppDatabaseURL
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 return cell
-            case 2:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "ExportAppDatabase") ?? UITableViewCell(style: .default, reuseIdentifier: "ExportAppDatabase")
+            case .exportAppDatabase:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
                 cell.textLabel?.text = Strings.exportAppDatabase
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 return cell
-            case 3:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "ExportEngineDatabase") ?? UITableViewCell(style: .default, reuseIdentifier: "ExportEngineDatabase")
+            case .exportEngineDatabase:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
                 cell.textLabel?.text = Strings.exportEngineDatabase
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 return cell
-            case 4:
-                let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "AllowAPIKeyActivationWithBadKeyStatusCell")
+            case .allowAnyAPIKeyActivation:
+                let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
                 _cell.selectionStyle = .none
                 _cell.title = Strings.allowAPIKeyActivationWithBadKeyStatusTitle
                 _cell.switchIsOn = ObvMessengerSettings.Subscription.allowAPIKeyActivationWithBadKeyStatus
@@ -187,46 +366,47 @@ extension AdvancedSettingsViewController {
                     }
                 }
                 return _cell
-            default:
-                assertionFailure()
-                return UITableViewCell()
             }
-        case 4:
-            switch indexPath.row {
-            case 0:
-                let cell = tableView.dequeueReusableCell(withIdentifier: "DisplayableLogs") ?? UITableViewCell(style: .default, reuseIdentifier: "DisplayableLogs")
-                cell.textLabel?.text = "Logs"
-                cell.accessoryType = .disclosureIndicator
-                return cell
-            default:
-                assertionFailure()
-                return UITableViewCell()
-            }
-        default:
-            assertionFailure()
-            return UITableViewCell()
+            
         }
     }
 
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        switch indexPath.section {
-        case 0:
-            LPMetadataProvider.removeCachedURLMetadata(olderThan: Date())
-            tableView.deselectRow(at: indexPath, animated: true)
-        case 1:
-            break
-        case 2:
-            break
-        case 3:
-            switch indexPath.row {
-            case 0:
+        guard let section = Section.shownSectionAt(section: indexPath.section) else { assertionFailure(); return }
+        switch section {
+        case .clearCache:
+            guard let item = ClearCacheItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .clearCache:
+                LPMetadataProvider.removeCachedURLMetadata(olderThan: Date())
+                tableView.deselectRow(at: indexPath, animated: true)
+            }
+            return
+        case .customKeyboards:
+            return
+        case .websockedStatus:
+            return
+        case .diskUsage:
+            let vc = DiskUsageViewController()
+            present(vc, animated: true) {
+                tableView.deselectRow(at: indexPath, animated: true)
+            }
+        case .logs:
+            let vc = DisplayableLogsHostingViewController()
+            present(vc, animated: true) {
+                tableView.deselectRow(at: indexPath, animated: true)
+            }
+        case .exportsDatabasesAndCopyURLs:
+            guard let item = ExportsDatabasesAndCopyURLsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .copyDocumentsURL:
                 UIPasteboard.general.string = ObvMessengerConstants.containerURL.forDocuments.path
                 tableView.deselectRow(at: indexPath, animated: true)
-            case 1:
+            case .copyDatabaseURL:
                 UIPasteboard.general.string = ObvMessengerConstants.containerURL.forDatabase.path
                 tableView.deselectRow(at: indexPath, animated: true)
-            case 2:
+            case .exportAppDatabase:
                 guard let cell = tableView.cellForRow(at: indexPath) else { return }
                 let appDatabaseURL = ObvMessengerConstants.containerURL.forDatabase
                 guard FileManager.default.fileExists(atPath: appDatabaseURL.path) else { return }
@@ -235,7 +415,7 @@ extension AdvancedSettingsViewController {
                 present(ativityController, animated: true) {
                     tableView.deselectRow(at: indexPath, animated: true)
                 }
-            case 3:
+            case .exportEngineDatabase:
                 guard let cell = tableView.cellForRow(at: indexPath) else { return }
                 let appDatabaseURL = ObvMessengerConstants.containerURL.mainEngineContainer.appendingPathComponent("database")
                 guard FileManager.default.fileExists(atPath: appDatabaseURL.path) else { return }
@@ -244,40 +424,37 @@ extension AdvancedSettingsViewController {
                 present(ativityController, animated: true) {
                     tableView.deselectRow(at: indexPath, animated: true)
                 }
-            default:
+            case .allowAnyAPIKeyActivation:
                 return
             }
-        case 4:
-            let vc = DisplayableLogsHostingViewController()
-            present(vc, animated: true) {
-                tableView.deselectRow(at: indexPath, animated: true)
-            }
-        default:
-            return
         }
     }
     
+    
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
         switch section {
-        case 0:
-            return Strings.cacheManagement
-        case 1:
-            return Strings.customKeyboardsManagement
-        case 2:
-            return Strings.webSocketStatus
-        default:
-            return nil
+        case .clearCache: return Strings.cacheManagement
+        case .customKeyboards: return Strings.customKeyboardsManagement
+        case .websockedStatus: return Strings.webSocketStatus
+        case .diskUsage: return nil
+        case .logs: return nil
+        case .exportsDatabasesAndCopyURLs: return nil
         }
     }
     
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
         switch section {
-        case 1:
-            return Strings.customKeyboardsManagementExplanation
-        default:
-            return nil
+        case .clearCache: return nil
+        case .customKeyboards: return Strings.customKeyboardsManagementExplanation
+        case .websockedStatus: return nil
+        case .diskUsage: return nil
+        case .logs: return nil
+        case .exportsDatabasesAndCopyURLs: return nil
         }
     }
+    
 }
 
 
@@ -297,7 +474,7 @@ extension AdvancedSettingsViewController {
         static let exportEngineDatabase = NSLocalizedString("Export Engine Database", comment: "only in dev mode")
         static let allowAPIKeyActivationWithBadKeyStatusTitle = NSLocalizedString("Allow all api key activations", comment: "")
         static let webSocketStatus = NSLocalizedString("Websocket status", comment: "")
-        
+        static let diskUsageTitle = NSLocalizedString("DISK_USAGE", comment: "")
     }
     
 }

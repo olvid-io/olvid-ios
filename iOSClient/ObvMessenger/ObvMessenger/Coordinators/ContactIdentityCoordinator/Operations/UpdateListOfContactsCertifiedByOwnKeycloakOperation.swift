@@ -19,7 +19,7 @@
 
 import Foundation
 import OlvidUtils
-import ObvEngine
+import ObvTypes
 import os.log
 
 /// This operation is typically called when binding an owned identity to a keycloak server. In that case, the engine will return a list of all the contacts that are bound to the same keycloak server.

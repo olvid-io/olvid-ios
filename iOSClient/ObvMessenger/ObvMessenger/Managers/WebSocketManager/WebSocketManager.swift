@@ -63,19 +63,19 @@ actor WebSocketManager {
         let didBecomeActiveNotification = UIApplication.didBecomeActiveNotification
         let willEnterForegroundNotification = UIApplication.willEnterForegroundNotification
         let tokens = [
-            NotificationCenter.default.addObserver(forName: willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+            NotificationCenter.default.addObserver(forName: willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
                 os_log("🧦 willEnterForegroundNotification", log: Self.log, type: .info)
                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
             },
-            NotificationCenter.default.addObserver(forName: didBecomeActiveNotification, object: nil, queue: .main) { _ in
+            NotificationCenter.default.addObserver(forName: didBecomeActiveNotification, object: nil, queue: nil) { _ in
                 os_log("🧦 didBecomeActiveNotification", log: Self.log, type: .info)
                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
             },
             NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { _ in
-                os_log("🧦 didEnterBackgroundNotification", log: Self.log, type: .info)
-                Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
+                 os_log("🧦 didEnterBackgroundNotification", log: Self.log, type: .info)
+                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
             },
-            NotificationCenter.default.addObserver(forName: willTerminateNotification, object: nil, queue: .main) { _ in
+            NotificationCenter.default.addObserver(forName: willTerminateNotification, object: nil, queue: nil) { _ in
                 os_log("🧦 willTerminateNotification", log: Self.log, type: .info)
                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
             },
@@ -93,18 +93,21 @@ actor WebSocketManager {
     
     
     private func setiOSLifecycleStateRequiresWebSocket(to value: Bool) {
+        assert(!Thread.isMainThread)
         self.iOSLifecycleStateRequiresWebSocket = value
         connectOrDisconnectWebsocketAsAppropriate()
     }
     
     
     private func setAnIncomingCallRequiresWebSocket(to value: Bool) {
+        assert(!Thread.isMainThread)
         self.anIncomingCallRequiresWebSocket = value
         connectOrDisconnectWebsocketAsAppropriate()
     }
     
     
     private func connectOrDisconnectWebsocketAsAppropriate() {
+        assert(!Thread.isMainThread)
         let requiresWebSocket = iOSLifecycleStateRequiresWebSocket || anIncomingCallRequiresWebSocket
         guard requiresWebSocket != currentStateNeedsWebsockets else { return }
         currentStateNeedsWebsockets = requiresWebSocket
@@ -117,6 +120,7 @@ actor WebSocketManager {
     
 
     private func connectWebsockets() {
+        assert(!Thread.isMainThread)
         do {
             os_log("🧦🏁☎️🏓 Will request the engine to connect websockets", log: Self.log, type: .info)
             try obvEngine.downloadMessagesAndConnectWebsockets()
@@ -128,6 +132,7 @@ actor WebSocketManager {
     
     
     private func disconnectWebsockets() {
+        assert(!Thread.isMainThread)
         os_log("🧦🏁☎️🏓 Will request the engine to disconnect websockets", log: Self.log, type: .info)
         do {
             try obvEngine.disconnectWebsockets()

@@ -165,10 +165,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
 
         os_log("🧦 sceneDidEnterBackground", log: Self.log, type: .info)
 
-        // If the user successfully authenticated, we want to infor the Local authentication VC that it should reset the `uptimeAtTheTimeOfChangeoverToNotActiveState`.
+        // If the user successfully authenticated, we want to inform the Local authentication manager that it should reset the `uptimeAtTheTimeOfChangeoverToNotActiveState`.
         // Note that if the user successfully authenticated, it means that the app was initialized properly.
         if userSuccessfullyPerformedLocalAuthentication {
-            (localAuthenticationWindow?.rootViewController as? LocalAuthenticationViewController)?.setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow()
+            Task {
+                guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+                    assertionFailure(); return
+                }
+                guard let localAuthenticationDelegate = await appDelegate.localAuthenticationDelegate else {
+                    assertionFailure(); return
+                }
+                await localAuthenticationDelegate.setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow()
+            }
         }
 
         userSuccessfullyPerformedLocalAuthentication = false
@@ -280,6 +288,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
         assert(Thread.isMainThread)
         
         guard let windowScene = (scene as? UIWindowScene) else { assertionFailure(); return }
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); return }
 
         // When switching view controller, we alway make sure the metaWindow is available.
         // The only exception is when the initialization failed.
@@ -297,7 +306,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
             case .success(let obvEngine):
                 if metaWindow == nil {
                     metaWindow = UIWindow(windowScene: windowScene)
-                    metaWindow?.rootViewController = MetaFlowController(obvEngine: obvEngine)
+                    guard let createPasscodeDelegate = await appDelegate.createPasscodeDelegate else { assertionFailure(); return }
+                    metaWindow?.rootViewController = MetaFlowController(obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate)
                     metaWindow?.alpha = 0.0
                 }
             }
@@ -307,8 +317,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
         
         if localAuthenticationWindow == nil {
             localAuthenticationWindow = UIWindow(windowScene: windowScene)
-            let localAuthenticationVC = LocalAuthenticationViewController()
-            localAuthenticationVC.delegate = self
+            guard let localAuthenticationDelegate = await appDelegate.localAuthenticationDelegate else { assertionFailure(); return }
+            let localAuthenticationVC = LocalAuthenticationViewController(localAuthenticationDelegate: localAuthenticationDelegate, delegate: self)
             localAuthenticationWindow?.rootViewController = localAuthenticationVC
         }
 
@@ -342,7 +352,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
             // At this point, there is not call in progress
             
             if initializerWindow.isKeyWindow || callWindow?.isKeyWindow == true || localAuthenticationWindow.isKeyWindow {
-                if userSuccessfullyPerformedLocalAuthentication || !ObvMessengerSettings.Privacy.lockScreen {
+                if userSuccessfullyPerformedLocalAuthentication || !ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
                     changeKeyWindow(to: metaWindow)
                     return
                 } else {
@@ -358,7 +368,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
             }
         } else {
             // When the user choosed to lock the screen, we hide the app content each time the scene becomes inactive
-            if ObvMessengerSettings.Privacy.lockScreen {
+            if ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
                 changeKeyWindow(to: initializerWindow)
             }
         }
@@ -522,7 +532,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
             if let callUUID = UUID(handle), let item = try? PersistedCallLogItem.get(callUUID: callUUID, within: context) {
                 let contacts = item.logContacts.compactMap { $0.contactIdentity?.typedObjectID }
                 os_log("📲 Posting a userWantsToCallButWeShouldCheckSheIsAllowedTo notification following an INStartCallIntent", log: Self.log, type: .info)
-                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contacts, groupId: try? item.getGroupId()).postOnDispatchQueue()
+                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contacts, groupId: try? item.getGroupIdentifier()).postOnDispatchQueue()
             } else if let contact = try? PersistedObvContactIdentity.getAll(within: context).first(where: { $0.getGenericHandleValue(engine: obvEngine) == handle }) {
                 // To be compatible with previous 1to1 versions
                 let contacts = [contact.typedObjectID]
@@ -562,15 +572,10 @@ extension SceneDelegate: LocalAuthenticationViewControllerDelegate {
             await switchToNextWindowForScene(scene)
         }
     }
-    
-    
-    func userWillTryToAuthenticate() {
-        // Not used
-    }
-    
-    
-    func userDidTryToAuthenticated() {
-        // Not used
+
+    @MainActor
+    func tooManyWrongPasscodeAttemptsCausedLockOut() {
+        ObvMessengerInternalNotification.tooManyWrongPasscodeAttemptsCausedLockOut.postOnDispatchQueue()
     }
     
 }

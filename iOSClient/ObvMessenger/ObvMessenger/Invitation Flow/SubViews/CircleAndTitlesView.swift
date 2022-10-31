@@ -32,6 +32,7 @@ enum CircleAndTitlesEditionMode {
     case custom(icon: ObvSystemIcon, action: () -> Void)
 }
 
+// Note from TB on 2022-08-04: we probably should be using CircledInitialsConfiguration here
 struct CircleAndTitlesView: View {
 
     private let titlePart1: String?

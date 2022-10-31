@@ -22,6 +22,7 @@ import CoreData
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvCrypto
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -38,7 +39,7 @@ enum VoIPNotification {
 	case userWantsToAddParticipants(call: GenericCall, contactIds: [OlvidUserId])
 	case callHasBeenUpdated(callUUID: UUID, updateKind: CallUpdateKind)
 	case callParticipantHasBeenUpdated(callParticipant: CallParticipant, updateKind: CallParticipantUpdateKind)
-	case reportCallEvent(callUUID: UUID, callReport: CallReport, groupId: (groupUid: UID, groupOwner: ObvCryptoId)?, ownedCryptoId: ObvCryptoId)
+	case reportCallEvent(callUUID: UUID, callReport: CallReport, groupId: GroupIdentifierBasedOnObjectID?, ownedCryptoId: ObvCryptoId)
 	case showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: GenericCall)
 	case noMoreCallInProgress
 	case serverDoesNotSupportCall
@@ -209,12 +210,12 @@ enum VoIPNotification {
 		}
 	}
 
-	static func observeReportCallEvent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallReport, (groupUid: UID, groupOwner: ObvCryptoId)?, ObvCryptoId) -> Void) -> NSObjectProtocol {
+	static func observeReportCallEvent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallReport, GroupIdentifierBasedOnObjectID?, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.reportCallEvent.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let callUUID = notification.userInfo!["callUUID"] as! UUID
 			let callReport = notification.userInfo!["callReport"] as! CallReport
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<(groupUid: UID, groupOwner: ObvCryptoId)>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
 			let groupId = groupIdWrapper.value
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(callUUID, callReport, groupId, ownedCryptoId)

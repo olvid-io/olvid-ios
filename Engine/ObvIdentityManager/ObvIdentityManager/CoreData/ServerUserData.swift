@@ -33,11 +33,11 @@ class ServerUserData: NSManagedObject, ObvManagedObject {
     private static let entityName = "ServerUserData"
 
     static let rawOwnedIdentityKey = "rawOwnedIdentity"
-    static let labelKey = "label"
+    static let rawLabelKey = "rawLabel"
 
     // MARK: Attributes
 
-    @NSManaged private(set) var label: String
+    @NSManaged private var rawLabel: Data
     @NSManaged private(set) var nextRefreshTimestamp: Date
     @NSManaged private var rawOwnedIdentity: Data
 
@@ -46,7 +46,7 @@ class ServerUserData: NSManagedObject, ObvManagedObject {
         set { self.rawOwnedIdentity = newValue.getIdentity() }
     }
 
-    fileprivate convenience init(forEntityName entityName: String, ownedIdentity: ObvCryptoIdentity, label: String, nextRefreshTimestamp: Date, within obvContext: ObvContext) {
+    fileprivate convenience init(forEntityName entityName: String, ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
 
@@ -56,14 +56,26 @@ class ServerUserData: NSManagedObject, ObvManagedObject {
     }
 
     // MARK: Other variables
+    
+    // Expected to be non nil
+    private(set) var label: UID? {
+        get {
+            guard let uid = UID(uid: rawLabel) else { assertionFailure(); return nil }
+            return uid
+        }
+        set {
+            guard let value = newValue else { assertionFailure(); return }
+            self.rawLabel = value.raw
+        }
+    }
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<ServerUserData> {
         return NSFetchRequest<ServerUserData>(entityName: ServerUserData.entityName)
     }
 
     private struct Predicate {
-        static func withLabel(_ label: String) -> NSPredicate {
-            NSPredicate(format: "%K == %@", ServerUserData.labelKey, label)
+        static func withLabel(_ label: UID) -> NSPredicate {
+            NSPredicate(ServerUserData.rawLabelKey, EqualToData: label.raw)
         }
         static func forOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(format: "%K == %@", ServerUserData.rawOwnedIdentityKey, ownedIdentity.getIdentity() as NSData)
@@ -79,7 +91,7 @@ class ServerUserData: NSManagedObject, ObvManagedObject {
         return Set(items)
     }
 
-    static func getServerUserData(for ownedIdentity: ObvCryptoIdentity, with label: String, within context: ObvContext) throws -> ServerUserData? {
+    static func getServerUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within context: ObvContext) throws -> ServerUserData? {
         let request: NSFetchRequest<ServerUserData> = ServerUserData.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withLabel(label),
@@ -110,19 +122,20 @@ final class IdentityServerUserData: ServerUserData {
 
     private static let entityName = "IdentityServerUserData"
 
-    convenience init(ownedIdentity: ObvCryptoIdentity, label: String, nextRefreshTimestamp: Date, within obvContext: ObvContext) {
+    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, within obvContext: ObvContext) {
         self.init(forEntityName: IdentityServerUserData.entityName, ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, within: obvContext)
     }
 
-    static func createForOwnedIdentityDetails(ownedIdentity: ObvCryptoIdentity, label: String, within obvContext: ObvContext) -> ServerUserData {
+    static func createForOwnedIdentityDetails(ownedIdentity: ObvCryptoIdentity, label: UID, within obvContext: ObvContext) -> ServerUserData {
         return IdentityServerUserData(ownedIdentity: ownedIdentity,
                                       label: label,
                                       nextRefreshTimestamp: Date() + ObvConstants.userDataRefreshInterval,
                                       within: obvContext)
     }
 
-    fileprivate func toUserDataImpl() -> UserData {
+    fileprivate func toUserDataImpl() -> UserData? {
         let kind: UserDataKind = .identity
+        guard let label = label else { assertionFailure(); return nil }
         return UserData(ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, kind: kind)
     }
 
@@ -142,12 +155,12 @@ final class GroupServerUserData: ServerUserData {
         set { rawGroupUid = newValue.raw }
     }
 
-    convenience init(ownedIdentity: ObvCryptoIdentity, label: String, nextRefreshTimestamp: Date, groupUid: UID, within obvContext: ObvContext) {
+    convenience init(ownedIdentity: ObvCryptoIdentity, label: UID, nextRefreshTimestamp: Date, groupUid: UID, within obvContext: ObvContext) {
         self.init(forEntityName: GroupServerUserData.entityName, ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, within: obvContext)
         self.groupUid = groupUid
     }
 
-    static func createForOwnedGroupDetails(ownedIdentity: ObvCryptoIdentity, label: String, groupUid: UID, within obvContext: ObvContext) -> ServerUserData {
+    static func createForOwnedGroupDetails(ownedIdentity: ObvCryptoIdentity, label: UID, groupUid: UID, within obvContext: ObvContext) -> ServerUserData {
         return GroupServerUserData(ownedIdentity: ownedIdentity,
                                    label: label,
                                    nextRefreshTimestamp: Date() + ObvConstants.userDataRefreshInterval,
@@ -155,8 +168,9 @@ final class GroupServerUserData: ServerUserData {
                                    within: obvContext)
     }
 
-    fileprivate func toUserDataImpl() -> UserData {
+    fileprivate func toUserDataImpl() -> UserData? {
         let kind: UserDataKind = .group(groupUid: groupUid)
+        guard let label = self.label else { assertionFailure(); return nil }
         return UserData(ownedIdentity: ownedIdentity, label: label, nextRefreshTimestamp: nextRefreshTimestamp, kind: kind)
     }
 

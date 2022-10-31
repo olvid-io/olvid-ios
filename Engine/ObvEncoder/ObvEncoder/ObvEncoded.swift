@@ -19,7 +19,6 @@
 
 import Foundation
 import BigInt
-import ObvTypes
 import os.log
 
 public enum ByteIdOfObvEncoded: UInt8 {
@@ -45,7 +44,7 @@ final public class ObvEncoded: NSObject, Decodable {
     var innerLength: Int {
         return innerData.count
     }
-    
+        
     static func makeError(message: String) -> Error { NSError(domain: "ObvEncoded", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     public var rawData: Data {
@@ -89,15 +88,34 @@ final public class ObvEncoded: NSObject, Decodable {
     
     static let log = OSLog(subsystem: "io.olvid.ObvEncoder.ObvEncoded", category: "Encoder")
     
+
     public init?(withRawData data: Data) {
-        guard data.count >= ObvEncoded.lengthOverhead else { return nil }
+        guard let advertizedInnerLength = Self.advertizedInnerLengthOfRawData(data) else { return nil }
+        guard ObvEncoded.lengthOverhead + advertizedInnerLength == data.count else { return nil }
         guard let byteId = ByteIdOfObvEncoded(rawValue: data.first!) else { return nil }
         self.byteId = byteId
-        let rangeOfInnerLength = data.startIndex+1..<data.startIndex+1+ObvEncoded.lengthOfInnerLength
-        let innerLength = ObvEncoded.lengthFrom(lengthAsData: data[rangeOfInnerLength])
-        guard ObvEncoded.lengthOverhead + innerLength == data.count else { return nil }        
         self.innerData = data[data.startIndex+ObvEncoded.lengthOverhead..<data.endIndex]
     }
+
+    
+    public convenience init?(withPaddedRawData data: Data) {
+        guard let advertizedInnerLength = Self.advertizedInnerLengthOfRawData(data) else { return nil }
+        guard ObvEncoded.lengthOverhead + advertizedInnerLength <= data.count else { return nil }
+        let unpaddedData = data[0..<ObvEncoded.lengthOverhead + advertizedInnerLength]
+        self.init(withRawData: unpaddedData)
+    }
+
+    
+    /// The ``innerLength`` variable returns the real length of the encoded data, that is, the actual number of bytes of the `ObvEncoded` minus 5.
+    /// This variable returns the length indicated in the 4 bytes advertizing the inner length. If the encoded value is well formed, these two values do match.
+    /// The only exception is when we decode en encoded value that was padded. In which case, the ``innerLength`` is larger than the advertized inner length.
+    private static func advertizedInnerLengthOfRawData(_ data: Data) -> Int? {
+        guard data.count >= ObvEncoded.lengthOverhead else { return nil }
+        let rangeOfInnerLength = data.startIndex+1..<data.startIndex+1+ObvEncoded.lengthOfInnerLength
+        let advertizedInnerLength = ObvEncoded.lengthFrom(lengthAsData: data[rangeOfInnerLength])
+        return advertizedInnerLength
+    }
+
     
     public func isEncodingOf(_ byteId: ByteIdOfObvEncoded) -> Bool {
         return self.byteId == byteId

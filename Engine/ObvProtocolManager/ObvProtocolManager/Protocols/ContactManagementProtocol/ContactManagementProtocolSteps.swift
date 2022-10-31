@@ -179,7 +179,7 @@ extension ContactManagementProtocol {
             
             // Delete contact (if there are no groups)
             
-            try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfAGroupJoined: true, within: obvContext)
+            try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfACommonGroup: true, within: obvContext)
             
             return FinalState()
         }
@@ -264,7 +264,7 @@ extension ContactManagementProtocol {
             
             do {
                 
-                try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfAGroupJoined: true, within: obvContext)
+                try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfACommonGroup: true, within: obvContext)
                 
                 // If the contact was indeed deleted (no exception thrown) remove contact from all owned groups where it is pending
                 
@@ -354,7 +354,7 @@ extension ContactManagementProtocol {
             
             // Delete the contact (even if still in some groups, this is only temporary)
             
-            try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfAGroupJoined: false, within: obvContext)
+            try identityDelegate.deleteContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, failIfContactIsPartOfACommonGroup: false, within: obvContext)
             
             return FinalState()
             

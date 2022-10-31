@@ -49,9 +49,6 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
         }
         
         obvContext.performAndWait {
-            
-            var wipedMessageInfos = [(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>)]()
-            var deletedMessageInfos = [(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>)]()
 
             // We deal with sent messages
             
@@ -67,33 +64,14 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
                 return
             }
 
+            var infos = [InfoAboutWipedOrDeletedPersistedMessage]()
+
             for sentMessage in sentMessages {
-                if sentMessage.retainWipedOutboundMessages {
-                    do {
-                        try sentMessage.wipe()
-                        wipedMessageInfos.append((sentMessage.discussion.typedObjectID.uriRepresentation(), sentMessage.typedObjectID.downcast.uriRepresentation()))
-                    } catch {
-                        assertionFailure()
-                        deletedMessageInfos.append((sentMessage.discussion.typedObjectID.uriRepresentation(), sentMessage.typedObjectID.downcast.uriRepresentation()))
-                        do {
-                            try sentMessage.delete()
-                        } catch {
-                            assertionFailure()
-                            os_log("Could not properly delete a sent message. Trying to force delete...: %{public}@", log: log, type: .fault, error.localizedDescription)
-                            obvContext.context.delete(sentMessage)
-                            // Continue anyway
-                        }
-                    }
-                } else {
-                    deletedMessageInfos.append((sentMessage.discussion.typedObjectID.uriRepresentation(), sentMessage.typedObjectID.downcast.uriRepresentation()))
-                    do {
-                        try sentMessage.delete()
-                    } catch {
-                        assertionFailure()
-                        os_log("Could not properly delete a sent message. Trying to force delete...: %{public}@", log: log, type: .fault, error.localizedDescription)
-                        obvContext.context.delete(sentMessage)
-                        // Continue anyway
-                    }
+                do {
+                    let info = try sentMessage.wipeOrDelete(requester: nil)
+                    infos += [info]
+                } catch {
+                    os_log("Could not wipe readOnce sent message: %{public}@", log: log, type: .fault, error.localizedDescription)
                 }
             }
 
@@ -113,17 +91,14 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
                     return
                 }
 
-                receivedMessages.forEach {
-                    deletedMessageInfos.append(($0.discussion.typedObjectID.uriRepresentation(), $0.typedObjectID.downcast.uriRepresentation()))
+                for receivedMessage in receivedMessages {
                     do {
-                        try $0.delete()
+                        let info = try receivedMessage.delete(requester: nil)
+                        infos += [info]
                     } catch {
-                        os_log("Could not delete on of the read-once received messages marked as read", log: log, type: .fault)
-                        assertionFailure()
-                        // Continue anyway
+                        os_log("Could not delete readOnce received message: %{public}@", log: log, type: .fault, error.localizedDescription)
                     }
                 }
-
             }
             
             // We notify on context save
@@ -131,18 +106,13 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
-
                     // We wiped/deleted some persisted messages. We notify about that.
-                    
-                    for discussionUriRepresentation in wipedMessageInfos.map({ $0.discussionUriRepresentation }) {
-                        let messageUriRepresentations = Set(wipedMessageInfos.filter({ $0.discussionUriRepresentation == discussionUriRepresentation }).map({ $0.messageUriRepresentation }))
-                        ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
-                            .postOnDispatchQueue()
-                    }
-                    for discussionUriRepresentation in deletedMessageInfos.map({ $0.discussionUriRepresentation }) {
-                        let messageUriRepresentations = Set(deletedMessageInfos.filter({ $0.discussionUriRepresentation == discussionUriRepresentation }).map({ $0.messageUriRepresentation }))
-                        ObvMessengerCoreDataNotification.persistedMessagesWereDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
-                            .postOnDispatchQueue()
+
+                    InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
+
+                    // Refresh objects in the view context
+                    if let viewContext = self.viewContext {
+                        InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
                     }
                 }
             } catch {

@@ -23,11 +23,6 @@ extension MetaFlowController {
     
     struct Strings {
         
-        struct AlertGroupCreated {
-            static let title = NSLocalizedString("Group creation started", comment: "UIAlert title")
-            static let message = NSLocalizedString("We started a new discussion group creation for you. Go to the Invitations tab to see who accepted your invitation so far.", comment: "UIAlert message")
-        }
-        
         struct AlertChannelEstablishementRestarted {
             static let title = NSLocalizedString("The channel establishment was restarted", comment: "Alert title")
         }

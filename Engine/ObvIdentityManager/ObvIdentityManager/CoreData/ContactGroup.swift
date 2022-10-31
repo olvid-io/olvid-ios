@@ -100,7 +100,7 @@ class ContactGroup: NSManagedObject, ObvManagedObject {
     private var ownedIdentityCryptoIdentityOnDeletion: ObvCryptoIdentity?
     private var groupOwnerCryptoIdentityOnDeletion: ObvCryptoIdentity?
     private var notificationRelatedChanges: NotificationRelatedChanges = []
-    private var labelToDelete: String?
+    private var labelToDelete: UID?
 
     // MARK: - Initializer
     

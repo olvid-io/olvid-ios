@@ -22,6 +22,7 @@ import CoreData
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 public struct ObvContactGroup {
     

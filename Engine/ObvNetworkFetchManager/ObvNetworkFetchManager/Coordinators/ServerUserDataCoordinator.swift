@@ -38,7 +38,7 @@ enum ServerUserDataTaskKind {
 
 /// Minimal information that are needed to create a ServerUserData operation
 struct ServerUserDataInput: Hashable {
-    let label: String
+    let label: UID
     let ownedIdentity: ObvCryptoIdentity
     let kind: ServerUserDataTaskKind
 }
@@ -169,7 +169,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
         case serverSessionRequired(flowId: FlowIdentifier)
     }
 
-    private func queueNewUserDataOperation(ownedIdentity: ObvCryptoIdentity, label: String, flowId: FlowIdentifier, within obvContext: ObvContext, buildMethod: (OSLog, Data) -> (ObvServerDataMethod, String, ServerUserDataTaskKind)) {
+    private func queueNewUserDataOperation(ownedIdentity: ObvCryptoIdentity, label: UID, flowId: FlowIdentifier, within obvContext: ObvContext, buildMethod: (OSLog, Data) -> (ObvServerDataMethod, String, ServerUserDataTaskKind)) {
 
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -240,7 +240,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
         }
     }
 
-    func queueNewRefreshUserDataOperation(ownedIdentity: ObvCryptoIdentity, label: String, flowId: FlowIdentifier, within obvContext: ObvContext) {
+    func queueNewRefreshUserDataOperation(ownedIdentity: ObvCryptoIdentity, label: UID, flowId: FlowIdentifier, within obvContext: ObvContext) {
         queueNewUserDataOperation(ownedIdentity: ownedIdentity, label: label, flowId: flowId, within: obvContext) { log, token in
             os_log("Creating a ObvServerGetUserDataMethod of the contact identity", log: log, type: .debug)
             return (ObvServerRefreshUserDataMethod(ownedIdentity: ownedIdentity, token: token, serverLabel: label, flowId: flowId), "ObvServerRefreshUserDataMethod", .refresh)
@@ -248,7 +248,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
     }
 
 
-    func queueNewDeleteUserDataOperation(ownedIdentity: ObvCryptoIdentity, label: String, flowId: FlowIdentifier, within obvContext: ObvContext) {
+    func queueNewDeleteUserDataOperation(ownedIdentity: ObvCryptoIdentity, label: UID, flowId: FlowIdentifier, within obvContext: ObvContext) {
         queueNewUserDataOperation(ownedIdentity: ownedIdentity, label: label, flowId: flowId, within: obvContext) { log, token in
             os_log("Creating a ObvServerDeleteUserDataMethod of the contact identity", log: log, type: .debug)
             return (ObvServerDeleteUserDataMethod(ownedIdentity: ownedIdentity, token: token, serverLabel: label, flowId: flowId), "ObvServerDeleteUserDataMethod", .deleted)
@@ -285,7 +285,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
 
 extension ServerUserDataCoordinator {
 
-    private func currentTaskExistsForServerUserData(with label: String) -> Bool {
+    private func currentTaskExistsForServerUserData(with label: UID) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             // The following condition is weaker than the == on inputs, but it's ok to suppose that we cannot have differents operation for the same label.

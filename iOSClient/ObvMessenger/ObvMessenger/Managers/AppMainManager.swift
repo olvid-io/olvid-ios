@@ -190,6 +190,7 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV0_9_11()
         migrationToV0_9_14()
         migrationToV0_9_17()
+        migrationToV0_11_1()
 
     }
     
@@ -434,6 +435,7 @@ extension AppMainManager {
             if newUserDefaults.object(forKey: newKey) == nil {
                 if let value = oldUserDefaults.object(forKey: oldKey) as? Int {
                     newUserDefaults.set(value, forKey: newKey)
+                    oldUserDefaults.removeObject(forKey: oldKey)
                 }
             }
         }
@@ -444,6 +446,7 @@ extension AppMainManager {
             if newUserDefaults.object(forKey: newKey) == nil {
                 if let value = oldUserDefaults.object(forKey: oldKey) as? Int {
                     newUserDefaults.set(value, forKey: newKey)
+                    oldUserDefaults.removeObject(forKey: oldKey)
                 }
             }
         }
@@ -454,6 +457,7 @@ extension AppMainManager {
             if newUserDefaults.object(forKey: newKey) == nil {
                 if let value = oldUserDefaults.object(forKey: oldKey) as? Bool {
                     newUserDefaults.set(value, forKey: newKey)
+                    oldUserDefaults.removeObject(forKey: oldKey)
                 }
             }
         }
@@ -464,6 +468,7 @@ extension AppMainManager {
             if newUserDefaults.dictionary(forKey: newKey) == nil {
                 if let value = oldUserDefaults.dictionary(forKey: oldKey) {
                     newUserDefaults.set(value, forKey: newKey)
+                    oldUserDefaults.removeObject(forKey: oldKey)
                 }
             }
         }
@@ -474,19 +479,29 @@ extension AppMainManager {
             if newUserDefaults.object(forKey: newKey) == nil {
                 if let value = oldUserDefaults.object(forKey: oldKey) as? Bool {
                     newUserDefaults.set(value, forKey: newKey)
+                    oldUserDefaults.removeObject(forKey: oldKey)
                 }
             }
         }
         // Migrate Privacy.lockScreenGracePeriod (only useful for TestFlight users, but still)
+        // To prevent a migration issue with V0_11_1, we only remove the old key here.
         do {
             let oldKey = "privacy.lockScreenGracePeriod"
-            let newKey = "settings.privacy.lockScreenGracePeriod"
-            if newUserDefaults.object(forKey: newKey) == nil {
-                if let value = oldUserDefaults.object(forKey: oldKey) as? Double {
-                    newUserDefaults.set(value, forKey: newKey)
-                }
+            oldUserDefaults.removeObject(forKey: oldKey)
+        }
+    }
+
+    private func migrationToV0_11_1() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        let lockScreenKey = "settings.privacy.lockScreen"
+        if let lockScreen = userDefaults.boolOrNil(forKey: lockScreenKey) {
+            if lockScreen {
+                ObvMessengerSettings.Privacy.localAuthenticationPolicy = .deviceOwnerAuthentication
+            } else {
+                ObvMessengerSettings.Privacy.localAuthenticationPolicy = .none
             }
         }
+        userDefaults.removeObject(forKey: lockScreenKey)
     }
     
 }
@@ -542,6 +557,24 @@ extension AppMainManager {
         
     }
     
+}
+
+// MARK: Delegate providers
+
+extension AppMainManager {
+
+    var localAuthenticationDelegate: LocalAuthenticationDelegate? {
+        get async {
+            await appManagersHolder?.localAuthenticationDelegate
+        }
+    }
+
+    var createPasscodeDelegate: CreatePasscodeDelegate? {
+        get async {
+            await appManagersHolder?.createPasscodeDelegate
+        }
+    }
+
 }
 
 
@@ -744,12 +777,8 @@ final actor NewAppStateManager {
                 blocksToPerformWhenInitialized.append((dispatchOnMainThread, block))
             case .initializedButWasNeverOnScreen(let obvEngine), .initializedAndMetaFlowControllerViewDidAppear(let obvEngine):
                 if dispatchOnMainThread {
-                    if Thread.isMainThread {
+                    DispatchQueue.main.async {
                         block(obvEngine)
-                    } else {
-                        DispatchQueue.main.async {
-                            block(obvEngine)
-                        }
                     }
                 } else {
                     block(obvEngine)
@@ -777,24 +806,16 @@ final actor NewAppStateManager {
                 blocksToPerformWhenInitializationSucceededOrFailed.append((dispatchOnMainThread, block))
             case .initializationFailed(error: let error, runningLog: _):
                 if dispatchOnMainThread {
-                    if Thread.isMainThread {
+                    DispatchQueue.main.async {
                         block(.failure(error))
-                    } else {
-                        DispatchQueue.main.async {
-                            block(.failure(error))
-                        }
                     }
                 } else {
                     block(.failure(error))
                 }
             case .initializedButWasNeverOnScreen(let obvEngine), .initializedAndMetaFlowControllerViewDidAppear(let obvEngine):
                 if dispatchOnMainThread {
-                    if Thread.isMainThread {
+                    DispatchQueue.main.async {
                         block(.success(obvEngine))
-                    } else {
-                        DispatchQueue.main.async {
-                            block(.success(obvEngine))
-                        }
                     }
                 } else {
                     block(.success(obvEngine))
@@ -822,12 +843,8 @@ final actor NewAppStateManager {
                 blocksToPerformWhenInitializedAndMetaFlowControllerViewDidAppear.append((dispatchOnMainThread, block))
             case .initializedAndMetaFlowControllerViewDidAppear(let obvEngine):
                 if dispatchOnMainThread {
-                    if Thread.isMainThread {
+                    DispatchQueue.main.async {
                         block(obvEngine)
-                    } else {
-                        DispatchQueue.main.async {
-                            block(obvEngine)
-                        }
                     }
                 } else {
                     block(obvEngine)

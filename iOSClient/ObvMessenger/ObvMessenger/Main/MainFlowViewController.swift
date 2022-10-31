@@ -25,16 +25,18 @@ import ObvTypes
 import AVFoundation
 import LinkPresentation
 import SwiftUI
+import ObvCrypto
 
 
-final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
+final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvFlowControllerDelegate {
     
     let ownedCryptoId: ObvCryptoId
     private let obvEngine: ObvEngine
     var anOwnedIdentityWasJustCreatedOrRestored = false
 
     private let splitDelegate: MainFlowViewControllerSplitDelegate // Strong reference to the delegate
-    
+    private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+
     fileprivate let mainTabBarController = ObvSubTabBarController()
 
     private let discussionsFlowViewController: DiscussionsFlowViewController
@@ -69,12 +71,13 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MainFlowViewController.self))
     
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate) {
                 
         os_log("🥏🏁 Call to the initializer of MainFlowViewController", log: log, type: .info)
         
         self.obvEngine = obvEngine
         self.ownedCryptoId = ownedCryptoId
+        self.createPasscodeDelegate = createPasscodeDelegate
         self.splitDelegate = MainFlowViewControllerSplitDelegate()
         
         discussionsFlowViewController = DiscussionsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
@@ -517,7 +520,51 @@ extension MainFlowViewController {
 
 // MARK: - ObvFlowControllerDelegate
 
-extension MainFlowViewController: ObvFlowControllerDelegate {
+extension MainFlowViewController {
+    
+    
+    func userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
+        assert(Thread.isMainThread)
+        do {
+
+            guard let group = try PersistedGroupV2.get(objectID: objectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+            let ownedCryptoId = try group.ownCryptoId
+            let contacts = group.contactsAmongNonPendingOtherMembers
+            let contactCryptoIds = Set(contacts.map({ $0.cryptoId }))
+            let button: MultipleContactsButton = .floating(title: CommonString.Word.Call, systemIcon: .phoneFill)
+
+            let vc = MultipleContactsViewController(ownedCryptoId: ownedCryptoId,
+                                                    mode: .restricted(to: contactCryptoIds, oneToOneStatus: .any),
+                                                    button: button,
+                                                    defaultSelectedContacts: contacts,
+                                                    disableContactsWithoutDevice: true,
+                                                    allowMultipleSelection: true,
+                                                    showExplanation: false,
+                                                    allowEmptySetOfContacts: false,
+                                                    selectionStyle: .checkmark) { [weak self] selectedContacts in
+                
+                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: selectedContacts.map({ $0.typedObjectID }), groupId: .groupV2(objectID))
+                    .postOnDispatchQueue()
+                
+                self?.dismiss(animated: true)
+            } dismissAction: { [weak self] in
+                self?.dismiss(animated: true)
+            }
+            let nav = ObvNavigationController(rootViewController: vc)
+            
+            if let presentedViewController = presentedViewController {
+                presentedViewController.present(nav, animated: true)
+            } else {
+                present(nav, animated: true)
+            }
+            
+        } catch {
+            os_log("Could not process user request to call contact group v2", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
+    }
+    
     
     func userSelectedURL(_ url: URL, within viewController: UIViewController) {
         userSelectedURL(url, within: viewController, confirmed: false)
@@ -685,12 +732,7 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     }
 
     private func checkSignatureMutualScanUrl(_ mutualScanUrl: ObvMutualScanUrl) -> Bool {
-        do {
-            return try obvEngine.verifyMutualScanUrl(ownedCryptoId: ownedCryptoId, mutualScanUrl: mutualScanUrl)
-        } catch {
-            os_log("The engine could not verify mutual scan signed URL: %{public}@", log: log, type: .fault, error.localizedDescription)
-            return false
-        }
+        return obvEngine.verifyMutualScanUrl(ownedCryptoId: ownedCryptoId, mutualScanUrl: mutualScanUrl)
     }
     
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void) {
@@ -781,7 +823,7 @@ extension MainFlowViewController {
     
     
     @MainActor
-    private func processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: (groupUid: UID, groupOwner: ObvCryptoId)?) {
+    private func processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?) {
         assert(Thread.isMainThread)
         
         // Check access to the microphone
@@ -855,9 +897,15 @@ extension MainFlowViewController {
             guard let ownedIdentity = contacts.first?.ownedIdentity else { assertionFailure(); return }
 
             var contactCryptoIds = Set<ObvCryptoId>()
-            if let groupId = groupId,
-               let contactGroup = try? PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: ownedIdentity) {
-                contactGroup.contactIdentities.forEach { contactCryptoIds.insert($0.cryptoId) }
+            if let groupId = groupId {
+                switch groupId {
+                case .groupV1(let objectID):
+                    if let contactGroup = try? PersistedContactGroup.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext) {
+                        contactGroup.contactIdentities.forEach { contactCryptoIds.insert($0.cryptoId) }
+                    }
+                case .groupV2:
+                    assertionFailure("This notification is not expected to be used for groups v2")
+                }
             } else {
                 contacts.forEach { contactCryptoIds.insert($0.cryptoId) }
             }
@@ -870,6 +918,7 @@ extension MainFlowViewController {
                                                     disableContactsWithoutDevice: true,
                                                     allowMultipleSelection: true,
                                                     showExplanation: false,
+                                                    allowEmptySetOfContacts: false,
                                                     selectionStyle: .checkmark) { selectedContacts in
 
                 ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: selectedContacts.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
@@ -970,25 +1019,25 @@ extension MainFlowViewController {
             mainTabBarController.selectedIndex = ChildTypes.invitations
             presentedViewController?.dismiss(animated: true)
             
-        case .contactGroupDetails(contactGroupURI: let contactGroupURI):
-            groupsFlowViewController.popToRootViewController(animated: false)
+        case .contactGroupDetails(displayedContactGroupURI: let displayedContactGroupURI):
+            _ = groupsFlowViewController.popToRootViewController(animated: false)
             mainTabBarController.selectedIndex = ChildTypes.groups
             presentedViewController?.dismiss(animated: true)
-            guard let contactGroupObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: contactGroupURI) else { return }
-            guard let contactGroup = try? PersistedContactGroup.get(objectID: contactGroupObjectID, within: ObvStack.shared.viewContext) else { return }
+            guard let displayedContactGroupObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: displayedContactGroupURI) else { return }
+            guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: displayedContactGroupObjectID, within: ObvStack.shared.viewContext) else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let _self = self else { return }
-                if let allGroupsViewController = _self.groupsFlowViewController.topViewController as? AllGroupsViewController {
-                    allGroupsViewController.selectRowOfContactGroup(contactGroup)
+                if let allGroupsViewController = _self.groupsFlowViewController.topViewController as? NewAllGroupsViewController {
+                    allGroupsViewController.selectRowOfDisplayedContactGroup(displayedContactGroup)
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                     guard let _self = self else { return }
-                    _self.groupsFlowViewController.userWantsToDisplay(persistedContactGroup: contactGroup, within: _self.groupsFlowViewController)
+                    _self.groupsFlowViewController.userWantsToNavigateToSingleGroupView(displayedContactGroup, within: _self.groupsFlowViewController)
                 }
             }
             
         case .contactIdentityDetails(contactIdentityURI: let contactIdentityURI):
-            contactsFlowViewController.popToRootViewController(animated: false)
+            _ = contactsFlowViewController.popToRootViewController(animated: false)
             mainTabBarController.selectedIndex = ChildTypes.contacts
             presentedViewController?.dismiss(animated: true)
             guard let contactIdentityObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: contactIdentityURI) else { return }
@@ -1013,7 +1062,7 @@ extension MainFlowViewController {
                 // The user is not within a discussion. Go to the list of latest discussions and wait until a discussion is chosen
                 // We save the file URL
                 mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
-                discussionsFlowViewController.children.first?.navigationController?.popViewController(animated: true)
+                _ = discussionsFlowViewController.children.first?.navigationController?.popViewController(animated: true)
                 DispatchQueue.main.async { [weak self] in
                     guard let _self = self else { return }
                     _self.airDroppedFileURLs.append(fileURL)
@@ -1077,7 +1126,10 @@ extension MainFlowViewController {
     @MainActor
     private func presentSettingsFlowViewController() {
         assert(Thread.isMainThread)
-        let vc = SettingsFlowViewController.create(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
+        guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+            assertionFailure(); return
+        }
+        let vc = SettingsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true)
@@ -1086,7 +1138,10 @@ extension MainFlowViewController {
     @MainActor
     private func presentBackupSettingsFlowViewController() {
         assert(Thread.isMainThread)
-        let vc = SettingsFlowViewController.create(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
+        guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+            assertionFailure(); return
+        }
+        let vc = SettingsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true) {

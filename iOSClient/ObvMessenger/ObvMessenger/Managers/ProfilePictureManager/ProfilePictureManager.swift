@@ -27,6 +27,7 @@ final class ProfilePictureManager {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ProfilePictureManager.self))
 
+    /// Used, in particular, to store group pictures during the creation process
     private let profilePicturesCacheDirectory: URL
     private let customContactProfilePicturesDirectory: URL
     private var observationTokens = [NSObjectProtocol]()

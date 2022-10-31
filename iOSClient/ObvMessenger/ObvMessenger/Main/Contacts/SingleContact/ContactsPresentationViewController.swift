@@ -18,7 +18,7 @@
  */
 
 import UIKit
-import ObvEngine
+import ObvTypes
 
 
 final class ContactsPresentationViewController: UIViewController {
@@ -45,9 +45,9 @@ final class ContactsPresentationViewController: UIViewController {
 
     override func viewDidLoad() {
         let excludedContactCryptoIds = Set([presentedContactCryptoId])
-        let mode: MultipleContactsMode = .excluded(from: excludedContactCryptoIds, oneToOneStatus: .oneToOne)
+        let mode: MultipleContactsMode = .excluded(from: excludedContactCryptoIds, oneToOneStatus: .oneToOne, requiredCapabilitites: nil)
 
-        let multipleContactsVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: .done(),  disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false) { [weak self] selectedContacts in
+        let multipleContactsVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: .done(),  disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false) { [weak self] selectedContacts in
             guard let presentedContactCryptoId = self?.presentedContactCryptoId,
                   let ownedCryptoId = self?.ownedCryptoId else { assertionFailure(); return }
             let cryptoIds = Set(selectedContacts.map({ $0.cryptoId }))

@@ -2,6 +2,7 @@ import:
   - Foundation
   - ObvTypes
   - OlvidUtils
+  - ObvCrypto
 options:
   - {key: post, value: postOnBackgroundQueue}
   - {key: notificationCenterName, value: appNotificationCenter}
@@ -209,3 +210,15 @@ notifications:
 - name: aPersistedDialogWasDeleted
   params:
   - {name: uuid, type: UUID}
+- name: groupV2WasCreatedOrUpdated
+  params:
+  - {name: obvGroupV2, type: ObvGroupV2}
+  - {name: initiator, type: ObvGroupV2.CreationOrUpdateInitiator}
+- name: groupV2WasDeleted
+  params:
+  - {name: ownedIdentity, type: ObvCryptoId}
+  - {name: appGroupIdentifier, type: Data}
+- name: groupV2UpdateDidFail
+  params:
+  - {name: ownedIdentity, type: ObvCryptoId}
+  - {name: appGroupIdentifier, type: Data}

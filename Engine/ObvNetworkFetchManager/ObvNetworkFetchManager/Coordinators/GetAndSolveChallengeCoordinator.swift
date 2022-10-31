@@ -45,7 +45,6 @@ final class GetAndSolveChallengeCoordinator: NSObject {
     private var _currentTasks = [UIBackgroundTaskIdentifier: (ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier, dataReceived: Data)]()
     private var currentTasksQueue = DispatchQueue(label: "GetAndSolveChallengeCoordinatorQueueForCurrentTasks")
     
-    private let challengePrefix = "authentChallenge".data(using: .utf8)!
 }
 
 
@@ -165,7 +164,7 @@ extension GetAndSolveChallengeCoordinator: GetAndSolveChallengeDelegate {
                 // If we reach this point, we do need to ask a challenge to the server
                 
                 let prng = ObvCryptoSuite.sharedInstance.prngService()
-                serverSession.nonce = prng.genBytes(count: ObvConstants.nonceLength)
+                serverSession.nonce = prng.genBytes(count: ObvConstants.serverSessionNonceLength)
                 
                 do {
                     try obvContext.save(logOnFailure: log)
@@ -300,7 +299,8 @@ extension GetAndSolveChallengeCoordinator: URLSessionDataDelegate {
                 }
                 
                 let prng = ObvCryptoSuite.sharedInstance.prngService()
-                guard let response = try? solveChallengeDelegate.solveChallenge(challenge, prefixedWith: challengePrefix, for: identity, using: prng, within: obvContext) else {
+                let challengeType = ChallengeType.authentChallenge(challengeFromServer: challenge)
+                guard let response = try? solveChallengeDelegate.solveChallenge(challengeType, for: identity, using: prng, within: obvContext) else {
                     os_log("Could not solve the challenge", log: log, type: .error)
                     serverSession.nonce = nil
                     try? obvContext.save(logOnFailure: log)

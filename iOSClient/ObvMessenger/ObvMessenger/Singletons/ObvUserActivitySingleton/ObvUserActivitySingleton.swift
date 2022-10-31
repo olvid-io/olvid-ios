@@ -75,9 +75,11 @@ extension ObvUserActivitySingleton {
                 self?.currentUserActivity = .displaySingleContact
             case is AllContactsViewController:
                 self?.currentUserActivity = .displayContacts
-            case is AllGroupsViewController:
+            case is NewAllGroupsViewController:
                 self?.currentUserActivity = .displayGroups
             case is SingleGroupViewController:
+                self?.currentUserActivity = .displaySingleGroup
+            case is SingleGroupV2ViewController:
                 self?.currentUserActivity = .displaySingleGroup
             case is InvitationsCollectionViewController:
                 self?.currentUserActivity = .displayInvitations

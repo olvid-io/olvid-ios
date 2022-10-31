@@ -196,7 +196,37 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         os_log("getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation", log: log, type: .error)
         throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation")
     }
+    
+    public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateGroupCreationMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupCreationMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
 
+    public func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateGroupUpdateMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupUpdateMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+  
+    public func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateGroupLeaveMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupLeaveMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+    
+    public func getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateGroupReDownloadMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupReDownloadMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+    
+    public func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateInitiateGroupDisbandMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitiateInitiateGroupDisbandMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+
+    public func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateBatchKeysResendMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw ObvProtocolManagerDummy.makeError(message: "getInitiateBatchKeysResendMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+    
     // MARK: - Implementing ObvManager
     
     public let requiredDelegates = [ObvEngineDelegateType]()

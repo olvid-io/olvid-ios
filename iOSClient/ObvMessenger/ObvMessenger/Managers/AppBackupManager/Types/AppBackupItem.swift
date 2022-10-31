@@ -20,6 +20,7 @@
 import Foundation
 import ObvTypes
 import SwiftUI
+import ObvCrypto
 
 
 struct AppBackupItem: Codable, Hashable {
@@ -46,17 +47,18 @@ struct PersistedObvOwnedIdentityBackupItem: Codable, Hashable {
     
     let identity: Data
     let contacts: [PersistedObvContactIdentityBackupItem]?
-    let groups: [PersistedContactGroupBackupItem]?
-    
+    let groupsV1: [PersistedContactGroupBackupItem]?
+    let groupsV2: [PersistedGroupV2BackupItem]?
     
     var isEmpty: Bool {
-        return contacts == nil && groups == nil
+        return contacts == nil && groupsV1 == nil && groupsV2 == nil
     }
 
     enum CodingKeys: String, CodingKey {
         case identity = "owned_identity"
         case contacts = "contacts"
-        case groups = "groups"
+        case groupsV1 = "groups"
+        case groupsV2 = "groups2"
     }
 
     static func makeError(message: String) -> Error { NSError(domain: "PersistedObvOwnedIdentityBackupItem", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -138,6 +140,47 @@ struct PersistedContactGroupBackupItem: Codable, Hashable {
     
     
     private static func makeError(message: String) -> Error { NSError(domain: "PersistedContactGroupBackupItem", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+
+}
+
+
+struct PersistedGroupV2BackupItem: Codable, Hashable {
+    
+    let groupIdentifier: Data
+    let customName: String?
+    let discussionConfigurationBackupItem: PersistedDiscussionConfigurationBackupItem?
+
+    enum CodingKeys: String, CodingKey {
+        case groupIdentifier = "group_identifier"
+        case customName = "custom_name"
+        case discussionConfigurationBackupItem = "discussion_customization"
+    }
+
+    init(groupIdentifier: Data, customName: String?, discussionConfigurationBackupItem: PersistedDiscussionConfigurationBackupItem?) {
+        self.groupIdentifier = groupIdentifier
+        self.customName = customName
+        self.discussionConfigurationBackupItem = discussionConfigurationBackupItem
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(groupIdentifier, forKey: .groupIdentifier)
+        try container.encodeIfPresent(customName, forKey: .customName)
+        try container.encodeIfPresent(discussionConfigurationBackupItem, forKey: .discussionConfigurationBackupItem)
+
+    }
+
+    init(from decoder: Decoder) throws {
+
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.groupIdentifier = try values.decode(Data.self, forKey: .groupIdentifier)
+        self.customName = try values.decodeIfPresent(String.self, forKey: .customName)
+        self.discussionConfigurationBackupItem = try values.decodeIfPresent(PersistedDiscussionConfigurationBackupItem.self, forKey: .discussionConfigurationBackupItem)
+        
+    }
 
 }
 

@@ -43,7 +43,8 @@ class PersistedInvitation: NSManagedObject {
         }
         set {
             guard let newValue = newValue else { assertionFailure(); return }
-            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: Predicate.Key.encodedObvDialog.rawValue)
+            guard let rawData = try? newValue.obvEncode().rawData else { assertionFailure(); return }
+            kvoSafeSetPrimitiveValue(rawData, forKey: Predicate.Key.encodedObvDialog.rawValue)
         }
     }
     @NSManaged private var rawStatus: Int
@@ -213,13 +214,13 @@ extension PersistedInvitation {
     }
     
     
-    /// This returns all group invitations, for all owned identities
+    /// This returns all group invitations (both V1 and V2), for all owned identities
     static func getAllGroupInvites(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
         let invitations = try getAll(within: context)
         let groupInvites = invitations.filter({
             guard let obvDialog = $0.obvDialog else { return false }
             switch obvDialog.category {
-            case .acceptGroupInvite:
+            case .acceptGroupInvite, .acceptGroupV2Invite:
                 return true
             default:
                 return false
