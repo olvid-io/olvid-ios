@@ -326,7 +326,7 @@ extension RemoteNotificationCoordinator {
             },
             
             // DownloadingMessageExtendedPayloadWasPerformed
-            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, _, flowId) in
+            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, flowId) in
                 self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.extendedMessagePayloadWasDownloaded(messageId: messageId)]),
                                                    expectationsToAdd: [],
                                                    receivedOnFlowId: flowId)

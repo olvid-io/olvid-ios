@@ -30,8 +30,8 @@ public struct GroupManagementProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.GroupManagement
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.Final,
-                                                    StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Final,
+                                                           StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

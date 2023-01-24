@@ -220,6 +220,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
     
     // MARK: - Performing Tasks
 
+    @MainActor
     func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
         // Called when the users taps on the "Scan QR code" shortcut on the app icon
         os_log("UIWindowScene perform action for shortcut", log: Self.log, type: .info)
@@ -298,16 +299,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
             switch result {
             case .failure(let error):
                 initializationFailureWindow = UIWindow(windowScene: windowScene)
-                let InitializationFailureVC = InitializationFailureViewController()
-                InitializationFailureVC.error = error
-                initializationFailureWindow?.rootViewController = InitializationFailureVC
+                let initializationFailureVC = InitializationFailureViewController()
+                initializationFailureVC.error = error
+                let nav = UINavigationController(rootViewController: initializationFailureVC)
+                initializationFailureWindow?.rootViewController = nav
                 changeKeyWindow(to: initializationFailureWindow)
                 return
             case .success(let obvEngine):
                 if metaWindow == nil {
                     metaWindow = UIWindow(windowScene: windowScene)
                     guard let createPasscodeDelegate = await appDelegate.createPasscodeDelegate else { assertionFailure(); return }
-                    metaWindow?.rootViewController = MetaFlowController(obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate)
+                    guard let appBackupDelegate = await appDelegate.appBackupDelegate else { assertionFailure(); return }
+                    metaWindow?.rootViewController = MetaFlowController(obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
                     metaWindow?.alpha = 0.0
                 }
             }

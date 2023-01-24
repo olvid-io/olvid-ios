@@ -114,9 +114,9 @@ extension GroupEditionFlowViewController {
             let mode = MultipleContactsMode.all(oneToOneStatus: .any, requiredCapabilitites: nil)
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Next, systemIcon: .personCropCircleFillBadgeCheckmark)
 
-            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false) { selectedContacts in
-                self.selectedGroupMembers = selectedContacts
-                self.nextButtonTapped()
+            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false, textAboveContactList: nil) { [weak self] selectedContacts in
+                self?.selectedGroupMembers = selectedContacts
+                self?.nextButtonTapped()
             } dismissAction: {
                 self.cancelButtonTapped()
             }
@@ -127,11 +127,11 @@ extension GroupEditionFlowViewController {
             let mode = MultipleContactsMode.all(oneToOneStatus: .any, requiredCapabilitites: [.groupsV2])
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Next, systemIcon: .personCropCircleFillBadgeCheckmark)
 
-            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: true) { selectedContacts in
-                self.selectedGroupMembers = selectedContacts
-                self.nextButtonTapped()
-            } dismissAction: {
-                self.cancelButtonTapped()
+            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: true, textAboveContactList: CommonString.someOfYourContactsMayNotAppearAsGroupV2Candidates) { [weak self] selectedContacts in
+                self?.selectedGroupMembers = selectedContacts
+                self?.nextButtonTapped()
+            } dismissAction: { [weak self] in
+                self?.cancelButtonTapped()
             }
             groupEditionMembersChooserVC.title = Strings.newGroupTitle
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)
@@ -140,11 +140,11 @@ extension GroupEditionFlowViewController {
             let mode = MultipleContactsMode.excluded(from: currentGroupMembers, oneToOneStatus: .any, requiredCapabilitites: nil)
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeCheckmark)
 
-            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false) { selectedContacts in
-                self.selectedGroupMembers = selectedContacts
-                self.doneButtonTapped()
-            } dismissAction: {
-                self.cancelButtonTapped()
+            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false, textAboveContactList: nil) { [weak self] selectedContacts in
+                self?.selectedGroupMembers = selectedContacts
+                self?.doneButtonTapped()
+            } dismissAction: { [weak self] in
+                self?.cancelButtonTapped()
             }
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)
 
@@ -153,11 +153,11 @@ extension GroupEditionFlowViewController {
 
             let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeMinus)
 
-            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: false, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false, selectionStyle: .multiply) { selectedContacts in
-                self.selectedGroupMembers = selectedContacts
-                self.doneButtonTapped()
-            } dismissAction: {
-                self.cancelButtonTapped()
+            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, disableContactsWithoutDevice: false, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: false, textAboveContactList: nil, selectionStyle: .multiply) { [weak self] selectedContacts in
+                self?.selectedGroupMembers = selectedContacts
+                self?.doneButtonTapped()
+            } dismissAction: { [weak self] in
+                self?.cancelButtonTapped()
             }
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)
             
@@ -256,11 +256,11 @@ extension GroupEditionFlowViewController {
                 }
             }
 
-            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, defaultSelectedContacts: self.selectedGroupMembers, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: true) { selectedContacts in
-                self.selectedGroupMembers = selectedContacts
-                self.nextButtonTapped()
-            } dismissAction: {
-                self.cancelButtonTapped()
+            let groupEditionMembersChooserVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId, mode: mode, button: button, defaultSelectedContacts: self.selectedGroupMembers, disableContactsWithoutDevice: true, allowMultipleSelection: true, showExplanation: false, allowEmptySetOfContacts: true, textAboveContactList: CommonString.someOfYourContactsMayNotAppearAsGroupV2Candidates) { [weak self] selectedContacts in
+                self?.selectedGroupMembers = selectedContacts
+                self?.nextButtonTapped()
+            } dismissAction: { [weak self] in
+                self?.cancelButtonTapped()
             }
             groupEditionMembersChooserVC.title = Strings.newGroupTitle
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionMembersChooserVC)

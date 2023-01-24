@@ -44,6 +44,7 @@ final class PersistedMessageSent: PersistedMessage {
         case sent = 2
         case delivered = 3
         case read = 4
+        case couldNotBeSentToOneOrMoreRecipients = 5
         
         static func < (lhs: PersistedMessageSent.MessageStatus, rhs: PersistedMessageSent.MessageStatus) -> Bool {
             return lhs.rawValue < rhs.rawValue
@@ -66,11 +67,11 @@ final class PersistedMessageSent: PersistedMessage {
 
     override var kind: PersistedMessageKind { .sent }
     
-    var wasSent: Bool {
+    var wasSentOrCouldNotBeSentToOneOrMoreRecipients: Bool {
         switch status {
         case .unprocessed, .processing:
             return false
-        case .sent, .delivered, .read:
+        case .sent, .delivered, .read, .couldNotBeSentToOneOrMoreRecipients:
             return true
         }
     }
@@ -90,7 +91,7 @@ final class PersistedMessageSent: PersistedMessage {
                 break
             case .processing:
                 break
-            case .sent:
+            case .sent, .couldNotBeSentToOneOrMoreRecipients:
                 // When a sent message is marked as "sent", we check whether it has a limited visibility.
                 // If this is the case, we immediately create an appropriate expiration for this message.
                 if let visibilityDuration = self.visibilityDuration, self.expirationForSentLimitedVisibility == nil {
@@ -150,6 +151,8 @@ final class PersistedMessageSent: PersistedMessage {
             self.status = .delivered
         } else if infosWithIdentifierFromEngine.allSatisfy({ $0.messageAndAttachmentsAreSent }) {
             self.status = .sent
+        } else if infosWithIdentifierFromEngine.first(where: { $0.couldNotBeSentToServer }) != nil {
+            self.status = .couldNotBeSentToOneOrMoreRecipients
         } else {
             self.status = .processing
         }
@@ -438,21 +441,17 @@ extension PersistedMessageSent {
             // Deduce all the attachment reception statuses for all recipients of this attachment
             let allReceptionStatuses = allAttachmentInfos.map({ $0?.status })
             
-            // The (global) reception status of the attachment is set to
-            // - "none" if one (or more) recipient did not receive the attachment yet
-            // - "delivered" if it was received by all recipients, but one (or more) recipient did not read the attachment yet
-            // - "read" if all the recipients did read the attachment
+            // The (global) reception status of the attachment is set:
+            // - to "read" if all the recipients did read the attachment
+            // - otherwise to "delivered" if all the recipients did receive the attachment,
+            // - otherwise to "none".
             let newReceptionStatus: SentFyleMessageJoinWithStatus.FyleReceptionStatus
-            if allReceptionStatuses.contains(nil) {
-                // At least one attachment is not delivered
-                newReceptionStatus = .none
-            } else if allReceptionStatuses.contains(.delivered) {
-                // All attachments are delivered or read, and at least one is not read
+            if allReceptionStatuses.allSatisfy({ $0 == .read }) {
+                newReceptionStatus = .read
+            } else if allReceptionStatuses.allSatisfy({ $0 == .read || $0 == .delivered }) {
                 newReceptionStatus = .delivered
             } else {
-                // All attachments are read
-                assert(allReceptionStatuses.allSatisfy({ $0 == .read }))
-                newReceptionStatus = .read
+                newReceptionStatus = .none
             }
             
             join.tryToSetReceptionStatusTo(newReceptionStatus)

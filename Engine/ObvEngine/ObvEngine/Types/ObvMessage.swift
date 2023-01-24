@@ -28,10 +28,12 @@ public struct ObvMessage {
     public let fromContactIdentity: ObvContactIdentity
     internal let messageId: MessageIdentifier
     public let attachments: [ObvAttachment]
+    public let expectedAttachmentsCount: Int
     public let messageUploadTimestampFromServer: Date
     public let downloadTimestampFromServer: Date
     public let localDownloadTimestamp: Date
     public let messagePayload: Data
+    public let extendedMessagePayload: Data?
 
     public var messageIdentifierFromEngine: Data {
         return messageId.uid.raw
@@ -62,7 +64,7 @@ public struct ObvMessage {
     }
     
     
-    init(networkReceivedMessage: ObvNetworkReceivedMessageDecrypted, networkFetchDelegate: ObvNetworkFetchDelegate, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws {
+    init(networkReceivedMessage: ObvNetworkReceivedMessageDecrypted, networkFetchDelegate: ObvNetworkFetchDelegate?, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws {
         guard let obvContact = ObvContactIdentity(contactCryptoIdentity: networkReceivedMessage.fromIdentity,
                                                   ownedCryptoIdentity: networkReceivedMessage.messageId.ownedCryptoIdentity,
                                                   identityDelegate: identityDelegate,
@@ -76,9 +78,15 @@ public struct ObvMessage {
         self.messageUploadTimestampFromServer = networkReceivedMessage.messageUploadTimestampFromServer
         self.downloadTimestampFromServer = networkReceivedMessage.downloadTimestampFromServer
         self.localDownloadTimestamp = networkReceivedMessage.localDownloadTimestamp
-        
-        self.attachments = try networkReceivedMessage.attachmentIds.map {
-            return try ObvAttachment(attachmentId: $0, fromContactIdentity: obvContact, networkFetchDelegate: networkFetchDelegate, within: obvContext)
+        self.extendedMessagePayload = networkReceivedMessage.extendedMessagePayload
+        self.expectedAttachmentsCount = networkReceivedMessage.attachmentIds.count
+
+        if let networkFetchDelegate = networkFetchDelegate {
+            self.attachments = try networkReceivedMessage.attachmentIds.map {
+                return try ObvAttachment(attachmentId: $0, fromContactIdentity: obvContact, networkFetchDelegate: networkFetchDelegate, within: obvContext)
+            }
+        } else {
+            self.attachments = []
         }
     }
 }
@@ -90,7 +98,7 @@ extension ObvMessage: Codable {
     
     /// ObvMessage is codable so as to be able to transfer a message from the notification service to the main app.
     /// This serialization should **not** be used within long term storage since we may change it regularly.
-    /// Si also `ObvContactIdentity` and  `ObvAttachment`.
+    /// See also `ObvContactIdentity` and `ObvAttachment`.
 
     enum CodingKeys: String, CodingKey {
         case fromContactIdentity = "from_contact_identity"
@@ -100,6 +108,8 @@ extension ObvMessage: Codable {
         case downloadTimestampFromServer = "downloadTimestampFromServer"
         case messagePayload = "message_payload"
         case localDownloadTimestamp = "localDownloadTimestamp"
+        case extendedMessagePayload = "extendedMessagePayload"
+        case expectedAttachmentsCount = "expectedAttachmentsCount"
     }
 
     public func encodeToJson() throws -> Data {

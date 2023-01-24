@@ -122,6 +122,9 @@ final actor AppMainManager: ObvErrorMaker {
                 guard let _self = self else { return }
                 completion(_self.runningLog)
             },
+            ObvEngineNotificationNew.observeAPushTopicWasReceivedViaWebsocket(within: NotificationCenter.default) { pushTopic in
+                Task { [weak self] in try await self?.transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic) }
+            },
         ])
     }
     
@@ -243,7 +246,6 @@ final actor AppMainManager: ObvErrorMaker {
         self.appCoordinatorsHolder = AppCoordinatorsHolder(obvEngine: obvEngine)
     }
     
-    
     @MainActor
     private func initializeBackgroundTaskManagerBasedOnUIApplication() -> BackgroundTaskManagerBasedOnUIApplication {
         BackgroundTaskManagerBasedOnUIApplication()
@@ -269,9 +271,47 @@ final actor AppMainManager: ObvErrorMaker {
         assert(appManagersHolder != nil)
         await appManagersHolder?.performPostInitialization()
         
+        // Delete old files from the tmp directory
+        deleteOldTemporaryFiles()
+        
         // Print a few logs on startup
         printInitialDebugLogs()
 
+    }
+    
+    
+    private func deleteOldTemporaryFiles() {
+        DispatchQueue(label: "Internal queue for deleting old temporary files").async {
+            do {
+                let urlForTempFiles = ObvMessengerConstants.containerURL.forTempFiles
+                var isDirectory: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: urlForTempFiles.path, isDirectory: &isDirectory) else {
+                    os_log("The temp directory %{public}@ does not exist", log: Self.log, type: .fault, urlForTempFiles.path)
+                    assertionFailure()
+                    return
+                }
+                guard isDirectory.boolValue else {
+                    os_log("The temp URL %{public}@ is not a directory", log: Self.log, type: .fault, urlForTempFiles.path)
+                    assertionFailure()
+                    return
+                }
+                let dateLimit = Date(timeIntervalSinceNow: -TimeInterval(months: 2))
+                let keys: [URLResourceKey] = [.creationDateKey]
+                let fileURLs = try FileManager.default.contentsOfDirectory(at: urlForTempFiles, includingPropertiesForKeys: keys)
+                for fileURL in fileURLs {
+                    guard let attributes = try? fileURL.resourceValues(forKeys: Set(keys)) else { continue }
+                    guard let creationDate = attributes.creationDate, creationDate < dateLimit else { debugPrint("Keep"); return }
+                    // Make sure we are considering a regular file
+                    guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else { continue }
+                    guard !isDirectory.boolValue else { return }
+                    // If we reach this point, we should delete the archive
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
+            } catch {
+                os_log("We could not clean old temporary files: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
     }
     
 }
@@ -312,7 +352,7 @@ extension AppMainManager {
             // We are receiving a notification originated in the keycloak server
             
             do {
-                try await KeycloakManagerSingleton.shared.forceSyncManagedIdentitiesAssociatedWithPushTopics(pushTopic)
+                try await transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic)
             } catch {
                 os_log("🌊 The sync of the appropriate identity with the keycloak server failed: %{public}@. Calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, error.localizedDescription, tag.uuidString)
                 completionHandler(.failed)
@@ -340,6 +380,11 @@ extension AppMainManager {
             
         }
             
+    }
+    
+    
+    private func transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: String) async throws {
+        try await KeycloakManagerSingleton.shared.forceSyncManagedIdentitiesAssociatedWithPushTopics(pushTopic)
     }
     
     
@@ -572,6 +617,12 @@ extension AppMainManager {
     var createPasscodeDelegate: CreatePasscodeDelegate? {
         get async {
             await appManagersHolder?.createPasscodeDelegate
+        }
+    }
+
+    var appBackupDelegate: AppBackupDelegate? {
+        get async {
+            await appManagersHolder?.appBackupDelegate
         }
     }
 

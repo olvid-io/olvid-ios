@@ -19,15 +19,17 @@
 
 import Foundation
 import CoreData
+import OlvidUtils
 
 
 @objc(PersistedMessageExpiration)
-class PersistedMessageExpiration: NSManagedObject {
+class PersistedMessageExpiration: NSManagedObject, ObvErrorMaker {
 
     // MARK: Internal constants
 
     private static let entityName = "PersistedMessageExpiration"
     static let expirationDateKey = "expirationDate"
+    static let errorDomain = "PersistedMessageExpiration"
 
     // MARK: - Attributes
 
@@ -48,7 +50,9 @@ class PersistedMessageExpiration: NSManagedObject {
     }
 
     static func get(with: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedMessageExpiration {
-        guard let object = try context.existingObject(with: with) as? PersistedMessageExpiration else { throw NSError() }
+        guard let object = try context.existingObject(with: with) as? PersistedMessageExpiration else {
+            throw Self.makeError(message: "Could not find object")
+        }
         return object
     }
 

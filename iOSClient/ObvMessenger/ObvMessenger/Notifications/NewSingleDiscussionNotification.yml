@@ -55,3 +55,8 @@ notifications:
 - name: userWantsToDownloadReceivedFyleMessageJoinWithStatus
   params:
   - {name: receivedJoinObjectID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
+- name: updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility
+  params:
+  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: messageObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedMessage>>}
+

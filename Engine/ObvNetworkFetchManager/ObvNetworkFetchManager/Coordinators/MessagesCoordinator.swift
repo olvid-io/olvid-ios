@@ -689,10 +689,8 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                 
                 localQueue.sync {
                     
-                    let extendedMessagePayload: Data
-                    
                     do {
-                        extendedMessagePayload = try decryptAndSaveExtendedMessagePayload(messageId: messageId, encryptedExtendedMessagePayload: encryptedExtendedMessagePayload, flowId: flowId)
+                        try decryptAndSaveExtendedMessagePayload(messageId: messageId, encryptedExtendedMessagePayload: encryptedExtendedMessagePayload, flowId: flowId)
                     } catch {
                         os_log("Could not decrypt and save extended message payload: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoForExtendedPayloadDownloadTask(task)
@@ -705,7 +703,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                     
                     _ = removeInfoForExtendedPayloadDownloadTask(task)
                     queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.downloadingMessageExtendedPayloadWasPerformed(messageId: messageId, extendedMessagePayload: extendedMessagePayload, flowId: flowId)
+                        delegateManager.networkFetchFlowDelegate.downloadingMessageExtendedPayloadWasPerformed(messageId: messageId, flowId: flowId)
                     }
 
                 }
@@ -782,7 +780,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
     
     /// When receiving an encrypted extended message payload from the server, we call this method to fetch the message from database, use the decryption key to decrypt the
     /// extended payload, and store the decrypted payload back to database
-    private func decryptAndSaveExtendedMessagePayload(messageId: MessageIdentifier, encryptedExtendedMessagePayload: EncryptedData, flowId: FlowIdentifier) throws -> Data {
+    private func decryptAndSaveExtendedMessagePayload(messageId: MessageIdentifier, encryptedExtendedMessagePayload: EncryptedData, flowId: FlowIdentifier) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -797,11 +795,9 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             throw makeError(message: "The context creator manager is not set")
         }
 
-        var _extendedMessagePayload: Data?
-        
         try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
 
-            // In-memory changes (made here) trump external changes (typically made when marking the messge for deletion)
+            // In-memory changes (made here) trump external changes (typically made when marking the message for deletion)
             obvContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
             
             guard let message = try InboxMessage.get(messageId: messageId, within: obvContext) else {
@@ -814,21 +810,12 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             
             let authEnc = extendedMessagePayloadKey.algorithmImplementationByteId.algorithmImplementation
             let extendedMessagePayload = try authEnc.decrypt(encryptedExtendedMessagePayload, with: extendedMessagePayloadKey)
-            _extendedMessagePayload = extendedMessagePayload
-            
+
             message.setExtendedMessagePayload(to: extendedMessagePayload)
             
             try obvContext.save(logOnFailure: log)
 
         }
-        
-        if let extendedMessagePayload = _extendedMessagePayload {
-            return extendedMessagePayload
-        } else {
-            assertionFailure()
-            throw makeError(message: "Internal error in decryptAndSaveExtendedMessagePayload")
-        }
-        
     }
     
     

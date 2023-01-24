@@ -88,7 +88,7 @@ extension AutoGrowingTextView {
     /// `override func paste(_ sender: Any?)`
     /// implemented bellow.
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(UIResponderStandardEditActions.paste(_:)) && UIPasteboard.general.string == nil && !UIPasteboard.general.itemProviders.isEmpty {
+        if action == #selector(UIResponderStandardEditActions.paste(_:)) && !UIPasteboard.general.hasStrings && !UIPasteboard.general.itemProviders.isEmpty {
             return true
         } else {
             return super.canPerformAction(action, withSender: sender)
@@ -98,7 +98,7 @@ extension AutoGrowingTextView {
     /// When the user performs a "paste" action and the general pasteboard only contains items (i.e., attachments), we transfer the pasted items to our
     /// delegate. Otherwise, we let our superview handle the action.
     override func paste(_ sender: Any?) {
-        if UIPasteboard.general.string == nil && !UIPasteboard.general.itemProviders.isEmpty {
+        if !UIPasteboard.general.hasStrings && !UIPasteboard.general.itemProviders.isEmpty {
             assert(autoGrowingTextViewDelegate != nil)
             autoGrowingTextViewDelegate?.userPastedItemProviders(in: self, itemProviders: UIPasteboard.general.itemProviders)
         } else {

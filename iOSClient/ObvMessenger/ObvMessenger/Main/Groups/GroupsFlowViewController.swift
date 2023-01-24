@@ -130,38 +130,9 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
         assert(Thread.isMainThread)
         let ownedCryptoId = self.ownedCryptoId
         let obvEngine = self.obvEngine
-        
-        // For now, groups v2 can only be created when beta settings are shown.
-        // Otherwise, we only allow the creation of legacy groups.
-        
-        if ObvMessengerSettings.BetaConfiguration.showBetaSettings || ObvMessengerConstants.developmentMode {
-            
-            let alert = UIAlertController(title: NSLocalizedString("CHOOSE_GROUP_TYPE_TITLE", comment: ""),
-                                          message: NSLocalizedString("CHOOSE_GROUP_TYPE_MESSAGE", comment: ""),
-                                          preferredStyleForTraitCollection: self.traitCollection)
-            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V1", comment: ""), style: .default, handler: { [weak self] (action) in
-                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV1, obvEngine: obvEngine)
-                self?.present(groupCreationFlowVC, animated: true)
-            }))
-            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
-                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
-                self?.present(groupCreationFlowVC, animated: true)
-            }))
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            
-            if let presentedViewController = self.presentedViewController {
-                presentedViewController.present(alert, animated: true)
-            } else {
-                self.present(alert, animated: true)
-            }
-
-        } else {
-
-            let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV1, obvEngine: obvEngine)
-            present(groupCreationFlowVC, animated: true)
-            
-        }
-        
+        // Starting with version 0.12.0, we only allow the creation of groups v2
+        let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
+        present(groupCreationFlowVC, animated: true)
     }
         
     

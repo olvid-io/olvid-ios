@@ -46,6 +46,7 @@ enum NewSingleDiscussionNotification {
 	case draftCouldNotBeSent(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
+	case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, messageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
 
 	private enum Name {
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
@@ -62,6 +63,7 @@ enum NewSingleDiscussionNotification {
 		case draftCouldNotBeSent
 		case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus
 		case userWantsToDownloadReceivedFyleMessageJoinWithStatus
+		case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility
 
 		private var namePrefix: String { String(describing: NewSingleDiscussionNotification.self) }
 
@@ -88,6 +90,7 @@ enum NewSingleDiscussionNotification {
 			case .draftCouldNotBeSent: return Name.draftCouldNotBeSent.name
 			case .userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus.name
 			case .userWantsToDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToDownloadReceivedFyleMessageJoinWithStatus.name
+			case .updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility: return Name.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility.name
 			}
 		}
 	}
@@ -159,6 +162,11 @@ enum NewSingleDiscussionNotification {
 		case .userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: let receivedJoinObjectID):
 			info = [
 				"receivedJoinObjectID": receivedJoinObjectID,
+			]
+		case .updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionObjectID: let discussionObjectID, messageObjectIDs: let messageObjectIDs):
+			info = [
+				"discussionObjectID": discussionObjectID,
+				"messageObjectIDs": messageObjectIDs,
 			]
 		}
 		return info
@@ -309,6 +317,15 @@ enum NewSingleDiscussionNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let receivedJoinObjectID = notification.userInfo!["receivedJoinObjectID"] as! TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>
 			block(receivedJoinObjectID)
+		}
+	}
+
+	static func observeUpdatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, Set<TypeSafeManagedObjectID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
+		let name = Name.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
+			let messageObjectIDs = notification.userInfo!["messageObjectIDs"] as! Set<TypeSafeManagedObjectID<PersistedMessage>>
+			block(discussionObjectID, messageObjectIDs)
 		}
 	}
 

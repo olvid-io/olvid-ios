@@ -29,6 +29,7 @@ extension DownloadsSettingsTableViewController {
             return String.localizedStringWithFormat(NSLocalizedString("Attachments smaller than %@ will be automatically downloaded. Larger attachments will require manual download.", comment: ""), size)
         }
 
+        static let downloadSizeExplanationWhenUnlimited = NSLocalizedString("ALL_ATTACHMENTS_WILL_BE_AUTOMATICALLY_DOWNLOADED", comment: "")
         
     }
     

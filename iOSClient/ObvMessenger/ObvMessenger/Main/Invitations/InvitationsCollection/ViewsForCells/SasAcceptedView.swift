@@ -18,14 +18,17 @@
  */
 
 import UIKit
+import OlvidUtils
 
-class SasAcceptedView: UIView {
+class SasAcceptedView: UIView, ObvErrorMaker {
 
     static let nibName = "SasAcceptedView"
 
     private let expectedSasLength = 4
     private let sasFont = UIFont.preferredFont(forTextStyle: .title2)
     
+    static let errorDomain = "SasAcceptedView"
+
     @IBOutlet weak var ownSasTitleLabel: UILabel! { didSet { ownSasTitleLabel.textColor = AppTheme.shared.colorScheme.label } }
     @IBOutlet weak var contactSasTitleLabel: UILabel! { didSet { contactSasTitleLabel.textColor = AppTheme.shared.colorScheme.label }}
     
@@ -78,8 +81,8 @@ fileprivate extension Character {
 extension SasAcceptedView {
     
     func setOwnSas(ownSas: Data) throws {
-        guard let sas = String(data: ownSas, encoding: .utf8) else { throw NSError() }
-        guard sas.isValidSas(ofLength: expectedSasLength) else { throw NSError() }
+        guard let sas = String(data: ownSas, encoding: .utf8) else { throw Self.makeError(message: "Could not turn SAS into string") }
+        guard sas.isValidSas(ofLength: expectedSasLength) else { throw Self.makeError(message: "SAS is not valid") }
         ownSasLabel.text = sas
         
     }

@@ -30,10 +30,10 @@ public struct ContactMutualIntroductionProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.ContactMutualIntroduction
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,
-                                                    StateId.ContactsIntroduced,
-                                                    StateId.InvitationRejected,
-                                                    StateId.MutualTrustEstablished]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,
+                                                           StateId.ContactsIntroduced,
+                                                           StateId.InvitationRejected,
+                                                           StateId.MutualTrustEstablished]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

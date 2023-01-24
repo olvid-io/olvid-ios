@@ -32,5 +32,6 @@ protocol ReceivedMessageDelegate {
     func abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity)
     func createBlockForAbortingProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity) -> (() -> Void)
     func createBlockForAbortingProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity, within obvContext: ObvContext) -> (() -> Void)
+    func deleteProtocolInstancesInAFinalState(flowId: FlowIdentifier)
 
 }

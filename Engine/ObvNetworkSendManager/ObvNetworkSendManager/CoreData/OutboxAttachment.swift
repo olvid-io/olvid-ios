@@ -39,7 +39,7 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
     private static let sessionKey = "session"
     private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
     private static let rawMessageIdUidKey = "rawMessageIdUid"
-    private static let messageUploadedKey = [messageKey, OutboxMessage.uploadedKey].joined(separator: ".")
+    private static let messageUploadedKey = [messageKey, OutboxMessage.Predicate.Key.uploaded.rawValue].joined(separator: ".")
 
     private static let errorDomain = "OutboxAttachment"
     

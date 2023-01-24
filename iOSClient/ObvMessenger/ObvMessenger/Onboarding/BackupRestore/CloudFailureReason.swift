@@ -23,5 +23,6 @@ enum CloudFailureReason {
     case icloudAccountStatusIsNotAvailable
     case couldNotRetrieveEncryptedBackupFile
     case couldNotRetrieveCreationDate
+    case couldNotRetrieveDeviceName
     case iCloudError(description: String)
 }

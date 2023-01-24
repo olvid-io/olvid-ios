@@ -33,7 +33,7 @@ public struct DeviceDiscoveryForContactIdentityProtocol: ConcreteCryptoProtocol 
     
     static let id = CryptoProtocolId.DeviceDiscoveryForContactIdentity
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.ChildProtocolStateProcessed, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.ChildProtocolStateProcessed, StateId.Cancelled]
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

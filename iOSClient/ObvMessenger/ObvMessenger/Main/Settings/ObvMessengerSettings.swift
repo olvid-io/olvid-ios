@@ -26,9 +26,9 @@ struct ObvMessengerSettings {
     
     struct Downloads {
         
-        // In bytes
+        // In bytes (-1 means unlimited)
         
-        static let byteSizes = [0, 1_000_000, 3_000_000, 5_000_000, 10_000_000, 20_000_000, 50_000_000, 100_000_000]
+        static let byteSizes = [0, 1_000_000, 3_000_000, 5_000_000, 10_000_000, 20_000_000, 50_000_000, 100_000_000, -1]
         
         static var maxAttachmentSizeForAutomaticDownload: Int {
             get {
@@ -77,7 +77,7 @@ struct ObvMessengerSettings {
     }
     
     struct Interface {
-
+        
         private struct Keys {
             static let identityColorStyle = "settings.interface.identityColorStyle"
             static let contactsSortOrder = "settings.interface.contactsSortOrder"
@@ -95,8 +95,8 @@ struct ObvMessengerSettings {
                 ObvMessengerSettingsNotifications.identityColorStyleDidChange.postOnDispatchQueue()
             }
         }
-
-
+        
+        
         static var contactsSortOrder: ContactsSortOrder {
             get {
                 let raw = userDefaults.integerOrNil(forKey: Keys.contactsSortOrder) ?? ContactsSortOrder.byFirstName.rawValue
@@ -117,7 +117,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.useOldDiscussionInterface)
             }
         }
-
+        
         static var preferredComposeMessageViewActions: [NewComposeMessageViewAction] {
             get {
                 guard let rawValues = userDefaults.array(forKey: Keys.preferredComposeMessageViewActions) as? [Int] else { return NewComposeMessageViewAction.defaultActions }
@@ -137,7 +137,7 @@ struct ObvMessengerSettings {
     }
     
     struct Discussions {
-
+        
         private struct Keys {
             static let doSendReadReceipt = "settings.discussions.doSendReadReceipt"
             static let doFetchContentRichURLsMetadata = "settings.discussions.doFetchContentRichURLsMetadata"
@@ -151,10 +151,10 @@ struct ObvMessengerSettings {
             static let retainWipedOutboundMessages = "settings.discussions.retainWipedOutboundMessages"
             static let notificationSound = "settings.discussions.notificationSound"
         }
-
+        
         
         // MARK: Read receipts
-                
+        
         static var doSendReadReceipt: Bool {
             get {
                 return userDefaults.boolOrNil(forKey: Keys.doSendReadReceipt) ?? false
@@ -171,8 +171,8 @@ struct ObvMessengerSettings {
             case withinSentMessagesOnly = 1
             case always = 2
             var id: Int { rawValue }
-       }
-
+        }
+        
         
         static var doFetchContentRichURLsMetadata: FetchContentRichURLsMetadataChoice {
             get {
@@ -183,7 +183,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue.rawValue, forKey: Keys.doFetchContentRichURLsMetadata)
             }
         }
-
+        
         // MARK: Ephemeral messages: read once
         
         static var readOnce: Bool {
@@ -194,7 +194,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.readOnce)
             }
         }
-
+        
         // MARK: Ephemeral messages: visibility duration
         
         static var visibilityDuration: DurationOption {
@@ -206,7 +206,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue.rawValue, forKey: Keys.visibilityDuration)
             }
         }
-
+        
         
         // MARK: Ephemeral messages: existence duration
         
@@ -219,7 +219,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue.rawValue, forKey: Keys.existenceDuration)
             }
         }
-
+        
         // MARK: Count based retention policy
         
         static var countBasedRetentionPolicyIsActive: Bool {
@@ -230,7 +230,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.countBasedRetentionPolicyIsActive)
             }
         }
-
+        
         static var countBasedRetentionPolicy: Int {
             get {
                 return userDefaults.integerOrNil(forKey: Keys.countBasedRetentionPolicy) ?? 100
@@ -240,7 +240,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.countBasedRetentionPolicy)
             }
         }
-
+        
         // MARK: Time based retention policy
         
         static var timeBasedRetentionPolicy: DurationOptionAlt {
@@ -252,9 +252,9 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue.rawValue, forKey: Keys.timeBasedRetentionPolicy)
             }
         }
-
+        
         // MARK: Ephemeral messages: auto read
-
+        
         static var autoRead: Bool {
             get {
                 return userDefaults.boolOrNil(forKey: Keys.autoRead) ?? false
@@ -263,9 +263,9 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.autoRead)
             }
         }
-
+        
         // MARK: Ephemeral messages: auto read
-
+        
         static var retainWipedOutboundMessages: Bool {
             get {
                 return userDefaults.boolOrNil(forKey: Keys.retainWipedOutboundMessages) ?? false
@@ -274,10 +274,10 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.retainWipedOutboundMessages)
             }
         }
-
-
+        
+        
         // MARK: Notification Sounds
-
+        
         static var notificationSound: NotificationSound? {
             get {
                 guard let soundName = userDefaults.stringOrNil(forKey: Keys.notificationSound) else {
@@ -293,19 +293,19 @@ struct ObvMessengerSettings {
                 }
             }
         }
-
+        
     }
     
     
     // MARK: - Privacy
     
     struct Privacy {
-
+        
         struct Keys {
             static let localAuthenticationPolicy = "settings.privacy.localAuthenticationPolicy"
             static let lockScreenGracePeriod = "settings.privacy.lockScreenGracePeriod"
             static let hideNotificationContent = "settings.privacy.hideNotificationContent"
-
+            
             static let passcodeHashAnsSalt = "settings.privacy.passcodeHashAndSalt"
             static let passcodeIsPassword = "settings.privacy.passcodeIsPassword"
             static let passcodeFailedCount = "settings.privacy.passcodeFailedCount"
@@ -314,9 +314,9 @@ struct ObvMessengerSettings {
             static let lockoutCleanEphemeral = "settings.privacy.lockoutCleanEphemeral"
             static let userHasBeenLockedOut = "settings.privacy.userHasBeenLockedOut"
         }
-
+        
         // MARK: Local Authentication Policy
-
+        
         static var localAuthenticationPolicy: LocalAuthenticationPolicy {
             get {
                 guard let rawPolicy = userDefaults.integerOrNil(forKey: Keys.localAuthenticationPolicy) else {
@@ -331,9 +331,9 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue.rawValue, forKey: Keys.localAuthenticationPolicy)
             }
         }
-
+        
         // MARK: Passcode
-
+        
         static var passcodeHashAndSalt: (Data, Data)? {
             get {
                 guard let passcodeHashAndSaltAsString = userDefaults.stringOrNil(forKey: Keys.passcodeHashAnsSalt) else {
@@ -358,7 +358,7 @@ struct ObvMessengerSettings {
                 }
             }
         }
-
+        
         static var passcodeIsPassword: Bool {
             get {
                 userDefaults.boolOrNil(forKey: Keys.passcodeIsPassword) ?? false
@@ -367,7 +367,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.passcodeIsPassword)
             }
         }
-
+        
         /// Count the number of times a subset of the previous passcode was typed for the first time.
         /// 1) the user types "A",
         /// 2) then "B"  -> "AB"
@@ -380,7 +380,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.passcodeFailedCount)
             }
         }
-
+        
         /// Count the number of first passcode tries, i.e. when the user open a passcode verification view controller and starts to type something
         static var passcodeAttempsSessions: Int {
             get {
@@ -390,12 +390,12 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.passcodeAttempsSessions)
             }
         }
-
+        
         static var passcodeAttemptCount: Int {
             // We remove 1 attempt, since we concider the first session as correct.
             passcodeFailedCount + passcodeAttempsSessions - 1
         }
-
+        
         static var lockoutUptime: TimeInterval? {
             get {
                 userDefaults.doubleOrNil(forKey: Keys.lockoutUptime)
@@ -404,7 +404,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.lockoutUptime)
             }
         }
-
+        
         static var lockoutCleanEphemeral: Bool {
             get {
                 userDefaults.boolOrNil(forKey: Keys.lockoutCleanEphemeral) ?? false
@@ -413,7 +413,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.lockoutCleanEphemeral)
             }
         }
-
+        
         static var userHasBeenLockedOut: Bool {
             get {
                 userDefaults.boolOrNil(forKey: Keys.userHasBeenLockedOut) ?? false
@@ -422,9 +422,9 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.userHasBeenLockedOut)
             }
         }
-
+        
         // MARK: Lock Screen Grace Period
-
+        
         /// Possible grace periods (in seconds)
         static let gracePeriods: [TimeInterval] = [0, 5, 60, 60*5, 60*15, 60*60]
         
@@ -436,7 +436,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.lockScreenGracePeriod)
             }
         }
-
+        
         // MARK: Hide notification content
         
         enum HideNotificationContentType: Int {
@@ -470,7 +470,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: "settings.backup.isAutomaticBackupEnabled")
             }
         }
-
+        
         static var isAutomaticCleaningBackupEnabled: Bool {
             get {
                 return userDefaults.boolOrNil(forKey: "settings.backup.isAutomaticCleaningBackupEnabled") ?? false
@@ -479,14 +479,14 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: "settings.backup.isAutomaticCleaningBackupEnabled")
             }
         }
-
+        
     }
     
     
     // MARK: - VoIP
     
     struct VoIP {
-
+        
         static var isCallKitEnabled: Bool {
             get {
                 guard ObvMessengerConstants.isRunningOnRealDevice else { return false }
@@ -500,7 +500,7 @@ struct ObvMessengerSettings {
                     .postOnDispatchQueue()
             }
         }
-
+        
         static var isIncludesCallsInRecentsEnabled: Bool {
             get {
                 return userDefaults.boolOrNil(forKey: "settings.voip.isIncludesCallsInRecentsEnabled") ?? true
@@ -512,7 +512,7 @@ struct ObvMessengerSettings {
                     .postOnDispatchQueue()
             }
         }
-
+        
         static let maxaveragebitratePossibleValues: [Int?] = [nil, 8_000, 16_000, 24_000, 32_000]
         
         // See https://datatracker.ietf.org/doc/html/draft-spittka-payload-rtp-opus
@@ -525,22 +525,43 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: "settings.voip.maxaveragebitrate")
             }
         }
-
+        
     }
     
     // MARK: - Alerts
     
     struct Alert {
+        
+        // MARK: - Announcing groups v2
+        
+        struct AnnouncingGroupsV2 {
+            
+            fileprivate struct Key {
+                static let wasShownAndPermanentlyDismissedByUser = "settings.AnnouncingGroupsV2.wasShownAndPermanentlyDismissedByUser"
+            }
+
+            static var wasShownAndPermanentlyDismissedByUser: Bool {
+                get {
+                    return userDefaults.boolOrNil(forKey: Key.wasShownAndPermanentlyDismissedByUser) ?? false
+                }
+                set {
+                    guard newValue != wasShownAndPermanentlyDismissedByUser else { return }
+                    userDefaults.set(newValue, forKey: Key.wasShownAndPermanentlyDismissedByUser)
+                }
+            }
+            
+        }
 
         // Since this key is not used anymore, we only provide a way to remove it from the user defaults
         static func removeSecureCallsInBeta() {
             userDefaults.removeObject(forKey: "settings.alert.showSecureCallsInBeta")
         }
-
+        
         static func resetAllAlerts() {
             removeSecureCallsInBeta()
+            userDefaults.removeObject(forKey: AnnouncingGroupsV2.Key.wasShownAndPermanentlyDismissedByUser)
         }
-
+        
     }
     
     // MARK: - Subscriptions
@@ -604,8 +625,8 @@ struct ObvMessengerSettings {
             static let preferredEmojisList = "settings.preferredEmojisList"
             static let defaultEmojiButton = "settings.defaultEmojiButton"
         }
-
-        static fileprivate(set) var preferredEmojisList: [String] {
+        
+        static var preferredEmojisList: [String] {
             get {
                 return userDefaults.stringArray(forKey: Keys.preferredEmojisList) ?? []
             }
@@ -614,7 +635,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Keys.preferredEmojisList)
             }
         }
-
+        
         static var defaultEmojiButton: String? {
             get {
                 return userDefaults.stringOrNil(forKey: Keys.defaultEmojiButton)
@@ -626,7 +647,7 @@ struct ObvMessengerSettings {
             }
         }
     }
-
+    
     // MARK: - MDM
     
     struct MDM {
@@ -679,7 +700,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Key.minimum)
             }
         }
-
+        
         /// This corresponds to the latest acceptable iOS build version returned by the server when querying the well known point.
         static var latest: Int? {
             get {
@@ -690,7 +711,7 @@ struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: Key.latest)
             }
         }
-
+        
     }
     
 }

@@ -36,8 +36,8 @@ final class ChannelCreationWithContactDeviceProtocolInstance: NSManagedObject, O
     private static let contactIdentityKey = "contactIdentity"
     private static let contactDeviceUidKey = "contactDeviceUid"
     private static let protocolInstanceKey = "protocolInstance"
-    private static let protocolInstanceOwnedCryptoIdentityKey = [protocolInstanceKey, ProtocolInstance.ownedCryptoIdentityKey].joined(separator: ".")
-    private static let protocolInstanceUidKey = [protocolInstanceKey, ProtocolInstance.uidKey].joined(separator: ".")
+    private static let protocolInstanceOwnedCryptoIdentityKey = [protocolInstanceKey, ProtocolInstance.Predicate.Key.ownedCryptoIdentity.rawValue].joined(separator: ".")
+    private static let protocolInstanceUidKey = [protocolInstanceKey, ProtocolInstance.Predicate.Key.uid.rawValue].joined(separator: ".")
     
     // MARK: Attributes
     

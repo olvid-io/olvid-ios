@@ -117,6 +117,7 @@ extension ObvProtocolManager {
             Task(priority: .low) {
                 await deleteOldUploadingUserData()
             }
+            delegateManager.receivedMessageDelegate.deleteProtocolInstancesInAFinalState(flowId: flowId)
         }
 
     }

@@ -224,35 +224,7 @@ extension ObvNetworkFetchManagerImplementation {
         delegateManager.messagesDelegate.downloadMessagesAndListAttachments(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
     }
     
-    
-    public func getEncryptedMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageEncrypted? {
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: log, type: .fault)
-            return nil
-        }
-        
-        var message: ObvNetworkReceivedMessageEncrypted?
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let inboxMessage = try? InboxMessage.get(messageId: messageId, within: obvContext) else {
-                os_log("Message does not exist in InboxMessage", log: log, type: .error)
-                return
-            }
-            
-            message = ObvNetworkReceivedMessageEncrypted(
-                messageId: messageId,
-                messageUploadTimestampFromServer: inboxMessage.messageUploadTimestampFromServer,
-                downloadTimestampFromServer: inboxMessage.downloadTimestampFromServer,
-                localDownloadTimestamp: inboxMessage.localDownloadTimestamp,
-                encryptedContent: inboxMessage.encryptedContent,
-                wrappedKey: inboxMessage.wrappedKey,
-                attachmentCount: inboxMessage.attachments.count,
-                hasEncryptedExtendedMessagePayload: inboxMessage.hasEncryptedExtendedMessagePayload)
-        }
-        return message
-    }
-    
-    
+
     public func getDecryptedMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageDecrypted? {
         
         guard let contextCreator = delegateManager.contextCreator else {
@@ -276,7 +248,8 @@ extension ObvNetworkFetchManagerImplementation {
                                                          messagePayload: messagePayload,
                                                          messageUploadTimestampFromServer: inboxMessage.messageUploadTimestampFromServer,
                                                          downloadTimestampFromServer: inboxMessage.downloadTimestampFromServer,
-                                                         localDownloadTimestamp: inboxMessage.localDownloadTimestamp)
+                                                         localDownloadTimestamp: inboxMessage.localDownloadTimestamp,
+                                                         extendedMessagePayload: inboxMessage.extendedMessagePayload)
         }
         return message
     }

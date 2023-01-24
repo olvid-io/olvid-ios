@@ -27,19 +27,13 @@ notifications:
 - name: serverRequiresThisDeviceToRegisterToPushNotifications
   params:
       - {name: ownedIdentity, type: ObvCryptoId}
-- name: backupForUploadWasUploaded
-  params:
-      - {name: backupRequestUuid, type: UUID}
-      - {name: backupKeyUid, type: UID}
-      - {name: version, type: Int}
-- name: backupForExportWasExported
-  params:
-      - {name: backupRequestUuid, type: UUID}
-      - {name: backupKeyUid, type: UID}
-      - {name: version, type: Int}
 - name: outboxMessagesAndAllTheirAttachmentsWereAcknowledged
   params:
       - {name: messageIdsAndTimestampsFromServer, type: "[(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]"}
+- name: outboxMessageCouldNotBeSentToServer
+  params:
+      - {name: messageIdentifierFromEngine, type: Data}
+      - {name: ownedIdentity, type: ObvCryptoId}
 - name: callerTurnCredentialsReceived
   params:
       - {name: ownedIdentity, type: ObvCryptoId}
@@ -191,7 +185,6 @@ notifications:
 - name: messageExtendedPayloadAvailable
   params:
       - {name: obvMessage, type: ObvMessage}
-      - {name: extendedMessagePayload, type: Data}
 - name: contactIsActiveChangedWithinEngine
   params:
       - {name: obvContactIdentity, type: ObvContactIdentity}
@@ -222,3 +215,6 @@ notifications:
   params:
   - {name: ownedIdentity, type: ObvCryptoId}
   - {name: appGroupIdentifier, type: Data}
+- name: aPushTopicWasReceivedViaWebsocket
+  params:
+  - {name: pushTopic, type: String}

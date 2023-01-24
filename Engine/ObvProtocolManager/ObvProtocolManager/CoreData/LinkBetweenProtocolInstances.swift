@@ -34,9 +34,9 @@ class LinkBetweenProtocolInstances: NSManagedObject, ObvManagedObject {
     static let childProtocolInstanceUidKey = "childProtocolInstanceUid"
     private static let expectedChildStateRawIdKey = "expectedChildStateRawId"
     private static let parentProtocolInstanceKey = "parentProtocolInstance"
-    private static let parentProtocolInstanceOwnedCryptoIdentityKey = [parentProtocolInstanceKey, ProtocolInstance.ownedCryptoIdentityKey].joined(separator: ".")
+    private static let parentProtocolInstanceOwnedCryptoIdentityKey = [parentProtocolInstanceKey, ProtocolInstance.Predicate.Key.ownedCryptoIdentity.rawValue].joined(separator: ".")
     private static let childProtocolInstanceOwnedCryptoIdentityKey = parentProtocolInstanceOwnedCryptoIdentityKey
-    private static let parentProtocolInstanceUidKey = [parentProtocolInstanceKey, ProtocolInstance.uidKey].joined(separator: ".")
+    private static let parentProtocolInstanceUidKey = [parentProtocolInstanceKey, ProtocolInstance.Predicate.Key.uid.rawValue].joined(separator: ".")
     
     // MARK: Attributes
     

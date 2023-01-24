@@ -148,9 +148,11 @@ notifications:
 - name: downloadingMessageExtendedPayloadWasPerformed
   params:
   - {name: messageId, type: MessageIdentifier}
-  - {name: extendedMessagePayload, type: Data}
   - {name: flowId, type: FlowIdentifier}
 - name: downloadingMessageExtendedPayloadFailed
   params:
   - {name: messageId, type: MessageIdentifier}
   - {name: flowId, type: FlowIdentifier}
+- name: pushTopicReceivedViaWebsocket
+  params:
+  - {name: pushTopic, type: String}

@@ -26,7 +26,7 @@ public extension TimeInterval {
         var totalSeconds = 0
         if let years = years { totalSeconds += years * 31_536_000 } // Assuming 365 days/year
         if let months = months { totalSeconds += months * 2_592_000 } // Assuming 30 days/month
-        if let days = days { totalSeconds += days * 122_400 }
+        if let days = days { totalSeconds += days * 86_400 }
         if let hours = hours { totalSeconds += hours * 3_600 }
         if let minutes = minutes { totalSeconds += minutes * 60 }
         if let seconds = seconds { totalSeconds += seconds }

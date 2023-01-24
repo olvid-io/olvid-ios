@@ -44,11 +44,17 @@ final class PersistedDiscussionsUpdatesCoordinator {
     }()
 
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
+    private var screenCaptureDetector: ScreenCaptureDetector?
 
     init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
         self.obvEngine = obvEngine
         self.internalQueue = operationQueue
         listenToNotifications()
+        Task {
+            screenCaptureDetector = await ScreenCaptureDetector()
+            await screenCaptureDetector?.setDelegate(to: self)
+            await screenCaptureDetector?.startDetecting()
+        }
     }
     
     
@@ -71,6 +77,9 @@ final class PersistedDiscussionsUpdatesCoordinator {
             cleanExpiredMuteNotificationsSetting()
             cleanOrphanedPersistedMessageTimestampedMetadata()
             synchronizeAllOneToOneDiscussionTitlesWithContactNameOperation()
+            Task {
+                await regularlyUpdateFyleMessageJoinWithStatusProgresses()
+            }
         }
 
         // The following bootstrap methods are always called, not only the first time the app appears on screen
@@ -107,7 +116,24 @@ final class PersistedDiscussionsUpdatesCoordinator {
         }
     }
     
+    // This timer is used to periodically refresh the attachment download/upload progresses, which is particularly useful when they are stalled.
+    // Indeed, in that case, the engine will stop returning progress updates (as we only request for progresses that were updated since our previous request).
+    // In that case we want to update the throughput and remaining time of the progresses. We do it in this timer block.
+    private var timerForRefreshingFyleMessageJoinWithStatusProgresses: Timer?
     
+    @MainActor
+    private func regularlyUpdateFyleMessageJoinWithStatusProgresses() {
+        assert(Thread.isMainThread)
+        guard self.timerForRefreshingFyleMessageJoinWithStatusProgresses == nil else { return }
+        self.timerForRefreshingFyleMessageJoinWithStatusProgresses = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { timer in
+            guard timer.isValid else { return }
+            assert(Thread.isMainThread)
+            Task {
+                await FyleMessageJoinWithStatus.refreshAllProgresses()
+            }
+        })
+    }
+
     /// This method is periodically called. It asks the engine to send fresh progresses for downloading attachments, when appropriate.
     @objc private func requestAttachmentDownloadProgressesIfAppropriate() {
         guard ObvUserActivitySingleton.shared.currentUserActivity.isContinueDiscussion else { return }
@@ -359,11 +385,14 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvEngineNotificationNew.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: NotificationCenter.default) { [weak self] (messageIdsAndTimestampsFromServer) in
                 self?.processOutboxMessagesAndAllTheirAttachmentsWereAcknowledgedNotification(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer)
             },
+            ObvEngineNotificationNew.observeOutboxMessageCouldNotBeSentToServer(within: NotificationCenter.default) { [weak self] (messageIdentifierFromEngine, ownedCryptoId) in
+                self?.processOutboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
+            },
             ObvEngineNotificationNew.observeContactWasDeleted(within: NotificationCenter.default) { [weak self] (ownedCryptoId, contactCryptoId) in
                 self?.processContactWasDeletedNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
-            ObvEngineNotificationNew.observeMessageExtendedPayloadAvailable(within: NotificationCenter.default) { [weak self] (obvMessage, extendedMessagePayload) in
-                self?.processMessageExtendedPayloadAvailable(obvMessage: obvMessage, extendedMessagePayload: extendedMessagePayload)
+            ObvEngineNotificationNew.observeMessageExtendedPayloadAvailable(within: NotificationCenter.default) { [weak self] (obvMessage) in
+                self?.processMessageExtendedPayloadAvailable(obvMessage: obvMessage)
             },
             ObvEngineNotificationNew.observeContactWasRevokedAsCompromisedWithinEngine(within: NotificationCenter.default) { [weak self] obvContactIdentity in
                 self?.processContactWasRevokedAsCompromisedWithinEngine(obvContactIdentity: obvContactIdentity)
@@ -1533,7 +1562,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processNewMessageReceivedNotification(obvMessage: ObvMessage, completionHandler: @escaping (Set<ObvAttachment>) -> Void) {
         os_log("🧦 We received a NewMessageReceived notification", log: log, type: .debug)
 
-        let attachmentsToDownloadAsap = Set(obvMessage.attachments.filter({ $0.totalUnitCount < ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload }))
+        let attachmentsToDownloadAsap = Set(obvMessage.attachments.filter {
+            // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
+            ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload < 0 || $0.totalUnitCount < ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
+        })
         let localCompletionHandler = {
             completionHandler(attachmentsToDownloadAsap)
         }
@@ -1565,7 +1597,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let op1 = MarkSentFyleMessageJoinWithStatusAsCompleteOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
         let op2 = SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation(messageIdentifierFromEngine: messageIdentifierFromEngine)
         op2.addDependency(op1)
-        let ops: [OperationThatCanLogReasonForCancel] = [op1]
+        let ops: [OperationThatCanLogReasonForCancel] = [op1, op2]
         internalQueue.addOperations(ops, waitUntilFinished: true)
         logReasonOfCancelledOperations(ops)
     }
@@ -1719,6 +1751,15 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
+    /// If the network manager fails to send a message during 30 days, it deletes the outbos message and sends a notification that we catch here.
+    private func processOutboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId) {
+        let op = MarkSentMessageAsCouldNotBeSentToServerOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        composedOp.queuePriority = .low
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
+    
     /// When a contact is deleted, we look for all associated `PersistedMessageSentRecipientInfos` instance with no message identifier from engine and delete these instances.
     /// For each of these instances, we also recompute the status of the associated `PersistedMessageSent` (since the absence of a particular `PersistedMessageSentRecipientInfos`
     /// may have an influence on the result of the computation).
@@ -1735,9 +1776,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     
     /// Called when the engine received successfully downloaded and decrypted an extended payload for an application message.
-    private func processMessageExtendedPayloadAvailable(obvMessage: ObvMessage, extendedMessagePayload: Data) {
-        let op = ProcessReceivedExtendedPayloadOperation(obvMessage: obvMessage, extendedMessagePayload: extendedMessagePayload)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+    private func processMessageExtendedPayloadAvailable(obvMessage: ObvMessage) {
+        let op1 = ExtractReceivedExtendedPayloadOperation(obvMessage: obvMessage)
+        let op2 = SaveReceivedExtendedPayloadOperation(extractReceivedExtendedPayloadOp: op1)
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
     }
@@ -2191,6 +2233,15 @@ extension PersistedDiscussionsUpdatesCoordinator {
             composedOp.logReasonIfCancelled(log: log)
         }
         
+        // Case #9: The ObvMessage contains a JSON message indicating that a contact did take a screen capture of sensitive content
+        
+        if let screenCaptureDetectionJSON = persistedItemJSON.screenCaptureDetectionJSON {
+            let op = ProcessDetectionThatSensitiveMessagesWereCapturedByContactOperation(contactIdentity: obvMessage.fromContactIdentity,
+                                                                                         screenCaptureDetectionJSON: screenCaptureDetectionJSON)
+            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            internalQueue.addOperation(composedOp)
+        }
+        
         // The inbox message has been processed, we can call the completion handler.
         // This completion handler is typically used to mark the message from deletion within the FetchManager in the engine.
         
@@ -2323,4 +2374,31 @@ private extension UserDefaults {
     @objc dynamic var extensionFailedToWipeAllEphemeralMessagesBeforeDate: String {
         return ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate
     }
+}
+
+
+// MARK: - ScreenCaptureDetectorDelegate
+
+extension PersistedDiscussionsUpdatesCoordinator: ScreenCaptureDetectorDelegate {
+    
+    
+    func screenCaptureOfSensitiveMessagesWasDetected(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async {
+        debugPrint("🔋 Screen capture of a discussion was detected")
+        processDectection(persistedDiscussionObjectID: persistedDiscussionObjectID)
+    }
+    
+    
+    func screenshotOfSensitiveMessagesWasDetected(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async {
+        debugPrint("🔋 Screenshot of a discussion was detected")
+        processDectection(persistedDiscussionObjectID: persistedDiscussionObjectID)
+    }
+    
+    
+    private func processDectection(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
+        let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOperation(discussionObjectID: persistedDiscussionObjectID,
+                                                                                            obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperation(composedOp)
+    }
+    
 }

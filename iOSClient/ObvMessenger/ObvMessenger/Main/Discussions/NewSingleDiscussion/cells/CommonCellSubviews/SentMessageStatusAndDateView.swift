@@ -44,6 +44,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         case .sent: return .checkmarkCircle
         case .delivered: return .checkmarkCircleFill
         case .read: return .eyeFill
+        case .couldNotBeSentToOneOrMoreRecipients: return .exclamationmarkCircle
         }
     }
     

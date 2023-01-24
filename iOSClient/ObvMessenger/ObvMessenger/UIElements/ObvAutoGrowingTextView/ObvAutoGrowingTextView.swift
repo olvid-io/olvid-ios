@@ -100,7 +100,7 @@ extension ObvAutoGrowingTextView {
     override func paste(_ sender: Any?) {
         // If there is pasted text, we do not consider any other item.
         // In case we copy/paste from the Notes app, there is text *and* a .webarchive attachment that we do not want to attach.
-        if UIPasteboard.general.string == nil {
+        if !UIPasteboard.general.hasStrings {
             growingTextViewDelegate?.userPastedItemsWithoutText(in: self)
         }
         super.paste(sender)

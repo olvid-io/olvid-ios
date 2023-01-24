@@ -133,7 +133,8 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     
     /// If the manager is not set, this function throws an `Error`. If any other error occurs, it can be casted to a `KeycloakManager.SearchError`.
     func search(ownedCryptoId: ObvCryptoId, searchQuery: String?) async throws -> (userDetails: [UserDetails], numberOfMissingResults: Int) {
-        guard let manager = manager else {
+        assert(Thread.isMainThread)
+        guard let manager else {
             assertionFailure()
             throw Self.makeError(message: "The internal manager is not set")
         }
@@ -656,9 +657,6 @@ actor KeycloakManager: NSObject {
     private func synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ObvCryptoId, ignoreSynchronizationInterval: Bool, failedAttempts: Int = 0) async {
         
         assert(!Thread.isMainThread)
-        if Thread.isMainThread {
-            os_log("🧥 Call to synchronizeOwnedIdentityWithKeycloakServer on the main thread", log: KeycloakManager.log, type: .fault)
-        }
         
         os_log("🧥 Call to synchronizeOwnedIdentityWithKeycloakServer", log: KeycloakManager.log, type: .info)
         

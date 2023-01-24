@@ -19,6 +19,12 @@
 
 import SwiftUI
 
+protocol BackupRestoreViewHostingControllerDelegate: AnyObject {
+    func userWantsToRestoreBackupFromFile()
+    func userWantToRestoreBackupFromCloud() async
+    func proceedWithBackupFile(atUrl: URL)
+    func cancelAllCloudOperations()
+}
 
 final class BackupRestoreViewHostingController: UIHostingController<BackupRestoreView> {
     
@@ -29,6 +35,11 @@ final class BackupRestoreViewHostingController: UIHostingController<BackupRestor
         self.backupRestoreViewModel = backupRestoreViewModel
         let view = BackupRestoreView(store: backupRestoreViewModel)
         super.init(rootView: view)
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = NSLocalizedString("Restore", comment: "")
     }
     
     var delegate: BackupRestoreViewHostingControllerDelegate? {
@@ -44,8 +55,8 @@ final class BackupRestoreViewHostingController: UIHostingController<BackupRestor
         backupRestoreViewModel.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: cloudFailureReason)
     }
     
-    func backupFileSelected(atURL url: URL, creationDate: Date? = nil) {
-        backupRestoreViewModel.backupFileSelected(atURL: url, creationDate: creationDate)
+    func addNewSelectableBackups(_ backups: [BackupInfo]) {
+        backupRestoreViewModel.addNewSelectableBackups(backups)
     }
     
     func noMoreCloudBackupToFetch() {
@@ -55,24 +66,33 @@ final class BackupRestoreViewHostingController: UIHostingController<BackupRestor
     func userCanceledSelectionOfBackupFile() {
         backupRestoreViewModel.userCanceledSelectionOfBackupFile()
     }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        backupRestoreViewModel.clear()
+        delegate?.cancelAllCloudOperations()
+    }
+
 }
 
+struct BackupInfo: Identifiable {
+    var id: URL { fileUrl }
 
-protocol BackupRestoreViewHostingControllerDelegate: AnyObject {
-    func userWantsToRestoreBackupFromFile()
-    func userWantToRestoreBackupFromCloud()
-    func proceedWithBackupFile(atUrl: URL)
+    let fileUrl: URL
+    let deviceName: String?
+    let creationDate: Date?
 }
-
 
 fileprivate final class BackupRestoreViewModel: ObservableObject {
-    
-    @Published private(set) var backupFileUrl: URL?
-    @Published private(set) var backupCreationDate: Date?
+
+    @Published private(set) var backups: [BackupInfo] = []
     @Published var userIsRequestingBackupFileOrCloudBackup = false
-    
+    @Published var backupFileOrCloudBackupHasBeenRequested = false
     @Published fileprivate var isAlertPresented = false
     @Published fileprivate var alertType = AlertType.none
+    @Published fileprivate var isFetchingFromICloud: Bool = false
+    @Published fileprivate var selectedBackup: URL?
+
     
     fileprivate enum AlertType {
         case cloudFailure(reason: CloudFailureReason)
@@ -85,6 +105,7 @@ fileprivate final class BackupRestoreViewModel: ObservableObject {
     func restoreFromFileAction() {
         withAnimation {
             userIsRequestingBackupFileOrCloudBackup = true
+            backupFileOrCloudBackupHasBeenRequested = true
         }
         delegate?.userWantsToRestoreBackupFromFile()
     }
@@ -92,19 +113,27 @@ fileprivate final class BackupRestoreViewModel: ObservableObject {
     func restoreFromCloudAction() {
         withAnimation {
             userIsRequestingBackupFileOrCloudBackup = true
+            backupFileOrCloudBackupHasBeenRequested = true
+            isFetchingFromICloud = true
         }
-        delegate?.userWantToRestoreBackupFromCloud()
+        Task {
+            await delegate?.userWantToRestoreBackupFromCloud()
+        }
     }
     
-    func backupFileSelected(atURL url: URL, creationDate: Date?) {
+    func addNewSelectableBackups(_ backups: [BackupInfo]) {
         assert(Thread.isMainThread)
         withAnimation {
             self.userIsRequestingBackupFileOrCloudBackup = false
-            self.backupFileUrl = url
-            self.backupCreationDate = creationDate
+            self.backups += backups
+            self.backups.sort { b1, b2 in
+                guard let d1 = b1.creationDate else { assertionFailure(); return false }
+                guard let d2 = b2.creationDate else { assertionFailure(); return false }
+                return d2 < d1
+            }
         }
     }
-    
+
     func userCanceledSelectionOfBackupFile() {
         assert(Thread.isMainThread)
         withAnimation {
@@ -126,11 +155,29 @@ fileprivate final class BackupRestoreViewModel: ObservableObject {
     }
     
     func noMoreCloudBackupToFetch() {
-        DispatchQueue.main.async { [weak self] in
-            guard self?.backupFileUrl == nil else { return }
+        DispatchQueue.main.async {
+            if self.backups.isEmpty {
+                withAnimation {
+                    self.alertType = .noMoreCloudBackupToFetch
+                    self.isAlertPresented = true
+                }
+            }
             withAnimation {
-                self?.alertType = .noMoreCloudBackupToFetch
-                self?.isAlertPresented = true
+                self.isFetchingFromICloud = false
+            }
+        }
+    }
+
+    func clear() {
+        DispatchQueue.main.async {
+            withAnimation {
+                self.selectedBackup = nil
+                self.backups.removeAll()
+                self.userIsRequestingBackupFileOrCloudBackup = false
+                self.backupFileOrCloudBackupHasBeenRequested = false
+                self.isAlertPresented = false
+                self.alertType = AlertType.none
+                self.isFetchingFromICloud = false
             }
         }
     }
@@ -141,28 +188,32 @@ struct BackupRestoreView: View {
     @ObservedObject fileprivate var store: BackupRestoreViewModel
     
     var body: some View {
-        BackupRestoreInnerView(backupFileUrl: store.backupFileUrl,
-                               backupCreationDate: store.backupCreationDate,
+        BackupRestoreInnerView(backups: store.backups,
                                restoreFromFileAction: store.restoreFromFileAction,
                                restoreFromCloudAction: store.restoreFromCloudAction,
                                proceedWithBackupFile: store.proceedWithBackupFile,
                                alertType: store.alertType,
                                isAlertPresented: $store.isAlertPresented,
-                               disableButtons: $store.userIsRequestingBackupFileOrCloudBackup)
+                               disableButtons: $store.userIsRequestingBackupFileOrCloudBackup,
+                               backupFileOrCloudBackupHasBeenRequested: $store.backupFileOrCloudBackupHasBeenRequested,
+                               isFetchingFromICloud: $store.isFetchingFromICloud,
+                               selectedBackup: $store.selectedBackup)
     }
     
 }
 
 struct BackupRestoreInnerView: View {
     
-    fileprivate let backupFileUrl: URL?
-    fileprivate let backupCreationDate: Date?
+    fileprivate let backups: [BackupInfo]
     fileprivate let restoreFromFileAction: () -> Void
     fileprivate let restoreFromCloudAction: () -> Void
     fileprivate let proceedWithBackupFile: (URL) -> Void
     fileprivate let alertType: BackupRestoreViewModel.AlertType
     @Binding var isAlertPresented: Bool
     @Binding var disableButtons: Bool
+    @Binding var backupFileOrCloudBackupHasBeenRequested: Bool
+    @Binding var isFetchingFromICloud: Bool
+    @Binding var selectedBackup: URL?
     
     private let dateFormater: DateFormatter = {
         let df = DateFormatter()
@@ -172,15 +223,7 @@ struct BackupRestoreInnerView: View {
         df.dateStyle = .short
         return df
     }()
-    
-    private func backupFileTitle(backupFileUrl: URL) -> Text {
-        if let backupCreationDate = self.backupCreationDate {
-            return Text("Backup creation date: \(dateFormater.string(from: backupCreationDate))")
-        } else {
-            return Text(backupFileUrl.lastPathComponent)
-        }
-    }
-    
+
     private var alertTitle: Text {
         switch alertType {
         case .cloudFailure(reason: let reason):
@@ -190,6 +233,8 @@ struct BackupRestoreInnerView: View {
             case .couldNotRetrieveEncryptedBackupFile:
                 return Text("Unexpected iCloud file error")
             case .couldNotRetrieveCreationDate:
+                return Text("Unexpected iCloud file error")
+            case .couldNotRetrieveDeviceName:
                 return Text("Unexpected iCloud file error")
             case .iCloudError(description: _):
                 return Text("iCloud error")
@@ -212,6 +257,8 @@ struct BackupRestoreInnerView: View {
                 return Text("We could not retrieve the encrypted backup content from iCloud")
             case .couldNotRetrieveCreationDate:
                 return Text("We could not retrieve the creation date of the backup content from iCloud")
+            case .couldNotRetrieveDeviceName:
+                return Text("We could not retrieve the device name of the backup content from iCloud")
             case .iCloudError(description: let description):
                 return Text(description)
             }
@@ -228,9 +275,9 @@ struct BackupRestoreInnerView: View {
             Color(AppTheme.shared.colorScheme.systemBackground)
                 .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 .edgesIgnoringSafeArea(.all)
-            ScrollView {
-                VStack(spacing: 16) {
-                    BackupRestoreExplanationView()
+            VStack(spacing: 16) {
+                BackupRestoreExplanationView(backupFileOrCloudBackupHasBeenRequested: backupFileOrCloudBackupHasBeenRequested)
+                if !backupFileOrCloudBackupHasBeenRequested {
                     HStack {
                         OlvidButton(style: .blue,
                                     title: Text("From a file"),
@@ -238,20 +285,38 @@ struct BackupRestoreInnerView: View {
                                     action: restoreFromFileAction)
                         OlvidButton(style: .blue,
                                     title: Text("From the cloud"),
-                                    systemIcon: .icloudFill,
+                                    systemIcon: .icloud(.fill),
                                     action: restoreFromCloudAction)
                     }.disabled(disableButtons)
-                    if let backupFileUrl = self.backupFileUrl {
-                        VStack(spacing: 16) {
-                            BackupFileDescriptionView(backupFileUrl: backupFileUrl, backupCreationDate: backupCreationDate)
-                            OlvidButton(style: .blue, title: Text("Proceed and enter backup key"), systemIcon: .checkmarkShieldFill) {
-                                proceedWithBackupFile(backupFileUrl)
+                } else {
+                    if !backups.isEmpty {
+                        ObvCardView(padding: 0) {
+                            List {
+                                ForEach(backups) { backup in
+                                    BackupFileDescriptionView(fileUrl: backup.fileUrl,
+                                                              deviceName: backup.deviceName,
+                                                              creationDate: backup.creationDate,
+                                                              selectedBackup: $selectedBackup)
+                                }
+                                if isFetchingFromICloud {
+                                    ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
+                                        .frame(idealWidth: .infinity, maxWidth: .infinity, alignment: .center)
+                                }
                             }
+                            .listStyle(.plain)
                         }
+                    } else {
+                        ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
+                            .frame(idealWidth: .infinity, maxWidth: .infinity, alignment: .center)
                     }
-                    Spacer()
-                }.padding()
-            }
+                }
+                Spacer()
+                OlvidButton(style: .blue, title: Text("Proceed and enter backup key"), systemIcon: .checkmarkShieldFill) {
+                    guard let selectedBackup else { assertionFailure(); return }
+                    proceedWithBackupFile(selectedBackup)
+                }
+                .disabled(selectedBackup == nil)
+            }.padding()
         }
         .alert(isPresented: $isAlertPresented) {
             Alert(title: alertTitle,
@@ -262,15 +327,17 @@ struct BackupRestoreInnerView: View {
                     }
                   })
         }
-        .navigationBarTitle(Text("Restore"), displayMode: .large)
     }
 }
 
 
 fileprivate struct BackupFileDescriptionView: View {
     
-    let backupFileUrl: URL
-    let backupCreationDate: Date?
+    let fileUrl: URL
+    let deviceName: String?
+    let creationDate: Date?
+
+    @Binding var selectedBackup: URL?
     
     private let dateFormater: DateFormatter = {
         let df = DateFormatter()
@@ -281,26 +348,31 @@ fileprivate struct BackupFileDescriptionView: View {
         return df
     }()
 
-    private var backupFileTitle: Text {
-        if let backupCreationDate = self.backupCreationDate {
-            return Text("Backup creation date: \(dateFormater.string(from: backupCreationDate))")
-        } else {
-            return Text(backupFileUrl.lastPathComponent)
-        }
-    }
-
     var body: some View {
-        ObvCardView {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Backup file selected")
-                        .font(.headline)
-                    Spacer()
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                if let deviceName {
+                    Text(deviceName)
+                        .font(.system(.headline, design: .rounded))
                 }
-                backupFileTitle
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                if let formattedDate = creationDate?.relativeFormatted {
+                    Text(formattedDate)
+                        .font(.system(.callout))
+                } else {
+                    Text(fileUrl.lastPathComponent)
+                        .font(.system(.footnote, design: .monospaced))
+                }
             }
+            Spacer()
+            Image(systemIcon: fileUrl == selectedBackup ? .checkmarkCircleFill : .circle)
+                .font(Font.system(size: 24, weight: .regular, design: .default))
+                .foregroundColor(fileUrl == selectedBackup ? Color.green : Color.gray)
+                .padding(.leading)
+        }
+        .padding(.vertical, 6.0)
+        .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+        .onTapGesture {
+            selectedBackup = fileUrl
         }
     }
     
@@ -308,86 +380,126 @@ fileprivate struct BackupFileDescriptionView: View {
 
 
 fileprivate struct BackupRestoreExplanationView: View {
-    
+
+    let backupFileOrCloudBackupHasBeenRequested: Bool
+
     var body: some View {
-        ObvCardView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Please choose the location of the backup file you wish to restore.")
-                Text("Choose From a file to pick a backup file create from a manual backup.")
-                Text("Choose From the cloud to select an account used for automatic backups.")
+        ObvCardView(padding: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    if backupFileOrCloudBackupHasBeenRequested {
+                        Text("PLEASE_CHOOSE_THE_BACKUP_TO_RESTORE")
+                    } else {
+                        Text("Please choose the location of the backup file you wish to restore.")
+                        Text("Choose From a file to pick a backup file create from a manual backup.")
+                        Text("Choose From the cloud to select an account used for automatic backups.")
+                    }
+                }
+                Spacer()
             }
             .font(.body)
+            .padding()
         }
     }
 }
 
 
 struct BackupRestoreInnerView_Previews: PreviewProvider {
+
+    static let backups = [
+        BackupInfo(fileUrl: URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-45.olvidbackup")!,
+                                     deviceName: "iPhone 8",
+                                     creationDate: Date()),
+        BackupInfo(fileUrl: URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-46.olvidbackup")!,
+                   deviceName: "iPhone X",
+                   creationDate: Date()),
+        BackupInfo(fileUrl: URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-47.olvidbackup")!,
+                   deviceName: "iPhone 11",
+                   creationDate: Date()),
+        BackupInfo(fileUrl: URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-48.olvidbackup")!,
+                   deviceName: "iPhone 14",
+                   creationDate: Date())
+    ]
+    
+    static let fileUrl = URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-45.olvidbackup")!
+
     static var previews: some View {
         Group {
             NavigationView {
-                BackupRestoreInnerView(backupFileUrl: nil,
-                                       backupCreationDate: nil,
+                BackupRestoreInnerView(backups: backups,
                                        restoreFromFileAction: {},
                                        restoreFromCloudAction: {},
                                        proceedWithBackupFile: { _ in },
                                        alertType: .none,
                                        isAlertPresented: .constant(false),
-                                       disableButtons: .constant(false))
+                                       disableButtons: .constant(false),
+                                       backupFileOrCloudBackupHasBeenRequested: .constant(false),
+                                       isFetchingFromICloud: .constant(false),
+                                       selectedBackup: .constant(nil))
             }
             NavigationView {
-                BackupRestoreInnerView(backupFileUrl: nil,
-                                       backupCreationDate: nil,
+                BackupRestoreInnerView(backups: backups,
                                        restoreFromFileAction: {},
                                        restoreFromCloudAction: {},
                                        proceedWithBackupFile: { _ in },
                                        alertType: .none,
                                        isAlertPresented: .constant(false),
-                                       disableButtons: .constant(false))
+                                       disableButtons: .constant(false),
+                                       backupFileOrCloudBackupHasBeenRequested: .constant(false),
+                                       isFetchingFromICloud: .constant(false),
+                                       selectedBackup: .constant(nil))
             }
             .environment(\.colorScheme, .dark)
             NavigationView {
-                BackupRestoreInnerView(backupFileUrl: nil,
-                                       backupCreationDate: nil,
+                BackupRestoreInnerView(backups: backups,
                                        restoreFromFileAction: {},
                                        restoreFromCloudAction: {},
                                        proceedWithBackupFile: { _ in },
                                        alertType: .none,
                                        isAlertPresented: .constant(false),
-                                       disableButtons: .constant(false))
+                                       disableButtons: .constant(false),
+                                       backupFileOrCloudBackupHasBeenRequested: .constant(true),
+                                       isFetchingFromICloud: .constant(false),
+                                       selectedBackup: .constant(fileUrl))
             }
             .environment(\.colorScheme, .dark)
             .previewDevice(PreviewDevice(rawValue: "iPhone8,4"))
             NavigationView {
-                BackupRestoreInnerView(backupFileUrl: URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-45.olvidbackup")!,
-                                       backupCreationDate: nil,
+                BackupRestoreInnerView(backups: backups,
                                        restoreFromFileAction: {},
                                        restoreFromCloudAction: {},
                                        proceedWithBackupFile: { _ in },
                                        alertType: .none,
                                        isAlertPresented: .constant(false),
-                                       disableButtons: .constant(false))
+                                       disableButtons: .constant(false),
+                                       backupFileOrCloudBackupHasBeenRequested: .constant(true),
+                                       isFetchingFromICloud: .constant(false),
+                                       selectedBackup: .constant(nil))
             }
             NavigationView {
-                BackupRestoreInnerView(backupFileUrl: URL(string: "file://fake.url.olvid.io/Olvid_backup_2020-11-10_12-57-45.olvidbackup")!,
-                                       backupCreationDate: nil,
+                BackupRestoreInnerView(backups: backups,
                                        restoreFromFileAction: {},
                                        restoreFromCloudAction: {},
                                        proceedWithBackupFile: { _ in },
                                        alertType: .none,
                                        isAlertPresented: .constant(false),
-                                       disableButtons: .constant(false))
+                                       disableButtons: .constant(false),
+                                       backupFileOrCloudBackupHasBeenRequested: .constant(true),
+                                       isFetchingFromICloud: .constant(true),
+                                       selectedBackup: .constant(nil))
                     .environment(\.colorScheme, .dark)
             }
             NavigationView {
-                BackupRestoreInnerView(backupFileUrl: nil,
-                                       backupCreationDate: nil,
+                BackupRestoreInnerView(backups: backups,
                                        restoreFromFileAction: {},
                                        restoreFromCloudAction: {},
                                        proceedWithBackupFile: { _ in },
                                        alertType: .cloudFailure(reason: .icloudAccountStatusIsNotAvailable),
                                        isAlertPresented: .constant(true),
-                                       disableButtons: .constant(false))
+                                       disableButtons: .constant(false),
+                                       backupFileOrCloudBackupHasBeenRequested: .constant(false),
+                                       isFetchingFromICloud: .constant(false),
+                                       selectedBackup: .constant(nil))
                     .environment(\.colorScheme, .dark)
             }
         }

@@ -29,8 +29,8 @@ protocol ICloudBackupListViewControllerDelegate: AnyObject {
 final class ICloudBackupListViewController: UIHostingController<ICloudBackupListView> {
 
     fileprivate let model: ICloudBackupListViewModel
-    init() {
-        model = ICloudBackupListViewModel()
+    init(appBackupDelegate: AppBackupDelegate?) {
+        model = ICloudBackupListViewModel(appBackupDelegate: appBackupDelegate)
         let view = ICloudBackupListView(model: model)
         super.init(rootView: view)
     }
@@ -49,107 +49,201 @@ final class ICloudBackupListViewController: UIHostingController<ICloudBackupList
 
 fileprivate final class ICloudBackupListViewModel: ObservableObject {
 
+    weak var appBackupDelegate: AppBackupDelegate?
+
+    private var recordIterator: CloudKitBackupRecordIterator
+
     @Published var lastRecordsCount: Int? = nil
-    @Published var recordIterator: AppBackupManager.CKRecordIterator = AppBackupManager.buildAllCloudBackupsIterator()
     @Published var operationInProgress: Bool = false
-    @Published var operationError: AppBackupManager.AppBackupError? = nil
-    @Published var cleanInProgressCount: Int? = nil
     @Published var cleaningState: Cleaning? = nil
+
+    @Published var records: [CKRecord] = []
+    @Published var error: CloudKitError? = nil
+    @Published var isLoadingMoreRecords: Bool = false
+    @Published var iteratorHasMoreRecords: Bool = false
+    @Published var deletingRecords: Set<CKRecord> = Set()
+
+    @Published var fractionCompleted: Double?
+    @Published var estimatedTimeRemainingString: String?
+    @Published var fractionCompletedString: String?
+
+    private var timerForRefreshingCleaningProgress: Timer?
 
     enum Cleaning {
         case inProgress
         case terminate
     }
 
-    var isFetching: Bool {
-        operationInProgress || recordIterator.currentOperation == .initialization || cleaningState == .inProgress
-    }
-
-    var isLoadingMoreRecords: Bool {
-        recordIterator.currentOperation == .loadMoreRecords
-    }
-
-    var error: AppBackupManager.AppBackupError? {
-        operationError ?? recordIterator.error
-    }
-
-    var records: [CKRecord] {
-        recordIterator.records
-    }
-
-    var hasMoreRecords: Bool {
-        recordIterator.hasMoreRecords
-    }
-
-    func loadMoreRecords() {
-        recordIterator.loadMoreRecords()
-    }
-
     fileprivate weak var delegate: ICloudBackupListViewControllerDelegate?
 
-    private var anyCancellable: AnyCancellable? = nil
+    var cancellable = Set<AnyCancellable>()
     private var notificationTokens = [NSObjectProtocol]()
 
-    init() {
-        anyCancellable = recordIterator.objectWillChange.sink { [weak self] _ in
-            DispatchQueue.main.async {
-                withAnimation {
-                    self?.objectWillChange.send()
+    init(appBackupDelegate: AppBackupDelegate?) {
+        self.appBackupDelegate = appBackupDelegate
+        self.recordIterator = CloudKitBackupRecordIterator(resultsLimit: nil,
+                                                           desiredKeys: [.deviceName, .deviceIdentifierForVendor])
+        self.loadMoreRecords(appendResult: false)
+
+        notificationTokens.append(ObvMessengerInternalNotification.observeIncrementalCleanBackupStarts(queue: OperationQueue.main) {
+            withAnimation {
+                self.cleaningState = .inProgress
+                Task {
+                    await self.updateProgress()
+                }
+                guard self.timerForRefreshingCleaningProgress == nil else { return }
+                self.timerForRefreshingCleaningProgress = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+                    guard timer.isValid else { return }
+                    assert(Thread.isMainThread)
+                    Task {
+                        await self.updateProgress()
+                    }
                 }
             }
-        }
-        notificationTokens.append(ObvMessengerInternalNotification.observeIncrementalCleanBackupStarts(queue: OperationQueue.main) { count in
-            withAnimation {
-                self.cleaningState = .inProgress
-                self.cleanInProgressCount = count
-            }
         })
-        notificationTokens.append(ObvMessengerInternalNotification.observeIncrementalCleanBackupInProgress(queue: OperationQueue.main) { count, _ in
-            withAnimation {
-                self.cleaningState = .inProgress
-                self.cleanInProgressCount = count
-            }
-        })
-        notificationTokens.append(ObvMessengerInternalNotification.observeIncrementalCleanBackupTerminates(queue: OperationQueue.main) { _ in
+        notificationTokens.append(ObvMessengerInternalNotification.observeIncrementalCleanBackupTerminates(queue: OperationQueue.main) {
             withAnimation {
                 self.cleaningState = .terminate
+                self.timerForRefreshingCleaningProgress?.invalidate()
+                self.timerForRefreshingCleaningProgress = nil
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5), execute: {
                 withAnimation {
                     self.cleaningState = nil
                 }
             })
-            self.update()
+            self.recordIterator = CloudKitBackupRecordIterator(resultsLimit: nil,
+                                                               desiredKeys: [.deviceName, .deviceIdentifierForVendor])
+            // Load results from iterator and remove current records
+            self.loadMoreRecords(appendResult: false)
         })
-
     }
 
-    func update() {
-        recordIterator.initialize()
+    var isFetching: Bool {
+        operationInProgress || cleaningState == .inProgress
+    }
+
+    func updateProgress() async {
+        guard let cleaningProgress = await appBackupDelegate?.cleaningProgress else {
+            DispatchQueue.main.async {
+                withAnimation {
+                    self.fractionCompleted = nil
+                    self.estimatedTimeRemainingString = nil
+                    self.fractionCompletedString = nil
+                }
+            }
+            return
+        }
+        let fractionCompleted = Double(cleaningProgress.completedUnitCount) / Double(cleaningProgress.totalUnitCount)
+        let estimatedTimeRemainingString: String
+        let defaultString = NSLocalizedString("ESTIMATING_TIME_REMAINING", comment: "")
+        if let estimatedTimeRemaining = cleaningProgress.estimatedTimeRemaining, estimatedTimeRemaining > 0 {
+            estimatedTimeRemainingString = Self.formatterForEstimatedTimeRemaining.string(from: estimatedTimeRemaining) ?? defaultString
+        } else {
+            estimatedTimeRemainingString = defaultString
+        }
+        let fractionCompletedString = Self.formatterForProgressPercent.string(from: NSNumber(value: fractionCompleted))
+
+        DispatchQueue.main.async {
+            withAnimation {
+                self.fractionCompleted = fractionCompleted
+                self.estimatedTimeRemainingString = estimatedTimeRemainingString
+                self.fractionCompletedString = fractionCompletedString
+            }
+        }
+    }
+
+    static let formatterForEstimatedTimeRemaining: DateComponentsFormatter = {
+        let dcf = DateComponentsFormatter()
+        dcf.unitsStyle = .short
+        dcf.includesApproximationPhrase = true
+        dcf.includesTimeRemainingPhrase = true
+        dcf.allowedUnits = [.day, .hour, .minute, .second]
+        return dcf
+    }()
+
+    static let formatterForProgressPercent: NumberFormatter = {
+        let nf = NumberFormatter()
+        nf.numberStyle = .percent
+        nf.minimumIntegerDigits = 0
+        nf.maximumIntegerDigits = 3
+        nf.maximumFractionDigits = 0
+        return nf
+    }()
+
+    func loadMoreRecords(appendResult: Bool) {
+        DispatchQueue.main.async {
+            withAnimation {
+                self.isLoadingMoreRecords = true
+            }
+        }
+        Task {
+            if let hasNext = recordIterator.hasNext, !hasNext {
+                // No more results
+                return
+            }
+            do {
+                // Compute the next batch of record
+                guard let nextRecords = try await recordIterator.next() else {
+                    assertionFailure()
+                    return
+                }
+                // Look if there is more results to load
+                let iteratorHasMoreRecords = recordIterator.hasNext ?? true // Should never be nil since next was called at least once
+                DispatchQueue.main.async {
+                    withAnimation {
+                        if appendResult {
+                            self.records += nextRecords
+                        } else {
+                            self.records = nextRecords
+                        }
+                        self.isLoadingMoreRecords = false
+                        self.iteratorHasMoreRecords = iteratorHasMoreRecords
+                    }
+                }
+            } catch(let error) {
+                // Look if there is more results to load
+                let iteratorHasMoreRecords = recordIterator.hasNext ?? true // Should never be nil since next was
+                DispatchQueue.main.async {
+                    withAnimation {
+                        let error = error as? CloudKitError ?? .unknownError(error)
+                        self.error = error
+                        self.isLoadingMoreRecords = false
+                        self.iteratorHasMoreRecords = iteratorHasMoreRecords
+                    }
+                }
+            }
+        }
     }
 
     func delete(_ record: CKRecord, isLastForCurrentDevice: Bool) {
         DispatchQueue.main.async {
             withAnimation {
                 self.operationInProgress = true
+                self.deletingRecords.insert(record)
             }
         }
-        AppBackupManager.deleteCloudBackup(record: record) { result in
-            switch result {
-            case .success:
-                self.update()
+        Task {
+            do {
+                try await appBackupDelegate?.deleteCloudBackup(record: record)
+                DispatchQueue.main.async {
+                    withAnimation {
+                        self.records.removeAll { $0 == record }
+                    }
+                }
                 if isLastForCurrentDevice {
                     self.delegate?.lastCloudBackupForCurrentDeviceWasDeleted()
                 }
-            case .failure(let error):
+            } catch(let error) {
                 DispatchQueue.main.async {
                     withAnimation {
-                        self.operationError = error
+                        self.error = error as? CloudKitError ?? .unknownError(error)
                     }
                 }
             }
             DispatchQueue.main.async {
                 withAnimation {
+                    self.deletingRecords.remove(record)
                     self.operationInProgress = false
                 }
             }
@@ -162,14 +256,14 @@ fileprivate final class ICloudBackupListViewModel: ObservableObject {
                 self.cleaningState = .inProgress
             }
         }
-        AppBackupManager.incrementalCleanCloudBackups(cleanAllDevices: cleanAllDevices) { result in
-            switch result {
-            case .success:
-                break
-            case .failure(let error):
+        Task {
+            do {
+                try await appBackupDelegate?.checkAccount()
+                ObvMessengerInternalNotification.userWantsToStartIncrementalCleanBackup(cleanAllDevices: cleanAllDevices).postOnDispatchQueue()
+            } catch(let error) {
                 DispatchQueue.main.async {
                     withAnimation {
-                        self.operationError = error
+                        self.error = error as? CloudKitError ?? .unknownError(error)
                     }
                 }
             }
@@ -210,7 +304,7 @@ struct ICloudBackupListView: View {
         }
     }
 
-    private func cleanInProgressTitle(count: Int) -> String {
+    private func cleanInProgressTitle(count: Int64) -> String {
         String.localizedStringWithFormat(NSLocalizedString("clean in progress count", comment: "Header for n backups"), count)
     }
 
@@ -222,7 +316,7 @@ struct ICloudBackupListView: View {
     }
 
     func errorView(status: CKAccountStatus) -> some View {
-        if let (title, message) = BackupTableViewController.CKAccountStatusMessage(status) {
+        if let (title, message) = AppBackupManager.CKAccountStatusMessage(status) {
             return AnyView(VStack {
                 Text(title)
                     .font(.system(.headline, design: .rounded))
@@ -270,17 +364,18 @@ struct ICloudBackupListView: View {
     var recordsList: some View {
         VStack {
             Text(numberOfRecordTitle(count: model.records.count,
-                                     canHaveMoreRecords: model.hasMoreRecords || model.isLoadingMoreRecords ))
+                                     canHaveMoreRecords: model.iteratorHasMoreRecords || model.isLoadingMoreRecords ))
                 .font(.system(.footnote).smallCaps())
             List {
                 Section(footer: Rectangle()
                             .frame(height: 60)
                             .foregroundColor(.clear)) {
                     ForEach(model.records, id: \.recordID.recordName) { record in
-                        let cell = ICloudBackupView(record: record)
+                        let cell = RecordView(record: record,
+                                              isDeleting: model.deletingRecords.contains(record))
                             .onAppear {
-                                if record == model.records.last, model.hasMoreRecords {
-                                    model.loadMoreRecords()
+                                if record == model.records.last, model.iteratorHasMoreRecords {
+                                    model.loadMoreRecords(appendResult: true)
                                 }
                             }
                         if #available(iOS 15.0, *) {
@@ -306,7 +401,7 @@ struct ICloudBackupListView: View {
                         }
                     }
                     if model.isLoadingMoreRecords {
-                        ObvProgressView()
+                        ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
                             .frame(idealWidth: .infinity, maxWidth: .infinity, alignment: .center)
                     }
                 }
@@ -324,7 +419,7 @@ struct ICloudBackupListView: View {
                     HStack {
                         Spacer()
                         switch error {
-                        case .accountError, .operationError:
+                        case .accountError, .operationError, .unknownError, .internalError:
                             errorView(status: .couldNotDetermine)
                         case .accountNotAvailable(let status):
                             errorView(status: status)
@@ -343,19 +438,26 @@ struct ICloudBackupListView: View {
                             VStack {
                                 switch state {
                                 case .inProgress:
-                                    Text("CLEANING_IN_PROGRESS")
+                                    HStack {
+                                        Text("DELETION_IN_PROGRESS")
+                                        Spacer()
+                                        Text(model.fractionCompletedString ?? "")
+                                    }
+                                    VStack(alignment: .leading) {
+                                        if #available(iOS 15, *) {
+                                            ProgressView(value: model.fractionCompleted)
+                                        }
+                                        Text(model.estimatedTimeRemainingString ?? "")
+                                    }
                                 case .terminate:
-                                    Text("CLEANING_TERMINATED")
-                                }
-                                if let cleanInProgressCount = model.cleanInProgressCount, cleanInProgressCount > 0 {
-                                    Text(cleanInProgressTitle(count: cleanInProgressCount))
+                                    Text("DELETION_TERMINATED")
                                 }
                             }
                             .padding()
                             .font(.system(.footnote).smallCaps())
                             .background(Rectangle()
-                                            .foregroundColor(.gray)
-                                            .frame(width: proxy.size.width, alignment: .center))
+                                .foregroundColor(Color(AppTheme.shared.colorScheme.systemFill))
+                                .frame(width: proxy.size.width, alignment: .center))
                         }
                         recordsList
                     }
@@ -381,25 +483,30 @@ struct ICloudBackupListView: View {
                     switch item {
                     case .cleanAction:
                         var buttons = [ActionSheet.Button]()
-                        let devices = Set(model.records.map { record in  record[AppBackupManager.deviceIdentifierForVendorKey] as! String
-                        })
-                        if model.hasMoreRecords || devices.count > 1 {
+                        let devices = Set(model.records.map { record in  record.deviceIdentifierForVendor })
+                        // We show the clean button for all device, since we don't know the devices in the computed reesult.
+                        if model.iteratorHasMoreRecords || devices.count > 1 {
                             buttons += [ActionSheet.Button.destructive(Text("CLEAN_OLD_BACKUPS_ON_ALL_DEVICES"),
                                                                        action: {
                                 model.cleanBackups(cleanAllDevices: true)
                             })]
+                            buttons += [ActionSheet.Button.default(Text("CLEAN_OLD_BACKUPS_ON_CURRENT_DEVICE"),
+                                                                   action: {
+                                model.cleanBackups(cleanAllDevices: false)
+                            })]
+                        } else {
+                            buttons += [ActionSheet.Button.default(Text("Delete"),
+                                                                   action: {
+                                model.cleanBackups(cleanAllDevices: false)
+                            })]
                         }
-                        buttons += [ActionSheet.Button.default(Text("CLEAN_OLD_BACKUPS_ON_CURRENT_DEVICE"),
-                                                               action: {
-                            model.cleanBackups(cleanAllDevices: false)
-                        })]
                         buttons += [ActionSheet.Button.cancel()]
                         return ActionSheet(title: Text("CLEAN_OLD_BACKUPS_TITLE"),
                                            message: Text("CLEAN_OLD_BACKUPS_MESSAGE"),
                                            buttons: buttons)
                     case .cleanLatestAction(let record, let otherDevice):
-                        let title = otherDevice ? Text("CLEAN_LATEST_BACKUPS_FOR_OTHER_DEVICE_TITLE") : Text("CLEAN_LATEST_BACKUPS_FOR_CURRENT_DEVICE_TITLE")
-                        let message = otherDevice ? Text("CLEAN_LATEST_BACKUPS_FOR_OTHER_DEVICE_MESSAGE") : Text("CLEAN_LATEST_BACKUPS_FOR_CURRENT_DEVICE_MESSAGE")
+                        let title = otherDevice ? Text("CLEAN_LATEST_BACKUP_FOR_OTHER_DEVICE_TITLE") : Text("CLEAN_LATEST_BACKUP_FOR_CURRENT_DEVICE_TITLE")
+                        let message = otherDevice ? Text("CLEAN_LATEST_BACKUP_FOR_OTHER_DEVICE_MESSAGE") : Text("CLEAN_LATEST_BACKUP_FOR_CURRENT_DEVICE_MESSAGE")
                         return ActionSheet(title: title,
                                            message: message,
                                            buttons: [
@@ -418,17 +525,27 @@ struct ICloudBackupListView: View {
 }
 
 
-struct ICloudBackupView: View {
+private struct RecordView: View {
 
     let record: CKRecord
+    let isDeleting: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(record[AppBackupManager.deviceNameKey] as! String)
-                .font(.system(.headline, design: .rounded))
+            HStack {
+                if let deviceName = record[.deviceName] as? String {
+                    Text(deviceName)
+                        .font(.system(.headline, design: .rounded))
+                }
+                Spacer()
+                if isDeleting {
+                    Text("IS_DELETING")
+                        .font(.caption)
+                }
+            }
             HStack {
                 if let identifierForVendor = UIDevice.current.identifierForVendor,
-                   identifierForVendor.uuidString == record[AppBackupManager.deviceIdentifierForVendorKey] as! String {
+                   identifierForVendor == record.deviceIdentifierForVendor {
                     Text("CURRENT_DEVICE")
                         .font(.system(.callout))
                 } else {

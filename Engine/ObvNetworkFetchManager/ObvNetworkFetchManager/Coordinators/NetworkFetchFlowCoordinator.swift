@@ -520,7 +520,7 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    func downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, extendedMessagePayload: Data, flowId: FlowIdentifier) {
+    func downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -535,7 +535,7 @@ extension NetworkFetchFlowCoordinator {
             return
         }
 
-        ObvNetworkFetchNotificationNew.downloadingMessageExtendedPayloadWasPerformed(messageId: messageId, extendedMessagePayload: extendedMessagePayload, flowId: flowId)
+        ObvNetworkFetchNotificationNew.downloadingMessageExtendedPayloadWasPerformed(messageId: messageId, flowId: flowId)
             .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }

@@ -19,15 +19,17 @@
 
 import Foundation
 import CoreData
+import OlvidUtils
 
 @objc(PersistedDraftFyleJoin)
-final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin {
+final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvErrorMaker {
     
     private static let entityName = "PersistedDraftFyleJoin"
     static let draftKey = "draft"
     private static let fyleKey = "fyle"
     static let indexKey = "index"
-
+    static let errorDomain = "PersistedDraftFyleJoin"
+    
     // MARK: - Attributes
     
     @NSManaged private(set) var fileName: String
@@ -98,8 +100,8 @@ extension PersistedDraftFyleJoin {
     }
 
     static func get(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
-        guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { throw NSError() }
-        guard let fyle = try Fyle.get(objectID: fyleObjectID, within: context) else { throw NSError() }
+        guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { throw Self.makeError(message: "Could not find PersistedDraft") }
+        guard let fyle = try Fyle.get(objectID: fyleObjectID, within: context) else { throw Self.makeError(message: "Could not find Fyle") }
         let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
                                         PersistedDraftFyleJoin.draftKey, draft,
@@ -111,7 +113,7 @@ extension PersistedDraftFyleJoin {
     static func get(objectID typeSafeObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>, within context: NSManagedObjectContext) -> PersistedDraftFyleJoin? {
         let join: PersistedDraftFyleJoin
         do {
-            guard let res = try context.existingObject(with: typeSafeObjectID.objectID) as? PersistedDraftFyleJoin else { throw NSError() }
+            guard let res = try context.existingObject(with: typeSafeObjectID.objectID) as? PersistedDraftFyleJoin else { throw Self.makeError(message: "Could not find PersistedDraftFyleJoin") }
             join = res
         } catch {
             return nil

@@ -33,9 +33,10 @@ enum PersistedMessageKind {
 }
 
 @objc(PersistedMessage)
-class PersistedMessage: NSManagedObject {
+class PersistedMessage: NSManagedObject, ObvErrorMaker {
 
     static let PersistedMessageEntityName = "PersistedMessage"
+    static let errorDomain = "PersistedMessageOrSubclass"
 
     static let bodyKey = "body"
     static let rawStatusKey = "rawStatus"
@@ -49,9 +50,6 @@ class PersistedMessage: NSManagedObject {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessage")
 
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { PersistedMessage.makeError(message: message) }
-    
     // MARK: - Attributes
 
     @NSManaged private var body: String?
@@ -129,13 +127,18 @@ class PersistedMessage: NSManagedObject {
     }
 
     var isRemoteWiped: Bool {
+        deleterCryptoId != nil
+    }
+
+    var deleterCryptoId: ObvCryptoId? {
         for meta in self.persistedMetadata {
             switch meta.kind {
-            case .remoteWiped: return true
+            case .remoteWiped(let remoteCryptoId):
+                return remoteCryptoId
             default: continue
             }
         }
-        return false
+        return nil
     }
 
     var isWiped: Bool { isLocallyWiped || isRemoteWiped }
@@ -146,7 +149,7 @@ class PersistedMessage: NSManagedObject {
 
     @objc func editTextBody(newTextBody: String?) throws {
         guard self.textBodyCanBeEdited else {
-            throw makeError(message: "The text body of this message cannot be edited now")
+            throw Self.makeError(message: "The text body of this message cannot be edited now")
         }
         self.body = newTextBody
     }
@@ -163,7 +166,7 @@ class PersistedMessage: NSManagedObject {
     
     /// This method is specific to system messages, when their category is `numberOfNewMessages`.
     func resetSortIndexOfNumberOfNewMessagesSystemMessage(to newSortIndex: Double) throws {
-        guard isNumberOfNewMessagesMessageSystem else { throw makeError(message: "Cannot reset sort index of this message type") }
+        guard isNumberOfNewMessagesMessageSystem else { throw Self.makeError(message: "Cannot reset sort index of this message type") }
         self.sortIndex = newSortIndex
         assert(fyleMessageJoinWithStatus == nil) // Otherwise we would need to update the sort index replicated within the joins
     }
@@ -246,15 +249,15 @@ extension PersistedMessage {
         self.visibilityDuration = visibilityDuration
         self.forwarded = forwarded
 
-        discussion.timestampOfLastMessage = max(self.timestamp, discussion.timestampOfLastMessage)
+        discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(self.timestamp)
         
     }
 
     
     /// This `update()` method shall *only* be called from the similar `update()` from the subclasse `PersistedMessageReceived`.
     func update(body: String?, senderSequenceNumber: Int, replyTo: PersistedMessage?, discussion: PersistedDiscussion) throws {
-        guard self.discussion.objectID == discussion.objectID else { assertionFailure(); throw makeError(message: "Invalid discussion") }
-        guard self.senderSequenceNumber == senderSequenceNumber else { assertionFailure(); throw makeError(message: "Invalid sender sequence number") }
+        guard self.discussion.objectID == discussion.objectID else { assertionFailure(); throw Self.makeError(message: "Invalid discussion") }
+        guard self.senderSequenceNumber == senderSequenceNumber else { assertionFailure(); throw Self.makeError(message: "Invalid sender sequence number") }
         self.body = body
         self.rawMessageRepliedTo = replyTo
     }
@@ -336,7 +339,9 @@ extension PersistedMessage {
                             .contactIsOneToOneAgain,
                             .membersOfGroupV2WereUpdated,
                             .ownedIdentityIsPartOfGroupV2Admins,
-                            .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+                            .ownedIdentityIsNoLongerPartOfGroupV2Admins,
+                            .ownedIdentityDidCaptureSensitiveMessages,
+                            .contactIdentityDidCaptureSensitiveMessages:
                         return // Allow deletion
                     case .numberOfNewMessages,
                             .discussionIsEndToEndEncrypted:
@@ -915,12 +920,12 @@ extension PersistedMessage {
     func addMetadata(kind: MetadataKind, date: Date) throws {
         os_log("Call to addMetadata for message %{public}@ of kind %{public}@", log: log, type: .error, objectID.debugDescription, kind.description)
         os_log("Creating a new PersistedMessageTimestampedMetadata for message %{public}@ with kind %{public}@", log: log, type: .info, objectID.debugDescription, kind.description)
-        guard let pm = PersistedMessageTimestampedMetadata(kind: kind, date: date, message: self) else { assertionFailure(); throw makeError(message: "Could not add timestamped metadata") }
+        guard let pm = PersistedMessageTimestampedMetadata(kind: kind, date: date, message: self) else { assertionFailure(); throw Self.makeError(message: "Could not add timestamped metadata") }
         self.persistedMetadata.insert(pm)
     }
 
     func deleteMetadataOfKind(_ kind: MetadataKind) throws {
-        guard let context = managedObjectContext else { throw makeError(message: "No context") }
+        guard let context = managedObjectContext else { throw Self.makeError(message: "No context") }
         guard let metadataToDelete = self.persistedMetadata.first(where: { $0.kind == kind }) else { return }
         context.delete(metadataToDelete)
     }

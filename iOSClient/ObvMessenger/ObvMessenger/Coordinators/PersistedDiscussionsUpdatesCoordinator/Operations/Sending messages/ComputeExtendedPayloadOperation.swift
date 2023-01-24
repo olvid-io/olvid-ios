@@ -35,8 +35,6 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
     private let input: ComputeExtendedPayloadOperationInput
     private let maxNumberOfDownsizedImages = 25
-    
-    static let downsizedImageSize = CGSize(width: 40, height: 40) // In pixels
 
     private static let errorDomain = "ComputeExtendedPayloadOperation"
     fileprivate static func makeError(message: String) -> Error { NSError(domain: ComputeExtendedPayloadOperation.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -222,7 +220,7 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
     
     
     private func downsizeImage(_ image: CGImage) -> CGImage? {
-        return image.downsizeToSize(ComputeExtendedPayloadOperation.downsizedImageSize)
+        return image.downsizeToSize(ObvMessengerConstants.downsizedImageSize)
     }
     
     
@@ -239,7 +237,7 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
             return downsizedImages.first
         }
         
-        let downsizedImageSize = ComputeExtendedPayloadOperation.downsizedImageSize
+        let downsizedImageSize = ObvMessengerConstants.downsizedImageSize
         
         let numberOfColumns: Int = Int(sqrt(Double(downsizedImages.count)).rounded(.awayFromZero))
         let numberOfRows: Int = (downsizedImages.count - 1) / numberOfColumns + 1

@@ -34,7 +34,7 @@ public struct DeviceDiscoveryForRemoteIdentityProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.DeviceDiscoveryForRemoteIdentity
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.DeviceUidsReceived, StateId.DeviceUidsSent]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.DeviceUidsReceived, StateId.DeviceUidsSent]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
@@ -420,9 +420,9 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         case InitialState = 0
         // Alice's side
         case WaitingForDeviceUids = 1
-        case DeviceUidsReceived = 2
+        case DeviceUidsReceived = 2 // Final
         // Bob's side
-        case DeviceUidsSent = 3
+        case DeviceUidsSent = 3 // Final
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {

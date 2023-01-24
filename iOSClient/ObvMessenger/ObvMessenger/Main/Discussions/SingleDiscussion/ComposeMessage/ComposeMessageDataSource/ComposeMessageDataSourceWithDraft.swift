@@ -20,9 +20,10 @@
 import UIKit
 import os.log
 import CoreData
+import OlvidUtils
 
 
-final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSource {
+final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSource, ObvErrorMaker {
 
     weak var collectionView: UICollectionView? {
         didSet {
@@ -31,6 +32,7 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
     }
     weak var filesViewer: FilesViewer?
 
+    static let errorDomain = "ComposeMessageDataSourceWithDraft"
     
     private let persistedDraft: PersistedDraft
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ComposeMessageDataSourceWithDraft.self))
@@ -93,7 +95,7 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
         let log = self.log
         ObvStack.shared.performBackgroundTask { (context) in
             do {
-                guard let writableDraft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { throw NSError() }
+                guard let writableDraft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { throw Self.makeError(message: "Could not find persisted draft") }
                 writableDraft.setContent(with: body)
                 try context.save(logOnFailure: log)
             } catch {

@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import ObvTypes
 import MobileCoreServices
+import OlvidUtils
 
 
 @objc(PersistedMessageReceived)
@@ -40,9 +41,6 @@ final class PersistedMessageReceived: PersistedMessage {
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageReceived")
     
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { Self.makeError(message: message) }
-
     /// At reception, a message is marked as `new`. When it is displayed to the user, it is marked as `unread` if `readOnce` is `true` and to `read` otherwise. An unread message for which `readOnce` is `true` is marked as `read` as soon as the user reads it. In that case, the message is deleted as soon as the user exits the discussion.
     enum MessageStatus: Int {
         case new = 0
@@ -163,7 +161,7 @@ final class PersistedMessageReceived: PersistedMessage {
 
     
     func editTextBody(newTextBody: String?, requester: ObvCryptoId, messageUploadTimestampFromServer: Date) throws {
-        guard self.contactIdentity?.cryptoId == requester else { throw makeError(message: "The requester is not the contact who created the original message") }
+        guard self.contactIdentity?.cryptoId == requester else { throw Self.makeError(message: "The requester is not the contact who created the original message") }
         try super.editTextBody(newTextBody: newTextBody)
         try deleteMetadataOfKind(.edited)
         try addMetadata(kind: .edited, date: messageUploadTimestampFromServer)
@@ -333,7 +331,7 @@ extension PersistedMessageReceived {
     /// messages, delete the `messageRepliedToIdentifier` and replaces it by a non-nil `messageRepliedTo` relationship.
     private func updateMessagesReplyingToThisMessage() throws {
 
-        guard let context = self.managedObjectContext else { throw makeError(message: "Could not find context") }
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
 
         let pendingRepliedTos = try PendingRepliedTo.getAll(senderIdentifier: self.senderIdentifier,
                                                             senderSequenceNumber: self.senderSequenceNumber,
@@ -357,7 +355,7 @@ extension PersistedMessageReceived {
     
     func update(withMessageJSON json: MessageJSON, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, discussion: PersistedDiscussion) throws {
         guard self.messageIdentifierFromEngine == messageIdentifierFromEngine else {
-            throw makeError(message: "Invalid message identifier from engine")
+            throw Self.makeError(message: "Invalid message identifier from engine")
         }
         
         guard !isWiped else {
@@ -728,7 +726,7 @@ extension PersistedMessageReceived {
 
     
     static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
-        guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
+        guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [Predicate.isNew,
                                                                                 Predicate.isDisussionUnmuted,
@@ -839,18 +837,6 @@ extension PersistedMessageReceived {
         request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
         request.fetchLimit = 1
         return try context.fetch(request).first
-    }
-
-    
-    static func getPersistedMessageReceived(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, within context: NSManagedObjectContext) -> PersistedMessageReceived? {
-        let persistedMessageReceived: PersistedMessageReceived
-        do {
-            guard let res = try context.existingObject(with: objectID.objectID) as? PersistedMessageReceived else { throw NSError() }
-            persistedMessageReceived = res
-        } catch {
-            return nil
-        }
-        return persistedMessageReceived
     }
 
     
@@ -972,38 +958,6 @@ extension PersistedMessageReceived {
         return result
     }
 
-}
-
-
-// MARK: - Thread safe struct
-
-extension PersistedMessageReceived {
-    
-    struct Structure {
-        let typedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>
-        let textBody: String?
-        let messageIdentifierFromEngine: Data
-        let contact: PersistedObvContactIdentity.Structure
-        fileprivate let abstractStructure: PersistedMessage.AbstractStructure
-        var isReplyToAnotherMessage: Bool { abstractStructure.isReplyToAnotherMessage }
-        var readOnce: Bool { abstractStructure.readOnce }
-        var forwarded: Bool { abstractStructure.forwarded }
-        var discussionKind: PersistedDiscussion.StructureKind { abstractStructure.discussionKind }
-        var timestamp: Date { abstractStructure.timestamp }
-    }
-    
-    func toStructure() throws -> Structure {
-        guard let contact = self.contactIdentity else {
-            assertionFailure()
-            throw Self.makeError(message: "Could not extract required relationships")
-        }
-        return Structure(typedObjectID: self.typedObjectID,
-                         textBody: self.textBody,
-                         messageIdentifierFromEngine: self.messageIdentifierFromEngine,
-                         contact: try contact.toStruct(),
-                         abstractStructure: try toAbstractStructure())
-    }
-    
 }
 
 

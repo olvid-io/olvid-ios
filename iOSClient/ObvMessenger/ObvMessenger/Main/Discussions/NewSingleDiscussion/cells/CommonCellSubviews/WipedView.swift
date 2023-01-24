@@ -39,7 +39,7 @@ final class WipedView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirat
         case .locallyWiped:
             label.text = Strings.wiped
         case .remotelyWiped(deleterName: let deleterName):
-            label.text = Strings.remotelyWiped(deleterName)
+            label.text = Strings.remotelyWiped(deleterName: deleterName)
         case .none:
             assertionFailure()
             label.text = Strings.wiped
@@ -116,8 +116,8 @@ final class WipedView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirat
     
     private struct Strings {
         
-        static let remotelyWiped: (String?) -> String = { (deleterName: String?) in
-            if let deleterName = deleterName {
+        static func remotelyWiped(deleterName: String?) -> String {
+            if let deleterName {
                 return String.localizedStringWithFormat(NSLocalizedString("WIPED_MESSAGE_BY_%@", comment: ""), deleterName)
             } else {
                 return NSLocalizedString("Remotely wiped", comment: "")

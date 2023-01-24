@@ -21,7 +21,7 @@ import UIKit
 
 final class DownloadsSettingsTableViewController: UITableViewController {
 
-    private let byteCountFormatter = ByteCountFormatter()
+    private let byteCountFormatter = ObvPositiveByteCountFormatter()
     
     init() {
         super.init(style: Self.settingsTableStyle)
@@ -80,8 +80,12 @@ final class DownloadsSettingsTableViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         guard section == 0 else { return nil }
-        let sizeString = self.byteCountFormatter.string(fromByteCount: Int64(ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload))
-        return DownloadsSettingsTableViewController.Strings.downloadSizeExplanation(sizeString)
+        if ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload >= 0 {
+            let sizeString = self.byteCountFormatter.string(fromByteCount: Int64(ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload))
+            return DownloadsSettingsTableViewController.Strings.downloadSizeExplanation(sizeString)
+        } else {
+            return DownloadsSettingsTableViewController.Strings.downloadSizeExplanationWhenUnlimited
+        }
     }
     
     

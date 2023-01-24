@@ -29,9 +29,9 @@ public struct ChannelCreationWithContactDeviceProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.ChannelCreationWithContactDevice
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,
-                                                    StateId.ChannelConfirmed,
-                                                    StateId.PingSent]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,
+                                                           StateId.ChannelConfirmed,
+                                                           StateId.PingSent]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

@@ -27,6 +27,7 @@ public struct EncryptedPushNotification {
     let messageIdFromServer: UID
     let wrappedKey: EncryptedData
     let encryptedContent: EncryptedData
+    let encryptedExtendedContent: EncryptedData?
     let maskingUID: UID
     public let messageUploadTimestampFromServer: Date
     // Note that we have no downloadTimestampFromServer since this information is not avaible from APNS
@@ -40,13 +41,18 @@ public struct EncryptedPushNotification {
         messageIdFromServer.raw
     }
     
-    public init?(messageIdFromServer: String, wrappedKey: Data, encryptedContent: Data, maskingUID: String, messageUploadTimestampFromServer: Date, localDownloadTimestamp: Date) {
+    public init?(messageIdFromServer: String, wrappedKey: Data, encryptedContent: Data, encryptedExtendedContent: Data?, maskingUID: String, messageUploadTimestampFromServer: Date, localDownloadTimestamp: Date) {
         do {
             guard let uid = UID(hexString: messageIdFromServer) else { return nil }
             self.messageIdFromServer = uid
         }
         self.wrappedKey = EncryptedData(data: wrappedKey)
         self.encryptedContent = EncryptedData(data: encryptedContent)
+        if let encryptedExtendedContent = encryptedExtendedContent {
+            self.encryptedExtendedContent = EncryptedData(data: encryptedExtendedContent)
+        } else {
+            self.encryptedExtendedContent = nil
+        }
         do {
             guard let uid = UID(hexString: maskingUID) else { return nil }
             self.maskingUID = uid

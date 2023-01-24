@@ -36,6 +36,7 @@ struct PersistedItemJSON: Codable {
     let querySharedSettingsJSON: QuerySharedSettingsJSON?
     let updateMessageJSON: UpdateMessageJSON?
     let reactionJSON: ReactionJSON?
+    let screenCaptureDetectionJSON: ScreenCaptureDetectionJSON?
 
     enum CodingKeys: String, CodingKey {
         case message = "message"
@@ -47,6 +48,7 @@ struct PersistedItemJSON: Codable {
         case querySharedSettingsJSON = "qss"
         case updateMessageJSON = "upm"
         case reactionJSON = "reacm"
+        case screenCaptureDetectionJSON = "scd"
     }
     
     init(messageJSON: MessageJSON) {
@@ -59,6 +61,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
     
     init(returnReceiptJSON: ReturnReceiptJSON) {
@@ -71,6 +74,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
     
     init(messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON) {
@@ -83,6 +87,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
     
     init(webrtcMessage: WebRTCMessageJSON) {
@@ -95,6 +100,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
     
     init(discussionSharedConfiguration: DiscussionSharedConfigurationJSON) {
@@ -107,6 +113,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
     
     init(deleteMessagesJSON: DeleteMessagesJSON) {
@@ -119,6 +126,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
 
     init(deleteDiscussionJSON: DeleteDiscussionJSON) {
@@ -131,6 +139,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
     
     init(querySharedSettingsJSON: QuerySharedSettingsJSON) {
@@ -143,6 +152,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = querySharedSettingsJSON
         self.updateMessageJSON = nil
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
 
     init(updateMessageJSON: UpdateMessageJSON) {
@@ -155,6 +165,7 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = updateMessageJSON
         self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
     }
 
     init(reactionJSON: ReactionJSON) {
@@ -167,9 +178,22 @@ struct PersistedItemJSON: Codable {
         self.querySharedSettingsJSON = nil
         self.updateMessageJSON = nil
         self.reactionJSON = reactionJSON
+        self.screenCaptureDetectionJSON = nil
     }
 
-    
+    init(screenCaptureDetectionJSON: ScreenCaptureDetectionJSON) {
+        self.message = nil
+        self.returnReceipt = nil
+        self.webrtcMessage = nil
+        self.discussionSharedConfiguration = nil
+        self.deleteMessagesJSON = nil
+        self.deleteDiscussionJSON = nil
+        self.querySharedSettingsJSON = nil
+        self.updateMessageJSON = nil
+        self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = screenCaptureDetectionJSON
+    }
+
     func jsonEncode() throws -> Data {
         let encoder = JSONEncoder()
         return try encoder.encode(self)
@@ -1001,6 +1025,92 @@ struct ReactionJSON: Codable {
 
         self.emoji = try values.decodeIfPresent(String.self, forKey: .emoji)
         self.messageReference = try values.decode(MessageReferenceJSON.self, forKey: .messageReference)
+    }
+
+}
+
+
+struct ScreenCaptureDetectionJSON: Codable, ObvErrorMaker {
+    
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "DiscussionSharedConfigurationJSON")
+    static let errorDomain = "ScreenCaptureDetectionJSON"
+
+    let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
+    let groupV2Identifier: Data?
+
+    var groupIdentifier: GroupIdentifier? {
+        if let groupV1Identifier = groupV1Identifier {
+            return .groupV1(groupV1Identifier: groupV1Identifier)
+        } else if let groupV2Identifier = groupV2Identifier {
+            return .groupV2(groupV2Identifier: groupV2Identifier)
+        } else {
+            return nil
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case groupUid = "guid" // For group V1
+        case groupOwner = "go" // For group V1
+        case groupV2Identifier = "gid2"
+    }
+
+    init() {
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = nil
+    }
+
+    init(groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)) {
+        self.groupV1Identifier = groupV1Identifier
+        self.groupV2Identifier = nil
+    }
+
+    init(groupV2Identifier: Data) {
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = groupV2Identifier
+    }
+
+    func jsonEncode() throws -> Data {
+        let encoder = JSONEncoder()
+        return try encoder.encode(self)
+    }
+
+    static func jsonDecode(_ data: Data) throws -> ScreenCaptureDetectionJSON {
+        let decoder = JSONDecoder()
+        return try decoder.decode(ScreenCaptureDetectionJSON.self, from: data)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let groupV1Identifier = groupV1Identifier {
+            try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
+            try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
+        }
+        if let groupV2Identifier = groupV2Identifier {
+            try container.encode(groupV2Identifier, forKey: .groupV2Identifier)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
+        let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
+        
+        let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
+        
+        if let groupUidRaw = groupUidRaw,
+            let groupOwnerIdentity = groupOwnerIdentity,
+            let groupUid = UID(uid: groupUidRaw),
+            let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
+            self.groupV1Identifier = (groupUid, groupOwner)
+            self.groupV2Identifier = nil
+        } else if let groupV2Identifier = groupV2Identifier {
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = groupV2Identifier
+        } else {
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        }
     }
 
 }

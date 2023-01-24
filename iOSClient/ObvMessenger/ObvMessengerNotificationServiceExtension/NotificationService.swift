@@ -58,7 +58,7 @@ class NotificationService: UNNotificationServiceExtension {
         // The last app upgrade).
         self.contentHandler = contentHandler
         self.fullAttemptContent = UserNotificationCreator.createMinimalNotification(badge: nil).notificationContent
-        self.silentAttemptContent = UNNotificationContent()  /// "empty" content object to suppress the notification
+        self.silentAttemptContent = UNNotificationContent()  // "empty" content object to suppress the notification
         self.requestIdentifier = request.identifier
 
         // Initialize the engine
@@ -163,7 +163,7 @@ class NotificationService: UNNotificationServiceExtension {
                 return
             }
         }
-        
+
         guard let messageReceivedStructure = messageReceivedStructure else {
             assertionFailure()
             os_log("Could create PersistedMessageReceived.Structure", log: log, type: .fault)
@@ -190,13 +190,14 @@ class NotificationService: UNNotificationServiceExtension {
         } else {
             let badge = incrAndGetBadge()
             let urlForStoringPNGThumbnail = contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail()
-            let infos = UserNotificationCreator.NewMessageNotificationInfos(messageReceived: messageReceivedStructure, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, attachmentsFileNames: [], badge: badge)
+            let infos = UserNotificationCreator.NewMessageNotificationInfos(messageReceived: messageReceivedStructure,
+                                                                            attachmentLocation: .custom(request.identifier),
+                                                                            urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge)
             self.fullAttemptContent = notificationContent
         }
 
         return true
-        
     }
     
     
@@ -219,7 +220,7 @@ class NotificationService: UNNotificationServiceExtension {
             os_log("Could not decrypt information", log: log, type: .info)
             return false
         }
-        
+
         // Create the persistent message received using the message payload
 
         let messagePayload = obvMessage.messagePayload
@@ -382,25 +383,43 @@ class NotificationService: UNNotificationServiceExtension {
 
             if let messageJSON = persistedItemJSON.message {
                 
-                let textBody: String?
                 var isEphemeralMessageWithUserAction = false
                 if let expiration = messageJSON.expiration, expiration.visibilityDuration != nil || expiration.readOnce {
                     isEphemeralMessageWithUserAction = true
                 }
+                
+                let textBody: String?
                 if isEphemeralMessageWithUserAction {
                     textBody = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
                 } else {
                     textBody = messageJSON.body
                 }
+                
+                let attachementImages: [NotificationAttachmentImage]?
+                if isEphemeralMessageWithUserAction {
+                    attachementImages = nil
+                } else {
+                    // Extract Extended Payload
+                    // In practice, this is disappointing as the server seems to often send a nil extended payload as soon as there are more than one image (i.e., one attachment) to show.
+                    let op = ExtractReceivedExtendedPayloadOperation(obvMessage: obvMessage)
+                    op.start()
+                    assert(op.isFinished)
+                    attachementImages = op.attachementImages
+                }
+
                 let badge = incrAndGetBadge()
+
                 let infos = await UserNotificationCreator.NewMessageNotificationInfos(
                     body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
                     messageIdentifierFromEngine: encryptedPushNotification.messageIdentifierFromEngine,
                     contact: contactStructure,
                     discussionKind: discussionKind,
                     isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
+                    attachmentsCount: obvMessage.expectedAttachmentsCount,
+                    attachementImages: attachementImages,
+                    attachmentLocation: .custom(request.identifier),
                     urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail())
-                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, attachmentsFileNames: [], badge: badge)
+                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge)
                 self.fullAttemptContent = notificationContent
                 
             } else if let reactionJSON = persistedItemJSON.reactionJSON {
@@ -557,12 +576,18 @@ fileprivate extension EncryptedPushNotification {
             os_log("Could not find the messageId from server (as a String) in the user info dictionary", log: log, type: .error)
             return nil
         }
-        
+
+        var encryptedExtendedContent: Data?
+        if let encryptedExtendedContentString = content.userInfo["extendedContent"] as? String {
+            encryptedExtendedContent = Data(base64Encoded: encryptedExtendedContentString)
+        }
+
         let messageUploadTimestampFromServer = Date(timeIntervalSince1970: messageUploadTimestampFromServerAsDouble / 1000.0)
 
         self.init(messageIdFromServer: messageIdFromServer,
                   wrappedKey: wrappedKey,
                   encryptedContent: encryptedContent,
+                  encryptedExtendedContent: encryptedExtendedContent,
                   maskingUID: maskingUID,
                   messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                   localDownloadTimestamp: Date())

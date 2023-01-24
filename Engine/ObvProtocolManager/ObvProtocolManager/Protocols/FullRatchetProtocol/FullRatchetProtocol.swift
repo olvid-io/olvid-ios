@@ -38,8 +38,7 @@ public struct FullRatchetProtocol: ConcreteCryptoProtocol {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    var finalStateIds: [ConcreteProtocolStateId] = [StateId.FullRatchetDone,
-                                                    StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.FullRatchetDone, StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

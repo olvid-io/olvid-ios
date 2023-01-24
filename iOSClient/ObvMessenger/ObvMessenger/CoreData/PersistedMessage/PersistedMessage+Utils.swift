@@ -78,10 +78,8 @@ extension PersistedMessage.Predicate {
 
 extension PersistedMessage {
 
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
     static func getMessageRightBeforeReceivedMessageInSameSection(_ message: PersistedMessageReceived) throws -> PersistedMessage? {
-        guard let context = message.managedObjectContext else { throw NSError() }
+        guard let context = message.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withSortIndexSmallerThan(message.sortIndex),

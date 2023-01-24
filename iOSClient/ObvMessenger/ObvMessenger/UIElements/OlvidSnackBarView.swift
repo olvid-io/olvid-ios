@@ -45,11 +45,13 @@ final class OlvidSnackBarView: UIView {
         } else {
             self.button.setTitle(snackBarCategory.buttonTitle, for: .normal)
         }
+        let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular)
+        let image = UIImage(systemIcon: snackBarCategory.icon, withConfiguration: config)
         if #available(iOS 15, *) {
             self.button.maximumContentSizeCategory = .extraLarge
-            imageView.image = snackBarCategory.image?.withTintColor(labelColor, renderingMode: .alwaysOriginal)
+            imageView.image = image?.withTintColor(labelColor, renderingMode: .alwaysOriginal)
         } else {
-            imageView.image = snackBarCategory.image
+            imageView.image = image
         }
     }
     

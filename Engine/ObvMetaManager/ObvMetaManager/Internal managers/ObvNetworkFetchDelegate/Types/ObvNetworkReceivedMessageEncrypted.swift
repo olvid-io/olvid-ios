@@ -21,25 +21,27 @@ import Foundation
 import ObvCrypto
 import ObvTypes
 
+/// This struct represents an encrypted message received through the network, either via a push notification (in which case the number of attachments is not known, and the encryptedExtendedContent may be available) or via the normal connection we have with the server (in which case the number of attachments is known, while the encrypted content is not available as it is downloaded asynchronously).
 public struct ObvNetworkReceivedMessageEncrypted: Hashable {
+
     public let messageId: MessageIdentifier
     public let encryptedContent: EncryptedData
-    public let attachmentCount: Int
+    public let knownAttachmentCount: Int?
     public let messageUploadTimestampFromServer: Date
     public let downloadTimestampFromServer: Date
     public let localDownloadTimestamp: Date
     public let wrappedKey: EncryptedData
-    public let hasEncryptedExtendedMessagePayload: Bool
+    public let availableEncryptedExtendedContent: EncryptedData?
 
-    public init(messageId: MessageIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, encryptedContent: EncryptedData, wrappedKey: EncryptedData, attachmentCount: Int, hasEncryptedExtendedMessagePayload: Bool) {
+    public init(messageId: MessageIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, encryptedContent: EncryptedData, wrappedKey: EncryptedData, knownAttachmentCount: Int?, availableEncryptedExtendedContent: EncryptedData?) {
         self.messageId = messageId
         self.encryptedContent = encryptedContent
-        self.attachmentCount = attachmentCount
+        self.knownAttachmentCount = knownAttachmentCount
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
         self.wrappedKey = wrappedKey
         self.downloadTimestampFromServer = downloadTimestampFromServer
         self.localDownloadTimestamp = localDownloadTimestamp
-        self.hasEncryptedExtendedMessagePayload = hasEncryptedExtendedMessagePayload
+        self.availableEncryptedExtendedContent = availableEncryptedExtendedContent
     }
     
     public func hash(into hasher: inout Hasher) {

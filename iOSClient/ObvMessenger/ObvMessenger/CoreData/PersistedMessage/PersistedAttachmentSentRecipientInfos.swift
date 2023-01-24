@@ -23,12 +23,15 @@ import CoreData
 import OlvidUtils
 
 @objc(PersistedAttachmentSentRecipientInfos)
-final class PersistedAttachmentSentRecipientInfos: NSManagedObject, ObvErrorMaker {
+final class PersistedAttachmentSentRecipientInfos: NSManagedObject, Identifiable, ObvErrorMaker {
 
     private static let entityName = "PersistedAttachmentSentRecipientInfos"
     static let errorDomain = "PersistedAttachmentSentRecipientInfos"
 
     enum ReceptionStatus: Int {
+        case uploadable = -3
+        case uploading = -2
+        case complete = -1
         case delivered = 0
         case read = 1
 
@@ -51,7 +54,7 @@ final class PersistedAttachmentSentRecipientInfos: NSManagedObject, ObvErrorMake
 
     var status: ReceptionStatus {
         get {
-            ReceptionStatus(rawValue: rawStatus) ?? .delivered
+            ReceptionStatus(rawValue: rawStatus) ?? .uploadable
         }
         set {
             guard self.status < newValue else { return }
@@ -61,7 +64,8 @@ final class PersistedAttachmentSentRecipientInfos: NSManagedObject, ObvErrorMake
 
     // MARK: - Initializer
 
-    convenience init(status: ReceptionStatus, index: Int, info: PersistedMessageSentRecipientInfos) throws {
+    /// Creates a `PersistedAttachmentSentRecipientInfos` instance in the `.uploadable` status
+    convenience init(index: Int, info: PersistedMessageSentRecipientInfos) throws {
 
         guard let context = info.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Cannot initialize PersistedAttachmentSentRecipientInfos without context") }
 
@@ -70,7 +74,7 @@ final class PersistedAttachmentSentRecipientInfos: NSManagedObject, ObvErrorMake
 
         self.messageInfo = info
         self.index = index
-        self.status = status
+        self.rawStatus = ReceptionStatus.uploadable.rawValue // Only place where we must use the raw status
     }
 
 

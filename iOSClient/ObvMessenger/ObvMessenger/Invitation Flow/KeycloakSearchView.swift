@@ -155,15 +155,18 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
     @MainActor
     private func performKeycloakSearchNow(textToSearchNow: String?) async {
         assert(Thread.isMainThread)
-        guard let delegate = self.delegate else { assertionFailure(); return }
         guard let searchQuery = textToSearchNow else {
-            withAnimation { self.searchResult = nil }
+            withAnimation { [weak self] in
+                self?.searchResult = nil
+            }
             return
         }
-        delegate.startSpinner()
+        delegate?.startSpinner()
+        defer { delegate?.stopSpinner() }
         
         do {
             let newSearchResults = try await KeycloakManagerSingleton.shared.search(ownedCryptoId: ownedCryptoId, searchQuery: searchQuery)
+            assert(Thread.isMainThread)
             mergeReceivedSearchResults(newSearchResults.userDetails, numberOfMissingResults: newSearchResults.numberOfMissingResults)
         } catch let searchError as KeycloakManager.SearchError {
             os_log("Search error: %{public}@", log: Self.log, type: .error, searchError.localizedDescription)
@@ -177,8 +180,9 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
     
     private func mergeReceivedSearchResults(_ newSearchResults: [UserDetails], numberOfMissingResults: Int) {
         assert(Thread.isMainThread)
+        let sortedSearchResult = newSearchResults.filter({ $0.identity != ownedCryptoId.getIdentity() }).sorted()
         withAnimation {
-            self.searchResult = newSearchResults.filter({ $0.identity != ownedCryptoId.getIdentity() }).sorted()
+            self.searchResult = sortedSearchResult
             self.numberOfMissingResults = numberOfMissingResults
         }
     }

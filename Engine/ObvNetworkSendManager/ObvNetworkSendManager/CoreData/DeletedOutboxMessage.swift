@@ -32,15 +32,8 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
     // MARK: Internal constants
     
     private static let entityName = "DeletedOutboxMessage"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
     
     private static let errorDomain = "DeletedOutboxMessage"
-
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
 
     // MARK: Attributes
 
@@ -58,12 +51,20 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
     weak var delegateManager: ObvNetworkSendDelegateManager?
     var obvContext: ObvContext?
 
-    convenience init?(messageId: MessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
+    private convenience init(messageId: MessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: DeletedOutboxMessage.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.messageId = messageId
         self.timestampFromServer = timestampFromServer
         self.delegateManager = delegateManager
+    }
+    
+    static func getOrCreate(messageId: MessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage {
+        if let existingDeletedOutboxMessage = try DeletedOutboxMessage.getDeletedOutboxMessage(messageId: messageId, delegateManager: delegateManager, within: obvContext) {
+            assertionFailure("In practice, this should never occur")
+            return existingDeletedOutboxMessage
+        }
+        return DeletedOutboxMessage(messageId: messageId, timestampFromServer: timestampFromServer, delegateManager: delegateManager, within: obvContext)
     }
         
 }
@@ -72,6 +73,23 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
 // MARK: - Convenience DB getters
 
 extension DeletedOutboxMessage {
+    
+    struct Predicate {
+        
+        enum Key: String {
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            case timestampFromServer = "timestampFromServer"
+        }
+        
+        static func withMessageId(_ messageId: MessageIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: messageId.ownedCryptoIdentity.getIdentity()),
+                NSPredicate(Key.rawMessageIdUid, EqualToData: messageId.uid.raw),
+            ])
+        }
+
+    }
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<DeletedOutboxMessage> {
         return NSFetchRequest<DeletedOutboxMessage>(entityName: DeletedOutboxMessage.entityName)
@@ -83,14 +101,24 @@ extension DeletedOutboxMessage {
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
     
+    private static func getDeletedOutboxMessage(messageId: MessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage? {
+        let request: NSFetchRequest<DeletedOutboxMessage> = DeletedOutboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageId(messageId)
+        request.fetchLimit = 1
+        let item = try obvContext.fetch(request).first
+        item?.delegateManager = delegateManager
+        item?.obvContext = obvContext
+        return item
+    }
+    
     static func batchDelete(messageIds: [MessageIdentifier], within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
         var predicates = [NSPredicate]()
         for ownedIdentity in Set(messageIds.map({$0.ownedCryptoIdentity})) {
             let messageIdsOfOwnedIdentity = Set(messageIds.filter({ $0.ownedCryptoIdentity == ownedIdentity }).map({ $0.uid.raw as NSData }))
             let predicate = NSPredicate(format: "%K IN %@ AND %K == %@",
-                        rawMessageIdUidKey, messageIdsOfOwnedIdentity as NSSet,
-                        rawMessageIdOwnedIdentityKey, ownedIdentity.getIdentity() as NSData)
+                                        Predicate.Key.rawMessageIdUid.rawValue, messageIdsOfOwnedIdentity as NSSet,
+                                        Predicate.Key.rawMessageIdOwnedIdentity.rawValue, ownedIdentity.getIdentity() as NSData)
             predicates.append(predicate)
         }
         fetchRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)

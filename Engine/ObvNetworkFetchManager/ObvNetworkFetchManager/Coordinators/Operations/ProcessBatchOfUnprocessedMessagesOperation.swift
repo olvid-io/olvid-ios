@@ -100,8 +100,8 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                         localDownloadTimestamp: $0.localDownloadTimestamp,
                         encryptedContent: $0.encryptedContent,
                         wrappedKey: $0.wrappedKey,
-                        attachmentCount: $0.attachments.count,
-                        hasEncryptedExtendedMessagePayload: $0.hasEncryptedExtendedMessagePayload)
+                        knownAttachmentCount: $0.attachments.count,
+                        availableEncryptedExtendedContent: nil) // The encrypted extended content is not available yet
                 })
                 
                 // We ask our delegate to process these messages

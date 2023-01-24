@@ -79,6 +79,25 @@ extension ReceivedMessageCoordinator {
         queueForProtocolOperations.addOperation(abortProtocolBlockOperation)
         
     }
+    
+    
+    /// This method is called during boostrap. It deletes old protocol instances that are in a final state. Normaly, no such instance should exist. It is only used in case a step was not declared as final by mistake, and later considered as final.
+    /// We declare this method in this coordinator to make sure it does not interfere with the processing of protocol messages.
+    func deleteProtocolInstancesInAFinalState(flowId: FlowIdentifier) {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ReceivedMessageCoordinator.logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        let op1 = DeleteProtocolInstancesInAFinalStateOperation()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+        queueForProtocolOperations.addOperation(composedOp)
+        
+    }
 
     func createBlockForAbortingProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity) -> (() -> Void) {
         

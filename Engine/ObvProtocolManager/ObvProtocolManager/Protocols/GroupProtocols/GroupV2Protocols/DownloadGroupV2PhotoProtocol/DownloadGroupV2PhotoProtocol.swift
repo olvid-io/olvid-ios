@@ -28,7 +28,7 @@ public struct DownloadGroupV2PhotoProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.DownloadGroupV2Photo
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.PhotoDownloaded]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.PhotoDownloaded, StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

@@ -39,13 +39,14 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     
     private static let errorDomain = "MetaFlowController"
     private func makeError(message: String) -> Error { NSError(domain: MetaFlowController.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
+    
     // Coordinators and Services
     
     private var mainFlowViewController: MainFlowViewController?
     private var onboardingFlowViewController: OnboardingFlowViewController?
 
     private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+    private weak var appBackupDelegate: AppBackupDelegate?
 
     private let callBannerView = CallBannerView()
     private let viewOnTopOfCallBannerView = UIView()
@@ -65,11 +66,12 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     
     private let obvEngine: ObvEngine
     
-    init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate) {
+    init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, appBackupDelegate: AppBackupDelegate) {
         
         self.obvEngine = obvEngine
         self.createPasscodeDelegate = createPasscodeDelegate
-        
+        self.appBackupDelegate = appBackupDelegate
+
         super.init(nibName: nil, bundle: nil)
         
         // Internal notifications
@@ -434,7 +436,10 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 guard let createPasscodeDelegate = self.createPasscodeDelegate else {
                     assertionFailure(); return
                 }
-                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedIdentity.cryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate)
+                guard let appBackupDelegate = self.appBackupDelegate else {
+                    assertionFailure(); return
+                }
+                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedIdentity.cryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
             }
 
             guard let mainFlowViewController = mainFlowViewController else {
@@ -495,7 +500,7 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
         } else {
 
             if onboardingFlowViewController == nil {
-                onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine)
+                onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine, appBackupDelegate: appBackupDelegate)
                 onboardingFlowViewController?.delegate = self
             }
             

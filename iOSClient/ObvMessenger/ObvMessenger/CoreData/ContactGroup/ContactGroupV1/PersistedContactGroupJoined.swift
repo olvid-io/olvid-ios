@@ -99,7 +99,7 @@ extension PersistedContactGroupJoined {
     
     func setGroupNameCustom(to groupNameCustom: String) throws {
         let newGroupNameCustom = groupNameCustom.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !newGroupNameCustom.isEmpty else { throw NSError() }
+        guard !newGroupNameCustom.isEmpty else { throw Self.makeError(message: "Cannot use an empty string as a custom group name") }
         self.groupNameCustom = newGroupNameCustom
         try resetDiscussionTitle()
     }

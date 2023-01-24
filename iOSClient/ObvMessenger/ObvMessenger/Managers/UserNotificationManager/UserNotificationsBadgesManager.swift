@@ -23,7 +23,7 @@ import os.log
 import ObvTypes
 import UserNotifications
 
-final class UserNotificationsBadgesManager: NSObject {
+actor UserNotificationsBadgesManager {
     
     // Properties
     
@@ -35,7 +35,7 @@ final class UserNotificationsBadgesManager: NSObject {
     
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationsBadgesManager.self))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationsBadgesManager.self))
     private var notificationTokens = [NSObjectProtocol]()
     private let queueForBadgesOperations = OperationQueue.createSerialQueue(name: "Queue for badges operations", qualityOfService: .background)
     
@@ -47,31 +47,21 @@ final class UserNotificationsBadgesManager: NSObject {
     
     // Keeping track of the badges to update on the next ContextDidSaveNotification
     private var _badgesToUpdate = Set<TabBadge>()
-    private var badgesToUpdateQueue = DispatchQueue(label: "badgesToUpdateQueue")
     private func tabShouldUpdate(_ tabBadge: TabBadge) {
-        _ = badgesToUpdateQueue.sync {
-            _badgesToUpdate.insert(tabBadge)
-        }
+        _badgesToUpdate.insert(tabBadge)
     }
     private func getAndResetTabBadgesToUpdate() -> Set<TabBadge> {
-        var badgesToUpdate = Set<TabBadge>()
-        badgesToUpdateQueue.sync {
-            badgesToUpdate = _badgesToUpdate
-            _badgesToUpdate.removeAll()
-        }
+        let badgesToUpdate = _badgesToUpdate
+        _badgesToUpdate.removeAll()
         return badgesToUpdate
     }
-    
-    
+        
     // MARK: - Initializer
     
-    override init() {
-        super.init()
-        observeCurrentOwnedIdentityChangedNotifications()
-        observeNSManagedObjectContextDidSaveNotifications()
-        observeNSManagedObjectContextObjectsDidChangeNotifications()
-        observeNeedToRecomputeAllBadges()
-        observeUpdateBadgeBackgroundTaskWasLaunchedNotifications()
+    init() {
+        Task {
+            await observeNotifications()
+        }
     }
     
     
@@ -81,14 +71,14 @@ final class UserNotificationsBadgesManager: NSObject {
     
         
     private func recomputeAllBadges(completion: (Bool) -> Void) {
-        guard let userDefaults = self.userDefaults else { completion(false); return }
+        guard let userDefaults else { completion(false); return }
         if let currentOwnedCryptoId = self.currentOwnedCryptoId {
-            let refreshBadgeForNewMessagesOperation = RefreshBadgeForNewMessagesOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: log)
-            let refreshBadgeForInvitationsOperation = RefreshBadgeForInvitationsOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: log)
+            let refreshBadgeForNewMessagesOperation = RefreshBadgeForNewMessagesOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: Self.log)
+            let refreshBadgeForInvitationsOperation = RefreshBadgeForInvitationsOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: Self.log)
             queueForBadgesOperations.addOperation(refreshBadgeForNewMessagesOperation)
             queueForBadgesOperations.addOperation(refreshBadgeForInvitationsOperation)
         }
-        let refreshAppBadgeOperation = RefreshAppBadgeOperation(userDefaults: userDefaults, log: log)
+        let refreshAppBadgeOperation = RefreshAppBadgeOperation(userDefaults: userDefaults, log: Self.log)
         queueForBadgesOperations.addOperation(refreshAppBadgeOperation)
         queueForBadgesOperations.waitUntilAllOperationsAreFinished()
         completion(true)
@@ -101,173 +91,174 @@ final class UserNotificationsBadgesManager: NSObject {
 
 extension UserNotificationsBadgesManager {
     
-    private func observeCurrentOwnedIdentityChangedNotifications() {
-        let token = ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged(queue: OperationQueue.main) { [weak self] (newOwnedCryptoId, apiKey) in
-            self?.currentOwnedCryptoId = newOwnedCryptoId
+    
+    private func observeNotifications() {
+        
+        notificationTokens.append(contentsOf: [
+            ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged { newOwnedCryptoId, _ in
+                Task { [weak self] in await self?.setCurrentOwnedCryptoId(to: newOwnedCryptoId) }
+            },
+            ObvMessengerInternalNotification.observeNeedToRecomputeAllBadges { completion in
+                Task { [weak self] in await self?.recomputeAllBadges(completion: completion) }
+            },
+            ObvMessengerInternalNotification.observeUpdateBadgeBackgroundTaskWasLaunched() { completion in
+                Task { [weak self] in
+                    await self?.recomputeAllBadges(completion: completion)
+                    os_log("🤿 Update badge task has been done in background", log: Self.log, type: .info)
+                }
+            },
+        ])
+        
+        // We observe the NSManagedObjectContextObjectsDidChange in order to:
+        // - Watch for updated persisted message received marked as "read" so as to decrement the appropriate counter
+        // - and more
+
+        do {
+            let NotificationName = Notification.Name.NSManagedObjectContextObjectsDidChange
+            let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { notification in
+                guard let userInfo = notification.userInfo else { return }
+                Task { [weak self] in
+                    await self?.processNSManagedObjectContextObjectsDidChangeNotification(notificationsUserInfo: userInfo)
+                }
+            }
+            notificationTokens.append(token)
         }
-        notificationTokens.append(token)
-    }
-    
-    
-    private func observeNeedToRecomputeAllBadges() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeNeedToRecomputeAllBadges { [weak self] completion in
-            self?.recomputeAllBadges(completion: completion)
-        })
+        
+        // We observe the NSManagedObjectContextDidSave in order to:
+        // - Watch for new inserted persisted message received so as to increment the appropriate counter
+        // - and more
 
-    }
-
-    private func observeUpdateBadgeBackgroundTaskWasLaunchedNotifications() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeUpdateBadgeBackgroundTaskWasLaunched() { (completion) in
-            self.recomputeAllBadges(completion: completion)
-            os_log("🤿 Update badge task has been done in background", log: self.log, type: .info)
-        })
-    }
-
-    // We observe the NSManagedObjectContextObjectsDidChange in order to:
-    // - Watch for updated persisted message received marked as "read" so as to decrement the appropriate counter
-    // - and more
-
-    private func observeNSManagedObjectContextObjectsDidChangeNotifications() {
-        let NotificationName = Notification.Name.NSManagedObjectContextObjectsDidChange
-        let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { [weak self] (notification) in
-            guard let _self = self else { return }
-            
-            guard let userInfo = notification.userInfo else { return }
-            
-            guard let currentOwnedCryptoId = _self.currentOwnedCryptoId else { return }
-
-            if let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject>, !updatedObjects.isEmpty {
-                
-                // Updated PersistedMessageReceived
-                do {
-                    let updatedPersistedMessageReceived = updatedObjects.compactMap { $0 as? PersistedMessageReceived }
-                    let updatedPersistedMessageReceivedToCount = updatedPersistedMessageReceived.filter { $0.changedValues().contains(where: { (key, value) -> Bool in
-                        key == PersistedMessageReceived.rawStatusKey && (value as? Int) != PersistedMessageReceived.MessageStatus.new.rawValue
-                    }) }
-                    if !updatedPersistedMessageReceivedToCount.isEmpty {
-                        _self.tabShouldUpdate(.discussions)
-                    }
+        do {
+            let NotificationName = Notification.Name.NSManagedObjectContextDidSave
+            let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { notification in
+                guard let userInfo = notification.userInfo else { return }
+                Task { [weak self] in
+                    await self?.processNSManagedObjectContextDidSaveNotification(notificationsUserInfo: userInfo)
                 }
-                
-                // Updated PersistedMessageSystem
-                do {
-                    let updatedPersistedMessageSystem = updatedObjects.compactMap { $0 as? PersistedMessageSystem }
-                    let updatedPersistedMessageSystemToConsider = updatedPersistedMessageSystem.filter { $0.changedValues().contains(where: { (key, value) -> Bool in
-                        key == PersistedMessageSystem.rawStatusKey && (value as? Int) != PersistedMessageSystem.MessageStatus.new.rawValue
-                    }) }
-                    if !updatedPersistedMessageSystemToConsider.isEmpty {
-                        _self.tabShouldUpdate(.discussions)
-                    }
-                }
-
-                // Updated PersistedInvitation
-                do {
-                    let updatedPersistedInvitations = updatedObjects.compactMap { $0 as? PersistedInvitation }
-                    let updatedPersistedInvitationsToConsider = updatedPersistedInvitations.filter { $0.ownedIdentity?.cryptoId == currentOwnedCryptoId }
-                    if !updatedPersistedInvitationsToConsider.isEmpty {
-                        // For invitations, we simply refresh the counter, instead of incrementing/decrementing it
-                        // We cannot refresh the badge count here since this would require to query the database, which has not been updated yet.
-                        // We will do this in the observer of the NSManagedObjectContextDidSave notification
-                        _self.tabShouldUpdate(.invitations)
-                    }
-                }
-                
             }
-            
+            notificationTokens.append(token)
         }
-        notificationTokens.append(token)
     }
     
     
-    // We observe the NSManagedObjectContextDidSave in order to:
-    // - Watch for new inserted persisted message received so as to increment the appropriate counter
-    // - and more
-    
-    private func observeNSManagedObjectContextDidSaveNotifications() {
-        let NotificationName = Notification.Name.NSManagedObjectContextDidSave
-        let token = NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { [weak self] (notification) in
-            guard let _self = self else { return }
+    private func processNSManagedObjectContextObjectsDidChangeNotification(notificationsUserInfo userInfo: [AnyHashable: Any]) {
+                
+        if let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject>, !updatedObjects.isEmpty {
             
-            guard let userInfo = notification.userInfo else { return }
+            // Updated PersistedMessageReceived
+            do {
+                let updatedPersistedMessageReceived = updatedObjects.compactMap { $0 as? PersistedMessageReceived }
+                if !updatedPersistedMessageReceived.isEmpty {
+                    tabShouldUpdate(.discussions)
+                }
+            }
+            
+            // Updated PersistedMessageSystem
+            do {
+                let updatedPersistedMessageSystem = updatedObjects.compactMap { $0 as? PersistedMessageSystem }
+                if !updatedPersistedMessageSystem.isEmpty {
+                    tabShouldUpdate(.discussions)
+                }
+            }
 
-            guard let userDefaults = _self.userDefaults else { return }
-
-            guard let currentOwnedCryptoId = _self.currentOwnedCryptoId else { return }
-            
-            if let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject>, !insertedObjects.isEmpty {
-                
-                // Watch for new inserted persisted message received so as to increment the appropriate counter
-                
-                do {
-                    let insertedPersistedMessageReceived = insertedObjects.compactMap { $0 as? PersistedMessageReceived }
-                    let insertedPersistedMessageReceivedToCount = insertedPersistedMessageReceived.filter { $0.contactIdentity?.ownedIdentity?.cryptoId == currentOwnedCryptoId }
-                    if !insertedPersistedMessageReceivedToCount.isEmpty {
-                        _self.tabShouldUpdate(.discussions)
-                    }
+            // Updated PersistedInvitation
+            do {
+                let updatedPersistedInvitations = updatedObjects.compactMap { $0 as? PersistedInvitation }
+                if !updatedPersistedInvitations.isEmpty {
+                    // For invitations, we simply refresh the counter, instead of incrementing/decrementing it
+                    // We cannot refresh the badge count here since this would require to query the database, which has not been updated yet.
+                    // We will do this in the observer of the NSManagedObjectContextDidSave notification
+                    tabShouldUpdate(.invitations)
                 }
-                
-                // Watch for new inserted persisted message system so as to increment the appropriate counter
-                
-                do {
-                    let insertedPersistedMessageSystem = insertedObjects.compactMap { $0 as? PersistedMessageSystem }
-                    let insertedPersistedMessageSystemToCount = insertedPersistedMessageSystem.filter { $0.discussion.ownedIdentity?.cryptoId == currentOwnedCryptoId }
-                    if !insertedPersistedMessageSystemToCount.isEmpty {
-                        _self.tabShouldUpdate(.discussions)
-                    }
-                }
-
-                // Look for new inserted invitation so as to refresh the appropriate counter
-                
-                let insertedPersistedInvitations = insertedObjects.compactMap { $0 as? PersistedInvitation }
-                if !insertedPersistedInvitations.isEmpty {
-                    _self.tabShouldUpdate(.invitations)
-                }
-                
             }
-            
-            if let deletedObjects = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject>, !deletedObjects.isEmpty {
-                
-                // Look for deleted messages so as to refresh the appropriate counter (decrementing won't work since, at this point, the the managed object fails to fault the contact identity)
-                
-                let deletedPersistedMessageReceived = deletedObjects.compactMap { $0 as? PersistedMessageReceived }
-                if !deletedPersistedMessageReceived.isEmpty {
-                    _self.tabShouldUpdate(.discussions)
-                }
-                
-                let deletedPersistedMessageSystem = deletedObjects.compactMap { $0 as? PersistedMessageSystem }
-                if !deletedPersistedMessageSystem.isEmpty {
-                    _self.tabShouldUpdate(.discussions)
-                }
-                
-                // Look for new deleted invitations so as to refresh the appropriate counter
-                
-                let deletedPersistedInvitations = deletedObjects.compactMap { $0 as? PersistedInvitation }
-                if !deletedPersistedInvitations.isEmpty {
-                    _self.tabShouldUpdate(.invitations)
-                }
-                
-            }
-            
-            // Update the badges if required
-            
-            let badgesToUpdate = _self.getAndResetTabBadgesToUpdate()
-            
-            guard !badgesToUpdate.isEmpty else { return }
-            
-            if badgesToUpdate.contains(.discussions) {
-                let refreshBadgeForNewMessagesOperation = RefreshBadgeForNewMessagesOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: _self.log)
-                _self.queueForBadgesOperations.addOperation(refreshBadgeForNewMessagesOperation)
-            }
-            
-            if badgesToUpdate.contains(.invitations) {
-                let refreshBadgeForInvitationsOperation = RefreshBadgeForInvitationsOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: _self.log)
-                _self.queueForBadgesOperations.addOperation(refreshBadgeForInvitationsOperation)
-            }
-            
-            let refreshAppBadgeOperation = RefreshAppBadgeOperation(userDefaults: userDefaults, log: _self.log)
-            _self.queueForBadgesOperations.addOperation(refreshAppBadgeOperation)
             
         }
-        notificationTokens.append(token)
+
     }
+    
+    
+    private func processNSManagedObjectContextDidSaveNotification(notificationsUserInfo userInfo: [AnyHashable: Any]) {
+        
+        guard let userDefaults else { assertionFailure(); return }
+
+        guard let currentOwnedCryptoId else { return }
+        
+        if let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject>, !insertedObjects.isEmpty {
+            
+            // Watch for new inserted persisted message received so as to increment the appropriate counter
+            
+            do {
+                let insertedPersistedMessageReceived = insertedObjects.compactMap { $0 as? PersistedMessageReceived }
+                if !insertedPersistedMessageReceived.isEmpty {
+                    tabShouldUpdate(.discussions)
+                }
+            }
+            
+            // Watch for new inserted persisted message system so as to increment the appropriate counter
+            
+            do {
+                let insertedPersistedMessageSystem = insertedObjects.compactMap { $0 as? PersistedMessageSystem }
+                if !insertedPersistedMessageSystem.isEmpty {
+                    tabShouldUpdate(.discussions)
+                }
+            }
+
+            // Look for new inserted invitation so as to refresh the appropriate counter
+            
+            let insertedPersistedInvitations = insertedObjects.compactMap { $0 as? PersistedInvitation }
+            if !insertedPersistedInvitations.isEmpty {
+                tabShouldUpdate(.invitations)
+            }
+            
+        }
+        
+        if let deletedObjects = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject>, !deletedObjects.isEmpty {
+            
+            // Look for deleted messages so as to refresh the appropriate counter (decrementing won't work since, at this point, the the managed object fails to fault the contact identity)
+            
+            let deletedPersistedMessageReceived = deletedObjects.compactMap { $0 as? PersistedMessageReceived }
+            if !deletedPersistedMessageReceived.isEmpty {
+                tabShouldUpdate(.discussions)
+            }
+            
+            let deletedPersistedMessageSystem = deletedObjects.compactMap { $0 as? PersistedMessageSystem }
+            if !deletedPersistedMessageSystem.isEmpty {
+                tabShouldUpdate(.discussions)
+            }
+            
+            // Look for new deleted invitations so as to refresh the appropriate counter
+            
+            let deletedPersistedInvitations = deletedObjects.compactMap { $0 as? PersistedInvitation }
+            if !deletedPersistedInvitations.isEmpty {
+                tabShouldUpdate(.invitations)
+            }
+            
+        }
+        
+        // Update the badges if required
+        
+        let badgesToUpdate = getAndResetTabBadgesToUpdate()
+        
+        guard !badgesToUpdate.isEmpty else { return }
+        
+        if badgesToUpdate.contains(.discussions) {
+            let refreshBadgeForNewMessagesOperation = RefreshBadgeForNewMessagesOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: Self.log)
+            queueForBadgesOperations.addOperation(refreshBadgeForNewMessagesOperation)
+        }
+        
+        if badgesToUpdate.contains(.invitations) {
+            let refreshBadgeForInvitationsOperation = RefreshBadgeForInvitationsOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: Self.log)
+            queueForBadgesOperations.addOperation(refreshBadgeForInvitationsOperation)
+        }
+        
+        let refreshAppBadgeOperation = RefreshAppBadgeOperation(userDefaults: userDefaults, log: Self.log)
+        queueForBadgesOperations.addOperation(refreshAppBadgeOperation)
+
+    }
+    
+    
+    private func setCurrentOwnedCryptoId(to newCurrentOwnedCryptoId: ObvCryptoId) {
+        currentOwnedCryptoId = newCurrentOwnedCryptoId
+    }
+    
 }

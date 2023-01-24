@@ -52,7 +52,7 @@ final class BackupKeyVerifierViewHostingController: UIHostingController<BackupKe
 }
 
 protocol BackupKeyTesterDelegate: AnyObject {
-    func userWantsToRestoreBackupIdentifiedByRequestUuid(_ requestUuid: UUID)
+    func userWantsToRestoreBackupIdentifiedByRequestUuid(_ requestUuid: UUID) async
 }
 
 
@@ -286,8 +286,8 @@ fileprivate final class BackupKeyTester: NSObject, ObservableObject, UITextField
         assert(Thread.isMainThread)
         switch self.keyStatusReport {
         case .fullBackupRecovered(backupRequestIdentifier: let backupRequestIdentifier, fullBackupDate: _):
-            DispatchQueue(label: "Queue for requesting a backup restore").async { [weak self] in
-                self?.delegate?.userWantsToRestoreBackupIdentifiedByRequestUuid(backupRequestIdentifier)
+            Task { [weak self] in
+                await self?.delegate?.userWantsToRestoreBackupIdentifiedByRequestUuid(backupRequestIdentifier)
             }
         default:
             assertionFailure()

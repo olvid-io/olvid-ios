@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import OlvidUtils
 import os.log
+import SQLite3
 
 open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> {
     
@@ -160,7 +161,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         return res
     }
     
-    private func getSourceStoreMetadata() throws -> [String: Any] {
+    private func getSourceStoreMetadata(storeURL: URL) throws -> [String: Any] {
         let dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(ofType: NSSQLiteStoreType,
                                                                                at: storeURL,
                                                                                options: nil)
@@ -206,8 +207,8 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     }
     
     
-    private func getStoreManagedObjectModel() throws -> NSManagedObjectModel {
-        let storeMetadata = try getSourceStoreMetadata()
+    private func getStoreManagedObjectModel(storeURL: URL) throws -> NSManagedObjectModel {
+        let storeMetadata = try getSourceStoreMetadata(storeURL: storeURL)
         let allModels = try getAllManagedObjectModels()
         for model in allModels {
             if model.isConfiguration(withName: nil, compatibleWithStoreMetadata: storeMetadata) {
@@ -227,7 +228,19 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         migrationRunningLog.addEvent(message: "Destination Managed Object Model: \(destinationManagedObjectModel.versionIdentifier)")
         os_log("Destination Managed Object Model: %{public}@", log: log, type: .info, destinationManagedObjectModel.versionIdentifier)
 
-        let sourceStoreMetadata = try getSourceStoreMetadata()
+        let sourceStoreMetadata: [String: Any]
+        do {
+            sourceStoreMetadata = try getSourceStoreMetadata(storeURL: self.storeURL)
+        } catch {
+            migrationRunningLog.addEvent(message: "Failed to get source store metadata: \(error.localizedDescription)")
+            os_log("Failed to get source store metadata: %{public}@", log: log, type: .fault, error.localizedDescription)
+            logDebugInformation()
+            throw error
+        }
+        
+        migrationRunningLog.addEvent(message: "Just got the source store metada")
+        os_log("Just got the source store metada", log: log, type: .info)
+
         if let sourceVersionIdentifier = (sourceStoreMetadata[NSStoreModelVersionIdentifiersKey] as? [Any])?.first as? String {
             migrationRunningLog.addEvent(message: "Source Store Model Version Identifier: \(sourceVersionIdentifier)")
             os_log("Source Store Model Version Identifier: %{public}@", log: log, type: .info, sourceVersionIdentifier)
@@ -237,6 +250,209 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                                                               compatibleWithStoreMetadata: sourceStoreMetadata)
     }
     
+    
+    // MARK: - Logging debug informations
+    
+    
+    private let byteCountFormatter: ByteCountFormatter = {
+        var bcf = ByteCountFormatter()
+        return bcf
+    }()
+    
+    
+    private let dateFormatter: DateFormatter = {
+        var df = DateFormatter()
+        df.dateStyle = .short
+        df.timeStyle = .short
+        return df
+    }()
+
+    
+    /// As for now, this method is called when we fail to obtain (metada) information about the current version of the database and thus, fail to migrate to a new version.
+    private func logDebugInformation() {
+        
+        migrationRunningLog.addEvent(message: "[DEBUG] Source Store URL: \(storeURL.debugDescription)")
+        migrationRunningLog.addEvent(message: "[DEBUG] Model name: \(modelName)")
+
+        // List the files in the source store URL (and remember sqlite files)
+        var sqliteFiles = [URL]()
+        do {
+            var isDirectory: ObjCBool = false
+            let resourceKeys = [URLResourceKey.fileSizeKey, .creationDateKey, .contentModificationDateKey, .attributeModificationDateKey]
+            if FileManager.default.fileExists(atPath: storeURL.path, isDirectory: &isDirectory) {
+                if isDirectory.boolValue {
+                    migrationRunningLog.addEvent(message: "[DEBUG] The storeURL is a directory, which is not expected")
+                } else if let directoryContents = try? FileManager.default.contentsOfDirectory(at: storeURL.deletingLastPathComponent(), includingPropertiesForKeys: resourceKeys) {
+                    migrationRunningLog.addEvent(message: "[DEBUG] Listing the files in \(storeURL.deletingLastPathComponent().path)")
+                    for value in directoryContents.enumerated() {
+                        var resourceString = [String]()
+                        if let resourceValues = try? value.element.resourceValues(forKeys: Set(resourceKeys)) {
+                            if let fileSize = resourceValues.fileSize {
+                                resourceString.append("File size: \(byteCountFormatter.string(fromByteCount: Int64(fileSize)))")
+                            }
+                            if let creationDate = resourceValues.creationDate {
+                                resourceString.append("Creation date: \(dateFormatter.string(from: creationDate))")
+                            }
+                            if let contentModificationDate = resourceValues.contentModificationDate {
+                                resourceString.append("Content modification date: \(dateFormatter.string(from: contentModificationDate))")
+                            }
+                            if let attributeModificationDate = resourceValues.attributeModificationDate {
+                                resourceString.append("Attribute modification date: \(dateFormatter.string(from: attributeModificationDate))")
+                            }
+                        }
+                        let allResources = resourceString.joined(separator: ", ")
+                        migrationRunningLog.addEvent(message: "[DEBUG] File \(value.offset): \(value.element.lastPathComponent) (\(allResources))")
+                        if value.element.pathExtension == "sqlite" {
+                            sqliteFiles.append(value.element)
+                        }
+                    }
+                }
+            }
+        }
+        
+        // List all sqlite files
+        
+        migrationRunningLog.addEvent(message: "[DEBUG] Found \(sqliteFiles.count) sqlite files")
+        
+        for (offset, url) in sqliteFiles.enumerated() {
+            migrationRunningLog.addEvent(message: "[DEBUG][\(offset)] \(url.path)")
+            do {
+                try logMetadaQueryOn(sqliteFile: url)
+                if let model = try? getStoreManagedObjectModel(storeURL: url) {
+                    migrationRunningLog.addEvent(message: "[DEBUG][\(offset)] The model version identifier is \(model.versionIdentifier)")
+                } else {
+                    migrationRunningLog.addEvent(message: "[DEBUG][\(offset)] Failed to determine the model version identifier")
+                }
+            } catch {
+                // If we reach this point, we could not log metada informations about the sqlite file at `url`
+                migrationRunningLog.addEvent(message: "[DEBUG][\(offset)] Failed to log metada on \(url.debugDescription): \(error.localizedDescription)")
+            }
+            
+        }
+        
+    }
+
+    
+    private func createBackupOf(sqliteFile: URL) throws -> URL {
+        
+        // Open the database
+        
+        var db: OpaquePointer?
+        do {
+            let res = sqlite3_open(sqliteFile.path, &db)
+            guard res == SQLITE_OK else {
+                migrationRunningLog.addEvent(message: "[DEBUG] Could not open sqlite file \(sqliteFile.path). Error is \(res.description)")
+                throw Self.makeError(message: res.description)
+            }
+        }
+        
+        guard let db else {
+            migrationRunningLog.addEvent(message: "[DEBUG] Could not open sqlite file \(sqliteFile.path). The db point is nil")
+            throw Self.makeError(message: "Unexpected error")
+        }
+
+        defer { sqlite3_close(db) }
+
+        // Create the database to which we will backup records
+        
+        let backupSqliteFile = sqliteFile.deletingLastPathComponent().appendingPathComponent("backup-\(UUID().uuidString).sqlite")
+        
+        var backupDb: OpaquePointer?
+        do {
+            let res = sqlite3_open(backupSqliteFile.path, &backupDb)
+            guard res == SQLITE_OK else {
+                migrationRunningLog.addEvent(message: "[DEBUG] Could not open backup sqlite file \(sqliteFile.path). Error is \(res.description)")
+                throw Self.makeError(message: res.description)
+            }
+        }
+
+        guard let backupDb else {
+            migrationRunningLog.addEvent(message: "[DEBUG] Could not open backup sqlite file \(backupSqliteFile.path). The backupDb point is nil")
+            throw Self.makeError(message: "Unexpected error")
+        }
+
+        defer { sqlite3_close(backupDb) }
+
+        // Initiate the backup
+        
+        let sql3Backup = sqlite3_backup_init(backupDb, "main" , db, "main")
+        
+        guard let sql3Backup else {
+            migrationRunningLog.addEvent(message: "[DEBUG] Could not initiate backup of file \(sqliteFile.path)")
+            throw Self.makeError(message: "[DEBUG] Could not initiate backup of file \(sqliteFile.path)")
+        }
+
+        // Perform the backup
+        
+        do {
+            let res = sqlite3_backup_step(sql3Backup, -1)
+            guard res == SQLITE_DONE else {
+                migrationRunningLog.addEvent(message: "[DEBUG] Could not perform backup of sqlite file \(sqliteFile.path). Error is \(res.description)")
+                throw Self.makeError(message: res.description)
+            }
+        }
+
+        // Finish the backup
+        
+        do {
+            let res = sqlite3_backup_finish(sql3Backup)
+            guard res == SQLITE_OK else {
+                migrationRunningLog.addEvent(message: "[DEBUG] Could not finish backup of sqlite file \(sqliteFile.path). Error is \(res.description)")
+                throw Self.makeError(message: res.description)
+            }
+        }
+
+        return backupSqliteFile
+    }
+    
+    
+    private func logMetadaQueryOn(sqliteFile: URL) throws {
+        
+        migrationRunningLog.addEvent(message: "[DEBUG] Performing a raw SQL query on \(sqliteFile.path)")
+        
+        // Open the database
+        
+        var db: OpaquePointer?
+        do {
+            let res = sqlite3_open(sqliteFile.path, &db)
+            guard res == SQLITE_OK else {
+                migrationRunningLog.addEvent(message: "[DEBUG] Could not open sqlite file \(sqliteFile.path). Error is \(res.description)")
+                throw Self.makeError(message: res.description)
+            }
+        }
+        
+        guard let db else {
+            migrationRunningLog.addEvent(message: "[DEBUG] Could not open sqlite file \(sqliteFile.path). The db point is nil")
+            return
+        }
+                
+        defer { sqlite3_close(db) }
+        
+        let statementString = "SELECT * FROM Z_METADATA;"
+        var statement: OpaquePointer?
+        do {
+            let res = sqlite3_prepare_v2(db, statementString, -1, &statement, nil)
+            guard res == SQLITE_OK else {
+                migrationRunningLog.addEvent(message: "[DEBUG] Could not prepare statement for sqlite file \(sqliteFile.path). Error is \(res.description)")
+                throw Self.makeError(message: res.description)
+            }
+        }
+        
+        while sqlite3_step(statement) == SQLITE_ROW {
+            migrationRunningLog.addEvent(message: "[DEBUG] Found a metadata row")
+            let version = sqlite3_column_int(statement, 0)
+            migrationRunningLog.addEvent(message: "[DEBUG] Version is \(version)")
+            if let rawBlob = sqlite3_column_blob(statement, 2) {
+                let count = sqlite3_column_bytes(statement, 2)
+                let blob = Data(bytes: rawBlob, count: Int(count))
+                migrationRunningLog.addEvent(message: "[DEBUG] Blob length is \(blob.debugDescription) (typical is 3726 bytes)")
+            }
+        }
+
+        sqlite3_finalize(statement)
+        
+    }
+
 
     // MARK: - Migrating
     
@@ -259,7 +475,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
 
         migrationRunningLog.addEvent(message: "Trying to determine the model of the store on disk...")
         
-        var currentStoreModel = try getStoreManagedObjectModel()
+        var currentStoreModel = try getStoreManagedObjectModel(storeURL: self.storeURL)
         
         migrationRunningLog.addEvent(message: "The current model of the store on disk is \(currentStoreModel.versionIdentifier)")
 
@@ -389,7 +605,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
             
             
             migrationRunningLog.addEvent(message: "Determining the new store model...")
-            currentStoreModel = try getStoreManagedObjectModel()
+            currentStoreModel = try getStoreManagedObjectModel(storeURL: self.storeURL)
             
             migrationRunningLog.addEvent(message: "The (new) store model on disk is \(currentStoreModel.versionIdentifier)")
 

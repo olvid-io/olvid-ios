@@ -55,6 +55,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var atLeastOneSnapshotWasApplied = false
     private var isRegisteredToKeyboardNotifications = false
     private var backgroundEffectViewForComposeView: UIVisualEffectView!
+    private var visibilityTrackerForSensitiveMessages: VisibilityTrackerForSensitiveMessages
 
     @Published private var messagesToReconfigure = Set<TypeSafeManagedObjectID<PersistedMessage>>()
     private var cancellables = [AnyCancellable]()
@@ -161,6 +162,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         self.draftObjectID = discussion.draft.typedObjectID
         self.discussionObjectID = discussion.typedObjectID
         self.initialScroll = initialScroll
+        self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionObjectID: discussion.typedObjectID)
         super.init(nibName: nil, bundle: nil)
         self.composeMessageView = NewComposeMessageView(
             draft: discussion.draft,
@@ -269,11 +271,22 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     
     private func performInitialScrollIfAppropriateAndRemoveHidingView() {
         assert(Thread.isMainThread)
-        guard viewDidAppearWasCalled else { return }
-        guard !initialScrollWasPerformed else { return }
+        guard viewDidAppearWasCalled else {
+            ObvDisplayableLogs.shared.log("[Discussion] Since viewDidAppearWasCalled is false, we do not scroll yet")
+            return
+        }
+        guard atLeastOneSnapshotWasApplied else {
+            ObvDisplayableLogs.shared.log("[Discussion] Since atLeastOneSnapshotWasApplied is false, we do not scroll yet")
+            return
+        }
+        guard !initialScrollWasPerformed else {
+            ObvDisplayableLogs.shared.log("[Discussion] Since initialScrollWasPerformed was already performed, we do not scroll")
+            return
+        }
         initialScrollWasPerformed = true
         let completion = { [weak self] in
             self?.scrollViewDidEndAutomaticScroll()
+            ObvDisplayableLogs.shared.log("[Discussion] Removing hiding view")
             UIView.animate(withDuration: 0.3) {
                 self?.hidingView.alpha = 0
             } completion: { _ in
@@ -709,7 +722,7 @@ extension NewSingleDiscussionViewController {
                     .postOnDispatchQueue(internalQueue)
             }
         case .groupV2(withGroup: let group):
-            if let group = group {
+            if let group {
                 let groupObjectID = group.typedObjectID
                 let contactObjectIDs = group.contactsAmongNonPendingOtherMembers.map({ $0.typedObjectID })
                 ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactObjectIDs, groupId: .groupV2(groupObjectID))
@@ -1113,6 +1126,7 @@ extension NewSingleDiscussionViewController {
                 // We want to perform the same scroll than the initial scroll in order to show this sytem message the next time the user enters the discussion. Note that this is only required to handle the case where the user puts Olvid into the background while being in this discussion, or while navigation from this discussion to another one.
                 if unreadMessagesSystemMessage != nil {
                     initialScrollWasPerformed = false
+                    ObvDisplayableLogs.shared.log("[Discussion] Showing hiding view again as the user left the discussion")
                     hidingView.alpha = 1
                     hidingView.isHidden = false
                 }
@@ -1288,10 +1302,12 @@ extension NewSingleDiscussionViewController {
     
     func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         markAsNotNewTheMessageInCell(cell)
+        visibilityTrackerForSensitiveMessages.refreshObjectIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
     }
 
     func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         markAsNotNewTheMessageInCell(cell)
+        visibilityTrackerForSensitiveMessages.refreshObjectIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
     }
     
 }
@@ -1483,7 +1499,9 @@ extension NewSingleDiscussionViewController {
             // Delete message action
             if persistedMessage.deleteMessageActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Delete) { [weak self] (_) in
-                    self?.deletePersistedMessage(objectId: persistedMessageObjectID.objectID, confirmedDeletionType: nil, withinCell: cell)
+                    // Do not show any confirmation if the user deletes a wiped message.
+                    let confirmedDeletionType: DeletionType? = persistedMessage.isWiped ? .local : nil
+                    self?.deletePersistedMessage(objectId: persistedMessageObjectID.objectID, confirmedDeletionType: confirmedDeletionType, withinCell: cell)
                 }
                 action.image = UIImage(systemIcon: .trash)
                 action.attributes = [.destructive]

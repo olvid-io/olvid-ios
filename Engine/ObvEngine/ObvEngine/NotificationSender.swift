@@ -34,17 +34,18 @@ extension ObvEngine {
         
         guard let notificationDelegate = notificationDelegate else { throw Self.makeError(message: "The notification delegate is not set") }
                 
-        notificationCenterTokens.append(ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: nil) { [weak self] (messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId) in
-            self?.processOutboxMessageWasUploadedNotification(messageId: messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage, flowId: flowId)
-        })
-        
-        do {
-            let token = ObvNetworkPostNotification.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (messageIdsAndTimestampsFromServer, flowId) in
+        notificationCenterTokens.append(contentsOf: [
+            ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: nil) { [weak self] (messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId) in
+                self?.processOutboxMessageWasUploadedNotification(messageId: messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage, flowId: flowId)
+            },
+            ObvNetworkPostNotification.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (messageIdsAndTimestampsFromServer, flowId) in
                 self?.processOutboxMessagesAndAllTheirAttachmentsWereAcknowledgedNotifications(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer, flowId: flowId)
-            }
-            notificationCenterTokens.append(token)
-        }
-
+            },
+            ObvNetworkPostNotification.observeOutboxMessageCouldNotBeSentToServer(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                self?.processOutboxMessageCouldNotBeSentToServer(messageId: messageId, flowId: flowId)
+            },
+        ])
+                
         do {
             let token = ObvNetworkPostNotification.observeOutboxAttachmentWasAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (attachmentId, flowId) in
                 self?.processAttachmentWasAcknowledgedNotification(attachmentId: attachmentId, flowId: flowId)
@@ -246,15 +247,6 @@ extension ObvEngine {
             notificationCenterTokens.append(token)
         }
 
-        do {
-            let token = ObvBackupNotification.observeBackupForUploadWasUploaded(within: notificationDelegate) { [weak self] (backupKeyUid, version, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.backupForUploadWasUploaded(backupRequestUuid: flowId, backupKeyUid: backupKeyUid, version: version)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            }
-            notificationCenterTokens.append(token)
-        }
-
         notificationCenterTokens.append(contentsOf: [
             ObvIdentityNotificationNew.observeTrustedPhotoOfContactIdentityHasBeenUpdated(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity) in
                 self?.processTrustedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity)
@@ -311,15 +303,6 @@ extension ObvEngine {
                 self?.processGroupV2UpdateDidFail(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier, flowId: flowId)
             },
         ])
-        
-        do {
-            let token = ObvBackupNotification.observeBackupForExportWasExported(within: notificationDelegate) { [weak self] (backupKeyUid, version, flowId) in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let notification = ObvEngineNotificationNew.backupForExportWasExported(backupRequestUuid: flowId, backupKeyUid: backupKeyUid, version: version)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            }
-            notificationCenterTokens.append(token)
-        }
 
         do {
             let token = ObvChannelNotification.observeDeletedConfirmedObliviousChannel(within: notificationDelegate) { [weak self] (currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid) in
@@ -373,8 +356,8 @@ extension ObvEngine {
             ObvNetworkFetchNotificationNew.observeApiKeyStatusQueryFailed(within: notificationDelegate) { [weak self] (ownedIdentity, apiKey) in
                 self?.processApiKeyStatusQueryFailed(ownedIdentity: ownedIdentity, apiKey: apiKey)
             },
-            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, extendedMessagePayload, flowId) in
-                self?.processDownloadingMessageExtendedPayloadWasPerformed(messageId: messageId, extendedMessagePayload: extendedMessagePayload, flowId: flowId)
+            ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                self?.processDownloadingMessageExtendedPayloadWasPerformed(messageId: messageId, flowId: flowId)
             },
             ObvNetworkFetchNotificationNew.observeWellKnownHasBeenUpdated(within: notificationDelegate) { [weak self] (serverURL, appInfo, flowId) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
@@ -408,6 +391,9 @@ extension ObvEngine {
             },
             ObvNetworkFetchNotificationNew.observeInboxAttachmentDownloadWasPaused(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
                 self?.processInboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
+            },
+            ObvNetworkFetchNotificationNew.observePushTopicReceivedViaWebsocket(within: notificationDelegate) { [weak self] pushTopic in
+                self?.processPushTopicReceivedViaWebsocket(pushTopic: pushTopic)
             },
         ])
     }
@@ -460,8 +446,8 @@ extension ObvEngine {
         notificationCenterTokens.append(token)
     }
     
-    
-    private func processDownloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, extendedMessagePayload: Data, flowId: FlowIdentifier) {
+
+    private func processDownloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier) {
         
         os_log("We received a DownloadingMessageExtendedPayloadWasPerformed notification for the message %{public}@.", log: log, type: .debug, messageId.debugDescription)
 
@@ -492,8 +478,8 @@ extension ObvEngine {
                 os_log("Could not construct an ObvMessage from the network message and its attachments", log: _self.log, type: .fault, messageId.debugDescription)
                 return
             }
-            
-            ObvEngineNotificationNew.messageExtendedPayloadAvailable(obvMessage: obvMessage, extendedMessagePayload: extendedMessagePayload)
+
+            ObvEngineNotificationNew.messageExtendedPayloadAvailable(obvMessage: obvMessage)
                 .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
 
         }
@@ -863,6 +849,13 @@ extension ObvEngine {
         os_log("We received an OutboxMessagesAndAllTheirAttachmentsWereAcknowledged notification within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
         let info = messageIdsAndTimestampsFromServer.map() { ($0.messageId.uid.raw, ObvCryptoId(cryptoIdentity: $0.messageId.ownedCryptoIdentity), $0.timestampFromServer) }
         ObvEngineNotificationNew.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: info)
+            .postOnBackgroundQueue(within: appNotificationCenter)
+    }
+    
+    private func processOutboxMessageCouldNotBeSentToServer(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+        let messageIdentifierFromEngine = messageId.uid.raw
+        let ownedIdentity = ObvCryptoId(cryptoIdentity: messageId.ownedCryptoIdentity)
+        ObvEngineNotificationNew.outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedIdentity: ownedIdentity)
             .postOnBackgroundQueue(within: appNotificationCenter)
     }
     
@@ -1675,6 +1668,13 @@ extension ObvEngine {
         os_log("We received an InboxAttachmentDownloadWasPaused notification from the network fetch manager for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
         let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
         ObvEngineNotificationNew.attachmentDownloadWasPaused(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
+    func processPushTopicReceivedViaWebsocket(pushTopic: String) {
+        os_log("We received a PushTopicReceivedViaWebsocket notification from the network fetch manager. Push topic is %{public}@", log: log, type: .debug, pushTopic)
+        ObvEngineNotificationNew.aPushTopicWasReceivedViaWebsocket(pushTopic: pushTopic)
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }
 

@@ -162,7 +162,7 @@ extension PersistedInvitation {
     
     
     static func markAllAsOld(for ownedIdentity: PersistedObvOwnedIdentity) throws {
-        guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
+        guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withPersistedObvOwnedIdentity(ownedIdentity),
@@ -174,7 +174,7 @@ extension PersistedInvitation {
     
     
     static func countInvitationsRequiringActionOrWithNotOldStatus(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
-        guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
+        guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withPersistedObvOwnedIdentity(ownedIdentity),

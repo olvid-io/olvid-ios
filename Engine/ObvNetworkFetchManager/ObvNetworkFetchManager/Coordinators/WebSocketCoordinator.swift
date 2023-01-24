@@ -528,6 +528,13 @@ extension WebSocketCoordinator: WebSocketDelegate {
                     }
                 }
             }
+        } else if let pushTopicMessage = try? PushTopicMessage(string: string) {
+            os_log("🏓 The server sent a keycloak topic message: %{public}@", log: log, type: .info, pushTopicMessage.topic)
+            assert(delegateManager?.notificationDelegate != nil)
+            if let notificationDelegate = delegateManager?.notificationDelegate {
+                ObvNetworkFetchNotificationNew.pushTopicReceivedViaWebsocket(pushTopic: pushTopicMessage.topic)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+            }
         }
         
     }
@@ -878,6 +885,37 @@ fileprivate struct NewMessageAvailableMessage: Decodable {
         self = try decoder.decode(NewMessageAvailableMessage.self, from: data)
     }
 
+}
+
+
+// MARK: - PushTopicMessage
+
+fileprivate struct PushTopicMessage: Decodable, ObvErrorMaker {
+    
+    static let errorDomain = "PushTopicMessage"
+    let topic: String
+
+    enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case topic = "topic"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let action = try values.decode(String.self, forKey: .action)
+        guard action == "push_topic" else {
+            throw Self.makeError(message: "Unexpected action. Expecting push_topic, got \(action)")
+        }
+        let topic = try values.decode(String.self, forKey: .topic)
+        self.topic = topic
+    }
+
+    init(string: String) throws {
+        guard let data = string.data(using: .utf8) else { assertionFailure(); throw Self.makeError(message: "The received JSON is not UTF8 encoded") }
+        let decoder = JSONDecoder()
+        self = try decoder.decode(PushTopicMessage.self, from: data)
+    }
+    
 }
 
 

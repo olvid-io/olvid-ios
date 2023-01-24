@@ -158,7 +158,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
         delegateManager.contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
             
             do {
-                try BackupKey.deleteAll(delegateManager: delegateManager, within: obvContext)
+                try BackupKey.deleteAll(within: obvContext)
             } catch let error {
                 os_log("Could not delete all previous backup keys within flow %{public}@: %{public}@", log: log, type: .fault, obvContext.flowId.debugDescription, error.localizedDescription)
                 ObvBackupNotification.backupSeedGenerationFailed(flowId: flowId)
@@ -166,8 +166,16 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
                 return
             }
             
-            let backupKey = BackupKey(derivedKeysForBackup: derivedKeysForBackup, delegateManager: delegateManager, within: obvContext)
-            let backupKeyInformation = backupKey.backupKeyInformation
+            let backupKey = BackupKey(derivedKeysForBackup: derivedKeysForBackup, within: obvContext)
+            let backupKeyInformation: BackupKeyInformation
+            do {
+                backupKeyInformation = try backupKey.backupKeyInformation
+            } catch {
+                os_log("Could not get backup key information within flow %{public}@: %{public}@", log: log, type: .fault, obvContext.flowId.debugDescription, error.localizedDescription)
+                ObvBackupNotification.backupSeedGenerationFailed(flowId: flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+                return
+            }
             
             do {
                 try obvContext.save(logOnFailure: log)
@@ -271,8 +279,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
         
     }
     
-    
-    public func getBackupKeyInformation(flowId: FlowIdentifier) throws -> BackupKeyInformation? {
+    public func getBackupKeyInformation(flowId: FlowIdentifier) async throws -> BackupKeyInformation? {
         
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator is not set", log: log, type: .fault)
@@ -287,7 +294,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
                 return
             }
             
-            backupKeyInformation = backupKey.backupKeyInformation
+            backupKeyInformation = try backupKey.backupKeyInformation
 
         }
         
@@ -296,7 +303,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
     }
 
     
-    public func markBackupAsExported(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
+    public func markBackupAsExported(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) async throws {
         
         let log = self.log
         
@@ -314,11 +321,12 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
             guard backupKey.uid == backupKeyUid else {
                 throw ObvBackupManagerImplementation.makeError(message: "Could not mark backup as exported")
             }
-            let candidates = backupKey.backups.filter({ $0.forExport && $0.version == backupVersion })
-            guard candidates.count == 1 else {
+            guard let backup = try backupKey.getBackupWithVersion(backupVersion) else {
                 throw ObvBackupManagerImplementation.makeError(message: "Unexpected number of backup candidates")
             }
-            let backup = candidates.first!
+            guard backup.forExport else {
+                throw ObvBackupManagerImplementation.makeError(message: "Unexpected error: the forExport is expected to be true at this point")
+            }
             try backup.setExported()
             try obvContext.save(logOnFailure: log)
 
@@ -327,7 +335,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
     }
 
     
-    public func markBackupAsUploaded(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
+    public func markBackupAsUploaded(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) async throws {
         
         let log = self.log
         
@@ -344,11 +352,12 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
             guard backupKey.uid == backupKeyUid else {
                 throw ObvBackupManagerImplementation.makeError(message: "Could not mark backup as uploaded")
             }
-            let candidates = backupKey.backups.filter({ !$0.forExport && $0.version == backupVersion })
-            guard candidates.count == 1 else {
-                throw ObvBackupManagerImplementation.makeError(message: "Unexpected number of backup candidates. Expecting 1, got \(candidates.count)")
+            guard let backup = try backupKey.getBackupWithVersion(backupVersion) else {
+                throw ObvBackupManagerImplementation.makeError(message: "Unexpected number of backup candidates")
             }
-            let backup = candidates.first!
+            guard !backup.forExport else {
+                throw ObvBackupManagerImplementation.makeError(message: "Unexpected error: the forExport is expected to be false at this point")
+            }
             try backup.setUploaded()
             try obvContext.save(logOnFailure: log)
 
@@ -359,7 +368,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
     }
 
     
-    public func markBackupAsFailed(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
+    public func markBackupAsFailed(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) async throws {
         
         let log = self.log
         
@@ -376,11 +385,9 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
             guard backupKey.uid == backupKeyUid else {
                 throw ObvBackupManagerImplementation.makeError(message: "Could not mark backup as failed")
             }
-            let candidates = backupKey.backups.filter({ $0.version == backupVersion })
-            guard candidates.count == 1 else {
-                throw ObvBackupManagerImplementation.makeError(message: "Unexpected number of backup candidates. Expecting 1, got \(candidates.count)")
+            guard let backup = try backupKey.getBackupWithVersion(backupVersion) else {
+                throw ObvBackupManagerImplementation.makeError(message: "Unexpected number of backup candidates")
             }
-            let backup = candidates.first!
             try backup.setFailed()
             try obvContext.save(logOnFailure: log)
 
@@ -534,7 +541,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
             delegateManager.contextCreator.performBackgroundTaskAndWait(flowId: backupRequestIdentifier) { obvContext in
                 
                 do {
-                    try BackupKey.deleteAll(delegateManager: delegateManager, within: obvContext)
+                    try BackupKey.deleteAll(within: obvContext)
                 } catch let error {
                     os_log("Could not delete all previous backup keys within flow %{public}@: %{public}@", log: log, type: .fault, backupRequestIdentifier.debugDescription, error.localizedDescription)
                     assertionFailure()
@@ -542,7 +549,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
                     return
                 }
                 
-                _ = BackupKey(derivedKeysForBackup: usedDerivedKeys, delegateManager: delegateManager, within: obvContext)
+                _ = BackupKey(derivedKeysForBackup: usedDerivedKeys, within: obvContext)
                 
                 do {
                     try obvContext.save(logOnFailure: log)
@@ -590,7 +597,7 @@ extension ObvBackupManagerImplementation {
 
                     os_log("An appropriate backup key was found for backup request identified by %{public}@", log: log, type: .info, backupRequestIdentifier.description)
 
-                    let backup = try Backup.createOngoingBackup(forExport: forExport, backupKey: currentBackupKey, delegateManager: delegateManager)
+                    let backup = try Backup.createOngoingBackup(forExport: forExport, backupKey: currentBackupKey)
                     
                     os_log("The new ongoing backup for backup request identified by %{public}@ has version %d", log: log, type: .info, backupRequestIdentifier.description, backup.version)
                     
@@ -677,7 +684,7 @@ extension ObvBackupManagerImplementation {
         let flowId = obvContext.flowId
         let backupKeys: Set<BackupKey>
         do {
-            backupKeys = try BackupKey.getAll(delegateManager: delegateManager, within: obvContext)
+            backupKeys = try BackupKey.getAll(within: obvContext)
         } catch let error {
             os_log("Could not get existing backup keys with flow %{public}@: %{public}@", log: log, type: .fault, flowId.debugDescription, error.localizedDescription)
             throw error
@@ -735,6 +742,7 @@ extension ObvBackupManagerImplementation {
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         if forTheFirstTime {
             evaluateIfBackupIsRequired(flowId: flowId)
+            deleteObsoleteBackups(flowId: flowId)
         }
     }
 
@@ -756,14 +764,20 @@ extension ObvBackupManagerImplementation {
             
             let currentBackupKey: BackupKey
             do {
-                guard let _currentBackupKey = try BackupKey.getCurrent(delegateManager: delegateManager, within: obvContext) else { return }
+                guard let _currentBackupKey = try BackupKey.getCurrent(within: obvContext) else { return }
                 currentBackupKey = _currentBackupKey
             } catch let error {
                 os_log("Could not get current backup key: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
-            let lastExportedOrUploadedBackupDate = currentBackupKey.backupKeyInformation.lastBackupUploadTimestamp ?? Date.distantPast
+            let lastExportedOrUploadedBackupDate: Date
+            do {
+                lastExportedOrUploadedBackupDate = try currentBackupKey.backupKeyInformation.lastBackupUploadTimestamp ?? Date.distantPast
+            } catch {
+                os_log("Could not get the last exported or uploaded backup date: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
+            }
             // If reach this point, we know some backup has been uploaded or exported in the past. We check whether this was not too long ago.
             guard -lastExportedOrUploadedBackupDate.timeIntervalSinceNow < ObvConstants.maxTimeUntilBackupIsRequired else {
                 os_log("Last uploaded or exported backup was performed too long ago. We set isBackupRequired to true.", log: log, type: .info)
@@ -773,7 +787,7 @@ extension ObvBackupManagerImplementation {
             
             // If the latest backup has failed (or no automatic backup was performed with the current key), backup is required
             
-            guard let lastBackup = currentBackupKey.lastBackup else {
+            guard let lastBackup = try? currentBackupKey.lastBackup else {
                 os_log("The current key was never used to upload a backup. Setting isBackupRequired to true.", log: log, type: .info)
                 self.isBackupRequired = true
                 return
@@ -787,6 +801,37 @@ extension ObvBackupManagerImplementation {
             
             os_log("No need to set isBackupRequired to true.", log: log, type: .info)
 
+        }
+    }
+
+    private func deleteObsoleteBackups(flowId: FlowIdentifier) {
+        let log = self.log
+        let delegateManager = self.delegateManager
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            do {
+                let backupKeys = try BackupKey.getAll(within: obvContext)
+                for backupKey in backupKeys {
+                    try backupKey.deleteObsoleteBackups(log: log)
+                }
+            } catch let error {
+                assertionFailure()
+                os_log("Could not clean previous backups: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
+
+            }
+            do {
+                try obvContext.save(logOnFailure: log)
+            } catch let error {
+                os_log("Could not save context after cleaning previous backups within flow %{public}@: %{public}@", log: log, type: .fault, obvContext.flowId.debugDescription, error.localizedDescription)
+                return
+            }
         }
     }
     

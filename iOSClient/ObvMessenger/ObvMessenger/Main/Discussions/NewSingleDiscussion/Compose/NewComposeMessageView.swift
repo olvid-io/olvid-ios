@@ -104,6 +104,10 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewComposeMessageView.self))
 
+    // When switching state, we often perfom multiple views animations. If multiple events occurs, it might occur that we start an animation for switching from state A to B, and start another animation for switch from B to C before the previous animation finishes. To prevent this situation, we use a semaphore and a serial queue in order to wait until an animation is finished before starting the next one.
+    private let semaphoreForCoordinatingStateSwitches = DispatchSemaphore(value: 1) // Tested
+    private let queueForCoordinatingStateSwitches = DispatchQueue(label: "Compose view animation coordinator queue", qos: .userInteractive)
+    
     private static let errorDomain = "NewComposeMessageView"
     private func makeError(message: String) -> Error {
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]
@@ -919,6 +923,7 @@ extension NewComposeMessageView {
 
     @objc func microButtonTapped() {
         assert(Thread.isMainThread)
+        let log = self.log
         if ObvAudioRecorder.shared.isRecording {
             stopRecordingAudioMessage()
         } else {
@@ -939,23 +944,21 @@ extension NewComposeMessageView {
                     AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
                 ]
 
-                ObvAudioRecorder.shared.startRecording(url: url, settings: settings) { [weak self] result in
-                    guard let _self = self else { return }
+                ObvAudioRecorder.shared.startRecording(url: url, settings: settings) { result in
                     switch result {
                     case .success:
-                        os_log("🎤 Start Recording", log: _self.log, type: .info)
-                        DispatchQueue.main.async {
-                            _self.switchToAppropriateRecordingState()
-                        }
-                        _self.recordDurationTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] timer in
-                            guard ObvAudioRecorder.shared.isRecording else {
-                                timer.invalidate()
-                                return
-                            }
-                            guard let duration = ObvAudioRecorder.shared.duration else { return }
-                            DispatchQueue.main.async { [weak self] in
-                                guard let _self = self else { return }
-                                _self.durationLabel.text = _self.durationFormatter.string(from: duration)
+                        os_log("🎤 Start Recording", log: log, type: .info)
+                        DispatchQueue.main.async { [weak self] in
+                            self?.switchToAppropriateRecordingState()
+                            self?.recordDurationTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { timer in
+                                assert(Thread.isMainThread)
+                                guard ObvAudioRecorder.shared.isRecording else {
+                                    timer.invalidate()
+                                    self?.recordDurationTimer = nil
+                                    return
+                                }
+                                guard let duration = ObvAudioRecorder.shared.duration else { return }
+                                self?.durationLabel.text = _self.durationFormatter.string(from: duration)
                             }
                         }
                         return
@@ -1211,42 +1214,63 @@ extension NewComposeMessageView {
     ///
     /// Although the `newAttachmentsState` could be computed locally, we keep it in the arguments to make it clear that the `AttachmentsState` is part of this view state.
     private func switchToState(newState: State, newAttachmentsState: AttachmentsState, animationValues: (duration: Double, options: UIView.AnimationOptions)?, completionForSendButton: (() -> Void)?) {
-        debugPrint("🥵 Switch from (\(currentState.debugDescription), \(currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription))")
+        let animationDebugUIDPrefix = UUID().uuidString.prefix(5)
+        debugPrint("🥵 [\(animationDebugUIDPrefix)] Switch from (\(currentState.debugDescription), \(currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription))")
+        self.currentState = newState
         if let animationValues = animationValues {
-            
-            let animatedLayoutIsNeeded = adjustConstraintsForState(newState: newState, newAttachmentsState: newAttachmentsState)
-            unhideViewsForState(newState: newState)
-            textViewForTyping.setNeedsLayout()
-            
-            UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) { [weak self] in
-                
-                self?.configureViewsContentAndStyleForState(newState: newState)
-                self?.textViewForTyping.layoutIfNeeded()
-                if animatedLayoutIsNeeded {
-                    self?.layoutIfNeeded()
-                }
-                self?.adjustAlphasForState(newState: newState)
-                
-            } completion: { [weak self] _ in
-                
-                self?.hideViewsForState(newState: newState)
-                self?.unhideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
-                
-                UIView.animate(withDuration: animationValues.duration, delay: 0.0) { [weak self] in
-                    
-                    self?.adjustAlphasForAttachmentsState(newAttachmentsState: newAttachmentsState)
-                    
-                } completion: { [weak self] _ in
-                    
-                    self?.hideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
-                    self?.currentState = newState
-                    self?.currentAttachmentsState = newAttachmentsState
-                    self?.switchToAppropriateSendButton(animate: true, completion: completionForSendButton)
+            // We asynchronously dispaych the call to the semaphore to prevent a deadlock
+            queueForCoordinatingStateSwitches.async { [weak self] in
+                self?.semaphoreForCoordinatingStateSwitches.wait()
+                DispatchQueue.main.async {
+                    guard let _self = self else { return }
+                    debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 1")
 
-                    self?.atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
+                    let animatedLayoutIsNeeded = _self.adjustConstraintsForState(newState: newState, newAttachmentsState: newAttachmentsState)
+                    _self.unhideViewsForState(newState: newState)
+                    _self.textViewForTyping.setNeedsLayout()
+
+                    UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) { [weak self] in
+                        
+                        self?.configureViewsContentAndStyleForState(newState: newState)
+                        self?.textViewForTyping.layoutIfNeeded()
+                        if animatedLayoutIsNeeded {
+                            self?.layoutIfNeeded()
+                        }
+                        self?.adjustAlphasForState(newState: newState)
+                        
+                        debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 2")
+
+                    } completion: { [weak self] _ in
+                        
+                        self?.hideViewsForState(newState: newState)
+                        self?.unhideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
+                        
+                        debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 3")
+
+                        UIView.animate(withDuration: animationValues.duration, delay: 0.0) { [weak self] in
+                            
+                            self?.adjustAlphasForAttachmentsState(newAttachmentsState: newAttachmentsState)
+                            
+                            debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 4")
+
+                        } completion: { [weak self] _ in
+                            
+                            self?.hideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
+                            self?.currentAttachmentsState = newAttachmentsState
+                            self?.switchToAppropriateSendButton(animate: true, completion: completionForSendButton)
+
+                            self?.atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
+
+                            debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 5")
+                            
+                            self?.semaphoreForCoordinatingStateSwitches.signal()
+                            
+                        }
+                    }
 
                 }
             }
+            
             
         } else {
             atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
@@ -1560,6 +1584,10 @@ extension NewComposeMessageView {
     private func observeAttachmentsChanges() {
         cancellables.append(attachmentsCollectionViewController.$numberOfAttachments.sink { [weak self] numberOfAttachments in
             guard let _self = self else { return }
+            // If the view is currently frozen (which happens when we are sending a message), we do not take the updated number of attachments into account.
+            // Indeed, if the number changes while the view is frozen, it is certainly because the discussion coordinator is processing an attachment for the draft just before sending it.
+            // Thus there is no need to switch to a new state, the draft will soon be reset anyway.
+            guard _self.currentFreezeId == nil else { return }
             let newAttachmentsState = _self.evaluateNewAttachmentState()
             guard _self.currentAttachmentsState != newAttachmentsState else { return }
             _self.switchToState(newState: _self.currentState, newAttachmentsState: newAttachmentsState, animationValues: _self.buttonsAnimationValues, completionForSendButton: nil)

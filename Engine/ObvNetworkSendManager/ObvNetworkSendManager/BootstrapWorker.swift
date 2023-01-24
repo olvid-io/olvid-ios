@@ -43,16 +43,8 @@ final class BootstrapWorker {
     private let outbox: URL
 
     weak var delegateManager: ObvNetworkSendDelegateManager?
-    
-    /// Only required under iOS 12, not needed under iOS 13.
-    /// This Set stores the hashValues of the transactions replayed when receiving a
-    /// NSPersistentStoreRemoteChange notification.
-    private var transactionsAlreadyReplayedWithinPersistentStoreRemoteChange = Set<Int>()
-    
-    /// This timer is only used under iOS 11, within the pollRemoteChanges(flowId: FlowIdentifier) method.
-    private var timer: Timer?
+        
 
-    
     init(appType: AppType, outbox: URL) {
         self.appType = appType
         self.outbox = outbox
@@ -88,6 +80,7 @@ final class BootstrapWorker {
             if forTheFirstTime {
                 delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.mainApp, flowId: flowId)
                 self?.rescheduleAllOutboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
+                self?.pruneOldOutboxMessages(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
             }
             // 2020-06-29 Added this to make sure we always send attachments
             delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
@@ -190,6 +183,22 @@ extension BootstrapWorker {
             
         }
     }
+    
+    
+    private func pruneOldOutboxMessages(flowId: FlowIdentifier, log: OSLog, contextCreator: ObvCreateContextDelegate, delegateManager: ObvNetworkSendDelegateManager) {
+        guard appType == .mainApp else { assertionFailure(); return }
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            let dateInThePast = Date(timeIntervalSinceNow: -TimeInterval(days: 30))
+            do {
+                try OutboxMessage.pruneOldOutboxMessages(createdEarlierThan: dateInThePast, delegateManager: delegateManager, log: log, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+            } catch {
+                os_log("Could not prune old OutboxMessages: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                // In producation, continue anyway
+            }
+        }
+    }
 
 }
 
@@ -226,7 +235,7 @@ extension BootstrapWorker {
         for change in relevantChanges {
             guard let updatedProperties = change.updatedProperties else { continue }
             let updatedPropertiesNames = updatedProperties.map { $0.name }
-            guard updatedPropertiesNames.contains(OutboxMessage.timestampFromServerKey) else { continue }
+            guard updatedPropertiesNames.contains(OutboxMessage.Predicate.Key.timestampFromServer.rawValue) else { continue }
             // We look for the message. If it does not exist, we do not notify the app. It will eventually be notified when we will deal with the change containing the deletion of the message.
             guard let outboxMessage = try? obvContext.existingObject(with: change.changedObjectID) as? OutboxMessage else { continue }
             guard let timestampFromServer = outboxMessage.timestampFromServer else { assertionFailure(); continue }

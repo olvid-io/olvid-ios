@@ -19,6 +19,10 @@
 
 import UIKit
 
+protocol BackupKeyViewerViewControllerDelegate: AnyObject {
+    func backupKeyViewerViewControllerDidDisappear()
+}
+
 /// This view controller is presented when a new backup is generated. It allows to see it once (and only once).
 final class BackupKeyViewerViewController: UIViewController {
 
@@ -28,15 +32,22 @@ final class BackupKeyViewerViewController: UIViewController {
     @IBOutlet weak var bottomLabel: UILabel!
     @IBOutlet weak var firstLineForBackupKey: UIStackView!
     @IBOutlet weak var secondLineForBackupKey: UIStackView!
-    @IBOutlet weak var keyCopiedButton: UIButton!
+    @IBOutlet weak var keyCopiedButton: ObvImageButton!
     
+    weak var delegate: BackupKeyViewerViewControllerDelegate?
+
     override func viewDidLoad() {
         super.viewDidLoad()
         assert(backupKeyString.count == 32)
         title = Strings.title
         configure()
     }
-    
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        delegate?.backupKeyViewerViewControllerDidDisappear()
+    }
+
     private func backupKeyStringElement(index: Int) -> String? {
         guard index >= 0 && index < 8 else {
             assertionFailure()

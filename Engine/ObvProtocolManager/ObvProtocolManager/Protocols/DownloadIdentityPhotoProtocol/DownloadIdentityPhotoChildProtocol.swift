@@ -29,7 +29,7 @@ public struct DownloadIdentityPhotoChildProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.DownloadIdentityPhoto
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.PhotoDownloaded]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.PhotoDownloaded, StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

@@ -16,13 +16,7 @@ notifications:
   params:
   - {name: newOwnedCryptoId, type: ObvCryptoId}
   - {name: apiKey, type: UUID}
-- name: userWantsToPerfomCloudKitBackupNow
 - name: externalTransactionsWereMergedIntoViewContext
-- name: userWantsToPerfomBackupForExportNow
-  params:
-  - {name: sourceView, type: UIView}
-  - {name: sourceViewController, type: UIViewController}
-- name: userCancelledBackupForExportNow
 - name: newMuteExpiration
   params:
   - {name: expirationDate, type: Date}
@@ -284,16 +278,11 @@ notifications:
   - {name: currentUserActivity, type: ObvUserActivityType}
 - name: displayedSnackBarShouldBeRefreshed
 - name: requestUserDeniedRecordPermissionAlert
-- name: incrementalCleanBackupStarts
+- name: userWantsToStartIncrementalCleanBackup
   params:
-  - {name: initialCount, type: Int}
-- name: incrementalCleanBackupInProgress
-  params:
-  - {name: currentCount, type: Int}
   - {name: cleanAllDevices, type: Bool}
+- name: incrementalCleanBackupStarts
 - name: incrementalCleanBackupTerminates
-  params:
-  - {name: totalCount, type: Int}
 - name: userWantsToUnblockContact
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
@@ -400,3 +389,6 @@ notifications:
   params:
   - {name: groupObjectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
 - name: tooManyWrongPasscodeAttemptsCausedLockOut
+- name: backupForExportWasExported
+- name: backupForUploadWasUploaded
+- name: backupForUploadFailedToUpload

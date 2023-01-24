@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.12.0 (580)] - 2022-10-22
+
+- Say hello to new discussion groups! They can now be configured with as many administrators as you want.
+- Backup are now faster and even more reliable.
+- The name of a contact who deletes a message for all discussion participants is now indicated right within the discussion.
+- csv files can now be shared with Olvid using AirDrop. Yepee!
+- Typing a new message now automatically puts the discussion on top of the list of recent discussions.
+- You are now notified when a contact takes a screenshot of sensitive messages (either read-once or with a limited visibility).
+- Download and upload progresses can now be accessed from the information panel of the associated message.
+- Opening a discussion under iPad would not always scroll to the latest message. This is fixed.
+- User notifications now show a small preview of the attachment when possible.
+- You are notified if a message fails to be sent after retrying for a long period of time.
+- A new option allows to automatically download all attachments regardless of their size.
+- Keycloak revocations now work even when push notifications are deactivated.
+- Fixes a visual bug occurring when sending an audio message under iOS 16.
+- Fixes a potential crash occurring under iOS 16 when performing a Keycloak search.
+- Fixes an issue occurring under iOS 16 where the copy/paste would systematically request the user's permission.
+- Fixes an issue preventing the display of certain "missed call" notifications.
+- Olvid starts even faster than before.
+- In order to never miss a secure call, you can now grant access to the microphone during the onboarding procedure.
+
 ## [0.11.1 (564)] - 2022-09-22
 
 - It is now possible to define a personalized passcode (either PIN or password) to unlock Olvid!

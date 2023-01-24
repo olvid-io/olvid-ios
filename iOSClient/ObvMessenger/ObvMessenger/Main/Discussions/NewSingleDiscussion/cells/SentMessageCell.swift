@@ -25,11 +25,13 @@ import os.log
 
 
 @available(iOS 14.0, *)
-final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff {
+final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff, CellWithPersistedMessageSent {
         
     private(set) var message: PersistedMessageSent?
     private(set) var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
     private var indexPath: IndexPath?
+
+    var messageSent: PersistedMessageSent? { message }
 
     weak var cacheDelegate: DiscussionCacheDelegate?
     weak var cellReconfigurator: CellReconfigurator?
@@ -152,7 +154,13 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         if message.isLocallyWiped {
             content.wipedViewConfiguration = .locallyWiped
         } else if message.isRemoteWiped {
-            content.wipedViewConfiguration = .remotelyWiped(deleterName: nil)
+            if let ownedCryptoId = message.discussion.ownedIdentity?.cryptoId,
+               let deleterCryptoId = message.deleterCryptoId,
+               let contact = try? PersistedObvContactIdentity.get(contactCryptoId: deleterCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
+                content.wipedViewConfiguration = .remotelyWiped(deleterName: contact.customOrShortDisplayName)
+            } else {
+                content.wipedViewConfiguration = .remotelyWiped(deleterName: nil)
+            }
         } else {
             content.wipedViewConfiguration = nil
         }
@@ -401,9 +409,9 @@ extension SentMessageCell {
     }
     
     var infoViewController: UIViewController? {
-        guard message?.infoActionCanBeMadeAvailable == true else { return nil }
-        let rcv = SentMessageInfosViewController()
-        rcv.sentMessage = message
+        guard let message = message else { return nil }
+        guard message.infoActionCanBeMadeAvailable == true else { return nil }
+        let rcv = SentMessageInfosHostingViewController(messageSent: message)
         return rcv
     }
 

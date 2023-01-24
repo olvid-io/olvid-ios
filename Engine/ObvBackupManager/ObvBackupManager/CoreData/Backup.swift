@@ -25,16 +25,14 @@ import ObvCrypto
 import ObvMetaManager
 import OlvidUtils
 
-
 @objc(Backup)
-final class Backup: NSManagedObject, ObvManagedObject {
-    
+final class Backup: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+
+    static let errorDomain = "Backup"
+
     // MARK: Internal constants
     
     private static let entityName = "Backup"
-    private static let rawBackupKeyKey = "rawBackupKey"
-    private static let versionKey = "version"
-    private static let statusRawKey = "statusRaw"
 
     enum Status: Int, CustomDebugStringConvertible {
         case ongoing = 0
@@ -58,6 +56,8 @@ final class Backup: NSManagedObject, ObvManagedObject {
     
     @NSManaged private(set) var backupJsonVersion: Int
     @NSManaged fileprivate var encryptedContentRaw: Data?
+    /// ``true`` if the backup was exported to the device Files app,
+    /// ``false`` if the backup was uploaded to iCloud.
     @NSManaged private(set) var forExport: Bool
     @NSManaged private(set) var statusChangeTimestamp: Date
     @NSManaged private var rawBackupKeyUid: Data // Required for enforcing core data constrains
@@ -69,13 +69,13 @@ final class Backup: NSManagedObject, ObvManagedObject {
     // If nil, we expect this backup to be cascade deleted
     private var rawBackupKey: BackupKey? {
         get {
-            let res = kvoSafePrimitiveValue(forKey: Backup.rawBackupKeyKey) as? BackupKey
+            let res = kvoSafePrimitiveValue(forKey: Predicate.Key.rawBackupKey.rawValue) as? BackupKey
             res?.obvContext = obvContext
             return res
         }
         set {
             assert(newValue != nil)
-            kvoSafeSetPrimitiveValue(newValue, forKey: Backup.rawBackupKeyKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.rawBackupKey.rawValue)
         }
     }
     
@@ -116,17 +116,14 @@ final class Backup: NSManagedObject, ObvManagedObject {
     // MARK: Other variables
     
     var obvContext: ObvContext?
-    weak var delegateManager: ObvBackupDelegateManager?
 
     var successfulBackupInfos: SuccessfulBackupInfos? {
         return SuccessfulBackupInfos(backup: self)
     }
-    
-    private var changedKeys = Set<String>()
-    
+
     // MARK: - Initializer
 
-    private convenience init(forExport: Bool, status: Status, backupKey: BackupKey, delegateManager: ObvBackupDelegateManager) throws {
+    private convenience init(forExport: Bool, status: Status, backupKey: BackupKey) throws {
         
         guard let obvContext = backupKey.obvContext else { throw Self.makeError(message: "The context of the backupKey is nil") }
         
@@ -138,30 +135,22 @@ final class Backup: NSManagedObject, ObvManagedObject {
         self.forExport = forExport
         self.statusChangeTimestamp = Date()
         self.status = status
-        self.version = 1 + (try Backup.getCurrentLatestVersionForBackupKey(backupKey, delegateManager: delegateManager, within: obvContext) ?? -1)
+        self.version = 1 + (try Backup.getCurrentLatestVersionForBackupKey(backupKey, within: obvContext) ?? -1)
         
         self.backupKey = backupKey
         
         self.obvContext = obvContext
     }
 
-    static func createOngoingBackup(forExport: Bool, backupKey: BackupKey, delegateManager: ObvBackupDelegateManager) throws -> Backup {
-        let backup = try Backup(forExport: forExport, status: .ongoing, backupKey: backupKey, delegateManager: delegateManager)
-        backup.delegateManager = delegateManager
+    static func createOngoingBackup(forExport: Bool, backupKey: BackupKey) throws -> Backup {
+        let backup = try Backup(forExport: forExport, status: .ongoing, backupKey: backupKey)
         return backup
     }
     
-}
-
-// MARK: - Managing errors
-
-extension Backup {
     
-    private static let errorDomain = "Backup"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
+    static func deleteBackup(_ backup: Backup) throws {
+        guard let context = backup.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
+        context.delete(backup)
     }
     
 }
@@ -200,6 +189,11 @@ extension Backup {
         default:
             throw Backup.makeError(message: "Cannot transtion from status \(self.status.debugDescription) to status \(Status.exported.debugDescription)")
         }
+        // Delete older exported or ready backups backups
+        if let backupKey {
+            try? Self.deleteAllBackups(withStatus: .ready, withVersionLessThan: self.version, for: backupKey)
+            try? Self.deleteAllBackups(withStatus: .exported, withVersionLessThan: self.version, for: backupKey)
+        }
     }
 
     func setUploaded() throws {
@@ -212,105 +206,171 @@ extension Backup {
         default:
             throw Backup.makeError(message: "Cannot transtion from status \(self.status.debugDescription) to status \(Status.uploaded.debugDescription)")
         }
+        // Delete older uploaded backups
+        if let backupKey {
+            try? Self.deleteAllBackups(withStatus: .uploaded, withVersionLessThan: self.version, for: backupKey)
+        }
     }
 
 }
 
 extension Backup {
     
+    private struct Predicate {
+        fileprivate enum Key: String {
+            case forExport = "forExport"
+            case statusRaw = "statusRaw"
+            case version = "version"
+            case rawBackupKey = "rawBackupKey"
+        }
+        static func withBackupKey(equalTo backupKey: BackupKey) -> NSPredicate {
+            NSPredicate(Key.rawBackupKey, equalTo: backupKey)
+        }
+        static func withStatus(equalTo status: Status) -> NSPredicate {
+            NSPredicate(Key.statusRaw, EqualToInt: status.rawValue)
+        }
+        static var withMaxVersion: NSPredicate {
+            NSPredicate(format: "%K == max(%K)", Key.version.rawValue, Key.version.rawValue)
+        }
+        static func forExportIs(_ forExport: Bool) -> NSPredicate {
+            NSPredicate(Key.forExport, is: forExport)
+        }
+        static func withVersionEqualTo(_ version: Int) -> NSPredicate {
+            NSPredicate(Key.version, EqualToInt: version)
+        }
+        static func withVersionLessThan(_ version: Int) -> NSPredicate {
+            NSPredicate(Key.version, LessThanInt: version)
+        }
+    }
+
     @nonobjc class func fetchRequest() -> NSFetchRequest<Backup> {
         return NSFetchRequest<Backup>(entityName: self.entityName)
     }
 
-    private static func getCurrentLatestVersionForBackupKey(_ backupKey: BackupKey, delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) throws -> Int? {
-        let allBackups = try Backup.getAllBackupsForBackupKey(backupKey, delegateManager: delegateManager, within: obvContext)
-        return allBackups.map({ $0.version }).max()
+    private static func getCurrentLatestVersionForBackupKey(_ backupKey: BackupKey, within obvContext: ObvContext) throws -> Int? {
+        return try getLastBackup(for: backupKey)?.version
     }
-    
-    private static func getAllBackupsForBackupKey(_ backupKey: BackupKey, delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) throws -> [Backup] {
-        let request: NSFetchRequest<Backup> = Backup.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@",
-                                        self.rawBackupKeyKey, backupKey)
-        request.sortDescriptors = [NSSortDescriptor(key: self.versionKey, ascending: false)]
-        let items = try obvContext.fetch(request)
-        return items.map { $0.obvContext = obvContext; return $0 }
-    }
-    
-    static func get(objectID: NSManagedObjectID, delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) throws -> Backup? {
+
+    static func get(objectID: NSManagedObjectID, within obvContext: ObvContext) throws -> Backup? {
         let request: NSFetchRequest<Backup> = Backup.fetchRequest()
         request.predicate = NSPredicate(format: "Self == %@", objectID)
         request.fetchLimit = 1
         let item = try obvContext.fetch(request).first
         item?.obvContext = obvContext
-        item?.delegateManager = delegateManager
+        return item
+    }
+
+
+    static func getLastBackup(withStatus status: Status?, for backupKey: BackupKey) throws -> Backup? {
+        return try getLastBackup(withStatus: status, forExport: nil, for: backupKey)
+    }
+
+    
+    static func getLastUploadedBackupThatFailed(for backupKey: BackupKey) throws -> Backup? {
+        return try getLastBackup(withStatus: .failed, forExport: false, for: backupKey)
+    }
+    
+    
+    private static func getLastBackup(withStatus status: Status? = nil,
+                                      forExport: Bool? = nil,
+                                      for backupKey: BackupKey) throws -> Backup? {
+        guard let obvContext = backupKey.obvContext else {
+            assertionFailure()
+            throw Self.makeError(message: "ObvContext is not set")
+        }
+        let request: NSFetchRequest<Backup> = Backup.fetchRequest()
+        var predicates = [Predicate.withBackupKey(equalTo: backupKey)]
+        if let status {
+            predicates += [Predicate.withStatus(equalTo: status)]
+        }
+        if let forExport {
+            predicates += [Predicate.forExportIs(forExport)]
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        // We cannot add the withMaxVersion in the predicates, as the item with a max version number has not necessarily the queried status
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.version.rawValue, ascending: false)]
+        request.fetchLimit = 1
+        let item = try obvContext.fetch(request).first
+        item?.obvContext = obvContext
+        return item
+    }
+
+    static func getBackup(withVersion version: Int, for backupKey: BackupKey) throws -> Backup? {
+        guard let obvContext = backupKey.obvContext else {
+            assertionFailure()
+            throw Self.makeError(message: "ObvContext is not set")
+        }
+        let request: NSFetchRequest<Backup> = Backup.fetchRequest()
+        request.fetchLimit = 1 // We expect only one backup for a specific version number
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withBackupKey(equalTo: backupKey),
+            Predicate.withVersionEqualTo(version),
+        ])
+        let item = try obvContext.fetch(request).first
+        item?.obvContext = obvContext
         return item
     }
     
-}
-
-
-extension Backup {
     
-    
-    override func willSave() {
-        super.willSave()
-        if isUpdated {
-            changedKeys = Set<String>(self.changedValues().keys)
+    static func getMaxVersionAmongBackups(withStatus status: Status, for backupKey: BackupKey) throws -> Int? {
+        
+        guard let obvContext = backupKey.obvContext else {
+            assertionFailure()
+            throw Self.makeError(message: "ObvContext is not set")
         }
+        
+        let request = NSFetchRequest<NSDictionary>(entityName: self.entityName)
+        request.resultType = .dictionaryResultType
+        
+        let keyPathExpression = NSExpression(forKeyPath: \Backup.version)
+        let expressionForMaxFunction = NSExpression(forFunction: "max:", arguments: [keyPathExpression])
+        let expressionDescription = NSExpressionDescription()
+        expressionDescription.name = Predicate.Key.version.rawValue
+        expressionDescription.expression = expressionForMaxFunction
+        expressionDescription.expressionResultType = .integer64AttributeType
+        request.propertiesToFetch = [expressionDescription]
+        
+        request.fetchLimit = 1 // We expect only one backup for a specific version number
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withBackupKey(equalTo: backupKey),
+            Predicate.withStatus(equalTo: status),
+        ])
+                
+        guard let dict = try obvContext.context.fetch(request).first else {
+            return nil
+        }
+        
+        guard let maxVersion = dict[Predicate.Key.version.rawValue] as? Int else {
+            return nil
+        }
+
+        return Int(maxVersion)
+        
     }
+    
+    
+    static func deleteAllBackups(withStatus status: Status, withVersionLessThan version: Int, for backupKey: BackupKey) throws {
+        
+        guard let obvContext = backupKey.obvContext else {
+            assertionFailure()
+            throw Self.makeError(message: "ObvContext is not set")
+        }
+        
+        let request: NSFetchRequest<Backup> = Backup.fetchRequest()
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = []
+        
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withBackupKey(equalTo: backupKey),
+            Predicate.withStatus(equalTo: status),
+            Predicate.withVersionLessThan(version),
+        ])
 
-    override func didSave() {
-        super.didSave()
-        
-        guard let flowId = obvContext?.flowId else {
-            assertionFailure()
-            return
+        let backups = try obvContext.context.fetch(request)
+        for backup in backups {
+            try Self.deleteBackup(backup)
         }
 
-        guard let delegateManager = self.delegateManager else {
-            let log = OSLog(subsystem: ObvBackupDelegateManager.defaultLogSubsystem, category: "Backup")
-            os_log("The delegate manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: "Backup")
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        if isInserted && status == .ongoing {
-            // For now we do not send any notification when an ongoing backup is created
-        } else if changedKeys.contains(Backup.statusRawKey) {
-            let notification: ObvBackupNotification?
-            switch status {
-            case .ongoing:
-                notification = nil
-            case .ready:
-                notification = nil
-            case .exported:
-                if let successfulBackupInfos = successfulBackupInfos {
-                    notification = ObvBackupNotification.backupForExportWasExported(backupKeyUid: successfulBackupInfos.backupKeyUid, version: successfulBackupInfos.version, flowId: flowId)
-                } else {
-                    notification = nil
-                    assertionFailure()
-                }
-            case .uploaded:
-                if let successfulBackupInfos = successfulBackupInfos {
-                    notification = ObvBackupNotification.backupForUploadWasUploaded(backupKeyUid: successfulBackupInfos.backupKeyUid, version: successfulBackupInfos.version, flowId: flowId)
-                } else {
-                    notification = nil
-                    assertionFailure()
-                }
-            case .failed:
-                notification = nil
-            }
-            notification?.postOnBackgroundQueue(within: notificationDelegate)
-        }
-        
     }
     
 }

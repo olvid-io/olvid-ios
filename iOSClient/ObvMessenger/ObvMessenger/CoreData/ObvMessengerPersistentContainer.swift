@@ -33,10 +33,10 @@ final class ObvMessengerPersistentContainer: NSPersistentContainer {
         get {
             let descriptions = super.persistentStoreDescriptions
             for description in descriptions {
+                // Turn on remote change notifications
+                description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
                 // Turn on persistent history tracking
                 description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-                // Turn on remote change notifications
-                description.setOption(true as NSNumber, forKey: "NSPersistentStoreRemoteChangeNotificationOptionKey")
                 // Prevent lightweight migration
                 description.shouldMigrateStoreAutomatically = false
                 description.shouldInferMappingModelAutomatically = false

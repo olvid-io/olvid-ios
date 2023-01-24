@@ -21,13 +21,15 @@ import UIKit
 import CoreData
 
 
-final class MessageSentCollectionViewCell: MessageCollectionViewCell {
+final class MessageSentCollectionViewCell: MessageCollectionViewCell, CellWithPersistedMessageSent {
     
     static let identifier = "MessageSentCollectionViewCell"
     
     let sentStatusImageView = UIImageView()
     private var hideProgresses = false
     
+    var messageSent: PersistedMessageSent? { message as? PersistedMessageSent }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
@@ -127,6 +129,8 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
             return "✓✓"
         case .read:
             return "read"
+        case .couldNotBeSentToOneOrMoreRecipients:
+            return "!"
         }
     }
     
@@ -144,6 +148,8 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell {
             return UIImage(systemName: "checkmark.circle.fill", withConfiguration: configuration)!
         case .read:
             return UIImage(systemName: "eye.fill", withConfiguration: configuration)!
+        case .couldNotBeSentToOneOrMoreRecipients:
+            return  UIImage(systemIcon: .exclamationmarkCircle)!
         }
     }
 }
@@ -227,10 +233,9 @@ extension MessageSentCollectionViewCell: CellWithMessage {
     }
 
     var infoViewController: UIViewController? {
-        guard let sentMessage = message as? PersistedMessageSent else { assertionFailure(); return nil }
-        guard sentMessage.infoActionCanBeMadeAvailable == true else { return nil }
-        let rcv = SentMessageInfosViewController()
-        rcv.sentMessage = sentMessage
+        guard let messageSent = message as? PersistedMessageSent else { assertionFailure(); return nil }
+        guard messageSent.infoActionCanBeMadeAvailable == true else { return nil }
+        let rcv = SentMessageInfosHostingViewController(messageSent: messageSent)
         return rcv
     }
     

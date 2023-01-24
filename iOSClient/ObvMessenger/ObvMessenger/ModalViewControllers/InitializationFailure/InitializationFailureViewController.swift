@@ -51,7 +51,7 @@ class InitializationFailureViewController: UIViewController {
             "Olvid version: \(fullOlvidVersion)",
             "Device model: \(exactModel)",
             "System: \(systemName) \(systemVersion)",
-            "Error message: \(error.localizedDescription)",
+            "Error messages:\n\(error.localizedDescription)",
         ]
         return msg.joined(separator: "\n")
     }

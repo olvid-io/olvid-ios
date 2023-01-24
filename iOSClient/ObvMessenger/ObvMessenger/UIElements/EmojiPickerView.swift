@@ -244,7 +244,7 @@ fileprivate struct VariantEmojiPickerView: View {
             guard let leftToneIndex = Self.tones.firstIndex(of: leftTone) else { return result }
             guard let rightToneIndex = Self.tones.firstIndex(of: rightTone) else { return result }
 
-            /// Remark: the list is sorted in the python generator, we can rely on the position in the list.
+            /// Remark: the list is sorted by the python generator, we can rely on the position in the list.
             let index = leftToneIndex * Self.tones.count + rightToneIndex
 
             result += [emojis[index + 1]]

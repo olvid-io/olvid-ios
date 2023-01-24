@@ -23,7 +23,7 @@ import MobileCoreServices
 import ObvEngine
 
 @objc(SentFyleMessageJoinWithStatus)
-final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
+final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
     
     enum FyleStatus: Int {
         case uploadable = 0
@@ -44,7 +44,6 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     // MARK: - Properties
 
     @NSManaged private var rawReceptionStatus: Int
-    @NSManaged var identifierForNotifications: UUID?
 
     // MARK: - Computed properties
     
@@ -134,7 +133,6 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
         
         // Set the remaining properties and relationships
 
-        self.identifierForNotifications = nil
         self.sentMessage = persistedMessageSent
         
     }
@@ -191,7 +189,6 @@ extension SentFyleMessageJoinWithStatus {
     
     struct Predicate {
         enum Key: String {
-            case identifierForNotifications = "identifierForNotifications"
             case sentMessage = "sentMessage"
         }
     }
@@ -200,17 +197,10 @@ extension SentFyleMessageJoinWithStatus {
         return NSFetchRequest<SentFyleMessageJoinWithStatus>(entityName: SentFyleMessageJoinWithStatus.entityName)
     }
 
-    static func getByIdentifierForNotifications(_ identifierForNotifications: UUID, within context: NSManagedObjectContext) -> SentFyleMessageJoinWithStatus? {
-        let request: NSFetchRequest<SentFyleMessageJoinWithStatus> = SentFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", Predicate.Key.identifierForNotifications.rawValue, identifierForNotifications as NSUUID)
-        request.fetchLimit = 1
-        do { return try context.fetch(request).first } catch { return nil }
-    }
-
     static func getSentFyleMessageJoinWithStatus(objectID: NSManagedObjectID, within context: NSManagedObjectContext) -> SentFyleMessageJoinWithStatus? {
         let sentFyleMessageJoinWithStatus: SentFyleMessageJoinWithStatus
         do {
-            guard let res = try context.existingObject(with: objectID) as? SentFyleMessageJoinWithStatus else { throw NSError() }
+            guard let res = try context.existingObject(with: objectID) as? SentFyleMessageJoinWithStatus else { throw Self.makeError(message: "Could not find SentFyleMessageJoinWithStatus") }
             sentFyleMessageJoinWithStatus = res
         } catch {
             return nil

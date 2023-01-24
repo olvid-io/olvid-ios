@@ -28,7 +28,6 @@ import ObvEngine
 
 protocol SingleGroupV2ViewControllerDelegate: AnyObject {
     func userWantsToDisplay(persistedContact: PersistedObvContactIdentity, within: UINavigationController?)
-    func userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToCloneGroup(displayedContactGroupObjectID: TypeSafeManagedObjectID<DisplayedContactGroup>)
 }
@@ -159,8 +158,8 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
         func userWantsToNavigateToDiscussion() {
             delegate?.userWantsToNavigateToDiscussion()
         }
-        func userWantsToCall() {
-            delegate?.userWantsToCall()
+        func userWantsToCall() async {
+            await delegate?.userWantsToCall()
         }
         func userWantsToPublishAllModifications() {
             assert(Thread.isMainThread)
@@ -199,7 +198,8 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
                                                     disableContactsWithoutDevice: true,
                                                     allowMultipleSelection: true,
                                                     showExplanation: false,
-                                                    allowEmptySetOfContacts: false) { [weak self] selectedContacts in
+                                                    allowEmptySetOfContacts: false,
+                                                    textAboveContactList: CommonString.someOfYourContactsMayNotAppearAsGroupV2Candidates) { [weak self] selectedContacts in
                 let contactObjectIDs = Set(selectedContacts.map({ $0.typedObjectID }))
                 try? self?.scratchGroup.addGroupMembers(contactObjectIDs: contactObjectIDs)
                 self?.presentedViewController?.dismiss(animated: true)
@@ -245,8 +245,19 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     }
     
     
-    func userWantsToCall() {
-        delegate?.userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: scratchGroup.typedObjectID)
+    @MainActor
+    func userWantsToCall() async {
+        do {
+            guard let group = try PersistedGroupV2.get(objectID: persistedGroupV2ObjectID, within: ObvStack.shared.viewContext) else {
+                assertionFailure()
+                return
+            }
+            let contactIDs = group.contactsAmongNonPendingOtherMembers.filter({ $0.isActive }).map({ $0.typedObjectID })
+            ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIDs, groupId: .groupV2(persistedGroupV2ObjectID))
+                .postOnDispatchQueue()
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
     }
     
     
@@ -375,7 +386,7 @@ protocol SingleGroupV2ViewDelegate: AnyObject {
     func rollbackAllModifications()
     func userWantsToNavigateToPersistedObvContactIdentity(_ contact: PersistedObvContactIdentity)
     func userWantsToNavigateToDiscussion()
-    func userWantsToCall()
+    func userWantsToCall() async
     func userWantsToPublishAllModifications()
     func userWantsToReplaceTrustedDetailsByPublishedDetails()
     func userWantsToPerformReDownloadOfGroupV2()
@@ -446,7 +457,7 @@ struct SingleGroupV2View: View {
                         OlvidButton(style: .standardWithBlueText,
                                     title: Text(CommonString.Word.Call),
                                     systemIcon: .phoneFill,
-                                    action: { delegate?.userWantsToCall() })
+                                    action: { Task { await delegate?.userWantsToCall() } })
                     }
                     .padding(.top, 16)
                     

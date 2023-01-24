@@ -24,10 +24,12 @@ import ObvCrypto
 import ObvEncoder
 import ObvMetaManager
 import OlvidUtils
-
+import os.log
 
 @objc(BackupKey)
-final class BackupKey: NSManagedObject, ObvManagedObject {
+final class BackupKey: NSManagedObject, ObvManagedObject, ObvErrorMaker {
+
+    static let errorDomain = "BackupKey"
 
     // MARK: Internal constants
     
@@ -47,10 +49,13 @@ final class BackupKey: NSManagedObject, ObvManagedObject {
 
     // MARK: Relationships
 
-    private(set) var backups: Set<Backup> {
+    private var backups: Set<Backup> {
         get {
             let res = kvoSafePrimitiveValue(forKey: BackupKey.backupsKey) as! Set<Backup>
-            return Set(res.map { $0.obvContext = self.obvContext; $0.delegateManager = self.delegateManager; return $0 })
+            res.forEach {
+                $0.obvContext = self.obvContext
+            }
+            return res
         }
         set {
             kvoSafeSetPrimitiveValue(newValue, forKey: BackupKey.backupsKey)
@@ -94,51 +99,62 @@ final class BackupKey: NSManagedObject, ObvManagedObject {
                                     macKey: self.macKey)
     }
     
-    var lastExportedBackup: Backup? {
-        let exportedBackups = backups.filter({ $0.status == .exported })
-        guard !exportedBackups.isEmpty else { return nil }
-        let someBackup = exportedBackups.first!
-        return exportedBackups.reduce(someBackup) { $0.version > $1.version ? $0 : $1 }
+    var lastBackup: Backup? {
+        get throws {
+            // For efficiency reasons, we do not use the backups relationship. Instead, we perform a Core Data query.
+            return try Backup.getLastBackup(withStatus: nil, for: self)
+        }
     }
+
+
+    var lastExportedBackup: Backup? {
+        get throws {
+            // For efficiency reasons, we do not use the backups relationship. Instead, we perform a Core Data query.
+            return try Backup.getLastBackup(withStatus: .exported, for: self)
+        }
+    }
+
 
     var lastUploadedBackup: Backup? {
-        let uploadedBackups = backups.filter({ $0.status == .uploaded })
-        guard !uploadedBackups.isEmpty else { return nil }
-        let someBackup = uploadedBackups.first!
-        return uploadedBackups.reduce(someBackup) { $0.version > $1.version ? $0 : $1 }
+        get throws {
+            // For efficiency reasons, we do not use the backups relationship. Instead, we perform a Core Data query.
+            return try Backup.getLastBackup(withStatus: .uploaded, for: self)
+        }
     }
 
-    var lastUploadedBackupThatFailed: Backup? {
-        let failedBackupsForUpload = backups.filter({ $0.status == .failed && !$0.forExport })
-        guard !failedBackupsForUpload.isEmpty else { return nil }
-        let someBackup = failedBackupsForUpload.first!
-        return failedBackupsForUpload.reduce(someBackup) { $0.version > $1.version ? $0 : $1 }
+    /// Returns the last uploaded backup that failed, or nil if there is a more recent uploaded backup that succeeded.
+    var lastBackupForUploadThatFailed: Backup? {
+        get throws {
+            return try Backup.getLastUploadedBackupThatFailed(for: self)
+        }
     }
-        
-    var lastBackup: Backup? {
-        guard !self.backups.isEmpty else { return nil }
-        let someBackup = self.backups.first!
-        return self.backups.reduce(someBackup, { $0.version > $1.version ? $0 : $1 })
+
+
+    func getBackupWithVersion(_ backupVersion: Int) throws -> Backup? {
+        // For efficiency reasons, we do not use the backups relationship. Instead, we perform a Core Data query.
+        return try Backup.getBackup(withVersion: backupVersion, for: self)
     }
+    
     
     // MARK: Other variables
     
     var obvContext: ObvContext?
-    weak var delegateManager: ObvBackupDelegateManager?
 
     var backupKeyInformation: BackupKeyInformation {
-        return BackupKeyInformation(uid: self.uid,
-                                    keyGenerationTimestamp: self.keyGenerationTimestamp,
-                                    lastSuccessfulKeyVerificationTimestamp: self.lastSuccessfulKeyVerificationTimestamp,
-                                    successfulVerificationCount: self.successfulVerificationCount,
-                                    lastBackupExportTimestamp: self.lastExportedBackup?.statusChangeTimestamp,
-                                    lastBackupUploadTimestamp: self.lastUploadedBackup?.statusChangeTimestamp,
-                                    lastBackupUploadFailureTimestamp: self.lastUploadedBackupThatFailed?.statusChangeTimestamp)
+        get throws {
+            return BackupKeyInformation(uid: self.uid,
+                                        keyGenerationTimestamp: self.keyGenerationTimestamp,
+                                        lastSuccessfulKeyVerificationTimestamp: self.lastSuccessfulKeyVerificationTimestamp,
+                                        successfulVerificationCount: self.successfulVerificationCount,
+                                        lastBackupExportTimestamp: try self.lastExportedBackup?.statusChangeTimestamp,
+                                        lastBackupUploadTimestamp: try self.lastUploadedBackup?.statusChangeTimestamp,
+                                        lastBackupUploadFailureTimestamp: try self.lastBackupForUploadThatFailed?.statusChangeTimestamp)
+        }
     }
     
     // MARK: - Initializer
     
-    convenience init(derivedKeysForBackup: DerivedKeysForBackup, delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) {
+    convenience init(derivedKeysForBackup: DerivedKeysForBackup, within obvContext: ObvContext) {
         
         let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
@@ -154,8 +170,6 @@ final class BackupKey: NSManagedObject, ObvManagedObject {
         self.backups = Set()
         
         self.obvContext = obvContext
-        self.delegateManager = delegateManager
-        
     }
     
 }
@@ -168,8 +182,37 @@ extension BackupKey {
         self.lastSuccessfulKeyVerificationTimestamp = Date()
         self.successfulVerificationCount += 1
     }
-    
+
+
+    /// Deletes all failed backups that are older than the most recent uploaded or exported backup that succeded.
+    /// Also deletes all uploaded (resp. exported) backups that succeeded, but the most recent one.
+    /// Also deletes all ready backups with a version less than the most recent exported backup.
+    func deleteObsoleteBackups(log: OSLog) throws {
+
+        // Delete all uploaded (resp. exported) backups that succeeded, but the most recent one.
+        // Delete all ready backups with a version less than the most recent exported backup
+
+        let versionOfLastUploadedBackup = try Backup.getMaxVersionAmongBackups(withStatus: .uploaded, for: self)
+        if let versionOfLastUploadedBackup {
+            try Backup.deleteAllBackups(withStatus: .uploaded, withVersionLessThan: versionOfLastUploadedBackup, for: self)
+        }
+        
+        let versionOfLastExportedBackup = try Backup.getMaxVersionAmongBackups(withStatus: .exported, for: self)
+        if let versionOfLastExportedBackup {
+            try Backup.deleteAllBackups(withStatus: .exported, withVersionLessThan: versionOfLastExportedBackup, for: self)
+            try Backup.deleteAllBackups(withStatus: .ready, withVersionLessThan: versionOfLastExportedBackup, for: self)
+        }
+        
+        // Determine the version of the last uploaded or exported backup that was successful
+        let versionOfLastSuccessfulBackup = max(versionOfLastUploadedBackup ?? 0, versionOfLastExportedBackup ?? 0)
+        
+        // Delete the failed backup that have a version smaller than the version found
+        try Backup.deleteAllBackups(withStatus: .failed, withVersionLessThan: versionOfLastSuccessfulBackup, for: self)
+        
+    }
+        
 }
+
 
 // MARK: - Accessing the items
 
@@ -179,26 +222,30 @@ extension BackupKey {
         return NSFetchRequest<BackupKey>(entityName: self.entityName)
     }
 
-    static func deleteAll(delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) throws {
-        let items = try getAll(delegateManager: delegateManager, within: obvContext)
+    static func deleteAll(within obvContext: ObvContext) throws {
+        let items = try getAll(within: obvContext)
         for item in items {
-            _ = item.backups.map({ $0.delegateManager = delegateManager })
             obvContext.delete(item)
         }
     }
     
-    static func getAll(delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) throws -> Set<BackupKey> {
+    static func getAll(within obvContext: ObvContext) throws -> Set<BackupKey> {
         let request: NSFetchRequest<BackupKey> = BackupKey.fetchRequest()
+        request.fetchBatchSize = 100
         let items = try obvContext.fetch(request)
-        return Set(items.map { $0.obvContext = obvContext; $0.delegateManager = delegateManager; return $0 })
+        items.forEach {
+            $0.obvContext = obvContext
+        }
+        return Set(items)
     }
     
-    static func getCurrent(delegateManager: ObvBackupDelegateManager, within obvContext: ObvContext) throws -> BackupKey? {
+    static func getCurrent(within obvContext: ObvContext) throws -> BackupKey? {
         let request: NSFetchRequest<BackupKey> = BackupKey.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(key: BackupKey.keyGenerationTimestampKey, ascending: false)]
         request.fetchLimit = 1
-        let items = try obvContext.fetch(request)
-        return items.map({ $0.obvContext = obvContext; $0.delegateManager = delegateManager; return $0 }).last
+        let item = try obvContext.fetch(request).last
+        item?.obvContext = obvContext
+        return item
     }
     
 }

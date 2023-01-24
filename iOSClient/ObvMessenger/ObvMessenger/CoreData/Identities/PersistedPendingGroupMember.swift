@@ -114,7 +114,7 @@ extension PersistedPendingGroupMember {
 
     static func getFetchedResultsControllerForContactGroup(_ persistedContactGroup: PersistedContactGroup) throws -> NSFetchedResultsController<PersistedPendingGroupMember> {
         
-        guard let context = persistedContactGroup.managedObjectContext else { throw NSError() }
+        guard let context = persistedContactGroup.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         
         let fetchRequest: NSFetchRequest<PersistedPendingGroupMember> = PersistedPendingGroupMember.fetchRequest()
         

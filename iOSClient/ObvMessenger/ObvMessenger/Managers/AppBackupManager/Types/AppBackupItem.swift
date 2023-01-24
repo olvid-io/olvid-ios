@@ -353,14 +353,14 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
 
 struct GlobalSettingsBackupItem: Codable, Hashable {
     
-    // Downloads
-    
-    let maxAttachmentSizeForAutomaticDownload: Int?
-
     // ContactsAndGroups
 
     let autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom?
-    
+
+    // Downloads
+
+    let maxAttachmentSizeForAutomaticDownload: Int?
+
     // Interface
     
     let identityColorStyle: AppTheme.IdentityColorStyle?
@@ -378,13 +378,11 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
     let timeBasedRetentionPolicy: DurationOptionAlt?
     let autoRead: Bool?
     let retainWipedOutboundMessages: Bool?
-    
-    
 
     // Privacy
     
     let hideNotificationContent: ObvMessengerSettings.Privacy.HideNotificationContentType?
-    
+
     // VoIP
     
     let isCallKitEnabled: Bool?
@@ -396,7 +394,11 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
     // BetaConfiguration
     
     let showBetaSettings: Bool?
-    
+
+    // Emoji
+
+    let preferredEmojisList: [String]?
+
     var isEmpty: Bool {
         false // We always want to attach global configurations to the app backup data
     }
@@ -421,6 +423,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         case showBetaSettings = "beta"
         case isCallKitEnabled = "is_call_kit_enabled"
         case autoAcceptGroupInviteFrom = "auto_join_groups"
+        case preferredEmojisList = "preferred_reactions"
     }
 
     private var hideNotificationContentAndroid: Bool? {
@@ -457,6 +460,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         self.showBetaSettings = ObvMessengerSettings.BetaConfiguration.showBetaSettings
         self.isCallKitEnabled = ObvMessengerSettings.VoIP.isCallKitEnabled
         self.autoAcceptGroupInviteFrom = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom
+        self.preferredEmojisList = ObvMessengerSettings.Emoji.preferredEmojisList
     }
     
     func encode(to encoder: Encoder) throws {
@@ -482,7 +486,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(showBetaSettings, forKey: .showBetaSettings)
         try container.encodeIfPresent(isCallKitEnabled, forKey: .isCallKitEnabled)
         try container.encodeIfPresent(autoAcceptGroupInviteFrom?.rawValue, forKey: .autoAcceptGroupInviteFrom)
-
+        try container.encodeIfPresent(preferredEmojisList, forKey: .preferredEmojisList)
     }
 
     
@@ -542,6 +546,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         } else {
             self.autoAcceptGroupInviteFrom = nil
         }
+        self.preferredEmojisList = try values.decodeIfPresent([String].self, forKey: .preferredEmojisList)
     }
 }
 

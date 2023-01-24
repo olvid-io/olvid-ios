@@ -38,10 +38,7 @@ enum ObvMessengerInternalNotification {
 	case messagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
 	case userWantsToRefreshContactGroupJoined(obvContactGroup: ObvContactGroup)
 	case currentOwnedCryptoIdChanged(newOwnedCryptoId: ObvCryptoId, apiKey: UUID)
-	case userWantsToPerfomCloudKitBackupNow
 	case externalTransactionsWereMergedIntoViewContext
-	case userWantsToPerfomBackupForExportNow(sourceView: UIView, sourceViewController: UIViewController)
-	case userCancelledBackupForExportNow
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
 	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?)
@@ -118,9 +115,9 @@ enum ObvMessengerInternalNotification {
 	case currentUserActivityDidChange(previousUserActivity: ObvUserActivityType, currentUserActivity: ObvUserActivityType)
 	case displayedSnackBarShouldBeRefreshed
 	case requestUserDeniedRecordPermissionAlert
-	case incrementalCleanBackupStarts(initialCount: Int)
-	case incrementalCleanBackupInProgress(currentCount: Int, cleanAllDevices: Bool)
-	case incrementalCleanBackupTerminates(totalCount: Int)
+	case userWantsToStartIncrementalCleanBackup(cleanAllDevices: Bool)
+	case incrementalCleanBackupStarts
+	case incrementalCleanBackupTerminates
 	case userWantsToUnblockContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case userWantsToReblockContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
 	case installedOlvidAppIsOutdated(presentingViewController: UIViewController?)
@@ -147,15 +144,15 @@ enum ObvMessengerInternalNotification {
 	case userWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, customName: String?, customPhotoURL: URL?)
 	case userHasSeenPublishedDetailsOfGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case tooManyWrongPasscodeAttemptsCausedLockOut
+	case backupForExportWasExported
+	case backupForUploadWasUploaded
+	case backupForUploadFailedToUpload
 
 	private enum Name {
 		case messagesAreNotNewAnymore
 		case userWantsToRefreshContactGroupJoined
 		case currentOwnedCryptoIdChanged
-		case userWantsToPerfomCloudKitBackupNow
 		case externalTransactionsWereMergedIntoViewContext
-		case userWantsToPerfomBackupForExportNow
-		case userCancelledBackupForExportNow
 		case newMuteExpiration
 		case wipeAllMessagesThatExpiredEarlierThanNow
 		case userWantsToCallAndIsAllowedTo
@@ -232,8 +229,8 @@ enum ObvMessengerInternalNotification {
 		case currentUserActivityDidChange
 		case displayedSnackBarShouldBeRefreshed
 		case requestUserDeniedRecordPermissionAlert
+		case userWantsToStartIncrementalCleanBackup
 		case incrementalCleanBackupStarts
-		case incrementalCleanBackupInProgress
 		case incrementalCleanBackupTerminates
 		case userWantsToUnblockContact
 		case userWantsToReblockContact
@@ -261,6 +258,9 @@ enum ObvMessengerInternalNotification {
 		case userWantsToUpdateCustomNameAndGroupV2Photo
 		case userHasSeenPublishedDetailsOfGroupV2
 		case tooManyWrongPasscodeAttemptsCausedLockOut
+		case backupForExportWasExported
+		case backupForUploadWasUploaded
+		case backupForUploadFailedToUpload
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -276,10 +276,7 @@ enum ObvMessengerInternalNotification {
 			case .messagesAreNotNewAnymore: return Name.messagesAreNotNewAnymore.name
 			case .userWantsToRefreshContactGroupJoined: return Name.userWantsToRefreshContactGroupJoined.name
 			case .currentOwnedCryptoIdChanged: return Name.currentOwnedCryptoIdChanged.name
-			case .userWantsToPerfomCloudKitBackupNow: return Name.userWantsToPerfomCloudKitBackupNow.name
 			case .externalTransactionsWereMergedIntoViewContext: return Name.externalTransactionsWereMergedIntoViewContext.name
-			case .userWantsToPerfomBackupForExportNow: return Name.userWantsToPerfomBackupForExportNow.name
-			case .userCancelledBackupForExportNow: return Name.userCancelledBackupForExportNow.name
 			case .newMuteExpiration: return Name.newMuteExpiration.name
 			case .wipeAllMessagesThatExpiredEarlierThanNow: return Name.wipeAllMessagesThatExpiredEarlierThanNow.name
 			case .userWantsToCallAndIsAllowedTo: return Name.userWantsToCallAndIsAllowedTo.name
@@ -356,8 +353,8 @@ enum ObvMessengerInternalNotification {
 			case .currentUserActivityDidChange: return Name.currentUserActivityDidChange.name
 			case .displayedSnackBarShouldBeRefreshed: return Name.displayedSnackBarShouldBeRefreshed.name
 			case .requestUserDeniedRecordPermissionAlert: return Name.requestUserDeniedRecordPermissionAlert.name
+			case .userWantsToStartIncrementalCleanBackup: return Name.userWantsToStartIncrementalCleanBackup.name
 			case .incrementalCleanBackupStarts: return Name.incrementalCleanBackupStarts.name
-			case .incrementalCleanBackupInProgress: return Name.incrementalCleanBackupInProgress.name
 			case .incrementalCleanBackupTerminates: return Name.incrementalCleanBackupTerminates.name
 			case .userWantsToUnblockContact: return Name.userWantsToUnblockContact.name
 			case .userWantsToReblockContact: return Name.userWantsToReblockContact.name
@@ -385,6 +382,9 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToUpdateCustomNameAndGroupV2Photo: return Name.userWantsToUpdateCustomNameAndGroupV2Photo.name
 			case .userHasSeenPublishedDetailsOfGroupV2: return Name.userHasSeenPublishedDetailsOfGroupV2.name
 			case .tooManyWrongPasscodeAttemptsCausedLockOut: return Name.tooManyWrongPasscodeAttemptsCausedLockOut.name
+			case .backupForExportWasExported: return Name.backupForExportWasExported.name
+			case .backupForUploadWasUploaded: return Name.backupForUploadWasUploaded.name
+			case .backupForUploadFailedToUpload: return Name.backupForUploadFailedToUpload.name
 			}
 		}
 	}
@@ -404,16 +404,7 @@ enum ObvMessengerInternalNotification {
 				"newOwnedCryptoId": newOwnedCryptoId,
 				"apiKey": apiKey,
 			]
-		case .userWantsToPerfomCloudKitBackupNow:
-			info = nil
 		case .externalTransactionsWereMergedIntoViewContext:
-			info = nil
-		case .userWantsToPerfomBackupForExportNow(sourceView: let sourceView, sourceViewController: let sourceViewController):
-			info = [
-				"sourceView": sourceView,
-				"sourceViewController": sourceViewController,
-			]
-		case .userCancelledBackupForExportNow:
 			info = nil
 		case .newMuteExpiration(expirationDate: let expirationDate):
 			info = [
@@ -752,19 +743,14 @@ enum ObvMessengerInternalNotification {
 			info = nil
 		case .requestUserDeniedRecordPermissionAlert:
 			info = nil
-		case .incrementalCleanBackupStarts(initialCount: let initialCount):
+		case .userWantsToStartIncrementalCleanBackup(cleanAllDevices: let cleanAllDevices):
 			info = [
-				"initialCount": initialCount,
-			]
-		case .incrementalCleanBackupInProgress(currentCount: let currentCount, cleanAllDevices: let cleanAllDevices):
-			info = [
-				"currentCount": currentCount,
 				"cleanAllDevices": cleanAllDevices,
 			]
-		case .incrementalCleanBackupTerminates(totalCount: let totalCount):
-			info = [
-				"totalCount": totalCount,
-			]
+		case .incrementalCleanBackupStarts:
+			info = nil
+		case .incrementalCleanBackupTerminates:
+			info = nil
 		case .userWantsToUnblockContact(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
@@ -897,6 +883,12 @@ enum ObvMessengerInternalNotification {
 			]
 		case .tooManyWrongPasscodeAttemptsCausedLockOut:
 			info = nil
+		case .backupForExportWasExported:
+			info = nil
+		case .backupForUploadWasUploaded:
+			info = nil
+		case .backupForUploadFailedToUpload:
+			info = nil
 		}
 		return info
 	}
@@ -951,31 +943,8 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToPerfomCloudKitBackupNow(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToPerfomCloudKitBackupNow.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
 	static func observeExternalTransactionsWereMergedIntoViewContext(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.externalTransactionsWereMergedIntoViewContext.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
-	static func observeUserWantsToPerfomBackupForExportNow(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UIView, UIViewController) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToPerfomBackupForExportNow.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let sourceView = notification.userInfo!["sourceView"] as! UIView
-			let sourceViewController = notification.userInfo!["sourceViewController"] as! UIViewController
-			block(sourceView, sourceViewController)
-		}
-	}
-
-	static func observeUserCancelledBackupForExportNow(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.userCancelledBackupForExportNow.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -1643,28 +1612,25 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeIncrementalCleanBackupStarts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Int) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToStartIncrementalCleanBackup(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Bool) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToStartIncrementalCleanBackup.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let cleanAllDevices = notification.userInfo!["cleanAllDevices"] as! Bool
+			block(cleanAllDevices)
+		}
+	}
+
+	static func observeIncrementalCleanBackupStarts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.incrementalCleanBackupStarts.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let initialCount = notification.userInfo!["initialCount"] as! Int
-			block(initialCount)
+			block()
 		}
 	}
 
-	static func observeIncrementalCleanBackupInProgress(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Int, Bool) -> Void) -> NSObjectProtocol {
-		let name = Name.incrementalCleanBackupInProgress.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let currentCount = notification.userInfo!["currentCount"] as! Int
-			let cleanAllDevices = notification.userInfo!["cleanAllDevices"] as! Bool
-			block(currentCount, cleanAllDevices)
-		}
-	}
-
-	static func observeIncrementalCleanBackupTerminates(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Int) -> Void) -> NSObjectProtocol {
+	static func observeIncrementalCleanBackupTerminates(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.incrementalCleanBackupTerminates.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let totalCount = notification.userInfo!["totalCount"] as! Int
-			block(totalCount)
+			block()
 		}
 	}
 
@@ -1907,6 +1873,27 @@ enum ObvMessengerInternalNotification {
 
 	static func observeTooManyWrongPasscodeAttemptsCausedLockOut(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.tooManyWrongPasscodeAttemptsCausedLockOut.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeBackupForExportWasExported(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.backupForExportWasExported.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeBackupForUploadWasUploaded(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.backupForUploadWasUploaded.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeBackupForUploadFailedToUpload(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.backupForUploadFailedToUpload.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}

@@ -181,6 +181,7 @@ final class AdvancedSettingsViewController: UITableViewController {
         case copyDatabaseURL
         case exportAppDatabase
         case exportEngineDatabase
+        case exportTmpDirectory
         case allowAnyAPIKeyActivation
         static var shown: [ExportsDatabasesAndCopyURLsItem] {
             return ObvMessengerConstants.showExperimentalFeature ? self.allCases : []
@@ -195,6 +196,7 @@ final class AdvancedSettingsViewController: UITableViewController {
             case .copyDatabaseURL: return "CopyAppDatabaseURL"
             case .exportAppDatabase: return "ExportAppDatabase"
             case .exportEngineDatabase: return "ExportEngineDatabase"
+            case .exportTmpDirectory: return "ExportTmpDirectory"
             case .allowAnyAPIKeyActivation: return "AllowAPIKeyActivationWithBadKeyStatusCell"
             }
         }
@@ -354,6 +356,11 @@ extension AdvancedSettingsViewController {
                 cell.textLabel?.text = Strings.exportEngineDatabase
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 return cell
+            case .exportTmpDirectory:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = Strings.exportTmpDirectory
+                cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
+                return cell
             case .allowAnyAPIKeyActivation:
                 let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
                 _cell.selectionStyle = .none
@@ -424,6 +431,15 @@ extension AdvancedSettingsViewController {
                 present(ativityController, animated: true) {
                     tableView.deselectRow(at: indexPath, animated: true)
                 }
+            case .exportTmpDirectory:
+                guard let cell = tableView.cellForRow(at: indexPath) else { return }
+                let tmpURL = ObvMessengerConstants.containerURL.forTempFiles
+                guard FileManager.default.fileExists(atPath: tmpURL.path) else { return }
+                let ativityController = UIActivityViewController(activityItems: [tmpURL], applicationActivities: nil)
+                ativityController.popoverPresentationController?.sourceView = cell
+                present(ativityController, animated: true) {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                }
             case .allowAnyAPIKeyActivation:
                 return
             }
@@ -472,6 +488,7 @@ extension AdvancedSettingsViewController {
         static let websocketStatus = NSLocalizedString("Websocket status", comment: "")
         static let exportAppDatabase = NSLocalizedString("Export App Database", comment: "only in dev mode")
         static let exportEngineDatabase = NSLocalizedString("Export Engine Database", comment: "only in dev mode")
+        static let exportTmpDirectory = NSLocalizedString("EXPORT_TMP_DIRECTORY", comment: "")
         static let allowAPIKeyActivationWithBadKeyStatusTitle = NSLocalizedString("Allow all api key activations", comment: "")
         static let webSocketStatus = NSLocalizedString("Websocket status", comment: "")
         static let diskUsageTitle = NSLocalizedString("DISK_USAGE", comment: "")

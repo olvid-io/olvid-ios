@@ -21,6 +21,7 @@ import Foundation
 
 enum ObvHUDType {
     case checkmark
+    case xmark
     case spinner
     case progress(progress: Progress?)
     case text(text: String)

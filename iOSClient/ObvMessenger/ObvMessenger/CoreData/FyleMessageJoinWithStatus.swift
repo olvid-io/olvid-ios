@@ -49,6 +49,12 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
     @NSManaged internal var rawStatus: Int
     @NSManaged private(set) var totalByteCount: Int64 // Was totalUnitCount
     @NSManaged private(set) var uti: String
+    
+    // MARK: - Transient properties (allowing to feed SwiftUI progress views)
+    
+    @NSManaged private(set) var fractionCompleted: Double
+    @NSManaged private(set) var estimatedTimeRemaining: TimeInterval
+    @NSManaged private(set) var throughput: Int
 
     // MARK: - Relationships
 
@@ -100,32 +106,46 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
 
     // MARK: - Managing a progress object in the view context
     
+    /// This method updates the progress object corresponding to the `FyleMessageJoinWithStatus` referenced by the objectID by updating its completed unit count.
+    /// It also updates the transiant properties of the object, as these attributes are observed by the SwiftUI allowing to track the progress of the download/upload.
     @MainActor
     static func setProgressTo(_ newProgress: Float, forJoinWithObjectID joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) {
-        if let progressObject = progressForJoinWithObjectID[joinObjectID] {
-            let newCompletedUnitCount = Int64(Double(newProgress) * Double(progressObject.totalUnitCount))
-            guard newCompletedUnitCount > progressObject.completedUnitCount else { return }
-            progressObject.completedUnitCount = newCompletedUnitCount
-        } else {
-            guard let joinObject = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
-            let progressObject = Progress(totalUnitCount: joinObject.totalByteCount)
-            let newCompletedUnitCount = Int64(Double(newProgress) * Double(progressObject.totalUnitCount))
-            progressObject.completedUnitCount = newCompletedUnitCount
-            progressForJoinWithObjectID[joinObjectID] = progressObject
-        }
+        assert(Thread.isMainThread)
+        guard let joinObject = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
+        let progressObject = joinObject.progressObject
+        let newCompletedUnitCount = Int64(Double(newProgress) * Double(progressObject.totalUnitCount))
+        guard newCompletedUnitCount > progressObject.completedUnitCount else { return }
+        progressObject.completedUnitCount = newCompletedUnitCount
+        // The following uses the progress we just updated to update the transient variables of the join object observed by SwiftUI views
+        updateTransientProgressAttributes(of: joinObject, using: progressObject)
+    }
+    
+    
+    @MainActor
+    private static func updateTransientProgressAttributes(of joinObject: FyleMessageJoinWithStatus, using progressObject: ObvProgress) {
+        assert(Thread.isMainThread)
+        assert(joinObject.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
+        joinObject.fractionCompleted = progressObject.fractionCompleted
+        joinObject.estimatedTimeRemaining = progressObject.estimatedTimeRemaining ?? 0
+        joinObject.throughput = progressObject.throughput ?? 0
     }
 
 
-    private static var progressForJoinWithObjectID = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: Progress]()
+    private static var progressForJoinWithObjectID = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: ObvProgress]()
 
 
+    /// The progress associated with this `FyleMessageJoinWithStatus` instance.
+    ///
+    /// If the progress already exists in the private static `progressForJoinWithObjectID` array, it is returned. Otherwise, a new progress is created, store in the array and returned.
+    /// Note that we use an `ObvProgress` subclass of `Progress`, which is a custom sublcass that implements the logic allowing to compute the current throughput and estimated time remaining.
     @MainActor
-    var progressObject: Progress {
+    var progressObject: ObvProgress {
+        assert(Thread.isMainThread)
         assert(self.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         if let progress = FyleMessageJoinWithStatus.progressForJoinWithObjectID[self.typedObjectID] {
             return progress
         } else {
-            let progress = Progress(totalUnitCount: self.totalByteCount)
+            let progress = ObvProgress(totalUnitCount: self.totalByteCount)
             FyleMessageJoinWithStatus.progressForJoinWithObjectID[self.typedObjectID] = progress
             return progress
         }
@@ -134,8 +154,31 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
 
     @MainActor
     static func removeProgressForJoinWithObjectID(_ joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) {
+        assert(Thread.isMainThread)
         _ = progressForJoinWithObjectID.removeValue(forKey: joinObjectID)
     }
+    
+    
+    /// As the progresses are only refreshed when their completed unit count is incremented, we implement this method to implement a way to force a refresh of all the progresses.
+    /// This is used, in particular, when the download/upload of an attachment is stalled. In that case, we use this method to update the `ObvProgress` of the attachment, allowing to reflect the decrease of the throughput and the increase of the estimated remaining time.
+    @MainActor
+    static func refreshAllProgresses() async {
+        for (joinObjectID, progressObject) in progressForJoinWithObjectID {
+            guard let joinObject = ObvStack.shared.viewContext.registeredObjects.first(where: { $0.objectID == joinObjectID.objectID }) as? FyleMessageJoinWithStatus else { continue }
+            await progressObject.refreshThroughputAndEstimatedTimeRemaining()
+            updateTransientProgressAttributes(of: joinObject, using: progressObject)
+        }
+    }
+    
+    
+    static let formatterForEstimatedTimeRemaining: DateComponentsFormatter = {
+        let dcf = DateComponentsFormatter()
+        dcf.unitsStyle = .short
+        dcf.includesApproximationPhrase = true
+        dcf.includesTimeRemainingPhrase = true
+        dcf.allowedUnits = [.day, .hour, .minute, .second]
+        return dcf
+    }()
 
 }
 

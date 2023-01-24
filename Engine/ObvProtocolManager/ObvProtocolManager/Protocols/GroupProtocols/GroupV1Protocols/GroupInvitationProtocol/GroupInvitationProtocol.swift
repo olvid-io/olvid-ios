@@ -30,10 +30,10 @@ public struct GroupInvitationProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.GroupInvitation
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.InvitationSent,
-                                                    StateId.ResponseSent,
-                                                    StateId.ResponseReceived,
-                                                    StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.InvitationSent,
+                                                           StateId.ResponseSent,
+                                                           StateId.ResponseReceived,
+                                                           StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

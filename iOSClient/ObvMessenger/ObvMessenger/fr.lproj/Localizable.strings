@@ -79,6 +79,8 @@
 /* (No Comment) */
 "Attachments smaller than %@ will be automatically downloaded. Larger attachments will require manual download." = "Les pièces jointes de taille inférieure à %@ seront téléchargées automatiquement. Les pièces jointes de plus grande taille devront être téléchargées manuellement.";
 
+"ALL_ATTACHMENTS_WILL_BE_AUTOMATICALLY_DOWNLOADED" = "Toutes les pièces jointes seront téléchargées automatiquement.";
+
 /* Table view group footer */
 "Attachments smaller than the specified size will be automatically downloaded. Larger attachments will require manual download." = "Les pièces jointes de taille inférieure à celle spécifiée ici seront téléchargées automatiquement. Les pièces jointes de plus grande taille devront être téléchargées manuellement.";
 
@@ -898,7 +900,7 @@
 "Choose Discussion" = "Choisir une Discussion";
 
 /* Title of the screen displaying informations about a specific message within a discussion */
-"Message Info" = "Message Info";
+"MESSAGE_INFO" = "Informations sur le message";
 
 "Rich link preview" = "Prévisualisation des liens";
 
@@ -1039,11 +1041,11 @@
 
 "Choose From a file to pick a backup file create from a manual backup." = "Choisissez « Depuis un fichier » pour restaurer une sauvegarde effectuée manuellement.";
 
-"Choose From the cloud to select an account used for automatic backups." = "Choisissez « Depuis le cloud » pour restaurer une sauvarde effectuée automatiquement.";
+"Choose From the cloud to select an account used for automatic backups." = "Choisissez « Depuis iCloud » pour restaurer une sauvarde effectuée automatiquement.";
 
 "From a file" = "Depuis un fichier";
 
-"From the cloud" = "Depuis le cloud";
+"From the cloud" = "Depuis iCloud";
 
 "Backup file selected" = "Fichier de sauvegarde séléctionné";
 
@@ -1069,6 +1071,8 @@
 
 "AUTOMATIC_BACKUP" = "Sauvegarde automatique vers iCloud";
 
+"ENABLE_AUTOMATIC_BACKUP" = "Activer la sauvegarde automatique vers iCloud";
+
 "AUTOMATIC_BACKUP_EXPLANATION" = "Activer cette option permet d'effectuer une sauvegarde automatique de vos contacts, groupes et paramètres (les messages et pièces jointes ne sont pas sauvegardés).";
 
 "Latest upload: %@" = "Dernier téléchargement : %@";
@@ -1093,23 +1097,23 @@
 
 "Clean" = "Nettoyer";
 
-"CLEAN_OLD_BACKUPS" = "Supprimer anciennes sauvegardes iCloud";
+"CLEAN_OLD_BACKUPS" = "Supprimer les anciennes sauvegardes iCloud";
 
 "CLEAN_OLD_BACKUPS_ON_ALL_DEVICES" = "Supprimer pour tous les appareils";
 
 "CLEAN_OLD_BACKUPS_ON_CURRENT_DEVICE" = "Supprimer pour cet appareil";
 
-"CLEAN_OLD_BACKUPS_TITLE" = "Supprimer anciennes sauvegardes iCloud";
+"CLEAN_OLD_BACKUPS_TITLE" = "Supprimer les anciennes sauvegardes iCloud ?";
 
 "CLEAN_OLD_BACKUPS_MESSAGE" = "Supprimer les anciennes sauvegardes iCloud pour ne garder que la plus récente.";
 
-"CLEAN_LATEST_BACKUPS_FOR_OTHER_DEVICE_TITLE" = "Supprimer la dernière sauvegarde iCloud pour un autre appareil";
+"CLEAN_LATEST_BACKUP_FOR_OTHER_DEVICE_TITLE" = "Supprimer la sauvegarde iCloud la plus récente d'un autre appareil ?";
 
-"CLEAN_LATEST_BACKUPS_FOR_OTHER_DEVICE_MESSAGE" = "Attention, vous vous apprêtez à supprimer la dernière sauvegarde iCloud d'un autre apparail.";
+"CLEAN_LATEST_BACKUP_FOR_OTHER_DEVICE_MESSAGE" = "Attention, vous vous apprêtez à supprimer la sauvegarde iCloud la plus récente d'un autre apparail.";
 
-"CLEAN_LATEST_BACKUPS_FOR_CURRENT_DEVICE_TITLE" = "Supprimer la dernière sauvegarde iCloud";
+"CLEAN_LATEST_BACKUP_FOR_CURRENT_DEVICE_TITLE" = "Supprimer la sauvegarde iCloud la plus récente ?";
 
-"CLEAN_LATEST_BACKUPS_FOR_CURRENT_DEVICE_MESSAGE" = "Attention, vous vous apprêtez à supprimer la dernière sauvegarde iCloud.";
+"CLEAN_LATEST_BACKUP_FOR_CURRENT_DEVICE_MESSAGE" = "Attention, vous vous apprêtez à supprimer la sauvegarde iCloud la plus récente.";
 
 "Automatic iCloud backup cleaning" = "Suppression automatique des anciennes sauvegardes iCloud";
 
@@ -1127,7 +1131,9 @@
 
 "We could not retrieve the encrypted backup content from iCloud" = "Impossible de récupérer la sauvegarde chiffrée depuis iCloud";
 
-"We could not retrieve the creation date of the backup content from iCloud" = "Impossible de récupérer la date de création de la sauvegarde depuis iCloud";
+"We could not retrieve the creation date of the backup content from iCloud" = "Il n'a pas été possible de récupérer la date de création de la sauvegarde depuis iCloud";
+
+"We could not retrieve the device name of the backup content from iCloud" = "Il n'a pas été possible de récupérer le nom de l'appareil correspondant à la sauvegarde depuis iCloud";
 
 "iCloud error" = "Erreur iCloud";
 
@@ -1466,7 +1472,7 @@
 
 "The integrity check of the backuped data failed." = "Êtes-vous certain d'avoir utilisé la bonne clé de sauvegarde ?";
 
-"The backup could not be recovered (error code: %@)." = "La sauvegarde n'a pas pu être restaurée (code d'erreur: %@).";
+"The backup could not be recovered (error code: %@)." = "La sauvegarde n'a pas pu être restaurée (code d'erreur : %@).";
 
 "The backup file could not be read" = "Le fichier de sauvegarde n'a pas pu être lu";
 
@@ -1546,7 +1552,7 @@
 
 "WIPED_MESSAGE" = "Contenu expiré 🧹";
 
-"WIPED_MESSAGE_BY_%@" = "Contenu expiré par %@ 🧹";
+"WIPED_MESSAGE_BY_%@" = "Contenu supprimé par %@";
 
 "EXPIRATION_SETTINGS_EXPLANATION" = "Les paramètres ci-dessous sont partagés par l'ensemble des participants à la discussion. En cas de modification, la nouvelle durée de visibilité et d'existence sera envoyée à tous les participants.";
 
@@ -2039,6 +2045,11 @@
 "GRANT_PERMISSION_TO_RECORD_BUTTON_TITLE" = "Autoriser l'accès au micro";
 "GRANT_PERMISSION_TO_RECORD_IN_SETTINGS_BUTTON_TITLE" = "Aller dans les Réglages";
 
+"SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" = "La dernière sauvegarde a échoué";
+"SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" = "Info";
+"SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" = "Que puis-je faire ?";
+"SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" = "Nous vous recommandons de vérifier que vous avez bien configurer votre compte iCloud sur cet appareil. Ensuite, vous pourrez essayer à nouveau.";
+
 "DIALOG_TITLE_KEYCLOAK_IDENTITY_WAS_REVOKED" = "Fournisseur d'identités supprimé";
 "DIALOG_MESSAGE_KEYCLOAK_IDENTITY_WAS_REVOKED" = "Il semble que votre compte a été supprimé du fournisseur d'identités de votre société. Si vous avez quitté votre entreprise, ceci est normal et vous pouvez continuer à utiliser Olvid en tant qu'utilisateur gratuit.\n\nSi vous pensez que c'est une erreur, veuillez contacter votre administrateur pour enregistrer à nouveau ce fournisseur d'identités dans Olvid.";
 
@@ -2076,8 +2087,8 @@
 "Directory" = "Annuaire";
 
 
-"CLEANING_IN_PROGRESS" = "Nettoyage en cours";
-"CLEANING_TERMINATED" = "Nettoyage terminé";
+"DELETION_IN_PROGRESS" = "Suppression en cours";
+"DELETION_TERMINATED" = "Suppression terminée";
 
 "DRAG_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST" = "Déposez ici vos réactions préférés !";
 
@@ -2284,7 +2295,7 @@
 
 "SEND_MESSAGE" = "Envoyer un message";
 
-"FAILED" = "Échec 😢";
+"FAILED" = "Échec";
 
 "CALL_INITIALISATION_NOT_SUPPORTED" = "Appels non supportés";
 
@@ -2323,14 +2334,6 @@
 "CREATE_FIRST_GROUP_WITH_OWN_PERMISSION_ADMIN" = "Créez votre premier groupe";
 
 "GROUPS_THAT_YOU_ADMINISTER" = "Groupes que vous administrez";
-
-"CHOOSE_GROUP_TYPE_TITLE" = "Quel type de groupe voulez-vous créer ?";
-
-"CHOOSE_GROUP_TYPE_MESSAGE" = "Un nouveau format de groupe autorisant plusieurs administrateurs est en cours de déploiement sur Olvid. Seuls vos contacts ayant une version d'Olvid qui supporte ce nouveau format de groupe peuvent y être ajoutés.\n\nSouhaitez-vous créer un groupe au nouveau format ou un groupe classique ?";
-
-"CHOOSE_GROUP_V1" = "Classique";
-
-"CHOOSE_GROUP_V2" = "Nouveau format";
 
 "NO_SOUNDS" = "Aucun";
 
@@ -2550,7 +2553,7 @@
 
 "CLONE_THIS_GROUP" = "Cloner ce groupe";
 
-"CLONE_THIS_GROUP_V1_TO_GROUP_V2" = "Créer un groupe V2 à partir de ce groupe";
+"CLONE_THIS_GROUP_V1_TO_GROUP_V2" = "Cloner ce groupe";
 
 "SOME_GROUP_MEMBERS_MUST_UPGRADE" = "Certains membres doivent mettre à jour Olvid";
 
@@ -2566,6 +2569,8 @@
 
 "CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@" = "Copie de %@";
 
+"COMPUTE_CKRECORD_COUNT" = "Calculer le nombre d'entrées iCloud";
+
 "DISK_USAGE" = "Espace de stockage occupé";
 
 "REFERENCED_BY_DATABASE" = "Référencés depuis la base de données";
@@ -2575,3 +2580,61 @@
 "ENGINE_DIRECTORIES" = "Répertoires de l'engine";
 
 "ABOUT_DISKUSAGEVIEW_%@" = "Cet écran permet d'évaluer l'espace de stockage occupé par Olvid sur votre %@. Attention cependant, le stockage total n'est pas la somme des valeurs indiquées ici (Olvid utilise des techniques de déduplication). Pour évaluer le stockage total, il suffit en général de considérer les valeurs référencées depuis la base de données.";
+
+"IS_DELETING" = "suppression en cours";
+
+"ENABLE_AUTOMATIC_BACKUP_AND_CONTINUE" = "Activer les sauvegardes automatiques";
+
+"ESTIMATING_TIME_REMAINING" = "Estimation du temps restant...";
+
+"YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE" = "Vous avez fait une capture d'un message sensible, les participants de cette discussion ont été notifiés.";
+
+"CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@" = "%@ a fait une capture d'un message sensible.";
+
+"CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN" = "Un particpant a fait une capture d'un message sensible.";
+
+"ENABLE" = "Activer";
+
+"PLEASE_CHOOSE_THE_BACKUP_TO_RESTORE" = "Veuillez choisir la sauvegarde à restaurer.";
+
+"TITLE_BACKUP_RESTORED" = "Sauvegarde restaurée";
+
+"ENABLE_AUTOMATIC_BACKUP_EXPLANATION" = "La sauvegarde a été restaurée avec succès. Pour vous assurer de pouvoir restaurer à nouveau une sauvegarde la prochaine fois que vous en aurez besoin, nous vous recommandons d'activer les sauvegardes automatiques vers iCloud.";
+
+"RESTORE_BACKUP_FAILED_EXPLANATION" = "La sauvegarde n'a malheureusement pas pu être restaurée. Si vous le pouvez, nous vous recommandons d'essayer de restaurer une autre sauvegarde.";
+
+"KEYCLOAK_REVOCATION_FORBIDDEN_TITLE" = "Vous ne pouvez pas révoquer votre identité";
+
+"KEYCLOAK_REVOCATION_FORBIDDEN_MESSAGE" = "Nous vous recommandons de contacter votre administrateur.";
+
+"Processing" = "Traitement";
+
+"Unprocessed" = "À traiter";
+
+"Metadata" = "Métadonnées";
+
+"You selected to add %@ to your contacts. Do you want to proceed?" = "Vous avez choisi d'ajouter %@ à vos contacts. Voulez-vous continuer ?";
+
+"Unread" = "Non lu";
+
+"EXPORT_TMP_DIRECTORY" = "Exporter le répertoire tmp";
+
+"SOME_OF_YOUR_CONTACTS_MAY_NOT_APPEAR_AS_GROUP_V2_CANDIDATES" = "Choisissez qui ajouter à ce groupe. Vous ne trouvez pas la personne que vous cherchez ? Demandez-lui de mettre à jour Olvid 🚀 !";
+
+"EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2" = "Ce groupe ne permet pas d'avoir plusieurs administrateurs. Mais vous pouvez le cloner en un nouveau groupe de dernière génération qui le permettra 🚀 !";
+
+"SNACK_BAR_TITLE_ANNOUNCE_GROUPS_V2" = "Info";
+"SNACK_BAR_BODY_ANNOUNCE_GROUPS_V2" = "Découvrez les nouveaux groupes !";
+"SNACK_BAR_DETAILS_TITLE_ANNOUNCE_GROUPS_V2" = "Découvrez les nouveaux groupes";
+"SNACK_BAR_DETAILS_BODY_ANNOUNCE_GROUPS_V2" = "Olvid permet maintenant d'avoir plusieurs administrateurs par groupe 👑 ! Cela ne change rien à vos « anciens groupes », mais fonctionnera pour tous les nouveaux groupes que vous créerez à partir de maintenant. Pour en bénéficier, vos contacts doivent avoir la dernière version d'Olvid.\n\nVous voulez essayer ? Rendez vous sur l'onglet des groupes et créez un nouveau groupe. Une fois créé, vous pourrez le modifier pour accorder les droits d'administration à autant de participants que vous voulez !";
+"ANNOUNCE_GROUPS_V2_BUTTON_TITLE" = "Aller sur l'onglet des groupes";
+
+"TITLE_NEVER_MISS_A_MESSAGE" = "Ne ratez aucun message";
+
+"TITLE_NEVER_MISS_A_SECURE_CALL" = "Ne ratez aucun appel";
+
+"EXPLANATION_WHY_RECORD_PERMISSION_IS_IMPORTANT" = "Pour passer ou recevoir des appels sécurisés ☎️ et pour enregistrer des messages audio 🎵, il faut accorder à Olvid le droit d'accéder au micro.\n\nAfin de ne rater aucun appel, nous vous recommandons de le faire maintenant 🤓.";
+
+"BUTON_TITLE_ACTIVATE_NOTIFICATION" = "Activer les notifications";
+
+"BUTON_TITLE_REQUEST_RECORD_PERMISSION" = "Autoriser le micro";

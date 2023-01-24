@@ -23,6 +23,7 @@ import os.log
 import OlvidUtils
 
 
+/// This operation not only marks the appropriate `SentFyleMessageJoinWithStatus` as complete, it also marks all the appropriate `PersistedAttachmentSentRecipientInfos` as complete too.
 final class MarkSentFyleMessageJoinWithStatusAsCompleteOperation: OperationWithSpecificReasonForCancel<MarkSentFyleMessageJoinWithStatusAsCompleteOperationReasonForCancel> {
  
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkSentFyleMessageJoinWithStatusAsCompleteOperation.self))
@@ -46,6 +47,10 @@ final class MarkSentFyleMessageJoinWithStatusAsCompleteOperation: OperationWithS
                 guard !infos.isEmpty else {
                     return cancel(withReason: .couldNotFindPersistedMessageSentRecipientInfos)
                 }
+                // Mark all the approprate `PersistedAttachmentSentRecipientInfos` as complete
+                infos.forEach { info in
+                    info.attachmentInfos.first(where: { $0.index == attachmentNumber })?.status = .complete
+                }
                 persistedMessageSent = infos.first!.messageSent
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
@@ -55,9 +60,9 @@ final class MarkSentFyleMessageJoinWithStatusAsCompleteOperation: OperationWithS
                 return cancel(withReason: .noSentFyleMessageJoinWithStatusCorrespondingToReceivedAttachmentNumber)
             }
             
-            let fyleMessageJoinWithStatuses = persistedMessageSent.fyleMessageJoinWithStatuses[attachmentNumber]
-            
-            fyleMessageJoinWithStatuses.markAsComplete()
+            // Mark the appropriate `SentFyleMessageJoinWithStatus` as complete
+            let fyleMessageJoinWithStatus = persistedMessageSent.fyleMessageJoinWithStatuses[attachmentNumber]
+            fyleMessageJoinWithStatus.markAsComplete()
             
             do {
                 try context.save(logOnFailure: log)

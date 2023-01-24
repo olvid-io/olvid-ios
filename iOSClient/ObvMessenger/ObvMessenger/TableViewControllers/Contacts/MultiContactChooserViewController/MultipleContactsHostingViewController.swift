@@ -33,7 +33,7 @@ final class MultipleContactsHostingViewController: UIHostingController<ContactsV
     
     weak var delegate: MultipleContactsHostingViewControllerDelegate?
     
-    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, floatingButtonModel: FloatingButtonModel? = nil, delegate: MultiContactChooserViewControllerDelegate? = nil) throws {
+    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, textAboveContactList: String?, floatingButtonModel: FloatingButtonModel? = nil, delegate: MultiContactChooserViewControllerDelegate? = nil) throws {
         if allowMultipleSelection { assert(delegate != nil) }
         self.searchController = UISearchController(searchResultsController: nil)
         self.searchController.obscuresBackgroundDuringPresentation = false
@@ -44,6 +44,7 @@ final class MultipleContactsHostingViewController: UIHostingController<ContactsV
                                           allowMultipleSelection: allowMultipleSelection,
                                           showExplanation: showExplanation,
                                           selectionStyle: selectionStyle,
+                                          textAboveContactList: textAboveContactList,
                                           floatingButtonModel: floatingButtonModel)
         self.store = store
         self.searchController.searchResultsUpdater = store
@@ -145,6 +146,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
     let allowMultipleSelection: Bool
     let showExplanation: Bool
     let allowEmptySetOfContacts: Bool
+    let textAboveContactList: String?
     var selectionStyle: SelectionStyle? = nil
 
     var doneAction: (Set<PersistedObvContactIdentity>) -> Void
@@ -157,7 +159,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
 
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
-    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, button: MultipleContactsButton, defaultSelectedContacts: Set<PersistedObvContactIdentity> = Set(), disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, allowEmptySetOfContacts: Bool, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
+    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, button: MultipleContactsButton, defaultSelectedContacts: Set<PersistedObvContactIdentity> = Set(), disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, allowEmptySetOfContacts: Bool, textAboveContactList: String?, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
 
         self.ownedCryptoId = ownedCryptoId
         self.mode = mode
@@ -171,6 +173,7 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
         self.dismissAction = dismissAction
         self.selectedContacts = Set()
         self.allowEmptySetOfContacts = allowEmptySetOfContacts
+        self.textAboveContactList = textAboveContactList
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -185,7 +188,18 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
         super.viewDidLoad()
 
         setUserContactSelection(to: defaultSelectedContacts)
-        guard let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: disableContactsWithoutDevice, allowMultipleSelection: true, showExplanation: false, selectionStyle: .checkmark, floatingButtonModel: floatingButtonModel, delegate: self) else { return }
+        guard let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
+                                                                  mode: mode,
+                                                                  disableContactsWithoutDevice: disableContactsWithoutDevice,
+                                                                  allowMultipleSelection: true,
+                                                                  showExplanation: false,
+                                                                  selectionStyle: .checkmark,
+                                                                  textAboveContactList: textAboveContactList,
+                                                                  floatingButtonModel: floatingButtonModel,
+                                                                  delegate: self)
+        else {
+            return
+        }
         contactsViewController = vc
         self.navigationItem.searchController = vc.searchController
         switch button {
@@ -261,6 +275,7 @@ struct MultipleContactsView: UIViewControllerRepresentable {
     let allowMultipleSelection: Bool
     let showExplanation: Bool
     let allowEmptySetOfContacts: Bool
+    let textAboveContactList: String?
     var selectionStyle: SelectionStyle? = nil
     var doneAction: (Set<PersistedObvContactIdentity>) -> Void
     var dismissAction: () -> Void
@@ -271,7 +286,7 @@ struct MultipleContactsView: UIViewControllerRepresentable {
         Coordinator(allowEmptySetOfContacts: allowEmptySetOfContacts)
     }
 
-    init(ownedCryptoId: ObvCryptoId?, mode: MultipleContactsMode, button: MultipleContactsButton, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, allowEmptySetOfContacts: Bool, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
+    init(ownedCryptoId: ObvCryptoId?, mode: MultipleContactsMode, button: MultipleContactsButton, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, allowEmptySetOfContacts: Bool, textAboveContactList: String?, selectionStyle: SelectionStyle? = nil, doneAction: @escaping (Set<PersistedObvContactIdentity>) -> Void, dismissAction: @escaping () -> Void) {
         self.ownedCryptoId = ownedCryptoId
         self.mode = mode
         self.button = button
@@ -282,6 +297,7 @@ struct MultipleContactsView: UIViewControllerRepresentable {
         self.selectionStyle = selectionStyle
         self.doneAction = doneAction
         self.dismissAction = dismissAction
+        self.textAboveContactList = textAboveContactList
     }
 
     func makeUIViewController(context: UIViewControllerRepresentableContext<MultipleContactsView>) -> UINavigationController {
@@ -308,7 +324,16 @@ struct MultipleContactsView: UIViewControllerRepresentable {
             }
         }
         guard let ownedCryptoId = ownedCryptoId,
-              let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: disableContactsWithoutDevice, allowMultipleSelection: allowMultipleSelection, showExplanation: showExplanation,  selectionStyle: selectionStyle, floatingButtonModel: floatingButtonModel, delegate: context.coordinator) else {
+              let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
+                                                                  mode: mode,
+                                                                  disableContactsWithoutDevice: disableContactsWithoutDevice,
+                                                                  allowMultipleSelection: allowMultipleSelection,
+                                                                  showExplanation: showExplanation,
+                                                                  selectionStyle: selectionStyle,
+                                                                  textAboveContactList: textAboveContactList,
+                                                                  floatingButtonModel: floatingButtonModel,
+                                                                  delegate: context.coordinator)
+        else {
             return UINavigationController()
         }
         context.coordinator.doneButtonItem = doneButtonItem
@@ -391,6 +416,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     @Published var scrollToTop: Bool = false
     @Published var showSortingSpinner: Bool
     @Published var floatingButtonModel: FloatingButtonModel?
+    let textAboveContactList: String?
     let selectionStyle: SelectionStyle
 
     let allowMultipleSelection: Bool
@@ -407,7 +433,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
 
     private var notificationTokens = [NSObjectProtocol]()
 
-    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, floatingButtonModel: FloatingButtonModel? = nil) throws {
+    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, textAboveContactList: String?, floatingButtonModel: FloatingButtonModel? = nil) throws {
         assert(Thread.isMainThread)
         self.disableContactsWithoutDevice = disableContactsWithoutDevice
         self.mode = mode
@@ -421,6 +447,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
         self.selectionStyle = selectionStyle ?? .checkmark
         self.showSortingSpinner = false
         self.floatingButtonModel = floatingButtonModel
+        self.textAboveContactList = textAboveContactList
         super.init()
         self.selectedContacts = Binding(get: getSelectedContacts, set: setSelectedContacts)
         refreshFetchRequestWhenSortOrderChanges()
@@ -543,15 +570,7 @@ struct ContactsScrollingViewOrExplanationView: View {
         self.fetchRequest = FetchRequest(fetchRequest: store.fetchRequest)
     }
 
-    private var viewAboveContactsList: AnyView? {
-        switch store.mode.oneToOneStatus {
-        case .nonOneToOne:
-            return AnyView(erasing: Text("EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS"))
-        case .any, .oneToOne:
-            return nil
-        }
-    }
-    
+
     var body: some View {
         if store.showSortingSpinner {
             ObvProgressView()
@@ -569,7 +588,7 @@ struct ContactsScrollingViewOrExplanationView: View {
                                   scrollToTop: $store.scrollToTop,
                                   selectionStyle: store.selectionStyle,
                                   floatingButtonModel: store.floatingButtonModel,
-                                  viewAboveContactsList: viewAboveContactsList)
+                                  textAboveContactList: store.textAboveContactList)
         }
     }
 
@@ -621,11 +640,11 @@ fileprivate struct ContactsScrollingView: View {
     @Binding var scrollToTop: Bool
     fileprivate let selectionStyle: SelectionStyle
     let floatingButtonModel: FloatingButtonModel?
-    let viewAboveContactsList: AnyView?
+    let textAboveContactList: String?
     private var fetchRequest: FetchRequest<PersistedObvContactIdentity>
 
     
-    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, contactToScrollTo: Binding<PersistedObvContactIdentity?>, scrollToTop: Binding<Bool>, selectionStyle: SelectionStyle, floatingButtonModel: FloatingButtonModel?, viewAboveContactsList: AnyView?) {
+    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, contactToScrollTo: Binding<PersistedObvContactIdentity?>, scrollToTop: Binding<Bool>, selectionStyle: SelectionStyle, floatingButtonModel: FloatingButtonModel?, textAboveContactList: String?) {
         self.nsFetchRequest = nsFetchRequest
         self._multipleSelection = multipleSelection
         self._changed = changed
@@ -637,7 +656,7 @@ fileprivate struct ContactsScrollingView: View {
         self._scrollToTop = scrollToTop
         self.selectionStyle = selectionStyle
         self.floatingButtonModel = floatingButtonModel
-        self.viewAboveContactsList = viewAboveContactsList
+        self.textAboveContactList = textAboveContactList
         self.fetchRequest = FetchRequest(fetchRequest: nsFetchRequest)
     }
 
@@ -652,12 +671,17 @@ fileprivate struct ContactsScrollingView: View {
                           tappedContact: $tappedContact,
                           selectionStyle: selectionStyle,
                           addBottomPadding: floatingButtonModel != nil,
-                          viewAboveContactsList: viewAboveContactsList)
+                          textAboveContactList: textAboveContactList)
     }
 
     
     var body: some View {
         if fetchRequest.wrappedValue.isEmpty {
+            if let textAboveContactList {
+                List {
+                    TextAboveContactListView(textAboveContactList: textAboveContactList)
+                }
+            }
             Spacer()
             if let floatingButtonModel = floatingButtonModel {
                 FloatingButtonView(model: floatingButtonModel)
@@ -695,6 +719,22 @@ fileprivate struct ContactsScrollingView: View {
 }
 
 
+fileprivate struct TextAboveContactListView: View {
+    
+    let textAboveContactList: String
+    
+    var body: some View {
+        Section {
+            Text(textAboveContactList)
+                .padding(4)
+                .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                .font(.callout)
+        }
+    }
+    
+}
+
+
 
 fileprivate struct ContactsInnerView: View {
     
@@ -707,9 +747,9 @@ fileprivate struct ContactsInnerView: View {
     @Binding var tappedContact: PersistedObvContactIdentity?
     fileprivate let selectionStyle: SelectionStyle
     let addBottomPadding: Bool
-    let viewAboveContactsList: AnyView?
+    let textAboveContactList: String?
 
-    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, selectionStyle: SelectionStyle, addBottomPadding: Bool, viewAboveContactsList: AnyView?) {
+    init(nsFetchRequest: NSFetchRequest<PersistedObvContactIdentity>, multipleSelection: Binding<Set<PersistedObvContactIdentity>>, changed: Binding<Bool>, allowMultipleSelection: Bool, disableContactsWithoutDevice: Bool, userWantsToNavigateToSingleContactIdentityView: @escaping (PersistedObvContactIdentity) -> Void, tappedContact: Binding<PersistedObvContactIdentity?>, selectionStyle: SelectionStyle, addBottomPadding: Bool, textAboveContactList: String?) {
         self.fetchRequest = FetchRequest(fetchRequest: nsFetchRequest)
         self._multipleSelection = multipleSelection
         self._changed = changed
@@ -719,7 +759,7 @@ fileprivate struct ContactsInnerView: View {
         self._tappedContact = tappedContact
         self.selectionStyle = selectionStyle
         self.addBottomPadding = addBottomPadding
-        self.viewAboveContactsList = viewAboveContactsList
+        self.textAboveContactList = textAboveContactList
     }
     
     private func contactCellCanBeSelected(for contact: PersistedObvContactIdentity) -> Bool {
@@ -732,13 +772,8 @@ fileprivate struct ContactsInnerView: View {
     
     var body: some View {
         List {
-            if let view = viewAboveContactsList {
-                Section {
-                    view
-                        .padding(4)
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                        .font(.callout)
-                }
+            if let textAboveContactList {
+                TextAboveContactListView(textAboveContactList: textAboveContactList)
             }
             Section {
                 ForEach(fetchRequest.wrappedValue, id: \.self) { contact in

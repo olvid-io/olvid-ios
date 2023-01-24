@@ -29,7 +29,7 @@ public struct ContactManagementProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.ContactManagement
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.Final, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Final, StateId.Cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

@@ -40,8 +40,8 @@ protocol ConcreteCryptoProtocol: CustomStringConvertible {
     var obvContext: ObvContext { get }
     
     var currentState: ConcreteProtocolState { get }
-    var finalStateIds: [ConcreteProtocolStateId] { get }
-    var finalStateRawIds: [Int] { get }
+    static var finalStateIds: [ConcreteProtocolStateId] { get }
+    static var finalStateRawIds: [Int] { get }
     static var allStepIds: [ConcreteProtocolStepId] { get }
     
     var delegateManager: ObvProtocolDelegateManager { get }
@@ -107,16 +107,16 @@ extension ConcreteCryptoProtocol {
         return candidateSteps.first
     }
     
-    var finalStateRawIds: [Int] {
+    static var finalStateRawIds: [Int] {
         return finalStateIds.map { $0.rawValue }
     }
     
     func reachesFinalState(with state: ConcreteProtocolState) -> Bool {
-        return finalStateRawIds.contains(state.rawId)
+        return Self.finalStateRawIds.contains(state.rawId)
     }
 
     func reachedFinalState() -> Bool {
-        return finalStateRawIds.contains(currentState.rawId)
+        return Self.finalStateRawIds.contains(currentState.rawId)
     }
     
     func transitionedTo(_ newProtocolState: ConcreteProtocolState) -> ConcreteCryptoProtocol {

@@ -21,6 +21,7 @@
 import Foundation
 import ObvEngine
 import os.log
+import CloudKit
 
 
 final actor AppManagersHolder {
@@ -54,6 +55,9 @@ final actor AppManagersHolder {
     }
     var createPasscodeDelegate: CreatePasscodeDelegate {
         localAuthenticationManager
+    }
+    var appBackupDelegate: AppBackupDelegate {
+        appBackupManager
     }
 
     init(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager, userNotificationsManager: UserNotificationsManager) {
@@ -93,6 +97,7 @@ final actor AppManagersHolder {
         await keycloakManager.performPostInitialization()
         await webSocketManager.performPostInitialization()
         await localAuthenticationManager.performPostInitialization()
+        await snackBarManager.performPostInitialization()
     }
     
     
@@ -135,4 +140,20 @@ final actor AppManagersHolder {
         await backgroundTasksManager.scheduleBackgroundTasks()
     }
 
+}
+
+
+// MARK: - AppBackupDelegate
+
+protocol AppBackupDelegate: AnyObject {
+    func deleteCloudBackup(record: CKRecord) async throws
+    func getLatestCloudBackup(desiredKeys: [AppBackupManager.Key]?) async throws -> CKRecord?
+    func getBackupsAndDevicesCount(identifierForVendor: UUID?) async throws -> (backupCount: Int, deviceCount: Int)
+    func checkAccount() async throws
+    func getAccountStatus() async throws -> CKAccountStatus
+
+    func exportBackup(sourceView: UIView, sourceViewController: UIViewController) async throws -> Bool
+    func uploadBackupToICloud() async throws
+
+    var cleaningProgress: ObvProgress? { get async }
 }

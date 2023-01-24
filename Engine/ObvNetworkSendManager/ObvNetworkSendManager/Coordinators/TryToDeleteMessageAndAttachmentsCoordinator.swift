@@ -152,8 +152,8 @@ extension TryToDeleteMessageAndAttachmentsCoordinator: TryToDeleteMessageAndAtta
                     removeTheAttachmentFilesThatAreMarkedAsDeleteAfterSend(attachments: message.attachments)
                     
                     // We remove the database entries (deleting the message cascade deletes the headers and attachments)
-                    obvContext.delete(message)
                     do {
+                        try message.deleteThisOutboxMessage()
                         try obvContext.save(logOnFailure: log)
                     } catch {
                         os_log("We could not delete the message %{public}@ nor its attachments", log: log, type: .error, messageId.debugDescription)
@@ -324,8 +324,8 @@ extension TryToDeleteMessageAndAttachmentsCoordinator: URLSessionDataDelegate {
             removeTheAttachmentFilesThatAreMarkedAsDeleteAfterSend(attachments: message.attachments)
             
             // We remove the database entries (deleting the message cascade deletes the headers and attachments)
-            obvContext.delete(message)
             do {
+                try message.deleteThisOutboxMessage()
                 try obvContext.save(logOnFailure: log)
             } catch {
                 os_log("We could not delete the message %{public}@ nor its attachments", log: log, type: .error, messageId.debugDescription)

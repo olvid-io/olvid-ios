@@ -95,20 +95,23 @@ struct CircleAndTitlesView: View {
     private var pictureView: some View {
         ZStack {
             if #available(iOS 14.0, *) {
-                pictureViewInner
-                    .onTapGesture {
-                        guard case .header = displayMode else { return }
-                        guard profilePicture != nil else {
-                            profilePictureFullScreenIsPresented = false
-                            return
+                if case .header = displayMode {
+                    pictureViewInner
+                        .onTapGesture {
+                            guard profilePicture != nil else {
+                                profilePictureFullScreenIsPresented = false
+                                return
+                            }
+                            profilePictureFullScreenIsPresented.toggle()
                         }
-                        profilePictureFullScreenIsPresented.toggle()
-                    }
-                    .fullScreenCover(isPresented: $profilePictureFullScreenIsPresented) {
-                        FullScreenProfilePictureView(photo: profilePicture)
-                            .background(BackgroundBlurView()
-                                            .edgesIgnoringSafeArea(.all))
-                    }
+                        .fullScreenCover(isPresented: $profilePictureFullScreenIsPresented) {
+                            FullScreenProfilePictureView(photo: profilePicture)
+                                .background(BackgroundBlurView()
+                                    .edgesIgnoringSafeArea(.all))
+                        }
+                } else {
+                    pictureViewInner
+                }
             } else {
                 pictureViewInner
             }
@@ -156,7 +159,7 @@ struct CircleAndTitlesView: View {
 
 fileprivate struct FullScreenProfilePictureView: View {
     @Environment(\.presentationMode) var presentationMode
-    var photo: UIImage? // We use a binding here because this is what a SingleIdentity exposes
+    let photo: UIImage?
 
     var body: some View {
         ZStack {

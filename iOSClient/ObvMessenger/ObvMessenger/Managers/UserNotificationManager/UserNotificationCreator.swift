@@ -23,6 +23,7 @@ import CoreData
 import ObvEngine
 import Intents
 import os.log
+import MobileCoreServices
 
 struct UserNotificationKeys {
     static let id = "id"
@@ -154,8 +155,25 @@ struct UserNotificationCreator {
         return (notificationId, notificationContent)
 
     }
-    
-    
+
+    // Location of file used by UNNotificationAttachement
+    enum NotificationAttachmentLocation {
+        // The location will be the the identifier of the notificationID
+        case notificationID
+        // Custom identifier (e.g the notification service uses an UUID and not notificationID)
+        case custom(_: String)
+
+        func getLocation(_ notificationId: ObvUserNotificationIdentifier) -> String {
+            switch self {
+            case .notificationID:
+                return notificationId.getIdentifier()
+            case .custom(let identifier):
+                return identifier
+            }
+        }
+    }
+
+
     struct NewMessageNotificationInfos {
         
         let body: String
@@ -167,8 +185,13 @@ struct UserNotificationCreator {
         let discussionNotificationSound: NotificationSound?
         let isEphemeralMessageWithUserAction: Bool
         let sendMessageIntentInfos: SendMessageIntentInfos? // Only used for iOS15+
+        let attachmentLocation: NotificationAttachmentLocation
+        let attachmentsCount: Int
+        let attachementImages: [NotificationAttachmentImage]?
 
-        init(messageReceived: PersistedMessageReceived.Structure, urlForStoringPNGThumbnail: URL?) {
+        init(messageReceived: PersistedMessageReceived.Structure,
+             attachmentLocation: NotificationAttachmentLocation,
+             urlForStoringPNGThumbnail: URL?) {
             self.body = messageReceived.textBody ?? ""
             self.messageIdentifierFromEngine = messageReceived.messageIdentifierFromEngine
             self.contactObjectID = messageReceived.contact.typedObjectID
@@ -185,13 +208,24 @@ struct UserNotificationCreator {
             self.discussionNotificationSound = messageReceived.discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = messageReceived.isReplyToAnotherMessage
             if #available(iOS 15.0, *) {
-                sendMessageIntentInfos = SendMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+                self.sendMessageIntentInfos = SendMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             } else {
-                sendMessageIntentInfos = nil
+                self.sendMessageIntentInfos = nil
             }
+            self.attachmentLocation = attachmentLocation
+            self.attachmentsCount = messageReceived.attachmentsCount
+            self.attachementImages = messageReceived.attachementImages
         }
         
-        init(body: String, messageIdentifierFromEngine: Data, contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, isEphemeralMessageWithUserAction: Bool, urlForStoringPNGThumbnail: URL?) async {
+        init(body: String,
+             messageIdentifierFromEngine: Data,
+             contact: PersistedObvContactIdentity.Structure,
+             discussionKind: PersistedDiscussion.StructureKind,
+             isEphemeralMessageWithUserAction: Bool,
+             attachmentsCount: Int,
+             attachementImages: [NotificationAttachmentImage]?,
+             attachmentLocation: NotificationAttachmentLocation,
+             urlForStoringPNGThumbnail: URL?) async {
             self.body = body
             self.messageIdentifierFromEngine = messageIdentifierFromEngine
             self.contactObjectID = contact.typedObjectID
@@ -212,14 +246,15 @@ struct UserNotificationCreator {
             } else {
                 self.sendMessageIntentInfos = nil
             }
+            self.attachmentLocation = attachmentLocation
+            self.attachmentsCount = attachmentsCount
+            self.attachementImages = attachementImages
         }
 
     }
-    
-    
+
     /// This static method creates a new message notification.
     static func createNewMessageNotification(infos: NewMessageNotificationInfos,
-                                             attachmentsFileNames: [String],
                                              badge: NSNumber? = nil) ->
     (notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent) {
                 
@@ -245,19 +280,16 @@ struct UserNotificationCreator {
                 notificationContent.subtitle = groupDiscussionTitle
             }
             if infos.body.isEmpty {
-                if attachmentsFileNames.count == 1 {
-                    notificationContent.body = "\(attachmentsFileNames.first!)"
-                } else if attachmentsFileNames.count > 1 {
-                    notificationContent.body = Strings.NewPersistedMessageReceived.body(attachmentsFileNames.first!, attachmentsFileNames.count-1)
+                if infos.attachmentsCount == 0 {
+                    notificationContent.body = UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body
+                } else {
+                    notificationContent.body = Strings.NewPersistedMessageReceived.body(infos.attachmentsCount)
                 }
             } else {
-                let body = infos.body
-                if attachmentsFileNames.count == 1 {
-                    notificationContent.body = [body, "\(attachmentsFileNames.first!)"].joined(separator: "\n")
-                } else if attachmentsFileNames.count > 1 {
-                    notificationContent.body = [body, Strings.NewPersistedMessageReceived.body(attachmentsFileNames.first!, attachmentsFileNames.count-1)].joined(separator: "\n")
+                if infos.attachmentsCount == 0 {
+                    notificationContent.body = infos.body
                 } else {
-                    notificationContent.body = "\(body)"
+                    notificationContent.body = [infos.body, Strings.NewPersistedMessageReceived.body(infos.attachmentsCount)].joined(separator: "\n")
                 }
             }
 
@@ -277,6 +309,11 @@ struct UserNotificationCreator {
             }
 
             setNotificationSound(discussionNotificationSound: infos.discussionNotificationSound, notificationContent: notificationContent)
+
+            let location = infos.attachmentLocation.getLocation(notificationId)
+            setNotificationAttachments(location: location,
+                                       attachementImages: infos.attachementImages,
+                                       notificationContent: notificationContent)
 
         case .partially:
 
@@ -742,5 +779,124 @@ struct UserNotificationCreator {
             }
         }
     }
+
     
+    private static func setNotificationAttachments(location: String, attachementImages: [NotificationAttachmentImage]?, notificationContent: UNMutableNotificationContent) {
+        
+        guard let attachementImages = attachementImages else { return }
+        var notificationAttachments = [UNNotificationAttachment]()
+        for attachementImage in attachementImages {
+            let url = getNotificationAttachmentURL(location: location,
+                                                   quality: attachementImage.quality,
+                                                   attachmentNumber: attachementImage.attachmentNumber)
+            guard let dataOrURL = attachementImage.dataOrURL else {
+                os_log("Cannot compute downsized image data or url", log: Self.log, type: .fault)
+                assertionFailure(); continue
+            }
+            do {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
+                guard !FileManager.default.fileExists(atPath: url.path) else {
+                    continue
+                }
+                switch dataOrURL {
+                case .data(let data):
+                    try data.write(to: url)
+                case .url(let fyleUrl):
+                    let data = try Data(contentsOf: fyleUrl)
+                    guard let image = UIImage(data: data) else {
+                        os_log("Cannot compute downsized image data or url", log: Self.log, type: .fault)
+                        assertionFailure(); continue
+                    }
+                    let resizedImage = image.resize(with: max(UIScreen.main.bounds.size.height, UIScreen.main.bounds.size.width))
+                    guard let newData = resizedImage?.jpegData(compressionQuality: 0.75) else {
+                        os_log("Cannot compute downsized image data or url", log: Self.log, type: .fault)
+                        assertionFailure(); continue
+                    }
+                    try newData.write(to: url)
+                }
+                notificationAttachments += [try UNNotificationAttachment(identifier: "", url: url)]
+            } catch(let error) {
+                os_log("Cannot build notification attachments: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure(); continue
+            }
+        }
+        notificationContent.attachments = notificationAttachments
+
+    }
+
+    
+    private static func getNotificationAttachmentURL(location: String, quality: String, attachmentNumber: Int) -> URL {
+        var url = ObvMessengerConstants.containerURL.forNotificationAttachments
+        url.appendPathComponent(location)
+        url.appendPathComponent(quality)
+        url.appendPathComponent(String(attachmentNumber))
+        if #available(iOS 14.0, *) {
+            url.appendPathExtension(for: .jpeg)
+        } else {
+            url.appendPathExtension("jpeg")
+        }
+        return url
+    }
+
+}
+
+enum NotificationAttachmentImage {
+    case cgImage(attachmentNumber: Int, _: CGImage)
+    case data(attachmentNumber: Int, _: Data)
+    case url(attachmentNumber: Int, _: URL)
+
+    var attachmentNumber: Int {
+        switch self {
+        case .cgImage(let attachmentNumber, _),
+                .data(let attachmentNumber, _),
+                .url(let attachmentNumber, _):
+            return attachmentNumber
+        }
+    }
+
+    enum DataOrURL {
+        case data(_: Data)
+        case url(_: URL)
+    }
+
+    var dataOrURL: DataOrURL? {
+        switch self {
+        case .cgImage(_, let cgImage):
+            let image = UIImage(cgImage: cgImage)
+            guard let jpegData = image.jpegData(compressionQuality: 1.0) else {
+                assertionFailure(); return nil
+            }
+            return .data(jpegData)
+        case .data(_, let data):
+            return .data(data)
+        case .url(_, let url):
+            return .url(url)
+        }
+    }
+
+    var quality: String {
+        switch self {
+        case .cgImage, .data:
+            return "small"
+        case .url:
+            return "large"
+        }
+
+    }
+}
+
+extension ReceivedFyleMessageJoinWithStatus {
+
+    var attachementImage: NotificationAttachmentImage? {
+        guard !receivedMessage.readingRequiresUserAction else { return nil }
+        if let fyleElement = fyleElementOfReceivedJoin, fyleElement.fullFileIsAvailable {
+            guard ObvUTIUtils.uti(fyleElement.uti, conformsTo: kUTTypeJPEG) else { return nil }
+            return .url(attachmentNumber: index, fyleElement.fyleURL)
+        } else if let data = downsizedThumbnail {
+            return .data(attachmentNumber: index, data)
+        } else {
+            return nil
+        }
+    }
+
 }

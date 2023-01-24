@@ -67,7 +67,7 @@ final class InsertCurrentDiscussionSharedConfigurationSystemMessageOperation: Op
             }
 
             do {
-                try PersistedMessageSystem.insertUpdatedDiscussionSharedSettingsSystemMessage(within: discussion, optionalContactIdentity: contact, expirationJSON: expirationJSON, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                try PersistedMessageSystem.insertUpdatedDiscussionSharedSettingsSystemMessage(within: discussion, optionalContactIdentity: contact, expirationJSON: expirationJSON, messageUploadTimestampFromServer: messageUploadTimestampFromServer, markAsRead: false)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

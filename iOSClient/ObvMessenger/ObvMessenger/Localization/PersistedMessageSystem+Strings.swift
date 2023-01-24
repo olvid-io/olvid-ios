@@ -32,6 +32,15 @@ extension PersistedMessageSystem {
     
     struct Strings {
         
+        static let ownedIdentityDidCaptureSensitiveMessages = NSLocalizedString("YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE", comment: "")
+        static let contactIdentityDidCaptureSensitiveMessages: (String?) -> String = { (contactDisplayName: String?) in
+            if let contactDisplayName {
+                return String.localizedStringWithFormat(NSLocalizedString("CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@", comment: ""), contactDisplayName)
+            } else {
+                return NSLocalizedString("CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN", comment: "")
+            }
+        }
+        
         static let ownedIdentityIsPartOfGroupV2Admins = NSLocalizedString("YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2", comment: "")
         static let ownedIdentityIsNoLongerPartOfGroupV2Admins = NSLocalizedString("YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2", comment: "")
 

@@ -62,8 +62,9 @@ public enum ObvNetworkFetchNotificationNew {
 	case wellKnownDownloadFailure(serverURL: URL, flowId: FlowIdentifier)
 	case apiKeyStatusQueryFailed(ownedIdentity: ObvCryptoIdentity, apiKey: UUID)
 	case applicationMessageDecrypted(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
-	case downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, extendedMessagePayload: Data, flowId: FlowIdentifier)
+	case downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier)
 	case downloadingMessageExtendedPayloadFailed(messageId: MessageIdentifier, flowId: FlowIdentifier)
+	case pushTopicReceivedViaWebsocket(pushTopic: String)
 
 	private enum Name {
 		case serverReportedThatAnotherDeviceIsAlreadyRegistered
@@ -97,6 +98,7 @@ public enum ObvNetworkFetchNotificationNew {
 		case applicationMessageDecrypted
 		case downloadingMessageExtendedPayloadWasPerformed
 		case downloadingMessageExtendedPayloadFailed
+		case pushTopicReceivedViaWebsocket
 
 		private var namePrefix: String { String(describing: ObvNetworkFetchNotificationNew.self) }
 
@@ -140,6 +142,7 @@ public enum ObvNetworkFetchNotificationNew {
 			case .applicationMessageDecrypted: return Name.applicationMessageDecrypted.name
 			case .downloadingMessageExtendedPayloadWasPerformed: return Name.downloadingMessageExtendedPayloadWasPerformed.name
 			case .downloadingMessageExtendedPayloadFailed: return Name.downloadingMessageExtendedPayloadFailed.name
+			case .pushTopicReceivedViaWebsocket: return Name.pushTopicReceivedViaWebsocket.name
 			}
 		}
 	}
@@ -310,16 +313,19 @@ public enum ObvNetworkFetchNotificationNew {
 				"hasEncryptedExtendedMessagePayload": hasEncryptedExtendedMessagePayload,
 				"flowId": flowId,
 			]
-		case .downloadingMessageExtendedPayloadWasPerformed(messageId: let messageId, extendedMessagePayload: let extendedMessagePayload, flowId: let flowId):
+		case .downloadingMessageExtendedPayloadWasPerformed(messageId: let messageId, flowId: let flowId):
 			info = [
 				"messageId": messageId,
-				"extendedMessagePayload": extendedMessagePayload,
 				"flowId": flowId,
 			]
 		case .downloadingMessageExtendedPayloadFailed(messageId: let messageId, flowId: let flowId):
 			info = [
 				"messageId": messageId,
 				"flowId": flowId,
+			]
+		case .pushTopicReceivedViaWebsocket(pushTopic: let pushTopic):
+			info = [
+				"pushTopic": pushTopic,
 			]
 		}
 		return info
@@ -616,13 +622,12 @@ public enum ObvNetworkFetchNotificationNew {
 		}
 	}
 
-	public static func observeDownloadingMessageExtendedPayloadWasPerformed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, Data, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeDownloadingMessageExtendedPayloadWasPerformed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.downloadingMessageExtendedPayloadWasPerformed.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
-			let extendedMessagePayload = notification.userInfo!["extendedMessagePayload"] as! Data
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(messageId, extendedMessagePayload, flowId)
+			block(messageId, flowId)
 		}
 	}
 
@@ -632,6 +637,14 @@ public enum ObvNetworkFetchNotificationNew {
 			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, flowId)
+		}
+	}
+
+	public static func observePushTopicReceivedViaWebsocket(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (String) -> Void) -> NSObjectProtocol {
+		let name = Name.pushTopicReceivedViaWebsocket.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let pushTopic = notification.userInfo!["pushTopic"] as! String
+			block(pushTopic)
 		}
 	}
 

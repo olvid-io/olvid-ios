@@ -227,8 +227,10 @@ extension ContactIdentityCoordinator {
 
 
     private func observeCurrentOwnedCryptoIdChangedNotifications() {
-        let token = ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged(queue: internalQueue) { [weak self] (newOwnedCryptoId, apiKey) in
-            self?.currentOwnedCryptoId = newOwnedCryptoId
+        let token = ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged { [weak self] (newOwnedCryptoId, apiKey) in
+            self?.internalQueue.addOperation {
+                self?.currentOwnedCryptoId = newOwnedCryptoId
+            }
         }
         observationTokens.append(token)
     }

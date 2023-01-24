@@ -126,6 +126,10 @@ final class PersistedObvContactIdentity: NSManagedObject {
     var customOrNormalDisplayName: String {
         return customDisplayName ?? mediumOriginalName
     }
+    
+    var customOrShortDisplayName: String {
+        return customDisplayName ?? shortOriginalName
+    }
 
     var customPhotoURL: URL? {
         guard let customPhotoFilename = customPhotoFilename else { return nil }
@@ -384,7 +388,7 @@ extension PersistedObvContactIdentity {
     }
     
     func set(_ newContactDevices: Set<ObvContactDevice>) throws {
-        guard let context = self.managedObjectContext else { throw NSError() }
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let currentDeviceIdentifiers: Set<Data> = Set(self.devices.compactMap { $0.identifier })
         let newDeviceIdentifiers = Set(newContactDevices.map { $0.identifier })
         let devicesToAdd = newContactDevices.filter { !currentDeviceIdentifiers.contains($0.identifier) }
@@ -740,7 +744,7 @@ extension PersistedObvContactIdentity {
     
     
     static func getFetchedResultsControllerForContactGroup(_ persistedContactGroup: PersistedContactGroup, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus) throws -> NSFetchedResultsController<PersistedObvContactIdentity> {
-        guard let context = persistedContactGroup.managedObjectContext else { throw NSError() }
+        guard let context = persistedContactGroup.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let predicate = getPredicateForContactGroup(persistedContactGroup)
         return getFetchedResultsController(predicate: predicate, whereOneToOneStatusIs: oneToOneStatus, within: context)
     }

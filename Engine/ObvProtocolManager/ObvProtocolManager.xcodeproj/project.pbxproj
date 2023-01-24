@@ -53,6 +53,7 @@
 		C4744F6E228ABF4F003312D9 /* GroupInvitationProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4744F6D228ABF4F003312D9 /* GroupInvitationProtocolSteps.swift */; };
 		C4744F70228ABF58003312D9 /* GroupInvitationProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4744F6F228ABF58003312D9 /* GroupInvitationProtocolMessages.swift */; };
 		C4744F72228ABF5F003312D9 /* GroupInvitationProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4744F71228ABF5F003312D9 /* GroupInvitationProtocolStates.swift */; };
+		C475AC9928F09116000A3045 /* DeleteProtocolInstancesInAFinalStateOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C475AC9828F09116000A3045 /* DeleteProtocolInstancesInAFinalStateOperation.swift */; };
 		C476934A2022230D008E2E28 /* ConcreteCryptoProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47693492022230D008E2E28 /* ConcreteCryptoProtocol.swift */; };
 		C476934C2022233B008E2E28 /* ConcreteProtocolState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C476934B2022233B008E2E28 /* ConcreteProtocolState.swift */; };
 		C476934E202223FC008E2E28 /* ConcreteProtocolMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C476934D202223FC008E2E28 /* ConcreteProtocolMessage.swift */; };
@@ -195,6 +196,7 @@
 		C4744F6D228ABF4F003312D9 /* GroupInvitationProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInvitationProtocolSteps.swift; sourceTree = "<group>"; };
 		C4744F6F228ABF58003312D9 /* GroupInvitationProtocolMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInvitationProtocolMessages.swift; sourceTree = "<group>"; };
 		C4744F71228ABF5F003312D9 /* GroupInvitationProtocolStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInvitationProtocolStates.swift; sourceTree = "<group>"; };
+		C475AC9828F09116000A3045 /* DeleteProtocolInstancesInAFinalStateOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteProtocolInstancesInAFinalStateOperation.swift; sourceTree = "<group>"; };
 		C47693492022230D008E2E28 /* ConcreteCryptoProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcreteCryptoProtocol.swift; sourceTree = "<group>"; };
 		C476934B2022233B008E2E28 /* ConcreteProtocolState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcreteProtocolState.swift; sourceTree = "<group>"; };
 		C476934D202223FC008E2E28 /* ConcreteProtocolMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcreteProtocolMessage.swift; sourceTree = "<group>"; };
@@ -338,6 +340,7 @@
 			children = (
 				C41220D1201F10E600AE66CE /* ProtocolOperation.swift */,
 				C486A9A220237DDE00DCDDA3 /* ProtocolStep.swift */,
+				C475AC9828F09116000A3045 /* DeleteProtocolInstancesInAFinalStateOperation.swift */,
 			);
 			path = Operations;
 			sourceTree = "<group>";
@@ -854,6 +857,7 @@
 				C09DA07C25F7BA3000CDCB5F /* KeycloakContactAdditionProtocolStates.swift in Sources */,
 				C4EF525022D362C500B505B0 /* ContactManagementProtocol.swift in Sources */,
 				C4224DD2243CB313008E43B8 /* FullRatchetProtocolMessages.swift in Sources */,
+				C475AC9928F09116000A3045 /* DeleteProtocolInstancesInAFinalStateOperation.swift in Sources */,
 				C476934A2022230D008E2E28 /* ConcreteCryptoProtocol.swift in Sources */,
 				C4FC8E2420E1396300467BE8 /* ChannelCreationWithContactDeviceProtocolMessages.swift in Sources */,
 				C461DAF121068A5500A936FA /* ContactMutualIntroductionProtocolMessages.swift in Sources */,

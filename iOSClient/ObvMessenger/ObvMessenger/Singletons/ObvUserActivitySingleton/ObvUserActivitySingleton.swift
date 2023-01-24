@@ -25,9 +25,7 @@ final class ObvUserActivitySingleton: NSObject, UINavigationControllerDelegate {
 
     private let internalQueue = DispatchQueue(label: "ObvUserActivitySingleton internal queue")
     
-    private var observationToken: NSObjectProtocol?
-
-    private(set) var currentUserActivity = ObvUserActivityType.other
+    @Published private(set) var currentUserActivity = ObvUserActivityType.other
         
     var currentPersistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? {
         switch currentUserActivity {
@@ -52,7 +50,7 @@ final class ObvUserActivitySingleton: NSObject, UINavigationControllerDelegate {
 
 extension ObvUserActivitySingleton {
     
-    /// This sigleton is set as the delegate of the four UINavigationControllers (which are ObvFlowControllers) corresponding to the four main tabs (discussions, contacts,
+    /// This singleton is set as the delegate of the four UINavigationControllers (which are ObvFlowControllers) corresponding to the four main tabs (discussions, contacts,
     /// groups, and invitations). It is also the delegate of the navigation controller constructed when using a split screen (e.g., on an iPad), where the split view controller shows
     /// a UINavigationController for its secondary view controller. Being a delegate of these UINavigationControllers makes it possible to be notified each time their stack of
     /// controllers is updated (which happens, e.g., when the user pushes a new discussion on screen, or pops one). Each time this happens, we get a change to update
@@ -64,28 +62,34 @@ extension ObvUserActivitySingleton {
             guard let _self = self else { return }
             
             let previousUserActivity = _self.currentUserActivity
-            
+                        
+            let newUserActivity: ObvUserActivityType
             switch viewController {
             case is RecentDiscussionsViewController:
-                self?.currentUserActivity = .watchLatestDiscussions
+                newUserActivity = .watchLatestDiscussions
             case let vc as SomeSingleDiscussionViewController:
                 let discussionObjectID = vc.discussionObjectID
-                self?.currentUserActivity = .continueDiscussion(persistedDiscussionObjectID: discussionObjectID)
+                newUserActivity = .continueDiscussion(persistedDiscussionObjectID: discussionObjectID)
             case is SomeSingleContactViewController:
-                self?.currentUserActivity = .displaySingleContact
+                newUserActivity = .displaySingleContact
             case is AllContactsViewController:
-                self?.currentUserActivity = .displayContacts
+                newUserActivity = .displayContacts
             case is NewAllGroupsViewController:
-                self?.currentUserActivity = .displayGroups
+                newUserActivity = .displayGroups
             case is SingleGroupViewController:
-                self?.currentUserActivity = .displaySingleGroup
+                newUserActivity = .displaySingleGroup
             case is SingleGroupV2ViewController:
-                self?.currentUserActivity = .displaySingleGroup
+                newUserActivity = .displaySingleGroup
             case is InvitationsCollectionViewController:
-                self?.currentUserActivity = .displayInvitations
+                newUserActivity = .displayInvitations
             default:
-                self?.currentUserActivity = .other
+                newUserActivity = .other
             }
+            
+            guard newUserActivity != previousUserActivity else { return }
+            
+            self?.currentUserActivity = newUserActivity
+            
             debugPrint("📺 Current user activity is \(String(describing: self?.currentUserActivity.debugDescription))")
             
             // Inform the system about the user new activity

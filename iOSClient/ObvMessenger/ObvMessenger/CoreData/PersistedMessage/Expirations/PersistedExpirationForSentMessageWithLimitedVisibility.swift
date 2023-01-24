@@ -28,9 +28,6 @@ final class PersistedExpirationForSentMessageWithLimitedVisibility: PersistedMes
     private static let entityName = "PersistedExpirationForSentMessageWithLimitedVisibility"
     private static let messageSentWithLimitedVisibilityKey = "messageSentWithLimitedVisibility"
 
-    private static let errorDomain = "PersistedExpirationForSentMessageWithLimitedVisibility"
-    private func makeError(message: String) -> Error { NSError(domain: PersistedExpirationForSentMessageWithLimitedVisibility.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
     // MARK: - Attributes
     
     @NSManaged private(set) var retainWipedMessageSent: Bool
@@ -52,7 +49,7 @@ final class PersistedExpirationForSentMessageWithLimitedVisibility: PersistedMes
     }
     
     func delete() throws {
-        guard let context = self.managedObjectContext else { throw makeError(message: "Could not find context") }
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         context.delete(self)
     }
 }

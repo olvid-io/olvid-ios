@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.12.0 (580)] - 2022-10-22
+
+- Bienvenue aux nouvelles discussions de groupe ! Vous pouvez maintenant les configurer avec autant d'administrateurs que vous voulez.
+- Les sauvegardes sont plus rapides et encore plus robustes qu'avant.
+- Le nom d'un contact qui supprime un message pour tous est maintenant affiché directement dans la discussion.
+- Les fichiers csv peuvent maintenant être partagés vers Olvid avec AirDrop. Youpi !
+- Taper un nouveau message place la discussion au sommet de la liste des discussions récentes.
+- Vous êtes maintenant notifié quand un contact fait une capture d'écran affichant des messages sensibles (à lecture unique ou à visibilité limitée).
+- La progression des téléchargements peut être consultée depuis le panel d'information du message associé.
+- Sous iPad, il arrivait que le défilement jusqu'au message le plus récent ne fonctionne pas à l'ouverture d'une discussion. C'est corrigé.
+- Les notifications utilisateur affichent une petite prévisualisation des pièces jointes lorsque cela est possible.
+- Vous êtes maintenant notifié lorsqu'un message ne peut être envoyé après de nombreuses tentatives.
+- Une nouvelle option permet de télécharger automatiquement toutes les pièces jointes, indépendamment de leur taille.
+- Les révocations envoyées par Keycloak sont maintenant reçues même si les notifications push sont désactivées.
+- Corrige un bug visuel se produisant à l'envoi d'un message audio.
+- Corrige un potentiel crash sous iOS 16 se produisant pendant une recherche Keycloak.
+- Corrige un problème rencontré sous iOS 16 concernant les autorisations systématiques demandées au moment de faire un copier/coller.
+- Corrige un bug empêchant l'affichage de certaines notifications d'appel manqué.
+- Le démarrage d'Olvid est encore plus rapide qu'avant.
+- Afin de ne jamais rater un appel sécurisé, vous avez maintenant la possibilité d'accorder l'accès au micro pendant l'onboarding.
+
 ## [0.11.1 (564)] - 2022-09-22
 
 - Il est maintenant possible de choisir un PIN ou un mot de passe personnalisé pour déverrouiller Olvid !

@@ -26,25 +26,22 @@ import ObvTypes
 import ObvCrypto
 
 @objc(ProtocolInstance)
-class ProtocolInstance: NSManagedObject, ObvManagedObject {
+final class ProtocolInstance: NSManagedObject, ObvManagedObject {
     
     // MARK: Internal constants
     
     private static let entityName = "ProtocolInstance"
-    static let uidKey = "uid"
-    private static let cryptoProtocolRawIdKey = "cryptoProtocolRawId"
-    static let ownedCryptoIdentityKey = "ownedCryptoIdentity"
     
     // MARK: Attributes
     
     private(set) var cryptoProtocolId: CryptoProtocolId {
         get {
-            let rawValue = kvoSafePrimitiveValue(forKey: ProtocolInstance.cryptoProtocolRawIdKey) as! Int
+            let rawValue = kvoSafePrimitiveValue(forKey: Predicate.Key.cryptoProtocolRawId.rawValue) as! Int
             let cryptoProtocolId = CryptoProtocolId(rawValue: rawValue)!
             return cryptoProtocolId
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue.rawValue, forKey: ProtocolInstance.cryptoProtocolRawIdKey)
+            kvoSafeSetPrimitiveValue(newValue.rawValue, forKey: Predicate.Key.cryptoProtocolRawId.rawValue)
         }
     }
     
@@ -117,7 +114,26 @@ extension ProtocolInstance {
 // MARK: - Convenience DB getters
 extension ProtocolInstance {
 
-    // MARK: Fetch request
+    struct Predicate {
+        enum Key: String {
+            case uid = "uid"
+            case cryptoProtocolRawId = "cryptoProtocolRawId"
+            case ownedCryptoIdentity = "ownedCryptoIdentity"
+            case currentStateRawId = "currentStateRawId"
+        }
+        static func withCryptoProtocolId(_ cryptoProtocolId: CryptoProtocolId) -> NSPredicate {
+            NSPredicate(Key.cryptoProtocolRawId, EqualToInt: cryptoProtocolId.rawValue)
+        }
+        static func withUID(_ uid: UID) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.uid.rawValue, uid)
+        }
+        static func withOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.ownedCryptoIdentity.rawValue, ownedIdentity)
+        }
+        static func withCurrentStateRawId(_ currentStateRawId: Int) -> NSPredicate {
+            NSPredicate(Key.currentStateRawId, EqualToInt: currentStateRawId)
+        }
+    }
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<ProtocolInstance> {
         return NSFetchRequest<ProtocolInstance>(entityName: ProtocolInstance.entityName)
@@ -126,10 +142,12 @@ extension ProtocolInstance {
         
     static func get(cryptoProtocolId: CryptoProtocolId, uid: UID, ownedIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ProtocolInstance? {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %d AND %K == %@ AND %K == %@",
-                                        cryptoProtocolRawIdKey, cryptoProtocolId.rawValue,
-                                        uidKey, uid,
-                                        ownedCryptoIdentityKey, ownedIdentity)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCryptoProtocolId(cryptoProtocolId),
+            Predicate.withOwnedIdentity(ownedIdentity),
+            Predicate.withUID(uid),
+        ])
+        request.fetchLimit = 1
         let item = (try? obvContext.fetch(request))?.first
         item?.delegateManager = delegateManager
         return item
@@ -146,37 +164,63 @@ extension ProtocolInstance {
     static func delete(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         // We do not execute a batch delete since this method does not call the willSave/didSave methods, which are required.
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        uidKey, uid,
-                                        ownedCryptoIdentityKey, ownedCryptoIdentity)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withUID(uid),
+            Predicate.withOwnedIdentity(ownedCryptoIdentity),
+        ])
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
         guard let item = (try? obvContext.fetch(request))?.first else { return }
         obvContext.delete(item)
     }
     
     static func count(within obvContext: ObvContext) -> Int {
         let request = NSFetchRequest<ProtocolInstance>(entityName: ProtocolInstance.entityName)
-        guard let items = try? obvContext.fetch(request) else {
-            return 0
-        }
-        return items.count
+        return (try? obvContext.count(for: request)) ?? 0
     }
     
     static func exists(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        uidKey, uid,
-                                        ownedCryptoIdentityKey, ownedCryptoIdentity)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withUID(uid),
+            Predicate.withOwnedIdentity(ownedCryptoIdentity),
+        ])
         return try obvContext.count(for: request) != 0
 
     }
     
     static func exists(cryptoProtocolId: CryptoProtocolId, uid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %d AND %K == %@ AND %K == %@",
-                                        cryptoProtocolRawIdKey, cryptoProtocolId.rawValue,
-                                        uidKey, uid,
-                                        ownedCryptoIdentityKey, ownedIdentity)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCryptoProtocolId(cryptoProtocolId),
+            Predicate.withOwnedIdentity(ownedIdentity),
+            Predicate.withUID(uid),
+        ])
         return try obvContext.count(for: request) != 0
     }
 
+    
+    static func deleteProtocolInstancesInAFinalState(within obvContext: ObvContext) throws {
+
+        for cryptoProtocolId in CryptoProtocolId.allCases {
+            let finalStateRawIds = cryptoProtocolId.finalStateRawIds
+            guard !finalStateRawIds.isEmpty else { continue }
+            // Construct a predicate keeping only the ProtocolInstance values in a final state (for the current cryptoProtocolId)
+            let inFinalState = NSCompoundPredicate(orPredicateWithSubpredicates: finalStateRawIds.map({ Predicate.withCurrentStateRawId($0) }))
+            // Use the previous predicate to construct the "final" predicate, allowing to get all ProtocolInstances for this cryptoProtocolId that are in a final state
+            let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withCryptoProtocolId(cryptoProtocolId),
+                inFinalState
+            ])
+            // Use the predicate to fetch and delete
+            let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
+            request.predicate = predicate
+            request.propertiesToFetch = []
+            request.fetchBatchSize = 100
+            let items = try obvContext.fetch(request)
+            guard !items.isEmpty else { continue }
+            items.forEach({ obvContext.delete($0) })
+        }
+        
+    }
 }

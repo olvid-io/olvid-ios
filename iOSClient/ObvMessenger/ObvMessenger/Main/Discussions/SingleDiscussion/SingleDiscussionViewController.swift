@@ -23,6 +23,7 @@ import os.log
 import MobileCoreServices
 import QuickLook
 import AVFoundation
+import OlvidUtils
 
 
 protocol DiscussionViewController: UIViewController {
@@ -31,7 +32,7 @@ protocol DiscussionViewController: UIViewController {
     func scrollTo(message: PersistedMessage)
 }
 
-final class SingleDiscussionViewController: UICollectionViewController, DiscussionViewController, SomeSingleDiscussionViewController {
+final class SingleDiscussionViewController: UICollectionViewController, DiscussionViewController, SomeSingleDiscussionViewController, ObvErrorMaker {
     
     var discussion: PersistedDiscussion!
     /// If `true`, all message statuses and attachment progresses are hidden
@@ -46,6 +47,8 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
     }
     weak var uiApplication: UIApplication?
     weak var delegate: SingleDiscussionViewControllerDelegate?
+
+    static let errorDomain = "SingleDiscussionViewController"
 
     var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { discussion.typedObjectID }
     
@@ -74,6 +77,8 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
     private let navigationTitleLabel = UILabel()
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SingleDiscussionViewController.self))
+
+    private var visibilityTrackerForSensitiveMessages: VisibilityTrackerForSensitiveMessages?
 
     private var accessoryViewIsShown = false
     private var accessoryViewWasRequested = false
@@ -129,9 +134,6 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
             .postOnDispatchQueue()
     }
 
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { SingleDiscussionViewController.makeError(message: message) }
-    
     private let dateFormaterForHeaders: DateFormatter = {
         let df = DateFormatter()
         df.locale = Locale.current
@@ -240,6 +242,8 @@ extension SingleDiscussionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionObjectID: discussionObjectID)
+        
         if restrictToLastMessages {
             self.fetchedResultsController = PersistedMessage.getFetchedResultsControllerForLastMessagesWithinDiscussion(discussionObjectID: discussion.objectID, within: ObvStack.shared.viewContext)
         } else {
@@ -892,8 +896,14 @@ extension SingleDiscussionViewController {
 
         markAsNotNewTheReceivedMessageInCell(cell)
         
+        visibilityTrackerForSensitiveMessages?.refreshObjectIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
+        
     }
     
+    
+    override func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        visibilityTrackerForSensitiveMessages?.refreshObjectIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
+    }
     
     /// We observe app states changes to mark as "not new" all the messages that are visible when the app enters the active state.
     private func observeSceneStateChanges() {
@@ -1085,11 +1095,10 @@ extension SingleDiscussionViewController {
                 let action = UIAction(title: CommonString.Word.Reply) { [weak self] (_) in
                     guard let discussion = self?.discussion else { return }
                     guard let log = self?.log else { return }
-                    ObvStack.shared.performBackgroundTask { [weak self] (context) in
-                        guard let _self = self else { return }
+                    ObvStack.shared.performBackgroundTask { context in
                         do {
-                            guard let writableDraft = try PersistedDraft.get(from: discussion, within: context) else { throw NSError() }
-                            guard let writableMessage = try PersistedMessage.get(with: persistedMessageObjectID, within: context) else { throw _self.makeError(message: "Could not find PersistedMessage") }
+                            guard let writableDraft = try PersistedDraft.get(from: discussion, within: context) else { throw Self.makeError(message: "Could not find PersistedDraft") }
+                            guard let writableMessage = try PersistedMessage.get(with: persistedMessageObjectID, within: context) else { throw Self.makeError(message: "Could not find PersistedMessage") }
                             writableDraft.replyTo = writableMessage
                             try context.save(logOnFailure: log)
                         } catch {
@@ -1109,7 +1118,9 @@ extension SingleDiscussionViewController {
             // Delete message action
             if message.deleteMessageActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Delete) { [weak self] (_) in
-                    self?.deletePersistedMessage(objectId: persistedMessageObjectID.objectID, confirmedDeletionType: nil, withinCell: cell)
+                    // Do not show any confirmation if the user deletes a wiped message.
+                    let confirmedDeletionType: DeletionType? = message.isWiped ? .local : nil
+                    self?.deletePersistedMessage(objectId: persistedMessageObjectID.objectID, confirmedDeletionType: confirmedDeletionType, withinCell: cell)
                     self?.counterOfCallsToAdjustCollectionViewContentInsetsToIgnore = 1
                 }
                 action.image = UIImage(systemName: "trash")

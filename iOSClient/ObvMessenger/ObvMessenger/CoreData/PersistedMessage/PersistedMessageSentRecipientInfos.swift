@@ -35,6 +35,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
     // MARK: - Attributes
 
+    @NSManaged private(set) var couldNotBeSentToServer: Bool // Set to true if the engine could not send message during 30 days
     @NSManaged private(set) var messageIdentifierFromEngine: Data?
     @NSManaged private var recipientIdentity: Data
     @NSManaged private(set) var returnReceiptKey: Data?
@@ -97,6 +98,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
         
         _ = try ObvCryptoId(identity: recipientIdentity)
         
+        self.couldNotBeSentToServer = false
         self.messageIdentifierFromEngine = nil
         self.recipientIdentity = recipientIdentity
         self.returnReceiptKey = nil
@@ -107,7 +109,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
         self.timestampAllAttachmentsSent = nil
         
         self.messageSent = messageSent
-        self.attachmentInfos = Set<PersistedAttachmentSentRecipientInfos>()
+        self.attachmentInfos = Set(messageSent.fyleMessageJoinWithStatuses.compactMap({ try? PersistedAttachmentSentRecipientInfos(index: $0.index, info: self) }))
 
     }
     
@@ -139,6 +141,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
         if messageSent.fyleMessageJoinWithStatuses.isEmpty {
             self.timestampAllAttachmentsSent = timestamp
         }
+        self.couldNotBeSentToServer = false
         self.messageSent.refreshStatus()
     }
 
@@ -148,11 +151,23 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
         let allAttachmentsAreComplete = messageSent.fyleMessageJoinWithStatuses.allSatisfy { $0.status == .complete }
         guard allAttachmentsAreComplete else { return }
         self.timestampAllAttachmentsSent = Date()
+        self.couldNotBeSentToServer = false
+        self.messageSent.refreshStatus()
+    }
+
+    
+    func setAsCouldNotBeSentToServer() {
+        guard timestampMessageSent == nil && timestampRead == nil && timestampDelivered == nil && timestampAllAttachmentsSent == nil else {
+            assertionFailure()
+            return
+        }
+        self.couldNotBeSentToServer = true
         self.messageSent.refreshStatus()
     }
 
     
     func messageWasDeliveredNoLaterThan(_ timestamp: Date, andRead: Bool) {
+        self.couldNotBeSentToServer = false
         if let currentTimeStamp = self.timestampDelivered, currentTimeStamp != timestamp {
             self.timestampDelivered = min(timestamp, currentTimeStamp)
         } else {
@@ -169,9 +184,11 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
     
     func messageAndAttachmentWereDeliveredNoLaterThan(_ timestamp: Date, attachmentNumber: Int, andRead: Bool) {
+        self.couldNotBeSentToServer = false
         messageWasDeliveredNoLaterThan(timestamp, andRead: false) // We do not assume that the message was read, even if the attachment was read
         do {
-            let attachmentInfosOfDeliveredAttachment = try attachmentInfos.first(where: { $0.index == attachmentNumber }) ?? PersistedAttachmentSentRecipientInfos(status: .delivered, index: attachmentNumber, info: self)
+            let attachmentInfosOfDeliveredAttachment = try attachmentInfos.first(where: { $0.index == attachmentNumber }) ?? PersistedAttachmentSentRecipientInfos(index: attachmentNumber, info: self)
+            attachmentInfosOfDeliveredAttachment.status = .delivered
             if andRead {
                 attachmentInfosOfDeliveredAttachment.status = .read
             }

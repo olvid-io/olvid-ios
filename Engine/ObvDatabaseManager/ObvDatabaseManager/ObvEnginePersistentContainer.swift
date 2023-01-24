@@ -35,7 +35,7 @@ final class ObvEnginePersistentContainer: NSPersistentContainer {
             for description in descriptions {
                 // Turn on remote change notifications
                 description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-                // Activating Persistent History Tracking
+                // Turn on persistent history tracking
                 description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
                 // Prevent lightweight migration
                 description.shouldMigrateStoreAutomatically = false

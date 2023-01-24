@@ -23,7 +23,7 @@ import CoreData
 import ObvEngine
 
 @objc(ReceivedFyleMessageJoinWithStatus)
-final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
+final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
     
     enum FyleStatus: Int {
         case downloadable = 0

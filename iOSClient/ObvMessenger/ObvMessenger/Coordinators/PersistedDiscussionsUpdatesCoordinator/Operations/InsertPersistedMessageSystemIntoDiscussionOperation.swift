@@ -143,6 +143,10 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 assertionFailure("Not implemented")
             case .contactIsOneToOneAgain:
                 assertionFailure("Not implemented")
+            case .ownedIdentityDidCaptureSensitiveMessages:
+                assertionFailure("Not implemented")
+            case .contactIdentityDidCaptureSensitiveMessages:
+                assertionFailure("Not implemented")
             case .discussionWasRemotelyWiped:
                 switch discussion.status {
                 case .active:

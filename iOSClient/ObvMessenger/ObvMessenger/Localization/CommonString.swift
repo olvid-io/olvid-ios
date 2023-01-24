@@ -62,6 +62,7 @@ struct CommonString {
         static let Downloads = NSLocalizedString("Downloads", comment: "Downloads word, capitalized")
         static let Edit = NSLocalizedString("Edit", comment: "Edit word, capitalized")
         static let Edited = NSLocalizedString("Edited", comment: "Edited word, capitalized")
+        static let Enable = NSLocalizedString("ENABLE", comment: "Enable word, capitalized")
         static let Error = NSLocalizedString("ERROR", comment: "Error word, capitalized")
         static let Everyone = NSLocalizedString("Everyone", comment: "Everyone word, capitalized")
         static let Exclude = NSLocalizedString("Exclude", comment: "Exclude word, capitalized")
@@ -98,6 +99,7 @@ struct CommonString {
         static let Publish = NSLocalizedString("Publish", comment: "Publish word, capitalized")
         static let Privacy = NSLocalizedString("Privacy", comment: "Privacy word, capitalized")
         static let Proceed = NSLocalizedString("Proceed", comment: "Proceed word, capitalized")
+        static let Processing = NSLocalizedString("Processing", comment: "Processing word, capitalized")
         static let Read = NSLocalizedString("Read", comment: "Read word, capitalized")
         static let Reject = NSLocalizedString("Reject", comment: "Reject word, capitalized")
         static let Reply = NSLocalizedString("Reply", comment: "Reply word, capitalized")
@@ -116,6 +118,8 @@ struct CommonString {
         static let Timer = NSLocalizedString("Timer", comment: "Timer word, capitalized")
         static let Unavailable = NSLocalizedString("Unavailable", comment: "Unavailable word, capitalized")
         static let Unlimited = NSLocalizedString("Unlimited", comment: "Unlimited word, capitalized")
+        static let Unprocessed = NSLocalizedString("Unprocessed", comment: "Unprocessed word, capitalized")
+        static let Unread = NSLocalizedString("Unread", comment: "Unread word, capitalized")
         static let Update = NSLocalizedString("Update", comment: "Update word, capitalized")
         static let Version = NSLocalizedString("Version", comment: "Version word, capitalized")
         static let VoIP = NSLocalizedString("VoIP", comment: "VoIP word, capitalized")
@@ -171,4 +175,8 @@ struct CommonString {
         String.localizedStringWithFormat(NSLocalizedString("CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@", comment: ""), originalName)
     }
 
+    static let explanationNonOneToOneContact = NSLocalizedString("EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS", comment: "")
+    static let someOfYourContactsMayNotAppearAsGroupV2Candidates = NSLocalizedString("SOME_OF_YOUR_CONTACTS_MAY_NOT_APPEAR_AS_GROUP_V2_CANDIDATES", comment: "")
+    static let explanationForCloneGroupV1ToGroupV2 = NSLocalizedString("EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2", comment: "")
+    
 }

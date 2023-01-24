@@ -34,7 +34,7 @@ public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.TrustEstablishmentWithSAS
     
-    var finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled, StateId.MutualTrustConfirmed]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled, StateId.MutualTrustConfirmed]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

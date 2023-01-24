@@ -74,6 +74,8 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
         content.date = message.timestamp
         content.subBody = nil
         switch message.category {
+        case .ownedIdentityDidCaptureSensitiveMessages, .contactIdentityDidCaptureSensitiveMessages:
+            content.backgroundColor = appTheme.colorScheme.orange
         case .membersOfGroupV2WereUpdated, .ownedIdentityIsPartOfGroupV2Admins, .ownedIdentityIsNoLongerPartOfGroupV2Admins:
             content.backgroundColor = appTheme.colorScheme.green
         case .contactRevokedByIdentityProvider:
@@ -159,7 +161,9 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
                 .contactRevokedByIdentityProvider,
                 .notPartOfTheGroupAnymore,
                 .rejoinedGroup,
-                .contactIsOneToOneAgain:
+                .contactIsOneToOneAgain,
+                .ownedIdentityDidCaptureSensitiveMessages,
+                .contactIdentityDidCaptureSensitiveMessages:
             return nil
         }
     }

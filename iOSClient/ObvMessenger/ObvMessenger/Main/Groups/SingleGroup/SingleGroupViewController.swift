@@ -37,6 +37,8 @@ class SingleGroupViewController: UIViewController {
     @IBOutlet weak var titleLabel: UILabel!
     
     @IBOutlet weak var cloneButtonContainerView: UIView!
+    private let cloneBackgroundView = UIView()
+    private let cloneExplanationLabel = UILabel()
     private let cloneButton = ObvImageButton()
     
     @IBOutlet weak var membersStackView: UIStackView!
@@ -143,7 +145,7 @@ class SingleGroupViewController: UIViewController {
         } else if let groupOwned = persistedContactGroup as? PersistedContactGroupOwned {
             try self.init(persistedContactGroupOwned: groupOwned, obvEngine: obvEngine)
         } else {
-            throw NSError()
+            throw Self.makeError(message: "Unexpected group type")
         }
     }
     
@@ -184,7 +186,20 @@ extension SingleGroupViewController {
         circlePlaceholder.addSubview(circledInitials)
         circlePlaceholder.pinAllSidesToSides(of: circledInitials)
         
-        cloneButtonContainerView.addSubview(cloneButton)
+        cloneButtonContainerView.addSubview(cloneBackgroundView)
+        cloneBackgroundView.translatesAutoresizingMaskIntoConstraints = false
+        cloneBackgroundView.backgroundColor = AppTheme.shared.colorScheme.secondarySystemBackground
+        cloneBackgroundView.layer.cornerCurve = .continuous
+        cloneBackgroundView.layer.cornerRadius = 16.0
+        
+        cloneBackgroundView.addSubview(cloneExplanationLabel)
+        cloneExplanationLabel.translatesAutoresizingMaskIntoConstraints = false
+        cloneExplanationLabel.text = CommonString.explanationForCloneGroupV1ToGroupV2
+        cloneExplanationLabel.textColor = AppTheme.shared.colorScheme.secondaryLabel
+        cloneExplanationLabel.font = UIFont.preferredFont(forTextStyle: .body)
+        cloneExplanationLabel.numberOfLines = 0
+        
+        cloneBackgroundView.addSubview(cloneButton)
         cloneButton.translatesAutoresizingMaskIntoConstraints = false
         cloneButton.setTitle(NSLocalizedString("CLONE_THIS_GROUP_V1_TO_GROUP_V2", comment: ""), for: .normal)
         cloneButton.setImage(.docOnDoc, for: .normal)
@@ -303,17 +318,29 @@ extension SingleGroupViewController {
     
     
     private func setupContraints() {
-        if ObvMessengerSettings.BetaConfiguration.showBetaSettings || ObvMessengerConstants.developmentMode {
+        let showCloneButton = (persistedContactGroup.category == .owned)
+        if showCloneButton {
+            cloneBackgroundView.isHidden = false
             NSLayoutConstraint.activate([
-                cloneButton.leadingAnchor.constraint(equalTo: cloneButtonContainerView.leadingAnchor, constant: 16),
-                cloneButton.trailingAnchor.constraint(equalTo: cloneButtonContainerView.trailingAnchor, constant: -16),
-                cloneButton.topAnchor.constraint(equalTo: cloneButtonContainerView.topAnchor, constant: 28),
-                cloneButton.bottomAnchor.constraint(equalTo: cloneButtonContainerView.bottomAnchor, constant: -16),
+                cloneBackgroundView.leadingAnchor.constraint(equalTo: cloneButtonContainerView.leadingAnchor, constant: 16),
+                cloneBackgroundView.trailingAnchor.constraint(equalTo: cloneButtonContainerView.trailingAnchor, constant: -16),
+                cloneBackgroundView.topAnchor.constraint(equalTo: cloneButtonContainerView.topAnchor, constant: 28),
+                cloneBackgroundView.bottomAnchor.constraint(equalTo: cloneButtonContainerView.bottomAnchor, constant: -16),
+
+                cloneExplanationLabel.topAnchor.constraint(equalTo: cloneBackgroundView.topAnchor, constant: 16),
+                cloneExplanationLabel.trailingAnchor.constraint(equalTo: cloneBackgroundView.trailingAnchor, constant: -16),
+                cloneExplanationLabel.bottomAnchor.constraint(equalTo: cloneButton.topAnchor, constant: -16),
+                cloneExplanationLabel.leadingAnchor.constraint(equalTo: cloneBackgroundView.leadingAnchor, constant: 16),
+
+                cloneButton.trailingAnchor.constraint(equalTo: cloneBackgroundView.trailingAnchor, constant: -16),
+                cloneButton.leadingAnchor.constraint(equalTo: cloneBackgroundView.leadingAnchor, constant: 16),
+                cloneButton.bottomAnchor.constraint(equalTo: cloneBackgroundView.bottomAnchor, constant: -16),
             ])
         } else {
-            cloneButton.isHidden = true
+            cloneBackgroundView.isHidden = true
             NSLayoutConstraint.activate([
-                cloneButtonContainerView.heightAnchor.constraint(equalToConstant: 0)
+                cloneButtonContainerView.heightAnchor.constraint(equalToConstant: 0),
+                cloneBackgroundView.heightAnchor.constraint(equalToConstant: 0),
             ])
         }
     }

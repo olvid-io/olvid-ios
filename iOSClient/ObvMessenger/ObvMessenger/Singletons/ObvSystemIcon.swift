@@ -88,6 +88,7 @@ enum ObvSystemIcon: Hashable {
     case arrowCounterclockwiseCircleFill
     case arrowDown
     case arrowDownCircle
+    case arrowDownCircleFill
     case arrowForward
     case arrowUpArrowDownCircle
     case arrowUpCircle
@@ -150,7 +151,7 @@ enum ObvSystemIcon: Hashable {
     case handThumbsupFill
     case hare
     case hourglass
-    case icloudFill
+    case icloud(_: FillOption = .none)
     case infoCircle
     case link
     case lock(_: FillOption = .none, _: ShieldOption = .none)
@@ -215,6 +216,7 @@ enum ObvSystemIcon: Hashable {
     case timer
     case tortoise
     case trash
+    case trashFill
     case trashCircle
     case umbrella
     case xmark
@@ -242,6 +244,8 @@ enum ObvSystemIcon: Hashable {
             return "pause.circle"
         case .arrowDownCircle:
             return "arrow.down.circle"
+        case .arrowDownCircleFill:
+            return "arrow.down.circle.fill"
         case .handTap:
             if #available(iOS 14, *) {
                 return "hand.tap"
@@ -262,6 +266,8 @@ enum ObvSystemIcon: Hashable {
             } else {
                 return "arrow.clockwise.circle.fill"
             }
+        case .trashFill:
+            return "trash.fill"
         case .trashCircle:
             return "trash.circle"
         case .scanner:
@@ -376,8 +382,8 @@ enum ObvSystemIcon: Hashable {
             }
         case .checkmarkShieldFill:
             return "checkmark.shield.fill"
-        case .icloudFill:
-            return "icloud.fill"
+        case .icloud(let fill):
+            return "icloud" + fill.complement
         case .folderFill:
             return "folder.fill"
         case .forwardFill:

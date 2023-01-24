@@ -24,16 +24,16 @@ extension GlobalSettingsBackupItem {
 
     func updateExistingObvMessengerSettings() {
 
-        // Downloads
-
-        if let value = self.maxAttachmentSizeForAutomaticDownload {
-            ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload = value
-        }
-
         // Contacts and groups
 
         if let value = self.autoAcceptGroupInviteFrom {
             ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom = value
+        }
+
+        // Downloads
+
+        if let value = self.maxAttachmentSizeForAutomaticDownload {
+            ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload = value
         }
 
         // Interface
@@ -102,6 +102,13 @@ extension GlobalSettingsBackupItem {
         if let value = self.showBetaSettings {
             ObvMessengerSettings.BetaConfiguration.showBetaSettings = value
         }
+
+        // Emoji
+        if let value = self.preferredEmojisList {
+            ObvMessengerSettings.Emoji.preferredEmojisList = value
+        }
+
+
 
     }
 

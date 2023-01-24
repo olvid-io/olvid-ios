@@ -28,8 +28,9 @@ final class SettingsFlowViewController: UINavigationController {
     private(set) var obvEngine: ObvEngine!
 
     private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+    private weak var appBackupDelegate: AppBackupDelegate?
 
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, appBackupDelegate: AppBackupDelegate) {
         let allSettingsTableViewController = AllSettingsTableViewController(ownedCryptoId: ownedCryptoId)
 
         super.init(rootViewController: allSettingsTableViewController)
@@ -37,6 +38,7 @@ final class SettingsFlowViewController: UINavigationController {
         self.ownedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         self.createPasscodeDelegate = createPasscodeDelegate
+        self.appBackupDelegate = appBackupDelegate
 
         allSettingsTableViewController.delegate = self
 
@@ -89,7 +91,7 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
             }
             settingViewController = PrivacyTableViewController(ownedCryptoId: ownedCryptoId, createPasscodeDelegate: createPasscodeDelegate)
         case .backup:
-            settingViewController = BackupTableViewController(obvEngine: obvEngine)
+            settingViewController = BackupTableViewController(obvEngine: obvEngine, appBackupDelegate: appBackupDelegate)
         case .about:
             settingViewController = AboutSettingsTableViewController()
         case .advanced:

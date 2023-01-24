@@ -154,7 +154,8 @@ extension NetworkReceivedMessageDecryptor {
             os_log("🔑🌊 New application message within flow %{public}@ with id %{public}@", log: log, type: .info, obvContext.flowId.debugDescription, receivedMessage.messageId.debugDescription)
             if let receivedApplicationMessage = ReceivedApplicationMessage(with: obvChannelReceivedMessage) {
                 do {
-                    guard receivedApplicationMessage.attachmentsInfos.count == obvChannelReceivedMessage.attachmentCount else {
+                    // At this point, we expect the `knownAttachmentCount` of the `obvChannelReceivedMessage` to be set and equal to `receivedApplicationMessage.attachmentsInfos`
+                    guard receivedApplicationMessage.attachmentsInfos.count == obvChannelReceivedMessage.knownAttachmentCount else {
                         os_log("Invalid count of attachment infos", log: log, type: .fault)
                         throw Self.makeError(message: "Invalid count of attachment infos")
                     }

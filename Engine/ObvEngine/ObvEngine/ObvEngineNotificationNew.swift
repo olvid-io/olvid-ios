@@ -38,9 +38,8 @@ public enum ObvEngineNotificationNew {
 	case ownedIdentityWasReactivated(ownedIdentity: ObvCryptoId)
 	case networkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoId)
 	case serverRequiresThisDeviceToRegisterToPushNotifications(ownedIdentity: ObvCryptoId)
-	case backupForUploadWasUploaded(backupRequestUuid: UUID, backupKeyUid: UID, version: Int)
-	case backupForExportWasExported(backupRequestUuid: UUID, backupKeyUid: UID, version: Int)
 	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)])
+	case outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)
 	case callerTurnCredentialsReceived(ownedIdentity: ObvCryptoId, callUuid: UUID, turnCredentials: ObvTurnCredentials)
 	case callerTurnCredentialsReceptionFailure(ownedIdentity: ObvCryptoId, callUuid: UUID)
 	case callerTurnCredentialsReceptionPermissionDenied(ownedIdentity: ObvCryptoId, callUuid: UUID)
@@ -79,7 +78,7 @@ public enum ObvEngineNotificationNew {
 	case updatedSetOfContactsCertifiedByOwnKeycloak(ownedIdentity: ObvCryptoId, contactsCertifiedByOwnKeycloak: Set<ObvCryptoId>)
 	case updatedOwnedIdentity(obvOwnedIdentity: ObvOwnedIdentity)
 	case mutualScanContactAdded(obvContactIdentity: ObvContactIdentity, signature: Data)
-	case messageExtendedPayloadAvailable(obvMessage: ObvMessage, extendedMessagePayload: Data)
+	case messageExtendedPayloadAvailable(obvMessage: ObvMessage)
 	case contactIsActiveChangedWithinEngine(obvContactIdentity: ObvContactIdentity)
 	case contactWasRevokedAsCompromisedWithinEngine(obvContactIdentity: ObvContactIdentity)
 	case ContactObvCapabilitiesWereUpdated(contact: ObvContactIdentity)
@@ -89,6 +88,7 @@ public enum ObvEngineNotificationNew {
 	case groupV2WasCreatedOrUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasDeleted(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
 	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
+	case aPushTopicWasReceivedViaWebsocket(pushTopic: String)
 
 	private enum Name {
 		case newBackupKeyGenerated
@@ -96,9 +96,8 @@ public enum ObvEngineNotificationNew {
 		case ownedIdentityWasReactivated
 		case networkOperationFailedSinceOwnedIdentityIsNotActive
 		case serverRequiresThisDeviceToRegisterToPushNotifications
-		case backupForUploadWasUploaded
-		case backupForExportWasExported
 		case outboxMessagesAndAllTheirAttachmentsWereAcknowledged
+		case outboxMessageCouldNotBeSentToServer
 		case callerTurnCredentialsReceived
 		case callerTurnCredentialsReceptionFailure
 		case callerTurnCredentialsReceptionPermissionDenied
@@ -147,6 +146,7 @@ public enum ObvEngineNotificationNew {
 		case groupV2WasCreatedOrUpdated
 		case groupV2WasDeleted
 		case groupV2UpdateDidFail
+		case aPushTopicWasReceivedViaWebsocket
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -164,9 +164,8 @@ public enum ObvEngineNotificationNew {
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .networkOperationFailedSinceOwnedIdentityIsNotActive: return Name.networkOperationFailedSinceOwnedIdentityIsNotActive.name
 			case .serverRequiresThisDeviceToRegisterToPushNotifications: return Name.serverRequiresThisDeviceToRegisterToPushNotifications.name
-			case .backupForUploadWasUploaded: return Name.backupForUploadWasUploaded.name
-			case .backupForExportWasExported: return Name.backupForExportWasExported.name
 			case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged: return Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
+			case .outboxMessageCouldNotBeSentToServer: return Name.outboxMessageCouldNotBeSentToServer.name
 			case .callerTurnCredentialsReceived: return Name.callerTurnCredentialsReceived.name
 			case .callerTurnCredentialsReceptionFailure: return Name.callerTurnCredentialsReceptionFailure.name
 			case .callerTurnCredentialsReceptionPermissionDenied: return Name.callerTurnCredentialsReceptionPermissionDenied.name
@@ -215,6 +214,7 @@ public enum ObvEngineNotificationNew {
 			case .groupV2WasCreatedOrUpdated: return Name.groupV2WasCreatedOrUpdated.name
 			case .groupV2WasDeleted: return Name.groupV2WasDeleted.name
 			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
+			case .aPushTopicWasReceivedViaWebsocket: return Name.aPushTopicWasReceivedViaWebsocket.name
 			}
 		}
 	}
@@ -242,21 +242,14 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"ownedIdentity": ownedIdentity,
 			]
-		case .backupForUploadWasUploaded(backupRequestUuid: let backupRequestUuid, backupKeyUid: let backupKeyUid, version: let version):
-			info = [
-				"backupRequestUuid": backupRequestUuid,
-				"backupKeyUid": backupKeyUid,
-				"version": version,
-			]
-		case .backupForExportWasExported(backupRequestUuid: let backupRequestUuid, backupKeyUid: let backupKeyUid, version: let version):
-			info = [
-				"backupRequestUuid": backupRequestUuid,
-				"backupKeyUid": backupKeyUid,
-				"version": version,
-			]
 		case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: let messageIdsAndTimestampsFromServer):
 			info = [
 				"messageIdsAndTimestampsFromServer": messageIdsAndTimestampsFromServer,
+			]
+		case .outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: let messageIdentifierFromEngine, ownedIdentity: let ownedIdentity):
+			info = [
+				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"ownedIdentity": ownedIdentity,
 			]
 		case .callerTurnCredentialsReceived(ownedIdentity: let ownedIdentity, callUuid: let callUuid, turnCredentials: let turnCredentials):
 			info = [
@@ -444,10 +437,9 @@ public enum ObvEngineNotificationNew {
 				"obvContactIdentity": obvContactIdentity,
 				"signature": signature,
 			]
-		case .messageExtendedPayloadAvailable(obvMessage: let obvMessage, extendedMessagePayload: let extendedMessagePayload):
+		case .messageExtendedPayloadAvailable(obvMessage: let obvMessage):
 			info = [
 				"obvMessage": obvMessage,
-				"extendedMessagePayload": extendedMessagePayload,
 			]
 		case .contactIsActiveChangedWithinEngine(obvContactIdentity: let obvContactIdentity):
 			info = [
@@ -487,6 +479,10 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"appGroupIdentifier": appGroupIdentifier,
+			]
+		case .aPushTopicWasReceivedViaWebsocket(pushTopic: let pushTopic):
+			info = [
+				"pushTopic": pushTopic,
 			]
 		}
 		return info
@@ -542,31 +538,20 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeBackupForUploadWasUploaded(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID, UID, Int) -> Void) -> NSObjectProtocol {
-		let name = Name.backupForUploadWasUploaded.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let backupRequestUuid = notification.userInfo!["backupRequestUuid"] as! UUID
-			let backupKeyUid = notification.userInfo!["backupKeyUid"] as! UID
-			let version = notification.userInfo!["version"] as! Int
-			block(backupRequestUuid, backupKeyUid, version)
-		}
-	}
-
-	public static func observeBackupForExportWasExported(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID, UID, Int) -> Void) -> NSObjectProtocol {
-		let name = Name.backupForExportWasExported.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let backupRequestUuid = notification.userInfo!["backupRequestUuid"] as! UUID
-			let backupKeyUid = notification.userInfo!["backupKeyUid"] as! UID
-			let version = notification.userInfo!["version"] as! Int
-			block(backupRequestUuid, backupKeyUid, version)
-		}
-	}
-
 	public static func observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping ([(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let messageIdsAndTimestampsFromServer = notification.userInfo!["messageIdsAndTimestampsFromServer"] as! [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]
 			block(messageIdsAndTimestampsFromServer)
+		}
+	}
+
+	public static func observeOutboxMessageCouldNotBeSentToServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (Data, ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.outboxMessageCouldNotBeSentToServer.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
+			block(messageIdentifierFromEngine, ownedIdentity)
 		}
 	}
 
@@ -908,12 +893,11 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeMessageExtendedPayloadAvailable(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvMessage, Data) -> Void) -> NSObjectProtocol {
+	public static func observeMessageExtendedPayloadAvailable(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvMessage) -> Void) -> NSObjectProtocol {
 		let name = Name.messageExtendedPayloadAvailable.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvMessage = notification.userInfo!["obvMessage"] as! ObvMessage
-			let extendedMessagePayload = notification.userInfo!["extendedMessagePayload"] as! Data
-			block(obvMessage, extendedMessagePayload)
+			block(obvMessage)
 		}
 	}
 
@@ -989,6 +973,14 @@ public enum ObvEngineNotificationNew {
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
 			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
 			block(ownedIdentity, appGroupIdentifier)
+		}
+	}
+
+	public static func observeAPushTopicWasReceivedViaWebsocket(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (String) -> Void) -> NSObjectProtocol {
+		let name = Name.aPushTopicWasReceivedViaWebsocket.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let pushTopic = notification.userInfo!["pushTopic"] as! String
+			block(pushTopic)
 		}
 	}
 

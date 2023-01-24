@@ -19,14 +19,13 @@
 
 import Foundation
 import CoreData
+import OlvidUtils
 
 @objc(PersistedDraft)
-final class PersistedDraft: NSManagedObject, Draft {
+final class PersistedDraft: NSManagedObject, Draft, ObvErrorMaker {
     
     private static let entityName = "PersistedDraft"
-    private static let sendRequestedKey = "sendRequested"
-    private static let discussionKey = "discussion"
-    private static func makeError(message: String) -> Error { NSError(domain: "PersistedDraft", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    static let errorDomain = "PersistedDraft"
 
     // MARK: - Attributes
     
@@ -134,13 +133,13 @@ extension PersistedDraft {
         self.replyTo = nil
         if self.sendRequested {
             self.sendRequested = false
-            self.changedKeys.insert(PersistedDraft.sendRequestedKey)
+            self.changedKeys.insert(Predicate.Key.sendRequested.rawValue)
         }
         resetExpiration()
         removeAllDraftFyleJoin()
     }
 
-    func resetExpiration() {
+    private func resetExpiration() {
         self.readOnce = false
         self.existenceDuration = nil
         self.visibilityDuration = nil
@@ -149,7 +148,7 @@ extension PersistedDraft {
     
     func send() {
         self.sendRequested = true
-        self.changedKeys.insert(PersistedDraft.sendRequestedKey)
+        self.changedKeys.insert(Predicate.Key.sendRequested.rawValue)
     }
     
     func forceResend() {
@@ -158,11 +157,14 @@ extension PersistedDraft {
     
     
     func setContent(with body: String) {
+        guard self.body != body else { return }
         self.body = body
+        self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
     }
 
     func appendContentToBody(_ content: String) {
         self.body?.append(content)
+        self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
     }
 
     var hasSomeExpiration: Bool {
@@ -194,9 +196,24 @@ extension PersistedDraft {
 extension PersistedDraft {
     
     private struct Predicate {
+        
+        enum Key: String {
+            case sendRequested = "sendRequested"
+            case discussion = "discussion"
+        }
+        
         static func persistedDraft(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
             NSPredicate(format: "SELF == %@", objectID.objectID)
         }
+        
+        static func whereSendRequestedIs(_ sendRequested: Bool) -> NSPredicate {
+            NSPredicate(Key.sendRequested, is: sendRequested)
+        }
+        
+        static func forDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
+            NSPredicate(Key.discussion, equalTo: discussion)
+        }
+        
     }
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedDraft> {
@@ -210,16 +227,18 @@ extension PersistedDraft {
         return try context.fetch(request).first
     }
 
+
     static func getAllUnsent(within context: NSManagedObjectContext) throws -> [PersistedDraft] {
         let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == YES", sendRequestedKey)
+        request.predicate = Predicate.whereSendRequestedIs(true)
         let unsentDrafts = try context.fetch(request)
         return unsentDrafts
     }
     
+
     static func get(from discussion: PersistedDiscussion, within context: NSManagedObjectContext) throws -> PersistedDraft? {
         let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", discussionKey, discussion)
+        request.predicate = Predicate.forDiscussion(discussion)
         request.fetchBatchSize = 1
         return try context.fetch(request).first
     }
@@ -236,7 +255,7 @@ extension PersistedDraft {
     override func didSave() {
         super.didSave()
         
-        if changedKeys.contains(PersistedDraft.sendRequestedKey) {
+        if changedKeys.contains(Predicate.Key.sendRequested.rawValue) {
             if sendRequested {
                 sendNewDraftToSendNotification()
             } else {

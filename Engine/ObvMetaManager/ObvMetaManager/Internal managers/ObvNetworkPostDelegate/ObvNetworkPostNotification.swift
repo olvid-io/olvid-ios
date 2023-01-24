@@ -40,6 +40,7 @@ public enum ObvNetworkPostNotification {
 	case outboxMessageWasUploaded(messageId: MessageIdentifier, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, flowId: FlowIdentifier)
 	case outboxAttachmentWasAcknowledged(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId: MessageIdentifier, timestampFromServer: Date)], flowId: FlowIdentifier)
+	case outboxMessageCouldNotBeSentToServer(messageId: MessageIdentifier, flowId: FlowIdentifier)
 
 	private enum Name {
 		case newOutboxMessageAndAttachmentsToUpload
@@ -49,6 +50,7 @@ public enum ObvNetworkPostNotification {
 		case outboxMessageWasUploaded
 		case outboxAttachmentWasAcknowledged
 		case outboxMessagesAndAllTheirAttachmentsWereAcknowledged
+		case outboxMessageCouldNotBeSentToServer
 
 		private var namePrefix: String { String(describing: ObvNetworkPostNotification.self) }
 
@@ -68,6 +70,7 @@ public enum ObvNetworkPostNotification {
 			case .outboxMessageWasUploaded: return Name.outboxMessageWasUploaded.name
 			case .outboxAttachmentWasAcknowledged: return Name.outboxAttachmentWasAcknowledged.name
 			case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged: return Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
+			case .outboxMessageCouldNotBeSentToServer: return Name.outboxMessageCouldNotBeSentToServer.name
 			}
 		}
 	}
@@ -111,6 +114,11 @@ public enum ObvNetworkPostNotification {
 		case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: let messageIdsAndTimestampsFromServer, flowId: let flowId):
 			info = [
 				"messageIdsAndTimestampsFromServer": messageIdsAndTimestampsFromServer,
+				"flowId": flowId,
+			]
+		case .outboxMessageCouldNotBeSentToServer(messageId: let messageId, flowId: let flowId):
+			info = [
+				"messageId": messageId,
 				"flowId": flowId,
 			]
 		}
@@ -190,6 +198,15 @@ public enum ObvNetworkPostNotification {
 			let messageIdsAndTimestampsFromServer = notification.userInfo!["messageIdsAndTimestampsFromServer"] as! [(messageId: MessageIdentifier, timestampFromServer: Date)]
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageIdsAndTimestampsFromServer, flowId)
+		}
+	}
+
+	public static func observeOutboxMessageCouldNotBeSentToServer(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.outboxMessageCouldNotBeSentToServer.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(messageId, flowId)
 		}
 	}
 

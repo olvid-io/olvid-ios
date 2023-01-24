@@ -36,15 +36,11 @@ public enum ObvBackupNotification {
 	case newBackupSeedGenerated(backupSeedString: String, backupKeyInformation: BackupKeyInformation, flowId: FlowIdentifier)
 	case backupSeedGenerationFailed(flowId: FlowIdentifier)
 	case backupableManagerDatabaseContentChanged(flowId: FlowIdentifier)
-	case backupForUploadWasUploaded(backupKeyUid: UID, version: Int, flowId: FlowIdentifier)
-	case backupForExportWasExported(backupKeyUid: UID, version: Int, flowId: FlowIdentifier)
 
 	private enum Name {
 		case newBackupSeedGenerated
 		case backupSeedGenerationFailed
 		case backupableManagerDatabaseContentChanged
-		case backupForUploadWasUploaded
-		case backupForExportWasExported
 
 		private var namePrefix: String { String(describing: ObvBackupNotification.self) }
 
@@ -60,8 +56,6 @@ public enum ObvBackupNotification {
 			case .newBackupSeedGenerated: return Name.newBackupSeedGenerated.name
 			case .backupSeedGenerationFailed: return Name.backupSeedGenerationFailed.name
 			case .backupableManagerDatabaseContentChanged: return Name.backupableManagerDatabaseContentChanged.name
-			case .backupForUploadWasUploaded: return Name.backupForUploadWasUploaded.name
-			case .backupForExportWasExported: return Name.backupForExportWasExported.name
 			}
 		}
 	}
@@ -80,18 +74,6 @@ public enum ObvBackupNotification {
 			]
 		case .backupableManagerDatabaseContentChanged(flowId: let flowId):
 			info = [
-				"flowId": flowId,
-			]
-		case .backupForUploadWasUploaded(backupKeyUid: let backupKeyUid, version: let version, flowId: let flowId):
-			info = [
-				"backupKeyUid": backupKeyUid,
-				"version": version,
-				"flowId": flowId,
-			]
-		case .backupForExportWasExported(backupKeyUid: let backupKeyUid, version: let version, flowId: let flowId):
-			info = [
-				"backupKeyUid": backupKeyUid,
-				"version": version,
 				"flowId": flowId,
 			]
 		}
@@ -130,26 +112,6 @@ public enum ObvBackupNotification {
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(flowId)
-		}
-	}
-
-	public static func observeBackupForUploadWasUploaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (UID, Int, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.backupForUploadWasUploaded.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let backupKeyUid = notification.userInfo!["backupKeyUid"] as! UID
-			let version = notification.userInfo!["version"] as! Int
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(backupKeyUid, version, flowId)
-		}
-	}
-
-	public static func observeBackupForExportWasExported(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (UID, Int, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.backupForExportWasExported.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let backupKeyUid = notification.userInfo!["backupKeyUid"] as! UID
-			let version = notification.userInfo!["version"] as! Int
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(backupKeyUid, version, flowId)
 		}
 	}
 

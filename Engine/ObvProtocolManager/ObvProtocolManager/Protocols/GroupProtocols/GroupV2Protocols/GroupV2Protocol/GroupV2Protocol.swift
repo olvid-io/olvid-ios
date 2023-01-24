@@ -30,7 +30,7 @@ public struct GroupV2Protocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.GroupV2
     
-    let finalStateIds: [ConcreteProtocolStateId] = [StateId.final]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.final]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

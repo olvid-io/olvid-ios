@@ -38,7 +38,7 @@ public struct KeycloakContactAdditionProtocol: ConcreteCryptoProtocol {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    var finalStateIds: [ConcreteProtocolStateId] = [StateId.Finished]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Finished]
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

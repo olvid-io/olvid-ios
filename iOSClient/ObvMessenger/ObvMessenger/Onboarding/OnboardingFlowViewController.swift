@@ -26,15 +26,43 @@ import MobileCoreServices
 import CloudKit
 import AppAuth
 import SwiftUI
+import OlvidUtils
+import AVFoundation
 
-class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
+class OnboardingFlowViewController: UIViewController, OlvidURLHandler, ObvErrorMaker {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: OnboardingFlowViewController.self))
+    static let errorDomain = "OnboardingFlowViewController"
 
-    weak var delegate: OnboardingFlowViewControllerDelegate?
+    private let obvEngine: ObvEngine
+
     private var notificationCenterTokens = [NSObjectProtocol]()
     private var flowNavigationController: UINavigationController?
-    
+    private var photoURL: URL? = nil
+    private var keycloakState: ObvKeycloakState?
+    @Atomic var allCloudOperationsAreCancelled: Bool = false
+
+    weak var delegate: OnboardingFlowViewControllerDelegate?
+    private weak var appBackupDelegate: AppBackupDelegate?
+
+    // MARK: - Initializers
+
+    init(obvEngine: ObvEngine, appBackupDelegate: AppBackupDelegate?) {
+        self.obvEngine = obvEngine
+        self.appBackupDelegate = appBackupDelegate
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder aDecoder: NSCoder) { fatalError("die") }
+
+    deinit {
+        notificationCenterTokens.forEach {
+            NotificationCenter.default.removeObserver($0)
+        }
+    }
+
+    // MARK: - Computed properties
+
     /// Certain Olvid URLs cannot be used until the user has created her owned identity.
     /// Yet, these values are typically set when the new user scans (or tap) a deep link during the onboarding process.
     /// We keep the last scanned (or tapped) one here until an owned identity is created.
@@ -50,21 +78,16 @@ class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
         }
     }
 
-    private static let errorDomain = "OnboardingFlowViewController"
-    private static func makeError(message: String) -> Error { NSError(domain: OnboardingFlowViewController.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { OnboardingFlowViewController.makeError(message: message) }
-
-    /// These is only set when dealing with an *unmanaged* identity creation
+    /// Only set when dealing with an *unmanaged* identity creation
     private var unmanagedIdentityDetails: ObvIdentityCoreDetails? = nil
+
+    /// Only set when dealing with an *unmanaged* identity creation
     private var serverAndAPIKey: ServerAndAPIKey? {
         didSet {
             guard self.serverAndAPIKey != nil else { return }
             newServerAndAPIKeyIsAvailable()
         }
     }
-    
-    private var photoURL: URL? = nil
-    private let obvEngine: ObvEngine
 
     /// This is set after a user authenticates on a keycloak server. This server returns signed details as well as a information indicating whether
     /// revocation is possible. At that point, if there is a previous identity in the signed details and revocation is not allowed, creating a new identity
@@ -76,26 +99,6 @@ class OnboardingFlowViewController: UIViewController, OlvidURLHandler {
             self.newKeycloakDetailsAvailable()
         }
     }
-    
-    private var keycloakState: ObvKeycloakState?
-
-    // MARK: - Initializers
-    
-    init(obvEngine: ObvEngine) {
-        self.obvEngine = obvEngine
-        super.init(nibName: nil, bundle: nil)
-    }
-    
-    
-    required init?(coder aDecoder: NSCoder) { fatalError("die") }
-
-    
-    deinit {
-        notificationCenterTokens.forEach {
-            NotificationCenter.default.removeObserver($0)
-        }
-    }
-    
 }
 
 
@@ -295,31 +298,23 @@ extension OnboardingFlowViewController {
 // MARK: - Observing notifications
 
 extension OnboardingFlowViewController {
-
-    /// Called after a backup is successfully restored. In that case, we know that app database is already in
-    /// sync with the one within the engine.
-    /// We get a "random" owned identity from the app database to finalize the onboarding.
-    private func ownedIdentityRestoredFromBackupRestore() {
-        transitionToNotificationsSubscriberScreen()
-    }
-    
     
     /// Called just after the creation of the first owned identity during a "standard" onboarding, without backup restore.
     /// At this point, the app database is not in sync with the engine. So we sync it and proceed with the onboarding.
     private func ownedIdentityCreatedDuringOnboarding(ownedCryptoIdentity: ObvCryptoId) {
-
+        
         let log = self.log
         
         ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine { result in
-
+            
             switch result {
-
+                
             case .failure(let error):
-
+                
                 os_log("Could not sync app database with engine database: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
-
+                
             case .success:
                 
                 ObvStack.shared.performBackgroundTask { [weak self] context in
@@ -329,7 +324,7 @@ extension OnboardingFlowViewController {
                     do {
                         
                         guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoIdentity, within: context) else {
-                            throw _self.makeError(message: "Could not recover owned identity within the app")
+                            throw Self.makeError(message: "Could not recover owned identity within the app")
                         }
                         
                         let isKeycloakManaged = persistedOwnedIdentity.isKeycloakManaged
@@ -378,20 +373,34 @@ extension OnboardingFlowViewController {
     
     @MainActor
     private func transitionToNotificationsSubscriberScreen() {
-        
         hideHUD()
-        
         // Transition to the next UIViewController
-        let vc = UserNotificationsSubscriberHostingController(subscribeToLocalNotificationsAction: { [weak self] in
-            self?.subscribeToLocalNotifications()
-        })
+        let vc = AutorisationRequesterHostingController(autorisationCategory: .localNotifications, delegate: self)
+        flowNavigationController?.pushViewController(vc, animated: true)
+        vc.navigationItem.setHidesBackButton(true, animated: false)
+        vc.navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+    
+    @MainActor
+    private func transitionToRecordPermissionRequesterScreen() {
+        hideHUD()
+        // Transition to the next UIViewController
+        let vc = AutorisationRequesterHostingController(autorisationCategory: .recordPermission, delegate: self)
         vc.navigationItem.setHidesBackButton(true, animated: false)
         vc.navigationController?.setNavigationBarHidden(true, animated: false)
         flowNavigationController?.pushViewController(vc, animated: true)
-
     }
     
-    
+    @MainActor
+    private func transitionToOwnedIdentityGeneratedHostingController() {
+        hideHUD()
+        // Transition to the next UIViewController
+        let vc = OwnedIdentityGeneratedHostingController(startUsingOlvidAction: { [weak self] in self?.startUsingOlvid() })
+        vc.navigationItem.setHidesBackButton(true, animated: false)
+        vc.navigationController?.setNavigationBarHidden(true, animated: false)
+        flowNavigationController?.pushViewController(vc, animated: true)
+    }
+
     private func newKeycloakConfigIsAvailable() {
         assert(Thread.isMainThread)
 
@@ -432,25 +441,29 @@ extension OnboardingFlowViewController {
 }
 
 
-extension OnboardingFlowViewController: LocalNotificationsSubscriberViewControllerDelegate {
+extension OnboardingFlowViewController: AutorisationRequesterHostingControllerDelegate {
     
-    func subscribeToLocalNotifications() {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] (granted, error) in
-            
-            guard let _self = self else { return }
-            
-            guard error == nil else {
-                os_log("Could not request authorization for notifications: %@", log: _self.log, type: .error, error!.localizedDescription)
-                return
+    @MainActor
+    func requestAutorisation(now: Bool, for autorisationCategory: AutorisationRequesterHostingController.AutorisationCategory) async {
+        assert(Thread.isMainThread)
+        switch autorisationCategory {
+        case .localNotifications:
+            if now {
+                let center = UNUserNotificationCenter.current()
+                do {
+                    try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                } catch {
+                    os_log("Could not request authorization for notifications: %@", log: log, type: .error, error.localizedDescription)
+                }
             }
-            
-            DispatchQueue.main.async {
-                let vc = OwnedIdentityGeneratedHostingController(startUsingOlvidAction: { [weak self] in self?.startUsingOlvid() })
-                _self.flowNavigationController?.pushViewController(vc, animated: true)
+            transitionToRecordPermissionRequesterScreen()
+        case .recordPermission:
+            if now {
+                let granted = await AVAudioSession.sharedInstance().requestRecordPermission()
+                os_log("User granted access to audio: %@", log: log, type: .error, String(describing: granted))
             }
+            transitionToOwnedIdentityGeneratedHostingController()
         }
-        
     }
 
 }
@@ -542,7 +555,7 @@ extension OnboardingFlowViewController: WelcomeScreenHostingControllerDelegate {
         let vc = BackupRestoreViewHostingController()
         vc.delegate = self
         flowNavigationController?.pushViewController(vc, animated: true)
-        flowNavigationController!.setNavigationBarHidden(false, animated: true)
+        flowNavigationController?.setNavigationBarHidden(false, animated: true)
     }
     
     
@@ -614,55 +627,88 @@ extension OnboardingFlowViewController: IdentityProviderValidationHostingViewCon
 // MARK: - BackupRestoreViewHostingControllerDelegate
 
 extension OnboardingFlowViewController: BackupRestoreViewHostingControllerDelegate {
- 
-    func userWantToRestoreBackupFromCloud() {
+
+    func cancelAllCloudOperations() {
+        self.allCloudOperationsAreCancelled = true
+    }
+
+    func userWantToRestoreBackupFromCloud() async {
+        self.allCloudOperationsAreCancelled = false
         guard let backupRestoreViewHostingController = flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController else {
             assertionFailure()
             return
         }
         let log = self.log
         let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-        container.accountStatus { (accountStatus, error) in
+        do {
+            let accountStatus = try await container.accountStatus()
             guard accountStatus == .available else {
-                os_log("The iCloud account isn't available. We cannot perform restore backup.", log: log, type: .fault)
+                os_log("The iCloud account isn't available. We cannot restore an uploaded backup.", log: log, type: .fault)
                 backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .icloudAccountStatusIsNotAvailable)
                 return
             }
-            // The iCloud service is available. Look for a backup to restore
-            let predicate = NSPredicate(value: true)
-            let query = CKQuery(recordType: AppBackupManager.recordType, predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let queryOp = CKQueryOperation(query: query)
-            queryOp.resultsLimit = 1
-            queryOp.recordFetchedBlock = { record in
-                guard let asset = record["encryptedBackupFile"] as? CKAsset else {
-                    backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
-                    return
-                }
-                guard let url = asset.fileURL else {
-                    backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
-                    return
-                }
-                guard let creationDate = record.creationDate else {
-                    backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveCreationDate)
-                    return
-                }
-                DispatchQueue.main.async {
-                    backupRestoreViewHostingController.backupFileSelected(atURL: url, creationDate: creationDate)
-                }
-            }
-            queryOp.queryCompletionBlock = { (cursor, error) in
-                guard error == nil else {
-                    backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .iCloudError(description: error!.localizedDescription))
-                    return
-                }
-                if cursor == nil {
-                    backupRestoreViewHostingController.noMoreCloudBackupToFetch()
-                }
-            }
-            container.privateCloudDatabase.add(queryOp)
-        }
 
+            // The iCloud service is available. Look for backups to restore.
+            // This iterator only fetches the deviceIdentifierForVendor to load records efficiently.
+            let iterator = CloudKitBackupRecordIterator(identifierForVendor: nil,
+                                                        resultsLimit: nil,
+                                                        desiredKeys: [.deviceIdentifierForVendor])
+            // The already seen devices, since we show the latest record by device.
+            var seenDevices = Set<UUID>()
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for try await records in iterator {
+                    guard !allCloudOperationsAreCancelled else { break }
+                    for recordWithoutData in records {
+                        guard !allCloudOperationsAreCancelled else { break }
+                        guard let deviceIdentifierForVendor = recordWithoutData.deviceIdentifierForVendor else {
+                            continue
+                        }
+                        guard !seenDevices.contains(deviceIdentifierForVendor) else {
+                            // We have already seen this record.
+                            continue
+                        }
+                        // 'record' should be the latest record for the device 'deviceIdentifierForVendor'
+                        seenDevices.insert(deviceIdentifierForVendor)
+                        // Launch a task that fetches all the data of the latest record
+                        group.addTask {
+                            let iteratorWithData = CloudKitBackupRecordIterator(identifierForVendor: deviceIdentifierForVendor,
+                                                                                resultsLimit: 1,
+                                                                                desiredKeys: nil)
+                            guard await !self.allCloudOperationsAreCancelled else { return  }
+                            guard let recordWithData = try? await iteratorWithData.next()?.first else {
+                                await backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
+                                return
+                            }
+                            guard await !self.allCloudOperationsAreCancelled else { return }
+                            guard let asset = recordWithData[.encryptedBackupFile] as? CKAsset,
+                                  let url = asset.fileURL else {
+                                await backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
+                                return
+                            }
+                            guard await !self.allCloudOperationsAreCancelled else { return }
+                            guard let creationDate = recordWithData.creationDate else {
+                                await backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveCreationDate)
+                                return
+                            }
+                            guard await !self.allCloudOperationsAreCancelled else { return }
+                            guard let deviceName = recordWithData[.deviceName] as? String else {
+                                await backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveDeviceName)
+                                return
+                            }
+                            guard await !self.allCloudOperationsAreCancelled else { return }
+                            let info = BackupInfo(fileUrl: url, deviceName: deviceName, creationDate: creationDate)
+                            DispatchQueue.main.async {
+                                backupRestoreViewHostingController.addNewSelectableBackups([info])
+                            }
+                        }
+                    }
+                }
+            }
+            backupRestoreViewHostingController.noMoreCloudBackupToFetch()
+        } catch {
+            backupRestoreViewHostingController.backupFileFailedToBeRetrievedFromCloud(cloudFailureReason: .couldNotRetrieveEncryptedBackupFile)
+            return
+        }
     }
     
     func userWantsToRestoreBackupFromFile() {
@@ -764,11 +810,13 @@ extension OnboardingFlowViewController: UIDocumentPickerDelegate {
                     return
                 }
             }
-            
+
             // If we reach this point, we can start processing the backup file located at tempBackupFileUrl
-            
+            let info = BackupInfo(fileUrl: tempBackupFileUrl, deviceName: nil, creationDate: nil)
+
             DispatchQueue.main.async {
-                (self?.flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController)?.backupFileSelected(atURL: tempBackupFileUrl)
+                guard let backupRestoreViewHostingController = self?.flowNavigationController?.viewControllers.last as? BackupRestoreViewHostingController else { return }
+                backupRestoreViewHostingController.addNewSelectableBackups([info])
             }
         }
         
@@ -783,24 +831,18 @@ extension OnboardingFlowViewController: UIDocumentPickerDelegate {
 
 
 extension OnboardingFlowViewController: BackupKeyTesterDelegate {
-    
-    func userWantsToRestoreBackupIdentifiedByRequestUuid(_ backupRequestUuid: UUID) {
-        DispatchQueue.main.async { [weak self] in
-            let backupRestoringWaitingScreenVC = BackupRestoringWaitingScreenViewController()
-            backupRestoringWaitingScreenVC.delegate = self
-            backupRestoringWaitingScreenVC.backupRequestUuid = backupRequestUuid
-            self?.flowNavigationController?.pushViewController(backupRestoringWaitingScreenVC, animated: true)
-            
-            Task { [weak self] in
-                do {
-                    try await self?.obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestUuid)
-                    assert(Thread.isMainThread)
-                    self?.ownedIdentityRestoredFromBackupRestore()
-                } catch {
-                    assert(Thread.isMainThread)
-                    backupRestoringWaitingScreenVC.setRestoreFailed()
-                }
-            }
+
+    @MainActor
+    func userWantsToRestoreBackupIdentifiedByRequestUuid(_ backupRequestUuid: UUID) async {
+        assert(Thread.isMainThread)
+        let backupRestoringWaitingScreenVC = BackupRestoringWaitingScreenHostingController()
+        backupRestoringWaitingScreenVC.delegate = self
+        flowNavigationController?.pushViewController(backupRestoringWaitingScreenVC, animated: true)
+        do {
+            try await obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestUuid)
+            backupRestoringWaitingScreenVC.setRestoreSucceeded()
+        } catch {
+            backupRestoringWaitingScreenVC.setRestoreFailed()
         }
     }
     
@@ -810,10 +852,46 @@ extension OnboardingFlowViewController: BackupKeyTesterDelegate {
 extension OnboardingFlowViewController: BackupRestoringWaitingScreenViewControllerDelegate {
     
     func userWantsToStartOnboardingFromScratch() {
-        assert(Thread.current == Thread.main)
+        assert(Thread.isMainThread)
         flowNavigationController?.popToRootViewController(animated: true)
     }
+
+    /// Activates automatic backups to iCloud.
+    /// - Returns: `nil`if this method succeeds, or an error title and message if it fails.
+    func userWantsToEnableAutomaticBackup() async -> (title: String, message: String)? {
+        guard !ObvMessengerSettings.Backup.isAutomaticBackupEnabled else { return nil }
+
+        // The user wants to activate automatic backup.
+        // We must check whether it's possible.
+        do {
+            guard let accountStatus = try await appBackupDelegate?.getAccountStatus() else {
+                return AppBackupManager.CKAccountStatusMessage(.noAccount)
+            }
+            if case .available = accountStatus {
+                obvEngine.userJustActivatedAutomaticBackup()
+                ObvMessengerSettings.Backup.isAutomaticBackupEnabled = true
+                return nil
+            } else {
+                guard let titleAndMessage = AppBackupManager.CKAccountStatusMessage(accountStatus) else {
+                    assertionFailure()
+                    return AppBackupManager.CKAccountStatusMessage(.couldNotDetermine)
+                }
+                return titleAndMessage
+            }
+        } catch {
+            return AppBackupManager.CKAccountStatusMessage(.noAccount)
+        }
+    }
     
+    /// Called after a backup is successfully restored. In that case, we know that app database is already in
+    /// sync with the one within the engine.
+    /// We get a "random" owned identity from the app database to finalize the onboarding.
+    func ownedIdentityRestoredFromBackupRestore() {
+        DispatchQueue.main.async {
+            self.transitionToNotificationsSubscriberScreen()
+        }
+    }
+
 }
 
 

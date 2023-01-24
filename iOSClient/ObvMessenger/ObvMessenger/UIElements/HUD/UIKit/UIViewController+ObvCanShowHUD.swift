@@ -30,7 +30,11 @@ extension UIViewController: ObvCanShowHUD {
         let hudView: ObvHUDView
         switch type {
         case .checkmark:
-            hudView = ObvCheckmarkHUD()
+            hudView = ObvIconHUD()
+            (hudView as? ObvIconHUD)?.icon = .checkmarkCircle
+        case .xmark:
+            hudView = ObvIconHUD()
+            (hudView as? ObvIconHUD)?.icon = .xmarkCircle
         case .spinner:
             hudView = ObvLoadingHUD()
         case .progress(progress: let progress):
@@ -38,7 +42,7 @@ extension UIViewController: ObvCanShowHUD {
             (hudView as? ObvLoadingHUD)?.progress = progress
         case .text(text: let text):
             hudView = ObvTextHUD()
-            (hudView as! ObvTextHUD).text = text
+            (hudView as? ObvTextHUD)?.text = text
         }
 
         hudView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)

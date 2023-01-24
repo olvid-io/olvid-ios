@@ -21,7 +21,7 @@ import UIKit
 
 class SizeChooserForAutomaticDownloadsTableViewController: UITableViewController {
 
-    private let byteCountFormatter = ByteCountFormatter()
+    private let byteCountFormatter = ObvPositiveByteCountFormatter()
     
     init() {
         super.init(style: Self.settingsTableStyle)

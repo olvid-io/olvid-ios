@@ -32,6 +32,7 @@ enum ObvDeepLinkHost: CaseIterable {
     case settings
     case backupSettings
     case message
+    case allGroups
 
     var name: String { String(describing: self) }
 
@@ -48,6 +49,7 @@ enum ObvDeepLinkHost: CaseIterable {
     fileprivate var queryItemsKey: String? {
         switch self {
         case .latestDiscussions: return nil
+        case .allGroups: return nil
         case .singleDiscussion: return "discussionObjectURI"
         case .invitations: return nil
         case .contactGroupDetails: return "displayedContactGroupURI"
@@ -77,6 +79,7 @@ enum ObvDeepLink: Equatable {
     case settings
     case backupSettings
     case message(messageObjectURI: URL)
+    case allGroups
 
     private static let scheme = "io.olvid.messenger"
 
@@ -94,12 +97,14 @@ enum ObvDeepLink: Equatable {
         case .settings: return .settings
         case .backupSettings: return .backupSettings
         case .message: return .message
+        case .allGroups: return .allGroups
         }
     }
 
     fileprivate var queryItems: [String: URL] {
         switch self {
         case .latestDiscussions: return [:]
+        case .allGroups: return [:]
         case .singleDiscussion(let discussionObjectURI):
             guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
             return [queryItemsKey: discussionObjectURI]
@@ -156,6 +161,8 @@ enum ObvDeepLink: Equatable {
         switch host {
         case .latestDiscussions:
             self = .latestDiscussions
+        case .allGroups:
+            self = .allGroups
         case .singleDiscussion:
             guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
             self = .singleDiscussion(discussionObjectURI: url)

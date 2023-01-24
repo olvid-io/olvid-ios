@@ -67,6 +67,8 @@ struct ObvMessengerConstants {
     static let defaultEmoji = "👍"
     static let forwardIcon: ObvSystemIcon = .arrowshapeTurnUpForward
 
+    static let downsizedImageSize = CGSize(width: 40, height: 40) // In pixels
+
     static let allowedNumberOfWrongPasscodesBeforeLockOut = 3
     static let lockOutDuration: TimeInterval = TimeInterval(seconds: 60)
 
@@ -121,6 +123,7 @@ struct ObvMessengerConstants {
         let forDisplayableLogs: URL
         let forCustomContactProfilePictures: URL
         let forCustomGroupProfilePictures: URL
+        let forNotificationAttachments: URL
         init() {
             let securityApplicationGroupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)!
             let mainAppContainer = securityApplicationGroupURL.appendingPathComponent("Application", isDirectory: true)
@@ -136,6 +139,7 @@ struct ObvMessengerConstants {
             self.forDisplayableLogs = mainAppContainer.appendingPathComponent("DisplayableLogs", isDirectory: true)
             self.forCustomContactProfilePictures = mainAppContainer.appendingPathComponent("CustomContactProfilePictures", isDirectory: true)
             self.forCustomGroupProfilePictures = mainAppContainer.appendingPathComponent("CustomGroupProfilePictures", isDirectory: true)
+            self.forNotificationAttachments = securityApplicationGroupURL.appendingPathComponent("NotificationAttachments", isDirectory: true)
         }
         
         func forFylesHardlinks(within appType: AppType) -> URL {

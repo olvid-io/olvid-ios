@@ -214,6 +214,11 @@ class MessageSystemCollectionViewCell: UICollectionViewCell {
         messageSystem = message
         
         switch message.category {
+        case .ownedIdentityDidCaptureSensitiveMessages, .contactIdentityDidCaptureSensitiveMessages:
+            self.label.text = message.textBody
+            self.label.textAlignment = .natural
+            roundedView.backgroundColor = AppTheme.shared.colorScheme.orange
+            label.textColor = .white
         case .contactJoinedGroup, .contactLeftGroup, .contactWasDeleted, .contactRevokedByIdentityProvider, .notPartOfTheGroupAnymore, .rejoinedGroup, .contactIsOneToOneAgain:
             self.label.text = message.textBody?.localizedUppercase
         case .discussionIsEndToEndEncrypted:

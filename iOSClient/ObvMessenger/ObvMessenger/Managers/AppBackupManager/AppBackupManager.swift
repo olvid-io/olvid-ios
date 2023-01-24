@@ -23,53 +23,64 @@ import ObvEngine
 import ObvTypes
 import CloudKit
 import OlvidUtils
-import SwiftUI
 import ObvCrypto
+import CoreData
 
 
-final class AppBackupManager: ObvBackupable {
-    
+
+final actor AppBackupManager: AppBackupDelegate, ObvErrorMaker {
+
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppBackupManager.self))
+
+    static let errorDomain = "AppBackupManager"
+    static let recordType = "EngineBackupRecord"
+    static let creationDate = "creationDate" // Not a custom key since it belongs to CKRecord
+
     private let obvEngine: ObvEngine
+
     private var notificationTokens = [NSObjectProtocol]()
+    
     private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier?
 
-    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppBackupManager.self))
-
-    private static let errorDomain = "AppBackupManager"
-    static let recordType = "EngineBackupRecord"
-    static let deviceIdentifierForVendorKey = "deviceIdentifierForVendor"
-    static let deviceNameKey = "deviceName"
-    static let creationDate = "creationDate"
-
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
+    /// Type of the current incremental cleaning
+    enum CurrentIncrementalCleanType {
+        case none
+        case starting
+        case ongoing(progress: ObvProgress)
     }
 
-    /// This makes it possible to upload a backup to iCloud even when automatic backups are disabled. This is
-    /// used when the user explicitely ask for an iCloud backup.
-    private var uuidOfForcedBackupRequests = Set<UUID>()
-
-    private let interalQueue = OperationQueue.createSerialQueue(name: "AppBackupManager internal queue", qualityOfService: .default)
+    /// This variable indicate the status of the current incremental cleaning of iCloud backups.
+    /// This variable is
+    /// - `none` when no incremental cleaning is in progress
+    /// - `starting` if an incremental cleaning is starting
+    /// - `ongoing` when there is an incremental cleaning in progress. In that case, an `ObvProgress` allows to monitor the progress of the cleaning.
+    private var currentIncrementalClean = CurrentIncrementalCleanType.none
     
-    public static var backupIdentifier: String {
-        return "app" // This value is ignored by the engine
+    var cleaningProgress: ObvProgress? {
+        get async {
+            switch currentIncrementalClean {
+            case .none, .starting: return nil
+            case .ongoing(progress: let progress): return progress
+            }
+        }
     }
     
-    public var backupIdentifier: String {
-        return AppBackupManager.backupIdentifier
+    enum Key: String {
+        case deviceIdentifierForVendor = "deviceIdentifierForVendor"
+        case deviceName = "deviceName"
+        case encryptedBackupFile = "encryptedBackupFile"
     }
-    
-    public var backupSource: ObvBackupableObjectSource { .app }
 
-    
     init(obvEngine: ObvEngine) {
         self.obvEngine = obvEngine
-        observeNotifications()
+        let log = self.log
+        Task {
+            await observeNotifications()
+        }
         do {
             try obvEngine.registerAppBackupableObject(self)
         } catch {
-            os_log("Could not register the app within the engine for performing App data backup", log: AppBackupManager.log, type: .fault, error.localizedDescription)
+            os_log("Could not register the app within the engine for performing App data backup", log: log, type: .fault, error.localizedDescription)
             assertionFailure()
         }
     }
@@ -79,23 +90,21 @@ final class AppBackupManager: ObvBackupable {
         // Internal notifications
         
         notificationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeUserWantsToPerfomBackupForExportNow(queue: interalQueue) { [weak self] (sourceView, sourceViewController) in
-                self?.processUserWantsToPerfomBackupForExportNow(sourceView: sourceView, sourceViewController: sourceViewController)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToPerfomCloudKitBackupNow(queue: interalQueue) { [weak self] in
-                self?.performBackupToCloudKit(manuallyRequestByUser: true)
-            },
-            ObvMessengerInternalNotification.observeIncrementalCleanBackupInProgress(queue: OperationQueue.main) { currentCount, cleanAllDevices in
-                Self.cleanPreviousICloudBackupsThenLogResult(currentCount: currentCount, cleanAllDevices: cleanAllDevices)
+            ObvMessengerInternalNotification.observeUserWantsToStartIncrementalCleanBackup { [weak self] cleanAllDevices in
+                Task(priority: .userInitiated) { [weak self] in
+                    await self?.startIncrementalCleanCloudBackups(cleanAllDevices: cleanAllDevices)
+                }
             },
         ])
 
         // Engine notifications
         
         notificationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default, queue: interalQueue) { [weak self] (backupKeyString, backupKeyInformation) in
+            ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default) { [weak self] (backupKeyString, backupKeyInformation) in
                 // When a new backup key is created, we immediately perform a fresh automatic backup if required
-                self?.performBackupToCloudKit(manuallyRequestByUser: false)
+                Task(priority: .background) { [weak self] in
+                    try? await self?.performBackupToICloud(manuallyRequestByUser: false)
+                }
             },
         ])
 
@@ -104,8 +113,8 @@ final class AppBackupManager: ObvBackupable {
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         guard forTheFirstTime else { return }
-        interalQueue.addOperation { [weak self] in
-            self?.performBackupToCloudKit(manuallyRequestByUser: false)
+        Task(priority: .background) { [weak self] in
+            try? await self?.performBackupToICloud(manuallyRequestByUser: false)
         }
     }
     
@@ -115,27 +124,21 @@ final class AppBackupManager: ObvBackupable {
 // MARK: - Requesting backup for export
 
 extension AppBackupManager {
-    
-    
-    private func processUserWantsToPerfomBackupForExportNow(sourceView: UIView, sourceViewController: UIViewController) {
-        Task {
-            do {
-                let (backupKeyUid, backupVersion, encryptedContent) = try await obvEngine.initiateBackup(forExport: true, requestUUID: UUID())
-                DispatchQueue.main.async { [weak self] in
-                    self?.newEncryptedBackupAvailableForExport(backupKeyUid: backupKeyUid,
-                                                               backupVersion: backupVersion,
-                                                               encryptedContent: encryptedContent,
-                                                               sourceView: sourceView,
-                                                               sourceViewController: sourceViewController)
-                }
-            } catch {
-                /// If the backup fails we do nothing. We probably should since, in practice, the user will see a never ending spinner.
-                os_log("The backup failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                return
-            }
+
+    func exportBackup(sourceView: UIView, sourceViewController: UIViewController) async throws -> Bool {
+        let (backupKeyUid, backupVersion, encryptedContent) = try await obvEngine.initiateBackup(forExport: true, requestUUID: UUID())
+
+        let success = try await newEncryptedBackupAvailableForExport(backupKeyUid: backupKeyUid,
+                                                                     backupVersion: backupVersion,
+                                                                     encryptedContent: encryptedContent,
+                                                                     sourceView: sourceView,
+                                                                     sourceViewController: sourceViewController)
+
+        if success {
+            ObvMessengerInternalNotification.backupForExportWasExported.postOnDispatchQueue()
         }
+        return success
     }
-    
     
 }
 
@@ -143,591 +146,411 @@ extension AppBackupManager {
 // MARK: - Uploading a backup with CloudKit
 
 extension AppBackupManager {
-    
-    private func endBackgroundTaskNow() {
-        interalQueue.addOperation { [weak self] in
-            guard let _self = self else { return }
-            guard let backgroundTaskIdentifier = _self.backgroundTaskIdentifier else { assertionFailure(); return }
-            _self.backgroundTaskIdentifier = nil
-            os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue)
-            UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
-        }
+
+    func uploadBackupToICloud() async throws {
+        try await performBackupToICloud(manuallyRequestByUser: true)
     }
+
     
+    private func performBackupToICloud(manuallyRequestByUser: Bool) async throws {
     
-    private func performBackupToCloudKit(manuallyRequestByUser: Bool) {
-        assert(OperationQueue.current == interalQueue)
-        os_log("Call to performBackupToICloud with manuallyRequestByUser: %{public}@. The current background task identifier is %{public}@", log: Self.log, type: .info, manuallyRequestByUser.description, backgroundTaskIdentifier.debugDescription)
-        guard backgroundTaskIdentifier == nil else { return }
-        // Check whether automatic backups are requested
-        guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || manuallyRequestByUser else {
-            os_log("A backup key is available, but since automatic backup are not requested, and since we are not considering a manual backup, we do not perform an backup to the cloud", log: Self.log, type: .info)
-            return
-        }
-        backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: "Olvid Automatic Backup") {
-            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: Self.log, type: .fault)
-            return
-        }
-        os_log("Starting background task for automatic backup with background task idenfier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier!.rawValue)
-        guard (obvEngine.isBackupRequired || manuallyRequestByUser) else {
-            endBackgroundTaskNow()
-            return
-        }
-        // If we reach this point, we should try to perform a backup
+        os_log("Call to performBackupToICloud with manuallyRequestByUser: %{public}@. The current background task identifier is %{public}@", log: self.log, type: .info, manuallyRequestByUser.description, backgroundTaskIdentifier.debugDescription)
         
-        Task(priority: manuallyRequestByUser ? .userInitiated : .background) {
-            do {
-                let backupRequestUuid = UUID()
-                let (backupKeyUid, version, encryptedContent) = try await obvEngine.initiateBackup(forExport: false, requestUUID: backupRequestUuid)
-                interalQueue.addOperation { [weak self] in
-                    do {
-                        try self?.newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: backupKeyUid,
-                                                                                 backupVersion: version,
-                                                                                 encryptedContent: encryptedContent,
-                                                                                 backupRequestUuid: backupRequestUuid,
-                                                                                 manuallyRequestByUser: manuallyRequestByUser)
-                    } catch {
-                        os_log("Failed to perform automatic backup: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                        self?.endBackgroundTaskNow()
-                        assertionFailure()
-                        return
-                    }
-                }
-            } catch {
-                os_log("Failed to perform automatic backup: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                endBackgroundTaskNow()
-                assertionFailure()
-                return
+        guard backgroundTaskIdentifier == nil else { return }
+        
+        // Check that automatic backups are requested or that the user explicitely requested the backup
+        guard (ObvMessengerSettings.Backup.isAutomaticBackupEnabled && obvEngine.isBackupRequired) || manuallyRequestByUser else {
+            os_log("A backup key is available, but since automatic backup are not requested or backup was not required, and since we are not considering a manual backup, we do not perform an backup to the cloud", log: self.log, type: .info)
+            return
+        }
+
+        // Begin background task
+        self.backgroundTaskIdentifier = await UIApplication.shared.beginBackgroundTask(withName: "Olvid Automatic Backup") {
+            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: self.log, type: .fault)
+            return
+        }
+        guard let backgroundTaskIdentifier = self.backgroundTaskIdentifier else { assertionFailure(); return }
+        defer {
+            Task {
+                // End background task
+                self.backgroundTaskIdentifier = nil
+                os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: self.log, type: .info, backgroundTaskIdentifier.rawValue)
+                await UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
             }
         }
+        guard backgroundTaskIdentifier != .invalid else {
+            ObvMessengerInternalNotification.backupForUploadFailedToUpload.postOnDispatchQueue()
+            throw Self.makeError(message: "Could not perform automatic backup to CloudKit, running in the background isn't possible.")
+        }
+        os_log("Starting background task for automatic backup with background task idenfier: %{public}d", log: self.log, type: .info, backgroundTaskIdentifier.rawValue)
+
+        // If we reach this point, we should try to perform a backup
+        let backupRequestUuid = UUID()
+        let (backupKeyUid, version, encryptedContent) = try await obvEngine.initiateBackup(forExport: false, requestUUID: backupRequestUuid)
+        do {
+            try await newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: backupKeyUid,
+                                                                     backupVersion: version,
+                                                                     encryptedContent: encryptedContent,
+                                                                     backupRequestUuid: backupRequestUuid,
+                                                                     manuallyRequestByUser: manuallyRequestByUser)
+            ObvMessengerInternalNotification.backupForUploadWasUploaded.postOnDispatchQueue()
+        } catch {
+            ObvMessengerInternalNotification.backupForUploadFailedToUpload.postOnDispatchQueue()
+            throw error
+        }
     }
     
     
-    private func newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, backupRequestUuid: UUID, manuallyRequestByUser: Bool) throws {
-        assert(OperationQueue.current == interalQueue)
-        let log = Self.log
-        os_log("New encrypted available for upload to CloudKit", log: log, type: .info)
+    private func newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, backupRequestUuid: UUID, manuallyRequestByUser: Bool) async throws {
+        os_log("New encrypted backup available for upload to CloudKit", log: log, type: .info)
         let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: log)
         let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-        container.accountStatus { [weak self] (accountStatus, error) in
-            guard accountStatus == .available else {
-                os_log("The iCloud account isn't available. We cannot perform automatic backup.", log: log, type: .fault)
-                try? backupFile.deleteData()
-                do {
-                    try self?.obvEngine.markBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
-                } catch let error {
-                    os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: log, type: .error, error.localizedDescription)
-                }
-                self?.endBackgroundTaskNow()
-                return
-            }
-            self?.uploadBackupFileToCloudKit(backupFile: backupFile, container: container, backupRequestUuid: backupRequestUuid, manuallyRequestByUser: manuallyRequestByUser)
+        let accountStatus = try await container.accountStatus()
+        guard accountStatus == .available else {
+            os_log("The iCloud account isn't available. We cannot perform automatic backup.", log: log, type: .fault)
+            try? backupFile.deleteData()
+            await self.markBackupAsFailed(backupFile: backupFile)
+            return
+        }
+        try await self.uploadBackupFileToCloudKit(backupFile: backupFile, container: container, backupRequestUuid: backupRequestUuid, manuallyRequestByUser: manuallyRequestByUser)
 
-            if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
-                Self.cleanPreviousICloudBackupsThenLogResult(currentCount: 0, cleanAllDevices: false)
+        if ObvMessengerSettings.Backup.isAutomaticCleaningBackupEnabled {
+            Task {
+                await self.startIncrementalCleanCloudBackups(cleanAllDevices: false)
             }
         }
     }
 
-    
-    private func uploadBackupFileToCloudKit(backupFile: BackupFile, container: CKContainer, backupRequestUuid: UUID, manuallyRequestByUser: Bool) {
-        
-        let log = Self.log
+    private func markBackupAsFailed(backupFile: BackupFile) async {
+        do {
+            try await obvEngine.markBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
+        } catch let error {
+            os_log("Could mark the backup as uploaded: %{public}@", log: log, type: .error, error.localizedDescription)
+        }
+    }
+
+    private func markBackupAsUploaded(backupFile: BackupFile) async {
+        do {
+            try await self.obvEngine.markBackupAsUploaded(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
+        } catch let error {
+            os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: log, type: .error, error.localizedDescription)
+        }
+    }
+
+
+    private func uploadBackupFileToCloudKit(backupFile: BackupFile, container: CKContainer, backupRequestUuid: UUID, manuallyRequestByUser: Bool) async throws {
+
+        defer {
+            try? backupFile.deleteData()
+        }
+
         os_log("Will upload backup to CloudKit", log: log, type: .info)
 
-        guard let identifierForVendor = UIDevice.current.identifierForVendor else {
-            os_log("We could not determine the device's identifier for vendor. We cannot perform automatic backup.", log: log, type: .fault)
-            try? backupFile.deleteData()
-            do {
-                try obvEngine.markBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
-            } catch let error {
-                os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: log, type: .error, error.localizedDescription)
-            }
-            endBackgroundTaskNow()
-            return
+        guard let identifierForVendor = await UIDevice.current.identifierForVendor else {
+            await self.markBackupAsFailed(backupFile: backupFile)
+            throw Self.makeError(message: "We could not determine the device's identifier for vendor. We cannot perform automatic backup.")
         }
 
         // Create the CloudKit record
         let recordID = CKRecord.ID(recordName: UUID().uuidString)
         let record = CKRecord(recordType: Self.recordType, recordID: recordID)
-        record[Self.deviceNameKey] = UIDevice.current.name as NSString
-        record[Self.deviceIdentifierForVendorKey] = identifierForVendor.uuidString as NSString
-        record["encryptedBackupFile"] = backupFile.ckAsset
+        record[.deviceName] = await UIDevice.current.name as NSString
+        record[.deviceIdentifierForVendor] = identifierForVendor.uuidString as NSString
+        record[.encryptedBackupFile] = backupFile.ckAsset
         
         // Get the private CloudKit database
         let privateDatabase = container.privateCloudDatabase
-        
+
         // Last chance to check whether automatic backup are enabled or if the backup was manually requested (i.e., forced).
         guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || manuallyRequestByUser else {
             os_log("We cancel the backup upload to iCloud since automatic backups are disabled and since this backup was not manually requested.", log: log, type: .error)
             assertionFailure()
             return
         }
-        
+
         // Upload the record
-        privateDatabase.save(record) { [weak self] (record, error) in
-            defer {
-                try? backupFile.deleteData()
-                self?.endBackgroundTaskNow()
-            }
-            guard error == nil else {
-                os_log("Could not upload encrypted backup to CloudKit: %{public}@", log: log, type: .fault, error!.localizedDescription)
-                do {
-                    try self?.obvEngine.markBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
-                } catch let error {
-                    os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: log, type: .error, error.localizedDescription)
-                }
-                return
-            }
+        do {
+            _ = try await privateDatabase.save(record)
             os_log("Encrypted backup was uploaded to CloudKit", log: log, type: .info)
-            do {
-                try self?.obvEngine.markBackupAsUploaded(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
-            } catch let error {
-                os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: log, type: .error, error.localizedDescription)
-            }
+            await self.markBackupAsUploaded(backupFile: backupFile)
+        } catch(let error) {
+            await self.markBackupAsFailed(backupFile: backupFile)
+            throw error
         }
-
     }
 
-    enum AppBackupError: Error {
-        case accountError(_: Error)
-        case accountNotAvailable(_: CKAccountStatus)
-        case operationError(_: Error)
-    }
+}
 
-    final class CKRecordIterator: ObservableObject {
+// MARK: - Backups utils
 
-        let container: CKContainer
-        let database: CKDatabase
-        let query: CKQuery
+extension AppBackupManager {
 
-        private let resultsLimit: Int = 50
-
-        private var cursor: CKQueryOperation.Cursor? = nil
-
-        enum Operation {
-            case initialization
-            case loadMoreRecords
-        }
-
-        @Published var records: [CKRecord] = []
-        @Published var currentOperation: Operation? = nil
-        @Published var error: AppBackupError?
-
-        var hasMoreRecords: Bool { cursor != nil }
-
-        init(container: CKContainer,
-             database: KeyPath<CKContainer, CKDatabase>,
-             query: CKQuery) {
-            self.container = container
-            self.database = container[keyPath: database]
-            self.query = query
-            initialize()
-        }
-
-        func initialize() {
-            DispatchQueue.main.async {
-                withAnimation {
-                    self.currentOperation = .initialization
-                }
-            }
-            self.records.removeAll()
-            self.error = nil
-            self.container.accountStatus {  (accountStatus, error) in
-                if let error = error {
-                    self.error = .accountError(error)
-                    return
-                }
-                guard accountStatus == .available else {
-                    self.error = .accountNotAvailable(accountStatus)
-                    return
-                }
-
-                let queryOp = CKQueryOperation(query: self.query)
-                queryOp.recordFetchedBlock = self.recordFetchedBlock
-                queryOp.queryCompletionBlock = self.queryCompletionBlock
-                queryOp.resultsLimit = self.resultsLimit
-
-                self.database.add(queryOp)
-            }
-        }
-
-        func loadMoreRecords() {
-            guard let cursor = cursor else { return  }
-            self.cursor = nil
-            DispatchQueue.main.async {
-                withAnimation {
-                    self.currentOperation = .loadMoreRecords
-                }
-            }
-            let nextQueryOp = CKQueryOperation(cursor: cursor)
-            nextQueryOp.recordFetchedBlock = recordFetchedBlock
-            nextQueryOp.queryCompletionBlock = queryCompletionBlock
-            nextQueryOp.resultsLimit = resultsLimit
-            self.database.add(nextQueryOp)
-        }
-
-        private func recordFetchedBlock(record: CKRecord) {
-            DispatchQueue.main.async {
-                withAnimation {
-                    self.records += [record]
-                }
-            }
-        }
-
-        private func queryCompletionBlock(cursor: CKQueryOperation.Cursor?, error: Error?) {
-            defer {
-                DispatchQueue.main.async {
-                    withAnimation {
-                        self.currentOperation = nil
-                    }
-                }
-            }
-            if let error = error {
-                DispatchQueue.main.async {
-                    self.error = .operationError(error)
-                }
-                return
-            }
-            self.cursor = cursor
-        }
-
-
-    }
-
-    static func buildAllCloudBackupsIterator(identifierForVendor: UUID? = nil) -> CKRecordIterator {
+    func getAccountStatus() async throws -> CKAccountStatus {
         let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-
-        let predicate: NSPredicate
-        if let identifierForVendor = identifierForVendor {
-            predicate = NSPredicate(format: "%K == %@", Self.deviceIdentifierForVendorKey, identifierForVendor.uuidString)
-        } else {
-            predicate = NSPredicate(value: true)
-        }
-        let query = CKQuery(recordType: Self.recordType, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: Self.creationDate, ascending: false)]
-
-        return CKRecordIterator(container: container, database: \.privateCloudDatabase, query: query)
+        return try await container.accountStatus()
     }
 
-    /// identifierForVendor == nil -> Fetch records for all device
-    /// identifierForVendor != nil -> Fetch records for the device for the given identifierForVendor
-    static func fetchAllCloudBackups(identifierForVendor: UUID? = nil, resultsLimit: Int? = nil, completionHandler: @escaping (Result<([UUID: [CKRecord]], CKDatabase), AppBackupError>) -> Void) {
+    func checkAccount() async throws {
+        let accountStatus = try await getAccountStatus()
+        guard accountStatus == .available else {
+            throw CloudKitError.accountNotAvailable(accountStatus)
+        }
+    }
+
+    func deleteCloudBackup(record: CKRecord) async throws {
         let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-        container.accountStatus { (accountStatus, error) in
-            if let error = error {
-                completionHandler(.failure(.accountError(error)))
-                return
-            }
-            guard accountStatus == .available else {
-                completionHandler(.failure(.accountNotAvailable(accountStatus)))
-                return
-            }
-            let privateDatabase = container.privateCloudDatabase
-            let predicate: NSPredicate
-            if let identifierForVendor = identifierForVendor {
-                predicate = NSPredicate(format: "%K == %@", Self.deviceIdentifierForVendorKey, identifierForVendor.uuidString)
-            } else {
-                predicate = NSPredicate(value: true)
-            }
-            let query = CKQuery(recordType: Self.recordType, predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: Self.creationDate, ascending: false)]
-            let queryOp = CKQueryOperation(query: query)
-            if let resultsLimit = resultsLimit {
-                queryOp.resultsLimit = resultsLimit
-            }
-
-            var records = [UUID: [CKRecord]]()
-
-            func recordFetchedBlock(record: CKRecord) {
-                guard let deviceIdentifierForVendor = record.deviceIdentifierForVendor else { return }
-                if let recordsForDevice = records[deviceIdentifierForVendor] {
-                    records[deviceIdentifierForVendor] = recordsForDevice + [record]
-                } else {
-                    records[deviceIdentifierForVendor] = [record]
-                }
-            }
-            queryOp.recordFetchedBlock = recordFetchedBlock
-
-            func queryCompletionBlock(cursor: CKQueryOperation.Cursor?, error: Error?) {
-                if let error = error {
-                    completionHandler(.failure(.operationError(error)))
-                    return
-                }
-                if cursor == nil {
-                    completionHandler(.success((records, privateDatabase)))
-                    return
-                }
-                if let resultsLimit = resultsLimit, resultsLimit <= records.count {
-                    completionHandler(.success((records, privateDatabase)))
-                    return
-                }
-                let nextQueryOp = CKQueryOperation(cursor: cursor!)
-                nextQueryOp.recordFetchedBlock = recordFetchedBlock
-                nextQueryOp.queryCompletionBlock = queryCompletionBlock
-                nextQueryOp.resultsLimit = queryOp.resultsLimit
-                privateDatabase.add(nextQueryOp)
-            }
-
-            queryOp.queryCompletionBlock = queryCompletionBlock
-            privateDatabase.add(queryOp)
+        try await checkAccount()
+        let privateDatabase = container.privateCloudDatabase
+        do {
+            _ = try await privateDatabase.deleteRecord(withID: record.recordID)
+        } catch(let error) {
+            throw CloudKitError.operationError(error)
         }
     }
 
-    /// identifierForVendor == nil -> Fetch records for all device
-    /// identifierForVendor != nil -> Fetch records for the device for the given identifierForVendor
-    static func fetchNFirstCloudBackups(identifierForVendor: UUID? = nil, resultsLimit: Int? = nil, completionHandler: @escaping (Result<([UUID: [CKRecord]], CKDatabase), AppBackupError>) -> Void) {
-        let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-        container.accountStatus { (accountStatus, error) in
-            if let error = error {
-                completionHandler(.failure(.accountError(error)))
-                return
-            }
-            guard accountStatus == .available else {
-                completionHandler(.failure(.accountNotAvailable(accountStatus)))
-                return
-            }
-            let privateDatabase = container.privateCloudDatabase
-            let predicate: NSPredicate
-            if let identifierForVendor = identifierForVendor {
-                predicate = NSPredicate(format: "%K == %@", Self.deviceIdentifierForVendorKey, identifierForVendor.uuidString)
-            } else {
-                predicate = NSPredicate(value: true)
-            }
-            let query = CKQuery(recordType: Self.recordType, predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: Self.creationDate, ascending: true)]
-            let queryOp = CKQueryOperation(query: query)
-            if let resultsLimit = resultsLimit {
-                queryOp.resultsLimit = resultsLimit
-            }
+    /// Returns the latest backup for the current device
+    func getLatestCloudBackup(desiredKeys: [AppBackupManager.Key]?) async throws -> CKRecord? {
+        guard let identifierForVendor = await UIDevice.current.identifierForVendor else {
+            throw CloudKitError.operationError(Self.makeError(message: "Cannot get identifierForVendor"))
+        }
+        let iterator = CloudKitBackupRecordIterator(identifierForVendor: identifierForVendor,
+                                                    resultsLimit: 1,
+                                                    desiredKeys: desiredKeys)
+        return try await iterator.next()?.first
+    }
 
-            var records = [UUID: [CKRecord]]()
+    func getBackupsAndDevicesCount(identifierForVendor: UUID?) async throws -> (backupCount: Int, deviceCount: Int) {
+        let iterator = CloudKitBackupRecordIterator(identifierForVendor: identifierForVendor,
+                                                    resultsLimit: nil,
+                                                    desiredKeys: [.deviceIdentifierForVendor])
+        var backupCount = 0
+        var devices = Set<UUID>()
+        for try await records in iterator {
+            backupCount += records.count
+            devices.formUnion(records.compactMap({ $0.deviceIdentifierForVendor }))
+        }
+        return (backupCount, devices.count)
+    }
 
-            func recordFetchedBlock(record: CKRecord) {
-                guard let deviceIdentifierForVendor = record.deviceIdentifierForVendor else { return }
-                if let recordsForDevice = records[deviceIdentifierForVendor] {
-                    records[deviceIdentifierForVendor] = [record] + recordsForDevice
-                } else {
-                    records[deviceIdentifierForVendor] = [record]
-                }
-            }
-            queryOp.recordFetchedBlock = recordFetchedBlock
+}
 
-            func queryCompletionBlock(cursor: CKQueryOperation.Cursor?, error: Error?) {
-                if let error = error {
-                    completionHandler(.failure(.operationError(error)))
-                    return
-                }
-                completionHandler(.success((records, privateDatabase)))
-            }
+// MARK: - Backups settings
 
-            queryOp.queryCompletionBlock = queryCompletionBlock
-            privateDatabase.add(queryOp)
+extension AppBackupManager {
+
+    static func CKAccountStatusMessage(_ accountStatus: CKAccountStatus) -> (title: String, message: String)? {
+        switch accountStatus {
+        case .noAccount:
+            return (Strings.titleSignIn, Strings.messageSignIn)
+        case .couldNotDetermine:
+            return (Strings.titleCloudKitStatusUnclear, Strings.messageSignIn)
+        case .restricted:
+            return (Strings.titleCloudRestricted, Strings.messageRestricted)
+        case .available:
+            return nil
+        case .temporarilyUnavailable:
+            return (Strings.temporarilyUnavailable, Strings.tryAgainLater)
+        @unknown default:
+            assertionFailure()
+            return nil
         }
     }
 
-
-    static func deleteCloudBackup(record: CKRecord, completionHandler: @escaping (Result<Void, AppBackupError>) -> Void) {
-        let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
-        container.accountStatus { (accountStatus, error) in
-            if let error = error {
-               completionHandler(.failure(.accountError(error)))
-                return
-            }
-            guard accountStatus == .available else {
-                completionHandler(.failure(.accountNotAvailable(accountStatus)))
-                return
-            }
-            let privateDatabase = container.privateCloudDatabase
-
-            privateDatabase.delete(withRecordID: record.recordID) { id, error in
-                if let error = error {
-                    completionHandler(.failure(.operationError(error)))
-                }
-                completionHandler(.success(()))
-            }
-        }
+    private struct Strings {
+        static let titleSignIn = NSLocalizedString("Sign in to iCloud", comment: "Alert title")
+        static let messageSignIn = NSLocalizedString("Please sign in to your iCloud account to enable automatic backups. On the Home screen, launch Settings, tap iCloud, and enter your Apple ID. Turn iCloud Drive on. If you don't have an iCloud account, tap Create a new Apple ID.", comment: "Alert message")
+        static let titleCloudKitStatusUnclear = NSLocalizedString("iCloud status is unclear", comment: "Alert title")
+        static let titleCloudRestricted = NSLocalizedString("iCloud access is restricted", comment: "Alert title")
+        static let temporarilyUnavailable = NSLocalizedString("ICLOUD_ACCOUNT_TEMPORARILY_UNAVAILABLE", comment: "Alert title")
+        static let tryAgainLater = NSLocalizedString("ICLOUD_ACCOUNT_TRY_AGAIN_LATER", comment: "Alert body")
+        static let messageRestricted = NSLocalizedString("Your iCloud account is not available. Access was denied due to Parental Controls or Mobile Device Management restrictions", comment: "Alert body")
     }
 
-    static func getLatestCloudBackup(completionHandler: @escaping (Result<CKRecord?, AppBackupError>) -> Void) {
-        guard let identifierForVendor = UIDevice.current.identifierForVendor else {
-            completionHandler(.failure(.operationError(Self.makeError(message: "Cannot get identifierForVendor"))))
+}
+
+
+// MARK: - Deleting obsolete (old) backups
+
+extension AppBackupManager {
+
+    private func startIncrementalCleanCloudBackups(cleanAllDevices: Bool) async {
+        guard case .none = currentIncrementalClean else {
+            // An incremental clean is starting or ongoing. We do not want two cleaning in parallel.
             return
         }
-        fetchAllCloudBackups(identifierForVendor: identifierForVendor, resultsLimit: 1) { result in
-            switch result {
-            case .success(let (records, _)):
-                assert(records.count <= 1)
-                completionHandler(.success(records.first?.value.first))
-            case .failure(let error):
-                completionHandler(.failure(error))
-            }
-        }
-    }
-
-    static func incrementalCleanCloudBackups(cleanAllDevices: Bool, completionHandler: @escaping (Result<Int, AppBackupError>) -> Void) {
-        Self.incrementalCleanCloudBackups(currentCount: 0,
-                                          cleanAllDevices: cleanAllDevices,
-                                          completionHandler: completionHandler)
-    }
-
-    private static func incrementalCleanCloudBackups(currentCount: Int, cleanAllDevices: Bool, completionHandler: @escaping (Result<Int, AppBackupError>) -> Void) {
-        assert(!Thread.isMainThread)
-        if Thread.isMainThread {
-            os_log("🧽 incrementalCleanCloudBackups is running on the main thread", log: self.log, type: .fault)
-        }
-        guard let identifierForVendor = UIDevice.current.identifierForVendor else {
-            completionHandler(.failure(.operationError(Self.makeError(message: "Cannot get identifierForVendor"))))
-            return
+        currentIncrementalClean = .starting
+        defer {
+            currentIncrementalClean = .none
         }
         os_log("🧽 Start incremental backup clean", log: self.log, type: .info)
-        ObvMessengerInternalNotification.incrementalCleanBackupStarts(initialCount: currentCount).postOnDispatchQueue()
-        let successHandler: (Int, Bool) -> Void = { count, inProgress in
-            if inProgress {
-                os_log("🧽 Clean previous backup has removed %{public}@ backups", log: Self.log, type: .info, String(count))
-                ObvMessengerInternalNotification.incrementalCleanBackupInProgress(currentCount: count, cleanAllDevices: cleanAllDevices).postOnDispatchQueue()
+
+        do {
+            let identifierForVendor: UUID?
+            if cleanAllDevices {
+                identifierForVendor = nil
             } else {
-                os_log("🧽 Clean previous backup is terminated", log: Self.log, type: .info)
-                ObvMessengerInternalNotification.incrementalCleanBackupTerminates(totalCount: count).postOnDispatchQueue()
+                guard let _identifierForVendor = await UIDevice.current.identifierForVendor else {
+                    throw CloudKitError.operationError(Self.makeError(message: "Cannot get identifierForVendor"))
+                }
+                identifierForVendor = _identifierForVendor
             }
-            completionHandler(.success(count))
-        }
 
-        fetchNFirstCloudBackups(identifierForVendor: cleanAllDevices ? nil : identifierForVendor, resultsLimit: 50) { result in
-            switch result {
-            case .success(let (records, database)):
-                guard !records.isEmpty else {
-                    successHandler(currentCount, false)
-                    return
-                }
-
-                // Latest record for each device.
-                var recordsToSave = [CKRecord]()
-                var recordsToDelete = [CKRecord]()
-
-                for device in records.keys {
-                    guard let recordsForDevice = records[device] else { assertionFailure(); continue }
-                    guard let recordToSave = recordsForDevice.first else { assertionFailure(); continue }
-                    guard let recordToSaveCreationDate = recordToSave.creationDate else {
-                        assertionFailure(); continue
-                    }
-                    recordsToSave += [recordToSave]
-                    for recordForDevice in recordsForDevice {
-                        guard recordForDevice.recordID != recordToSave.recordID else { continue }
-                        guard let creationDate = recordForDevice.creationDate else { assertionFailure(); continue }
-                        guard creationDate < recordToSaveCreationDate else { assertionFailure(); continue }
-                        recordsToDelete += [recordForDevice]
-                    }
-                }
-
-                let recordIDsToDelete = recordsToDelete.map { $0.recordID }
-                guard !recordIDsToDelete.isEmpty else {
-                    successHandler(currentCount, false)
-                    return
-                }
-
-                let operation = CKModifyRecordsOperation(recordsToSave: recordsToSave,
-                                                         recordIDsToDelete: recordIDsToDelete)
-
-                if #available(iOS 15.0, *) {
-                    operation.modifyRecordsResultBlock = { result in
-                        switch result {
-                        case .success:
-                            print("clean \(currentCount + recordIDsToDelete.count) records")
-                            successHandler(currentCount + recordIDsToDelete.count, true)
-                        case .failure(let error):
-                            completionHandler(.failure(.operationError(error)))
-                        }
-                    }
-                } else {
-                    operation.modifyRecordsCompletionBlock = { (savedRecords, deletedRecordIDs, error) in
-                        if let error = error {
-                            completionHandler(.failure(.operationError(error)))
-                            return
-                        }
-                        successHandler(currentCount + recordIDsToDelete.count, true)
-                    }
-                }
-
-                database.add(operation)
-            case .failure(let error):
-                completionHandler(.failure(error))
-                return
+            let (backupCount, deviceCount) = try await getBackupsAndDevicesCount(identifierForVendor: identifierForVendor)
+            let totalUnitCount = backupCount - deviceCount // We substract deviceCount as this corresponds to the number of latest backups that we will keep
+            let progress = ObvProgress(totalUnitCount: Int64(totalUnitCount))
+            currentIncrementalClean = .ongoing(progress: progress)
+            ObvMessengerInternalNotification.incrementalCleanBackupStarts.postOnDispatchQueue()
+            try await queueIncrementalCleanCloudBackups(identifierForVendor: identifierForVendor)
+        } catch(let error) {
+            let error = error as? CloudKitError ?? .unknownError(error)
+            switch error {
+            case .accountError(let error):
+                os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+            case .accountNotAvailable:
+                os_log("🧽 Clean previous backups error: account is not available", log: self.log, type: .fault)
+            case .operationError(let error):
+                os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+            case .unknownError(let error):
+                os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+            case .internalError:
+                assertionFailure()
+                os_log("🧽 Clean previous backups internal error", log: self.log, type: .fault)
             }
         }
     }
 
-    static func cleanPreviousICloudBackupsThenLogResult(currentCount: Int, cleanAllDevices: Bool) {
-        AppBackupManager.incrementalCleanCloudBackups(currentCount: currentCount,
-                                                          cleanAllDevices: cleanAllDevices) { result in
-            switch result {
-            case .success(let deletedRecords):
-                os_log("🧽 Clean previous iCloud backups done: %{public}@ deleted record", log: self.log, type: .info, String(deletedRecords))
-            case .failure(let error):
-                switch error {
-                case .accountError(let error):
-                    os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
-                case .accountNotAvailable:
-                    os_log("🧽 Clean previous backups error: account is not available", log: self.log, type: .fault)
-                case .operationError(let error):
-                    os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
-                }
-            }
-        }
-    }
     
+    private func queueIncrementalCleanCloudBackups(identifierForVendor: UUID?) async throws {
+
+        let iterator = CloudKitBackupRecordIterator(identifierForVendor: identifierForVendor, resultsLimit: 50, desiredKeys: [.deviceIdentifierForVendor])
+
+        guard let records = try await iterator.next() else {
+            os_log("🧽 Clean previous backups is terminated (No record found (A))", log: self.log, type: .info)
+            ObvMessengerInternalNotification.incrementalCleanBackupTerminates.postOnDispatchQueue()
+            return
+        }
+        guard !records.isEmpty else {
+            os_log("🧽 Clean previous backups is terminated (No record found (B))", log: self.log, type: .info)
+            ObvMessengerInternalNotification.incrementalCleanBackupTerminates.postOnDispatchQueue()
+            return
+        }
+
+        // Multimap of Device to ordered records (most recent first)
+        var deviceToRecords: [UUID: [CKRecord]] = [:]
+        for record in records {
+            guard let deviceIdentifierForVendor = record.deviceIdentifierForVendor else { assertionFailure(); continue }
+            if let recordsForDevice = deviceToRecords[deviceIdentifierForVendor] {
+                deviceToRecords[deviceIdentifierForVendor] = recordsForDevice + [record]
+            } else {
+                deviceToRecords[deviceIdentifierForVendor] = [record]
+            }
+        }
+
+        // Records to save to latest for each device
+        var recordsToSave = [CKRecord]()
+        
+        // Record to delete: all record except the latest
+        var recordsToDelete = [CKRecord]()
+        
+        for records in deviceToRecords.values {
+            guard let recordToSave = records.first else { assertionFailure(); continue }
+            guard let recordToSaveCreationDate = recordToSave.creationDate else {
+                assertionFailure(); continue
+            }
+            recordsToSave += [recordToSave]
+            for record in records {
+                guard record.recordID != recordToSave.recordID else { continue }
+                guard let creationDate = record.creationDate else { assertionFailure(); continue }
+                guard creationDate < recordToSaveCreationDate else { assertionFailure(); continue }
+                recordsToDelete += [record]
+            }
+        }
+
+        let recordIDsToDelete = recordsToDelete.map { $0.recordID }
+        guard !recordIDsToDelete.isEmpty else {
+            os_log("🧽 Clean previous backup is terminated (No records to delete)", log: self.log, type: .info)
+            ObvMessengerInternalNotification.incrementalCleanBackupTerminates.postOnDispatchQueue()
+            return
+        }
+
+        let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
+        try await checkAccount()
+        let database = container.privateCloudDatabase
+
+        try await database.modifyRecords(recordsToSave: recordsToSave,
+                                         recordIDsToDelete: recordIDsToDelete)
+        // Update current cleaning count
+        Task { [weak self] in
+            await self?.cleaningProgress?.completedUnitCount += Int64(recordIDsToDelete.count)
+        }
+        // Launch another cleaning batch
+        try await self.queueIncrementalCleanCloudBackups(identifierForVendor: identifierForVendor)
+    }
+}
+
+private extension CKDatabase {
+
+    func modifyRecords(recordsToSave: [CKRecord]? = nil,
+                       recordIDsToDelete: [CKRecord.ID]? = nil) async throws {
+        return try await withCheckedThrowingContinuation({ cont in
+            let operation = CKModifyRecordsOperation(recordsToSave: recordsToSave,
+                                                     recordIDsToDelete: recordIDsToDelete)
+            operation.modifyRecordsCompletionBlock = { (savedRecords, deletedRecordIDs, error) in
+                if let error = error {
+                    cont.resume(throwing: CloudKitError.operationError(error))
+                    return
+                }
+                cont.resume()
+            }
+            self.add(operation)
+        })
+    }
+
 }
 
 
 // MARK: - Exporting a backup
 
 extension AppBackupManager {
-    
+
     @MainActor
-    private func newEncryptedBackupAvailableForExport(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, sourceView: UIView, sourceViewController: UIViewController) {
+    private func newEncryptedBackupAvailableForExport(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, sourceView: UIView, sourceViewController: UIViewController) async throws -> Bool {
 
         assert(Thread.isMainThread)
-        
-        let log = Self.log
-        
-        let backupFile: BackupFile
-        do {
-            backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: log)
-        } catch let error {
-            os_log("Could not save encrypted backup: %{public}@", log: log, type: .fault, error.localizedDescription)
-            return
-        }
-        
+
+        let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: log)
+
         let ativityController = UIActivityViewController(activityItems: [backupFile], applicationActivities: nil)
         ativityController.popoverPresentationController?.sourceView = sourceView
-        ativityController.completionWithItemsHandler = { [weak self] (activityType, completed, returnedItems, error) in
-            guard completed else {
-                try? backupFile.deleteData()
-                ObvMessengerInternalNotification.userCancelledBackupForExportNow
-                    .postOnDispatchQueue()
-                return
-            }
-            guard completed || activityType == nil else {
-                return
-            }
-            if activityType != nil {
-                // We assume that the backup file was indeed exported
-                do {
-                    try self?.obvEngine.markBackupAsExported(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
-                } catch let error {
-                    os_log("Could not mark the backup as exported within the engine: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    // Continue anyway
+        let log = self.log
+        return try await withCheckedThrowingContinuation { cont in
+            ativityController.completionWithItemsHandler = { [weak self] (activityType, completed, returnedItems, error) in
+                guard completed else {
+                    try? backupFile.deleteData()
+                    cont.resume(returning: false)
+                    return
+                }
+                Task {
+                    if activityType != nil {
+                        // We assume that the backup file was indeed exported
+                        do {
+                            try await self?.obvEngine.markBackupAsExported(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
+                        } catch let error {
+                            cont.resume(throwing: error)
+                        }
+                    }
+                    do {
+                        try backupFile.deleteData()
+                    } catch let error {
+                        os_log("Could not delete the encrypted backup: %{public}@", log: log, type: .error, error.localizedDescription)
+                    }
+                    cont.resume(returning: true)
                 }
             }
-            do {
-                try backupFile.deleteData()
-            } catch let error {
-                os_log("Could not delete the encrypted backup: %{public}@", log: log, type: .error, error.localizedDescription)
+            DispatchQueue.main.async {
+                sourceViewController.present(ativityController, animated: true)
             }
         }
-        sourceViewController.present(ativityController, animated: true)
-        
     }
     
     
@@ -798,8 +621,18 @@ fileprivate final class BackupFile: UIActivityItemProvider {
 }
 
 extension CKRecord {
+
+    subscript(key: AppBackupManager.Key) -> CKRecordValue? {
+        get {
+            self[key.rawValue]
+        }
+        set {
+            self[key.rawValue] = newValue
+        }
+    }
+
     var deviceIdentifierForVendor: UUID? {
-        guard let deviceIdentifierForVendorAsString = self[AppBackupManager.deviceIdentifierForVendorKey] as? String,
+        guard let deviceIdentifierForVendorAsString = self[.deviceIdentifierForVendor] as? String,
               let deviceIdentifierForVendor = UUID(deviceIdentifierForVendorAsString) else {
                   assertionFailure(); return nil }
         return deviceIdentifierForVendor
@@ -808,8 +641,19 @@ extension CKRecord {
 
 // MARK: - Responding to engine request for app backup items
 
-extension AppBackupManager {
-    
+extension AppBackupManager: ObvBackupable {
+    static var backupIdentifier: String {
+        return "app" // This value is ignored by the engine
+    }
+
+    nonisolated var backupIdentifier: String {
+        return AppBackupManager.backupIdentifier
+    }
+
+    nonisolated var backupSource: ObvBackupableObjectSource {
+        .app
+    }
+
     func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
         
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) in
@@ -837,9 +681,8 @@ extension AppBackupManager {
         // This is called when all the engine data have been restored. We can thus start the restore of app backuped data.
         
         // We first request a sync of all the engine database to make sure the app database is in sync
-        
-        let log = AppBackupManager.log
-        
+        let log = self.log
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
          
             ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine { result in
@@ -877,14 +720,14 @@ extension AppBackupManager {
                                 do {
                                     try ownedIdentityBackupItem.updateExistingInstance(within: context)
                                 } catch {
-                                    os_log("One of the app backup item could not be fully restored: %{public}@", log: log, type: .fault, error.localizedDescription)
+                                    os_log("One of the app backup item could not be fully restored: %{public}@", log: self.log, type: .fault, error.localizedDescription)
                                     assertionFailure()
                                     // Continue anyway
                                 }
                             }
                             
                             do {
-                                try context.save(logOnFailure: AppBackupManager.log)
+                                try context.save(logOnFailure: self.log)
                             } catch {
                                 // Although we did not succeed to restore the app backup, we consider its ok (for now)
                                 assertionFailure(error.localizedDescription)
@@ -897,7 +740,32 @@ extension AppBackupManager {
                     // Step 2: Update the app global configuration
                     
                     appBackupItem.globalSettings.updateExistingObvMessengerSettings()
-                    
+
+                    // Step 3: Perform additional step after backup restoration
+
+                    ObvStack.shared.performBackgroundTaskAndWait { context in
+                        do {
+                            let discussions = try PersistedDiscussion.getAllActiveDiscussionsForAllOwnedIdentities(within: context)
+
+                            for discussion in discussions {
+                                discussion.insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: true)
+                            }
+                        } catch {
+                            os_log("Cannot insert current discussion shared configuration system message: %{public}@", log: log, type: .fault, error.localizedDescription)
+                            assertionFailure()
+                            // Continue anyway
+                        }
+
+                        do {
+                            try context.save(logOnFailure: log)
+                        } catch {
+                            // Although we did not succeed to restore the app backup, we consider its ok (for now)
+                            assertionFailure(error.localizedDescription)
+                            return
+                        }
+
+                    }
+
                     // We restored the app data, we can call the completion handler
                     
                     continuation.resume()

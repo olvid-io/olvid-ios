@@ -63,7 +63,17 @@ final class SingleDiscussionTitleView: UIView {
             return
         }
         let title = group.discussion.title
-        let subtitle = group.contactIdentities.compactMap({ $0.customOrNormalDisplayName }).joined(separator: ", ")
+                
+        let subtitle: String
+        let names = group.contactIdentities
+            .sorted { $0.customOrShortDisplayName < $1.customOrShortDisplayName }
+            .compactMap({ $0.customOrShortDisplayName })
+        if #available(iOS 15, *) {
+            subtitle = names.formatted(.list(type: .and, width: .short))
+        } else {
+            subtitle = names.joined(separator: ", ")
+        }
+
         self.init(title: title,
                   subtitle: subtitle)
         circledInitialsView.configureWith(group.circledInitialsConfiguration)

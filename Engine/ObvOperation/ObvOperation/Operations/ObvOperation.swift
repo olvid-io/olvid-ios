@@ -25,7 +25,7 @@ import ObvCrypto
 
 @objcMembers open class ObvOperation: Operation {
     
-    static let defaultLogSubsystem = "io.olivd.operation"
+    static let defaultLogSubsystem = "io.olvid.operation"
     private let log = OSLog(subsystem: ObvOperation.defaultLogSubsystem, category: "ObvOperation")
     
     open var className: String { return "ObvOperation" }

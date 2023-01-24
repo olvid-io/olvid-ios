@@ -43,7 +43,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
             await appMainManager.createPasscodeDelegate
         }
     }
-    
+    var appBackupDelegate: AppBackupDelegate? {
+        get async {
+            await appMainManager.appBackupDelegate
+        }
+    }
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
 
         os_log("🧦 Application did finish launching with options", log: log, type: .info)
@@ -117,7 +122,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
         return true
     }
     
-    
+    @MainActor
     func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
         os_log("Application perform action for shortcut", log: log, type: .info)
         assertionFailure("Not expected to be called anymore")

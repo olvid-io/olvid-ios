@@ -30,10 +30,8 @@ extension UserNotificationCreator {
         }
         
         struct NewPersistedMessageReceived {
-            static let body = { (firstAttachmentName: String, numberOfOtherAttachments: Int) -> String in
-                let s1 = String.localizedStringWithFormat(NSLocalizedString("%@ and", comment: ""), firstAttachmentName)
-                let s2 = String.localizedStringWithFormat(NSLocalizedString("n more attachments", comment: "Notification body"), numberOfOtherAttachments)
-                return [s1, s2].joined(separator: " ")
+            static let body = { (numberOfAttachments: Int) -> String in
+                String.localizedStringWithFormat(NSLocalizedString("count attachments", comment: ""), numberOfAttachments)
             }
         }
         

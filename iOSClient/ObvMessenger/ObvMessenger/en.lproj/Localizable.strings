@@ -747,6 +747,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Attachments smaller than %@ will be automatically downloaded. Larger attachments will require manual download." = "Attachments smaller than %@ will be automatically downloaded. Larger attachments will require manual download.";
 
+"ALL_ATTACHMENTS_WILL_BE_AUTOMATICALLY_DOWNLOADED" = "All attachments will be automatically downloaded.";
+
 "Size" = "Size";
 
 "Identity color style" = "Identity color style";
@@ -837,7 +839,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "Choose Discussion" = "Choose a Discussion";
 
 /* Title of the screen displaying informations about a specific message within a discussion */
-"Message Info" = "Message Info";
+"MESSAGE_INFO" = "Message informations";
 
 "Rich link preview" = "Rich link preview";
 
@@ -1012,11 +1014,11 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Choose From a file to pick a backup file create from a manual backup." = "Choose \"From a file\" to pick a backup file create from a manual backup.";
 
-"Choose From the cloud to select an account used for automatic backups." = "Choose \"From the cloud\" to select an account used for automatic backups.";
+"Choose From the cloud to select an account used for automatic backups." = "Choose \"From iCloud\" to select an account used for automatic backups.";
 
 "From a file" = "From a file";
 
-"From the cloud" = "From the cloud";
+"From the cloud" = "From iCloud";
 
 "Backup file selected" = "Backup file selected";
 
@@ -1041,6 +1043,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "BACKUP_AND_UPLOAD_NOW" = "Backup and upload to iCloud now";
 
 "AUTOMATIC_BACKUP" = "Automatic backup to iCloud";
+
+"ENABLE_AUTOMATIC_BACKUP" = "Enable automatic backups to iCloud";
 
 "AUTOMATIC_BACKUP_EXPLANATION" = "Activating this option allows to perform an automatic encrypted backup of your contacts, groups, and settings (messages and attachments are not backuped). Do not worry, this backup is encrypted 😇.";
 
@@ -1068,21 +1072,21 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "CLEAN_OLD_BACKUPS" = "Delete old iCloud backups";
 
-"CLEAN_OLD_BACKUPS_ON_ALL_DEVICES" = "For all devices";
+"CLEAN_OLD_BACKUPS_ON_ALL_DEVICES" = "Delete backups for all devices";
 
-"CLEAN_OLD_BACKUPS_ON_CURRENT_DEVICE" = "For this device";
+"CLEAN_OLD_BACKUPS_ON_CURRENT_DEVICE" = "Delete backups for this device";
 
-"CLEAN_OLD_BACKUPS_TITLE" = "Delete old iCloud backups";
+"CLEAN_OLD_BACKUPS_TITLE" = "Delete old iCloud backups?";
 
 "CLEAN_OLD_BACKUPS_MESSAGE" = "Delete all iCloud backups but the last one.";
 
-"CLEAN_LATEST_BACKUPS_FOR_OTHER_DEVICE_TITLE" = "Delete all but the last iCloud backups for other devices";
+"CLEAN_LATEST_BACKUP_FOR_OTHER_DEVICE_TITLE" = "Delete the latest iCloud backup of another device?";
 
-"CLEAN_LATEST_BACKUPS_FOR_OTHER_DEVICE_MESSAGE" = "Please note that you are about to delete the last iCloud backup for another device.";
+"CLEAN_LATEST_BACKUP_FOR_OTHER_DEVICE_MESSAGE" = "Please note that you are about to delete the latest iCloud backup of another device.";
 
-"CLEAN_LATEST_BACKUPS_FOR_CURRENT_DEVICE_TITLE" = "Delete the last iCloud backup";
+"CLEAN_LATEST_BACKUP_FOR_CURRENT_DEVICE_TITLE" = "Delete the latest iCloud backup?";
 
-"CLEAN_LATEST_BACKUPS_FOR_CURRENT_DEVICE_MESSAGE" = "Please note that you are about to delete the last iCloud backup.";
+"CLEAN_LATEST_BACKUP_FOR_CURRENT_DEVICE_MESSAGE" = "Please note that you are about to delete the latest iCloud backup.";
 
 "Automatic iCloud backup cleaning" = "Automatic old iCloud backups deletion";
 
@@ -1101,6 +1105,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "We could not retrieve the encrypted backup content from iCloud" = "We could not retrieve the encrypted backup content from iCloud";
 
 "We could not retrieve the creation date of the backup content from iCloud" = "We could not retrieve the creation date of the backup content from iCloud";
+
+"We could not retrieve the device name of the backup content from iCloud" = "We could not retrieve the device name associated to the backup content from iCloud";
 
 "iCloud error" = "iCloud error";
 
@@ -1255,6 +1261,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "SCANNING_CONTACT_ID_ALLOWS_YOU_TO_INVITE_THEM_NOW" = "Scanning the ID of another user allows you to invite them.";
 
 "Show my Id" = "Show my ID";
+
+"Olvid is not authorized to access the camera. Because your settings are restricted, there is nothing we can do about this. Please contact your administrator." = "Olvid is not authorized to access the camera. Because your settings are restricted, there is nothing we can do about this. Please contact your administrator.";
 
 "Do you wish to send an invite to %@?" = "Do you wish to send an invite to %@?";
 
@@ -1518,7 +1526,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "WIPED_MESSAGE" = "Wiped message 🧹";
 
-"WIPED_MESSAGE_BY_%@" = "Message wiped by %@ 🧹";
+"WIPED_MESSAGE_BY_%@" = "Message deleted by %@";
 
 "EXPIRATION_SETTINGS_EXPLANATION" = "The settings below are shared between all participants in this discussion. Changing them will affect the default visibility and existence duration of messages sent by all participants.";
 
@@ -2009,6 +2017,11 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "GRANT_PERMISSION_TO_RECORD_BUTTON_TITLE" = "Allow microphone access";
 "GRANT_PERMISSION_TO_RECORD_IN_SETTINGS_BUTTON_TITLE" = "Go to Settings";
 
+"SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" = "The last backup failed";
+"SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" = "Show me";
+"SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" = "Why should I fix this?";
+"SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" = "You should make sure your iCloud account is properly configured on this device. Once this is done, we can try again.";
+
 "DIALOG_TITLE_KEYCLOAK_IDENTITY_WAS_REVOKED" = "Identity provider removed";
 "DIALOG_MESSAGE_KEYCLOAK_IDENTITY_WAS_REVOKED" = "It seems that your account was removed from your company's identity provider. If you left your company, this is normal and you may continue using Olvid as a free user.\n\nIf you believe this is an error, please contact your administrator to re-register this identity provider with Olvid.";
 
@@ -2045,8 +2058,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Directory" = "Directory";
 
-"CLEANING_IN_PROGRESS" = "Cleaning in progress";
-"CLEANING_TERMINATED" = "Cleaning is terminated";
+"DELETION_IN_PROGRESS" = "Deletion in progress";
+"DELETION_TERMINATED" = "Deletion done";
 
 "DRAG_AND_DROP_TO_CONFIGURE_PREFERRED_EMOJIS_LIST" = "Drop your favorite reactions here!";
 
@@ -2253,7 +2266,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "SEND_MESSAGE" = "Send message";
 
-"FAILED" = "Failed 😢";
+"FAILED" = "Failed";
 
 "CALL_INITIALISATION_NOT_SUPPORTED" = "Secure calls are not supported";
 
@@ -2292,14 +2305,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "CREATE_FIRST_GROUP_WITH_OWN_PERMISSION_ADMIN" = "Create your first group";
 
 "GROUPS_THAT_YOU_ADMINISTER" = "Groups that you administer";
-
-"CHOOSE_GROUP_TYPE_TITLE" = "Which type of group do you wish to create?";
-
-"CHOOSE_GROUP_TYPE_MESSAGE" = "Olvid is currently rolling out a new group format that allows multiple administrators per group. Only contacts using a version of Olvid that support this new group format can be added to these groups.\n\nDo you wish to create a group with the new format, or a legacy group?";
-
-"CHOOSE_GROUP_V1" = "Legacy";
-
-"CHOOSE_GROUP_V2" = "New format";
 
 "Forward" = "Forward";
 
@@ -2517,7 +2522,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "CLONE_THIS_GROUP" = "Clone this group";
 
-"CLONE_THIS_GROUP_V1_TO_GROUP_V2" = "Create a group V2 from this group";
+"CLONE_THIS_GROUP_V1_TO_GROUP_V2" = "Clone this group";
 
 "SOME_GROUP_MEMBERS_MUST_UPGRADE" = "Some members must upgrade Olvid";
 
@@ -2533,6 +2538,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@" = "Copy of %@";
 
+"COMPUTE_CKRECORD_COUNT" = "Compute iCloud record count";
+
 "DISK_USAGE" = "Storage used";
 
 "REFERENCED_BY_DATABASE" = "Referenced by database";
@@ -2542,3 +2549,61 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "ENGINE_DIRECTORIES" = "Directories within the engine";
 
 "ABOUT_DISKUSAGEVIEW_%@" = "This screen allows you to evaluate the storage used by Olvid on your %@. Beware though, the total storage is not the sum of all the values indicated here (as Olvid uses deduplication techniques). To evaluate the total storage, it is in general sufficient to consider the values referenced by the database";
+
+"IS_DELETING" = "is deleting";
+
+"ENABLE_AUTOMATIC_BACKUP_AND_CONTINUE" = "Activate automatic backup";
+
+"ESTIMATING_TIME_REMAINING" = "Estimating remaining time...";
+
+"YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE" = "You took a screenshot of a sensitive message, other participants have been notified.";
+
+"CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@" = "%@ took a screenshot of a sensitive message.";
+
+"CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN" = "A participant took a screenshot of a sensitive message.";
+
+"ENABLE" = "Enable";
+
+"PLEASE_CHOOSE_THE_BACKUP_TO_RESTORE" = "Please choose the backup to restore";
+
+"TITLE_BACKUP_RESTORED" = "Backup restored";
+
+"ENABLE_AUTOMATIC_BACKUP_EXPLANATION" = "The backup was successfully restored. To make sure you can restore a fresh backup the next time you need to, we recommend to activate automatic iCloud backups.";
+
+"RESTORE_BACKUP_FAILED_EXPLANATION" = "The backup could not be restored. If you can, we recommend you try to restore another backup.";
+
+"KEYCLOAK_REVOCATION_FORBIDDEN_TITLE" = "You cannot revoke your identity";
+
+"KEYCLOAK_REVOCATION_FORBIDDEN_MESSAGE" = "Please contact your administrator.";
+
+"Processing" = "Processing";
+
+"Unprocessed" = "Unprocessed";
+
+"Metadata" = "Metadata";
+
+"You selected to add %@ to your contacts. Do you want to proceed?" = "You selected to add %@ to your contacts. Do you want to proceed?";
+
+"Unread" = "Unread";
+
+"EXPORT_TMP_DIRECTORY" = "Export the tmp directory";
+
+"SOME_OF_YOUR_CONTACTS_MAY_NOT_APPEAR_AS_GROUP_V2_CANDIDATES" = "Please choose who to add to this group. Can't find the user you are looking for? Please ask them to upgrade to the latest version of Olvid 🚀.";
+
+"EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2" = "This group does not support more than one administrator. But you can clone this group into a new one that will 🚀!";
+
+"SNACK_BAR_TITLE_ANNOUNCE_GROUPS_V2" = "More";
+"SNACK_BAR_BODY_ANNOUNCE_GROUPS_V2" = "Introducing new groups!";
+"SNACK_BAR_DETAILS_TITLE_ANNOUNCE_GROUPS_V2" = "Introducing new groups!";
+"SNACK_BAR_DETAILS_BODY_ANNOUNCE_GROUPS_V2" = "Olvid now supports new groups with multiple administrators 👑! This does not change anything to your existing \"old groups\" but applies to all groups you create from now on. To benefit from this, your contacts need to use the latest version of Olvid.\n\nWant to try this out? Tap on the group tab and create a new group. Once created, you may edit it to grant administrator privilege to as many members as you wish!";
+"ANNOUNCE_GROUPS_V2_BUTTON_TITLE" = "Go to groups";
+
+"TITLE_NEVER_MISS_A_MESSAGE" = "Never miss a message";
+
+"TITLE_NEVER_MISS_A_SECURE_CALL" = "Never miss a call";
+
+"EXPLANATION_WHY_RECORD_PERMISSION_IS_IMPORTANT" = "To place or receive secure calls ☎️, and to record voice messages 🎵, Olvid needs access to the microphone.\n\nTo make sure you never miss a secure call, we recommend you grant access now 🤓.";
+
+"BUTON_TITLE_ACTIVATE_NOTIFICATION" = "Allow notifications";
+
+"BUTON_TITLE_REQUEST_RECORD_PERMISSION" = "Grant access to the microphone";

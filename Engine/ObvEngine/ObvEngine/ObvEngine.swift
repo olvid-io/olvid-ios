@@ -3214,7 +3214,6 @@ extension ObvEngine {
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
         guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
-        guard let networkFetchDelegate = networkFetchDelegate else { throw makeError(message: "The network fetch delegate is not set") }
 
         let dummyFlowId = FlowIdentifier()
 
@@ -3243,8 +3242,8 @@ extension ObvEngine {
                 localDownloadTimestamp: encryptedNotification.localDownloadTimestamp,
                 encryptedContent: encryptedNotification.encryptedContent,
                 wrappedKey: encryptedNotification.wrappedKey,
-                attachmentCount: 0,
-                hasEncryptedExtendedMessagePayload: false)
+                knownAttachmentCount: nil,
+                availableEncryptedExtendedContent: encryptedNotification.encryptedExtendedContent)
             let decryptedMessage: ObvNetworkReceivedMessageDecrypted
             do {
                 decryptedMessage = try channelDelegate.decrypt(encryptedMessage, within: dummyFlowId)
@@ -3253,8 +3252,9 @@ extension ObvEngine {
                 return
             }
 
+            // We pass nil for the networkFetchDelegate since it is only used to decrypt attachements that are not yet available.
             do {
-                obvMessage = try ObvMessage(networkReceivedMessage: decryptedMessage, networkFetchDelegate: networkFetchDelegate, identityDelegate: identityDelegate, within: obvContext)
+                obvMessage = try ObvMessage(networkReceivedMessage: decryptedMessage, networkFetchDelegate: nil, identityDelegate: identityDelegate, within: obvContext)
             } catch {
                 os_log("Could not decrypt the encrypted content", log: log, type: .fault)
                 return
@@ -3359,25 +3359,24 @@ extension ObvEngine {
     }
     
     
-    public func markBackupAsUploaded(backupKeyUid: UID, backupVersion: Int) throws {
+    public func markBackupAsUploaded(backupKeyUid: UID, backupVersion: Int) async throws {
         let flowId = FlowIdentifier()
-        try backupDelegate?.markBackupAsUploaded(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
+        try await backupDelegate?.markBackupAsUploaded(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
     }
 
     
-    public func markBackupAsExported(backupKeyUid: UID, backupVersion: Int) throws {
+    public func markBackupAsExported(backupKeyUid: UID, backupVersion: Int) async throws {
         let flowId = FlowIdentifier()
-        try backupDelegate?.markBackupAsExported(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
+        try await backupDelegate?.markBackupAsExported(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
+    }
+    
+    public func markBackupAsFailed(backupKeyUid: UID, backupVersion: Int) async throws {
+        let flowId = FlowIdentifier()
+        try await backupDelegate?.markBackupAsFailed(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
     }
     
     
-    public func markBackupAsFailed(backupKeyUid: UID, backupVersion: Int) throws {
-        let flowId = FlowIdentifier()
-        try backupDelegate?.markBackupAsFailed(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
-    }
-    
-    
-    public func getCurrentBackupKeyInformation() throws -> ObvBackupKeyInformation? {
+    public func getCurrentBackupKeyInformation() async throws -> ObvBackupKeyInformation? {
         
         guard let backupDelegate = self.backupDelegate else {
             os_log("The backup delegate is not set", log: log, type: .fault)
@@ -3389,7 +3388,7 @@ extension ObvEngine {
                     
         let obvBackupKeyInformation: ObvBackupKeyInformation
         do {
-            guard let backupKeyInformation = try backupDelegate.getBackupKeyInformation(flowId: flowId) else { return nil }
+            guard let backupKeyInformation = try await backupDelegate.getBackupKeyInformation(flowId: flowId) else { return nil }
             obvBackupKeyInformation = ObvBackupKeyInformation(backupKeyInformation: backupKeyInformation)
         } catch let error {
             os_log("Could not get backup key information: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -3400,7 +3399,7 @@ extension ObvEngine {
     }
     
     
-    public func generateNewBackupKey() {
+    public func generateNewBackupKey() async {
         
         let flowId = FlowIdentifier()
         os_log("Generating a new backup key within flow %{public}@", log: log, type: .info, flowId.debugDescription)

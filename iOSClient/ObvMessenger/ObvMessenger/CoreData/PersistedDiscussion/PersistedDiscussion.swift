@@ -41,7 +41,7 @@ class PersistedDiscussion: NSManagedObject {
     @NSManaged private var onChangeFlag: Int // Only used internally to trigger UI updates, transient
     @NSManaged private var rawStatus: Int
     @NSManaged private(set) var senderThreadIdentifier: UUID
-    @NSManaged var timestampOfLastMessage: Date
+    @NSManaged private(set) var timestampOfLastMessage: Date
     @NSManaged private(set) var title: String
 
     // Relationships
@@ -143,6 +143,12 @@ class PersistedDiscussion: NSManagedObject {
         self.onChangeFlag += 1
     }
 
+    
+    func resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(_ date: Date) {
+        if self.timestampOfLastMessage < date {
+            self.timestampOfLastMessage = date
+        }
+    }
     
     // MARK: Performing deletions
         
@@ -309,13 +315,17 @@ extension PersistedDiscussion {
     func insertSystemMessagesIfDiscussionIsEmpty(markAsRead: Bool) throws {
         guard self.messages.isEmpty else { return }
         let systemMessage = try PersistedMessageSystem(.discussionIsEndToEndEncrypted, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: self)
-        if self.sharedConfiguration.isEphemeral {
-            let expirationJSON = self.sharedConfiguration.toExpirationJSON()
-            try? PersistedMessageSystem.insertUpdatedDiscussionSharedSettingsSystemMessage(within: self, optionalContactIdentity: nil, expirationJSON: expirationJSON, messageUploadTimestampFromServer: nil)
-        }
         if markAsRead {
             systemMessage.status = .read
         }
+        insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: markAsRead)
+    }
+
+    /// If the discussion has some ephemeral setting set (read once, limited visibility or limited existence), the method inserts a system message allowing the user to see what kind of ephemerality is set.
+    func insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: Bool) {
+        guard self.sharedConfiguration.isEphemeral else { return }
+        let expirationJSON = self.sharedConfiguration.toExpirationJSON()
+        try? PersistedMessageSystem.insertUpdatedDiscussionSharedSettingsSystemMessage(within: self, optionalContactIdentity: nil, expirationJSON: expirationJSON,  messageUploadTimestampFromServer: nil, markAsRead: markAsRead)
     }
 
     
@@ -587,6 +597,13 @@ extension PersistedDiscussion {
         return try context.count(for: request)
     }
     
+    static func getAllActiveDiscussionsForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.predicate = Predicate.withStatus(.active)
+        request.fetchBatchSize = 500
+        return try context.fetch(request)
+    }
+
 }
 
 

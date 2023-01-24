@@ -92,7 +92,7 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
             case ownedCryptoIdentity = "ownedCryptoIdentity"
             case protocolInstance = "protocolInstance"
             case contactCryptoIdentity = "contactCryptoIdentity"
-            static var protocolInstanceUid: String { [protocolInstance.rawValue, ProtocolInstance.uidKey].joined(separator: ".") }
+            static var protocolInstanceUid: String { [protocolInstance.rawValue, ProtocolInstance.Predicate.Key.uid.rawValue].joined(separator: ".") }
         }
         static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(format: "%K == %@", Key.ownedCryptoIdentity.rawValue, ownedCryptoIdentity)

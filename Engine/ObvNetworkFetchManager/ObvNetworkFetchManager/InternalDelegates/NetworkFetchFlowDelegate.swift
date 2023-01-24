@@ -61,7 +61,7 @@ protocol NetworkFetchFlowDelegate {
     // MARK: - Downloading encrypted extended message payload
     
     func downloadingMessageExtendedPayloadFailed(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, extendedMessagePayload: Data, flowId: FlowIdentifier)
+    func downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier)
     
     // MARK: - Attachment's related methods
     

@@ -42,3 +42,7 @@ notifications:
   params:
   - {name: messageIdsAndTimestampsFromServer, type: "[(messageId: MessageIdentifier, timestampFromServer: Date)]"}
   - {name: flowId, type: FlowIdentifier}
+- name: outboxMessageCouldNotBeSentToServer
+  params:
+  - {name: messageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}

@@ -54,7 +54,12 @@ final class UserNotificationsManager: NSObject {
         
         let categories = Set(UserNotificationCategory.allCases.map { $0.getCategory() })
         notificationCenter.setNotificationCategories(categories)
-        
+
+        // Bootstrap
+        Task {
+            await deleteObsoleteNotificationAttachments()
+        }
+
         // Observe notifications
         
         observeNewPersistedInvitationNotifications()
@@ -72,6 +77,53 @@ final class UserNotificationsManager: NSObject {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
     
+}
+
+// MARK: - Bootstrap
+
+extension UserNotificationsManager {
+
+    /// Deletes the attachments deletes the notification attachments that are not used by any existing notification in the notification center.
+    /// These attachments were certainly created for notifications that do not exist anymore.
+    private func deleteObsoleteNotificationAttachments() async {
+        let notificationCenter = UNUserNotificationCenter.current()
+
+        // Compute the set of existing notifications
+        var identifiersInNotificationCenter = Set<String>()
+        for identifier in await notificationCenter.pendingNotificationRequests().map({ $0.identifier }) {
+            identifiersInNotificationCenter.insert(identifier)
+        }
+        for identifier in await notificationCenter.deliveredNotifications().map({ $0.request.identifier }) {
+            identifiersInNotificationCenter.insert(identifier)
+        }
+
+        // Compute the set of attachments within the notifications
+        let identifiersOnDisk: Set<String>
+        do {
+            let urls = Set(try FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forNotificationAttachments, includingPropertiesForKeys: nil))
+            identifiersOnDisk = Set(urls.map({ $0.lastPathComponent }))
+        } catch {
+            os_log("Cannot clean notification attachements: %{public}@", log: log, type: .fault, error.localizedDescription)
+            return
+        }
+
+        // Delete unused attachement notifications
+        let identifiersToDeleteFromDisk = identifiersOnDisk.subtracting(identifiersInNotificationCenter)
+        var count = 0
+        for identifier in identifiersToDeleteFromDisk {
+            let url = ObvMessengerConstants.containerURL.forNotificationAttachments.appendingPathComponent(identifier)
+            do {
+                try FileManager.default.removeItem(at: url)
+                count += 1
+            } catch {
+                os_log("Cannot delete unused notification attachement: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                continue
+            }
+        }
+        os_log("Cleaned %{public}d notification attachement(s).", log: log, type: .info, count)
+    }
+
 }
 
 // MARK: - Managing User Notifications related to received messages
@@ -99,7 +151,7 @@ extension UserNotificationsManager {
                         guard let group = try? PersistedGroupV2.get(objectID: objectID, within: context) else { return }
                         discussion = group.discussion
                     case .none:
-                        discussion = nil
+                        discussion = contactIdentity.oneToOneDiscussion
                     }
                     guard let discussion = discussion, discussion.status == .active else { return }
 
@@ -167,8 +219,7 @@ extension UserNotificationsManager {
             UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
         })
     }
-    
-    
+
     private func observeTheBodyOfPersistedMessageReceivedDidChangeNotifications() {
         observationTokens.append(PersistedMessageReceivedNotification.observeTheBodyOfPersistedMessageReceivedDidChange { (persistedMessageReceivedObjectID) in
             ObvStack.shared.performBackgroundTask { (context) in
@@ -178,10 +229,10 @@ extension UserNotificationsManager {
                 do {
                     let infos = UserNotificationCreator.NewMessageNotificationInfos(
                         messageReceived: try messageReceived.toStructure(),
+                        attachmentLocation: .notificationID,
                         urlForStoringPNGThumbnail: nil)
                     let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(
                         infos: infos,
-                        attachmentsFileNames: [],
                         badge: nil)
                     let discussionKind = try discussion.toStruct()
                     UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
@@ -252,10 +303,10 @@ extension UserNotificationsManager {
                     guard let discussionKind = try? newMessage.discussion.toStruct() else { assertionFailure(); continue }
                     let infos = UserNotificationCreator.NewMessageNotificationInfos(
                         messageReceived: newMessageStruct,
+                        attachmentLocation: .notificationID,
                         urlForStoringPNGThumbnail: nil)
                     let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(
                         infos: infos,
-                        attachmentsFileNames: [],
                         badge: nil)
                     UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
                 }

@@ -21,12 +21,14 @@ import UIKit
 import CoreData
 
 
-final class MessageReceivedCollectionViewCell: MessageCollectionViewCell {
+final class MessageReceivedCollectionViewCell: MessageCollectionViewCell, CellWithPersistedMessageReceived {
  
     static let identifier = "MessageReceivedCollectionViewCell"
 
     let authorNameLabel = UILabelWithLineFragmentPadding()
     let authorNameLabelPaddingView = UIView()
+    
+    var messageReceived: PersistedMessageReceived? { message as? PersistedMessageReceived }
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -227,10 +229,9 @@ extension MessageReceivedCollectionViewCell: CellWithMessage {
     }
 
     var infoViewController: UIViewController? {
-        guard let receivedMessage =  message as? PersistedMessageReceived else { assertionFailure(); return nil }
-        guard receivedMessage.infoActionCanBeMadeAvailable else { return nil }
-        let rcv = ReceivedMessageInfosViewController()
-        rcv.receivedMessage = receivedMessage
+        guard let messageReceived = message as? PersistedMessageReceived else { assertionFailure(); return nil }
+        guard messageReceived.infoActionCanBeMadeAvailable else { return nil }
+        let rcv = ReceivedMessageInfosHostingViewController(messageReceived: messageReceived)
         return rcv
     }
     

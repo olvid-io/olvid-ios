@@ -24,7 +24,7 @@ import ObvTypes
 import OlvidUtils
 
 /// This is a list of all registered protocols
-enum CryptoProtocolId: Int, CustomDebugStringConvertible {
+enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
     
     case DeviceDiscoveryForContactIdentity = 0
     case TrustEstablishment = 1 // 2019-10-24 Legacy protocol that shall be removed in the following weeks. (2020-03-02 will indeed be removed in the following weeks)
@@ -48,186 +48,65 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible {
     case DownloadGroupV2Photo = 19
 
     func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
-        var concreteCryptoProtocol: ConcreteCryptoProtocol?
-        switch instance.cryptoProtocolId {
-        case .DeviceDiscoveryForContactIdentity:
-            concreteCryptoProtocol = DeviceDiscoveryForContactIdentityProtocol(protocolInstance: instance, prng: prng)
-        case .TrustEstablishment:
-            concreteCryptoProtocol = TrustEstablishmentProtocol(protocolInstance: instance, prng: prng)
-        case .ChannelCreationWithContactDevice:
-            concreteCryptoProtocol = ChannelCreationWithContactDeviceProtocol(protocolInstance: instance, prng: prng)
-        case .DeviceDiscoveryForRemoteIdentity:
-            concreteCryptoProtocol = DeviceDiscoveryForRemoteIdentityProtocol(protocolInstance: instance, prng: prng)
-        case .ContactMutualIntroduction:
-            concreteCryptoProtocol = ContactMutualIntroductionProtocol(protocolInstance: instance, prng: prng)
-        case .IdentityDetailsPublication:
-            concreteCryptoProtocol = IdentityDetailsPublicationProtocol(protocolInstance: instance, prng: prng)
-        case .DownloadIdentityPhoto:
-            concreteCryptoProtocol = DownloadIdentityPhotoChildProtocol(protocolInstance: instance, prng: prng)
-        case .GroupInvitation:
-            concreteCryptoProtocol = GroupInvitationProtocol(protocolInstance: instance, prng: prng)
-        case .GroupManagement:
-            concreteCryptoProtocol = GroupManagementProtocol(protocolInstance: instance, prng: prng)
-        case .ContactManagement:
-            concreteCryptoProtocol = ContactManagementProtocol(protocolInstance: instance, prng: prng)
-        case .TrustEstablishmentWithSAS:
-            concreteCryptoProtocol = TrustEstablishmentWithSASProtocol(protocolInstance: instance, prng: prng)
-        case .FullRatchet:
-            concreteCryptoProtocol = FullRatchetProtocol(protocolInstance: instance, prng: prng)
-        case .DownloadGroupPhoto:
-            concreteCryptoProtocol = DownloadGroupPhotoChildProtocol(protocolInstance: instance, prng: prng)
-        case .KeycloakContactAddition:
-            concreteCryptoProtocol = KeycloakContactAdditionProtocol(protocolInstance: instance, prng: prng)
-        case .TrustEstablishmentWithMutualScan:
-            concreteCryptoProtocol = TrustEstablishmentWithMutualScanProtocol(protocolInstance: instance, prng: prng)
-        case .ContactCapabilitiesDiscovery:
-            concreteCryptoProtocol = DeviceCapabilitiesDiscoveryProtocol(protocolInstance: instance, prng: prng)
-        case .OneToOneContactInvitation:
-            concreteCryptoProtocol = OneToOneContactInvitationProtocol(protocolInstance: instance, prng: prng)
-        case .GroupV2:
-            concreteCryptoProtocol = GroupV2Protocol(protocolInstance: instance, prng: prng)
-        case .DownloadGroupV2Photo:
-            concreteCryptoProtocol = DownloadGroupV2PhotoProtocol(protocolInstance: instance, prng: prng)
-        }
-        return concreteCryptoProtocol
+        return self.concreteCryptoProtocol.init(protocolInstance: instance, prng: prng)
     }
     
-    func getConcreteCryptoProtocolInInitialState(instanceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, prng: PRNGService, within obvContext: ObvContext) -> ConcreteCryptoProtocol {
+    private var concreteCryptoProtocol: ConcreteCryptoProtocol.Type {
         switch self {
         case .DeviceDiscoveryForContactIdentity:
-            return DeviceDiscoveryForContactIdentityProtocol(instanceUid: instanceUid,
-                                                             currentState: ConcreteProtocolInitialState(),
-                                                             ownedCryptoIdentity: ownedCryptoIdentity,
-                                                             delegateManager: delegateManager,
-                                                             prng: prng,
-                                                             within: obvContext)
+            return DeviceDiscoveryForContactIdentityProtocol.self
         case .TrustEstablishment:
-            return TrustEstablishmentProtocol(instanceUid: instanceUid,
-                                              currentState: ConcreteProtocolInitialState(),
-                                              ownedCryptoIdentity: ownedCryptoIdentity,
-                                              delegateManager: delegateManager,
-                                              prng: prng,
-                                              within: obvContext)
+            return TrustEstablishmentProtocol.self
         case .ChannelCreationWithContactDevice:
-            return ChannelCreationWithContactDeviceProtocol(instanceUid: instanceUid,
-                                                            currentState: ConcreteProtocolInitialState(),
-                                                            ownedCryptoIdentity: ownedCryptoIdentity,
-                                                            delegateManager: delegateManager,
-                                                            prng: prng,
-                                                            within: obvContext)
+            return ChannelCreationWithContactDeviceProtocol.self
         case .DeviceDiscoveryForRemoteIdentity:
-            return DeviceDiscoveryForRemoteIdentityProtocol(instanceUid: instanceUid,
-                                                            currentState: ConcreteProtocolInitialState(),
-                                                            ownedCryptoIdentity: ownedCryptoIdentity,
-                                                            delegateManager: delegateManager,
-                                                            prng: prng,
-                                                            within: obvContext)
+            return DeviceDiscoveryForRemoteIdentityProtocol.self
         case .ContactMutualIntroduction:
-            return ContactMutualIntroductionProtocol(instanceUid: instanceUid,
-                                                     currentState: ConcreteProtocolInitialState(),
-                                                     ownedCryptoIdentity: ownedCryptoIdentity,
-                                                     delegateManager: delegateManager,
-                                                     prng: prng,
-                                                     within: obvContext)
+            return ContactMutualIntroductionProtocol.self
         case .IdentityDetailsPublication:
-            return IdentityDetailsPublicationProtocol(instanceUid: instanceUid,
-                                                      currentState: ConcreteProtocolInitialState(),
-                                                      ownedCryptoIdentity: ownedCryptoIdentity,
-                                                      delegateManager: delegateManager,
-                                                      prng: prng,
-                                                      within: obvContext)
+            return IdentityDetailsPublicationProtocol.self
         case .DownloadIdentityPhoto:
-            return DownloadIdentityPhotoChildProtocol(instanceUid: instanceUid,
-                                                      currentState: ConcreteProtocolInitialState(),
-                                                      ownedCryptoIdentity: ownedCryptoIdentity,
-                                                      delegateManager: delegateManager,
-                                                      prng: prng,
-                                                      within: obvContext)
+            return DownloadIdentityPhotoChildProtocol.self
         case .GroupInvitation:
-            return GroupInvitationProtocol(instanceUid: instanceUid,
-                                           currentState: ConcreteProtocolInitialState(),
-                                           ownedCryptoIdentity: ownedCryptoIdentity,
-                                           delegateManager: delegateManager,
-                                           prng: prng,
-                                           within: obvContext)
+            return GroupInvitationProtocol.self
         case .GroupManagement:
-            return GroupManagementProtocol(instanceUid: instanceUid,
-                                           currentState: ConcreteProtocolInitialState(),
-                                           ownedCryptoIdentity: ownedCryptoIdentity,
-                                           delegateManager: delegateManager,
-                                           prng: prng,
-                                           within: obvContext)
+            return GroupManagementProtocol.self
         case .ContactManagement:
-            return ContactManagementProtocol(instanceUid: instanceUid,
-                                                      currentState: ConcreteProtocolInitialState(),
-                                                      ownedCryptoIdentity: ownedCryptoIdentity,
-                                                      delegateManager: delegateManager,
-                                                      prng: prng,
-                                                      within: obvContext)
+            return ContactManagementProtocol.self
         case .TrustEstablishmentWithSAS:
-            return TrustEstablishmentWithSASProtocol(instanceUid: instanceUid,
-                                                     currentState: ConcreteProtocolInitialState(),
-                                                     ownedCryptoIdentity: ownedCryptoIdentity,
-                                                     delegateManager: delegateManager,
-                                                     prng: prng,
-                                                     within: obvContext)
-        case .FullRatchet:
-            return FullRatchetProtocol(instanceUid: instanceUid,
-                                       currentState: ConcreteProtocolInitialState(),
-                                       ownedCryptoIdentity: ownedCryptoIdentity,
-                                       delegateManager: delegateManager,
-                                       prng: prng,
-                                       within: obvContext)
-        case .DownloadGroupPhoto:
-            return DownloadGroupPhotoChildProtocol(instanceUid: instanceUid,
-                                                   currentState: ConcreteProtocolInitialState(),
-                                                   ownedCryptoIdentity: ownedCryptoIdentity,
-                                                   delegateManager: delegateManager,
-                                                   prng: prng,
-                                                   within: obvContext)
-        case .KeycloakContactAddition:
-            return KeycloakContactAdditionProtocol(instanceUid: instanceUid,
-                                                   currentState: ConcreteProtocolInitialState(),
-                                                   ownedCryptoIdentity: ownedCryptoIdentity,
-                                                   delegateManager: delegateManager,
-                                                   prng: prng,
-                                                   within: obvContext)
+            return TrustEstablishmentWithSASProtocol.self
         case .TrustEstablishmentWithMutualScan:
-            return TrustEstablishmentWithMutualScanProtocol(instanceUid: instanceUid,
-                                                            currentState: ConcreteProtocolInitialState(),
-                                                            ownedCryptoIdentity: ownedCryptoIdentity,
-                                                            delegateManager: delegateManager,
-                                                            prng: prng,
-                                                            within: obvContext)
+            return TrustEstablishmentWithMutualScanProtocol.self
+        case .FullRatchet:
+            return FullRatchetProtocol.self
+        case .DownloadGroupPhoto:
+            return DownloadGroupPhotoChildProtocol.self
+        case .KeycloakContactAddition:
+            return KeycloakContactAdditionProtocol.self
         case .ContactCapabilitiesDiscovery:
-            return DeviceCapabilitiesDiscoveryProtocol(instanceUid: instanceUid,
-                                                       currentState: ConcreteProtocolInitialState(),
-                                                       ownedCryptoIdentity: ownedCryptoIdentity,
-                                                       delegateManager: delegateManager,
-                                                       prng: prng,
-                                                       within: obvContext)
+            return DeviceCapabilitiesDiscoveryProtocol.self
         case .OneToOneContactInvitation:
-            return OneToOneContactInvitationProtocol(instanceUid: instanceUid,
-                                                     currentState: ConcreteProtocolInitialState(),
-                                                     ownedCryptoIdentity: ownedCryptoIdentity,
-                                                     delegateManager: delegateManager,
-                                                     prng: prng,
-                                                     within: obvContext)
+            return OneToOneContactInvitationProtocol.self
         case .GroupV2:
-            return GroupV2Protocol(instanceUid: instanceUid,
-                                   currentState: ConcreteProtocolInitialState(),
-                                   ownedCryptoIdentity: ownedCryptoIdentity,
-                                   delegateManager: delegateManager,
-                                   prng: prng,
-                                   within: obvContext)
+            return GroupV2Protocol.self
         case .DownloadGroupV2Photo:
-            return DownloadGroupV2PhotoProtocol(instanceUid: instanceUid,
+            return DownloadGroupV2PhotoProtocol.self
+        }
+    }
+    
+    
+    var finalStateRawIds: [Int] {
+        return self.concreteCryptoProtocol.finalStateRawIds
+    }
+    
+    
+    func getConcreteCryptoProtocolInInitialState(instanceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager, prng: PRNGService, within obvContext: ObvContext) -> ConcreteCryptoProtocol {
+        return self.concreteCryptoProtocol.init(instanceUid: instanceUid,
                                                 currentState: ConcreteProtocolInitialState(),
                                                 ownedCryptoIdentity: ownedCryptoIdentity,
                                                 delegateManager: delegateManager,
                                                 prng: prng,
                                                 within: obvContext)
-        }
     }
 }
 

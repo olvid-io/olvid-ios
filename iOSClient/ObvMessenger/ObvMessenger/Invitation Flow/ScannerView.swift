@@ -302,6 +302,11 @@ fileprivate final class NewQRCodeScannerViewController: UIViewController, AVCapt
             self.view.layer.addSublayer(videoPreviewLayer)
         }
 
+        // Start the video capture
+        DispatchQueue(label: "Background queue to start the capture session").async { [weak self] in
+            self?.captureSession.startRunning()
+        }
+
     }
     
     
@@ -338,8 +343,6 @@ fileprivate final class NewQRCodeScannerViewController: UIViewController, AVCapt
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Start the video capture
-        captureSession.startRunning()
         adaptVideoPreviewLayerSizeAndOrientation()
     }
     

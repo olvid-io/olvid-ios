@@ -47,7 +47,7 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
         self.ownedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         
-        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true)
+        let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true, textAboveContactList: nil)
         super.init(rootViewController: allContactsVC)
         
         allContactsVC.delegate = self

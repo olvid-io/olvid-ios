@@ -29,37 +29,47 @@ struct ReceivedMessage {
     let encodedElements: ObvEncoded
     let extendedMessagePayloadKey: AuthenticatedEncryptionKey?
     let channelType: ObvProtocolReceptionChannelInfo
+    let extendedMessagePayload: Data?
     private let message: ObvNetworkReceivedMessageEncrypted
 
     var messageId: MessageIdentifier { return message.messageId }
-    var attachmentCount: Int { return message.attachmentCount }
+    var knownAttachmentCount: Int? { return message.knownAttachmentCount }
     var messageUploadTimestampFromServer: Date { return message.messageUploadTimestampFromServer }
     
     init?(with message: ObvNetworkReceivedMessageEncrypted, decryptedWith messageKey: AuthenticatedEncryptionKey, obtainedUsing channelType: ObvProtocolReceptionChannelInfo) {
         
-        guard let content = ReceivedMessage.decrypt(message.encryptedContent, with: messageKey) else { return nil }
+        guard let content = ReceivedMessage.decryptToObvEncoded(message.encryptedContent, with: messageKey) else { return nil }
         guard let (type, encodedElements) = ReceivedMessage.parse(content) else { return nil }
         self.type = type
         self.encodedElements = encodedElements
         self.message = message
         self.channelType = channelType
-        if message.hasEncryptedExtendedMessagePayload {
+        if let encryptedExtendedContent = message.availableEncryptedExtendedContent {
             if let seed = Seed(withKeys: [messageKey]) {
                 let prng = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seed)
                 let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-                self.extendedMessagePayloadKey = authEnc.generateKey(with: prng)
+                let extendedMessagePayloadKey = authEnc.generateKey(with: prng)
+                self.extendedMessagePayloadKey = extendedMessagePayloadKey
+                self.extendedMessagePayload = Self.decryptToData(encryptedExtendedContent, with: extendedMessagePayloadKey)
             } else {
                 assertionFailure()
                 self.extendedMessagePayloadKey = nil
+                self.extendedMessagePayload = nil
             }
         } else {
             self.extendedMessagePayloadKey = nil
+            self.extendedMessagePayload = nil
         }
     }
-    
-    private static func decrypt(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> ObvEncoded? {
+
+    private static func decryptToData(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> Data? {
         let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
         guard let rawEncodedElements = try? authEnc.decrypt(encryptedContent, with: messageKey) else { return nil }
+        return rawEncodedElements
+    }
+
+    private static func decryptToObvEncoded(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> ObvEncoded? {
+        guard let rawEncodedElements = decryptToData(encryptedContent, with: messageKey) else { return nil }
         let content = ObvEncoded(withPaddedRawData: rawEncodedElements)
         return content
     }
@@ -84,6 +94,7 @@ struct ReceivedApplicationMessage {
 
     var messageId: MessageIdentifier { return message.messageId }
     var extendedMessagePayloadKey: AuthenticatedEncryptionKey? { message.extendedMessagePayloadKey }
+    var extendedMessagePayload: Data? { message.extendedMessagePayload }
 
     init?(with message: ReceivedMessage) {
         guard message.type == .ApplicationMessage else { return nil }

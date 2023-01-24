@@ -21,13 +21,3 @@ notifications:
 - name: backupableManagerDatabaseContentChanged
   params:
       - {name: flowId, type: FlowIdentifier}
-- name: backupForUploadWasUploaded
-  params:
-      - {name: backupKeyUid, type: UID}
-      - {name: version, type: Int}
-      - {name: flowId, type: FlowIdentifier}
-- name: backupForExportWasExported
-  params:
-      - {name: backupKeyUid, type: UID}
-      - {name: version, type: Int}
-      - {name: flowId, type: FlowIdentifier}

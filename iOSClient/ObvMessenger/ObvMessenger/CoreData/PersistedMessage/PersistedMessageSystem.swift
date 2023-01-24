@@ -25,7 +25,7 @@ import OlvidUtils
 
 
 @objc(PersistedMessageSystem)
-final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
+final class PersistedMessageSystem: PersistedMessage {
 
     private static let optionalCallLogItemKey = "optionalCallLogItem"
     static let entityName = "PersistedMessageSystem"
@@ -35,8 +35,6 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
     
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSystem")
 
-    static let errorDomain = "PersistedMessageSystem"
-    
     // MARK: System message categories
 
     enum Category: Int, CustomStringConvertible, CaseIterable {
@@ -55,6 +53,8 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
         case membersOfGroupV2WereUpdated = 12
         case ownedIdentityIsPartOfGroupV2Admins = 13
         case ownedIdentityIsNoLongerPartOfGroupV2Admins = 14
+        case ownedIdentityDidCaptureSensitiveMessages = 15
+        case contactIdentityDidCaptureSensitiveMessages = 16
 
 
         var description: String {
@@ -74,6 +74,8 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
             case .membersOfGroupV2WereUpdated: return "membersOfGroupV2WereUpdated"
             case .ownedIdentityIsPartOfGroupV2Admins: return "ownedIdentityIsPartOfGroupV2Admins"
             case .ownedIdentityIsNoLongerPartOfGroupV2Admins: return "ownedIdentityIsNoLongerPartOfGroupV2Admins"
+            case .ownedIdentityDidCaptureSensitiveMessages: return "ownedIdentityDidCaptureSensitiveMessages"
+            case .contactIdentityDidCaptureSensitiveMessages: return "contactIdentityDidCaptureSensitiveMessages"
             }
         }
 
@@ -95,7 +97,9 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
                     .contactIsOneToOneAgain,
                     .membersOfGroupV2WereUpdated,
                     .ownedIdentityIsPartOfGroupV2Admins,
-                    .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+                    .ownedIdentityIsNoLongerPartOfGroupV2Admins,
+                    .ownedIdentityDidCaptureSensitiveMessages,
+                    .contactIdentityDidCaptureSensitiveMessages:
                 return false
             }
         }
@@ -114,7 +118,9 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
                     .contactIsOneToOneAgain,
                     .membersOfGroupV2WereUpdated,
                     .ownedIdentityIsPartOfGroupV2Admins,
-                    .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+                    .ownedIdentityIsNoLongerPartOfGroupV2Admins,
+                    .ownedIdentityDidCaptureSensitiveMessages,
+                    .contactIdentityDidCaptureSensitiveMessages:
                 return true
                 
             case .numberOfNewMessages,
@@ -138,6 +144,8 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
             case .membersOfGroupV2WereUpdated: return true
             case .ownedIdentityIsPartOfGroupV2Admins: return true
             case .ownedIdentityIsNoLongerPartOfGroupV2Admins: return true
+            case .ownedIdentityDidCaptureSensitiveMessages: return true
+            case .contactIdentityDidCaptureSensitiveMessages: return true
 
             case .numberOfNewMessages: return false
             case .discussionIsEndToEndEncrypted: return false
@@ -210,6 +218,19 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
         let dateString = df.string(from: self.timestamp)
         let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
         switch self.category {
+        case .ownedIdentityDidCaptureSensitiveMessages:
+            return Strings.ownedIdentityDidCaptureSensitiveMessages
+        case .contactIdentityDidCaptureSensitiveMessages:
+            let contactDisplayName: String?
+            if let optionalContactIdentity {
+                contactDisplayName = optionalContactIdentity.customOrShortDisplayName
+            } else if let associatedData, let contactName = String(data: associatedData, encoding: .utf8)?.trimmingWhitespacesAndNewlines() {
+                contactDisplayName = contactName
+            } else {
+                assertionFailure()
+                contactDisplayName = nil
+            }
+            return Strings.contactIdentityDidCaptureSensitiveMessages(contactDisplayName)
         case .ownedIdentityIsPartOfGroupV2Admins:
             return Strings.ownedIdentityIsPartOfGroupV2Admins
         case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
@@ -321,6 +342,10 @@ final class PersistedMessageSystem: PersistedMessage, ObvErrorMaker {
     var textBodyWithoutTimestamp: String? {
         let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
         switch self.category {
+        case .ownedIdentityDidCaptureSensitiveMessages:
+            return textBody
+        case .contactIdentityDidCaptureSensitiveMessages:
+            return textBody
         case .ownedIdentityIsPartOfGroupV2Admins:
             return Strings.ownedIdentityIsPartOfGroupV2Admins
         case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
@@ -524,13 +549,16 @@ extension PersistedMessageSystem {
     
     
     /// The `messageUploadTimestampFromServer` parameter is only relevant when the shared configuration was received, not locally created.
-    static func insertUpdatedDiscussionSharedSettingsSystemMessage(within discussion: PersistedDiscussion, optionalContactIdentity: PersistedObvContactIdentity?, expirationJSON: ExpirationJSON?, messageUploadTimestampFromServer: Date?) throws {
+    static func insertUpdatedDiscussionSharedSettingsSystemMessage(within discussion: PersistedDiscussion, optionalContactIdentity: PersistedObvContactIdentity?, expirationJSON: ExpirationJSON?, messageUploadTimestampFromServer: Date?, markAsRead: Bool) throws {
         let message = try self.init(.updatedDiscussionSharedSettings,
                                     optionalContactIdentity: optionalContactIdentity,
                                     optionalCallLogItem: nil,
                                     discussion: discussion,
                                     messageUploadTimestampFromServer: messageUploadTimestampFromServer)
         message.associatedData = try expirationJSON?.jsonEncode()
+        if markAsRead {
+            message.status = .read
+        }
     }
     
     
@@ -603,6 +631,33 @@ extension PersistedMessageSystem {
     static func insertOwnedIdentityIsNoLongerPartOfGroupV2AdminsMessage(within discussion: PersistedGroupV2Discussion) throws {
         _ = try self.init(.ownedIdentityIsNoLongerPartOfGroupV2Admins,
                           optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+    
+    
+    static func insertOwnedIdentityDidCaptureSensitiveMessages(within discussion: PersistedDiscussion) throws {
+        _ = try self.init(.ownedIdentityDidCaptureSensitiveMessages,
+                          optionalContactIdentity: nil,
+                          optionalCallLogItem: nil,
+                          discussion: discussion)
+    }
+    
+    
+    static func insertContactIdentityDidCaptureSensitiveMessages(within discussion: PersistedDiscussion, contact: PersistedObvContactIdentity) throws {
+        // Make a few sanity checks before inserting the system message
+        guard discussion.managedObjectContext == contact.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Distinct contexts") }
+        guard discussion.ownedIdentity == contact.ownedIdentity else { assertionFailure(); throw Self.makeError(message: "Discting owned identities between discussion and contact.") }
+        switch try discussion.kind {
+        case .oneToOne(withContactIdentity: let discussionContact):
+            guard discussionContact?.cryptoId == contact.cryptoId else { assertionFailure(); throw Self.makeError(message: "Mismatch between discussion contact and contact") }
+        case .groupV1(withContactGroup: let contactGroup):
+            guard contactGroup?.contactIdentities.contains(contact) == true else { assertionFailure(); throw Self.makeError(message: "Contact is not part of the group v1") }
+        case .groupV2(withGroup: let group):
+            guard group?.contactsAmongOtherPendingAndNonPendingMembers.contains(contact) == true else { assertionFailure(); throw Self.makeError(message: "Contact is not part of the group v2") }
+        }
+        _ = try self.init(.contactIdentityDidCaptureSensitiveMessages,
+                          optionalContactIdentity: contact,
                           optionalCallLogItem: nil,
                           discussion: discussion)
     }

@@ -733,3 +733,28 @@ struct ObvLabel: View {
     }
 
 }
+
+
+struct ObvLabelAlt: View {
+    
+    let title: String
+    let systemIcon: ObvSystemIcon
+    
+    var body: some View {
+        if #available(iOS 14, *) {
+            HStack(alignment: .firstTextBaseline) {
+                Label(title, systemIcon: systemIcon)
+                Spacer(minLength: 0)
+            }
+            .font(.body)
+        } else {
+            HStack(alignment: .firstTextBaseline) {
+                Image(systemIcon: systemIcon)
+                Text(title)
+                Spacer(minLength: 0)
+            }
+            .font(.body)
+        }
+    }
+    
+}

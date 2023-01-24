@@ -33,7 +33,7 @@ public struct OneToOneContactInvitationProtocol: ConcreteCryptoProtocol {
 
     static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    var finalStateIds: [ConcreteProtocolStateId] = [StateId.Finished, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Finished, StateId.Cancelled]
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

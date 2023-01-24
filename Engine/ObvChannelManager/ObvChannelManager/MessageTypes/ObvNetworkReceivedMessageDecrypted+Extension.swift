@@ -24,13 +24,18 @@ import ObvMetaManager
 extension ObvNetworkReceivedMessageDecrypted {
     
     init(with message: ReceivedApplicationMessage, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date) {
+
+        let attachmentIds = message.attachmentsInfos.enumerated().map {
+            AttachmentIdentifier(messageId: message.messageId, attachmentNumber: $0.offset)
+        }
         self = ObvNetworkReceivedMessageDecrypted(messageId: message.messageId,
-                                                  attachmentIds: [],
+                                                  attachmentIds: attachmentIds,
                                                   fromIdentity: message.remoteCryptoIdentity,
                                                   messagePayload: message.messagePayload,
                                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                                                   downloadTimestampFromServer: downloadTimestampFromServer,
-                                                  localDownloadTimestamp: localDownloadTimestamp)
+                                                  localDownloadTimestamp: localDownloadTimestamp,
+                                                  extendedMessagePayload: message.extendedMessagePayload)
     }
     
 }

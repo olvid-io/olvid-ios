@@ -29,6 +29,8 @@ enum OlvidSnackBarCategory: CaseIterable {
     case grantPermissionToRecordInSettings
     case upgradeIOS
     case newerAppVersionAvailable
+    case lastUploadBackupHasFailed
+    case announceGroupsV2
 
     static func removeAllLastDisplayDate() {
         for category in OlvidSnackBarCategory.allCases {
@@ -71,6 +73,10 @@ enum OlvidSnackBarCategory: CaseIterable {
             }
         case .newerAppVersionAvailable:
             return NSLocalizedString("SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE", comment: "")
+        case .lastUploadBackupHasFailed:
+            return NSLocalizedString("SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
+        case .announceGroupsV2:
+            return NSLocalizedString("SNACK_BAR_BODY_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
     
@@ -96,6 +102,10 @@ enum OlvidSnackBarCategory: CaseIterable {
             }
         case .newerAppVersionAvailable:
             return NSLocalizedString("SNACK_BAR_BUTTON_TITLE_NEW_APP_VERSION_AVAILABLE", comment: "")
+        case .lastUploadBackupHasFailed:
+            return NSLocalizedString("SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
+        case .announceGroupsV2:
+            return NSLocalizedString("SNACK_BAR_TITLE_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
 
@@ -115,20 +125,27 @@ enum OlvidSnackBarCategory: CaseIterable {
             return "io.olvid.snackBarCoordinator.lastDisplayDate.upgradeIOS"
         case .newerAppVersionAvailable:
             return "io.olvid.snackBarCoordinator.lastDisplayDate.newerAppVersionAvailable"
+        case .lastUploadBackupHasFailed:
+            return "io.olvid.snackBarCoordinator.lastDisplayDate.lastUploadBackupHasFailed"
+        case .announceGroupsV2:
+            return "io.olvid.snackBarCoordinator.lastDisplayDate.announceGroupsV2"
         }
     }
-    
-    var image: UIImage? {
-        let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular)
+
+    var icon: ObvSystemIcon {
         switch self {
         case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey:
-            return UIImage(systemIcon: .arrowCounterclockwiseCircleFill, withConfiguration: config)
+            return .arrowCounterclockwiseCircleFill
         case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
-            return UIImage(systemIcon: .phoneCircleFill, withConfiguration: config)
+            return .phoneCircleFill
         case .upgradeIOS:
-            return UIImage(systemIcon: .gear, withConfiguration: config)
+            return .gear
         case .newerAppVersionAvailable:
-            return UIImage(systemIcon: .forwardFill, withConfiguration: config)
+            return .forwardFill
+        case .lastUploadBackupHasFailed:
+            return .icloud()
+        case .announceGroupsV2:
+            return .person3Fill
         }
     }
     
@@ -154,6 +171,10 @@ enum OlvidSnackBarCategory: CaseIterable {
             }
         case .newerAppVersionAvailable:
             return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE", comment: "")
+        case .lastUploadBackupHasFailed:
+            return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
+        case .announceGroupsV2:
+            return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
     
@@ -179,6 +200,10 @@ enum OlvidSnackBarCategory: CaseIterable {
             }
         case .newerAppVersionAvailable:
             return NSLocalizedString("SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE", comment: "")
+        case .lastUploadBackupHasFailed:
+            return NSLocalizedString("SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
+        case .announceGroupsV2:
+            return NSLocalizedString("SNACK_BAR_DETAILS_BODY_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
     
@@ -198,9 +223,13 @@ enum OlvidSnackBarCategory: CaseIterable {
             return CommonString.Word.Ok
         case .newerAppVersionAvailable:
             return NSLocalizedString("GO_TO_APP_STORE_BUTTON_TITLE", comment: "")
+        case .lastUploadBackupHasFailed:
+            return NSLocalizedString("CONFIGURE_BACKUPS_BUTTON_TITLE", comment: "")
+        case .announceGroupsV2:
+            return NSLocalizedString("ANNOUNCE_GROUPS_V2_BUTTON_TITLE", comment: "")
         }
     }
-    
+
     var secondaryActionTitle: String {
         switch self {
         case .createBackupKey:
@@ -217,6 +246,10 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
         case .newerAppVersionAvailable:
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
+        case .lastUploadBackupHasFailed:
+            return NSLocalizedString("REMIND_ME_LATER", comment: "")
+        case .announceGroupsV2:
+            return NSLocalizedString("Ok", comment: "")
         }
     }
 

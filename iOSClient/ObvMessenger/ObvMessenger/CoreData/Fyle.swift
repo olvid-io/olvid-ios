@@ -106,7 +106,7 @@ extension Fyle {
     func copyFileToPermanentURL(from fromURL: URL, logTo log: OSLog) throws {
         guard FileManager.default.fileExists(atPath: fromURL.path) else {
             os_log("Could not find the source file", log: log, type: .error)
-            throw NSError()
+            throw Self.makeError(message: "Could not find source file")
         }
         
         if FileManager.default.fileExists(atPath: url.path) {

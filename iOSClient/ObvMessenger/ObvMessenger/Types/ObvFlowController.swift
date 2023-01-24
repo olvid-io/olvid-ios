@@ -519,11 +519,6 @@ extension ObvFlowController {
     }
 
     
-    func userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
-        flowDelegate?.userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: objectID)
-    }
-    
-    
     func userWantsToCloneGroup(displayedContactGroupObjectID: TypeSafeManagedObjectID<DisplayedContactGroup>) {
 
         assert(Thread.isMainThread)
@@ -651,6 +646,5 @@ protocol ObvFlowControllerDelegate: AnyObject {
     func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String)
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: ObvCryptoId, using: ObvIdentityDetails)
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void)
-    func userWantsToSelectAndCallContactsOfPersistedGroupV2(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 
 }

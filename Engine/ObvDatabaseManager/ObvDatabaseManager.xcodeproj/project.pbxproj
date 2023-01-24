@@ -20,10 +20,11 @@
 		C41C9C5421B9422F000B64F6 /* ContactGroupToContactGroupMigrationPolicyV5ToV6.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41C9C5321B9422F000B64F6 /* ContactGroupToContactGroupMigrationPolicyV5ToV6.swift */; };
 		C41D94CF21AC6D4600ACAE53 /* ObvEngineMappingModel_v3_to_v4.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C41D94CE21AC6D4600ACAE53 /* ObvEngineMappingModel_v3_to_v4.xcmappingmodel */; };
 		C420814E250249BD0037B542 /* InboxAttachmentToInboxAttachmentMigrationPolicyV26ToV27.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C420814D250249BD0037B542 /* InboxAttachmentToInboxAttachmentMigrationPolicyV26ToV27.xcmappingmodel */; };
+		C423603128E1001000EA1AF7 /* MigrationEngineDatabase_v41_to_v42.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C423603028E1001000EA1AF7 /* MigrationEngineDatabase_v41_to_v42.xcmappingmodel */; };
+		C423603428E1010A00EA1AF7 /* OutboxMessageToOutboxMessageMigrationPolicyV41ToV42.swift in Sources */ = {isa = PBXBuildFile; fileRef = C423603328E1010A00EA1AF7 /* OutboxMessageToOutboxMessageMigrationPolicyV41ToV42.swift */; };
 		C42A525921A0D1CA005FEEB5 /* CoreDataStack.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C42A525821A0D1C5005FEEB5 /* CoreDataStack.framework */; };
 		C42A525B21A0D2FF005FEEB5 /* ObvDatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C42A525A21A0D2FF005FEEB5 /* ObvDatabaseManager.swift */; };
 		C42A52A221A0D4F1005FEEB5 /* ObvEngine.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = C42A52A021A0D4F1005FEEB5 /* ObvEngine.xcdatamodeld */; };
-		C42C215928C6389D003CBD73 /* MigrationEngineDatabase_v40_to_v41.md in Resources */ = {isa = PBXBuildFile; fileRef = C42C215828C6389D003CBD73 /* MigrationEngineDatabase_v40_to_v41.md */; };
 		C42C215B28C6449E003CBD73 /* MigrationEngineDatabase_v40_to_v41.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = C42C215A28C6449E003CBD73 /* MigrationEngineDatabase_v40_to_v41.xcmappingmodel */; };
 		C42C215E28C64661003CBD73 /* PendingServerQueryToPendingServerQueryMigrationPolicyV40ToV41.swift in Sources */ = {isa = PBXBuildFile; fileRef = C42C215D28C64661003CBD73 /* PendingServerQueryToPendingServerQueryMigrationPolicyV40ToV41.swift */; };
 		C42C216028C64F0D003CBD73 /* ContactIdentityToContactIdentityMigrationPolicyV40ToV41.swift in Sources */ = {isa = PBXBuildFile; fileRef = C42C215F28C64F0D003CBD73 /* ContactIdentityToContactIdentityMigrationPolicyV40ToV41.swift */; };
@@ -173,6 +174,10 @@
 		C41C9C5321B9422F000B64F6 /* ContactGroupToContactGroupMigrationPolicyV5ToV6.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactGroupToContactGroupMigrationPolicyV5ToV6.swift; sourceTree = "<group>"; };
 		C41D94CE21AC6D4600ACAE53 /* ObvEngineMappingModel_v3_to_v4.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = ObvEngineMappingModel_v3_to_v4.xcmappingmodel; sourceTree = "<group>"; };
 		C420814D250249BD0037B542 /* InboxAttachmentToInboxAttachmentMigrationPolicyV26ToV27.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = InboxAttachmentToInboxAttachmentMigrationPolicyV26ToV27.xcmappingmodel; sourceTree = "<group>"; };
+		C4235FC728E0944B00EA1AF7 /* ObvEngine-v42.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v42.xcdatamodel"; sourceTree = "<group>"; };
+		C423602E28E0FF8E00EA1AF7 /* MigrationEngineDatabase_v41_to_v42.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationEngineDatabase_v41_to_v42.md; sourceTree = "<group>"; };
+		C423603028E1001000EA1AF7 /* MigrationEngineDatabase_v41_to_v42.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = MigrationEngineDatabase_v41_to_v42.xcmappingmodel; sourceTree = "<group>"; };
+		C423603328E1010A00EA1AF7 /* OutboxMessageToOutboxMessageMigrationPolicyV41ToV42.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutboxMessageToOutboxMessageMigrationPolicyV41ToV42.swift; sourceTree = "<group>"; };
 		C425FB5227918799005B2710 /* ObvEngine-v36.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvEngine-v36.xcdatamodel"; sourceTree = "<group>"; };
 		C42A525321A0D1C4005FEEB5 /* CoreDataStack.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CoreDataStack.xcodeproj; path = ../../CoreDataStack/CoreDataStack.xcodeproj; sourceTree = "<group>"; };
 		C42A525A21A0D2FF005FEEB5 /* ObvDatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvDatabaseManager.swift; sourceTree = "<group>"; };
@@ -410,6 +415,24 @@
 			path = v3_to_v4;
 			sourceTree = "<group>";
 		};
+		C423602928E0FF7C00EA1AF7 /* v41_to_v42 */ = {
+			isa = PBXGroup;
+			children = (
+				C423602E28E0FF8E00EA1AF7 /* MigrationEngineDatabase_v41_to_v42.md */,
+				C423603028E1001000EA1AF7 /* MigrationEngineDatabase_v41_to_v42.xcmappingmodel */,
+				C423603228E100E800EA1AF7 /* MigrationPolicies */,
+			);
+			path = v41_to_v42;
+			sourceTree = "<group>";
+		};
+		C423603228E100E800EA1AF7 /* MigrationPolicies */ = {
+			isa = PBXGroup;
+			children = (
+				C423603328E1010A00EA1AF7 /* OutboxMessageToOutboxMessageMigrationPolicyV41ToV42.swift */,
+			);
+			path = MigrationPolicies;
+			sourceTree = "<group>";
+		};
 		C42A525421A0D1C4005FEEB5 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -580,6 +603,7 @@
 		C490F83421A42C7900A0C036 /* Migration */ = {
 			isa = PBXGroup;
 			children = (
+				C423602928E0FF7C00EA1AF7 /* v41_to_v42 */,
 				C42C215328C63882003CBD73 /* v40_to_v41 */,
 				C485C83727EE2F43000199C0 /* v39_to_v40 */,
 				C40D070527AABDB600D39C0F /* v38_to_v39 */,
@@ -991,7 +1015,6 @@
 				C46DBBC12498A6FA0049AC43 /* README-Migration_v22_to_v21.txt in Resources */,
 				C4BEED7922E5C34A00F01BAD /* ObvEngineMappingModel_v15_to_v16_README.rtf in Resources */,
 				C400BC4524BE009500E890D7 /* README-Migration_v24_to_v25.txt in Resources */,
-				C42C215928C6389D003CBD73 /* MigrationEngineDatabase_v40_to_v41.md in Resources */,
 				C43B9CBD2502417F00A3B83C /* README-Migration_v26_to_v27.txt in Resources */,
 				C4F72FB525A38F83003D2363 /* README-Migration_v27_to_v28.txt in Resources */,
 				C4DCFEEC26B014A700E49006 /* README_engine_migration_v31_to_v32.txt in Resources */,
@@ -1033,6 +1056,7 @@
 				C479491D22B7DB8D001F5ECB /* ObvEngineMappingModel_v13_to_v14.xcmappingmodel in Sources */,
 				C479491F22B7DBB8001F5ECB /* OwnedIdentityToOwnedIdentityMigrationPolicyV13ToV14.swift in Sources */,
 				C4EFACEC25F44592001DBE41 /* InboxAttachmentToInboxAttachmentMigrationPolicyV28ToV29.xcmappingmodel in Sources */,
+				C423603128E1001000EA1AF7 /* MigrationEngineDatabase_v41_to_v42.xcmappingmodel in Sources */,
 				C41D94CF21AC6D4600ACAE53 /* ObvEngineMappingModel_v3_to_v4.xcmappingmodel in Sources */,
 				C41C9C5421B9422F000B64F6 /* ContactGroupToContactGroupMigrationPolicyV5ToV6.swift in Sources */,
 				C4165242278EFA0300714113 /* ContactGroupDetailsLatestToContactGroupDetailsLatestMigrationPolicyV34ToV35.swift in Sources */,
@@ -1091,6 +1115,7 @@
 				C48736E421FF6A90001A5467 /* OwnedIdentityToOwnedIdentityDetailsPublishedMigrationPolicyV8ToV9.swift in Sources */,
 				C400BC4724BE01CB00E890D7 /* ObvEngineMappingModel_v24_to_v25.xcmappingmodel in Sources */,
 				C475DEAE22A7E09F0084F0DF /* ReceivedMessageMigrationPolicyV11ToV12.swift in Sources */,
+				C423603428E1010A00EA1AF7 /* OutboxMessageToOutboxMessageMigrationPolicyV41ToV42.swift in Sources */,
 				C45258C922162328002F1A01 /* ContactIdentityToContactIdentityMigrationPolicyV9ToV10.swift in Sources */,
 				C4DC6123242D306500FDA967 /* UtilsForMigrationV20ToV21.swift in Sources */,
 				C4DC6118242D237E00FDA967 /* OwnedIdentityDetailsLatestToOwnedIdentityDetailsLatestMigrationPolicyV20ToV21.swift in Sources */,
@@ -1331,6 +1356,7 @@
 		C42A52A021A0D4F1005FEEB5 /* ObvEngine.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				C4235FC728E0944B00EA1AF7 /* ObvEngine-v42.xcdatamodel */,
 				C450D9E42800957000A0808F /* ObvEngine-v41.xcdatamodel */,
 				C485C83227EE2EA0000199C0 /* ObvEngine-v40.xcdatamodel */,
 				C40D070027AABD8200D39C0F /* ObvEngine-v39.xcdatamodel */,
@@ -1373,7 +1399,7 @@
 				C490F82821A42B5A00A0C036 /* ObvEngine-v2.xcdatamodel */,
 				C42A52A121A0D4F1005FEEB5 /* ObvEngine.xcdatamodel */,
 			);
-			currentVersion = C450D9E42800957000A0808F /* ObvEngine-v41.xcdatamodel */;
+			currentVersion = C4235FC728E0944B00EA1AF7 /* ObvEngine-v42.xcdatamodel */;
 			path = ObvEngine.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

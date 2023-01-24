@@ -31,6 +31,7 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     private var sortButtonItemTimer: Timer?
     private let oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus
     private let showExplanation: Bool
+    private let textAboveContactList: String?
 
     // Delegates
     
@@ -38,9 +39,10 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     
     // MARK: - Initializer
     
-    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool) {
+    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool, textAboveContactList: String?) {
         self.oneToOneStatus = oneToOneStatus
         self.showExplanation = showExplanation
+        self.textAboveContactList = textAboveContactList
         super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllContactsViewController")
         self.title = title
         observeContactsSortOrderDidChangeNotifications()
@@ -133,7 +135,11 @@ extension AllContactsViewController {
     
     private func presentViewControllerOfAllNonOneToOneContacts() {
         assert(Thread.isMainThread)
-        let vc = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .nonOneToOne, title: NSLocalizedString("OTHER_KNOWN_USERS", comment: ""), showExplanation: false)
+        let vc = AllContactsViewController(ownedCryptoId: ownedCryptoId,
+                                           oneToOneStatus: .nonOneToOne,
+                                           title: NSLocalizedString("OTHER_KNOWN_USERS", comment: ""),
+                                           showExplanation: false,
+                                           textAboveContactList: CommonString.explanationNonOneToOneContact)
         vc.delegate = self.delegate
         vc.replaceOwnedIdentityButton(byIcon: .xmarkCircle, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
         let nav = UINavigationController(rootViewController: vc)
@@ -177,7 +183,17 @@ extension AllContactsViewController {
     
     private func addAndConfigureContactsTableViewController() {
         let mode: MultipleContactsMode = .all(oneToOneStatus: self.oneToOneStatus, requiredCapabilitites: nil)
-        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId, mode: mode, disableContactsWithoutDevice: false, allowMultipleSelection: false, showExplanation: showExplanation, floatingButtonModel: nil) else { assertionFailure(); return }
+        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
+                                                                              mode: mode,
+                                                                              disableContactsWithoutDevice: false,
+                                                                              allowMultipleSelection: false,
+                                                                              showExplanation: showExplanation,
+                                                                              textAboveContactList: textAboveContactList,
+                                                                              floatingButtonModel: nil)
+        else {
+            assertionFailure()
+            return
+        }
         viewController.delegate = self
         navigationItem.searchController = viewController.searchController
         viewController.willMove(toParent: self)

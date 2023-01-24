@@ -1086,6 +1086,7 @@ fileprivate extension EncryptedPushNotification {
         self.init(messageIdFromServer: messageIdFromServer,
                   wrappedKey: wrappedKey,
                   encryptedContent: encryptedContent,
+                  encryptedExtendedContent: nil,
                   maskingUID: maskingUID,
                   messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                   localDownloadTimestamp: Date())
