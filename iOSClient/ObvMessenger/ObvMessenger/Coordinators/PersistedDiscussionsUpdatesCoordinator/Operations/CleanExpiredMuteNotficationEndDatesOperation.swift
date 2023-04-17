@@ -38,7 +38,7 @@ final class CleanExpiredMuteNotficationEndDatesOperation: ContextualOperationWit
                     localConfiguration.cleanExpiredMuteNotificationsEndDate()
                     assert(localConfiguration.currentMuteNotificationsEndDate == nil)
                     try? obvContext.addContextWillSaveCompletionHandler {
-                        ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: .muteNotificationsDuration(muteNotificationsDuration: .none), localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
+                        ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: .muteNotificationsDuration(.none), localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
                     }
                 }
             } catch {

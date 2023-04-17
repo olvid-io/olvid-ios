@@ -2638,3 +2638,11 @@
 "BUTON_TITLE_ACTIVATE_NOTIFICATION" = "Activer les notifications";
 
 "BUTON_TITLE_REQUEST_RECORD_PERMISSION" = "Autoriser le micro";
+
+"PERFORM_INTERACTION_DONATION_LABEL" = "Suggérer les discussions Olvid pendant un partage";
+
+"PERFORM_INTERACTION_DONATION_FOOTER" = "Si vous activez cette option, les discussions Olvid apparaitrons directement lorsque vous partagerez du contenu depuis une autre app. Ce paramètre peut être modifié indépendamment pour chaque discussion.";
+
+"PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_LABEL" = "Suggérer cette discussion pendant un partage";
+
+"PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "Si vous activez cette option, cette discussion apparaitra directement lorsque vous partagerez du contenu depuis une autre app.";

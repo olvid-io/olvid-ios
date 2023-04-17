@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1 (584)] - 2022-10-31
+
+- Les discussions que vous utilisez le plus seront maintenant directement suggérées lorsque vous partagerez du contenu.
+- Corrige un bug au niveau de l'engine qui provoquait un crash fréquent de l'app.
+- Corrige un crash systématique de l'app, provoqué par un swipe d'une discussion alors que le clavier est actif.
+- Mise à jour de WebRTC vers la version 5249.
+
 ## [0.12.0 (580)] - 2022-10-22
 
 - Bienvenue aux nouvelles discussions de groupe ! Vous pouvez maintenant les configurer avec autant d'administrateurs que vous voulez.

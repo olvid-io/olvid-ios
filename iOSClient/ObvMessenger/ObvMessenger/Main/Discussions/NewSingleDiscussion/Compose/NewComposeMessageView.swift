@@ -104,8 +104,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewComposeMessageView.self))
 
-    // When switching state, we often perfom multiple views animations. If multiple events occurs, it might occur that we start an animation for switching from state A to B, and start another animation for switch from B to C before the previous animation finishes. To prevent this situation, we use a semaphore and a serial queue in order to wait until an animation is finished before starting the next one.
-    private let semaphoreForCoordinatingStateSwitches = DispatchSemaphore(value: 1) // Tested
+    // When switching state, we often perfom multiple views animations. If multiple events occurs, it might occur that we start an animation for switching from state A to B, and start another animation for switch from B to C before the previous animation finishes. To prevent this situation, we use a DispatchGroup and a serial queue in order to wait until an animation is finished before starting the next one.
+    private let dispatchGroupForCoordinatingStateSwitches = DispatchGroup() // Tested
     private let queueForCoordinatingStateSwitches = DispatchQueue(label: "Compose view animation coordinator queue", qos: .userInteractive)
     
     private static let errorDomain = "NewComposeMessageView"
@@ -1218,9 +1218,10 @@ extension NewComposeMessageView {
         debugPrint("🥵 [\(animationDebugUIDPrefix)] Switch from (\(currentState.debugDescription), \(currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription))")
         self.currentState = newState
         if let animationValues = animationValues {
-            // We asynchronously dispaych the call to the semaphore to prevent a deadlock
+            // We asynchronously dispatch the call to the DispatchGroup to prevent a deadlock
             queueForCoordinatingStateSwitches.async { [weak self] in
-                self?.semaphoreForCoordinatingStateSwitches.wait()
+                self?.dispatchGroupForCoordinatingStateSwitches.wait()
+                self?.dispatchGroupForCoordinatingStateSwitches.enter()
                 DispatchQueue.main.async {
                     guard let _self = self else { return }
                     debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 1")
@@ -1263,8 +1264,7 @@ extension NewComposeMessageView {
 
                             debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 5")
                             
-                            self?.semaphoreForCoordinatingStateSwitches.signal()
-                            
+                            self?.dispatchGroupForCoordinatingStateSwitches.leave()
                         }
                     }
 

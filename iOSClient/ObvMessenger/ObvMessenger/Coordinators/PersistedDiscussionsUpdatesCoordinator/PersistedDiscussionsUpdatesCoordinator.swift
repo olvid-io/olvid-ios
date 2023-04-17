@@ -2078,7 +2078,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         guard let returnReceiptJSON = messageReceived.returnReceipt else { return }
         guard let contactCryptoId = messageReceived.contactIdentity?.cryptoId else { return }
         guard let ownedCryptoId = messageReceived.contactIdentity?.ownedIdentity?.cryptoId else { return }
-        os_log("🧾 Calling to postReturnReceiptWithElements with nonce %{public}@ and attachmentNumber: %{public}@ from postAttachementReadReceiptIfRequired", log: log, type: .info, returnReceiptJSON.elements.nonce.hexString(), String(describing: receivedFyleJoin.index))
+        os_log("🧾 Calling postReturnReceiptWithElements with nonce %{public}@ and attachmentNumber: %{public}@ from postAttachementReadReceiptIfRequired", log: log, type: .info, returnReceiptJSON.elements.nonce.hexString(), String(describing: receivedFyleJoin.index))
         try obvEngine.postReturnReceiptWithElements(returnReceiptJSON.elements,
                                                     andStatus: ReturnReceiptJSON.Status.read.rawValue,
                                                     forContactCryptoId: contactCryptoId,

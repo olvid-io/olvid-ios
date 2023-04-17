@@ -35,6 +35,7 @@ enum ObvMessengerSettingsNotifications {
 	case preferredComposeMessageViewActionsDidChange
 	case isCallKitEnabledSettingDidChange
 	case isIncludesCallsInRecentsEnabledSettingDidChange
+	case performInteractionDonationSettingDidChange
 
 	private enum Name {
 		case identityColorStyleDidChange
@@ -42,6 +43,7 @@ enum ObvMessengerSettingsNotifications {
 		case preferredComposeMessageViewActionsDidChange
 		case isCallKitEnabledSettingDidChange
 		case isIncludesCallsInRecentsEnabledSettingDidChange
+		case performInteractionDonationSettingDidChange
 
 		private var namePrefix: String { String(describing: ObvMessengerSettingsNotifications.self) }
 
@@ -59,6 +61,7 @@ enum ObvMessengerSettingsNotifications {
 			case .preferredComposeMessageViewActionsDidChange: return Name.preferredComposeMessageViewActionsDidChange.name
 			case .isCallKitEnabledSettingDidChange: return Name.isCallKitEnabledSettingDidChange.name
 			case .isIncludesCallsInRecentsEnabledSettingDidChange: return Name.isIncludesCallsInRecentsEnabledSettingDidChange.name
+			case .performInteractionDonationSettingDidChange: return Name.performInteractionDonationSettingDidChange.name
 			}
 		}
 	}
@@ -74,6 +77,8 @@ enum ObvMessengerSettingsNotifications {
 		case .isCallKitEnabledSettingDidChange:
 			info = nil
 		case .isIncludesCallsInRecentsEnabledSettingDidChange:
+			info = nil
+		case .performInteractionDonationSettingDidChange:
 			info = nil
 		}
 		return info
@@ -134,6 +139,13 @@ enum ObvMessengerSettingsNotifications {
 
 	static func observeIsIncludesCallsInRecentsEnabledSettingDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.isIncludesCallsInRecentsEnabledSettingDidChange.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observePerformInteractionDonationSettingDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.performInteractionDonationSettingDidChange.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}

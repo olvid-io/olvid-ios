@@ -94,15 +94,47 @@ class AllSettingsTableViewController: UITableViewController {
         
         var image: UIImage? {
             switch self {
-            case .contactsAndGroups: return UIImage(named: "settings_icon_contacts_and_groups")
-            case .downloads: return UIImage(named: "settings_icon_downloads")
-            case .interface: return UIImage(named: "settings_icon_interface")
-            case .discussions: return UIImage(named: "settings_icon_discussions")
-            case .privacy: return UIImage(named: "settings_icon_privacy")
-            case .about: return UIImage(named: "settings_icon_infos")
-            case .advanced: return UIImage(named: "settings_icon_debug")
-            case .backup: return UIImage(named: "settings_icon_backup")
-            case .voip: return UIImage(named: "settings_icon_voip")
+            case .contactsAndGroups:
+                return UIImage(systemIcon: .person2)
+            case .downloads:
+                return UIImage(systemIcon: .arrowDownToLine)
+            case .interface:
+                return UIImage(systemIcon: .uiwindowSplit2x1)
+            case .discussions:
+                return UIImage(systemIcon: .bubbleLeftAndBubbleRight)
+            case .privacy:
+                return UIImage(systemIcon: .lock(.none, .shield))
+            case .backup:
+                return UIImage(systemIcon: .arrowCounterclockwise)
+            case .voip:
+                return UIImage(systemIcon: .phoneFill)
+            case .about:
+                return UIImage(systemIcon: .infoCircle)
+            case .advanced:
+                return UIImage(systemIcon: .hammerCircle)
+            }
+        }
+        
+        var imageColor: UIColor? {
+            switch self {
+            case .contactsAndGroups:
+                return .systemBlue
+            case .downloads:
+                return .systemPurple
+            case .interface:
+                return .cyan
+            case .discussions:
+                return .systemRed
+            case .privacy:
+                return .systemGreen
+            case .backup:
+                return .systemGreen
+            case .voip:
+                return .systemPink
+            case .about:
+                return .systemIndigo
+            case .advanced:
+                return .systemOrange
             }
         }
         
@@ -136,8 +168,8 @@ extension AllSettingsTableViewController {
         cell.accessoryType = .disclosureIndicator
         if let setting = Setting.forIndexPath(indexPath) {
             cell.textLabel?.text = setting.title
-            let inset: CGFloat = 50
-            cell.imageView?.image = setting.image?.imageWithInsets(insets: UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset))
+            cell.imageView?.image = setting.image
+            cell.imageView?.tintColor = setting.imageColor
         }
         return cell
     }

@@ -2607,3 +2607,11 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "BUTON_TITLE_ACTIVATE_NOTIFICATION" = "Allow notifications";
 
 "BUTON_TITLE_REQUEST_RECORD_PERMISSION" = "Grant access to the microphone";
+
+"PERFORM_INTERACTION_DONATION_LABEL" = "Suggest Olvid's discussions when sharing";
+
+"PERFORM_INTERACTION_DONATION_FOOTER" = "If you activate this option, your Olvid discussions will be suggested when sharing from another app. This choice can be overridden at the discussion level.";
+
+"PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_LABEL" = "Suggest this discussion when sharing";
+
+"PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "If you activate this option, this discussion will be suggested when sharing from another app.";

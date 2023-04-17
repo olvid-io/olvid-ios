@@ -66,7 +66,7 @@ final class UserNotificationsManager: NSObject {
         observeRequestIdentifiersOfSilentNotificationsAddedByExtension()
         observeTheBodyOfPersistedMessageReceivedDidChangeNotifications()
         observePersistedMessageReceivedWasDeletedNotifications()
-        observeUserRequestedDeletionOfPersistedDiscussionNotifications()
+        /* observeUserRequestedDeletionOfPersistedDiscussionNotifications() */
         observeReportCallEventNotifications()
         observePersistedMessageReactionReceivedWasDeletedNotifications()
         observePersistedMessageReactionReceivedWasInsertedOrUpdatedNotifications()
@@ -201,21 +201,26 @@ extension UserNotificationsManager {
     
     /// When the user decides to delete a discussion, it would too expensive to check whethere there exists a notification for one of the messages within the discussion.
     /// But we do want to delete such a notification if one exist. For now, we simply delete all notifications.
+    /// 2022-10-31 : We comment this method since it is probably not pertinent: when deleting a discussion, we receive a `PersistedMessageReceivedWasDeleted` for each deleted message, and delete the associated user notification already. No need to do it twice.
+    /**
     private func observeUserRequestedDeletionOfPersistedDiscussionNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedDiscussion() { (_, _, _) in
             let notificationCenter = UNUserNotificationCenter.current()
+            ObvDisplayableLogs.shared.log("📣 Removing all delivered and pending notifications as the user requested the deletion of a persisted discussion")
             notificationCenter.removeAllDeliveredNotifications()
             notificationCenter.removeAllPendingNotificationRequests()
         })
     }
+     */
 
 
-    /// When a received message is deleted (for whatever reason), we want to removing any existing notification related
+    /// When a received message is deleted (for whatever reason), we want to remove any existing notification related
     /// to this message
     private func observePersistedMessageReceivedWasDeletedNotifications() {
         observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted { (_, messageIdentifierFromEngine, _, _, _) in
             let notificationCenter = UNUserNotificationCenter.current()
             let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageIdentifierFromEngine)
+            ObvDisplayableLogs.shared.log("📣 Removing a user notification as its corresponding PersistedMessageReceived was deleted")
             UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
         })
     }
@@ -231,9 +236,7 @@ extension UserNotificationsManager {
                         messageReceived: try messageReceived.toStructure(),
                         attachmentLocation: .notificationID,
                         urlForStoringPNGThumbnail: nil)
-                    let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(
-                        infos: infos,
-                        badge: nil)
+                    let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
                     let discussionKind = try discussion.toStruct()
                     UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
                 } catch {
@@ -272,6 +275,7 @@ extension UserNotificationsManager {
         }
         let requestIdentifiersOfSilentNotificationsAddedByExtension = requestIdentifiersWithDatesOfSilentNotificationsAddedByExtension.map { $0.requestIdentifier }
         let notificationCenter = UNUserNotificationCenter.current()
+        ObvDisplayableLogs.shared.log("📣 Removing all silent notifications added by the share extension")
         notificationCenter.removeDeliveredNotifications(withIdentifiers: requestIdentifiersOfSilentNotificationsAddedByExtension)
     }
     
@@ -305,9 +309,7 @@ extension UserNotificationsManager {
                         messageReceived: newMessageStruct,
                         attachmentLocation: .notificationID,
                         urlForStoringPNGThumbnail: nil)
-                    let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(
-                        infos: infos,
-                        badge: nil)
+                    let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
                     UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
                 }
             }
@@ -321,10 +323,12 @@ extension UserNotificationsManager {
             let notificationId = ObvUserNotificationIdentifier.newReaction(messageURI: messageURI, contactURI: contactURI)
 
             // Remove the notification if it was added by the app
+            ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the app) as its corresponding PersistedMessageReaction was deleted")
             UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
 
             // Remove the notification if it was added by the extension
             Task {
+                ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the extension) as its corresponding PersistedMessageReaction was deleted")
                 await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
             }
         })
@@ -337,8 +341,9 @@ extension UserNotificationsManager {
     /// and shows n notification : launching the app will remove these n notifications and replace them by a single one, that can be updated (n - 1) times in the worst case if the reaction are processed in the
     /// wrong order. But it is a corner case to have a user that will react n times to the same message...
     private func observePersistedMessageReactionReceivedWasInsertedOrUpdatedNotifications() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasInsertedOrUpdated { objectID in
-            let log = self.log
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasInsertedOrUpdated { [weak self] objectID in
+            guard let _self = self else { return }
+            let log = _self.log
             ObvStack.shared.performBackgroundTask { context in
                 guard let reactionReceived = try? PersistedMessageReaction.get(with: objectID.downcast, within: context) as? PersistedMessageReactionReceived else { return }
                 guard let message = reactionReceived.message as? PersistedMessageSent else { return }
@@ -349,10 +354,7 @@ extension UserNotificationsManager {
                         messageSent: try message.toStructure(),
                         contact: try contact.toStruct(),
                         urlForStoringPNGThumbnail: nil)
-                    let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(
-                        infos: infos,
-                        emoji: reactionReceived.emoji,
-                        reactionTimestamp: reactionReceived.timestamp)
+                    let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: reactionReceived.emoji, reactionTimestamp: reactionReceived.timestamp)
                     
                     let notificationCenter = UNUserNotificationCenter.current()
                     let reactionsTimestamps = UserNotificationsScheduler.getAllReactionsTimestampAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
@@ -367,6 +369,7 @@ extension UserNotificationsManager {
                     } else {
                         // We remove all the notification that comes from the extension.
                         Task {
+                            ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the extension) as its corresponding PersistedMessageReaction was inserted or deleted")
                             await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
                         }
                         // And replace them with a notification that is not nececarry the more recent (in the case that multiple reaction update messages have been received) and replace by a single notification with notificationID as request identifier.

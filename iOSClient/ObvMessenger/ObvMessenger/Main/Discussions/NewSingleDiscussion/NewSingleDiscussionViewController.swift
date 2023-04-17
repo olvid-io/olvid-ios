@@ -358,7 +358,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             ObvMessengerCoreDataNotification.observePersistedContactIsActiveChanged(queue: OperationQueue.main) { [weak self] _ in
                 self?.configureNewComposeMessageViewVisibility(animate: true)
             },
-            ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged(queue: OperationQueue.main) { [weak self] _ in
+            ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged(queue: OperationQueue.main) { [weak self] _, _ in
                 self?.configureNewComposeMessageViewVisibility(animate: true)
             },
             NotificationCenter.default.addObserver(forName: sceneDidActivateNotification, object: nil, queue: .main) { [weak self] _ in
@@ -462,7 +462,7 @@ extension NewSingleDiscussionViewController {
                 let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
                 let unmuteImage = UIImage(systemIcon: .moonZzzFill, withConfiguration: symbolConfiguration)
                 let unmuteAction = UIAction.init(title: Strings.unmuteNotifications, image: UIImage(systemIcon: .moonZzzFill)) { _ in
-                    ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(muteNotificationsDuration: nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+                    ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
                 }
                 let menuElements: [UIMenuElement] = [unmuteAction]
                 let menu = UIMenu(title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted), children: menuElements)

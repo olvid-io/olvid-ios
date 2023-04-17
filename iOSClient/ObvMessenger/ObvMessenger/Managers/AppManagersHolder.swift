@@ -47,6 +47,13 @@ final actor AppManagersHolder {
     private let backgroundTasksManager: BackgroundTasksManager
     private let webSocketManager: WebSocketManager
     private let localAuthenticationManager: LocalAuthenticationManager
+    private let intentManager: IntentDelegate? = {
+        if #available(iOS 14, *) {
+            return IntentManager()
+        } else {
+            return nil
+        }
+    }()
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -98,6 +105,9 @@ final actor AppManagersHolder {
         await webSocketManager.performPostInitialization()
         await localAuthenticationManager.performPostInitialization()
         await snackBarManager.performPostInitialization()
+        if #available(iOS 14, *) {
+            (intentManager as? IntentManager)?.performPostInitialization()
+        }
     }
     
     

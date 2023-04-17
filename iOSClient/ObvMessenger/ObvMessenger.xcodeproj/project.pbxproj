@@ -954,6 +954,8 @@
 		C0C9ABE827C9356A00172444 /* EmojiList.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C9ABE727C9356A00172444 /* EmojiList.swift */; };
 		C0C9ABEA27C9379000172444 /* EmojiList.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C9ABE727C9356A00172444 /* EmojiList.swift */; };
 		C0CC887E269634B6009CAE24 /* RTCSdpType+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CC887D269634B5009CAE24 /* RTCSdpType+Extension.swift */; };
+		C0CF00FC29015B0C00FDAEB2 /* IntentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CF00FB29015B0C00FDAEB2 /* IntentManager.swift */; };
+		C0CF00FD29015C5600FDAEB2 /* IntentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CF00FB29015B0C00FDAEB2 /* IntentManager.swift */; };
 		C0D05827282C041600C47651 /* SoundsPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D05826282C041600C47651 /* SoundsPlayer.swift */; };
 		C0D05828282C041600C47651 /* SoundsPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D05826282C041600C47651 /* SoundsPlayer.swift */; };
 		C0D05829282C043300C47651 /* SoundsPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D05826282C041600C47651 /* SoundsPlayer.swift */; };
@@ -2440,6 +2442,8 @@
 		C0B6C1A427A042C500434D50 /* ProfilePictureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePictureView.swift; sourceTree = "<group>"; };
 		C0B6C1A727A0431C00434D50 /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		C0B6D92A27E49009006C8C9B /* SaveContextOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveContextOperation.swift; sourceTree = "<group>"; };
+		C0B6DDFC2902ED9700732532 /* ObvMessenger 54.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "ObvMessenger 54.xcdatamodel"; sourceTree = "<group>"; };
+		C0B6DDFE2902EE3900732532 /* MigrationAppDatabase_v53_to_v54.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MigrationAppDatabase_v53_to_v54.md; sourceTree = "<group>"; };
 		C0B6DF8A27E8BD82006C8C9B /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = en; path = en.lproj/AppIntentVocabulary.plist; sourceTree = "<group>"; };
 		C0B6DF8C27E8BD8A006C8C9B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = fr; path = fr.lproj/AppIntentVocabulary.plist; sourceTree = "<group>"; };
 		C0B6E0FE27EB6FCC006C8C9B /* MarkAsReadReceivedMessageOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkAsReadReceivedMessageOperation.swift; sourceTree = "<group>"; };
@@ -2455,6 +2459,7 @@
 		C0C9A9BB27C39C5800172444 /* RequestHardLinksToFylesOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestHardLinksToFylesOperation.swift; sourceTree = "<group>"; };
 		C0C9ABE727C9356A00172444 /* EmojiList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiList.swift; sourceTree = "<group>"; };
 		C0CC887D269634B5009CAE24 /* RTCSdpType+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RTCSdpType+Extension.swift"; sourceTree = "<group>"; };
+		C0CF00FB29015B0C00FDAEB2 /* IntentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentManager.swift; sourceTree = "<group>"; };
 		C0D05826282C041600C47651 /* SoundsPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundsPlayer.swift; sourceTree = "<group>"; };
 		C0D0582A282C054300C47651 /* NotificationSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSound.swift; sourceTree = "<group>"; };
 		C0D4BF072625F47E001A561B /* MigrationAppDatabase_v28_to_v29.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = MigrationAppDatabase_v28_to_v29.txt; sourceTree = "<group>"; };
@@ -3946,6 +3951,22 @@
 			path = UIKit;
 			sourceTree = "<group>";
 		};
+		C0B6DDFD2902EE0000732532 /* v53_to_54 */ = {
+			isa = PBXGroup;
+			children = (
+				C0B6DDFE2902EE3900732532 /* MigrationAppDatabase_v53_to_v54.md */,
+			);
+			path = v53_to_54;
+			sourceTree = "<group>";
+		};
+		C0CF00FA2901599700FDAEB2 /* IntentManager */ = {
+			isa = PBXGroup;
+			children = (
+				C0CF00FB29015B0C00FDAEB2 /* IntentManager.swift */,
+			);
+			path = IntentManager;
+			sourceTree = "<group>";
+		};
 		C0D057D3282C022B00C47651 /* Sounds */ = {
 			isa = PBXGroup;
 			children = (
@@ -5103,6 +5124,7 @@
 				C464BA502858A5000050F5C4 /* BackgroundTasksManager */,
 				C4C896562156742B002B2D7B /* UserNotificationManager */,
 				C034E75028786A330071ED87 /* LocalAuthenticationManager */,
+				C0CF00FA2901599700FDAEB2 /* IntentManager */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -5888,6 +5910,7 @@
 		C4A27B142191ADA700E04F1E /* Migration */ = {
 			isa = PBXGroup;
 			children = (
+				C0B6DDFD2902EE0000732532 /* v53_to_54 */,
 				C48274A528E5BB7400F61E64 /* v52_to_53 */,
 				C423602628E0FED300EA1AF7 /* v51_to_52 */,
 				C446C15428DF059C000500B3 /* v50_to_51 */,
@@ -8054,6 +8077,7 @@
 				C4FB6CFD25767FBA00E86CED /* PersistedExpirationForSentMessageWithLimitedVisibility.swift in Sources */,
 				C4FB6CF525767DAB00E86CED /* PersistedExpirationForReceivedMessageWithLimitedVisibility.swift in Sources */,
 				C422303121DFA39D00B2DA01 /* CommonString.swift in Sources */,
+				C0CF00FD29015C5600FDAEB2 /* IntentManager.swift in Sources */,
 				C448990821E0268C00A6A3F2 /* PersistedMessage.swift in Sources */,
 				C448990521E0266B00A6A3F2 /* PersistedOneToOneDiscussion.swift in Sources */,
 				C4B40547261135720026BDE7 /* ObvSystemIcon.swift in Sources */,
@@ -8661,6 +8685,7 @@
 				C4DF0CE22541929E0095324E /* InitialCircleView.swift in Sources */,
 				C4B22883252EF78200575FAC /* ScannerView.swift in Sources */,
 				C41FE3B2224D882F000AB2A5 /* MessageCollectionViewCell.swift in Sources */,
+				C0CF00FC29015B0C00FDAEB2 /* IntentManager.swift in Sources */,
 				C462CF242691E97A00E6A0FF /* SaveBodyTextOfPersistedDraftOperation.swift in Sources */,
 				C486FB7A27BE85FD00D60F81 /* VoIPNotification.swift in Sources */,
 				C46A4D66217E1FC000D34C16 /* FyleMetadata.swift in Sources */,
@@ -9163,7 +9188,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ObvMessengerIntentsExtension/Info.plist;
@@ -9175,7 +9200,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "io.olvid.messenger-debug.ObvMessengerIntentsExtension";
@@ -9195,7 +9220,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ObvMessengerIntentsExtension/Info.plist;
@@ -9207,7 +9232,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = io.olvid.messenger.ObvMessengerIntentsExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -9225,7 +9250,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -9236,7 +9261,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)";
@@ -9257,7 +9282,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -9268,7 +9293,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -9420,7 +9445,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessengerDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "";
@@ -9435,7 +9460,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				OTHER_SWIFT_FLAGS = "-Xfrontend -warn-long-function-bodies=500 -Xfrontend -warn-long-expression-type-checking=1500";
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -9458,7 +9483,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessenger/ObvMessenger.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "";
@@ -9474,7 +9499,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -9491,7 +9516,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -9502,7 +9527,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)";
@@ -9523,7 +9548,7 @@
 				CODE_SIGN_ENTITLEMENTS = ObvMessengerShareExtension/ObvMessengerShareExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 580;
+				CURRENT_PROJECT_VERSION = 584;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
@@ -9534,7 +9559,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 0.12.1;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -9629,6 +9654,7 @@
 		C4F533A0209C4AB500F5D2BB /* ObvMessenger.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				C0B6DDFC2902ED9700732532 /* ObvMessenger 54.xcdatamodel */,
 				C459665628E311ED0056250B /* ObvMessenger 53.xcdatamodel */,
 				C423602328E0C2B400EA1AF7 /* ObvMessenger 52.xcdatamodel */,
 				C446C15328DF054C000500B3 /* ObvMessenger 51.xcdatamodel */,
@@ -9683,7 +9709,7 @@
 				C4A27B1121919F6100E04F1E /* ObvMessenger 2.xcdatamodel */,
 				C4F533A1209C4AB500F5D2BB /* ObvMessenger.xcdatamodel */,
 			);
-			currentVersion = C459665628E311ED0056250B /* ObvMessenger 53.xcdatamodel */;
+			currentVersion = C0B6DDFC2902ED9700732532 /* ObvMessenger 54.xcdatamodel */;
 			path = ObvMessenger.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

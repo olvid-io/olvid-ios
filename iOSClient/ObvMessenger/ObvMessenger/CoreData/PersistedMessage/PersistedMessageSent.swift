@@ -831,6 +831,7 @@ extension PersistedMessageSent {
         let textBody: String?
         let isEphemeralMessageWithLimitedVisibility: Bool
         fileprivate let abstractStructure: PersistedMessage.AbstractStructure
+
         var isReplyToAnotherMessage: Bool { abstractStructure.isReplyToAnotherMessage }
         var readOnce: Bool { abstractStructure.readOnce }
         var forwarded: Bool { abstractStructure.forwarded }

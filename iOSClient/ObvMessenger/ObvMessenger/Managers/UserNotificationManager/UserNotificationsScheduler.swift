@@ -70,7 +70,7 @@ final class UserNotificationsScheduler {
 
     static func removeReactionNotificationsAddedByExtension(with identifier: ObvUserNotificationIdentifier, notificationCenter: UNUserNotificationCenter) async {
 
-        // If the reaction was schedule from the notification extension the identifier in request is an UUID. We need to read the identifier from the reactionIdentifierForNotification in userInfo.
+        // If the reaction was scheduled from the notification extension, the identifier in request is an UUID. We need to read the identifier from the reactionIdentifierForNotification in userInfo.
 
         let pendingReactionIdentifiersForNotification = findAllReactionsNotificationRequestAddedByExtension(with: identifier.getIdentifier(), in: await notificationCenter.pendingNotificationRequests())
         os_log("😀 Remove %{public}@ pending notification(s) added by the notification extension", log: log, type: .info, String(pendingReactionIdentifiersForNotification.count))

@@ -392,7 +392,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
             switch shownEmojiRows[indexPath.row] {
             case .changeDefaultEmoji:
                 let model = EmojiPickerViewModel(selectedEmoji: configuration.defaultEmoji) { emoji in
-                    let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji: emoji)
+                    let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji)
                     ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
                         .postOnDispatchQueue()
                 }
@@ -406,7 +406,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
                     tableView.deselectRow(at: indexPath, animated: true)
                 }
             case .resetDefaultEmoji:
-                let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji: nil)
+                let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(nil)
                 ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
                     .postOnDispatchQueue()
             }

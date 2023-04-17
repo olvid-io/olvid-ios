@@ -326,7 +326,7 @@ extension SingleDiscussionViewController {
                     actions: [UIAction(title:
                                         NSLocalizedString("UNMUTE_NOTIFICATIONS", comment: "")
                     ) { _ in
-                        ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(muteNotificationsDuration: nil), localConfigurationObjectID: self.discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+                        ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(nil), localConfigurationObjectID: self.discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
                     }])
                 items += [unmuteButton]
             }

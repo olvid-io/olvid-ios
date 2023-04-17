@@ -41,7 +41,7 @@ extension PersistedDiscussionConfigurationBackupItem {
             }
         }
         configuration.doFetchContentRichURLsMetadata = self.doFetchContentRichURLsMetadata
-
+        configuration.performInteractionDonation = self.performInteractionDonation
     }
 
 }

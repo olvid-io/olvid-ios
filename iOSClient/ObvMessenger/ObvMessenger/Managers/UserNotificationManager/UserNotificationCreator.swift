@@ -45,17 +45,17 @@ struct UserNotificationCreator {
 
     struct MissedCallNotificationInfos {
         let contactCustomOrFullDisplayName: String
-        let discussionObjectID: NSManagedObjectID
-        let sendMessageIntentInfos: SendMessageIntentInfos? // Only used for iOS15+
+        let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+        let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
         let discussionNotificationSound: NotificationSound?
         
         init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
-            self.discussionObjectID = discussionKind.objectID
-            if #available(iOS 15.0, *) {
-                sendMessageIntentInfos = SendMessageIntentInfos.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            self.discussionObjectID = discussionKind.typedObjectID
+            if #available(iOS 14.0, *) {
+                receivedMessageIntentInfos = ReceivedMessageIntentInfos.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             } else {
-                sendMessageIntentInfos = nil
+                receivedMessageIntentInfos = nil
             }
             discussionNotificationSound = discussionKind.localConfiguration.notificationSound
         }
@@ -86,16 +86,14 @@ struct UserNotificationCreator {
             notificationContent.title = infos.contactCustomOrFullDisplayName
             notificationContent.body = Strings.MissedCall.title
 
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation())
+            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
             notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
 
-            if #available(iOS 15.0, *) {
-                if let sendMessageIntentInfos = infos.sendMessageIntentInfos {
-                    sendMessageIntent = buildSendMessageIntent(notificationContent: notificationContent,
-                                                               infos: sendMessageIntentInfos,
-                                                               showGroupName: true)
+            if #available(iOS 14.0, *) {
+                if let receivedMessageIntentInfos = infos.receivedMessageIntentInfos {
+                    sendMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: receivedMessageIntentInfos, showGroupName: true)
                 }
             }
 
@@ -104,7 +102,7 @@ struct UserNotificationCreator {
         case .partially:
 
             notificationContent.body = Strings.MissedCall.title
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation())
+            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
             notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
@@ -179,12 +177,12 @@ struct UserNotificationCreator {
         let body: String
         let messageIdentifierFromEngine: Data
         let contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
-        let discussionObjectID: NSManagedObjectID
+        let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
         let contactCustomOrFullDisplayName: String
         let groupDiscussionTitle: String?
         let discussionNotificationSound: NotificationSound?
         let isEphemeralMessageWithUserAction: Bool
-        let sendMessageIntentInfos: SendMessageIntentInfos? // Only used for iOS15+
+        let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
         let attachmentLocation: NotificationAttachmentLocation
         let attachmentsCount: Int
         let attachementImages: [NotificationAttachmentImage]?
@@ -195,7 +193,7 @@ struct UserNotificationCreator {
             self.body = messageReceived.textBody ?? ""
             self.messageIdentifierFromEngine = messageReceived.messageIdentifierFromEngine
             self.contactObjectID = messageReceived.contact.typedObjectID
-            self.discussionObjectID = messageReceived.discussionKind.objectID
+            self.discussionObjectID = messageReceived.discussionKind.typedObjectID
             self.contactCustomOrFullDisplayName = messageReceived.contact.customOrFullDisplayName
             switch messageReceived.discussionKind {
             case .groupDiscussion(structure: let structure):
@@ -207,10 +205,10 @@ struct UserNotificationCreator {
             }
             self.discussionNotificationSound = messageReceived.discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = messageReceived.isReplyToAnotherMessage
-            if #available(iOS 15.0, *) {
-                self.sendMessageIntentInfos = SendMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            if #available(iOS 14.0, *) {
+                self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             } else {
-                self.sendMessageIntentInfos = nil
+                self.receivedMessageIntentInfos = nil
             }
             self.attachmentLocation = attachmentLocation
             self.attachmentsCount = messageReceived.attachmentsCount
@@ -229,7 +227,7 @@ struct UserNotificationCreator {
             self.body = body
             self.messageIdentifierFromEngine = messageIdentifierFromEngine
             self.contactObjectID = contact.typedObjectID
-            self.discussionObjectID = discussionKind.objectID
+            self.discussionObjectID = discussionKind.typedObjectID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
             switch discussionKind {
             case .groupDiscussion(structure: let structure):
@@ -241,10 +239,10 @@ struct UserNotificationCreator {
             }
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = isEphemeralMessageWithUserAction
-            if #available(iOS 15.0, *) {
-                self.sendMessageIntentInfos = SendMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            if #available(iOS 14.0, *) {
+                self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             } else {
-                self.sendMessageIntentInfos = nil
+                self.receivedMessageIntentInfos = nil
             }
             self.attachmentLocation = attachmentLocation
             self.attachmentsCount = attachmentsCount
@@ -293,18 +291,16 @@ struct UserNotificationCreator {
                 }
             }
 
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation())
+            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
             notificationContent.userInfo[UserNotificationKeys.persistedContactObjectURI] = infos.contactObjectID.uriRepresentation().absoluteString
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierFromEngine] = infos.messageIdentifierFromEngine.hexString()
 
-            if #available(iOS 15.0, *) {
-                if let sendMessageIntentInfos = infos.sendMessageIntentInfos {
-                    incomingMessageIntent = buildSendMessageIntent(notificationContent: notificationContent,
-                                                                   infos: sendMessageIntentInfos,
-                                                                   showGroupName: true)
+            if #available(iOS 14.0, *) {
+                if let receivedMessageIntentInfos = infos.receivedMessageIntentInfos {
+                    incomingMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: receivedMessageIntentInfos, showGroupName: true)
                 }
             }
 
@@ -323,7 +319,7 @@ struct UserNotificationCreator {
             notificationContent.subtitle = ""
             notificationContent.body = Strings.NewPersistedMessageReceivedHiddenContent.body
 
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation())
+            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
@@ -344,115 +340,6 @@ struct UserNotificationCreator {
         } else {
             return (notificationId, notificationContent)
         }
-    }
-    
-    
-    struct SendMessageIntentInfos {
-        
-        let discussionObjectID: NSManagedObjectID
-        let ownedINPerson: INPerson
-        let contactINPerson: INPerson
-        let groupInfos: GroupInfos? // Only set in the case of a group discussion
-        
-        @available(iOS 15.0, *)
-        init?(messageReceived: PersistedMessageReceived.Structure, urlForStoringPNGThumbnail: URL?) {
-            let contact = messageReceived.contact
-            let discussionKind = messageReceived.discussionKind
-            self.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-        }
-        
-        @available(iOS 15.0, *)
-        init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
-            let ownedIdentity = contact.ownedIdentity
-            self.discussionObjectID = discussionKind.objectID
-            self.ownedINPerson = ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                                    thumbnailSide: thumbnailPhotoSide)
-            self.contactINPerson = contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                                thumbnailSide: thumbnailPhotoSide)
-            switch discussionKind {
-            case .groupDiscussion(structure: let structure):
-                self.groupInfos = GroupInfos(groupDiscussion: structure,
-                                             urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            case .groupV2Discussion(structure: let structure):
-                self.groupInfos = GroupInfos(groupDiscussion: structure,
-                                             urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            case .oneToOneDiscussion:
-                self.groupInfos = nil
-            }
-        }
-        
-        struct GroupInfos {
-            
-            let groupRecipients: [INPerson]
-            let speakableGroupName: INSpeakableString
-            let groupINImage: INImage?
-            
-            @available(iOS 15.0, *)
-            init(groupDiscussion: PersistedGroupDiscussion.Structure, urlForStoringPNGThumbnail: URL?) {
-                let contactGroup = groupDiscussion.contactGroup
-                let contactIdentities = contactGroup.contactIdentities
-                var groupRecipients = [INPerson]()
-                for contactIdentity in contactIdentities {
-                    let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
-                    groupRecipients.append(inPerson)
-                }
-                self.groupRecipients = groupRecipients
-                speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
-                self.groupINImage = contactGroup.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                               thumbnailSide: thumbnailPhotoSide)
-            }
-            
-            @available(iOS 15.0, *)
-            init(groupDiscussion: PersistedGroupV2Discussion.Structure, urlForStoringPNGThumbnail: URL?) {
-                let group = groupDiscussion.group
-                let contactIdentities = group.contactIdentities
-                var groupRecipients = [INPerson]()
-                for contactIdentity in contactIdentities {
-                    let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
-                    groupRecipients.append(inPerson)
-                }
-                self.groupRecipients = groupRecipients
-                speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
-                self.groupINImage = group.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                        thumbnailSide: thumbnailPhotoSide)
-            }
-
-        }
-
-    }
-
-    @available(iOS 15.0, *)
-    private static func buildSendMessageIntent(notificationContent: UNNotificationContent,
-                                               infos: SendMessageIntentInfos,
-                                               showGroupName: Bool) -> INSendMessageIntent? {
-        var recipients = [infos.ownedINPerson]
-        var speakableGroupName: INSpeakableString?
-        if let groupInfos = infos.groupInfos, showGroupName {
-            speakableGroupName = groupInfos.speakableGroupName
-            recipients += groupInfos.groupRecipients
-        }
-        let intent = INSendMessageIntent(
-            recipients: recipients,
-            outgoingMessageType: .outgoingMessageText,
-            content: notificationContent.body,
-            speakableGroupName: speakableGroupName,
-            conversationIdentifier: infos.discussionObjectID.uriRepresentation().absoluteString,
-            serviceName: nil,
-            sender: infos.contactINPerson,
-            attachments: nil)
-        if let groupInfos = infos.groupInfos {
-            intent.setImage(groupInfos.groupINImage, forParameterNamed: \.speakableGroupName)
-        }
-        let interaction = INInteraction(intent: intent, response: nil)
-        interaction.direction = .incoming
-        interaction.donate { (error) in
-            guard let error = error else {
-                os_log("Successfully donated interaction", log: Self.log, type: .info)
-                return
-            }
-            os_log("Interaction donation failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-        }
-        return intent
     }
 
 
@@ -647,28 +534,28 @@ struct UserNotificationCreator {
 
     struct ReactionNotificationInfos {
         
-        let messageObjectID: NSManagedObjectID
-        let discussionObjectID: NSManagedObjectID
-        let contactObjectID: NSManagedObjectID
+        let messageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
+        let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+        let contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
         let contactCustomOrFullDisplayName: String
         let discussionNotificationSound: NotificationSound?
         let isEphemeralPersistedMessageSentWithLimitedVisibility: Bool
         let messageTextBody: String?
-        let sendMessageIntentInfos: SendMessageIntentInfos? // Only used for iOS15+
+        let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
 
         init(messageSent: PersistedMessageSent.Structure, contact: PersistedObvContactIdentity.Structure, urlForStoringPNGThumbnail: URL?) {
             let discussionKind = messageSent.discussionKind
-            self.messageObjectID = messageSent.typedObjectID.objectID
-            self.discussionObjectID = discussionKind.objectID
-            self.contactObjectID = contact.typedObjectID.objectID
+            self.messageObjectID = messageSent.typedObjectID
+            self.discussionObjectID = discussionKind.typedObjectID
+            self.contactObjectID = contact.typedObjectID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralPersistedMessageSentWithLimitedVisibility = messageSent.isEphemeralMessageWithLimitedVisibility
             self.messageTextBody = messageSent.textBody
-            if #available(iOS 15.0, *) {
-                self.sendMessageIntentInfos = SendMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            if #available(iOS 14.0, *) {
+                self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             } else {
-                self.sendMessageIntentInfos = nil
+                self.receivedMessageIntentInfos = nil
             }
         }
         
@@ -693,23 +580,21 @@ struct UserNotificationCreator {
                 notificationId = .newReactionNotificationWithHiddenContent
                 notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@", comment: ""), emoji)
             } else if let textBody = infos.messageTextBody {
-                notificationId = .newReaction(messageURI: infos.messageObjectID.uriRepresentation(), contactURI: infos.contactObjectID.uriRepresentation())
+                notificationId = .newReaction(messageURI: infos.messageObjectID.uriRepresentation().url, contactURI: infos.contactObjectID.uriRepresentation().url)
                 notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@_%@", comment: ""), emoji, textBody)
             } else {
                 notificationId = .newReactionNotificationWithHiddenContent
                 notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@", comment: ""), emoji)
             }
 
-            if #available(iOS 15.0, *), let sendMessageIntentInfos = infos.sendMessageIntentInfos {
-                sendMessageIntent = buildSendMessageIntent(notificationContent: notificationContent,
-                                                           infos: sendMessageIntentInfos,
-                                                           showGroupName: false)
+            if #available(iOS 14.0, *), let receivedMessageIntentInfos = infos.receivedMessageIntentInfos {
+                sendMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: receivedMessageIntentInfos, showGroupName: false)
             } else {
                 notificationContent.title = infos.contactCustomOrFullDisplayName
                 notificationContent.subtitle = ""
             }
 
-            let deepLink = ObvDeepLink.message(messageObjectURI: infos.messageObjectID.uriRepresentation())
+            let deepLink = ObvDeepLink.message(messageObjectURI: infos.messageObjectID.uriRepresentation().url)
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.reactionTimestamp] = reactionTimestamp
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
@@ -724,7 +609,7 @@ struct UserNotificationCreator {
             notificationContent.subtitle = ""
             notificationContent.body = Strings.NewPersistedReactionReceivedHiddenContent.body
 
-            let deepLink = ObvDeepLink.message(messageObjectURI: infos.messageObjectID.uriRepresentation())
+            let deepLink = ObvDeepLink.message(messageObjectURI: infos.messageObjectID.uriRepresentation().url)
             notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
 

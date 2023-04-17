@@ -78,6 +78,9 @@ extension GlobalSettingsBackupItem {
         if let value = self.retainWipedOutboundMessages {
             ObvMessengerSettings.Discussions.retainWipedOutboundMessages = value
         }
+        if let value = self.performInteractionDonation {
+            ObvMessengerSettings.Discussions.performInteractionDonation = value
+        }
 
         // Privacy
 

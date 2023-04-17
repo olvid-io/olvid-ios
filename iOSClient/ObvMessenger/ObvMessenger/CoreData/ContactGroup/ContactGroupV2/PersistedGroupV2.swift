@@ -24,7 +24,6 @@ import OlvidUtils
 import ObvTypes
 import CryptoKit
 import os.log
-import Intents
 
 
 @objc(PersistedGroupV2)
@@ -787,42 +786,6 @@ final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         let contactIdentities: Set<PersistedObvContactIdentity.Structure>
         
         private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedGroupV2.Structure")
-        
-        // MARK: - Siri and Intent integration
-        
-        @available(iOS 15.0, *)
-        func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
-            let pngData: Data?
-            if let url = displayPhotoURL,
-               let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
-               let _pngData = UIImage(cgImage: cgImage).pngData() {
-                pngData = _pngData
-            } else {
-                let groupColor = AppTheme.shared.groupV2Colors(forGroupIdentifier: groupIdentifier)
-                pngData = UIImage.makeCircledSymbol(from: ObvSystemIcon.person3Fill.systemName,
-                                                    circleDiameter: thumbnailSide,
-                                                    fillColor: groupColor.background,
-                                                    symbolColor: groupColor.text)?.pngData()
-            }
-            
-            let image: INImage?
-            if let pngData = pngData {
-                if let thumbnailURL = thumbnailURL {
-                    do {
-                        try pngData.write(to: thumbnailURL)
-                        image = INImage(url: thumbnailURL)
-                    } catch {
-                        os_log("Could not create PNG thumbnail file for contact", log: log, type: .fault)
-                        image = INImage(imageData: pngData)
-                    }
-                } else {
-                    image = INImage(imageData: pngData)
-                }
-            } else {
-                image = nil
-            }
-            return image
-        }
         
     }
         

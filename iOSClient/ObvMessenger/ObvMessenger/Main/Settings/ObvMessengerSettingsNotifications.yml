@@ -6,3 +6,4 @@ notifications:
 - name: preferredComposeMessageViewActionsDidChange
 - name: isCallKitEnabledSettingDidChange
 - name: isIncludesCallsInRecentsEnabledSettingDidChange
+- name: performInteractionDonationSettingDidChange

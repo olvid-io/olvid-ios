@@ -150,6 +150,7 @@ struct ObvMessengerSettings {
             static let readOnce = "settings.discussions.readOnce"
             static let retainWipedOutboundMessages = "settings.discussions.retainWipedOutboundMessages"
             static let notificationSound = "settings.discussions.notificationSound"
+            static let performInteractionDonation = "settings.discussions.performInteractionDonation"
         }
         
         
@@ -291,6 +292,18 @@ struct ObvMessengerSettings {
                 } else {
                     userDefaults.removeObject(forKey: Keys.notificationSound)
                 }
+            }
+        }
+
+        // MARK: Perform Interaction Donation
+
+        static var performInteractionDonation: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Keys.performInteractionDonation) ?? true
+            }
+            set {
+                userDefaults.set(newValue, forKey: Keys.performInteractionDonation)
+                ObvMessengerSettingsNotifications.performInteractionDonationSettingDidChange.postOnDispatchQueue()
             }
         }
         

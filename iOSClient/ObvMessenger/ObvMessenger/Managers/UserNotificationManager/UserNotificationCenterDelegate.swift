@@ -259,7 +259,7 @@ extension UserNotificationCenterDelegate {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let completionHandler = { continuation.resume() }
             ObvMessengerInternalNotification.userWantsToUpdateLocalConfigurationOfDiscussion(
-                value: .muteNotificationsDuration(muteNotificationsDuration: .oneHour),
+                value: .muteNotificationsDuration(.oneHour),
                 persistedDiscussionObjectID: persistedDiscussionObjectID,
                 completionHandler: completionHandler).postOnDispatchQueue()
         }

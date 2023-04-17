@@ -741,11 +741,11 @@ struct EmojiPickerInnerView: View {
                     /// Show the variants views above the selected emoji
                     if let emoji = showVariantsView,
                        let variants = EmojiList.variants[emoji],
-                       let emojisToShow = [emoji] + variants,
                        let (variantsViewPosition, arrowPosition) = self.getPosition(geometry: geometry,
                                                                                     emoji: emoji,
-                                                                                    emojisCount: emojisToShow.count,
+                                                                                    emojisCount: variants.count + 1, // + 1 is for `emoji`
                                                                                     positions: positions) {
+                        let emojisToShow = [emoji] + variants
                         ZStack {
                             /// Show a comics like arrow above the selected emojis
                             Rectangle()

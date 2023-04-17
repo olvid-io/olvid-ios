@@ -693,14 +693,15 @@ extension PersistedDiscussion {
         case oneToOneDiscussion(structure: PersistedOneToOneDiscussion.Structure)
         case groupDiscussion(structure: PersistedGroupDiscussion.Structure)
         case groupV2Discussion(structure: PersistedGroupV2Discussion.Structure)
-        var objectID: NSManagedObjectID {
+
+        var typedObjectID: TypeSafeManagedObjectID<PersistedDiscussion> {
             switch self {
             case .groupDiscussion(let structure):
-                return structure.typedObjectID.objectID
+                return structure.typedObjectID.downcast
             case .oneToOneDiscussion(let structure):
-                return structure.typedObjectID.objectID
+                return structure.typedObjectID.downcast
             case .groupV2Discussion(let structure):
-                return structure.typedObjectID.objectID
+                return structure.typedObjectID.downcast
             }
         }
         var title: String {
@@ -771,7 +772,7 @@ extension PersistedDiscussion {
         }
         
         if changedKeys.contains(Predicate.Key.rawStatus.rawValue), !isDeleted {
-            ObvMessengerCoreDataNotification.persistedDiscussionStatusChanged(objectID: typedObjectID)
+            ObvMessengerCoreDataNotification.persistedDiscussionStatusChanged(objectID: typedObjectID, newStatus: status)
                 .postOnDispatchQueue()
         }
 

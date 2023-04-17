@@ -60,6 +60,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     var autoRead: Binding<Bool>!
     var retainWipedOutboundMessages: Binding<Bool>!
     var notificationSound: Binding<OptionalNotificationSound>!
+    var performInteractionDonation: Binding<Bool>!
 
     @Published var changed: Bool // This allows to "force" the refresh of the view
 
@@ -76,6 +77,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         self.autoRead = Binding<Bool>(get: getAutoRead, set: setAutoRead)
         self.retainWipedOutboundMessages = Binding<Bool>(get: getRetainWipedOutboundMessages, set: setRetainWipedOutboundMessages)
         self.notificationSound = Binding<OptionalNotificationSound>(get: getNotificationSound, set: setNotificationSound)
+        self.performInteractionDonation = Binding<Bool>(get: getPerformInteractionDonation, set: setPerformInteractionDonation)
     }
     
     private func getTimeBasedRetention() -> DurationOptionAlt {
@@ -200,6 +202,17 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
             self.changed.toggle()
         }
     }
+
+    private func getPerformInteractionDonation() -> Bool {
+        ObvMessengerSettings.Discussions.performInteractionDonation
+    }
+
+    private func setPerformInteractionDonation(_ newValue: Bool) {
+        ObvMessengerSettings.Discussions.performInteractionDonation = newValue
+        withAnimation {
+            self.changed.toggle()
+        }
+    }
 }
 
 
@@ -221,6 +234,7 @@ struct DiscussionsDefaultSettingsWrapperView: View {
                                        autoRead: model.autoRead,
                                        retainWipedOutboundMessages: model.retainWipedOutboundMessages,
                                        notificationSound: model.notificationSound,
+                                       performInteractionDonation: model.performInteractionDonation,
                                        changed: $model.changed)
     }
     
@@ -239,6 +253,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     @Binding var autoRead: Bool
     @Binding var retainWipedOutboundMessages: Bool
     @Binding var notificationSound: OptionalNotificationSound
+    @Binding var performInteractionDonation: Bool
     @Binding var changed: Bool
 
     @State private var presentChooseNotificationSoundSheet: Bool = false
@@ -291,6 +306,11 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                             return Text(sound.description)
                         }
                     }
+                }
+            }
+            Section(footer: Text("PERFORM_INTERACTION_DONATION_FOOTER")) {
+                Toggle(isOn: $performInteractionDonation) {
+                    ObvLabel("PERFORM_INTERACTION_DONATION_LABEL", systemIcon: .squareAndArrowUp)
                 }
             }
             Group {
@@ -398,6 +418,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            autoRead: .constant(false),
                                            retainWipedOutboundMessages: .constant(false),
                                            notificationSound: .constant(.none),
+                                           performInteractionDonation: .constant(true),
                                            changed: .constant(false))
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(true),
                                            doFetchContentRichURLsMetadata: .constant(.always),
@@ -410,6 +431,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            autoRead: .constant(false),
                                            retainWipedOutboundMessages: .constant(false),
                                            notificationSound: .constant(.some(.bell)),
+                                           performInteractionDonation: .constant(false),
                                            changed: .constant(false))
                 .environment(\.locale, .init(identifier: "fr"))
         }

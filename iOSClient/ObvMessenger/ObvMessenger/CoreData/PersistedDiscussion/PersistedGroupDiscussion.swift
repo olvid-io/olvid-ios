@@ -169,7 +169,7 @@ extension PersistedGroupDiscussion {
     struct Structure {
         let typedObjectID: TypeSafeManagedObjectID<PersistedGroupDiscussion>
         let groupUID: Data
-        let ownerIdentityIdentity: Data
+        let ownerIdentity: PersistedObvOwnedIdentity.Structure
         let contactGroup: PersistedContactGroup.Structure
         fileprivate let discussionStruct: PersistedDiscussion.AbstractStructure
         var title: String { discussionStruct.title }
@@ -177,19 +177,19 @@ extension PersistedGroupDiscussion {
     }
     
     func toStruct() throws -> Structure {
-        guard let groupUID = self.rawGroupUID,
-              let ownerIdentityIdentity = self.rawOwnerIdentityIdentity else {
+        guard let groupUID = self.rawGroupUID else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required attributes")
         }
-        guard let contactGroup = self.contactGroup else {
+        guard let contactGroup = self.contactGroup,
+              let ownerIdentity = self.ownedIdentity else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required relationships")
         }
         let discussionStruct = try toAbstractStruct()
         return Structure(typedObjectID: self.typedObjectID,
                          groupUID: groupUID,
-                         ownerIdentityIdentity: ownerIdentityIdentity,
+                         ownerIdentity: try ownerIdentity.toStruct(),
                          contactGroup: try contactGroup.toStruct(),
                          discussionStruct: discussionStruct)
     }

@@ -166,6 +166,10 @@ fileprivate extension PersistedDiscussionLocalConfiguration {
         OptionalNotificationSound(notificationSound)
     }
 
+    var _performInteractionDonation: OptionalBoolType {
+        OptionalBoolType(performInteractionDonation)
+    }
+
 }
 
 extension PersistedDiscussionSharedConfiguration {
@@ -267,7 +271,7 @@ struct DiscussionExpirationSettingsWrapperView: View {
                 sharedConfiguration.setReadOnce(model: model, to: value)
             },
             autoRead: ValueWithBinding(localConfiguration, \._autoRead) {
-                PersistedDiscussionLocalConfigurationValue.autoRead(autoRead: $0.value).sendUpdateRequestNotifications(with: $1)
+                PersistedDiscussionLocalConfigurationValue.autoRead($0.value).sendUpdateRequestNotifications(with: $1)
             },
             visibilityDurationOption: ValueWithBinding(sharedConfiguration, sharedConfiguration.getVisibilityDurationOption(model: model)) { value, _ in
                 sharedConfiguration.setVisibilityDurationOption(model: model, to: value)
@@ -276,35 +280,38 @@ struct DiscussionExpirationSettingsWrapperView: View {
                 sharedConfiguration.setExistenceDurationOption(model: model, to: value)
             },
             retainWipedOutboundMessages: ValueWithBinding(localConfiguration, \._retainWipedOutboundMessages) {
-                PersistedDiscussionLocalConfigurationValue.retainWipedOutboundMessages(retainWipedOutboundMessages: $0.value).sendUpdateRequestNotifications(with: $1)
+                PersistedDiscussionLocalConfigurationValue.retainWipedOutboundMessages($0.value).sendUpdateRequestNotifications(with: $1)
             },
             doSendReadReceipt: ValueWithBinding(localConfiguration, \._doSendReadReceipt) {
-                PersistedDiscussionLocalConfigurationValue.doSendReadReceipt(doSendReadReceipt: $0.value).sendUpdateRequestNotifications(with: $1)
+                PersistedDiscussionLocalConfigurationValue.doSendReadReceipt($0.value).sendUpdateRequestNotifications(with: $1)
             },
             doFetchContentRichURLsMetadata: ValueWithBinding(localConfiguration, \._doFetchContentRichURLsMetadata) {
-                PersistedDiscussionLocalConfigurationValue.doFetchContentRichURLsMetadata(doFetchContentRichURLsMetadata: $0.value).sendUpdateRequestNotifications(with: $1) },
+                PersistedDiscussionLocalConfigurationValue.doFetchContentRichURLsMetadata($0.value).sendUpdateRequestNotifications(with: $1) },
             showConfirmationMessageBeforeSavingSharedConfig: $model.showConfirmationMessageBeforeSavingSharedConfig,
             countBasedRetentionIsActive: ValueWithBinding(localConfiguration, \._countBasedRetentionIsActive) {
-                PersistedDiscussionLocalConfigurationValue.countBasedRetentionIsActive(countBasedRetentionIsActive: $0.value).sendUpdateRequestNotifications(with: $1)
+                PersistedDiscussionLocalConfigurationValue.countBasedRetentionIsActive($0.value).sendUpdateRequestNotifications(with: $1)
             },
             countBasedRetention: ValueWithBinding(
                 localConfiguration, \.countBasedRetention,
                 defaultValue: ObvMessengerSettings.Discussions.countBasedRetentionPolicy) {
-                    PersistedDiscussionLocalConfigurationValue.countBasedRetention(countBasedRetention: $0).sendUpdateRequestNotifications(with: $1) },
+                    PersistedDiscussionLocalConfigurationValue.countBasedRetention($0).sendUpdateRequestNotifications(with: $1) },
             timeBasedRetention: ValueWithBinding(
                 localConfiguration, \.timeBasedRetention) {
-                    PersistedDiscussionLocalConfigurationValue.timeBasedRetention(timeBasedRetention: $0).sendUpdateRequestNotifications(with: $1) },
+                    PersistedDiscussionLocalConfigurationValue.timeBasedRetention($0).sendUpdateRequestNotifications(with: $1) },
             muteNotificationsEndDate: localConfiguration.currentMuteNotificationsEndDate,
             muteNotificationsDuration:
                 ValueWithBinding(
                     localConfiguration, \._muteNotificationsDuration) {
-                        PersistedDiscussionLocalConfigurationValue.muteNotificationsDuration(muteNotificationsDuration: $0).sendUpdateRequestNotifications(with: $1) },
+                        PersistedDiscussionLocalConfigurationValue.muteNotificationsDuration($0).sendUpdateRequestNotifications(with: $1) },
             defaultEmoji: ValueWithBinding(
                 localConfiguration, \.defaultEmoji) {
-                    PersistedDiscussionLocalConfigurationValue.defaultEmoji(emoji: $0).sendUpdateRequestNotifications(with: $1) },
+                    PersistedDiscussionLocalConfigurationValue.defaultEmoji($0).sendUpdateRequestNotifications(with: $1) },
             notificationSound: ValueWithBinding(
                 localConfiguration, \._notificationSound) {
                     PersistedDiscussionLocalConfigurationValue.notificationSound($0.value).sendUpdateRequestNotifications(with: $1) },
+            performInteractionDonation: ValueWithBinding(
+                localConfiguration, \._performInteractionDonation) {
+                    PersistedDiscussionLocalConfigurationValue.performInteractionDonation($0.value).sendUpdateRequestNotifications(with: $1) },
             sharedConfigCanBeModified: model.sharedConfigCanBeModified,
             dismissAction: model.dismissAction)
     }
@@ -330,6 +337,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let muteNotificationsDuration: ValueWithBinding<PersistedDiscussionLocalConfiguration, MuteDurationOption?>
     let defaultEmoji: ValueWithBinding<PersistedDiscussionLocalConfiguration, String?>
     let notificationSound: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalNotificationSound>
+    let performInteractionDonation: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
 
     let sharedConfigCanBeModified: Bool
     var dismissAction: (Bool?) -> Void
@@ -434,6 +442,21 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                                         .italic()
                                 } else {
                                     return Text(sound.description)
+                                }
+                            }
+                        }
+                    }
+                    Section(footer: Text("PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER")) {
+                        Picker(selection: performInteractionDonation.binding, label: ObvLabel("PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_LABEL", systemIcon: .squareAndArrowUp)) {
+                            ForEach(OptionalBoolType.allCases) { optionalBool in
+                                switch optionalBool {
+                                case .none:
+                                    let textAppDefault = ObvMessengerSettings.Discussions.performInteractionDonation ? CommonString.Word.Yes : CommonString.Word.No
+                                    Text("\(CommonString.Word.Default) (\(textAppDefault))").tag(optionalBool)
+                                case .trueValue:
+                                    Text(CommonString.Word.Yes).tag(optionalBool)
+                                case .falseValue:
+                                    Text(CommonString.Word.No).tag(optionalBool)
                                 }
                             }
                         }
@@ -677,6 +700,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
                 defaultEmoji: ValueWithBinding(constant: nil),
                 notificationSound: ValueWithBinding(constant: .none),
+                performInteractionDonation: ValueWithBinding(constant: .trueValue),
                 sharedConfigCanBeModified: true,
                 dismissAction: { _ in })
             DiscussionExpirationSettingsView(
@@ -696,6 +720,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 muteNotificationsDuration: ValueWithBinding(constant: .indefinitely),
                 defaultEmoji: ValueWithBinding(constant: nil),
                 notificationSound: ValueWithBinding(constant: .some(.busy)),
+                performInteractionDonation: ValueWithBinding(constant: .falseValue),
                 sharedConfigCanBeModified: false,
                 dismissAction: { _ in })
         }

@@ -25,6 +25,7 @@ import os.log
 import SwiftUI
 import CoreData
 import CoreDataStack
+import Intents
 
 @objc(ShareViewController)
 final class ShareViewController: UIViewController, ShareExtensionErrorViewControllerDelegate {
@@ -229,6 +230,12 @@ extension ShareViewController: ShareViewHostingControllerDelegate {
         extensionContext?.inputItems.first as? NSExtensionItem
     }
 
+    var conversationIdentifier: String? {
+        guard let intent = extensionContext?.intent else { return nil }
+        guard let sendMessageIntent = intent as? INSendMessageIntent else { return nil }
+        return sendMessageIntent.conversationIdentifier
+    }
+
     func showProgress(progress: Progress) {
         showHUD(type: .progress(progress: progress))
     }
@@ -291,11 +298,11 @@ extension ShareViewController: LocalAuthenticationViewControllerDelegate {
         saveOp.obvContext = obvContext
         internalQueue.addOperations([saveOp], waitUntilFinished: false)
     }
-
 }
 
 protocol ShareViewHostingControllerDelegate: AnyObject {
     var firstInputItems: NSExtensionItem? { get }
+    var conversationIdentifier: String? { get }
 
     func showProgress(progress: Progress)
     func showSuccessAndCompleteRequestAfter(deadline: DispatchTime)
@@ -356,6 +363,13 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
     override func viewDidLoad() {
         super.viewDidLoad()
         self.initializeOperations()
+
+        if let conversationIdentifier = delegate?.conversationIdentifier,
+           let persistedDiscussionObjectURI = URL(string: conversationIdentifier),
+           let objectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI),
+           let discussion = try? PersistedDiscussion.get(objectID: objectID, within: ObvStack.shared.viewContext) {
+            self.model.setSelectedDiscussions(to: [discussion])
+        }
     }
 
     private func badge() -> UIImage? {

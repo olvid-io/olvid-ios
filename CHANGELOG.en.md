@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1 (584)] - 2022-10-31
+
+- The discussions you use the most within Olvid will now be suggested when sharing.
+- Fixes a bug at the engine level resulting in a frequent crash of the app.
+- Fixes a systematic crash occurring when dismissing the discussion screen by swiping while the keyboard is active.
+- Updates WebRTC to version 5249.
+
 ## [0.12.0 (580)] - 2022-10-22
 
 - Say hello to new discussion groups! They can now be configured with as many administrators as you want.

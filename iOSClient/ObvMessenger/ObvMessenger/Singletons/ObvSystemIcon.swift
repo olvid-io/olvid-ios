@@ -85,10 +85,14 @@ enum ObvSystemIcon: Hashable {
     case alarm
     case archiveboxFill
     case arrowClockwise
+    case arrowCounterclockwise
+    case arrowCounterclockwiseCircle
     case arrowCounterclockwiseCircleFill
     case arrowDown
     case arrowDownCircle
     case arrowDownCircleFill
+    case arrowDownToLine
+    case arrowDownToLineCircle
     case arrowForward
     case arrowUpArrowDownCircle
     case arrowUpCircle
@@ -146,6 +150,7 @@ enum ObvSystemIcon: Hashable {
     case gear
     case gearshapeFill
     case giftcardFill
+    case hammerCircle
     case handTap
     case handThumbsup
     case handThumbsupFill
@@ -173,6 +178,8 @@ enum ObvSystemIcon: Hashable {
     case pencil(_: CircleCircleFillOption? = nil)
     case pencilSlash
     case person
+    case person2
+    case person2Fill
     case person2Circle
     case person3Fill
     case personCropCircle
@@ -218,6 +225,7 @@ enum ObvSystemIcon: Hashable {
     case trash
     case trashFill
     case trashCircle
+    case uiwindowSplit2x1
     case umbrella
     case xmark
     case xmarkCircle
@@ -246,6 +254,20 @@ enum ObvSystemIcon: Hashable {
             return "arrow.down.circle"
         case .arrowDownCircleFill:
             return "arrow.down.circle.fill"
+        case .arrowDownToLine:
+            return "arrow.down.to.line"
+        case .arrowDownToLineCircle:
+            if #available(iOS 15, *) {
+                return "arrow.down.to.line.circle"
+            } else {
+                return "arrow.down.to.line"
+            }
+        case .hammerCircle:
+            if #available(iOS 15, *) {
+                return "hammer.circle"
+            } else {
+                return "hammer"
+            }
         case .handTap:
             if #available(iOS 14, *) {
                 return "hand.tap"
@@ -270,6 +292,8 @@ enum ObvSystemIcon: Hashable {
             return "trash.fill"
         case .trashCircle:
             return "trash.circle"
+        case .uiwindowSplit2x1:
+            return "uiwindow.split.2x1"
         case .scanner:
             if #available(iOS 14, *) {
                 return "scanner"
@@ -342,6 +366,10 @@ enum ObvSystemIcon: Hashable {
             return "qrcode.viewfinder"
         case .arrowClockwise:
             return "arrow.clockwise"
+        case .arrowCounterclockwise:
+            return "arrow.counterclockwise"
+        case .arrowCounterclockwiseCircle:
+            return "arrow.counterclockwise.circle"
         case .arrowCounterclockwiseCircleFill:
             return "arrow.counterclockwise.circle.fill"
         case .questionmarkCircle:
@@ -508,6 +536,10 @@ enum ObvSystemIcon: Hashable {
             return "exclamationmark.shield.fill"
         case .person:
             return "person"
+        case .person2:
+            return "person.2"
+        case .person2Fill:
+            return "person.2.fill"
         case .person2Circle:
             if #available(iOS 14, *) {
                 return "person.2.circle"

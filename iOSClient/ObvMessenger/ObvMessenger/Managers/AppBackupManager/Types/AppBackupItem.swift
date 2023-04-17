@@ -199,6 +199,7 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
     let countBasedRetention: Int?
     let timeBasedRetention: TimeInterval?
     let doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?
+    let performInteractionDonation: Bool?
     
     // Shared configuration
     
@@ -218,7 +219,8 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         countBasedRetentionIsActive == nil &&
         timeBasedRetention == nil &&
         (sharedSettingsVersion == nil || existenceDuration == nil && visibilityDuration == nil && readOnce == nil) &&
-        doFetchContentRichURLsMetadata == nil
+        doFetchContentRichURLsMetadata == nil &&
+        performInteractionDonation == nil
     }
     
 
@@ -238,6 +240,7 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         case readOnce = "settings_read_once"
         case doFetchContentRichURLsMetadata = "do_fetch_content_rich_urls_metadata"
         case backupSourcePlatform = "backup_source_platform"
+        case performInteractionDonation = "perform_interaction_donation"
     }
 
     
@@ -259,7 +262,8 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
             self.timeBasedRetention = local.timeBasedRetention.timeInterval
         }
         self.doFetchContentRichURLsMetadata = local.doFetchContentRichURLsMetadata
-        
+        self.performInteractionDonation = local.performInteractionDonation
+
         self.sharedSettingsVersion = shared.version == 0 ? nil : shared.version
         self.existenceDuration = shared.existenceDuration
         self.visibilityDuration = shared.visibilityDuration
@@ -293,7 +297,8 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         
         try container.encodeIfPresent(timeBasedRetention?.toSeconds, forKey: .timeBasedRetention)
         try container.encodeIfPresent(doFetchContentRichURLsMetadata?.rawValue, forKey: .doFetchContentRichURLsMetadata)
-        
+        try container.encodeIfPresent(performInteractionDonation, forKey: .performInteractionDonation)
+
         try container.encodeIfPresent(sharedSettingsVersion, forKey: .sharedSettingsVersion)
         try container.encodeIfPresent(existenceDuration?.toSeconds, forKey: .existenceDuration)
         try container.encodeIfPresent(visibilityDuration?.toSeconds, forKey: .visibilityDuration)
@@ -341,6 +346,8 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         } else {
             self.doFetchContentRichURLsMetadata = nil
         }
+        self.performInteractionDonation = try values.decodeIfPresent(Bool.self, forKey: .performInteractionDonation)
+
         self.sharedSettingsVersion = try values.decodeIfPresent(Int.self, forKey: .sharedSettingsVersion)
         self.existenceDuration = (try values.decodeIfPresent(Int.self, forKey: .existenceDuration))?.secondsToTimeInterval
         self.visibilityDuration = (try values.decodeIfPresent(Int.self, forKey: .visibilityDuration))?.secondsToTimeInterval
@@ -378,6 +385,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
     let timeBasedRetentionPolicy: DurationOptionAlt?
     let autoRead: Bool?
     let retainWipedOutboundMessages: Bool?
+    let performInteractionDonation: Bool?
 
     // Privacy
     
@@ -424,6 +432,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         case isCallKitEnabled = "is_call_kit_enabled"
         case autoAcceptGroupInviteFrom = "auto_join_groups"
         case preferredEmojisList = "preferred_reactions"
+        case performInteractionDonation = "perform_interaction_donation"
     }
 
     private var hideNotificationContentAndroid: Bool? {
@@ -455,6 +464,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         self.timeBasedRetentionPolicy = ObvMessengerSettings.Discussions.timeBasedRetentionPolicy
         self.autoRead = ObvMessengerSettings.Discussions.autoRead
         self.retainWipedOutboundMessages = ObvMessengerSettings.Discussions.retainWipedOutboundMessages
+        self.performInteractionDonation = ObvMessengerSettings.Discussions.performInteractionDonation
         self.hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
         self.allowCustomKeyboards = ObvMessengerSettings.Advanced.allowCustomKeyboards
         self.showBetaSettings = ObvMessengerSettings.BetaConfiguration.showBetaSettings
@@ -487,6 +497,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(isCallKitEnabled, forKey: .isCallKitEnabled)
         try container.encodeIfPresent(autoAcceptGroupInviteFrom?.rawValue, forKey: .autoAcceptGroupInviteFrom)
         try container.encodeIfPresent(preferredEmojisList, forKey: .preferredEmojisList)
+        try container.encodeIfPresent(performInteractionDonation, forKey: .performInteractionDonation)
     }
 
     
@@ -547,6 +558,7 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
             self.autoAcceptGroupInviteFrom = nil
         }
         self.preferredEmojisList = try values.decodeIfPresent([String].self, forKey: .preferredEmojisList)
+        self.performInteractionDonation = try values.decodeIfPresent(Bool.self, forKey: .performInteractionDonation)
     }
 }
 

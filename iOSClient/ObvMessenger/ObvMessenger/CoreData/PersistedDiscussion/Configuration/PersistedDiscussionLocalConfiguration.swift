@@ -42,6 +42,7 @@ final class PersistedDiscussionLocalConfiguration: NSManagedObject {
     @NSManaged private(set) var defaultEmoji: String?
     @NSManaged private var muteNotificationsEndDate: Date?
     @NSManaged private var rawNotificationSound: String?
+    @NSManaged private(set) var rawPerformInteractionDonation: NSNumber?
 
     // MARK: - Relationships
 
@@ -139,19 +140,30 @@ final class PersistedDiscussionLocalConfiguration: NSManagedObject {
         }
     }
 
+    var performInteractionDonation: Bool? {
+        get {
+            rawPerformInteractionDonation?.boolValue
+        }
+        set {
+            guard newValue != performInteractionDonation else { return }
+            rawPerformInteractionDonation = (newValue == nil ? nil : newValue! as NSNumber)
+        }
+    }
+
 }
 
 enum PersistedDiscussionLocalConfigurationValue {
-    case autoRead(autoRead: Bool?)
-    case retainWipedOutboundMessages(retainWipedOutboundMessages: Bool?)
-    case doSendReadReceipt(doSendReadReceipt: Bool?)
-    case countBasedRetentionIsActive(countBasedRetentionIsActive: Bool?)
-    case countBasedRetention(countBasedRetention: Int?)
-    case doFetchContentRichURLsMetadata(doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?)
-    case timeBasedRetention(timeBasedRetention: DurationOptionAltOverride)
-    case muteNotificationsDuration(muteNotificationsDuration: MuteDurationOption?)
-    case defaultEmoji(emoji: String?)
-    case notificationSound(_: NotificationSound?)
+    case autoRead(_ autoRead: Bool?)
+    case retainWipedOutboundMessages(_ retainWipedOutboundMessages: Bool?)
+    case doSendReadReceipt(_ doSendReadReceipt: Bool?)
+    case countBasedRetentionIsActive(_ countBasedRetentionIsActive: Bool?)
+    case countBasedRetention(_ countBasedRetention: Int?)
+    case doFetchContentRichURLsMetadata(_ doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?)
+    case timeBasedRetention(_ timeBasedRetention: DurationOptionAltOverride)
+    case muteNotificationsDuration(_ muteNotificationsDuration: MuteDurationOption?)
+    case defaultEmoji(_ emoji: String?)
+    case notificationSound(_ notificationSound: NotificationSound?)
+    case performInteractionDonation(_ performInteractionDonation: Bool?)
 }
 
 extension PersistedDiscussionLocalConfigurationValue {
@@ -233,6 +245,8 @@ extension PersistedDiscussionLocalConfiguration {
             self.defaultEmoji = emoji
         case .notificationSound(let notificationSound):
             self.notificationSound = notificationSound
+        case .performInteractionDonation(let performInteractionDonation):
+            self.performInteractionDonation = performInteractionDonation
         }
     }
 
@@ -299,11 +313,13 @@ extension PersistedDiscussionLocalConfiguration {
     struct Structure {
         let notificationSound: NotificationSound?
         let shouldMuteNotifications: Bool
+        let performInteractionDonation: Bool?
     }
     
     func toStructure() throws -> Structure {
         return Structure(notificationSound: notificationSound,
-                         shouldMuteNotifications: self.shouldMuteNotifications)
+                         shouldMuteNotifications: self.shouldMuteNotifications,
+                         performInteractionDonation: self.performInteractionDonation)
     }
     
 }

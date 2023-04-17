@@ -25,7 +25,7 @@ import ObvTypes
 import ObvCrypto
 
 
-class NotificationService: UNNotificationServiceExtension {
+final class NotificationService: UNNotificationServiceExtension {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NotificationService.self))
     
@@ -429,7 +429,7 @@ class NotificationService: UNNotificationServiceExtension {
                 var messageSentStructure: PersistedMessageSent.Structure?
                 
                 ObvStack.shared.performBackgroundTaskAndWait { context in
-                    guard let persistedDiscussion = try? PersistedDiscussion.get(objectID: discussionKind.objectID, within: context) else { return }
+                    guard let persistedDiscussion = try? PersistedDiscussion.get(objectID: discussionKind.typedObjectID, within: context) else { return }
                     guard let message = try? PersistedMessage.findMessageFrom(reference: reactionJSON.messageReference, within: persistedDiscussion) else { return }
                     guard let messageSent = message as? PersistedMessageSent, !messageSent.isWiped else { return }
                     messageSentStructure = try? messageSent.toStructure()
@@ -439,7 +439,10 @@ class NotificationService: UNNotificationServiceExtension {
                 
                 if let emoji = reactionJSON.emoji {
                     let infos = UserNotificationCreator.ReactionNotificationInfos(messageSent: messageSentStructure, contact: contactStructure, urlForStoringPNGThumbnail: nil)
-                    let (_, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: emoji, reactionTimestamp: obvMessage.messageUploadTimestampFromServer)
+                    let (_, notificationContent) = UserNotificationCreator.createReactionNotification(
+                        infos: infos,
+                        emoji: emoji,
+                        reactionTimestamp: obvMessage.messageUploadTimestampFromServer)
                     self.fullAttemptContent = notificationContent
                 } else {
                     // Nothing can be done: we are not able to remove the notification from the extension and we cannot wake up the app.

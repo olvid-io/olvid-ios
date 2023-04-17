@@ -64,7 +64,7 @@ enum ObvMessengerCoreDataNotification {
 	case draftToSendWasReset(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case draftFyleJoinWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>)
 	case fyleMessageJoinWasWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinUriRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>)
-	case persistedDiscussionStatusChanged(objectID: TypeSafeManagedObjectID<PersistedDiscussion>)
+	case persistedDiscussionStatusChanged(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, newStatus: PersistedDiscussion.Status)
 	case persistedGroupV2UpdateIsFinished(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case persistedGroupV2WasDeleted(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
@@ -295,9 +295,10 @@ enum ObvMessengerCoreDataNotification {
 				"messageUriRepresentation": messageUriRepresentation,
 				"fyleMessageJoinUriRepresentation": fyleMessageJoinUriRepresentation,
 			]
-		case .persistedDiscussionStatusChanged(objectID: let objectID):
+		case .persistedDiscussionStatusChanged(objectID: let objectID, newStatus: let newStatus):
 			info = [
 				"objectID": objectID,
+				"newStatus": newStatus,
 			]
 		case .persistedGroupV2UpdateIsFinished(objectID: let objectID):
 			info = [
@@ -599,11 +600,12 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observePersistedDiscussionStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
+	static func observePersistedDiscussionStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, PersistedDiscussion.Status) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionStatusChanged.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(objectID)
+			let newStatus = notification.userInfo!["newStatus"] as! PersistedDiscussion.Status
+			block(objectID, newStatus)
 		}
 	}
 

@@ -367,8 +367,11 @@ extension InboxMessage {
         // - Either the save fails: in that case, the message stays in the database and we won't be able to create a new one with the same Id anyway.
         //   This message will eventually be deleted and the list of recently deleted messages will be updated with a new, more recent, timestamp.
         // - Either the save succeeds: in that case, we make sure that there won't be a time interval during which the message does not exists in DB without being stored in the list of recently deleted messages.
+        // 2022-10-23: The following line crashes regularly on the main thread (more precisely, the getter of messageId crashes, probably because the object is already deleted and thus we cannot access its attributes). This is why we now filter out calls made on the main thread and make sure `self` is not deleted yet.
         
-        Self.trackRecentlyDeletedMessage(messageId: self.messageId)
+        if self.managedObjectContext?.concurrencyType == .privateQueueConcurrencyType {
+            Self.trackRecentlyDeletedMessage(messageId: self.messageId)
+        }
         
     }
     

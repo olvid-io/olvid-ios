@@ -165,6 +165,7 @@ final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
     struct Structure {
         let typedObjectID: TypeSafeManagedObjectID<PersistedGroupV2Discussion>
         let groupIdentifier: Data
+        let ownerIdentity: PersistedObvOwnedIdentity.Structure
         let group: PersistedGroupV2.Structure
         fileprivate let discussionStruct: PersistedDiscussion.AbstractStructure
         var title: String { discussionStruct.title }
@@ -176,9 +177,14 @@ final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required relationships")
         }
+        guard let ownerIdentity = self.ownedIdentity else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract required relationships")
+        }
         let discussionStruct = try toAbstractStruct()
         return Structure(typedObjectID: self.typedObjectID,
                          groupIdentifier: self.groupIdentifier,
+                         ownerIdentity: try ownerIdentity.toStruct(),
                          group: try group.toStruct(),
                          discussionStruct: discussionStruct)
     }

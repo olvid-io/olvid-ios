@@ -117,6 +117,7 @@ notifications:
 - name: persistedDiscussionStatusChanged
   params:
   - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: newStatus, type: PersistedDiscussion.Status}
 - name: persistedGroupV2UpdateIsFinished
   params:
   - {name: objectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
