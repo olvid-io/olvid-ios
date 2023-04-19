@@ -25,14 +25,9 @@ import OlvidUtils
 
 
 @objc(PersistedMessageSystem)
-final class PersistedMessageSystem: PersistedMessage {
+final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableManagedObject {
 
-    private static let optionalCallLogItemKey = "optionalCallLogItem"
     static let entityName = "PersistedMessageSystem"
-    private static let ownedIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue].joined(separator: ".")
-    private static let callReportKindKey = [optionalCallLogItemKey, PersistedCallLogContact.rawReportKindKey].joined(separator: ".")
-    private static let rawCategoryKey = "rawCategory"
-    
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSystem")
 
     // MARK: System message categories
@@ -154,10 +149,10 @@ final class PersistedMessageSystem: PersistedMessage {
 
         static func buildPredicate(with isIncluded: (Category) -> Bool) -> NSPredicate {
             return NSCompoundPredicate(orPredicateWithSubpredicates: Category.allCases
-                                    .filter({ isIncluded($0) })
-                                    .map({
-                                        NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, $0.rawValue)
-                                    }))
+                .filter({ isIncluded($0) })
+                .map({
+                    Predicate.withCategory($0)
+                }))
         }
     }
 
@@ -178,6 +173,10 @@ final class PersistedMessageSystem: PersistedMessage {
     @NSManaged private(set) var optionalCallLogItem: PersistedCallLogItem?
 
     // MARK: - Computed variables
+
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageSystem> {
+        ObvManagedObjectPermanentID<PersistedMessageSystem>(uuid: self.permanentUUID)
+    }
 
     override var kind: PersistedMessageKind { .system }
 
@@ -216,7 +215,7 @@ final class PersistedMessageSystem: PersistedMessage {
         df.dateStyle = Calendar.current.isDateInToday(self.timestamp) ? .none : .medium
         df.timeStyle = .short
         let dateString = df.string(from: self.timestamp)
-        let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
+        let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails?.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
         switch self.category {
         case .ownedIdentityDidCaptureSensitiveMessages:
             return Strings.ownedIdentityDidCaptureSensitiveMessages
@@ -340,7 +339,12 @@ final class PersistedMessageSystem: PersistedMessage {
     }
     
     var textBodyWithoutTimestamp: String? {
-        let contactDisplayName = self.optionalContactIdentity?.customDisplayName ?? self.optionalContactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.full) ?? CommonString.deletedContact
+        let contactDisplayName: String
+        if let optionalContactIdentity {
+            contactDisplayName = optionalContactIdentity.customDisplayName ?? optionalContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.full) ?? optionalContactIdentity.fullDisplayName
+        } else {
+            contactDisplayName = CommonString.deletedContact
+        }
         switch self.category {
         case .ownedIdentityDidCaptureSensitiveMessages:
             return textBody
@@ -713,18 +717,44 @@ extension PersistedMessageSystem {
 extension PersistedMessageSystem {
     
     struct Predicate {
-        static var isNew: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawStatusKey, MessageStatus.new.rawValue) }
-        static func inDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussion) }
-        static func inDiscussionObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID) }
-        static var isNumberOfNewMessages: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.numberOfNewMessages.rawValue) }
-        static var isContactJoinedGroup: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.contactJoinedGroup.rawValue) }
-        static var isContactLeftGroup: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.contactLeftGroup.rawValue) }
-        static var isContactWasDeleted: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.contactWasDeleted.rawValue) }
+        enum Key: String {
+            // Attributes
+            case rawCategory = "rawCategory"
+            case associatedData = "associatedData"
+            case numberOfUnreadReceivedMessages = "numberOfUnreadReceivedMessages"
+            // Relationships
+            case optionalContactIdentity = "optionalContactIdentity"
+            case optionalCallLogItem = "optionalCallLogItem"
+            // Others
+            static let callReportKind = [optionalCallLogItem.rawValue, PersistedCallLogContact.rawReportKindKey].joined(separator: ".")
+        }
+        static func withStatus(_ status: MessageStatus) -> NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.rawStatus, EqualToInt: status.rawValue)
+        }
+        static func withStatusDifferentFrom(_ status: MessageStatus) -> NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.rawStatus, DistinctFromInt: status.rawValue)
+        }
+        static var isNew: NSPredicate { withStatus(.new) }
+        static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
+            PersistedMessage.Predicate.withinDiscussion(discussion)
+        }
+        static func withinDiscussion(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
+            PersistedMessage.Predicate.withinDiscussion(discussionObjectID)
+        }
+        static func withCategory(_ category: Category) -> NSPredicate {
+            NSPredicate(Key.rawCategory, EqualToInt: category.rawValue)
+        }
+        static var isNumberOfNewMessages: NSPredicate { withCategory(.numberOfNewMessages) }
+        static var isContactJoinedGroup: NSPredicate { withCategory(.contactJoinedGroup) }
+        static var isContactLeftGroup: NSPredicate { withCategory(.contactLeftGroup) }
+        static var isContactWasDeleted: NSPredicate { withCategory(.contactWasDeleted) }
         static var isCallMessageSystem: NSPredicate { Category.buildPredicate(with: { $0.isCallMessageSystem }) }
-        static var isUpdatedDiscussionSharedSettings: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.updatedDiscussionSharedSettings.rawValue) }
-        static var isDiscussionIsEndToEndEncrypted: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.discussionIsEndToEndEncrypted.rawValue) }
-        static var isDiscussionWasRemotelyWiped: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageSystem.rawCategoryKey, Category.discussionWasRemotelyWiped.rawValue) }
-        static func withOwnedIdentity(for ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessageSystem.ownedIdentityKey, ownedIdentity) }
+        static var isUpdatedDiscussionSharedSettings: NSPredicate { withCategory(.updatedDiscussionSharedSettings) }
+        static var isDiscussionIsEndToEndEncrypted: NSPredicate { withCategory(.discussionIsEndToEndEncrypted) }
+        static var isDiscussionWasRemotelyWiped: NSPredicate { withCategory(.discussionWasRemotelyWiped) }
+        static var isDisussionUnmuted: NSPredicate {
+            PersistedMessage.Predicate.isDisussionUnmuted
+        }
         static var isRelevantForCountingUnread: NSPredicate {
             NSCompoundPredicate(orPredicateWithSubpredicates: [
                 Category.buildPredicate(with: { $0.isRelevantForCountingUnread }),
@@ -735,7 +765,7 @@ extension PersistedMessageSystem {
             var predicates = [NSPredicate]()
             for reportKind in CallReportKind.allCases {
                 if reportKind.isRelevantForCountingUnread {
-                    predicates += [NSPredicate(format: "%K == %d", PersistedMessageSystem.callReportKindKey, reportKind.rawValue)]
+                    predicates += [NSPredicate(Key.callReportKind, EqualToInt: reportKind.rawValue)]
                 }
             }
             return NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
@@ -746,31 +776,33 @@ extension PersistedMessageSystem {
                 isCallReportIsRelevantForIllustrativeMessage
             ])
         }
-        static var isDisussionUnmuted: NSPredicate {
-            return NSPredicate(format: "%K == nil OR %K < %@", muteNotificationsEndDateKey, muteNotificationsEndDateKey, Date() as NSDate)
-        }
         static var hasOptionalCallLogItem: NSPredicate {
-            NSPredicate(format: "%K != NIL", PersistedMessageSystem.optionalCallLogItemKey)
+            NSPredicate(withNonNilValueForKey: Key.optionalCallLogItem)
         }
         static func hasCallReportKind(_ callReportKind: CallReportKind) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(format: "%K != NIL", PersistedMessageSystem.optionalCallLogItemKey),
-                NSPredicate(format: "%K == %d", PersistedMessageSystem.callReportKindKey, callReportKind.rawValue),
+                NSPredicate(withNonNilValueForKey: Key.optionalCallLogItem),
+                NSPredicate(Key.callReportKind, EqualToInt: callReportKind.rawValue),
             ])
         }
+        static func withOwnedIdentity(for ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
+            PersistedMessage.Predicate.withOwnedIdentity(ownedIdentity)
+        }
     }
+    
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageSystem> {
         return NSFetchRequest<PersistedMessageSystem>(entityName: PersistedMessageSystem.entityName)
     }
 
+    
     static func markAllAsNotNew(within discussion: PersistedDiscussion) throws {
         os_log("Call to markAllAsNotNew in PersistedMessageSystem for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
         guard let context = discussion.managedObjectContext else { return }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.includesSubentities = true
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isNew,
         ])
         let messages = try context.fetch(request)
@@ -778,17 +810,20 @@ extension PersistedMessageSystem {
         messages.forEach { $0.status = .read }
     }
 
+    
     static func markAsRead(messagesWithObjectIDs: Set<NSManagedObjectID>, within discussion: PersistedDiscussion) throws {
         guard let context = discussion.managedObjectContext else { return }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.includesSubentities = true
-        request.predicate = NSPredicate(format: "SELF IN %@ AND %K == %@ AND %K != %d",
-                                        messagesWithObjectIDs,
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        rawStatusKey, MessageStatus.read.rawValue)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "SELF IN %@", messagesWithObjectIDs),
+            Predicate.withinDiscussion(discussion),
+            Predicate.withStatusDifferentFrom(.read),
+        ])
         let messages = try context.fetch(request)
         messages.forEach { $0.status = .read }
     }
+    
     
     static func removeAnyNewMessagesSystemMessages(withinDiscussion discussion: PersistedDiscussion) throws {
         assert(Thread.isMainThread)
@@ -800,15 +835,17 @@ extension PersistedMessageSystem {
             throw makeError(message: "removeAnyNewMessagesSystemMessages should be called on the main thread")
         }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %d",
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        rawCategoryKey, Category.numberOfNewMessages.rawValue)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussion(discussion),
+            Predicate.withCategory(.numberOfNewMessages),
+        ])
         let messages = try context.fetch(request)
         for message in messages {
             context.delete(message)
         }
     }
 
+    
     static func hasRejectedIncomingCallBecauseOfDeniedRecordPermission(within context: NSManagedObjectContext) throws -> Bool {
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -820,27 +857,31 @@ extension PersistedMessageSystem {
         return count != 0
     }
     
+    
     static func getNewMessageSystemMessageObjectID(withinDiscussion discussion: PersistedDiscussion) throws -> NSManagedObjectID? {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %d",
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        rawCategoryKey, Category.numberOfNewMessages.rawValue)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussion(discussion),
+            Predicate.withCategory(.numberOfNewMessages),
+        ])
         request.fetchLimit = 1
         let messages = try context.fetch(request)
         return messages.first?.objectID
     }
 
+    
     static func countNew(within discussion: PersistedDiscussion) throws -> Int {
         guard let context = discussion.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isNew,
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isRelevantForCountingUnread,
         ])
         return try context.count(for: request)
     }
+    
     
     static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
         guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
@@ -854,6 +895,7 @@ extension PersistedMessageSystem {
         return try context.count(for: request)
     }
 
+    
     static func countNewForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> Int {
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -864,46 +906,50 @@ extension PersistedMessageSystem {
         return try context.count(for: request)
     }
 
+    
     static func getFirstNewRelevantSystemMessage(in discussion: PersistedDiscussion) throws -> PersistedMessageSystem? {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context in discussion")}
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.sortIndex.rawValue, ascending: true)]
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isNew,
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isRelevantForCountingUnread,
         ])
-        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
+    
     
     static func countNewRelevantSystemMessages(in discussion: PersistedDiscussion) throws -> Int {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context in discussion")}
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isNew,
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isRelevantForCountingUnread,
         ])
         return try context.count(for: request)
     }
+    
     
     static func getAllNewRelevantSystemMessages(in discussion: PersistedDiscussion) throws -> [PersistedMessageSystem] {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context in discussion object") }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.isNew,
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isRelevantForCountingUnread,
         ])
         return try context.fetch(request)
     }
 
+    
     static func getNumberOfNewMessagesSystemMessage(in discussion: PersistedDiscussion) throws -> PersistedMessageSystem? {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context in discussion")}
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isNumberOfNewMessages,
         ])
         request.fetchLimit = 1

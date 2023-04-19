@@ -26,7 +26,7 @@ import Foundation
 extension PersistedMessageReceived {
     
     struct Structure {
-        let typedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>
+        let objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageReceived>
         let textBody: String?
         let messageIdentifierFromEngine: Data
         let contact: PersistedObvContactIdentity.Structure
@@ -41,12 +41,12 @@ extension PersistedMessageReceived {
         var timestamp: Date { abstractStructure.timestamp }
     }
     
-    func toStructure() throws -> Structure {
+    func toStruct() throws -> Structure {
         guard let contact = self.contactIdentity else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required relationships")
         }
-        return Structure(typedObjectID: self.typedObjectID,
+        return Structure(objectPermanentID: self.objectPermanentID,
                          textBody: self.textBody,
                          messageIdentifierFromEngine: self.messageIdentifierFromEngine,
                          contact: try contact.toStruct(),

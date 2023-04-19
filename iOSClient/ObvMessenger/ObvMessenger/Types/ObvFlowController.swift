@@ -155,7 +155,6 @@ extension ObvFlowController {
         } else {
             let singleDiscussionVC = SingleDiscussionViewController(collectionViewLayout: UICollectionViewLayout())
             singleDiscussionVC.discussion = discussion
-            singleDiscussionVC.restrictToLastMessages = false
             singleDiscussionVC.composeMessageViewDataSource = ComposeMessageDataSourceWithDraft(draft: discussion.draft)
             singleDiscussionVC.composeMessageViewDocumentPickerDelegate = ComposeMessageViewDocumentPickerAdapterWithDraft(draft: discussion.draft)
             singleDiscussionVC.strongComposeMessageViewSendMessageDelegate = ComposeMessageViewSendMessageAdapterWithDraft(draft: discussion.draft)
@@ -392,7 +391,7 @@ extension ObvFlowController {
             if let customDisplayName = persistedObvContactIdentity.customDisplayName {
                 textField.text = customDisplayName
             } else {
-                textField.text = persistedObvContactIdentity.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
+                textField.text = persistedObvContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? persistedObvContactIdentity.fullDisplayName
             }
         }
         guard let textField = alert.textFields?.first else { return }

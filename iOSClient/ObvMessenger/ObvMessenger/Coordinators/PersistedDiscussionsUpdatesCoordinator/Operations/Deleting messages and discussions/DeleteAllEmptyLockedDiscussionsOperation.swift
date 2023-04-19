@@ -34,22 +34,12 @@ final class DeleteAllEmptyLockedDiscussionsOperation: ContextualOperationWithSpe
         }
         
         obvContext.performAndWait {
-
-            let persistedDiscussionLockedWithNoMessage: [PersistedDiscussion]
             do {
-                persistedDiscussionLockedWithNoMessage = try PersistedDiscussion.getAllLockedWithNoMessage(within: obvContext.context)
+                try PersistedDiscussion.deleteAllLockedDiscussionsWithNoMessage(within: obvContext.context, log: log)
             } catch {
+                assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))
             }
-            guard !persistedDiscussionLockedWithNoMessage.isEmpty else { return }
-            for discussion in persistedDiscussionLockedWithNoMessage {
-                do {
-                    try discussion.deleteDiscussion(requester: nil)
-                } catch {
-                    os_log("One of the empty locked discussion could not be deleted", log: log, type: .fault)
-                }
-            }
-
         }
         
     }

@@ -23,16 +23,9 @@ import CoreData
 @objc(PersistedExpirationForSentMessageWithLimitedExistence)
 final class PersistedExpirationForSentMessageWithLimitedExistence: PersistedMessageExpiration {
     
-    // MARK: Internal constants
-
     private static let entityName = "PersistedExpirationForSentMessageWithLimitedExistence"
-    private static let messageSentWithLimitedExistenceKey = "messageSentWithLimitedExistence"
 
-    // MARK: - Attributes
-
-    // None
-
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged private(set) var messageSentWithLimitedExistence: PersistedMessageSent?
 
@@ -53,7 +46,10 @@ final class PersistedExpirationForSentMessageWithLimitedExistence: PersistedMess
 extension PersistedExpirationForSentMessageWithLimitedExistence {
     
     private struct Predicate {
-        static let withNoMessage = NSPredicate(format: "%K == NULL", messageSentWithLimitedExistenceKey)
+        enum Key: String {
+            case messageSentWithLimitedExistence = "messageSentWithLimitedExistence"
+        }
+        static let withNoMessage = NSPredicate(withNilValueForKey: Key.messageSentWithLimitedExistence)
     }
     
     @nonobjc private static func fetchRequest() -> NSFetchRequest<PersistedExpirationForSentMessageWithLimitedExistence> {

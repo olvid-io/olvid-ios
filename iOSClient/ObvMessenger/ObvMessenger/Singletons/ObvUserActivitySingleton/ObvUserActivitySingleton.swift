@@ -27,10 +27,10 @@ final class ObvUserActivitySingleton: NSObject, UINavigationControllerDelegate {
     
     @Published private(set) var currentUserActivity = ObvUserActivityType.other
         
-    var currentPersistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? {
+    var currentDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>? {
         switch currentUserActivity {
-        case .continueDiscussion(let persistedDiscussionObjectID):
-            return persistedDiscussionObjectID
+        case .continueDiscussion(let discussionPermanentID):
+            return discussionPermanentID
         case .watchLatestDiscussions,
              .displaySingleContact,
              .displayContacts,
@@ -57,35 +57,35 @@ extension ObvUserActivitySingleton {
     /// the current user activity.
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
         
+        let newUserActivity: ObvUserActivityType
+        switch viewController {
+        case is RecentDiscussionsViewController:
+            newUserActivity = .watchLatestDiscussions
+        case let vc as SomeSingleDiscussionViewController:
+            let discussionPermanentID = vc.discussionPermanentID
+            newUserActivity = .continueDiscussion(discussionPermanentID: discussionPermanentID)
+        case is SomeSingleContactViewController:
+            newUserActivity = .displaySingleContact
+        case is AllContactsViewController:
+            newUserActivity = .displayContacts
+        case is NewAllGroupsViewController:
+            newUserActivity = .displayGroups
+        case is SingleGroupViewController:
+            newUserActivity = .displaySingleGroup
+        case is SingleGroupV2ViewController:
+            newUserActivity = .displaySingleGroup
+        case is InvitationsCollectionViewController:
+            newUserActivity = .displayInvitations
+        default:
+            newUserActivity = .other
+        }
+
         internalQueue.async { [weak self] in
             
             guard let _self = self else { return }
             
             let previousUserActivity = _self.currentUserActivity
-                        
-            let newUserActivity: ObvUserActivityType
-            switch viewController {
-            case is RecentDiscussionsViewController:
-                newUserActivity = .watchLatestDiscussions
-            case let vc as SomeSingleDiscussionViewController:
-                let discussionObjectID = vc.discussionObjectID
-                newUserActivity = .continueDiscussion(persistedDiscussionObjectID: discussionObjectID)
-            case is SomeSingleContactViewController:
-                newUserActivity = .displaySingleContact
-            case is AllContactsViewController:
-                newUserActivity = .displayContacts
-            case is NewAllGroupsViewController:
-                newUserActivity = .displayGroups
-            case is SingleGroupViewController:
-                newUserActivity = .displaySingleGroup
-            case is SingleGroupV2ViewController:
-                newUserActivity = .displaySingleGroup
-            case is InvitationsCollectionViewController:
-                newUserActivity = .displayInvitations
-            default:
-                newUserActivity = .other
-            }
-            
+                                    
             guard newUserActivity != previousUserActivity else { return }
             
             self?.currentUserActivity = newUserActivity
@@ -136,9 +136,9 @@ fileprivate final class ObvUserActivity: NSUserActivity {
         self.type = activityType
         super.init(activityType: activityType.nsUserActivityType)
         switch activityType {
-        case .continueDiscussion(persistedDiscussionObjectID: let persistedDiscussionObjectID):
+        case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
             self.title = "Continue Discussion"
-            self.userInfo = ["persistedDiscussionObjectURI": persistedDiscussionObjectID.uriRepresentation().url] // Cannot be a TypeSafeManagedObjectID due to restriction imposed by the framework
+            self.userInfo = ["discussionPermanentIDDescription": discussionPermanentID.description]
         case .watchLatestDiscussions:
             self.title = "Watch latest discussions"
         case .displaySingleContact:
@@ -161,8 +161,8 @@ fileprivate final class ObvUserActivity: NSUserActivity {
     override var debugDescription: String {
         assert(self.title != nil)
         switch type {
-        case .continueDiscussion(persistedDiscussionObjectID: let persistedDiscussionObjectID):
-            return "\(self.title ?? "No title") - \(persistedDiscussionObjectID.objectID.uriRepresentation())"
+        case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
+            return "\(self.title ?? "No title") - \(discussionPermanentID.description)"
         default:
             return self.title ?? "No title"
         }

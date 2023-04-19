@@ -23,13 +23,15 @@ import CoreData
 import ObvEngine
 import ObvTypes
 
+
+/// VC responsible for selection discussions -- e.g. when forwarding a message
 @available(iOS 15.0, *)
-final class DiscussionsViewController: UIViewController {
+final class DiscussionsSelectionViewController: UIViewController {
 
     let ownedCryptoId: ObvCryptoId
-    let confirmedSelectionOfPersistedDiscussions: (Set<TypeSafeManagedObjectID<PersistedDiscussion>>) -> Void
+    let confirmedSelectionOfPersistedDiscussions: (Set<ObvManagedObjectPermanentID<PersistedDiscussion>>) -> Void
 
-    init(ownedCryptoId: ObvCryptoId, confirmedSelectionOfPersistedDiscussions: @escaping (Set<TypeSafeManagedObjectID<PersistedDiscussion>>) -> Void) {
+    init(ownedCryptoId: ObvCryptoId, confirmedSelectionOfPersistedDiscussions: @escaping (Set<ObvManagedObjectPermanentID<PersistedDiscussion>>) -> Void) {
         self.ownedCryptoId = ownedCryptoId
         self.confirmedSelectionOfPersistedDiscussions = confirmedSelectionOfPersistedDiscussions
         super.init(nibName: nil, bundle: nil)
@@ -53,8 +55,8 @@ final class DiscussionsViewController: UIViewController {
     @objc func rightBarButtonItemButtonItemTapped() {
         let indexPathsForSelectedItems = collectionView.indexPathsForSelectedItems ?? []
         let discussions = indexPathsForSelectedItems.map({ frc.object(at: $0) })
-        let discussionObjectIDs = Set(discussions.map({ $0.typedObjectID }))
-        confirmedSelectionOfPersistedDiscussions(discussionObjectIDs)
+        let discussionPermanentIDs = Set(discussions.map({ $0.discussionPermanentID }))
+        confirmedSelectionOfPersistedDiscussions(discussionPermanentIDs)
         dismiss(animated: true)
     }
 
@@ -83,7 +85,7 @@ final class DiscussionsViewController: UIViewController {
 // MARK: Configuring the view hierarchy
 
 @available(iOS 15.0, *)
-extension DiscussionsViewController {
+extension DiscussionsSelectionViewController {
 
     private func configureHierarchy() {
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: createLayout())
@@ -100,7 +102,7 @@ extension DiscussionsViewController {
 // MARK: Configuring the view hierarchy
 
 @available(iOS 15.0, *)
-extension DiscussionsViewController {
+extension DiscussionsSelectionViewController {
 
     private func makeFrc() -> NSFetchedResultsController<PersistedDiscussion> {
         let fetchRequest = PersistedDiscussion.getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with: ownedCryptoId)
@@ -113,7 +115,7 @@ extension DiscussionsViewController {
         self.frc = makeFrc()
         self.frc.delegate = self
 
-        let cellRegistration = UICollectionView.CellRegistration<DiscussionViewCell, PersistedDiscussion> { [weak self] (cell, indexPath, discussion) in
+        let cellRegistration = UICollectionView.CellRegistration<DiscussionSelectionViewCell, PersistedDiscussion> { [weak self] (cell, indexPath, discussion) in
             self?.updateDiscussionViewCell(cell, at: indexPath, with: discussion)
         }
 
@@ -127,7 +129,7 @@ extension DiscussionsViewController {
 
 
     @MainActor
-    private func updateDiscussionViewCell(_ cell: DiscussionViewCell, at indexPath: IndexPath, with discussion: PersistedDiscussion) {
+    private func updateDiscussionViewCell(_ cell: DiscussionSelectionViewCell, at indexPath: IndexPath, with discussion: PersistedDiscussion) {
         cell.updateWith(discussion: discussion)
     }
 
@@ -136,7 +138,7 @@ extension DiscussionsViewController {
 // MARK: NSFetchedResultsControllerDelegate
 
 @available(iOS 15.0, *)
-extension DiscussionsViewController: NSFetchedResultsControllerDelegate {
+extension DiscussionsSelectionViewController: NSFetchedResultsControllerDelegate {
 
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChangeContentWith snapshot: NSDiffableDataSourceSnapshotReference) {
 
@@ -152,7 +154,7 @@ extension DiscussionsViewController: NSFetchedResultsControllerDelegate {
 // MARK: - DiscussionViewCell
 
 @available(iOS 15.0, *)
-final class DiscussionViewCell: UICollectionViewListCell {
+final class DiscussionSelectionViewCell: UICollectionViewListCell {
 
     private func defaultListContentConfiguration() -> UIListContentConfiguration { return .subtitleCell() }
     private lazy var listContentView = UIListContentView(configuration: defaultListContentConfiguration())

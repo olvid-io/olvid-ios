@@ -90,7 +90,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController {
     @objc func ownedCircledInitialsBarButtonItemWasTapped() {
         assert(Thread.isMainThread)
         guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        let deepLink = ObvDeepLink.myId(ownedIdentityURI: ownedIdentity.objectID.uriRepresentation())
+        let deepLink = ObvDeepLink.myId(objectPermanentID: ownedIdentity.objectPermanentID)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
             .postOnDispatchQueue()
     }

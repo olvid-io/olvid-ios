@@ -119,7 +119,7 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
         case (.everyone, .oneToOneContactsOnly):
             return .oneToOneContactsOnly
         case (_, .oneToOneContactsOnly):
-            let groupInvites = try PersistedInvitation.getAllGroupInvitesFromOneToOneContacts(within: ObvStack.shared.viewContext)
+            let groupInvites = try PersistedInvitation.getAllGroupInvitesFromOneToOneContactsForAllOwnedIdentities(within: ObvStack.shared.viewContext)
             if groupInvites.isEmpty {
                 return .oneToOneContactsOnly
             } else {
@@ -131,7 +131,7 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
                 }
             }
         case (_, .everyone):
-            let groupInvites = try PersistedInvitation.getAllGroupInvites(within: ObvStack.shared.viewContext)
+            let groupInvites = try PersistedInvitation.getAllGroupInvitesForAllOwnedIdentities(within: ObvStack.shared.viewContext)
             if groupInvites.isEmpty {
                 return .everyone
             } else {

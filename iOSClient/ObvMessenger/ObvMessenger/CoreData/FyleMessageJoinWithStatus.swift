@@ -27,18 +27,9 @@ import OlvidUtils
 @objc(FyleMessageJoinWithStatus)
 class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
     
-    // MARK: - Internal constants
-
     private static let entityName = "FyleMessageJoinWithStatus"
     static let errorDomain = "FyleMessageJoinWithStatus"
-
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: FyleMessageJoinWithStatus.self))
-    private static func makeError(message: String) -> Error {
-        NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
-    }
-    private func makeError(message: String) -> Error {
-        FyleMessageJoinWithStatus.makeError(message: message)
-    }
 
     // MARK: - Properties
 
@@ -46,6 +37,7 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
     @NSManaged private(set) var index: Int // Corresponds to the index of this attachment in the message. Used together with messageSortIndex to sort all joins received in a discussion
     @NSManaged private(set) var isWiped: Bool
     @NSManaged private(set) var messageSortIndex: Double // Equal to the message sortIndex, used to sort FyleMessageJoinWithStatus instances in the gallery
+    @NSManaged private var permanentUUID: UUID
     @NSManaged internal var rawStatus: Int
     @NSManaged private(set) var totalByteCount: Int64 // Was totalUnitCount
     @NSManaged private(set) var uti: String
@@ -76,6 +68,10 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
         return false
     }
     
+    var fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus> {
+        ObvManagedObjectPermanentID(entityName: FyleMessageJoinWithStatus.entityName, uuid: self.permanentUUID)
+    }
+
     // MARK: - Initializer
 
     convenience init(totalByteCount: Int64, fileName: String, uti: String, rawStatus: Int, messageSortIndex: Double, index: Int, fyle: Fyle, forEntityName entityName: String, within context: NSManagedObjectContext) {
@@ -88,6 +84,7 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
         self.uti = uti
         self.rawStatus = rawStatus
         self.messageSortIndex = messageSortIndex
+        self.permanentUUID = UUID()
         self.isWiped = false
         self.totalByteCount = totalByteCount
         
@@ -109,7 +106,7 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
     /// This method updates the progress object corresponding to the `FyleMessageJoinWithStatus` referenced by the objectID by updating its completed unit count.
     /// It also updates the transiant properties of the object, as these attributes are observed by the SwiftUI allowing to track the progress of the download/upload.
     @MainActor
-    static func setProgressTo(_ newProgress: Float, forJoinWithObjectID joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) {
+    static func setProgressTo(_ newProgress: Float, forJoinWithObjectID joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) async {
         assert(Thread.isMainThread)
         guard let joinObject = try? FyleMessageJoinWithStatus.get(objectID: joinObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
         let progressObject = joinObject.progressObject
@@ -117,12 +114,12 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
         guard newCompletedUnitCount > progressObject.completedUnitCount else { return }
         progressObject.completedUnitCount = newCompletedUnitCount
         // The following uses the progress we just updated to update the transient variables of the join object observed by SwiftUI views
-        updateTransientProgressAttributes(of: joinObject, using: progressObject)
+        await updateTransientProgressAttributes(of: joinObject, using: progressObject)
     }
     
     
     @MainActor
-    private static func updateTransientProgressAttributes(of joinObject: FyleMessageJoinWithStatus, using progressObject: ObvProgress) {
+    private static func updateTransientProgressAttributes(of joinObject: FyleMessageJoinWithStatus, using progressObject: ObvProgress) async {
         assert(Thread.isMainThread)
         assert(joinObject.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         joinObject.fractionCompleted = progressObject.fractionCompleted
@@ -166,7 +163,7 @@ class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin {
         for (joinObjectID, progressObject) in progressForJoinWithObjectID {
             guard let joinObject = ObvStack.shared.viewContext.registeredObjects.first(where: { $0.objectID == joinObjectID.objectID }) as? FyleMessageJoinWithStatus else { continue }
             await progressObject.refreshThroughputAndEstimatedTimeRemaining()
-            updateTransientProgressAttributes(of: joinObject, using: progressObject)
+            await updateTransientProgressAttributes(of: joinObject, using: progressObject)
         }
     }
     
@@ -195,7 +192,10 @@ extension FyleMessageJoinWithStatus {
             case rawStatus = "rawStatus"
             case uti = "uti"
             case messageSortIndex = "messageSortIndex"
+            case permanentUUID = "permanentUUID"
             case isWiped = "isWiped"
+            // Other
+            static let fyleSha256 = [fyle.rawValue, Fyle.Predicate.Key.sha256.rawValue].joined(separator: ".")
         }
         static func withObjectIDs(_ objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) -> NSPredicate {
             NSPredicate(format: "SELF IN %@", objectIDs.map({ $0.objectID }))
@@ -213,10 +213,31 @@ extension FyleMessageJoinWithStatus {
         static func isWiped(is value: Bool) -> NSPredicate {
             NSPredicate(Key.isWiped, is: value)
         }
+        static var fyleIsNonNil: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.fyle)
+        }
+        static func withSha256(_ sha256: Data) -> NSPredicate {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                fyleIsNonNil,
+                NSPredicate(Key.fyleSha256, EqualToData: sha256),
+            ])
+        }
+        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) -> NSPredicate {
+            NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
     }
+    
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<FyleMessageJoinWithStatus> {
         return NSFetchRequest<FyleMessageJoinWithStatus>(entityName: FyleMessageJoinWithStatus.entityName)
+    }
+
+    
+    static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>, within context: NSManagedObjectContext) throws -> FyleMessageJoinWithStatus? {
+        let request: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
+        request.predicate = Predicate.withPermanentID(permanentID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
 
     

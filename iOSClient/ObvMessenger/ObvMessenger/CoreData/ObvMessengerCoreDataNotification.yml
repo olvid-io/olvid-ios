@@ -7,7 +7,7 @@ import:
 notifications:
 - name: newDraftToSend
   params:
-  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
 - name: draftWasSent
   params:
   - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
@@ -20,8 +20,7 @@ notifications:
   - {name: persistedInvitationUUID, type: UUID}
 - name: persistedContactWasInserted
   params:
-  - {name: objectID, type: NSManagedObjectID}
-  - {name: contactCryptoId, type: ObvCryptoId}
+  - {name: contactPermanentID, type: ObvManagedObjectPermanentID<PersistedObvContactIdentity>}
 - name: persistedContactWasDeleted
   params:
   - {name: objectID, type: NSManagedObjectID}
@@ -36,16 +35,13 @@ notifications:
 - name: persistedContactIsActiveChanged
   params:
   - {name: contactID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
-- name: aOneToOneDiscussionTitleNeedsToBeReset
-  params:
-  - {name: ownedIdentityObjectID, type: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>}
 - name: newMessageExpiration
   params:
   - {name: expirationDate, type: Date}
-- name: persistedMessageReactionReceivedWasDeleted
+- name: persistedMessageReactionReceivedWasDeletedOnSentMessage
   params:
-  - {name: messageURI, type: URL}
-  - {name: contactURI, type: URL}
+  - {name: messagePermanentID, type: ObvManagedObjectPermanentID<PersistedMessageSent>}
+  - {name: contactPermanentID, type: ObvManagedObjectPermanentID<PersistedObvContactIdentity>}
 - name: persistedMessageReactionReceivedWasInsertedOrUpdated
   params:
   - {name: objectID, type: TypeSafeManagedObjectID<PersistedMessageReactionReceived>}
@@ -60,8 +56,8 @@ notifications:
   - {name: removedContacts, type: Set<PersistedObvContactIdentity>}
 - name: aReadOncePersistedMessageSentWasSent
   params:
-  - {name: persistedMessageSentObjectID, type: NSManagedObjectID}
-  - {name: persistedDiscussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: persistedMessageSentPermanentID, type: ObvManagedObjectPermanentID<PersistedMessageSent>}
+  - {name: persistedDiscussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
 - name: newPersistedObvContactDevice
   params:
   - {name: contactDeviceObjectID, type: NSManagedObjectID}
@@ -75,7 +71,7 @@ notifications:
   - {name: title, type: String}
 - name: persistedDiscussionWasDeleted
   params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
 - name: newPersistedObvOwnedIdentity
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
@@ -94,29 +90,29 @@ notifications:
   - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
 - name: persistedMessagesWereDeleted
   params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: messageUriRepresentations, type: Set<TypeSafeURL<PersistedMessage>>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentIDs, type: Set<ObvManagedObjectPermanentID<PersistedMessage>>}
 - name: persistedMessagesWereWiped
   params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: messageUriRepresentations, type: Set<TypeSafeURL<PersistedMessage>>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentIDs, type: Set<ObvManagedObjectPermanentID<PersistedMessage>>}
 - name: draftToSendWasReset
   params:
-  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
 - name: draftFyleJoinWasDeleted
   params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: draftUriRepresentation, type: TypeSafeURL<PersistedDraft>}
-  - {name: draftFyleJoinUriRepresentation, type: TypeSafeURL<PersistedDraftFyleJoin>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
+  - {name: draftFyleJoinPermanentID, type: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>}
 - name: fyleMessageJoinWasWiped
   params:
-  - {name: discussionUriRepresentation, type: TypeSafeURL<PersistedDiscussion>}
-  - {name: messageUriRepresentation, type: TypeSafeURL<PersistedMessage>}
-  - {name: fyleMessageJoinUriRepresentation, type: TypeSafeURL<FyleMessageJoinWithStatus>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentID, type: ObvManagedObjectPermanentID<PersistedMessage>}
+  - {name: fyleMessageJoinPermanentID, type: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>}
 - name: persistedDiscussionStatusChanged
   params:
-  - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
   - {name: newStatus, type: PersistedDiscussion.Status}
 - name: persistedGroupV2UpdateIsFinished
   params:

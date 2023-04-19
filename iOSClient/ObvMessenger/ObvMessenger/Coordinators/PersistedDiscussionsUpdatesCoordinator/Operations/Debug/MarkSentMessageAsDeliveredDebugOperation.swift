@@ -32,7 +32,7 @@ final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpe
         }
         
         let appropriateDependencies = dependencies.compactMap({ $0 as? CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation })
-        guard appropriateDependencies.count == 1, let persistedMessageSentObjectID = appropriateDependencies.first!.persistedMessageSentObjectID else {
+        guard appropriateDependencies.count == 1, let messageSentPermanentID = appropriateDependencies.first!.messageSentPermanentID else {
             return cancel(withReason: .internalError)
         }
         
@@ -41,7 +41,7 @@ final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpe
         obvContext.performAndWait {
 
             do {
-                guard let persistedMessageSent = try PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
+                guard let persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
                     return cancel(withReason: .internalError)
                 }
                 

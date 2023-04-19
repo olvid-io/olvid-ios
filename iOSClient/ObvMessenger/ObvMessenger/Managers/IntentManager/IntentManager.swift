@@ -71,9 +71,9 @@ final class IntentManager {
     }
 
     
-    private static func deleteAllDonations(for url: TypeSafeURL<PersistedDiscussion>) async {
+    private static func deleteAllDonations(for objectPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         do {
-            try await INInteraction.delete(with: url.interactionGroupIdentifier)
+            try await INInteraction.delete(with: objectPermanentID.interactionGroupIdentifier)
             os_log("🎁 Successfully deleted all interactions", log: Self.log, type: .info)
         } catch {
             assertionFailure()
@@ -82,6 +82,7 @@ final class IntentManager {
     }
 
 }
+
 
 // MARK: - Notifications observation
 
@@ -102,7 +103,7 @@ extension IntentManager {
 
             let newMessagesSent = insertedObjects
                 .compactMap({ $0 as? PersistedMessageSent })
-                .compactMap({ try? $0.toStructure() })
+                .compactMap({ try? $0.toStruct() })
             for messageSent in newMessagesSent {
                 let infos = SentMessageIntentInfos(messageSent: messageSent, urlForStoringPNGThumbnail: nil)
                 let intent = Self.getSendMessageIntentForMessageSent(infos: infos)
@@ -117,7 +118,7 @@ extension IntentManager {
 
             let newMessagesReceived = insertedObjects
                 .compactMap({ $0 as? PersistedMessageReceived })
-                .compactMap({ try? $0.toStructure() })
+                .compactMap({ try? $0.toStruct() })
             for messageReceived in newMessagesReceived {
                 let infos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: nil)
                 let intent = Self.getSendMessageIntentForMessageReceived(infos: infos, showGroupName: true)
@@ -133,19 +134,19 @@ extension IntentManager {
     
 
     private func observeDiscussionDeletionToDeleteAllAssociatedDonations() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted { discussionURL in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted { discussionPermanentID in
             Task {
-                await Self.deleteAllDonations(for: discussionURL)
+                await Self.deleteAllDonations(for: discussionPermanentID)
             }
         })
     }
 
     
     private func observeDiscussionLockToDeleteAllAssociatedDonations() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged { discussionID, status in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged { discussionPermanentID, status in
             guard case .locked = status else { return }
             Task {
-                await Self.deleteAllDonations(for: discussionID.uriRepresentation())
+                await Self.deleteAllDonations(for: discussionPermanentID)
             }
         })
     }
@@ -167,9 +168,9 @@ extension IntentManager {
             ObvStack.shared.performBackgroundTask { context in
                 guard let localConfiguration = try? PersistedDiscussionLocalConfiguration.get(with: objectId, within: context) else { return }
                 guard let discussion = localConfiguration.discussion else { return }
-                let discussionURI = discussion.typedObjectID.uriRepresentation()
+                let discussionPermanentID = discussion.discussionPermanentID
                 Task {
-                    await Self.deleteAllDonations(for: discussionURI)
+                    await Self.deleteAllDonations(for: discussionPermanentID)
                 }
             }
         })
@@ -184,12 +185,12 @@ extension IntentManager {
 
             ObvStack.shared.performBackgroundTask { context in
                 guard let discussions = try? PersistedDiscussion.getAllActiveDiscussionsForAllOwnedIdentities(within: context) else { return }
-                let discussionURIs = discussions
+                let discussionPermanentIDs = discussions
                     .filter({ $0.localConfiguration.performInteractionDonation == nil })
-                    .map({ $0.typedObjectID.uriRepresentation() })
-                for discussionURI in discussionURIs {
+                    .map({ $0.discussionPermanentID })
+                for discussionPermanentID in discussionPermanentIDs {
                     Task {
-                        await Self.deleteAllDonations(for: discussionURI)
+                        await Self.deleteAllDonations(for: discussionPermanentID)
                     }
                 }
             }
@@ -218,7 +219,7 @@ extension IntentManager: IntentDelegate {
                                     sender: sender,
                                     speakableGroupName: speakableGroupName,
                                     groupINImage: infos.groupInfos?.groupINImage,
-                                    conversationIdentifier: infos.discussionObjectID.uriRepresentation().absoluteString)
+                                    conversationIdentifier: infos.conversationIdentifier)
     }
 
 
@@ -234,7 +235,7 @@ extension IntentManager: IntentDelegate {
                                     sender: sender,
                                     speakableGroupName: speakableGroupName,
                                     groupINImage: infos.recipients.groupInfos?.groupINImage,
-                                    conversationIdentifier: infos.discussionObjectID.uriRepresentation().absoluteString)
+                                    conversationIdentifier: infos.conversationIdentifier)
     }
 
 
@@ -327,14 +328,16 @@ private enum SentMessageIntentInfosRecipients {
 
 private struct SentMessageIntentInfos {
     
-    let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
     let ownedINPerson: INPerson
     let recipients: SentMessageIntentInfosRecipients
 
+    var conversationIdentifier: String { discussionPermanentID.description }
+
     @available(iOS 14.0, *)
     init(messageSent: PersistedMessageSent.Structure, urlForStoringPNGThumbnail: URL?) {
+        self.discussionPermanentID = messageSent.discussionPermanentID
         let discussionKind = messageSent.discussionKind
-        self.discussionObjectID = discussionKind.typedObjectID
         self.ownedINPerson = discussionKind.ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: IntentManager.thumbnailPhotoSide)
 
         switch discussionKind {
@@ -358,11 +361,13 @@ private struct SentMessageIntentInfos {
 
 struct ReceivedMessageIntentInfos {
 
-    let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
     let ownedINPerson: INPerson
     let contactINPerson: INPerson
     let groupInfos: GroupInfos? // Only set in the case of a group discussion
 
+    var conversationIdentifier: String { discussionPermanentID.description }
+    
     @available(iOS 14.0, *)
     init(messageReceived: PersistedMessageReceived.Structure, urlForStoringPNGThumbnail: URL?) {
         let contact = messageReceived.contact
@@ -372,8 +377,8 @@ struct ReceivedMessageIntentInfos {
 
     @available(iOS 14.0, *)
     init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
+        self.discussionPermanentID = discussionKind.discussionPermanentID
         let ownedIdentity = contact.ownedIdentity
-        self.discussionObjectID = discussionKind.typedObjectID
         self.ownedINPerson = ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
                                                           thumbnailSide: IntentManager.thumbnailPhotoSide)
         self.contactINPerson = contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
@@ -436,8 +441,9 @@ struct GroupInfos {
 
 @available(iOS 14.0, *)
 fileprivate extension PersistedObvOwnedIdentity.Structure {
+    
     var personHandle: INPersonHandle {
-        INPersonHandle(value: typedObjectID.objectID.uriRepresentation().absoluteString, type: .unknown)
+        INPersonHandle(value: self.objectPermanentID.description, type: .unknown, label: .other)
     }
 
     func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
@@ -458,7 +464,7 @@ fileprivate extension PersistedObvOwnedIdentity.Structure {
                         displayName: fullDisplayName,
                         image: image,
                         contactIdentifier: nil,
-                        customIdentifier: typedObjectID.objectID.uriRepresentation().absoluteString,
+                        customIdentifier: nil,
                         isMe: true)
     }
 }
@@ -466,8 +472,9 @@ fileprivate extension PersistedObvOwnedIdentity.Structure {
 
 @available(iOS 14.0, *)
 fileprivate extension PersistedObvContactIdentity.Structure {
+    
     var personHandle: INPersonHandle {
-        INPersonHandle(value: typedObjectID.objectID.uriRepresentation().absoluteString, type: .unknown)
+        INPersonHandle(value: self.objectPermanentID.description, type: .unknown, label: .other)
     }
 
     func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
@@ -488,7 +495,7 @@ fileprivate extension PersistedObvContactIdentity.Structure {
                         displayName: customOrFullDisplayName,
                         image: image,
                         contactIdentifier: nil,
-                        customIdentifier: typedObjectID.objectID.uriRepresentation().absoluteString,
+                        customIdentifier: nil,
                         isMe: false)
     }
 }
@@ -539,7 +546,7 @@ fileprivate extension PersistedDiscussion.StructureKind {
     }
 
     var interactionGroupIdentifier: String {
-        typedObjectID.uriRepresentation().interactionGroupIdentifier
+        self.discussionPermanentID.interactionGroupIdentifier
     }
 
 }
@@ -548,16 +555,16 @@ fileprivate extension PersistedDiscussion.StructureKind {
 fileprivate extension PersistedDiscussion {
     
     var interactionGroupIdentifier: String {
-        typedObjectID.uriRepresentation().interactionGroupIdentifier
+        self.discussionPermanentID.interactionGroupIdentifier
     }
     
 }
 
 
-fileprivate extension TypeSafeURL<PersistedDiscussion> {
- 
+fileprivate extension ObvManagedObjectPermanentID<PersistedDiscussion> {
+    
     var interactionGroupIdentifier: String {
-        absoluteString
+        self.description
     }
     
 }

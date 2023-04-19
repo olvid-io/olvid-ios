@@ -21,38 +21,28 @@ import Foundation
 import CoreData
 import ObvTypes
 import ObvEngine
+import OlvidUtils
 
 
 @objc(PersistedObvContactDevice)
-final class PersistedObvContactDevice: NSManagedObject, Identifiable {
+final class PersistedObvContactDevice: NSManagedObject, Identifiable, ObvErrorMaker {
     
     // MARK: - Internal constants
     
     private static let entityName = "PersistedObvContactDevice"
-    static let identifierKey = "identifier"
-    static let rawIdentityKey = "rawIdentity"
-    static let identityIdentityKey = [PersistedObvContactDevice.rawIdentityKey, PersistedObvContactIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
-    static let identityOwnedIdentityIdentityKey = [PersistedObvContactDevice.rawIdentityKey, PersistedObvContactIdentity.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
-
-    private static let errorDomain = "PersistedObvContactDevice"
+    static let errorDomain = "PersistedObvContactDevice"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
-    // MARK: - Properties
+    // MARK: Properties
     
     @NSManaged private(set) var identifier: Data
     @NSManaged private var rawIdentityIdentity: Data // Required for core data constraints
     
-    
-    // MARK: - Relationships
+    // MARK: Relationships
     
     // If nil, the following entity is eventually cascade-deleted
     @NSManaged private var rawIdentity: PersistedObvContactIdentity? // *Never* accessed directly
 
-    // MARK: - Other variables
+    // MARK: Other variables
     
     private(set) var identity: PersistedObvContactIdentity? {
         get {
@@ -100,25 +90,49 @@ final class PersistedObvContactDevice: NSManagedObject, Identifiable {
 // MARK: - Convenience DB getters
 
 extension PersistedObvContactDevice {
+    
+    struct Predicate {
+        enum Key: String {
+            // Properties
+            case identifier = "identifier"
+            case rawIdentityIdentity = "rawIdentityIdentity"
+            // Relationships
+            case rawIdentity = "rawIdentity"
+            // Others
+            static let ownedIdentityIdentity = [rawIdentity.rawValue, PersistedObvContactIdentity.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
+        }
+        static func withContactDeviceIdentifier(_ contactDeviceIdentifier: Data) -> NSPredicate {
+            NSPredicate(Key.identifier, EqualToData: contactDeviceIdentifier)
+        }
+        static func withContactCryptoId(_ contactCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.rawIdentityIdentity, EqualToData: contactCryptoId.getIdentity())
+        }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
+        }
+    }
+    
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedObvContactDevice> {
         return NSFetchRequest<PersistedObvContactDevice>(entityName: self.entityName)
     }
 
+    
     static func delete(contactDeviceIdentifier: Data, contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
 
         let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        identifierKey, contactDeviceIdentifier as NSData,
-                                        identityIdentityKey, contactCryptoId.getIdentity() as NSData,
-                                        identityOwnedIdentityIdentityKey, ownedCryptoId.getIdentity() as NSData)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withContactDeviceIdentifier(contactDeviceIdentifier),
+            Predicate.withContactCryptoId(contactCryptoId),
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+        ])
         request.fetchLimit = 1
         guard let object = try context.fetch(request).first else { return }
         assert(object.identity != nil)
         object.contactIdentityCryptoIdForDeletion = object.identity?.cryptoId
         context.delete(object)
-
     }
+
     
     static func get(contactDeviceObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedObvContactDevice? {
         return try context.existingObject(with: contactDeviceObjectID) as? PersistedObvContactDevice

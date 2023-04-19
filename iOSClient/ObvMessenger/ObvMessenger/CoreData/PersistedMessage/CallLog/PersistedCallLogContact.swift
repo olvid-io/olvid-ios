@@ -58,20 +58,22 @@ enum CallReportKind: Int, CustomDebugStringConvertible, CaseIterable {
 
     var isRelevantForCountingUnread: Bool {
         switch self {
-        case .missedIncomingCall: return true
-        case .rejectedIncomingCall: return false
-        case .acceptedIncomingCall: return false
-        case .acceptedOutgoingCall: return false
-        case .rejectedOutgoingCall: return false
-        case .busyOutgoingCall: return false
-        case .unansweredOutgoingCall: return false
-        case .uncompletedOutgoingCall: return false
-        case .newParticipantInIncomingCall: return false
-        case .newParticipantInOutgoingCall: return false
-        case .rejectedIncomingCallBecauseOfDeniedRecordPermission: return true
-        case .anyIncomingCall: return false
-        case .anyOutgoingCall: return false
-        case .filteredIncomingCall: return true
+        case .missedIncomingCall,
+                .rejectedIncomingCallBecauseOfDeniedRecordPermission,
+                .filteredIncomingCall:
+            return true
+        case .rejectedIncomingCall,
+                .acceptedIncomingCall,
+                .acceptedOutgoingCall,
+                .rejectedOutgoingCall,
+                .busyOutgoingCall,
+                .unansweredOutgoingCall,
+                .uncompletedOutgoingCall,
+                .newParticipantInIncomingCall,
+                .newParticipantInOutgoingCall,
+                .anyIncomingCall,
+                .anyOutgoingCall:
+            return false
         }
     }
 }
@@ -102,6 +104,7 @@ final class PersistedCallLogContact: NSManagedObject {
             CallReportKind(rawValue: rawReportKind)!
         }
         set {
+            guard self.rawReportKind != newValue.rawValue else { return }
             self.rawReportKind = newValue.rawValue
         }
     }

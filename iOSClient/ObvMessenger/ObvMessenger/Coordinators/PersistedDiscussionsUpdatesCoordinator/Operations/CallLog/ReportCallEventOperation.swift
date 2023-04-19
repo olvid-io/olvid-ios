@@ -56,15 +56,15 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
                     item = _item
                     isItemCreatedOrUpdated = false
                 } else {
-                    item = PersistedCallLogItem(callUUID: callUUID,
-                                                ownedCryptoId: ownedCryptoId,
-                                                isIncoming: callReport.isIncoming,
-                                                unknownContactsCount: 0,
-                                                groupIdentifier: groupIdentifier,
-                                                within: context)
+                    item = try PersistedCallLogItem(callUUID: callUUID,
+                                                    ownedCryptoId: ownedCryptoId,
+                                                    isIncoming: callReport.isIncoming,
+                                                    unknownContactsCount: 0,
+                                                    groupIdentifier: groupIdentifier,
+                                                    within: context)
                     isItemCreatedOrUpdated = true
                 }
-            } catch(let error) {
+            } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
 

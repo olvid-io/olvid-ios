@@ -69,7 +69,7 @@ final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: Operat
                     return
                 }
                 
-                guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == messageReceived.discussion.typedObjectID else {
+                guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == messageReceived.discussion.discussionPermanentID else {
                     assertionFailure("How is it possible that the user requested to read a (say) read once message if she is not currently within the corresponding discussion?")
                     continue
                 }

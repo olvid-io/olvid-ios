@@ -100,7 +100,7 @@ final class ThumbnailManager {
     private func observeUserIsLeavingDiscussionNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeCurrentUserActivityDidChange(queue: queueForNotifications) { [weak self] (previousUserActivity, currentUserActivity) in
             // Check that the discussion changed
-            guard let previousDiscussionObjectID = previousUserActivity.persistedDiscussionObjectID, previousDiscussionObjectID != currentUserActivity.persistedDiscussionObjectID else { return }
+            guard let previousDiscussionPermanentID = previousUserActivity.discussionPermanentID, previousDiscussionPermanentID != currentUserActivity.discussionPermanentID else { return }
             self?.thumbnails.removeAll()
         })
     }

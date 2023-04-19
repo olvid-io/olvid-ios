@@ -21,29 +21,26 @@ import Foundation
 import CoreData
 import ObvEngine
 import ObvTypes
+import OlvidUtils
 
 
 @objc(PersistedContactGroupJoined)
-final class PersistedContactGroupJoined: PersistedContactGroup {
+final class PersistedContactGroupJoined: PersistedContactGroup, ObvErrorMaker {
     
     private static let entityName = "PersistedContactGroupJoined"
-    private static let errorDomain = "PersistedContactGroupJoined"
+    static let errorDomain = "PersistedContactGroupJoined"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
+    // MARK: Attributes
 
-    // MARK: - Attributes
-
-    @NSManaged private(set) var groupNameCustom: String?
     @NSManaged private(set) var customPhotoFilename: String?
+    @NSManaged private(set) var groupNameCustom: String?
     @NSManaged private var rawStatus: Int
 
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged var owner: PersistedObvContactIdentity? // If nil, this entity is eventually cascade-deleted
 
+    // MARK: Other variables
 
     var status: PublishedDetailsStatusType {
         return PublishedDetailsStatusType(rawValue: self.rawStatus)!
@@ -93,7 +90,7 @@ extension PersistedContactGroupJoined {
 }
 
 
-// MARK: - Convenience
+// MARK: - Other methods
 
 extension PersistedContactGroupJoined {
     
@@ -112,6 +109,7 @@ extension PersistedContactGroupJoined {
     
     
     func setStatus(to newStatus: PublishedDetailsStatusType) {
+        guard self.rawStatus != newStatus.rawValue else { return }
         self.rawStatus = newStatus.rawValue
     }
 

@@ -34,37 +34,36 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 enum ObvMessengerCoreDataNotification {
-	case newDraftToSend(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
+	case newDraftToSend(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
 	case draftWasSent(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case persistedMessageHasNewMetadata(persistedMessageObjectID: NSManagedObjectID)
 	case newOrUpdatedPersistedInvitation(obvDialog: ObvDialog, persistedInvitationUUID: UUID)
-	case persistedContactWasInserted(objectID: NSManagedObjectID, contactCryptoId: ObvCryptoId)
+	case persistedContactWasInserted(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
 	case persistedContactWasDeleted(objectID: NSManagedObjectID, identity: Data)
 	case persistedContactHasNewCustomDisplayName(contactCryptoId: ObvCryptoId)
 	case persistedContactHasNewStatus(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case persistedContactIsActiveChanged(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
-	case aOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>)
 	case newMessageExpiration(expirationDate: Date)
-	case persistedMessageReactionReceivedWasDeleted(messageURI: URL, contactURI: URL)
+	case persistedMessageReactionReceivedWasDeletedOnSentMessage(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
 	case persistedMessageReactionReceivedWasInsertedOrUpdated(objectID: TypeSafeManagedObjectID<PersistedMessageReactionReceived>)
 	case userWantsToUpdateDiscussionLocalConfiguration(value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
 	case persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: NSManagedObjectID, insertedContacts: Set<PersistedObvContactIdentity>, removedContacts: Set<PersistedObvContactIdentity>)
-	case aReadOncePersistedMessageSentWasSent(persistedMessageSentObjectID: NSManagedObjectID, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
+	case aReadOncePersistedMessageSentWasSent(persistedMessageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
 	case newPersistedObvContactDevice(contactDeviceObjectID: NSManagedObjectID, contactCryptoId: ObvCryptoId)
 	case deletedPersistedObvContactDevice(contactCryptoId: ObvCryptoId)
 	case persistedDiscussionHasNewTitle(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, title: String)
-	case persistedDiscussionWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>)
+	case persistedDiscussionWasDeleted(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
 	case newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case ownedIdentityWasReactivated(ownedIdentityObjectID: NSManagedObjectID)
 	case ownedIdentityWasDeactivated(ownedIdentityObjectID: NSManagedObjectID)
 	case anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: NSManagedObjectID)
 	case persistedMessageSystemWasDeleted(objectID: NSManagedObjectID, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
-	case persistedMessagesWereDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentations: Set<TypeSafeURL<PersistedMessage>>)
-	case persistedMessagesWereWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentations: Set<TypeSafeURL<PersistedMessage>>)
-	case draftToSendWasReset(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case draftFyleJoinWasDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>)
-	case fyleMessageJoinWasWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinUriRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>)
-	case persistedDiscussionStatusChanged(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, newStatus: PersistedDiscussion.Status)
+	case persistedMessagesWereDeleted(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
+	case persistedMessagesWereWiped(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
+	case draftToSendWasReset(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
+	case draftFyleJoinWasDeleted(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>)
+	case fyleMessageJoinWasWiped(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>)
+	case persistedDiscussionStatusChanged(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, newStatus: PersistedDiscussion.Status)
 	case persistedGroupV2UpdateIsFinished(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case persistedGroupV2WasDeleted(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
@@ -79,9 +78,8 @@ enum ObvMessengerCoreDataNotification {
 		case persistedContactHasNewCustomDisplayName
 		case persistedContactHasNewStatus
 		case persistedContactIsActiveChanged
-		case aOneToOneDiscussionTitleNeedsToBeReset
 		case newMessageExpiration
-		case persistedMessageReactionReceivedWasDeleted
+		case persistedMessageReactionReceivedWasDeletedOnSentMessage
 		case persistedMessageReactionReceivedWasInsertedOrUpdated
 		case userWantsToUpdateDiscussionLocalConfiguration
 		case persistedContactGroupHasUpdatedContactIdentities
@@ -125,9 +123,8 @@ enum ObvMessengerCoreDataNotification {
 			case .persistedContactHasNewCustomDisplayName: return Name.persistedContactHasNewCustomDisplayName.name
 			case .persistedContactHasNewStatus: return Name.persistedContactHasNewStatus.name
 			case .persistedContactIsActiveChanged: return Name.persistedContactIsActiveChanged.name
-			case .aOneToOneDiscussionTitleNeedsToBeReset: return Name.aOneToOneDiscussionTitleNeedsToBeReset.name
 			case .newMessageExpiration: return Name.newMessageExpiration.name
-			case .persistedMessageReactionReceivedWasDeleted: return Name.persistedMessageReactionReceivedWasDeleted.name
+			case .persistedMessageReactionReceivedWasDeletedOnSentMessage: return Name.persistedMessageReactionReceivedWasDeletedOnSentMessage.name
 			case .persistedMessageReactionReceivedWasInsertedOrUpdated: return Name.persistedMessageReactionReceivedWasInsertedOrUpdated.name
 			case .userWantsToUpdateDiscussionLocalConfiguration: return Name.userWantsToUpdateDiscussionLocalConfiguration.name
 			case .persistedContactGroupHasUpdatedContactIdentities: return Name.persistedContactGroupHasUpdatedContactIdentities.name
@@ -156,9 +153,9 @@ enum ObvMessengerCoreDataNotification {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .newDraftToSend(persistedDraftObjectID: let persistedDraftObjectID):
+		case .newDraftToSend(draftPermanentID: let draftPermanentID):
 			info = [
-				"persistedDraftObjectID": persistedDraftObjectID,
+				"draftPermanentID": draftPermanentID,
 			]
 		case .draftWasSent(persistedDraftObjectID: let persistedDraftObjectID):
 			info = [
@@ -173,10 +170,9 @@ enum ObvMessengerCoreDataNotification {
 				"obvDialog": obvDialog,
 				"persistedInvitationUUID": persistedInvitationUUID,
 			]
-		case .persistedContactWasInserted(objectID: let objectID, contactCryptoId: let contactCryptoId):
+		case .persistedContactWasInserted(contactPermanentID: let contactPermanentID):
 			info = [
-				"objectID": objectID,
-				"contactCryptoId": contactCryptoId,
+				"contactPermanentID": contactPermanentID,
 			]
 		case .persistedContactWasDeleted(objectID: let objectID, identity: let identity):
 			info = [
@@ -196,18 +192,14 @@ enum ObvMessengerCoreDataNotification {
 			info = [
 				"contactID": contactID,
 			]
-		case .aOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: let ownedIdentityObjectID):
-			info = [
-				"ownedIdentityObjectID": ownedIdentityObjectID,
-			]
 		case .newMessageExpiration(expirationDate: let expirationDate):
 			info = [
 				"expirationDate": expirationDate,
 			]
-		case .persistedMessageReactionReceivedWasDeleted(messageURI: let messageURI, contactURI: let contactURI):
+		case .persistedMessageReactionReceivedWasDeletedOnSentMessage(messagePermanentID: let messagePermanentID, contactPermanentID: let contactPermanentID):
 			info = [
-				"messageURI": messageURI,
-				"contactURI": contactURI,
+				"messagePermanentID": messagePermanentID,
+				"contactPermanentID": contactPermanentID,
 			]
 		case .persistedMessageReactionReceivedWasInsertedOrUpdated(objectID: let objectID):
 			info = [
@@ -224,10 +216,10 @@ enum ObvMessengerCoreDataNotification {
 				"insertedContacts": insertedContacts,
 				"removedContacts": removedContacts,
 			]
-		case .aReadOncePersistedMessageSentWasSent(persistedMessageSentObjectID: let persistedMessageSentObjectID, persistedDiscussionObjectID: let persistedDiscussionObjectID):
+		case .aReadOncePersistedMessageSentWasSent(persistedMessageSentPermanentID: let persistedMessageSentPermanentID, persistedDiscussionPermanentID: let persistedDiscussionPermanentID):
 			info = [
-				"persistedMessageSentObjectID": persistedMessageSentObjectID,
-				"persistedDiscussionObjectID": persistedDiscussionObjectID,
+				"persistedMessageSentPermanentID": persistedMessageSentPermanentID,
+				"persistedDiscussionPermanentID": persistedDiscussionPermanentID,
 			]
 		case .newPersistedObvContactDevice(contactDeviceObjectID: let contactDeviceObjectID, contactCryptoId: let contactCryptoId):
 			info = [
@@ -243,9 +235,9 @@ enum ObvMessengerCoreDataNotification {
 				"objectID": objectID,
 				"title": title,
 			]
-		case .persistedDiscussionWasDeleted(discussionUriRepresentation: let discussionUriRepresentation):
+		case .persistedDiscussionWasDeleted(discussionPermanentID: let discussionPermanentID):
 			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
+				"discussionPermanentID": discussionPermanentID,
 			]
 		case .newPersistedObvOwnedIdentity(ownedCryptoId: let ownedCryptoId):
 			info = [
@@ -268,36 +260,36 @@ enum ObvMessengerCoreDataNotification {
 				"objectID": objectID,
 				"discussionObjectID": discussionObjectID,
 			]
-		case .persistedMessagesWereDeleted(discussionUriRepresentation: let discussionUriRepresentation, messageUriRepresentations: let messageUriRepresentations):
+		case .persistedMessagesWereDeleted(discussionPermanentID: let discussionPermanentID, messagePermanentIDs: let messagePermanentIDs):
 			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"messageUriRepresentations": messageUriRepresentations,
+				"discussionPermanentID": discussionPermanentID,
+				"messagePermanentIDs": messagePermanentIDs,
 			]
-		case .persistedMessagesWereWiped(discussionUriRepresentation: let discussionUriRepresentation, messageUriRepresentations: let messageUriRepresentations):
+		case .persistedMessagesWereWiped(discussionPermanentID: let discussionPermanentID, messagePermanentIDs: let messagePermanentIDs):
 			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"messageUriRepresentations": messageUriRepresentations,
+				"discussionPermanentID": discussionPermanentID,
+				"messagePermanentIDs": messagePermanentIDs,
 			]
-		case .draftToSendWasReset(discussionObjectID: let discussionObjectID, draftObjectID: let draftObjectID):
+		case .draftToSendWasReset(discussionPermanentID: let discussionPermanentID, draftPermanentID: let draftPermanentID):
 			info = [
-				"discussionObjectID": discussionObjectID,
-				"draftObjectID": draftObjectID,
+				"discussionPermanentID": discussionPermanentID,
+				"draftPermanentID": draftPermanentID,
 			]
-		case .draftFyleJoinWasDeleted(discussionUriRepresentation: let discussionUriRepresentation, draftUriRepresentation: let draftUriRepresentation, draftFyleJoinUriRepresentation: let draftFyleJoinUriRepresentation):
+		case .draftFyleJoinWasDeleted(discussionPermanentID: let discussionPermanentID, draftPermanentID: let draftPermanentID, draftFyleJoinPermanentID: let draftFyleJoinPermanentID):
 			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"draftUriRepresentation": draftUriRepresentation,
-				"draftFyleJoinUriRepresentation": draftFyleJoinUriRepresentation,
+				"discussionPermanentID": discussionPermanentID,
+				"draftPermanentID": draftPermanentID,
+				"draftFyleJoinPermanentID": draftFyleJoinPermanentID,
 			]
-		case .fyleMessageJoinWasWiped(discussionUriRepresentation: let discussionUriRepresentation, messageUriRepresentation: let messageUriRepresentation, fyleMessageJoinUriRepresentation: let fyleMessageJoinUriRepresentation):
+		case .fyleMessageJoinWasWiped(discussionPermanentID: let discussionPermanentID, messagePermanentID: let messagePermanentID, fyleMessageJoinPermanentID: let fyleMessageJoinPermanentID):
 			info = [
-				"discussionUriRepresentation": discussionUriRepresentation,
-				"messageUriRepresentation": messageUriRepresentation,
-				"fyleMessageJoinUriRepresentation": fyleMessageJoinUriRepresentation,
+				"discussionPermanentID": discussionPermanentID,
+				"messagePermanentID": messagePermanentID,
+				"fyleMessageJoinPermanentID": fyleMessageJoinPermanentID,
 			]
-		case .persistedDiscussionStatusChanged(objectID: let objectID, newStatus: let newStatus):
+		case .persistedDiscussionStatusChanged(discussionPermanentID: let discussionPermanentID, newStatus: let newStatus):
 			info = [
-				"objectID": objectID,
+				"discussionPermanentID": discussionPermanentID,
 				"newStatus": newStatus,
 			]
 		case .persistedGroupV2UpdateIsFinished(objectID: let objectID):
@@ -341,11 +333,11 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observeNewDraftToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
+	static func observeNewDraftToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>) -> Void) -> NSObjectProtocol {
 		let name = Name.newDraftToSend.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDraftObjectID = notification.userInfo!["persistedDraftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			block(persistedDraftObjectID)
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
+			block(draftPermanentID)
 		}
 	}
 
@@ -374,12 +366,11 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observePersistedContactWasInserted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, ObvCryptoId) -> Void) -> NSObjectProtocol {
+	static func observePersistedContactWasInserted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedContactWasInserted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! NSManagedObjectID
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			block(objectID, contactCryptoId)
+			let contactPermanentID = notification.userInfo!["contactPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvContactIdentity>
+			block(contactPermanentID)
 		}
 	}
 
@@ -417,14 +408,6 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observeAOneToOneDiscussionTitleNeedsToBeReset(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvOwnedIdentity>) -> Void) -> NSObjectProtocol {
-		let name = Name.aOneToOneDiscussionTitleNeedsToBeReset.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedIdentityObjectID = notification.userInfo!["ownedIdentityObjectID"] as! TypeSafeManagedObjectID<PersistedObvOwnedIdentity>
-			block(ownedIdentityObjectID)
-		}
-	}
-
 	static func observeNewMessageExpiration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Date) -> Void) -> NSObjectProtocol {
 		let name = Name.newMessageExpiration.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -433,12 +416,12 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observePersistedMessageReactionReceivedWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (URL, URL) -> Void) -> NSObjectProtocol {
-		let name = Name.persistedMessageReactionReceivedWasDeleted.name
+	static func observePersistedMessageReactionReceivedWasDeletedOnSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedMessageSent>, ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
+		let name = Name.persistedMessageReactionReceivedWasDeletedOnSentMessage.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let messageURI = notification.userInfo!["messageURI"] as! URL
-			let contactURI = notification.userInfo!["contactURI"] as! URL
-			block(messageURI, contactURI)
+			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! ObvManagedObjectPermanentID<PersistedMessageSent>
+			let contactPermanentID = notification.userInfo!["contactPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvContactIdentity>
+			block(messagePermanentID, contactPermanentID)
 		}
 	}
 
@@ -469,12 +452,12 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observeAReadOncePersistedMessageSentWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, TypeSafeManagedObjectID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
+	static func observeAReadOncePersistedMessageSentWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedMessageSent>, ObvManagedObjectPermanentID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.aReadOncePersistedMessageSentWasSent.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageSentObjectID = notification.userInfo!["persistedMessageSentObjectID"] as! NSManagedObjectID
-			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			block(persistedMessageSentObjectID, persistedDiscussionObjectID)
+			let persistedMessageSentPermanentID = notification.userInfo!["persistedMessageSentPermanentID"] as! ObvManagedObjectPermanentID<PersistedMessageSent>
+			let persistedDiscussionPermanentID = notification.userInfo!["persistedDiscussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			block(persistedMessageSentPermanentID, persistedDiscussionPermanentID)
 		}
 	}
 
@@ -504,11 +487,11 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observePersistedDiscussionWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
+	static func observePersistedDiscussionWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionWasDeleted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			block(discussionUriRepresentation)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			block(discussionPermanentID)
 		}
 	}
 
@@ -553,59 +536,59 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observePersistedMessagesWereDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, Set<TypeSafeURL<PersistedMessage>>) -> Void) -> NSObjectProtocol {
+	static func observePersistedMessagesWereDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, Set<ObvManagedObjectPermanentID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessagesWereDeleted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let messageUriRepresentations = notification.userInfo!["messageUriRepresentations"] as! Set<TypeSafeURL<PersistedMessage>>
-			block(discussionUriRepresentation, messageUriRepresentations)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			let messagePermanentIDs = notification.userInfo!["messagePermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedMessage>>
+			block(discussionPermanentID, messagePermanentIDs)
 		}
 	}
 
-	static func observePersistedMessagesWereWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, Set<TypeSafeURL<PersistedMessage>>) -> Void) -> NSObjectProtocol {
+	static func observePersistedMessagesWereWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, Set<ObvManagedObjectPermanentID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessagesWereWiped.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let messageUriRepresentations = notification.userInfo!["messageUriRepresentations"] as! Set<TypeSafeURL<PersistedMessage>>
-			block(discussionUriRepresentation, messageUriRepresentations)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			let messagePermanentIDs = notification.userInfo!["messagePermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedMessage>>
+			block(discussionPermanentID, messagePermanentIDs)
 		}
 	}
 
-	static func observeDraftToSendWasReset(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
+	static func observeDraftToSendWasReset(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, ObvManagedObjectPermanentID<PersistedDraft>) -> Void) -> NSObjectProtocol {
 		let name = Name.draftToSendWasReset.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			block(discussionObjectID, draftObjectID)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
+			block(discussionPermanentID, draftPermanentID)
 		}
 	}
 
-	static func observeDraftFyleJoinWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, TypeSafeURL<PersistedDraft>, TypeSafeURL<PersistedDraftFyleJoin>) -> Void) -> NSObjectProtocol {
+	static func observeDraftFyleJoinWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, ObvManagedObjectPermanentID<PersistedDraft>, ObvManagedObjectPermanentID<PersistedDraftFyleJoin>) -> Void) -> NSObjectProtocol {
 		let name = Name.draftFyleJoinWasDeleted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let draftUriRepresentation = notification.userInfo!["draftUriRepresentation"] as! TypeSafeURL<PersistedDraft>
-			let draftFyleJoinUriRepresentation = notification.userInfo!["draftFyleJoinUriRepresentation"] as! TypeSafeURL<PersistedDraftFyleJoin>
-			block(discussionUriRepresentation, draftUriRepresentation, draftFyleJoinUriRepresentation)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
+			let draftFyleJoinPermanentID = notification.userInfo!["draftFyleJoinPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraftFyleJoin>
+			block(discussionPermanentID, draftPermanentID, draftFyleJoinPermanentID)
 		}
 	}
 
-	static func observeFyleMessageJoinWasWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeURL<PersistedDiscussion>, TypeSafeURL<PersistedMessage>, TypeSafeURL<FyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
+	static func observeFyleMessageJoinWasWiped(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, ObvManagedObjectPermanentID<PersistedMessage>, ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
 		let name = Name.fyleMessageJoinWasWiped.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionUriRepresentation = notification.userInfo!["discussionUriRepresentation"] as! TypeSafeURL<PersistedDiscussion>
-			let messageUriRepresentation = notification.userInfo!["messageUriRepresentation"] as! TypeSafeURL<PersistedMessage>
-			let fyleMessageJoinUriRepresentation = notification.userInfo!["fyleMessageJoinUriRepresentation"] as! TypeSafeURL<FyleMessageJoinWithStatus>
-			block(discussionUriRepresentation, messageUriRepresentation, fyleMessageJoinUriRepresentation)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! ObvManagedObjectPermanentID<PersistedMessage>
+			let fyleMessageJoinPermanentID = notification.userInfo!["fyleMessageJoinPermanentID"] as! ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>
+			block(discussionPermanentID, messagePermanentID, fyleMessageJoinPermanentID)
 		}
 	}
 
-	static func observePersistedDiscussionStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, PersistedDiscussion.Status) -> Void) -> NSObjectProtocol {
+	static func observePersistedDiscussionStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, PersistedDiscussion.Status) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedDiscussionStatusChanged.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			let newStatus = notification.userInfo!["newStatus"] as! PersistedDiscussion.Status
-			block(objectID, newStatus)
+			block(discussionPermanentID, newStatus)
 		}
 	}
 

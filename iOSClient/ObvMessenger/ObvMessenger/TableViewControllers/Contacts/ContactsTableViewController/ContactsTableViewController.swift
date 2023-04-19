@@ -296,10 +296,10 @@ extension ContactsTableViewController {
     private func configure(_ cell: ObvSubtitleTableViewCell, with contact: PersistedObvContactIdentity) {
         if let customDisplayName = contact.customDisplayName {
             cell.title = customDisplayName
-            cell.subtitle = contact.identityCoreDetails.getDisplayNameWithStyle(.full)
+            cell.subtitle = contact.identityCoreDetails?.getDisplayNameWithStyle(.full) ?? contact.fullDisplayName
         } else {
-            cell.title = contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
-            cell.subtitle = contact.identityCoreDetails.getDisplayNameWithStyle(.positionAtCompany)
+            cell.title = contact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? contact.fullDisplayName
+            cell.subtitle = contact.identityCoreDetails?.getDisplayNameWithStyle(.positionAtCompany) ?? ""
         }
         cell.circledInitialsConfiguration = contact.circledInitialsConfiguration
         switch contact.status {

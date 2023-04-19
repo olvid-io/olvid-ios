@@ -21,34 +21,34 @@ import Foundation
 import CoreData
 import os.log
 import ObvEngine
+import OlvidUtils
 
 
 @objc(PersistedDiscussionLocalConfiguration)
-final class PersistedDiscussionLocalConfiguration: NSManagedObject {
+final class PersistedDiscussionLocalConfiguration: NSManagedObject, ObvErrorMaker {
     
     private static let entityName = "PersistedDiscussionLocalConfiguration"
-    static let muteNotificationsEndDateKey = "muteNotificationsEndDate"
-    private static func makeError(message: String) -> Error { NSError(domain: "PersistedDiscussionLocalConfiguration", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    static let errorDomain = "PersistedDiscussionLocalConfiguration"
 
-    // MARK: - Attributes
+    // MARK: Attributes
 
-    @NSManaged private var rawAutoRead: NSNumber?
-    @NSManaged private var rawCountBasedRetention: NSNumber?
-    @NSManaged var rawCountBasedRetentionIsActive: NSNumber?
-    @NSManaged private var rawDoFetchContentRichURLsMetadata: NSNumber?
-    @NSManaged private var rawDoSendReadReceipt: NSNumber?
-    @NSManaged private var rawTimeBasedRetention: NSNumber?
-    @NSManaged var rawRetainWipedOutboundMessages: NSNumber?
     @NSManaged private(set) var defaultEmoji: String?
     @NSManaged private var muteNotificationsEndDate: Date?
+    @NSManaged private var rawAutoRead: NSNumber?
+    @NSManaged private var rawCountBasedRetention: NSNumber?
+    @NSManaged private var rawCountBasedRetentionIsActive: NSNumber?
+    @NSManaged private var rawDoFetchContentRichURLsMetadata: NSNumber?
+    @NSManaged private var rawDoSendReadReceipt: NSNumber?
     @NSManaged private var rawNotificationSound: String?
     @NSManaged private(set) var rawPerformInteractionDonation: NSNumber?
+    @NSManaged private var rawRetainWipedOutboundMessages: NSNumber?
+    @NSManaged private var rawTimeBasedRetention: NSNumber?
 
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged private(set) var discussion: PersistedDiscussion?
 
-    // MARK: - Computed variables
+    // MARK: Computed variables
 
     var autoRead: Bool? {
         get {
@@ -131,9 +131,9 @@ final class PersistedDiscussionLocalConfiguration: NSManagedObject {
             return NotificationSound.allCases.first { $0.identifier == soundIdentifier }
         }
         set {
-            if let value = newValue {
-                guard value.identifier != rawNotificationSound else { return }
-                rawNotificationSound = value.identifier
+            if let newValue {
+                guard newValue.identifier != rawNotificationSound else { return }
+                rawNotificationSound = newValue.identifier
             } else {
                 rawNotificationSound = nil
             }
@@ -187,16 +187,6 @@ extension PersistedDiscussionLocalConfiguration {
         return muteNotificationsEndDate
     }
 
-    var isMuteNotificationsEndDateExpired: Bool {
-        guard let muteNotificationsEndDate = muteNotificationsEndDate else { return false }
-        return muteNotificationsEndDate <= Date()
-    }
-
-    func cleanExpiredMuteNotificationsEndDate() {
-        guard isMuteNotificationsEndDateExpired else { return }
-        self.muteNotificationsEndDate = nil
-    }
-
     static func formatDateForMutedNotification(_ date: Date) -> String {
         let df = DateFormatter()
         df.doesRelativeDateFormatting = false
@@ -204,7 +194,6 @@ extension PersistedDiscussionLocalConfiguration {
         df.timeStyle = .short
         return df.string(from: date)
     }
-
 
 }
 
@@ -279,30 +268,61 @@ extension PersistedDiscussionLocalConfiguration {
 // MARK: - Convenience DB getters
 
 extension PersistedDiscussionLocalConfiguration {
-
+    
+    struct Predicate {
+        enum Key: String {
+            case muteNotificationsEndDate = "muteNotificationsEndDate"
+        }
+        static func withMuteNotificationsEndDateLaterThan(_ date: Date) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.muteNotificationsEndDate),
+                NSPredicate(Key.muteNotificationsEndDate, laterThan: date),
+            ])
+        }
+        static func withMuteNotificationsEndDateEarlierThan(_ date: Date) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.muteNotificationsEndDate),
+                NSPredicate(Key.muteNotificationsEndDate, earlierThan: date),
+            ])
+        }
+    }
+    
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedDiscussionLocalConfiguration> {
         return NSFetchRequest<PersistedDiscussionLocalConfiguration>(entityName: self.entityName)
     }
     
+    
     static func get(with objectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>, within context: NSManagedObjectContext) throws -> PersistedDiscussionLocalConfiguration? {
         try context.existingObject(with: objectID.objectID) as? PersistedDiscussionLocalConfiguration
     }
+    
 
-    static func getAll(within context: NSManagedObjectContext) throws -> [PersistedDiscussionLocalConfiguration] {
+    /// Sets back to `nil` the `muteNotificationsEndDate` attribute of all `PersistedDiscussionLocalConfiguration` if it has expired (i.e., if it is earlier than now).
+    /// - Returns: The objectIDs of the updated `PersistedDiscussionLocalConfiguration` instances.
+    static func deleteAllExpiredMuteNotifications(within obvContext: ObvContext) throws -> Set<TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>> {
+        let now = Date()
         let request: NSFetchRequest<PersistedDiscussionLocalConfiguration> = PersistedDiscussionLocalConfiguration.fetchRequest()
-        return try context.fetch(request)
+        request.predicate = Predicate.withMuteNotificationsEndDateEarlierThan(now)
+        request.fetchBatchSize = 100
+        let items = try obvContext.context.fetch(request)
+        items.forEach {
+            assert($0.muteNotificationsEndDate != nil && $0.muteNotificationsEndDate! < now)
+            $0.muteNotificationsEndDate = nil
+        }
+        return Set(items.map { $0.typedObjectID })
     }
 
+    
+    /// Returns the earliest mute expiration date occuring later than the requested date, regardless of the owned identity, i.e., considering all persisted discussions.
     static func getEarliestMuteExpirationDate(laterThan date: Date, within context: NSManagedObjectContext) throws -> Date? {
         let request: NSFetchRequest<PersistedDiscussionLocalConfiguration> = PersistedDiscussionLocalConfiguration.fetchRequest()
-        request.predicate = NSPredicate(format: "\(muteNotificationsEndDateKey) > %@", date as NSDate)
-        request.sortDescriptors = [NSSortDescriptor(key: muteNotificationsEndDateKey, ascending: true)]
+        request.predicate = Predicate.withMuteNotificationsEndDateLaterThan(date)
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.muteNotificationsEndDate.rawValue, ascending: true)]
         request.fetchLimit = 1
         return try context.fetch(request).first?.muteNotificationsEndDate
-
     }
-
-
+    
 }
 
 
@@ -316,7 +336,7 @@ extension PersistedDiscussionLocalConfiguration {
         let performInteractionDonation: Bool?
     }
     
-    func toStructure() throws -> Structure {
+    func toStruct() throws -> Structure {
         return Structure(notificationSound: notificationSound,
                          shouldMuteNotifications: self.shouldMuteNotifications,
                          performInteractionDonation: self.performInteractionDonation)

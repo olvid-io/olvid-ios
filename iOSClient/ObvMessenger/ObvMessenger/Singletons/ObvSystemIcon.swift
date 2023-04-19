@@ -126,6 +126,7 @@ enum ObvSystemIcon: Hashable {
     case circle
     case circleDashed
     case circleFill
+    case clock
     case creditcardFill
     case display
     case docBadgeGearshape
@@ -181,6 +182,7 @@ enum ObvSystemIcon: Hashable {
     case person2
     case person2Fill
     case person2Circle
+    case person3
     case person3Fill
     case personCropCircle
     case personCropCircleBadgeCheckmark
@@ -396,6 +398,8 @@ enum ObvSystemIcon: Hashable {
             } else {
                 return "arrow.uturn.right.circle.fill"
             }
+        case .clock:
+            return "clock"
         case .creditcardFill:
             return "creditcard.fill"
         case .link:
@@ -438,6 +442,8 @@ enum ObvSystemIcon: Hashable {
             } else {
                 return "person.2.fill"
             }
+        case .person3:
+            return "person.3"
         case .person3Fill:
             return "person.3.fill"
         case .chevronDown:

@@ -27,15 +27,16 @@ import MobileCoreServices
 
 struct UserNotificationKeys {
     static let id = "id"
-    static let deepLink = "deepLink"
-    static let persistedDiscussionObjectURI = "persistedDiscussionObjectURI"
-    static let persistedContactObjectURI = "persistedContactObjectURI"
+    static let deepLinkDescription = "deepLinkDescription"
+    static let persistedDiscussionPermanentIDDescription = "persistedDiscussionPermanentIDDescription"
+    static let persistedContactPermanentIDDescription = "persistedContactPermanentIDDescription"
     static let reactionTimestamp = "reactionTimestamp"
     static let callUUID = "callUUID"
     static let messageIdentifierForNotification = "messageIdentifierForNotification"
     static let persistedInvitationUUID = "persistedInvitationUUID"
     static let messageIdentifierFromEngine = "messageIdentifierFromEngine"
     static let reactionIdentifierForNotification = "reactionIdentifierForNotification"
+    static let ownedIdentityAsHexString = "ownedIdentityAsHexString"
 }
 
 struct UserNotificationCreator {
@@ -44,14 +45,14 @@ struct UserNotificationCreator {
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationCreator.self))
 
     struct MissedCallNotificationInfos {
+        let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
         let contactCustomOrFullDisplayName: String
-        let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
         let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
         let discussionNotificationSound: NotificationSound?
         
         init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
+            self.discussionPermanentID = discussionKind.discussionPermanentID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
-            self.discussionObjectID = discussionKind.typedObjectID
             if #available(iOS 14.0, *) {
                 receivedMessageIntentInfos = ReceivedMessageIntentInfos.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             } else {
@@ -86,9 +87,9 @@ struct UserNotificationCreator {
             notificationContent.title = infos.contactCustomOrFullDisplayName
             notificationContent.body = Strings.MissedCall.title
 
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
-            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
+            let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: infos.discussionPermanentID)
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] = infos.discussionPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
 
             if #available(iOS 14.0, *) {
@@ -102,9 +103,9 @@ struct UserNotificationCreator {
         case .partially:
 
             notificationContent.body = Strings.MissedCall.title
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
-            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
+            let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: infos.discussionPermanentID)
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] = infos.discussionPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
 
         case .completely:
@@ -114,7 +115,7 @@ struct UserNotificationCreator {
             notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
             
             let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
         }
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
@@ -146,7 +147,7 @@ struct UserNotificationCreator {
         notificationContent.body = Strings.NewPersistedMessageReceivedMinimal.body
         
         let deepLink = ObvDeepLink.latestDiscussions
-        notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+        notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
@@ -176,8 +177,8 @@ struct UserNotificationCreator {
         
         let body: String
         let messageIdentifierFromEngine: Data
-        let contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
-        let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+        let contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
+        let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
         let contactCustomOrFullDisplayName: String
         let groupDiscussionTitle: String?
         let discussionNotificationSound: NotificationSound?
@@ -192,8 +193,8 @@ struct UserNotificationCreator {
              urlForStoringPNGThumbnail: URL?) {
             self.body = messageReceived.textBody ?? ""
             self.messageIdentifierFromEngine = messageReceived.messageIdentifierFromEngine
-            self.contactObjectID = messageReceived.contact.typedObjectID
-            self.discussionObjectID = messageReceived.discussionKind.typedObjectID
+            self.contactPermanentID = messageReceived.contact.objectPermanentID
+            self.discussionPermanentID = messageReceived.discussionKind.discussionPermanentID
             self.contactCustomOrFullDisplayName = messageReceived.contact.customOrFullDisplayName
             switch messageReceived.discussionKind {
             case .groupDiscussion(structure: let structure):
@@ -226,8 +227,8 @@ struct UserNotificationCreator {
              urlForStoringPNGThumbnail: URL?) async {
             self.body = body
             self.messageIdentifierFromEngine = messageIdentifierFromEngine
-            self.contactObjectID = contact.typedObjectID
-            self.discussionObjectID = discussionKind.typedObjectID
+            self.contactPermanentID = contact.objectPermanentID
+            self.discussionPermanentID = discussionKind.discussionPermanentID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
             switch discussionKind {
             case .groupDiscussion(structure: let structure):
@@ -291,11 +292,11 @@ struct UserNotificationCreator {
                 }
             }
 
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
-            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
+            let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: infos.discussionPermanentID)
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] = infos.discussionPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
-            notificationContent.userInfo[UserNotificationKeys.persistedContactObjectURI] = infos.contactObjectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.persistedContactPermanentIDDescription] = infos.contactPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierFromEngine] = infos.messageIdentifierFromEngine.hexString()
 
             if #available(iOS 14.0, *) {
@@ -319,9 +320,9 @@ struct UserNotificationCreator {
             notificationContent.subtitle = ""
             notificationContent.body = Strings.NewPersistedMessageReceivedHiddenContent.body
 
-            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: infos.discussionObjectID.uriRepresentation().url)
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
-            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
+            let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: infos.discussionPermanentID)
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] = infos.discussionPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierForNotification] = notificationId.getIdentifier()
 
         case .completely:
@@ -441,8 +442,11 @@ struct UserNotificationCreator {
             
             // Whatever the exact category, we want to add a deep link to the invitations
             let deepLink = ObvDeepLink.invitations
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
             
+            // Whatever the exact category, we add the concerned owned identity
+            notificationContent.userInfo[UserNotificationKeys.ownedIdentityAsHexString] = obvDialog.ownedCryptoId.getIdentity().hexString()
+
             switch obvDialog.category {
             case .acceptInvite(contactIdentity: _):
                 notificationId = ObvUserNotificationIdentifier.acceptInvite(persistedInvitationUUID: persistedInvitationUUID)
@@ -485,7 +489,7 @@ struct UserNotificationCreator {
             
             // Even for an invitation, we navigate to the list of latest discussions
             let deepLink = ObvDeepLink.latestDiscussions
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
 
         }
 
@@ -505,7 +509,7 @@ struct UserNotificationCreator {
 
         let deepLink = ObvDeepLink.requestRecordPermission
 
-        notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+        notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
         let notificationId = ObvUserNotificationIdentifier.shouldGrantRecordPermissionToReceiveIncomingCalls
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
@@ -522,7 +526,7 @@ struct UserNotificationCreator {
         notificationContent.body = NSLocalizedString("REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED_NOTIFICATION_BODY", comment: "")
 
         let deepLink = ObvDeepLink.requestRecordPermission
-        notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+        notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
 
         let notificationId = ObvUserNotificationIdentifier.shouldGrantRecordPermissionToReceiveIncomingCalls
 
@@ -534,9 +538,9 @@ struct UserNotificationCreator {
 
     struct ReactionNotificationInfos {
         
-        let messageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
-        let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
-        let contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
+        let messagePermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
+        let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
+        let contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
         let contactCustomOrFullDisplayName: String
         let discussionNotificationSound: NotificationSound?
         let isEphemeralPersistedMessageSentWithLimitedVisibility: Bool
@@ -545,9 +549,9 @@ struct UserNotificationCreator {
 
         init(messageSent: PersistedMessageSent.Structure, contact: PersistedObvContactIdentity.Structure, urlForStoringPNGThumbnail: URL?) {
             let discussionKind = messageSent.discussionKind
-            self.messageObjectID = messageSent.typedObjectID
-            self.discussionObjectID = discussionKind.typedObjectID
-            self.contactObjectID = contact.typedObjectID
+            self.messagePermanentID = messageSent.objectPermanentID
+            self.discussionPermanentID = discussionKind.discussionPermanentID
+            self.contactPermanentID = contact.objectPermanentID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralPersistedMessageSentWithLimitedVisibility = messageSent.isEphemeralMessageWithLimitedVisibility
@@ -580,7 +584,7 @@ struct UserNotificationCreator {
                 notificationId = .newReactionNotificationWithHiddenContent
                 notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@", comment: ""), emoji)
             } else if let textBody = infos.messageTextBody {
-                notificationId = .newReaction(messageURI: infos.messageObjectID.uriRepresentation().url, contactURI: infos.contactObjectID.uriRepresentation().url)
+                notificationId = .newReaction(messagePermanentID: infos.messagePermanentID, contactPermanentId: infos.contactPermanentID)
                 notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@_%@", comment: ""), emoji, textBody)
             } else {
                 notificationId = .newReactionNotificationWithHiddenContent
@@ -594,11 +598,11 @@ struct UserNotificationCreator {
                 notificationContent.subtitle = ""
             }
 
-            let deepLink = ObvDeepLink.message(messageObjectURI: infos.messageObjectID.uriRepresentation().url)
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            let deepLink = ObvDeepLink.message(objectPermanentID: infos.messagePermanentID.downcast)
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
             notificationContent.userInfo[UserNotificationKeys.reactionTimestamp] = reactionTimestamp
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
-            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] = infos.discussionObjectID.uriRepresentation().absoluteString
+            notificationContent.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] = infos.discussionPermanentID.description
 
             setNotificationSound(discussionNotificationSound: infos.discussionNotificationSound, notificationContent: notificationContent)
 
@@ -609,8 +613,8 @@ struct UserNotificationCreator {
             notificationContent.subtitle = ""
             notificationContent.body = Strings.NewPersistedReactionReceivedHiddenContent.body
 
-            let deepLink = ObvDeepLink.message(messageObjectURI: infos.messageObjectID.uriRepresentation().url)
-            notificationContent.userInfo[UserNotificationKeys.deepLink] = deepLink.url.absoluteString
+            let deepLink = ObvDeepLink.message(objectPermanentID: infos.messagePermanentID.downcast)
+            notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
             notificationContent.userInfo[UserNotificationKeys.reactionIdentifierForNotification] = notificationId.getIdentifier()
 
         case .completely:

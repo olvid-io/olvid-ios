@@ -161,7 +161,7 @@ fileprivate struct IdentitySection: View {
                         }
                         if !showQRCodeFullScreen && contact.isOneToOne {
                             HStack {
-                                Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
+                                Text("\(contact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? contact.fullDisplayName) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
                                     .font(smallScreenMode ? .system(size: 19) : .body)
                                     .allowsTightening(true)
                                     .fixedSize(horizontal: false, vertical: true)

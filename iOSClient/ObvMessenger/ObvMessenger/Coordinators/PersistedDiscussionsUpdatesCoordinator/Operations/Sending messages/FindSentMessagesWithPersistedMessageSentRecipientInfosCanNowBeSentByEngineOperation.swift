@@ -36,7 +36,7 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
 
     /// If this operation finishes without cancelling, this is guaranteed to be set.
     /// It will contain the object IDs of all the sent messages that can now be sent.
-    private(set) var persistedMessageSentObjectIDs = Set<TypeSafeManagedObjectID<PersistedMessageSent>>()
+    private(set) var messageSentPermanentIDs = Set<ObvManagedObjectPermanentID<PersistedMessageSent>>()
     
     override func main() {
         
@@ -102,7 +102,7 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                             // If we reach this point, we can send the message to the recipient indicated in the infos.
                             // We add the message to the set of messages to send.
                             
-                            persistedMessageSentObjectIDs.insert(info.messageSent.typedObjectID)
+                            messageSentPermanentIDs.insert(info.messageSent.objectPermanentID)
                             
                         case .groupV1(withContactGroup: let group):
                             
@@ -141,7 +141,7 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                             // If we reach this point, we can send the message to the recipient indicated in the infos.
                             // We add the message to the set of messages to send.
                             
-                            persistedMessageSentObjectIDs.insert(info.messageSent.typedObjectID)
+                            messageSentPermanentIDs.insert(info.messageSent.objectPermanentID)
 
                         case .groupV2(withGroup: let group):
                             
@@ -184,7 +184,7 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                             // If we reach this point, we can send the message to the recipient indicated in the infos.
                             // We add the message to the set of messages to send.
                             
-                            persistedMessageSentObjectIDs.insert(info.messageSent.typedObjectID)
+                            messageSentPermanentIDs.insert(info.messageSent.objectPermanentID)
 
                         }
                         

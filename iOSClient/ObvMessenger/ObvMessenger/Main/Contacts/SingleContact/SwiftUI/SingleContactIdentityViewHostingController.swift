@@ -64,9 +64,9 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         super.init(rootView: view)
         self.contact.delegate = self
         observeViewContextToDismissIfContactGetsDeleted()
-        title = contact.customDisplayName ?? contact.identityCoreDetails.getDisplayNameWithStyle(.short)
+        title = contact.customDisplayName ?? contact.identityCoreDetails?.getDisplayNameWithStyle(.short) ?? contact.fullDisplayName
         keyValueObservations.append(contact.observe(\.customDisplayName) { [weak self] (_, _) in
-            self?.title = contact.customDisplayName ?? contact.identityCoreDetails.getDisplayNameWithStyle(.short)
+            self?.title = contact.customDisplayName ?? contact.identityCoreDetails?.getDisplayNameWithStyle(.short) ?? contact.fullDisplayName
         })
     }
     
@@ -119,7 +119,7 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
             self.dismissPresentedViewController()
         }
         contactsPresentationVC.title = CommonString.Title.introduceTo(contact.publishedContactDetails?.coreDetails.getDisplayNameWithStyle(.short) ??
-                                                                                                persistedContact.identityCoreDetails.getDisplayNameWithStyle(.short))
+                                                                      persistedContact.identityCoreDetails?.getDisplayNameWithStyle(.short) ?? persistedContact.fullDisplayName)
         present(contactsPresentationVC, animated: true)
     }
     

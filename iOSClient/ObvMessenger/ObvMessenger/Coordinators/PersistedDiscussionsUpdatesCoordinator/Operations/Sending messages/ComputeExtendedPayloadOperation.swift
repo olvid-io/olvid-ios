@@ -27,7 +27,7 @@ import ObvEncoder
 import ObvMetaManager
 
 private enum ComputeExtendedPayloadOperationInput {
-    case message(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>)
+    case message(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>)
     case unprocessedPersistedMessageSentProvider(_: UnprocessedPersistedMessageSentProvider)
 }
 
@@ -44,8 +44,8 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
         super.init()
     }
 
-    init(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>) {
-        self.input = .message(persistedMessageSentObjectID: persistedMessageSentObjectID)
+    init(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>) {
+        self.input = .message(messageSentPermanentID: messageSentPermanentID)
         super.init()
     }
 
@@ -53,15 +53,15 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
     override func main() {
 
-        let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
+        let messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
         switch input {
-        case .message(let _persistedMessageSentObjectID):
-            persistedMessageSentObjectID = _persistedMessageSentObjectID
+        case .message(let _messageSentPermanentID):
+            messageSentPermanentID = _messageSentPermanentID
         case .unprocessedPersistedMessageSentProvider(let provider):
-            guard let _persistedMessageSentObjectID = provider.persistedMessageSentObjectID else {
+            guard let _messageSentPermanentID = provider.messageSentPermanentID else {
                 return cancel(withReason: .persistedMessageSentObjectIDIsNil)
             }
-            persistedMessageSentObjectID = _persistedMessageSentObjectID
+            messageSentPermanentID = _messageSentPermanentID
         }
 
         guard let obvContext = self.obvContext else {
@@ -72,7 +72,7 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
             let persistedMessageSent: PersistedMessageSent
             do {
-                guard let _persistedMessageSent = try PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
+                guard let _persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
                 }
                 persistedMessageSent = _persistedMessageSent

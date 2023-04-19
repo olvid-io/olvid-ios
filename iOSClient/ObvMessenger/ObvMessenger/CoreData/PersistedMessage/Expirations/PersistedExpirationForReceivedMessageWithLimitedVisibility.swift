@@ -23,14 +23,9 @@ import CoreData
 @objc(PersistedExpirationForReceivedMessageWithLimitedVisibility)
 final class PersistedExpirationForReceivedMessageWithLimitedVisibility: PersistedMessageExpiration {
     
-    // MARK: Internal constants
-
     private static let entityName = "PersistedExpirationForReceivedMessageWithLimitedVisibility"
-    private static let messageReceivedWithLimitedVisibilityKey = "messageReceivedWithLimitedVisibility"
 
-    // MARK: - Attributes
-
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged private(set) var messageReceivedWithLimitedVisibility: PersistedMessageReceived?
 
@@ -50,7 +45,10 @@ final class PersistedExpirationForReceivedMessageWithLimitedVisibility: Persiste
 extension PersistedExpirationForReceivedMessageWithLimitedVisibility {
     
     private struct Predicate {
-        static let withNoMessage = NSPredicate(format: "%K == NULL", messageReceivedWithLimitedVisibilityKey)
+        enum Key: String {
+            case messageReceivedWithLimitedVisibility = "messageReceivedWithLimitedVisibility"
+        }
+        static let withNoMessage = NSPredicate(withNilValueForKey: Key.messageReceivedWithLimitedVisibility)
     }
     
     @nonobjc private static func fetchRequest() -> NSFetchRequest<PersistedExpirationForReceivedMessageWithLimitedVisibility> {

@@ -27,20 +27,11 @@ import OlvidUtils
 
 
 @objc(PersistedMessageReceived)
-final class PersistedMessageReceived: PersistedMessage {
+final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableManagedObject {
     
     static let entityName = "PersistedMessageReceived"
-
-    private static let contactIdentityKey = "contactIdentity"
-    private static let contactIdentityIdentityKey = [contactIdentityKey, PersistedObvContactIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
-    private static let messageIdentifierFromEngineKey = "messageIdentifierFromEngine"
-    private static let senderThreadIdentifierKey = "senderThreadIdentifier"
-    private static let expirationForReceivedLimitedVisibilityKey = "expirationForReceivedLimitedVisibility"
-    private static let expirationForReceivedLimitedExistenceKey = "expirationForReceivedLimitedExistence"
-    private static let ownedIdentityKey = [PersistedMessage.Predicate.Key.discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
-
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageReceived")
-    
+
     /// At reception, a message is marked as `new`. When it is displayed to the user, it is marked as `unread` if `readOnce` is `true` and to `read` otherwise. An unread message for which `readOnce` is `true` is marked as `read` as soon as the user reads it. In that case, the message is deleted as soon as the user exits the discussion.
     enum MessageStatus: Int {
         case new = 0
@@ -48,27 +39,31 @@ final class PersistedMessageReceived: PersistedMessage {
         case read = 1
     }
 
-    // MARK: - Attributes
+    // MARK: Attributes
 
     @NSManaged private(set) var messageIdentifierFromEngine: Data
+    @NSManaged private(set) var missedMessageCount: Int
     @NSManaged private(set) var senderIdentifier: Data
     @NSManaged private(set) var senderThreadIdentifier: UUID
     @NSManaged private var serializedReturnReceipt: Data?
-    @NSManaged private(set) var missedMessageCount: Int
 
-    // MARK: - Relationships
+    // MARK: Relationships
     
     @NSManaged private(set) var contactIdentity: PersistedObvContactIdentity?
-    @NSManaged private(set) var expirationForReceivedLimitedVisibility: PersistedExpirationForReceivedMessageWithLimitedVisibility?
     @NSManaged private(set) var expirationForReceivedLimitedExistence: PersistedExpirationForReceivedMessageWithLimitedExistence?
+    @NSManaged private(set) var expirationForReceivedLimitedVisibility: PersistedExpirationForReceivedMessageWithLimitedVisibility?
     @NSManaged private var messageRepliedToIdentifier: PendingRepliedTo?
     @NSManaged private var unsortedFyleMessageJoinWithStatus: Set<ReceivedFyleMessageJoinWithStatus>
 
 
+    // MARK: Other variables
+
     private var userInfoForDeletion: [String: Any]?
     private var changedKeys = Set<String>()
 
-    // MARK: - Computed variables
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageReceived> {
+        ObvManagedObjectPermanentID<PersistedMessageReceived>(uuid: self.permanentUUID)
+    }
 
     override var kind: PersistedMessageKind { .received }
 
@@ -200,7 +195,7 @@ final class PersistedMessageReceived: PersistedMessage {
 }
 
 
-// MARK: - Initializer
+// MARK: Initializer
 
 extension PersistedMessageReceived {
     
@@ -460,7 +455,7 @@ extension PersistedMessageReceived {
 }
 
 
-// MARK: - Determining actions availability
+// MARK: Determining actions availability
 
 extension PersistedMessageReceived {
     
@@ -496,7 +491,7 @@ extension PersistedMessageReceived {
 }
 
 
-// MARK: - Reply-to
+// MARK: Reply-to
 
 extension PersistedMessageReceived {
 
@@ -515,7 +510,7 @@ extension PersistedMessageReceived {
 }
 
 
-// MARK: - Other methods
+// MARK: Other methods
 
 extension PersistedMessageReceived {
 
@@ -560,68 +555,109 @@ extension PersistedMessageReceived {
 }
 
 
-// MARK: - Convenience DB getters
+// MARK: Convenience DB getters
 
 extension PersistedMessageReceived {
     
     struct Predicate {
-        static var isNew: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageReceived.rawStatusKey, MessageStatus.new.rawValue) }
-        static var isUnread: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageReceived.rawStatusKey, MessageStatus.unread.rawValue) }
-        static var isRead: NSPredicate { NSPredicate(format: "%K == %d", PersistedMessageReceived.rawStatusKey, MessageStatus.read.rawValue) }
-        static var isNotNewAnymore: NSPredicate { NSPredicate(format: "%K > %d", PersistedMessageReceived.rawStatusKey, MessageStatus.new.rawValue) }
-        static func inDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussion) }
-        static func inDiscussionWithObjectID(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate { NSPredicate(format: "%K == %@", PersistedMessage.Predicate.Key.discussion.rawValue, discussionObjectID.objectID) }
-        static var readOnce: NSPredicate { NSPredicate(format: "%K == TRUE", PersistedMessage.readOnceKey) }
+        enum Key: String {
+            // Attributes
+            case messageIdentifierFromEngine = "messageIdentifierFromEngine"
+            case missedMessageCount = "missedMessageCount"
+            case senderIdentifier = "senderIdentifier"
+            case senderThreadIdentifier = "senderThreadIdentifier"
+            case serializedReturnReceipt = "serializedReturnReceipt"
+            // Relationships
+            case contactIdentity = "contactIdentity"
+            case expirationForReceivedLimitedExistence = "expirationForReceivedLimitedExistence"
+            case expirationForReceivedLimitedVisibility = "expirationForReceivedLimitedVisibility"
+            case messageRepliedToIdentifier = "messageRepliedToIdentifier"
+            case unsortedFyleMessageJoinWithStatus = "unsortedFyleMessageJoinWithStatus"
+            // Others
+            static let contactIdentityIdentity = [contactIdentity.rawValue, PersistedObvContactIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
+            static let expirationForReceivedLimitedExistenceExpirationDate = [expirationForReceivedLimitedExistence.rawValue, PersistedMessageExpiration.Predicate.Key.expirationDate.rawValue].joined(separator: ".")
+            static let expirationForReceivedLimitedVisibilityExpirationDate = [expirationForReceivedLimitedVisibility.rawValue, PersistedMessageExpiration.Predicate.Key.expirationDate.rawValue].joined(separator: ".")
+        }
+        static func withStatus(_ status: MessageStatus) -> NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.rawStatus, EqualToInt: status.rawValue)
+        }
+        static var isNew: NSPredicate { withStatus(.new) }
+        static var isUnread: NSPredicate { withStatus(.unread) }
+        static var isRead: NSPredicate { withStatus(.read) }
+        static var isNotNewAnymore: NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.rawStatus, LargerThanInt: MessageStatus.new.rawValue)
+        }
+        static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
+            PersistedMessage.Predicate.withinDiscussion(discussion)
+        }
+        static func withinDiscussion(_ discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> NSPredicate {
+            PersistedMessage.Predicate.withinDiscussion(discussionObjectID)
+        }
+        static func withinDiscussion(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) -> NSPredicate {
+            PersistedMessage.Predicate.withinDiscussionWithPermanentID(discussionPermanentID)
+        }
+        static func withContactIdentity(_ contactIdentity: PersistedObvContactIdentity) -> NSPredicate {
+            NSPredicate(Key.contactIdentity, equalTo: contactIdentity)
+        }
+        static func withContactIdentityIdentity(_ contactIdentity: Data) -> NSPredicate {
+            NSPredicate(Key.contactIdentityIdentity, EqualToData: contactIdentity)
+        }
+        static func withSenderThreadIdentifier(_ senderThreadIdentifier: UUID) -> NSPredicate {
+            NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier)
+        }
+        static var readOnce: NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.readOnce, is: true)
+        }
         static func forOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
-            NSPredicate(PersistedMessageReceived.ownedIdentityKey, EqualToData: ownedIdentity.identity)
+            PersistedMessage.Predicate.withOwnedIdentity(ownedIdentity)
         }
         static func forOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
-            NSPredicate(PersistedMessageReceived.ownedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
+            PersistedMessage.Predicate.withOwnedCryptoId(ownedCryptoId)
         }
         static var expiresForReceivedLimitedVisibility: NSPredicate {
-            NSPredicate(format: "\(PersistedMessageReceived.expirationForReceivedLimitedVisibilityKey) != NIL")
+            NSPredicate(withNonNilValueForKey: Key.expirationForReceivedLimitedVisibility)
         }
         static var expiresForReceivedLimitedExistence: NSPredicate {
-            NSPredicate(format: "\(PersistedMessageReceived.expirationForReceivedLimitedExistenceKey) != NIL")
+            NSPredicate(withNonNilValueForKey: Key.expirationForReceivedLimitedExistence)
         }
         static var hasVisibilityDuration: NSPredicate {
-            NSPredicate(format: "\(PersistedMessageReceived.rawVisibilityDurationKey) != NIL")
+            NSPredicate(withNonNilValueForKey: PersistedMessage.Predicate.Key.rawVisibilityDuration)
         }
         static var expiredBeforeNow: NSPredicate {
             NSCompoundPredicate(orPredicateWithSubpredicates: [
                 NSCompoundPredicate(andPredicateWithSubpredicates: [
                     expiresForReceivedLimitedVisibility,
-                    NSPredicate(format: "\(PersistedMessageReceived.expirationForReceivedLimitedVisibilityKey).\(PersistedMessageExpiration.expirationDateKey) < %@", Date() as NSDate),
+                    NSPredicate(Key.expirationForReceivedLimitedVisibilityExpirationDate, earlierThan: Date()),
                 ]),
                 NSCompoundPredicate(andPredicateWithSubpredicates: [
                     expiresForReceivedLimitedExistence,
-                    NSPredicate(format: "\(PersistedMessageReceived.expirationForReceivedLimitedExistenceKey).\(PersistedMessageExpiration.expirationDateKey) < %@", Date() as NSDate),
+                    NSPredicate(Key.expirationForReceivedLimitedExistenceExpirationDate, earlierThan: Date()),
                 ]),
             ])
         }
         static func createdBefore(date: Date) -> NSPredicate {
-            return NSPredicate(format: "%K < %@", timestampKey, date as NSDate)
+            NSPredicate(PersistedMessage.Predicate.Key.timestamp, earlierThan: date)
         }
         static func withLargerSortIndex(than message: PersistedMessage) -> NSPredicate {
-            NSPredicate(format: "%K > %lf", sortIndexKey, message.sortIndex)
-        }
-        static var isDisussionUnmuted: NSPredicate {
-            return NSPredicate(format: "%K == nil OR %K < %@", muteNotificationsEndDateKey, muteNotificationsEndDateKey, Date() as NSDate)
+            NSPredicate(PersistedMessage.Predicate.Key.sortIndex, LargerThanDouble: message.sortIndex)
         }
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
-            NSPredicate(format: "self == %@", objectID)
+            NSPredicate(withObjectID: objectID)
         }
         static func withMessageIdentifierFromEngine(_ messageIdentifierFromEngine: Data) -> NSPredicate {
-            NSPredicate(PersistedMessageReceived.messageIdentifierFromEngineKey, EqualToData: messageIdentifierFromEngine)
+            NSPredicate(Key.messageIdentifierFromEngine, EqualToData: messageIdentifierFromEngine)
+        }
+        static var isDisussionUnmuted: NSPredicate {
+            PersistedMessage.Predicate.isDisussionUnmuted
         }
     }
-    
     
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageReceived> {
         return NSFetchRequest<PersistedMessageReceived>(entityName: PersistedMessageReceived.entityName)
     }
 
+    
     static func get(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = Predicate.withObjectID(objectID.objectID)
@@ -629,15 +665,17 @@ extension PersistedMessageReceived {
         return try context.fetch(request).first
     }
 
+    
     static func getNextMessageBySenderSequenceNumber(_ sequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, within discussion: PersistedDiscussion) -> PersistedMessageReceived? {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@ AND %K > %d",
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        contactIdentityKey, contactIdentity,
-                                        senderThreadIdentifierKey, senderThreadIdentifier as CVarArg,
-                                        senderSequenceNumberKey, sequenceNumber)
-        request.sortDescriptors = [NSSortDescriptor(key: senderSequenceNumberKey, ascending: true)]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussion(discussion),
+            Predicate.withContactIdentity(contactIdentity),
+            Predicate.withSenderThreadIdentifier(senderThreadIdentifier),
+            PersistedMessage.Predicate.withSenderSequenceNumberLargerThan(sequenceNumber),
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.senderSequenceNumber.rawValue, ascending: true)]
         request.fetchLimit = 1
         do { return try context.fetch(request).first } catch { return nil }
     }
@@ -646,12 +684,13 @@ extension PersistedMessageReceived {
     static func getPreviousMessageBySenderSequenceNumber(_ sequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, within discussion: PersistedDiscussion) -> PersistedMessageReceived? {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@ AND %K < %d",
-                                        PersistedMessage.Predicate.Key.discussion.rawValue, discussion,
-                                        contactIdentityKey, contactIdentity,
-                                        senderThreadIdentifierKey, senderThreadIdentifier as CVarArg,
-                                        senderSequenceNumberKey, sequenceNumber)
-        request.sortDescriptors = [NSSortDescriptor(key: senderSequenceNumberKey, ascending: false)]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussion(discussion),
+            Predicate.withContactIdentity(contactIdentity),
+            Predicate.withSenderThreadIdentifier(senderThreadIdentifier),
+            PersistedMessage.Predicate.withSenderSequenceNumberLessThan(sequenceNumber),
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.senderSequenceNumber.rawValue, ascending: false)]
         request.fetchLimit = 1
         do { return try context.fetch(request).first } catch { return nil }
     }
@@ -665,7 +704,10 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { return }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.includesSubentities = true
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [Predicate.inDiscussion(discussion), Predicate.isNew])
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withinDiscussion(discussion),
+            Predicate.isNew,
+        ])
         let messages = try context.fetch(request)
         guard !messages.isEmpty else { return }
         let now = Date()
@@ -675,50 +717,33 @@ extension PersistedMessageReceived {
     }
 
 
-    static func getAllReadOnceThatAreRead(within context: NSManagedObjectContext) throws -> Set<PersistedMessageReceived> {
-        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.isRead,
-            Predicate.readOnce,
-        ])
-        let messages = try context.fetch(request)
-        return Set(messages)
-    }
-
-
     /// Return readOnce and limited visibility messages with a timestamp less or equal to the specified date.
     /// As we expect these messages to be deleted, we only fetch a limited number of properties.
     /// This method should only be used to fetch messages that will eventually be deleted.
     static func getAllReadOnceAndLimitedVisibilityReceivedMessagesToDelete(until date: Date, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
-
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        let orPredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
-            Predicate.hasVisibilityDuration,
-            Predicate.readOnce,
-        ])
-        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            orPredicate,
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                Predicate.hasVisibilityDuration,
+                Predicate.readOnce,
+            ]),
             PersistedMessage.Predicate.createdBeforeIncluded(date: date)
         ])
-        request.predicate = predicate
-        
         request.relationshipKeyPathsForPrefetching = [PersistedMessage.Predicate.Key.discussion.rawValue] // The delete() method needs the discussion to return infos
-        request.propertiesToFetch = [PersistedMessage.timestampKey] // The WipeAllEphemeralMessages operation needs the timestamp
+        request.propertiesToFetch = [PersistedMessage.Predicate.Key.timestamp.rawValue] // The WipeAllEphemeralMessages operation needs the timestamp
         request.fetchBatchSize = 100 // Keep memory footprint low
-        
-       return try context.fetch(request)
+        return try context.fetch(request)
     }
 
     
     static func getDateOfLatestReceivedMessageWithLimitedVisibilityOrReadOnce(within context: NSManagedObjectContext) throws -> Date? {
-
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
             Predicate.hasVisibilityDuration,
             Predicate.readOnce,
         ])
-        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.timestampKey, ascending: false)]
-        request.propertiesToFetch = [PersistedMessage.timestampKey]
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.timestamp.rawValue, ascending: false)]
+        request.propertiesToFetch = [PersistedMessage.Predicate.Key.timestamp.rawValue]
         request.fetchLimit = 1
         let message = try context.fetch(request).first
         return message?.timestamp
@@ -728,9 +753,10 @@ extension PersistedMessageReceived {
     static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
         guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [Predicate.isNew,
-                                                                                Predicate.isDisussionUnmuted,
-                                                                                Predicate.forOwnedIdentity(ownedIdentity)])
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.isNew,
+            Predicate.isDisussionUnmuted,
+            Predicate.forOwnedIdentity(ownedIdentity)])
         return try context.count(for: request)
     }
 
@@ -739,9 +765,8 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                                                    Predicate.isNew,
-                                                    Predicate.isDisussionUnmuted,
-                                                    Predicate.inDiscussion(discussion)])
+            Predicate.isNew,
+            Predicate.withinDiscussion(discussion)])
         return try context.count(for: request)
     }
 
@@ -749,8 +774,8 @@ extension PersistedMessageReceived {
     static func countNewForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> Int {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                                                    Predicate.isNew,
-                                                    Predicate.isDisussionUnmuted])
+            Predicate.isNew,
+            Predicate.isDisussionUnmuted])
         return try context.count(for: request)
     }
 
@@ -758,7 +783,7 @@ extension PersistedMessageReceived {
     /// This method returns "all" the received messages with the given identifier from engine. In practice, we do not expect more than on message within the array.
     static func getAll(messageIdentifierFromEngine: Data, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg)
+        request.predicate = Predicate.withMessageIdentifierFromEngine(messageIdentifierFromEngine)
         request.fetchBatchSize = 10
         return try context.fetch(request)
     }
@@ -777,21 +802,17 @@ extension PersistedMessageReceived {
     
     static func get(messageIdentifierFromEngine: Data, from contact: ObvContactIdentity, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else { return nil }
-        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg,
-                                        contactIdentityKey, persistedContact)
-        request.fetchLimit = 1
-        return try context.fetch(request).first
+        return try get(messageIdentifierFromEngine: messageIdentifierFromEngine, from: persistedContact)
     }
 
     
     static func get(messageIdentifierFromEngine: Data, from persistedContact: PersistedObvContactIdentity) throws -> PersistedMessageReceived? {
         guard let context = persistedContact.managedObjectContext else { throw Self.makeError(message: "PersistedObvContactIdentity's context is nil") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        messageIdentifierFromEngineKey, messageIdentifierFromEngine as CVarArg,
-                                        contactIdentityKey, persistedContact)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withMessageIdentifierFromEngine(messageIdentifierFromEngine),
+            Predicate.withContactIdentity(persistedContact),
+        ])
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
@@ -801,15 +822,15 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
-            NSPredicate(format: "%K == %d AND %K == %@ AND %K == %@",
-                        senderSequenceNumberKey, senderSequenceNumber,
-                        senderThreadIdentifierKey, senderThreadIdentifier as CVarArg,
-                        contactIdentityIdentityKey, contactIdentity as NSData)
+            Predicate.withinDiscussion(discussion),
+            PersistedMessage.Predicate.withSenderSequenceNumberEqualTo(senderSequenceNumber),
+            Predicate.withSenderThreadIdentifier(senderThreadIdentifier),
+            Predicate.withContactIdentityIdentity(contactIdentity),
         ])
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
+    
     
     static func getAllNew(with context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
@@ -817,24 +838,26 @@ extension PersistedMessageReceived {
         return try context.fetch(request)
     }
     
+    
     static func getAllNew(in discussion: PersistedDiscussion) throws -> [PersistedMessageReceived] {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context in discussion object") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isNew,
         ])
         return try context.fetch(request)
     }
     
+    
     static func getFirstNew(in discussion: PersistedDiscussion) throws -> PersistedMessageReceived? {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context in discussion")}
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedMessage.Predicate.Key.sortIndex.rawValue, ascending: true)]
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isNew,
         ])
-        request.sortDescriptors = [NSSortDescriptor(key: sortIndexKey, ascending: true)]
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
@@ -848,18 +871,18 @@ extension PersistedMessageReceived {
     }
 
     
-    /// This method fetches all inbound messages that are marked as readOnce and that have a status set to "read".
+    /// Fetches all inbound messages that are marked as readOnce and that have a status set to "read".
     /// This is typically used to return all the received messages to delete when exiting a discussion.
-    static func getReadOnceMarkedAsRead(restrictToDiscussionWithObjectID discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
+    static func getReadOnceMarkedAsRead(restrictToDiscussionWithPermanentID discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>?, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         var predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.readOnce,
             Predicate.isRead,
         ])
-        if let discussionObjectID = discussionObjectID {
+        if let discussionPermanentID {
             predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                 predicate,
-                Predicate.inDiscussionWithObjectID(discussionObjectID)
+                Predicate.withinDiscussion(discussionPermanentID),
             ])
         }
         request.predicate = predicate
@@ -867,7 +890,8 @@ extension PersistedMessageReceived {
         return try context.fetch(request)
     }
 
-    /// This method returns all outbound messages within the specified discussion, such that :
+    
+    /// Returns all outbound messages within the specified discussion, such that :
     /// - The message was created before the specified date
     /// - The message is not new anymore (thus, either unread or read)
     /// This method is typically used for deleting messages that are older than the specified retention policy.
@@ -875,7 +899,7 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.createdBefore(date: date),
             Predicate.isNotNewAnymore,
         ])
@@ -890,11 +914,12 @@ extension PersistedMessageReceived {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isNotNewAnymore,
         ])
         return try context.count(for: request)
     }
+    
     
     /// This method returns the number of inbound messages of the discussion that are not new (thus either unread or read) and
     /// that occur after the message passed as a parameter.
@@ -906,18 +931,18 @@ extension PersistedMessageReceived {
         }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussion(discussion),
+            Predicate.withinDiscussion(discussion),
             Predicate.isNotNewAnymore,
             Predicate.withLargerSortIndex(than: message),
         ])
         return try context.count(for: request)
     }
     
-    
-    static func getAllReceivedMessagesThatRequireUserActionForReading(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
+
+    static func getAllReceivedMessagesThatRequireUserActionForReading(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.inDiscussionWithObjectID(discussionObjectID),
+            Predicate.withinDiscussion(discussionPermanentID),
             NSCompoundPredicate(orPredicateWithSubpredicates: [
                 Predicate.isNew,
                 Predicate.isUnread,
@@ -961,21 +986,30 @@ extension PersistedMessageReceived {
 }
 
 
-// MARK: - Sending notifications on change
+// MARK: Sending notifications on change
 
 extension PersistedMessageReceived {
 
     override func prepareForDeletion() {
-        super.prepareForDeletion()
+        
+        guard let managedObjectContext else { assertionFailure(); return }
+        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
+        
         // Note that the following line may return nil if we are currently deleting a message that is part of a locked discussion.
         // In that case, we do not notify that the message is being deleted, but this is not an issue at this time
-        guard let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId else { return }
-        userInfoForDeletion = ["objectID": objectID,
-                               "messageIdentifierFromEngine": messageIdentifierFromEngine,
-                               "ownedCryptoId": ownedCryptoId,
-                               "sortIndex": sortIndex,
-                               "discussionObjectID": discussion.typedObjectID]
+        if let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId {
+            userInfoForDeletion = ["objectID": objectID,
+                                   "messageIdentifierFromEngine": messageIdentifierFromEngine,
+                                   "ownedCryptoId": ownedCryptoId,
+                                   "sortIndex": sortIndex,
+                                   "discussionObjectID": discussion.typedObjectID]
+        }
+        
+        // Note that we only call super here, after setting the userInfoForDeletion, because we don't want this call to interfere.
+        super.prepareForDeletion()
+        
     }
+    
     
     override func willSave() {
         super.willSave()
@@ -1004,7 +1038,7 @@ extension PersistedMessageReceived {
             PersistedMessageReceivedNotification.persistedMessageReceivedWasDeleted(objectID: objectID, messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, sortIndex: sortIndex, discussionObjectID: discussionObjectID)
                 .postOnDispatchQueue()
             
-        } else if (self.changedKeys.contains(PersistedMessageReceived.rawStatusKey) || isInserted) {
+        } else if (self.changedKeys.contains(PersistedMessage.Predicate.Key.rawStatus.rawValue) || isInserted) {
             if self.status == .read {
                 PersistedMessageReceivedNotification.persistedMessageReceivedWasRead(persistedMessageReceivedObjectID: self.typedObjectID)
                     .postOnDispatchQueue()
@@ -1019,7 +1053,7 @@ extension PersistedMessageReceived {
             }
         }
         
-        if self.changedKeys.contains(PersistedMessage.bodyKey) {
+        if self.changedKeys.contains(PersistedMessage.Predicate.Key.body.rawValue) {
             PersistedMessageReceivedNotification.theBodyOfPersistedMessageReceivedDidChange(persistedMessageReceivedObjectID: self.objectID)
                 .postOnDispatchQueue()
         }
@@ -1035,27 +1069,22 @@ extension TypeSafeManagedObjectID where T == PersistedMessageReceived {
 
 // MARK: - PendingRepliedTo
 
-
 /// When receiving a message that replies to another message, it might happen that this replied-to message is not available
 /// because it did not arrive yet. This entity makes it possible to save the elements (`senderIdentifier`, etc.) referencing
 /// this replied-to message for later. Each time a new message arrive, we check the `PendingRepliedTo` entities and look
 /// for all those that reference this arriving message. This allows to associate message with its replied-to message a posteriori.
-/// This search is performed in the initializer of
 @objc(PendingRepliedTo)
-fileprivate final class PendingRepliedTo: NSManagedObject {
+fileprivate final class PendingRepliedTo: NSManagedObject, ObvErrorMaker {
 
     private static let entityName = "PendingRepliedTo"
+    static let errorDomain = "PendingRepliedTo"
 
     @NSManaged private var creationDate: Date
     @NSManaged private var senderIdentifier: Data
     @NSManaged private var senderSequenceNumber: Int
     @NSManaged private var senderThreadIdentifier: UUID
-    
-    
+        
     @NSManaged private(set) var message: PersistedMessageReceived?
-
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { PendingRepliedTo.makeError(message: message) }
 
     convenience init?(replyToJSON: MessageReferenceJSON, within context: NSManagedObjectContext) {
         
@@ -1071,7 +1100,7 @@ fileprivate final class PendingRepliedTo: NSManagedObject {
 
     
     fileprivate func delete() throws {
-        guard let context = self.managedObjectContext else { throw makeError(message: "Could not find context") }
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         context.delete(self)
     }
     

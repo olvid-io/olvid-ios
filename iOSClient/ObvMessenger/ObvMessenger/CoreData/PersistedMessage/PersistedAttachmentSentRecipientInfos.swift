@@ -58,6 +58,7 @@ final class PersistedAttachmentSentRecipientInfos: NSManagedObject, Identifiable
         }
         set {
             guard self.status < newValue else { return }
+            guard self.rawStatus != newValue.rawValue else { return }
             self.rawStatus = newValue.rawValue
         }
     }

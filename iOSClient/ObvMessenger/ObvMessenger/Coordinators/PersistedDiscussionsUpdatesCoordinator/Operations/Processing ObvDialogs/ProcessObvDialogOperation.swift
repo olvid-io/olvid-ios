@@ -122,7 +122,7 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
             do {
                 switch obvDialog.category {
                 case .oneToOneInvitationSent:
-                    if try PersistedInvitationOneToOneInvitationSent.get(uuid: obvDialog.uuid, within: obvContext.context) == nil {
+                    if try PersistedInvitationOneToOneInvitationSent.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: obvContext.context) == nil {
                         _ = try PersistedInvitationOneToOneInvitationSent(obvDialog: obvDialog, within: obvContext.context)
                     }
                 default:

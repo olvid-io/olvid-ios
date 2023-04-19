@@ -23,6 +23,7 @@ import Foundation
 struct ObvMessengerSettings {
     
     static private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)!
+    static private let kSettingsKeyPath = "settings"
     
     struct Downloads {
         
@@ -78,20 +79,28 @@ struct ObvMessengerSettings {
     
     struct Interface {
         
-        private struct Keys {
-            static let identityColorStyle = "settings.interface.identityColorStyle"
-            static let contactsSortOrder = "settings.interface.contactsSortOrder"
-            static let useOldDiscussionInterface = "settings.interface.useOldDiscussionInterface"
-            static let preferredComposeMessageViewActions = "settings.interface.preferredComposeMessageViewActions"
+        enum Key: String {
+            case identityColorStyle = "identityColorStyle"
+            case contactsSortOrder = "contactsSortOrder"
+            case useOldDiscussionInterface = "useOldDiscussionInterface"
+            case useOldListOfDiscussionsInterface = "useOldListOfDiscussionsInterface"
+            case preferredComposeMessageViewActions = "preferredComposeMessageViewActions"
+            
+            private var kInterface: String { "interface" }
+            
+            var path: String {
+                [kSettingsKeyPath, kInterface, self.rawValue].joined(separator: ".")
+            }
+            
         }
         
         static var identityColorStyle: AppTheme.IdentityColorStyle {
             get {
-                let raw = userDefaults.integerOrNil(forKey: Keys.identityColorStyle) ?? 0
+                let raw = userDefaults.integerOrNil(forKey: Key.identityColorStyle.path) ?? 0
                 return AppTheme.IdentityColorStyle(rawValue: raw) ?? AppTheme.IdentityColorStyle.hue
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Keys.identityColorStyle)
+                userDefaults.set(newValue.rawValue, forKey: Key.identityColorStyle.path)
                 ObvMessengerSettingsNotifications.identityColorStyleDidChange.postOnDispatchQueue()
             }
         }
@@ -99,11 +108,11 @@ struct ObvMessengerSettings {
         
         static var contactsSortOrder: ContactsSortOrder {
             get {
-                let raw = userDefaults.integerOrNil(forKey: Keys.contactsSortOrder) ?? ContactsSortOrder.byFirstName.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Key.contactsSortOrder.path) ?? ContactsSortOrder.byFirstName.rawValue
                 return ContactsSortOrder(rawValue: raw) ?? ContactsSortOrder.byFirstName
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Keys.contactsSortOrder)
+                userDefaults.set(newValue.rawValue, forKey: Key.contactsSortOrder.path)
                 ObvMessengerSettingsNotifications.contactsSortOrderDidChange.postOnDispatchQueue()
             }
         }
@@ -111,16 +120,27 @@ struct ObvMessengerSettings {
         
         static var useOldDiscussionInterface: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: Keys.useOldDiscussionInterface) ?? false
+                return userDefaults.boolOrNil(forKey: Key.useOldDiscussionInterface.path) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.useOldDiscussionInterface)
+                userDefaults.set(newValue, forKey: Key.useOldDiscussionInterface.path)
+            }
+        }
+        
+        static var useOldListOfDiscussionsInterface: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.useOldListOfDiscussionsInterface.path) ?? false
+            }
+            set {
+                guard newValue != useOldListOfDiscussionsInterface else { return }
+                userDefaults.set(newValue, forKey: Key.useOldListOfDiscussionsInterface.path)
+                ObvMessengerSettingsObservableObject.shared.useOldListOfDiscussionsInterface = useOldListOfDiscussionsInterface
             }
         }
         
         static var preferredComposeMessageViewActions: [NewComposeMessageViewAction] {
             get {
-                guard let rawValues = userDefaults.array(forKey: Keys.preferredComposeMessageViewActions) as? [Int] else { return NewComposeMessageViewAction.defaultActions }
+                guard let rawValues = userDefaults.array(forKey: Key.preferredComposeMessageViewActions.path) as? [Int] else { return NewComposeMessageViewAction.defaultActions }
                 var actions = rawValues.compactMap({ NewComposeMessageViewAction(rawValue: $0) })
                 // Add missing actions (we expect to add all the actions that cannot be reordered)
                 let missingActions = NewComposeMessageViewAction.defaultActions.filter({ !actions.contains($0) })
@@ -129,7 +149,7 @@ struct ObvMessengerSettings {
             }
             set {
                 let newRawValues = newValue.filter({ $0.canBeReordered }).map({ $0.rawValue })
-                userDefaults.set(newRawValues, forKey: Keys.preferredComposeMessageViewActions)
+                userDefaults.set(newRawValues, forKey: Key.preferredComposeMessageViewActions.path)
                 ObvMessengerSettingsNotifications.preferredComposeMessageViewActionsDidChange.postOnDispatchQueue()
             }
         }
@@ -610,6 +630,7 @@ struct ObvMessengerSettings {
         
     }
     
+    
     // MARK: - Access to advanced settings / beta config (for non TestFlight users)
     
     struct BetaConfiguration {
@@ -748,9 +769,11 @@ final class ObvMessengerSettingsObservableObject: ObservableObject {
     static let shared = ObvMessengerSettingsObservableObject()
 
     @Published fileprivate(set) var defaultEmojiButton: String?
+    @Published fileprivate(set) var useOldListOfDiscussionsInterface: Bool
     
     private init() {
         defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
+        useOldListOfDiscussionsInterface = ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface
     }
     
 }

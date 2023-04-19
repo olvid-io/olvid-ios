@@ -17,8 +17,11 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import SwiftUI
 import UIKit
 
+
+// MARK: - CircledInitialsIcon
 enum CircledInitialsIcon: Hashable {
     case lockFill
     case person
@@ -35,7 +38,16 @@ enum CircledInitialsIcon: Hashable {
     }
 }
 
+
+// MARK: - CircledInitialsConfiguration
 enum CircledInitialsConfiguration: Hashable {
+    enum ContentType {
+        case none
+        case icon(ObvSystemIcon, UIColor)
+        case initial(String, UIColor)
+        case picture(UIImage)
+    }
+    
     case contact(initial: String, photoURL: URL?, showGreenShield: Bool, showRedShield: Bool, colors: (background: UIColor, text: UIColor))
     case group(photoURL: URL?, colors: (background: UIColor, text: UIColor))
     case icon(_ icon: CircledInitialsIcon)
@@ -101,8 +113,50 @@ enum CircledInitialsConfiguration: Hashable {
         guard let url = url else { return nil }
         return UIImage(contentsOfFile: url.path)
     }
+    
+    fileprivate var contentType: ContentType {
+        if let image = self.photo {
+            return .picture(image)
+        } else if let initials = self.initials {
+            return .initial(initials.text, initials.color)
+        } else if let iconInfo = self.iconInfo {
+            return .icon(iconInfo.icon, iconInfo.tintColor)
+        } else {
+            return .none
+        }
+    }
+    
+    var showGreenShield: Bool {
+        switch self {
+        case .contact(initial: _, photoURL: _, showGreenShield: let showGreenShield, showRedShield: _, colors: _): return showGreenShield
+        default: return false
+        }
+    }
+    
+    var showRedShield: Bool {
+        switch self {
+        case .contact(initial: _, photoURL: _, showGreenShield: _, showRedShield: let showRedShield, colors: _): return showRedShield
+        default: return false
+        }
+    }
+    
+    fileprivate var initials: (text: String, color: UIColor)? {
+        switch self {
+        case .contact(initial: let initial, photoURL: _, showGreenShield: _, showRedShield: _, colors: let colors):
+            guard let str = initial.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
+            return (String(str), colors.text)
+        default: return nil
+        }
+    }
+    
+    fileprivate var iconInfo: (icon: ObvSystemIcon, tintColor: UIColor)? {
+        guard let icon else { return nil }
+        return (icon, foregroundColor(appTheme: AppTheme.shared))
+    }
 }
 
+
+// MARK: - NewCircledInitialsView
 /// Square view, with a rounded clip view allowing to display either an icon, an initial (letter), or a photo.
 final class NewCircledInitialsView: UIView {
     
@@ -166,9 +220,9 @@ final class NewCircledInitialsView: UIView {
     }
 
     
-    private func setupInitialView(string: String?, textColor: UIColor) {
+    private func setupInitialView(string: String, textColor: UIColor) {
         initialView.isHidden = true
-        guard let initial = string?.trimmingCharacters(in: .whitespacesAndNewlines).first else { return }
+        guard let initial = string.trimmingCharacters(in: .whitespacesAndNewlines).first else { return }
         initialView.text = String(initial)
         initialView.isHidden = false
         initialView.textColor = textColor
@@ -308,7 +362,6 @@ final class NewCircledInitialsView: UIView {
 
         ]
         NSLayoutConstraint.activate(constraints)
-        
     }
     
     
@@ -321,5 +374,56 @@ final class NewCircledInitialsView: UIView {
         let minSize = min(bounds.width, bounds.height)
         roundedClipView.layer.cornerRadius = minSize/2
         initialView.font = UIFont.rounded(ofSize: minSize/2, weight: .black) // Heuristic
+    }
+}
+
+
+// MARK: - SwiftUINewCircledInitialsView
+@available(iOS 16.0, *)
+struct SwiftUINewCircledInitialsView: View {
+
+    let configuration: CircledInitialsConfiguration
+
+    var body: some View {
+        RoundedClipView(configuration: configuration)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(uiColor: configuration.backgroundColor(appTheme: AppTheme.shared)))
+            .clipShape(Circle())
+    }
+}
+
+
+// MARK: - RoundedClipView
+@available(iOS 16.0, *)
+fileprivate struct RoundedClipView: View {
+
+    let configuration: CircledInitialsConfiguration
+
+    var body: some View {
+        switch configuration.contentType {
+        case .icon(let icon, let color): return AnyView(createIconView(using: icon, color: color))
+        case .initial(let text, let color): return AnyView(createInitialView(using: text, color: color))
+        case .picture(let image): return AnyView(createPictureView(using: image))
+        case .none: return AnyView(Text(""))
+        }
+    }
+    
+    private func createIconView(using icon: ObvSystemIcon, color: UIColor) -> some View {
+        return Image(systemIcon: icon)
+            .font(.system(size: 16, weight: .black))
+            .foregroundColor(Color(uiColor: color))
+    }
+    
+    private func createInitialView(using initials: String, color: UIColor) -> some View {
+        return Text(initials)
+            .font(.system(size: 30, weight: .black, design: .rounded))
+            .foregroundColor(Color(uiColor: color))
+            .multilineTextAlignment(.center)
+    }
+    
+    private func createPictureView(using uiImage: UIImage) -> some View {
+        return Image(uiImage: uiImage)
+            .resizable()
+            .scaledToFit()
     }
 }

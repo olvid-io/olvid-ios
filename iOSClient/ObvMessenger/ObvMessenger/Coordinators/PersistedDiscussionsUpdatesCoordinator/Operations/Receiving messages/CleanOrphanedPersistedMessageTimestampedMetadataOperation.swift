@@ -38,19 +38,10 @@ final class CleanOrphanedPersistedMessageTimestampedMetadataOperation: Contextua
         obvContext.performAndWait {
             
             do {
-                let orphanedObjects = try PersistedMessageTimestampedMetadata.getOrphanedPersistedMessageTimestampedMetadata(within: obvContext)
-                os_log("We found %d orphaned PersistedMessageTimestampedMetadata", log: log, type: .info, orphanedObjects.count)
-                for object in orphanedObjects {
-                    do {
-                        try object.delete()
-                    } catch {
-                        os_log("An orphaned PersistedMessageTimestampedMetadata could not be deleted", log: log, type: .fault)
-                    }
-                }
+                try PersistedMessageTimestampedMetadata.deleteOrphanedPersistedMessageTimestampedMetadata(within: obvContext)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
-            
             
         }
         

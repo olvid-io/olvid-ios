@@ -87,7 +87,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft {
         
         self.delegate?.showHUD(type: .spinner)
         
-        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftObjectID: draft.typedObjectID, fileURLs: [tempURL], log: log)
+        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftPermanentID: draft.objectPermanentID, fileURLs: [tempURL], log: log)
         op.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 self?.delegate?.hideHUD()
@@ -106,7 +106,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: ComposeMessageViewDo
         assert(Thread.isMainThread)
         guard !itemProviders.isEmpty else { return }
         self.delegate?.showHUD(type: .spinner)
-        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftObjectID: draft.typedObjectID, itemProviders: itemProviders, log: log)
+        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftPermanentID: draft.objectPermanentID, itemProviders: itemProviders, log: log)
         op.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 self?.delegate?.hideHUD()
@@ -125,7 +125,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: ComposeMessageViewDo
     private func addAttachment(atURL url: URL) {
         assert(Thread.isMainThread)
         self.delegate?.showHUD(type: .spinner)
-        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftObjectID: draft.typedObjectID, fileURLs: [url], log: log)
+        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftPermanentID: draft.objectPermanentID, fileURLs: [url], log: log)
         op.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 self?.delegate?.hideHUD()
@@ -265,7 +265,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: UIDocumentPickerDele
         
         self.delegate?.showHUD(type: .spinner)
         
-        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftObjectID: draft.typedObjectID, fileURLs: urls, log: log)
+        let op = LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation(draftPermanentID: draft.objectPermanentID, fileURLs: urls, log: log)
         op.completionBlock = { [weak self] in
             DispatchQueue.main.async {
                 self?.delegate?.hideHUD()

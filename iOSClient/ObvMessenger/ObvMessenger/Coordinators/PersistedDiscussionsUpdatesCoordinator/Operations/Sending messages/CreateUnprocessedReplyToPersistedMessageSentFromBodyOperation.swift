@@ -29,14 +29,14 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.self))
 
     let textBody: String
-    let persistedContactObjectID: NSManagedObjectID
+    let contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
     let messageIdentifierFromEngine: Data
 
-    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
 
-    init(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, textBody: String) {
+    init(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data, textBody: String) {
         self.textBody = textBody
-        self.persistedContactObjectID = persistedContactObjectID
+        self.contactPermanentID = contactPermanentID
         self.messageIdentifierFromEngine = messageIdentifierFromEngine
         super.init()
     }
@@ -49,7 +49,7 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
 
         obvContext.performAndWait {
             do {
-                guard let contactIdentity = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: obvContext.context) else {
+                guard let contactIdentity = try PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: obvContext.context) else {
                     assertionFailure()
                     return cancel(withReason: .couldNotFindContactIdentityInDatabase)
                 }
@@ -75,7 +75,7 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
                     return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
                 }
 
-                self.persistedMessageSentObjectID = persistedMessageSent.typedObjectID
+                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
 
             } catch {
                 assertionFailure()

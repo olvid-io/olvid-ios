@@ -43,7 +43,7 @@ struct ConfirmAddingKeycloakContactView: View {
                         }
                         if contact.isOneToOne {
                             HStack {
-                                Text("\(contact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
+                                Text("\(contact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? contact.fullDisplayName) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
                                     .allowsTightening(true)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .lineLimit(nil)

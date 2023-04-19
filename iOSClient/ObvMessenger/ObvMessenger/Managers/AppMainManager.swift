@@ -34,7 +34,7 @@ final actor AppMainManager: ObvErrorMaker {
 
     private let runningLog = RunningLogError()
     
-    private var fileSystemService: FileSystemService?
+    private let fileSystemService = FileSystemService()
     private var appManagersHolder: AppManagersHolder?
     private var appCoordinatorsHolder: AppCoordinatorsHolder?
 
@@ -162,7 +162,6 @@ final actor AppMainManager: ObvErrorMaker {
         
         // Initialize the File System service since it is required before trying to load the persistent container
         runningLog.addEvent(message: "Initializing the filesystem service")
-        let fileSystemService = FileSystemService()
         fileSystemService.createAllDirectoriesIfRequired()
 
     }
@@ -266,6 +265,8 @@ final actor AppMainManager: ObvErrorMaker {
         
         // Finishing touches for certain migrations
         migrationToV0_9_4(obvEngine: obvEngine)
+        await migrationToPerformAfterBuild586()
+        await migrationToPerformAfterBuild600()
 
         // Performing post initialization tasks for all managers
         assert(appManagersHolder != nil)
@@ -440,6 +441,29 @@ extension AppMainManager {
         
     }
 
+    
+    /// When migrating to a build larger than 586, we delete all SendMessageIntents as they were using non-persistent (NSManagedObjectID, that can change when a heavyweight migration is performed). Since build 587, they use permanentIDs.
+    /// We do it only once. To make sure of this we set a Boolean value in the preferences.
+    private func migrationToPerformAfterBuild586() async {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { assertionFailure(); return }
+        let key = "io.olvid.allIntentsOfBuild586WereDeleted"
+        if userDefaults.value(forKey: key) == nil {
+            do {
+                try await INInteraction.deleteAll()
+            } catch {
+                assertionFailure()
+                return
+            }
+            userDefaults.setValue(true, forKey: key)
+        }
+    }
+    
+    
+    private func migrationToPerformAfterBuild600() async {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "settings.featureflags.toggleNewDiscussionTab")
+    }
+    
     
     private func migrationToV0_9_17() {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }

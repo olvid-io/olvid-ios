@@ -24,7 +24,8 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 
-class DiscussionsTableViewController: UITableViewController {
+/// This view controller is replaced by DiscussionsViewController under iOS 16
+final class DiscussionsTableViewController: UITableViewController {
     
     enum CellSelectionStyle {
         case none
@@ -75,12 +76,6 @@ class DiscussionsTableViewController: UITableViewController {
 
     var cellSelectionStyle: CellSelectionStyle = .automatic
     
-    // Other variables
-    
-    private var itemChanges = [(type: NSFetchedResultsChangeType, indexPath: IndexPath?, newIndexPath: IndexPath?)]()
-    private var kvObservations = [NSKeyValueObservation]()
-    private var tableViewHeightAnchorConstraint: NSLayoutConstraint?
-
     // Mapping TV sections <-> frc sections
     
     private func frcSectionFromTvSection(_ tvSection: Int) -> Int {
@@ -220,14 +215,6 @@ extension DiscussionsTableViewController {
         delegate?.userAskedToRefreshDiscussions(completionHandler: completionHander)
     }
  
-    
-    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        guard let splitViewController = splitViewController else { return }
-        if splitViewController.isCollapsed {
-            
-        }
-    }
-    
 }
 
 
@@ -507,22 +494,11 @@ extension DiscussionsTableViewController: ObvSegmentedControlTableViewCellDelega
     
 }
 
-// MARK: - Other methods
 
-extension DiscussionsTableViewController {
-
-    func constraintHeightToContentHeight(blockOnNewHeight: @escaping (CGFloat) -> Void) {
-        self.tableView.isScrollEnabled = false
-        self.view.layoutIfNeeded()
-        let kvObservation = self.tableView.observe(\.contentSize) { [weak self] (object, change) in
-            guard let _self = self else { return }
-            _self.tableViewHeightAnchorConstraint?.isActive = false
-            _self.tableViewHeightAnchorConstraint = _self.view.heightAnchor.constraint(equalToConstant: _self.tableView.contentSize.height)
-            _self.tableViewHeightAnchorConstraint?.isActive = true
-            blockOnNewHeight(_self.tableView.contentSize.height)
-            _self.view.layoutIfNeeded()
-        }
-        kvObservations.append(kvObservation)
+// MARK: - CanScrollToTop
+extension DiscussionsTableViewController: CanScrollToTop {
+    func scrollToTop() {
+        guard tableView.numberOfRows(inSection: tableView.numberOfSections-1) > 0 else { return }
+        tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: true)
     }
-
 }

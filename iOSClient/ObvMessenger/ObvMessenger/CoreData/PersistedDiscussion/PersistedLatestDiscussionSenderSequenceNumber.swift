@@ -19,22 +19,20 @@
 
 import Foundation
 import CoreData
+import OlvidUtils
 
 @objc(PersistedLatestDiscussionSenderSequenceNumber)
-final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
+final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject, ObvErrorMaker {
 
     private static let entityName = "PersistedLatestDiscussionSenderSequenceNumber"
+    static let errorDomain = "PersistedLatestDiscussionSenderSequenceNumber"
 
-    private static let errorDomain = "PersistedLatestDiscussionSenderSequenceNumber"
+    // MARK: Attributes
 
-    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
-    // MARK: - Attributes
-
-    @NSManaged private(set) var senderThreadIdentifier: UUID
     @NSManaged private(set) var latestSequenceNumber: Int
+    @NSManaged private(set) var senderThreadIdentifier: UUID
 
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged private(set) var contactIdentity: PersistedObvContactIdentity?
     @NSManaged private(set) var discussion: PersistedDiscussion?
@@ -58,6 +56,8 @@ final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
         self.contactIdentity = contactIdentity
     }
     
+    // MARK: - Other methods
+    
     private func delete() throws {
         guard let context = self.managedObjectContext else { throw Self.makeError(message: "Cannot find context") }
         context.delete(self)
@@ -66,21 +66,21 @@ final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
     func updateLatestSequenceNumber(with latestSequenceNumber: Int) {
         self.latestSequenceNumber = latestSequenceNumber
     }
-
-    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedLatestDiscussionSenderSequenceNumber> {
-        return NSFetchRequest<PersistedLatestDiscussionSenderSequenceNumber>(entityName: PersistedLatestDiscussionSenderSequenceNumber.entityName)
-    }
-
+    
+    // MARK: - DB getters
+    
     private struct Predicate {
         enum Key: String {
-            case contactIdentity = "contactIdentity"
+            // Attributes
             case senderThreadIdentifier = "senderThreadIdentifier"
+            // Relationships
+            case contactIdentity = "contactIdentity"
             case discussion = "discussion"
         }
         static func withPrimaryKey(discussion: PersistedDiscussion, contactIdentity: PersistedObvContactIdentity, senderThreadIdentifier: UUID) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withDiscussion(discussion),
-                NSPredicate(format: "%K == %@", Key.contactIdentity.rawValue, contactIdentity),
+                NSPredicate(Key.contactIdentity, equalTo: contactIdentity),
                 NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
             ])
         }
@@ -89,11 +89,16 @@ final class PersistedLatestDiscussionSenderSequenceNumber: NSManagedObject {
         }
     }
 
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedLatestDiscussionSenderSequenceNumber> {
+        return NSFetchRequest<PersistedLatestDiscussionSenderSequenceNumber>(entityName: PersistedLatestDiscussionSenderSequenceNumber.entityName)
+    }
+
+    
     static func get(discussion: PersistedDiscussion, contactIdentity: PersistedObvContactIdentity, senderThreadIdentifier: UUID) throws -> PersistedLatestDiscussionSenderSequenceNumber? {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Context is nil") }
         guard discussion.managedObjectContext == contactIdentity.managedObjectContext else { throw makeError(message: "Discussion context is distinct from contact context") }
         let request: NSFetchRequest<PersistedLatestDiscussionSenderSequenceNumber> = PersistedLatestDiscussionSenderSequenceNumber.fetchRequest()
-
         request.predicate = Predicate.withPrimaryKey(discussion: discussion, contactIdentity: contactIdentity, senderThreadIdentifier: senderThreadIdentifier)
         request.fetchLimit = 1
         return try context.fetch(request).first

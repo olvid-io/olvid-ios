@@ -827,7 +827,7 @@ extension MainFlowViewController {
             ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIds: contactIds, groupId: groupId)
                 .postOnDispatchQueue()
         } else {
-            let vc = UserTriesToAccessPaidFeatureHostingController(requestedPermission: .canCall, ownedIdentityURI: ownedIdentity.objectID.uriRepresentation())
+            let vc = UserTriesToAccessPaidFeatureHostingController(requestedPermission: .canCall, ownedIdentityPermanentID: ownedIdentity.objectPermanentID)
             dismiss(animated: true) { [weak self] in
                 self?.present(vc, animated: true)
             }
@@ -939,14 +939,13 @@ extension MainFlowViewController {
     @MainActor
     func performCurrentDeepLinkInitialNavigation(deepLink: ObvDeepLink) {
         assert(Thread.isMainThread)
-        os_log("🥏 Performing deep link initial navigation to %{public}@", log: log, type: .info, deepLink.url.debugDescription)
+        os_log("🥏 Performing deep link initial navigation to %{public}@", log: log, type: .info, deepLink.description)
         
         switch deepLink {
             
-        case .myId(ownedIdentityURI: let ownedIdentityURI):
+        case .myId(objectPermanentID: let ownedIdentityPermanentID):
             os_log("🥏 The current deep link is a myId", log: log, type: .info)
-            guard let ownedIdentityObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: ownedIdentityURI) else { assertionFailure(); return }
-            guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(objectID: ownedIdentityObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+            guard let ownedIdentity = try? PersistedObvOwnedIdentity.getManagedObject(withPermanentID: ownedIdentityPermanentID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             presentedViewController?.dismiss(animated: true)
             let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine)
             vc.delegate = self
@@ -966,23 +965,21 @@ extension MainFlowViewController {
             presentedViewController?.dismiss(animated: true)
             checkAuthorizationStatusThenSetupAndPresentQRCodeScanner()
 
-        case .singleDiscussion(discussionObjectURI: let discussionObjectURI):
+        case .singleDiscussion(objectPermanentID: let discussionPermanentID):
             mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
             presentedViewController?.dismiss(animated: true)
-            guard let discussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: discussionObjectURI) else { return }
-            guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
+            guard let discussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext) else { return }
             discussionsFlowViewController.userWantsToDisplay(persistedDiscussion: discussion)
 
         case .invitations:
             mainTabBarController.selectedIndex = ChildTypes.invitations
             presentedViewController?.dismiss(animated: true)
             
-        case .contactGroupDetails(displayedContactGroupURI: let displayedContactGroupURI):
+        case .contactGroupDetails(objectPermanentID: let displayedContactGroupPermanentID):
             _ = groupsFlowViewController.popToRootViewController(animated: false)
             mainTabBarController.selectedIndex = ChildTypes.groups
             presentedViewController?.dismiss(animated: true)
-            guard let displayedContactGroupObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: displayedContactGroupURI) else { return }
-            guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: displayedContactGroupObjectID, within: ObvStack.shared.viewContext) else { return }
+            guard let displayedContactGroup = try? DisplayedContactGroup.getManagedObject(withPermanentID: displayedContactGroupPermanentID, within: ObvStack.shared.viewContext) else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let _self = self else { return }
                 if let allGroupsViewController = _self.groupsFlowViewController.topViewController as? NewAllGroupsViewController {
@@ -994,12 +991,11 @@ extension MainFlowViewController {
                 }
             }
             
-        case .contactIdentityDetails(contactIdentityURI: let contactIdentityURI):
+        case .contactIdentityDetails(objectPermanentID: let contactPermanentID):
             _ = contactsFlowViewController.popToRootViewController(animated: false)
             mainTabBarController.selectedIndex = ChildTypes.contacts
             presentedViewController?.dismiss(animated: true)
-            guard let contactIdentityObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: contactIdentityURI) else { return }
-            guard let contactIdentity = try? PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: ObvStack.shared.viewContext) else { return }
+            guard let contactIdentity = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: ObvStack.shared.viewContext) else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let _self = self else { return }
                 if let allContactsViewController = _self.contactsFlowViewController.topViewController as? AllContactsViewController {
@@ -1070,11 +1066,10 @@ extension MainFlowViewController {
                 presentBackupSettingsFlowViewController()
             }
 
-        case .message(messageObjectURI: let messageObjectURI):
+        case .message(objectPermanentID: let objectPermanentID):
             mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
             presentedViewController?.dismiss(animated: true)
-            guard let messageObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: messageObjectURI) else { return }
-            guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { return }
+            guard let message = try? PersistedMessage.getManagedObject(withPermanentID: objectPermanentID, within: ObvStack.shared.viewContext) else { return }
             discussionsFlowViewController.userWantsToDisplay(persistedMessage: message)
         }
         

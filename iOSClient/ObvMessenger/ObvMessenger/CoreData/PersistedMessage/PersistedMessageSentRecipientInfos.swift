@@ -23,17 +23,16 @@ import ObvEngine
 import ObvCrypto
 import os.log
 import ObvTypes
+import OlvidUtils
 
 @objc(PersistedMessageSentRecipientInfos)
-final class PersistedMessageSentRecipientInfos: NSManagedObject {
+final class PersistedMessageSentRecipientInfos: NSManagedObject, ObvErrorMaker {
     
     private static let entityName = "PersistedMessageSentRecipientInfos"
+    static let errorDomain = "PersistedMessageSentRecipientInfos"
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedMessageSentRecipientInfos")
     
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { Self.makeError(message: message) }
-
-    // MARK: - Attributes
+    // MARK: Attributes
 
     @NSManaged private(set) var couldNotBeSentToServer: Bool // Set to true if the engine could not send message during 30 days
     @NSManaged private(set) var messageIdentifierFromEngine: Data?
@@ -48,12 +47,12 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
     @NSManaged private(set) var timestampMessageSent: Date?
     /// At creation, this contains a list of all the attachment numbers that remain to be sent. When the server confirms the reception of an attachment, we remove its number from this list. When this list is empty, we set the `timestampAllAttachmentsSent` to the device current date.
 
-    // MARK: - Relationships
+    // MARK: Relationships
     
     @NSManaged private(set) var messageSent: PersistedMessageSent
     @NSManaged private(set) var attachmentInfos: Set<PersistedAttachmentSentRecipientInfos>
 
-    // MARK: - Computed variables
+    // MARK: Computed variables
     
     var recipientCryptoId: ObvCryptoId {
         return try! ObvCryptoId(identity: recipientIdentity)
@@ -203,18 +202,22 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
     
     struct Predicate {
         enum Key: String {
+            // Attributes
             case messageIdentifierFromEngine = "messageIdentifierFromEngine"
             case recipientIdentity = "recipientIdentity"
             case returnReceiptNonce = "returnReceiptNonce"
             case timestampDelivered = "timestampDelivered"
+            // Relationships
             case messageSent = "messageSent"
-            static var ownedIdentity: String = [
-                Key.messageSent.rawValue,
+            // Others
+            static let ownedIdentityIdentity = [
+                messageSent.rawValue,
                 PersistedMessage.Predicate.Key.discussion.rawValue,
                 PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue,
-                PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
-            static var discussion: String = [
-                Key.messageSent.rawValue,
+                PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue,
+            ].joined(separator: ".")
+            static let discussion = [
+                messageSent.rawValue,
                 PersistedMessage.Predicate.Key.discussion.rawValue,
             ].joined(separator: ".")
         }
@@ -222,7 +225,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
             NSPredicate(Key.messageIdentifierFromEngine, EqualToData: messageIdentifierFromEngine)
         }
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
-            NSPredicate(Key.ownedIdentity, EqualToData: ownedCryptoId.getIdentity())
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
         static func withRecipientIdentity(_ recipientIdentity: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.recipientIdentity, EqualToData: recipientIdentity.getIdentity())
@@ -234,9 +237,10 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
             NSPredicate(withNilValueForKey: Key.messageIdentifierFromEngine)
         }
         static func withinDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.discussion, discussion)
+            NSPredicate(Key.discussion, equalTo: discussion)
         }
     }
+    
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessageSentRecipientInfos> {
         return NSFetchRequest<PersistedMessageSentRecipientInfos>(entityName: PersistedMessageSentRecipientInfos.entityName)
@@ -260,7 +264,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
     }
 
 
-    /// This methods returns all the `PersistedMessageSentRecipientInfos` that are still unprocessed, i.e., that have no message identifier from the engine.
+    /// Returns all the `PersistedMessageSentRecipientInfos` that are still unprocessed, i.e., that have no message identifier from the engine.
     static func getAllUnprocessed(within context: NSManagedObjectContext) throws -> [PersistedMessageSentRecipientInfos] {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
         request.predicate = Predicate.withNoMessageIdentifierFromEngine
@@ -307,7 +311,7 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject {
     }
 
     
-    /// This methods returns all the `PersistedMessageSentRecipientInfos` with the appropriate `nonce` and recipient
+    /// Returns all the `PersistedMessageSentRecipientInfos` with the appropriate `nonce` and recipient
     static func get(withNonce nonce: Data, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<PersistedMessageSentRecipientInfos> {
         let request: NSFetchRequest<PersistedMessageSentRecipientInfos> = PersistedMessageSentRecipientInfos.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [

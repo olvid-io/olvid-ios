@@ -122,8 +122,10 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV2(queue: OperationQueue.main) { [weak self] (groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL) in
                 self?.processUserWantsToCreateNewGroupV2(groupCoreDetails: groupCoreDetails, ownPermissions: ownPermissions, otherGroupMembers: otherGroupMembers, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
             },
-            ObvMessengerGroupV2Notifications.observeDisplayedContactGroupWasJustCreated(queue: OperationQueue.main) { [weak self] objectID in
-                self?.processDisplayedContactGroupWasJustCreated(objectID: objectID)
+            ObvMessengerGroupV2Notifications.observeDisplayedContactGroupWasJustCreated { permanentID in
+                OperationQueue.main.addOperation { [weak self] in
+                    self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID)
+                }
             },
         ])
         
@@ -915,15 +917,15 @@ extension MetaFlowController {
     }
 
     
-    private func processDisplayedContactGroupWasJustCreated(objectID: TypeSafeManagedObjectID<DisplayedContactGroup>) {
+    private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         guard automaticallyNavigateToCreatedDisplayedContactGroup else { return }
-        guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext) else { return }
+        guard let displayedContactGroup = try? DisplayedContactGroup.getManagedObject(withPermanentID: permanentID, within: ObvStack.shared.viewContext) else { return }
         // We only automatically navigate to groups we juste created, where we are admin
         guard displayedContactGroup.ownPermissionAdmin else { return }
         // Navigate to the group
         automaticallyNavigateToCreatedDisplayedContactGroup = false
-        let deepLink = ObvDeepLink.contactGroupDetails(displayedContactGroupURI: objectID.uriRepresentation().url)
+        let deepLink = ObvDeepLink.contactGroupDetails(objectPermanentID: permanentID)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
             .postOnDispatchQueue()
     }

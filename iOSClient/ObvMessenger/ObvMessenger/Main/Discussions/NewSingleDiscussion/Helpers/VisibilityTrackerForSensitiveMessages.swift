@@ -25,47 +25,46 @@ import UIKit
 /// This is required to implement the screen capture detection of those sensitive messages.
 @MainActor final class VisibilityTrackerForSensitiveMessages {
 
-    private let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
-    private var objectIDsOfVisibleMessagesWithLimitedVisibility = Set<TypeSafeManagedObjectID<PersistedMessage>>()
+    private let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
+    private var permanentIDsOfVisibleMessagesWithLimitedVisibility = Set<ObvManagedObjectPermanentID<PersistedMessage>>()
 
-    init(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        self.discussionObjectID = discussionObjectID
+    init(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+        self.discussionPermanentID = discussionPermanentID
     }
 
 
     func refreshObjectIDsOfVisibleMessagesWithLimitedVisibility(in collectionView: UICollectionView) {
-        let newSet = getObjectIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
-        guard newSet != objectIDsOfVisibleMessagesWithLimitedVisibility else { return }
-        objectIDsOfVisibleMessagesWithLimitedVisibility = newSet
-        debugPrint("🧯", newSet)
-        NewSingleDiscussionNotification.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionObjectID: discussionObjectID, messageObjectIDs: newSet)
+        let newSet = getPermanentIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
+        guard newSet != permanentIDsOfVisibleMessagesWithLimitedVisibility else { return }
+        permanentIDsOfVisibleMessagesWithLimitedVisibility = newSet
+        NewSingleDiscussionNotification.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionPermanentID: discussionPermanentID, messagePermanentIDs: newSet)
             .postOnDispatchQueue()
     }
 
 
-    private func getObjectIDsOfVisibleMessagesWithLimitedVisibility(in collectionView: UICollectionView) -> Set<TypeSafeManagedObjectID<PersistedMessage>> {
-        return getObjectIDsOfVisibleSentMessagesWithLimitedVisibility(in: collectionView)
-            .union(getObjectIDsOfVisibleReceivedMessagesWithLimitedVisibility(in: collectionView))
+    private func getPermanentIDsOfVisibleMessagesWithLimitedVisibility(in collectionView: UICollectionView) -> Set<ObvManagedObjectPermanentID<PersistedMessage>> {
+        return getPermanentIDsOfVisibleSentMessagesWithLimitedVisibility(in: collectionView)
+            .union(getPermanentIDsOfVisibleReceivedMessagesWithLimitedVisibility(in: collectionView))
     }
 
 
-    private func getObjectIDsOfVisibleSentMessagesWithLimitedVisibility(in collectionView: UICollectionView) -> Set<TypeSafeManagedObjectID<PersistedMessage>> {
+    private func getPermanentIDsOfVisibleSentMessagesWithLimitedVisibility(in collectionView: UICollectionView) -> Set<ObvManagedObjectPermanentID<PersistedMessage>> {
         let visibleCells = collectionView.visibleCells.compactMap({ $0 as? CellWithPersistedMessageSent })
-        let objectIDsOfVisibleMsgsWithLimitedVisibility = Set(visibleCells
+        let permanentIDsOfVisibleMsgsWithLimitedVisibility = Set(visibleCells
             .compactMap({ $0.messageSent })
             .filter({ $0.isEphemeralMessageWithLimitedVisibility })
-            .map({ $0.typedObjectID.downcast }))
-        return objectIDsOfVisibleMsgsWithLimitedVisibility
+            .map({ $0.messagePermanentID }))
+        return permanentIDsOfVisibleMsgsWithLimitedVisibility
     }
 
 
-    func getObjectIDsOfVisibleReceivedMessagesWithLimitedVisibility(in collectionView: UICollectionView) -> Set<TypeSafeManagedObjectID<PersistedMessage>> {
+    func getPermanentIDsOfVisibleReceivedMessagesWithLimitedVisibility(in collectionView: UICollectionView) -> Set<ObvManagedObjectPermanentID<PersistedMessage>> {
         let visibleCells = collectionView.visibleCells.compactMap({ $0 as? CellWithPersistedMessageReceived })
-        let objectIDsOfVisibleMsgsWithLimitedVisibility = Set(visibleCells
+        let permanentIDsOfVisibleMsgsWithLimitedVisibility = Set(visibleCells
             .compactMap({ $0.messageReceived })
             .filter({ $0.isEphemeralMessageWithUserAction && $0.status == .read })
-            .map({ $0.typedObjectID.downcast }))
-        return objectIDsOfVisibleMsgsWithLimitedVisibility
+            .map({ $0.messagePermanentID }))
+        return permanentIDsOfVisibleMsgsWithLimitedVisibility
     }
 
 

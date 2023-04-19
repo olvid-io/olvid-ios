@@ -79,6 +79,7 @@
 		C4AF0F012023A64B00E6C2FE /* ObvChannelProtocolMessageToSendGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF0F002023A64B00E6C2FE /* ObvChannelProtocolMessageToSendGenerator.swift */; };
 		C4AF0F0D2023A69900E6C2FE /* GenericProtocolMessageToSendGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF0F0C2023A69900E6C2FE /* GenericProtocolMessageToSendGenerator.swift */; };
 		C4AF0F0F2023C9E300E6C2FE /* CoreProtocolMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF0F0E2023C9E300E6C2FE /* CoreProtocolMessage.swift */; };
+		C4B23EAD2923BEB500E0163C /* DeleteObsoleteReceivedMessagesOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B23EAC2923BEB500E0163C /* DeleteObsoleteReceivedMessagesOperation.swift */; };
 		C4B8EA992216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8EA982216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift */; };
 		C4B8EADB2216E97D00FA0BC7 /* ContactTrustLevelWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8EADA2216E97D00FA0BC7 /* ContactTrustLevelWatcher.swift */; };
 		C4BA68D82811851D008FC95E /* GroupV2SignatureReceived.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4BA68D72811851D008FC95E /* GroupV2SignatureReceived.swift */; };
@@ -224,6 +225,7 @@
 		C4AF0F002023A64B00E6C2FE /* ObvChannelProtocolMessageToSendGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObvChannelProtocolMessageToSendGenerator.swift; sourceTree = "<group>"; };
 		C4AF0F0C2023A69900E6C2FE /* GenericProtocolMessageToSendGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenericProtocolMessageToSendGenerator.swift; sourceTree = "<group>"; };
 		C4AF0F0E2023C9E300E6C2FE /* CoreProtocolMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreProtocolMessage.swift; sourceTree = "<group>"; };
+		C4B23EAC2923BEB500E0163C /* DeleteObsoleteReceivedMessagesOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteObsoleteReceivedMessagesOperation.swift; sourceTree = "<group>"; };
 		C4B8EA982216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift; sourceTree = "<group>"; };
 		C4B8EADA2216E97D00FA0BC7 /* ContactTrustLevelWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactTrustLevelWatcher.swift; sourceTree = "<group>"; };
 		C4BA68D72811851D008FC95E /* GroupV2SignatureReceived.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupV2SignatureReceived.swift; sourceTree = "<group>"; };
@@ -341,6 +343,7 @@
 				C41220D1201F10E600AE66CE /* ProtocolOperation.swift */,
 				C486A9A220237DDE00DCDDA3 /* ProtocolStep.swift */,
 				C475AC9828F09116000A3045 /* DeleteProtocolInstancesInAFinalStateOperation.swift */,
+				C4B23EAC2923BEB500E0163C /* DeleteObsoleteReceivedMessagesOperation.swift */,
 			);
 			path = Operations;
 			sourceTree = "<group>";
@@ -827,6 +830,7 @@
 				C4E9A6B121FA208200DAD46F /* IdentityDetailsPublicationProtocol.swift in Sources */,
 				C4EF525222D363B800B505B0 /* ContactManagementProtocolSteps.swift in Sources */,
 				C4EE42FE201E8D7700637081 /* ObvProtocolManager.swift in Sources */,
+				C4B23EAD2923BEB500E0163C /* DeleteObsoleteReceivedMessagesOperation.swift in Sources */,
 				C41F43E42840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift in Sources */,
 				C4FDA733228C39A10050B49F /* GroupManagementProtocolStates.swift in Sources */,
 				C4E4B6A520DBCA45007B46E2 /* TrustEstablishmentProtocol.swift in Sources */,

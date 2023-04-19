@@ -554,8 +554,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 ObvStack.shared.performBackgroundTask { (context) in
                     guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
                     guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject, whereOneToOneStatusIs: .any) else { return }
-                    let contactIdentityURI = contactIdendityObject.objectID.uriRepresentation()
-                    let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: contactIdentityURI)
+                    let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: contactIdendityObject.objectPermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                         .postOnDispatchQueue()
                 }
@@ -648,8 +647,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 ObvStack.shared.performBackgroundTask { (context) in
                     guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
                     guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject, whereOneToOneStatusIs: .any) else { return }
-                    let contactIdentityURI = contactIdendityObject.objectID.uriRepresentation()
-                    let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: contactIdentityURI)
+                    let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: contactIdendityObject.objectPermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                         .postOnDispatchQueue()
                 }

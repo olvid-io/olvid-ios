@@ -60,7 +60,7 @@ enum ObvUserNotificationIdentifier {
     case newMessage(messageIdentifierFromEngine: Data)
     // Receiving a reaction message
     case newReactionNotificationWithHiddenContent
-    case newReaction(messageURI: URL, contactURI: URL)
+    case newReaction(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, contactPermanentId: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
     // Receiving an invitation message
     case acceptInvite(persistedInvitationUUID: UUID)
     case sasExchange(persistedInvitationUUID: UUID)
@@ -100,8 +100,8 @@ enum ObvUserNotificationIdentifier {
             return "increaseMediatorTrustLevelRequired_\(uuid.uuidString)"
         case .missedCall(callUUID: let uuid):
             return "missedCall_\(uuid.uuidString)"
-        case .newReaction(messageURI: let messageURI, contactURI: let contactURI):
-            return "reaction_\(messageURI.absoluteString)_\(contactURI.absoluteString)"
+        case .newReaction(messagePermanentID: let messagePermanentID, contactPermanentId: let contactPermanentId):
+            return "reaction_\(messagePermanentID.description)_\(contactPermanentId.description)"
         case .newReactionNotificationWithHiddenContent:
             return "newMessageNotificationWithHiddenContent"
         case .oneToOneInvitationReceived(persistedInvitationUUID: let uuid):

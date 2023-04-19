@@ -21,11 +21,13 @@ import Foundation
 import CoreData
 import os.log
 import ObvEngine
+import OlvidUtils
 
 @objc(Fyle)
-final class Fyle: NSManagedObject {
+final class Fyle: NSManagedObject, ObvErrorMaker {
     
     private static let entityName = "Fyle"
+    static let errorDomain = "Fyle"
 
     // MARK: - Properties
 
@@ -61,14 +63,7 @@ final class Fyle: NSManagedObject {
     static func getFileURL(lastPathComponent: String) -> URL {
         ObvMessengerConstants.containerURL.forFyles.appendingPathComponent(lastPathComponent)
     }
-    
-    private static let errorDomain = "Fyle"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-    
+        
     static func getOrCreate(sha256: Data, within context: NSManagedObjectContext) throws -> Fyle {
         if let previousFyle = try Fyle.get(sha256: sha256, within: context) {
             return previousFyle
@@ -128,23 +123,6 @@ extension Fyle {
         self.allDraftFyleJoins.remove(draftFyleJoin)
     }
     
-    func deleteIfNoLongerUsed() {
-        guard self.allFyleMessageJoinWithStatus.isEmpty else {
-            return
-        }
-        guard self.allDraftFyleJoins.isEmpty else {
-            return
-        }
-        guard let context = self.managedObjectContext else { return }
-        do {
-            try FileManager.default.removeItem(at: url)
-        } catch {
-            debugPrint("Could not delete file")
-        }
-        context.delete(self)
-    }
-    
-    
     func moveFileToTrash() throws {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let trashURL = ObvMessengerConstants.containerURL.forTrash.appendingPathComponent(UUID().uuidString)
@@ -164,7 +142,7 @@ extension Fyle {
             case allFyleMessageJoinWithStatus = "allFyleMessageJoinWithStatus"
         }
         fileprivate static func withSha256(_ sha256: Data) -> NSPredicate {
-            NSPredicate.init(Key.sha256, EqualToData: sha256)
+            NSPredicate(Key.sha256, EqualToData: sha256)
         }
         fileprivate static var isOrphaned: NSPredicate {
             NSPredicate(format: "%K.@count == 0 AND %K.@count == 0", Key.allFyleMessageJoinWithStatus.rawValue, Key.allDraftFyleJoins.rawValue)
@@ -179,6 +157,7 @@ extension Fyle {
         return try context.existingObject(with: objectID) as? Fyle
     }
     
+    /// Returns a `Fyle` if one can be found for the given sha256.
     static func get(sha256: Data, within context: NSManagedObjectContext) throws -> Fyle? {
         let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
         request.predicate = Predicate.withSha256(sha256)
@@ -193,16 +172,20 @@ extension Fyle {
         return try context.fetch(request)
     }
 
+    /// Returns all orphaned `Fyle` entities, i.e., those that have no associated `PersistedDraftFyleJoin` and no associated `FyleMessageJoinWithStatus`.
     static func getAllOrphaned(within context: NSManagedObjectContext) throws -> [Fyle] {
         let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
         request.predicate = Predicate.isOrphaned
+        request.fetchBatchSize = 500
         return try context.fetch(request)
     }
     
     
+    /// Returns the filename of all the `Fyles`.
     static func getAllFilenames(within context: NSManagedObjectContext) throws -> [String] {
         let request: NSFetchRequest<Fyle> = Fyle.fetchRequest()
         request.propertiesToFetch = [Predicate.Key.sha256.rawValue]
+        request.fetchBatchSize = 500
         let results = try context.fetch(request)
         let filenamesOnDisk = results.map({ $0.filenameOnDisk })
         return filenamesOnDisk

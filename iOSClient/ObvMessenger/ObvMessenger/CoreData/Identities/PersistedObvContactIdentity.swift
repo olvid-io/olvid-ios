@@ -25,32 +25,31 @@ import os.log
 import OlvidUtils
 
 @objc(PersistedObvContactIdentity)
-final class PersistedObvContactIdentity: NSManagedObject {
+final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, ObvIdentifiableManagedObject {
 
+    static let entityName = "PersistedObvContactIdentity"
+    static let errorDomain = "PersistedObvContactIdentity"
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedObvContactIdentity.self))
-    
-    private static let entityName = "PersistedObvContactIdentity"
-        
-    private static func makeError(message: String) -> Error { NSError(domain: "PersistedObvContactIdentity", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: - Attributes
 
+    @NSManaged private var capabilityGroupsV2: Bool
+    @NSManaged private var capabilityOneToOneContacts: Bool
+    @NSManaged private var capabilityWebrtcContinuousICE: Bool
     @NSManaged private(set) var customDisplayName: String?
+    @NSManaged private(set) var customPhotoFilename: String?
     @NSManaged private(set) var fullDisplayName: String
     @NSManaged private(set) var identity: Data
     @NSManaged private(set) var isActive: Bool
     @NSManaged private(set) var isCertifiedByOwnKeycloak: Bool
     @NSManaged private(set) var isOneToOne: Bool
     @NSManaged private(set) var note: String?
+    @NSManaged private var permanentUUID: UUID
+    @NSManaged private(set) var photoURL: URL?
     @NSManaged private var rawOwnedIdentityIdentity: Data // Required for core data constraints
     @NSManaged private var rawStatus: Int
     @NSManaged private var serializedIdentityCoreDetails: Data
     @NSManaged private(set) var sortDisplayName: String // Should be renamed normalizedSortAndSearchKey
-    @NSManaged private(set) var photoURL: URL?
-    @NSManaged private(set) var customPhotoFilename: String?
-    @NSManaged private var capabilityWebrtcContinuousICE: Bool
-    @NSManaged private var capabilityOneToOneContacts: Bool
-    @NSManaged private var capabilityGroupsV2: Bool
 
     // MARK: - Relationships
 
@@ -79,13 +78,13 @@ final class PersistedObvContactIdentity: NSManagedObject {
         devices.sorted(by: { $0.identifier < $1.identifier })
     }
     
-    var identityCoreDetails: ObvIdentityCoreDetails {
-        return try! ObvIdentityCoreDetails(serializedIdentityCoreDetails)
+    var identityCoreDetails: ObvIdentityCoreDetails? {
+            return try? ObvIdentityCoreDetails(serializedIdentityCoreDetails)
     }
     
-    var personNameComponents: PersonNameComponents {
-        var pnc = identityCoreDetails.personNameComponents
-        pnc.nickname = customDisplayName
+    var personNameComponents: PersonNameComponents? {
+        var pnc = identityCoreDetails?.personNameComponents
+        pnc?.nickname = customDisplayName
         return pnc
     }
     
@@ -110,8 +109,11 @@ final class PersistedObvContactIdentity: NSManagedObject {
     }
     
     var nameForSettingOneToOneDiscussionTitle: String {
-        // If this changes, we should also update the notification sent in the `didSave` method.
-        customOrFullDisplayName
+        customOrNormalDisplayName
+    }
+
+    var nameForContactNameInGroupDiscussion: String {
+        customOrNormalDisplayName
     }
     
     func resetOneToOneDiscussionTitle() throws {
@@ -140,12 +142,14 @@ final class PersistedObvContactIdentity: NSManagedObject {
     }
     
     var shortOriginalName: String {
+        guard let personNameComponents else { assertionFailure(); return fullDisplayName }
         let formatter = PersonNameComponentsFormatter()
         formatter.style = .short
         return formatter.string(from: personNameComponents)
     }
 
     var mediumOriginalName: String {
+        guard let personNameComponents else { assertionFailure(); return fullDisplayName }
         let formatter = PersonNameComponentsFormatter()
         formatter.style = .medium
         return formatter.string(from: personNameComponents)
@@ -175,31 +179,31 @@ final class PersistedObvContactIdentity: NSManagedObject {
     
     var displayedFirstName: String? {
         guard customDisplayName == nil else { return nil }
-        return identityCoreDetails.firstName
+        return identityCoreDetails?.firstName
     }
     
     var firstName: String? {
-        return identityCoreDetails.firstName
+        return identityCoreDetails?.firstName
     }
     
     var lastName: String? {
-        return identityCoreDetails.lastName
+        return identityCoreDetails?.lastName
     }
 
     var displayedCustomDisplayNameOrLastName: String? {
-        customDisplayName ?? identityCoreDetails.lastName
+        customDisplayName ?? identityCoreDetails?.lastName
     }
 
     var displayedCustomDisplayNameOrFirstNameOrLastName: String? {
-        customDisplayName ?? identityCoreDetails.firstName ?? identityCoreDetails.lastName
+        customDisplayName ?? identityCoreDetails?.firstName ?? identityCoreDetails?.lastName
     }
 
     var displayedCompany: String? {
-        return identityCoreDetails.company
+        return identityCoreDetails?.company
     }
 
     var displayedPosition: String? {
-        return identityCoreDetails.position
+        return identityCoreDetails?.position
     }
 
     var displayedProfilePicture: UIImage? {
@@ -208,6 +212,10 @@ final class PersistedObvContactIdentity: NSManagedObject {
         return UIImage(contentsOfFile: photoURL.path)
     }
     
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity> {
+        ObvManagedObjectPermanentID<PersistedObvContactIdentity>(uuid: self.permanentUUID)
+    }
+
 }
 
 
@@ -232,6 +240,7 @@ extension PersistedObvContactIdentity {
         self.isOneToOne = contactIdentity.isOneToOne
         self.isCertifiedByOwnKeycloak = contactIdentity.isCertifiedByOwnKeycloak
         self.note = nil
+        self.permanentUUID = UUID()
         self.rawStatus = Status.noNewPublishedDetails.rawValue
         self.sortDisplayName = getNormalizedSortAndSearchKey(with: ObvMessengerSettings.Interface.contactsSortOrder)
         self.photoURL = contactIdentity.currentIdentityDetails.photoURL
@@ -283,7 +292,10 @@ extension PersistedObvContactIdentity {
 
 
     private func getNormalizedSortAndSearchKey(with sortOrder: ContactsSortOrder) -> String {
-        let coreDetails = self.identityCoreDetails
+        guard let coreDetails = self.identityCoreDetails else {
+            assertionFailure()
+            return sortOrder.computeNormalizedSortAndSearchKey(customDisplayName: fullDisplayName, firstName: nil, lastName: nil, position: nil, company: nil)
+        }
         return sortOrder.computeNormalizedSortAndSearchKey(
             customDisplayName: self.customDisplayName,
             firstName: coreDetails.firstName,
@@ -477,25 +489,26 @@ extension PersistedObvContactIdentity {
 
     struct Predicate {
         enum Key: String {
+            // Attributes
+            case capabilityGroupsV2 = "capabilityGroupsV2"
+            case capabilityOneToOneContacts = "capabilityOneToOneContacts"
+            case capabilityWebrtcContinuousICE = "capabilityWebrtcContinuousICE"
             case customDisplayName = "customDisplayName"
-            case identity = "identity"
-            case sortDisplayName = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
-            case devices = "devices"
-            case fullDisplayName = "fullDisplayName"
-            case rawOwnedIdentity = "rawOwnedIdentity"
-            case rawStatus = "rawStatus"
             case customPhotoFilename = "customPhotoFilename"
-            case contactGroups = "contactGroups"
+            case fullDisplayName = "fullDisplayName"
+            case identity = "identity"
             case isActive = "isActive"
             case isCertifiedByOwnKeycloak = "isCertifiedByOwnKeycloak"
-            case capabilityWebrtcContinuousICE = "capabilityWebrtcContinuousICE"
-            case capabilityOneToOneContacts = "capabilityOneToOneContacts"
-            case capabilityGroupsV2 = "capabilityGroupsV2"
-
             case isOneToOne = "isOneToOne"
-            static var ownedIdentityIdentity: String {
-                [Key.rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
-            }
+            case permanentUUID = "permanentUUID"
+            case rawOwnedIdentity = "rawOwnedIdentity"
+            case rawStatus = "rawStatus"
+            case sortDisplayName = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
+            // Relationships
+            case contactGroups = "contactGroups"
+            case devices = "devices"
+            // Others
+            static let ownedIdentityIdentity = [rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
         }
         static func withCryptoId(_ cryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.identity, EqualToData: cryptoId.getIdentity())
@@ -557,6 +570,12 @@ extension PersistedObvContactIdentity {
             guard !capabilities.isEmpty else { return NSPredicate(value: true) }
             return NSCompoundPredicate(andPredicateWithSubpredicates: capabilities.map({ Self.requiredCapability($0) }))
         }
+        static var withCustomPhotoFilename: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.customPhotoFilename)
+        }
+        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> NSPredicate {
+            NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
     }
     
     
@@ -592,6 +611,14 @@ extension PersistedObvContactIdentity {
         return try context.fetch(request).first
     }
     
+    
+    static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = Predicate.withPermanentID(permanentID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
     
     static func getAllContactOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) throws -> [PersistedObvContactIdentity] {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
@@ -662,6 +689,7 @@ extension PersistedObvContactIdentity {
     
     static func getAllCustomPhotoURLs(within context: NSManagedObjectContext) throws -> Set<URL> {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = Predicate.withCustomPhotoFilename
         request.propertiesToFetch = [Predicate.Key.customPhotoFilename.rawValue]
         let details = try context.fetch(request)
         let photoURLs = Set(details.compactMap({ $0.customPhotoURL }))
@@ -772,7 +800,7 @@ extension PersistedObvContactIdentity {
     
     struct Structure: Hashable, Equatable {
         
-        let typedObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>
+        let objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
         let cryptoId: ObvCryptoId
         let fullDisplayName: String
         let customOrFullDisplayName: String
@@ -785,11 +813,11 @@ extension PersistedObvContactIdentity {
         // Hashable and equatable
         
         func hash(into hasher: inout Hasher) {
-            hasher.combine(typedObjectID)
+            hasher.combine(objectPermanentID)
         }
         
         static func == (lhs: Structure, rhs: Structure) -> Bool {
-            lhs.typedObjectID == rhs.typedObjectID
+            lhs.objectPermanentID == rhs.objectPermanentID
         }
     }
     
@@ -797,12 +825,16 @@ extension PersistedObvContactIdentity {
         guard let ownedIdentity = self.ownedIdentity else {
             throw Self.makeError(message: "Could not extract required relationships")
         }
-        return Structure(typedObjectID: self.typedObjectID,
+        guard let personNameComponents else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not get person name components")
+        }
+        return Structure(objectPermanentID: self.objectPermanentID,
                          cryptoId: self.cryptoId,
                          fullDisplayName: self.fullDisplayName,
                          customOrFullDisplayName: self.customOrFullDisplayName,
                          displayPhotoURL: self.displayPhotoURL,
-                         personNameComponents: self.personNameComponents,
+                         personNameComponents: personNameComponents,
                          ownedIdentity: try ownedIdentity.toStruct())
     }
     
@@ -823,7 +855,11 @@ extension PersistedObvContactIdentity {
         if !changedKeys.isEmpty {
             asGroupV2Member.forEach { $0.updateWhenPersistedObvContactIdentityIsUpdated() }
         }
-        
+
+        // When updating a contact, we try to update the oneToOne discussion title.
+        if isUpdated && !self.changedValues().isEmpty {
+            oneToOneDiscussion?.resetDiscussionTitleWithContactIfAppropriate()
+        }
     }
     
     override func didSave() {
@@ -835,8 +871,8 @@ extension PersistedObvContactIdentity {
         
         if isInserted {
             
-            let notification = ObvMessengerCoreDataNotification.persistedContactWasInserted(objectID: objectID, contactCryptoId: cryptoId)
-            notification.postOnDispatchQueue()
+            ObvMessengerCoreDataNotification.persistedContactWasInserted(contactPermanentID: objectPermanentID)
+                .postOnDispatchQueue()
 
         } else if isDeleted {
             
@@ -867,13 +903,6 @@ extension PersistedObvContactIdentity {
                 }
             }
 
-            // Since the discussion title depends on both the custom name and the full display name of the contact, we send an appropriate notification if one of two changed.
-            if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) || changedKeys.contains(Predicate.Key.fullDisplayName.rawValue) {
-                guard let ownedIdentityObjectID = self.ownedIdentity?.typedObjectID else { return }
-                ObvMessengerCoreDataNotification.aOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: ownedIdentityObjectID)
-                    .postOnDispatchQueue()
-            }
-            
             // Last but not least, if the one2one discussion with this contact is loaded in the view context, we refresh it.
             // This what makes it possible, e.g., to see the contact profile picture in the discussion list as soon as possible
             do {

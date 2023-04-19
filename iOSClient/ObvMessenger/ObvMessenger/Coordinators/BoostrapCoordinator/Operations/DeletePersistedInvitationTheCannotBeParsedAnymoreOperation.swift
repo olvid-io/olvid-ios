@@ -36,7 +36,7 @@ final class DeletePersistedInvitationTheCannotBeParsedAnymoreOperation: Contextu
         obvContext.performAndWait {
 
             do {
-                let allInvitations = try PersistedInvitation.getAll(within: obvContext.context)
+                let allInvitations = try PersistedInvitation.getAllForAllOwnedIdentities(within: obvContext.context)
                 let invitationsToDelete = allInvitations.filter { $0.obvDialog == nil }
                 guard !invitationsToDelete.isEmpty else { return }
                 try invitationsToDelete.forEach {

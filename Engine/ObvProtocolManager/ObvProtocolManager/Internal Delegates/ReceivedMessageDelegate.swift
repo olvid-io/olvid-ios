@@ -27,6 +27,8 @@ import OlvidUtils
 protocol ReceivedMessageDelegate {
     
     func processReceivedMessage(withId: MessageIdentifier, flowId: FlowIdentifier)
+    func deleteObsoleteReceivedMessages(flowId: FlowIdentifier)
+    func processAllReceivedMessages(flowId: FlowIdentifier)
     
     // Defining this here allows to perform the steps required to abort a protocol on the same queue than the one used to process a message.
     func abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity)

@@ -201,7 +201,7 @@ final class AdvancedSettingsViewController: UITableViewController {
             }
         }
     }
-    
+
 }
 
 
@@ -374,7 +374,6 @@ extension AdvancedSettingsViewController {
                 }
                 return _cell
             }
-            
         }
     }
 

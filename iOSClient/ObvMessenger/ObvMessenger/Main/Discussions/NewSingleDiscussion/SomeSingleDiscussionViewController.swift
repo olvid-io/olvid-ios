@@ -22,6 +22,6 @@ import UIKit
 
 protocol SomeSingleDiscussionViewController: UIViewController {
     
-    var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { get }
+    var discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion> { get }
 
 }

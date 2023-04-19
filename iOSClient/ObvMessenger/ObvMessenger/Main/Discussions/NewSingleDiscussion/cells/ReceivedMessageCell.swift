@@ -127,7 +127,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         if let contact = message.contactIdentity {
             content.contactPictureAndNameViewConfiguration =
             ContactPictureAndNameView.Configuration(foregroundColor: contact.cryptoId.textColor,
-                                                    contactName: contact.customOrFullDisplayName,
+                                                    contactName: contact.nameForContactNameInGroupDiscussion,
                                                     contactObjectID: contact.typedObjectID,
                                                     circledInitialsConfiguration: contact.circledInitialsConfiguration)
         } else {

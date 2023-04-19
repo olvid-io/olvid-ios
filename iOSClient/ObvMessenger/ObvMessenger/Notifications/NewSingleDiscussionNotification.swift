@@ -33,20 +33,20 @@ fileprivate struct OptionalWrapper<T> {
 
 enum NewSingleDiscussionNotification {
 	case userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set<NSManagedObjectID>)
-	case userWantsToAddAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], completionHandler: (Bool) -> Void)
-	case userWantsToAddAttachmentsToDraftFromURLs(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL], completionHandler: (Bool) -> Void)
+	case userWantsToAddAttachmentsToDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider], completionHandler: (Bool) -> Void)
+	case userWantsToAddAttachmentsToDraftFromURLs(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL], completionHandler: (Bool) -> Void)
 	case userWantsToDeleteAllAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToReplyToMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToRemoveReplyToMessage(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case userWantsToSendDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String)
-	case userWantsToSendDraftWithOneAttachment(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, attachmentURL: URL)
+	case userWantsToSendDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String)
+	case userWantsToSendDraftWithOneAttachment(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, attachmentURL: URL)
 	case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool)
 	case userWantsToUpdateDraftExpiration(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?)
 	case userWantsToUpdateDraftBody(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String)
-	case draftCouldNotBeSent(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
+	case draftCouldNotBeSent(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
 	case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
-	case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, messageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
+	case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
 
 	private enum Name {
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
@@ -101,15 +101,15 @@ enum NewSingleDiscussionNotification {
 			info = [
 				"persistedMessageObjectIDs": persistedMessageObjectIDs,
 			]
-		case .userWantsToAddAttachmentsToDraft(draftObjectID: let draftObjectID, itemProviders: let itemProviders, completionHandler: let completionHandler):
+		case .userWantsToAddAttachmentsToDraft(draftPermanentID: let draftPermanentID, itemProviders: let itemProviders, completionHandler: let completionHandler):
 			info = [
-				"draftObjectID": draftObjectID,
+				"draftPermanentID": draftPermanentID,
 				"itemProviders": itemProviders,
 				"completionHandler": completionHandler,
 			]
-		case .userWantsToAddAttachmentsToDraftFromURLs(draftObjectID: let draftObjectID, urls: let urls, completionHandler: let completionHandler):
+		case .userWantsToAddAttachmentsToDraftFromURLs(draftPermanentID: let draftPermanentID, urls: let urls, completionHandler: let completionHandler):
 			info = [
-				"draftObjectID": draftObjectID,
+				"draftPermanentID": draftPermanentID,
 				"urls": urls,
 				"completionHandler": completionHandler,
 			]
@@ -126,14 +126,14 @@ enum NewSingleDiscussionNotification {
 			info = [
 				"draftObjectID": draftObjectID,
 			]
-		case .userWantsToSendDraft(draftObjectID: let draftObjectID, textBody: let textBody):
+		case .userWantsToSendDraft(draftPermanentID: let draftPermanentID, textBody: let textBody):
 			info = [
-				"draftObjectID": draftObjectID,
+				"draftPermanentID": draftPermanentID,
 				"textBody": textBody,
 			]
-		case .userWantsToSendDraftWithOneAttachment(draftObjectID: let draftObjectID, attachmentURL: let attachmentURL):
+		case .userWantsToSendDraftWithOneAttachment(draftPermanentID: let draftPermanentID, attachmentURL: let attachmentURL):
 			info = [
-				"draftObjectID": draftObjectID,
+				"draftPermanentID": draftPermanentID,
 				"attachmentURL": attachmentURL,
 			]
 		case .insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: let discussionObjectID, markAsRead: let markAsRead):
@@ -151,9 +151,9 @@ enum NewSingleDiscussionNotification {
 				"draftObjectID": draftObjectID,
 				"body": body,
 			]
-		case .draftCouldNotBeSent(persistedDraftObjectID: let persistedDraftObjectID):
+		case .draftCouldNotBeSent(draftPermanentID: let draftPermanentID):
 			info = [
-				"persistedDraftObjectID": persistedDraftObjectID,
+				"draftPermanentID": draftPermanentID,
 			]
 		case .userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: let receivedJoinObjectID):
 			info = [
@@ -163,10 +163,10 @@ enum NewSingleDiscussionNotification {
 			info = [
 				"receivedJoinObjectID": receivedJoinObjectID,
 			]
-		case .updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionObjectID: let discussionObjectID, messageObjectIDs: let messageObjectIDs):
+		case .updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionPermanentID: let discussionPermanentID, messagePermanentIDs: let messagePermanentIDs):
 			info = [
-				"discussionObjectID": discussionObjectID,
-				"messageObjectIDs": messageObjectIDs,
+				"discussionPermanentID": discussionPermanentID,
+				"messagePermanentIDs": messagePermanentIDs,
 			]
 		}
 		return info
@@ -205,23 +205,23 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUserWantsToAddAttachmentsToDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, [NSItemProvider], @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToAddAttachmentsToDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>, [NSItemProvider], @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToAddAttachmentsToDraft.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
 			let itemProviders = notification.userInfo!["itemProviders"] as! [NSItemProvider]
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
-			block(draftObjectID, itemProviders, completionHandler)
+			block(draftPermanentID, itemProviders, completionHandler)
 		}
 	}
 
-	static func observeUserWantsToAddAttachmentsToDraftFromURLs(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, [URL], @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToAddAttachmentsToDraftFromURLs(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>, [URL], @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToAddAttachmentsToDraftFromURLs.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
 			let urls = notification.userInfo!["urls"] as! [URL]
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
-			block(draftObjectID, urls, completionHandler)
+			block(draftPermanentID, urls, completionHandler)
 		}
 	}
 
@@ -250,21 +250,21 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUserWantsToSendDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, String) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSendDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>, String) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSendDraft.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
 			let textBody = notification.userInfo!["textBody"] as! String
-			block(draftObjectID, textBody)
+			block(draftPermanentID, textBody)
 		}
 	}
 
-	static func observeUserWantsToSendDraftWithOneAttachment(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, URL) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSendDraftWithOneAttachment(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>, URL) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSendDraftWithOneAttachment.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
 			let attachmentURL = notification.userInfo!["attachmentURL"] as! URL
-			block(draftObjectID, attachmentURL)
+			block(draftPermanentID, attachmentURL)
 		}
 	}
 
@@ -296,11 +296,11 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeDraftCouldNotBeSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
+	static func observeDraftCouldNotBeSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>) -> Void) -> NSObjectProtocol {
 		let name = Name.draftCouldNotBeSent.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDraftObjectID = notification.userInfo!["persistedDraftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
-			block(persistedDraftObjectID)
+			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
+			block(draftPermanentID)
 		}
 	}
 
@@ -320,12 +320,12 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUpdatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDiscussion>, Set<TypeSafeManagedObjectID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
+	static func observeUpdatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDiscussion>, Set<ObvManagedObjectPermanentID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
 		let name = Name.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
-			let messageObjectIDs = notification.userInfo!["messageObjectIDs"] as! Set<TypeSafeManagedObjectID<PersistedMessage>>
-			block(discussionObjectID, messageObjectIDs)
+			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
+			let messagePermanentIDs = notification.userInfo!["messagePermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedMessage>>
+			block(discussionPermanentID, messagePermanentIDs)
 		}
 	}
 

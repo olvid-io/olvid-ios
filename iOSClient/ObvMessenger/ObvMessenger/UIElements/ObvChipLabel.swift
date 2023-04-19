@@ -19,7 +19,7 @@
 
 import UIKit
 
-class ObvChipLabel: UIView {
+final class ObvChipLabel: UIView {
 
     static let defaultTextColor = AppTheme.shared.colorScheme.label
     var chipColor = AppTheme.shared.colorScheme.systemFill

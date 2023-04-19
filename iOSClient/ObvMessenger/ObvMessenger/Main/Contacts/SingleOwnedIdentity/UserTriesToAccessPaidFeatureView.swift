@@ -23,8 +23,8 @@ import ObvTypes
 
 final class UserTriesToAccessPaidFeatureHostingController: UIHostingController<UserTriesToAccessPaidFeatureView> {
     
-    init(requestedPermission: APIPermissions, ownedIdentityURI: URL) {
-        let view = UserTriesToAccessPaidFeatureView(requestedPermission: requestedPermission, ownedIdentityURI: ownedIdentityURI)
+    init(requestedPermission: APIPermissions, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>) {
+        let view = UserTriesToAccessPaidFeatureView(requestedPermission: requestedPermission, ownedIdentityPermanentID: ownedIdentityPermanentID)
         super.init(rootView: view)
     }
     
@@ -39,7 +39,7 @@ struct UserTriesToAccessPaidFeatureView: View {
     
     /// This is the permission required for the feature the user requested but for which she has no permission
     let requestedPermission: APIPermissions
-    let ownedIdentityURI: URL
+    let ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>
     
     private static func getTextFor(permission: APIPermissions) -> Text {
         if permission == .canCall {
@@ -82,7 +82,7 @@ struct UserTriesToAccessPaidFeatureView: View {
                         }
                         .padding(.bottom)
                         OlvidButton(style: .blue, title: Text("BUTTON_LABEL_CHECK_SUBSCRIPTION"), systemIcon: .eyesInverse) {
-                            let deepLink = ObvDeepLink.myId(ownedIdentityURI: ownedIdentityURI)
+                            let deepLink = ObvDeepLink.myId(objectPermanentID: ownedIdentityPermanentID)
                             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                                 .postOnDispatchQueue()
                         }
@@ -107,14 +107,14 @@ struct UserTriesToAccessPaidFeatureView: View {
 struct UserTriesToAccessPaidFeatureView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityURI: URL(string: "https://test.url.olvid.io")!)
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
                 .environment(\.colorScheme, .light)
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityURI: URL(string: "https://test.url.olvid.io")!)
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
                 .environment(\.colorScheme, .dark)
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityURI: URL(string: "https://test.url.olvid.io")!)
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
                 .environment(\.colorScheme, .light)
                 .environment(\.locale, .init(identifier: "fr"))
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityURI: URL(string: "https://test.url.olvid.io")!)
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
                 .environment(\.colorScheme, .dark)
                 .environment(\.locale, .init(identifier: "fr"))
         }

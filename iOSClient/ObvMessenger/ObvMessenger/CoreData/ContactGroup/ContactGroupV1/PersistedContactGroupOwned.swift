@@ -20,29 +20,24 @@
 import Foundation
 import CoreData
 import ObvEngine
+import OlvidUtils
 
 
 @objc(PersistedContactGroupOwned)
-final class PersistedContactGroupOwned: PersistedContactGroup {
+final class PersistedContactGroupOwned: PersistedContactGroup, ObvErrorMaker {
     
     private static let entityName = "PersistedContactGroupOwned"
-    private static let rawStatusKey = "rawStatus"
-    private static let errorDomain = "PersistedContactGroupOwned"
+    static let errorDomain = "PersistedContactGroupOwned"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
-    // MARK: - Attributes
+    // MARK: Attributes
     
     @NSManaged private var rawStatus: Int
 
-    // MARK: - Relationships
+    // MARK: Relationships
     
     @NSManaged var owner: PersistedObvOwnedIdentity? // If nil, this entity is eventually cascade-deleted
 
-    // MARK: - Other variables
+    // MARK: Other variables
         
     enum Status: Int {
         case noLatestDetails = 0

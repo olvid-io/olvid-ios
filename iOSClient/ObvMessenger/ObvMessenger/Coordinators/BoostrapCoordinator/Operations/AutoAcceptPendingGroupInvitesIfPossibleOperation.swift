@@ -46,7 +46,7 @@ final class AutoAcceptPendingGroupInvitesIfPossibleOperation: ContextualOperatio
 
             do {
 
-                let allGroupInvites = try PersistedInvitation.getAllGroupInvites(within: obvContext.context)
+                let allGroupInvites = try PersistedInvitation.getAllGroupInvitesForAllOwnedIdentities(within: obvContext.context)
 
                 for groupInvite in allGroupInvites {
 

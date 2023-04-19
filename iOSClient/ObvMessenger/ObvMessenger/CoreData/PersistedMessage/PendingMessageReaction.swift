@@ -20,15 +20,15 @@
 import Foundation
 import CoreData
 import os.log
+import OlvidUtils
 
 
 @objc(PendingMessageReaction)
-final class PendingMessageReaction: NSManagedObject {
+final class PendingMessageReaction: NSManagedObject, ObvErrorMaker {
 
     private static let entityName = "PendingMessageReaction"
+    static let errorDomain = "PendingMessageReaction"
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PendingMessageReaction")
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { PendingMessageReaction.makeError(message: message) }
 
     // MARK: - Attributes
 
@@ -52,7 +52,7 @@ final class PendingMessageReaction: NSManagedObject {
 
     private convenience init(emoji: String?, senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, serverTimestamp: Date, discussion: PersistedDiscussion) throws {
 
-        guard let context = discussion.managedObjectContext else { throw PendingMessageReaction.makeError(message: "Could not find context") }
+        guard let context = discussion.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
 
         let entityDescription = NSEntityDescription.entity(forEntityName: PendingMessageReaction.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
@@ -89,7 +89,7 @@ final class PendingMessageReaction: NSManagedObject {
     // MARK: - Convenience DB getters
 
     func delete() throws {
-        guard let context = self.managedObjectContext else { throw makeError(message: "Cannot find context") }
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Cannot find context") }
         context.delete(self)
     }
     
@@ -109,20 +109,20 @@ final class PendingMessageReaction: NSManagedObject {
 
         static func withPrimaryKey(discussion: PersistedDiscussion, senderIdentifier: Data, senderThreadIdentifier: UUID, senderSequenceNumber: Int) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(format: "%K == %@", Key.discussion.rawValue, discussion),
+                NSPredicate(Key.discussion, equalTo: discussion),
                 NSPredicate(Key.senderIdentifier, EqualToData: senderIdentifier),
                 NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
                 NSPredicate(Key.senderSequenceNumber, EqualToInt: senderSequenceNumber),
             ])
         }
         static func olderThanServerTimestamp(_ serverTimestamp: Date) -> NSPredicate {
-            NSPredicate(format: "%K < %@", Key.serverTimestamp.rawValue, serverTimestamp as NSDate)
+            NSPredicate(Key.serverTimestamp, earlierThan: serverTimestamp)
         }
         static func moreRecentThanServerTimestamp(_ serverTimestamp: Date) -> NSPredicate {
-            NSPredicate(format: "%K > %@", Key.serverTimestamp.rawValue, serverTimestamp as NSDate)
+            NSPredicate(Key.serverTimestamp, laterThan: serverTimestamp)
         }
         static var withoutAssociatedDiscussion: NSPredicate {
-            NSPredicate(format: "%K == NIL", Key.discussion.rawValue)
+            NSPredicate(withNilValueForKey: Key.discussion)
         }
     }
 

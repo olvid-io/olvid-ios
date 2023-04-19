@@ -26,7 +26,7 @@ import ObvTypes
 
 
 protocol UnprocessedPersistedMessageSentProvider: Operation {
-    var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>? { get }
+    var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>? { get }
 }
 
 protocol ExtendedPayloadProvider: Operation {
@@ -37,7 +37,7 @@ protocol ExtendedPayloadProvider: Operation {
 final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWithSpecificReasonForCancel<SendUnprocessedPersistedMessageSentOperationReasonForCancel> {
 
     private enum Input {
-        case messageObjectID(_: TypeSafeManagedObjectID<PersistedMessageSent>)
+        case messagePermanentID(_: ObvManagedObjectPermanentID<PersistedMessageSent>)
         case provider(_: UnprocessedPersistedMessageSentProvider)
     }
     
@@ -47,8 +47,8 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
     private let obvEngine: ObvEngine
     private let completionHandler: (() -> Void)?
 
-    init(persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
-        self.input = .messageObjectID(persistedMessageSentObjectID)
+    init(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
+        self.input = .messagePermanentID(messageSentPermanentID)
         self.obvEngine = obvEngine
         self.completionHandler = completionHandler
         self.extendedPayloadProvider = extendedPayloadProvider
@@ -67,17 +67,17 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
 
     override func main() {
         
-        let persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>
+        let messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
 
         switch input {
-        case .messageObjectID(let _persistedMessageSentObjectID):
-            persistedMessageSentObjectID = _persistedMessageSentObjectID
+        case .messagePermanentID(let _messageSentPermanentID):
+            messageSentPermanentID = _messageSentPermanentID
         case .provider(let provider):
             assert(provider.isFinished)
-            guard let _persistedMessageSentObjectID = provider.persistedMessageSentObjectID else {
+            guard let _messageSentPermanentID = provider.messageSentPermanentID else {
                 return cancel(withReason: .persistedMessageSentObjectIDIsNil)
             }
-            persistedMessageSentObjectID = _persistedMessageSentObjectID
+            messageSentPermanentID = _messageSentPermanentID
         }
         
         guard let obvContext = self.obvContext else {
@@ -88,7 +88,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
 
             do {
                 
-                guard let persistedMessageSent = try PersistedMessageSent.getPersistedMessageSent(objectID: persistedMessageSentObjectID, within: obvContext.context) else {
+                guard let persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
                 }
                 

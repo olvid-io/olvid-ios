@@ -92,10 +92,6 @@ extension ObvSubtitleTableViewCell {
 
 extension ObvSubtitleTableViewCell {
     
-    func setCircleDiameter(to diameter: CGFloat) {
-        self.circlePlaceholderHeightConstraint.constant = diameter
-    }
-    
     private func setTitle() {
         titleLabel.text = title
     }

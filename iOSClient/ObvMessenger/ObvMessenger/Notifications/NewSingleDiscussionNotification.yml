@@ -8,12 +8,12 @@ notifications:
   - {name: persistedMessageObjectIDs, type: Set<NSManagedObjectID>}
 - name: userWantsToAddAttachmentsToDraft
   params:
-  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
   - {name: itemProviders, type: [NSItemProvider]}
   - {name: completionHandler, type: (Bool) -> Void, escaping: true}
 - name: userWantsToAddAttachmentsToDraftFromURLs
   params:
-  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
   - {name: urls, type: [URL]}
   - {name: completionHandler, type: (Bool) -> Void, escaping: true}
 - name: userWantsToDeleteAllAttachmentsToDraft
@@ -28,11 +28,11 @@ notifications:
   - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
 - name: userWantsToSendDraft
   params:
-  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
   - {name: textBody, type: String}
 - name: userWantsToSendDraftWithOneAttachment
   params:
-  - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
   - {name: attachmentURL, type: URL}
 - name: insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty
   params:
@@ -48,7 +48,7 @@ notifications:
   - {name: body, type: String}
 - name: draftCouldNotBeSent
   params:
-  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
 - name: userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus
   params:
   - {name: receivedJoinObjectID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
@@ -57,6 +57,6 @@ notifications:
   - {name: receivedJoinObjectID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
 - name: updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility
   params:
-  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
-  - {name: messageObjectIDs, type: Set<TypeSafeManagedObjectID<PersistedMessage>>}
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentIDs, type: Set<ObvManagedObjectPermanentID<PersistedMessage>>}
 

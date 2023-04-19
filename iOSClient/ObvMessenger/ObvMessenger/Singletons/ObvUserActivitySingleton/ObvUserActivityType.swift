@@ -23,7 +23,7 @@ import CoreData
 enum ObvUserActivityType: CustomDebugStringConvertible, Equatable {
     
     case watchLatestDiscussions
-    case continueDiscussion(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
+    case continueDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
     case displaySingleContact
     case displayContacts
     case displayGroups
@@ -32,10 +32,10 @@ enum ObvUserActivityType: CustomDebugStringConvertible, Equatable {
     case displaySettings // Not used for now
     case other
     
-    var persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? {
+    var discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>? {
         switch self {
-        case .continueDiscussion(persistedDiscussionObjectID: let persistedDiscussionObjectID):
-            return persistedDiscussionObjectID
+        case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
+            return discussionPermanentID
         default:
             return nil
         }
@@ -60,8 +60,8 @@ enum ObvUserActivityType: CustomDebugStringConvertible, Equatable {
         switch self {
         case .watchLatestDiscussions:
             return "Watch latest discussions"
-        case .continueDiscussion(persistedDiscussionObjectID: let persistedDiscussionObjectID):
-            return "Continue discussion \(persistedDiscussionObjectID.debugDescription)"
+        case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
+            return "Continue discussion \(discussionPermanentID.description)"
         case .displaySingleContact:
             return "Display single contact"
         case .displayContacts:

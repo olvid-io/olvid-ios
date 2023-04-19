@@ -25,27 +25,17 @@ import ObvEngine
 @objc(SentFyleMessageJoinWithStatus)
 final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
     
-    enum FyleStatus: Int {
-        case uploadable = 0
-        case uploading = 1
-        case complete = 2
-    }
+    private static let entityName = "SentFyleMessageJoinWithStatus"
 
-    enum FyleReceptionStatus: Int {
-        case none = 0
-        case delivered = 1
-        case read = 2
-
-        static func < (lhs: Self, rhs: Self) -> Bool {
-            return lhs.rawValue < rhs.rawValue
-        }
-    }
-
-    // MARK: - Properties
+    // MARK: Properties
 
     @NSManaged private var rawReceptionStatus: Int
 
-    // MARK: - Computed properties
+    // MARK: Relationships
+    
+    @NSManaged private(set) var sentMessage: PersistedMessageSent
+
+    // MARK: Other variables
     
     private(set) var status: FyleStatus {
         get {
@@ -75,14 +65,21 @@ final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiab
         try? FyleElementForFyleMessageJoinWithStatus(self)
     }
 
-    // MARK: - Relationships
-    
-    @NSManaged private(set) var sentMessage: PersistedMessageSent
+    enum FyleStatus: Int {
+        case uploadable = 0
+        case uploading = 1
+        case complete = 2
+    }
 
-    // MARK: - Internal constants
-    
-    private static let entityName = "SentFyleMessageJoinWithStatus"
+    enum FyleReceptionStatus: Int {
+        case none = 0
+        case delivered = 1
+        case read = 2
 
+        static func < (lhs: Self, rhs: Self) -> Bool {
+            return lhs.rawValue < rhs.rawValue
+        }
+    }
 
     // MARK: - Getting FyleMetadata
     
@@ -191,6 +188,12 @@ extension SentFyleMessageJoinWithStatus {
         enum Key: String {
             case sentMessage = "sentMessage"
         }
+        static var isIncomplete: NSPredicate {
+            NSPredicate(FyleMessageJoinWithStatus.Predicate.Key.rawStatus, DistinctFromInt: FyleStatus.complete.rawValue)
+        }
+        static var withoutSentMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.sentMessage)
+        }
     }
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<SentFyleMessageJoinWithStatus> {
@@ -209,15 +212,9 @@ extension SentFyleMessageJoinWithStatus {
     }
     
     
-    static func getAllIncomplete(within context: NSManagedObjectContext) throws -> [SentFyleMessageJoinWithStatus] {
-        let request: NSFetchRequest<SentFyleMessageJoinWithStatus> = SentFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K != %d", FyleMessageJoinWithStatus.Predicate.Key.rawStatus.rawValue, FyleStatus.complete.rawValue)
-        return try context.fetch(request)
-    }
-    
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = SentFyleMessageJoinWithStatus.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == NIL", Predicate.Key.sentMessage.rawValue)
+        request.predicate = Predicate.withoutSentMessage
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         try context.execute(deleteRequest)
     }

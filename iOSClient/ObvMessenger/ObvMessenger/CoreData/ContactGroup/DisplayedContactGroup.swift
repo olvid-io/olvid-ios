@@ -24,9 +24,9 @@ import OlvidUtils
 import ObvTypes
 
 @objc(DisplayedContactGroup)
-final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable {
+final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable, ObvIdentifiableManagedObject {
     
-    private static let entityName = "DisplayedContactGroup"
+    static let entityName = "DisplayedContactGroup"
     static let errorDomain = "DisplayedContactGroup"
     
     // Attributes
@@ -34,6 +34,7 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
     @NSManaged private(set) var normalizedSearchKey: String
     @NSManaged private(set) var normalizedSortKey: String
     @NSManaged private(set) var ownPermissionAdmin: Bool
+    @NSManaged private var permanentUUID: UUID
     @NSManaged private var photoURL: URL?
     @NSManaged private var rawPublishedDetailsStatus: Int
     @NSManaged private var sectionName: String?
@@ -94,6 +95,10 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
         return UIImage(contentsOfFile: photoURL.path)
     }
     
+    var objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup> {
+        ObvManagedObjectPermanentID<DisplayedContactGroup>(uuid: self.permanentUUID)
+    }
+
     // Initializer
     
     convenience init(groupV1: PersistedContactGroup) throws {
@@ -102,6 +107,7 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
         self.init(entity: entityDescription, insertInto: context)
         self.groupV1 = groupV1
         self.groupV2 = nil
+        self.permanentUUID = UUID()
         updateUsingUnderlyingGroup()
     }
 
@@ -111,6 +117,7 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
         self.init(entity: entityDescription, insertInto: context)
         self.groupV1 = nil
         self.groupV2 = groupV2
+        self.permanentUUID = UUID()
         self.publishedDetailsStatus = groupV2.hasPublishedDetails ? .unseenPublishedDetails : .noNewPublishedDetails
         updateUsingUnderlyingGroup()
     }
@@ -307,6 +314,7 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
         enum Key: String {
             case normalizedSearchKey = "normalizedSearchKey"
             case normalizedSortKey = "normalizedSortKey"
+            case permanentUUID = "permanentUUID"
             case sectionName = "sectionName"
             case groupV1 = "groupV1"
             case groupV2 = "groupV2"
@@ -318,7 +326,7 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
             NSPredicate(withNonNilValueForKey: Key.groupV2)
         }
         private static func withGroupV1OwnedIdentity(_ ownedIdentity: ObvCryptoId) -> NSPredicate {
-            let key = [Key.groupV1.rawValue, PersistedContactGroup.ownedIdentityIdentityKey].joined(separator: ".")
+            let key = [Key.groupV1.rawValue, PersistedContactGroup.Predicate.Key.rawOwnedIdentityIdentity.rawValue].joined(separator: ".")
             return NSCompoundPredicate(andPredicateWithSubpredicates: [
                 underlyingGroupIsV1,
                 NSPredicate(key, EqualToData: ownedIdentity.getIdentity())
@@ -368,12 +376,23 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
             NSPredicate(format: "%K contains[cd] %@", Predicate.Key.normalizedSearchKey.rawValue, searchedText)
         }
         static func displayedContactGroup(withObjectID objectID: NSManagedObjectID) -> NSPredicate {
-            NSPredicate(format: "SELF == %@", objectID)
+            NSPredicate(withObjectID: objectID)
+        }
+        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) -> NSPredicate {
+            NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
         }
     }
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<DisplayedContactGroup> {
         return NSFetchRequest<DisplayedContactGroup>(entityName: DisplayedContactGroup.entityName)
+    }
+
+    
+    static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>, within context: NSManagedObjectContext) throws -> DisplayedContactGroup? {
+        let request: NSFetchRequest<DisplayedContactGroup> = DisplayedContactGroup.fetchRequest()
+        request.predicate = Predicate.withPermanentID(permanentID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
 
     
@@ -427,7 +446,7 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable 
         super.didSave()
         
         if isInserted {
-            ObvMessengerGroupV2Notifications.displayedContactGroupWasJustCreated(objectID: self.typedObjectID)
+            ObvMessengerGroupV2Notifications.displayedContactGroupWasJustCreated(permanentID: self.objectPermanentID)
                 .postOnDispatchQueue()
         }
         

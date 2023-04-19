@@ -21,6 +21,7 @@ import UIKit
 import UserNotifications
 import os.log
 import CoreData
+import ObvTypes
 
 
 final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
@@ -90,21 +91,21 @@ extension UserNotificationCenterDelegate {
 
         // If we reach this point, we know we are initialized and active. We decide what to show depending on the current activity of the user.
         switch ObvUserActivitySingleton.shared.currentUserActivity {
-        case .continueDiscussion(persistedDiscussionObjectID: let currentPersistedDiscussionObjectID):
+        case .continueDiscussion(discussionPermanentID: let currentDiscussionPermanentID):
             switch id {
             case .newReactionNotificationWithHiddenContent, .newReaction:
                 // Always show reaction notification even if it is a reaction for the current discussion.
                 return .alert
             case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall:
                 // The current activity type is `continueDiscussion`. We check whether the notification concerns the "single discussion". If this is the case, we do not display the notification, otherwise, we do.
-                guard let notificationPersistedDiscussionObjectURI = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
-                      let notificationPersistedDiscussionObjectURI = URL(string: notificationPersistedDiscussionObjectURI),
-                      let notificationPersistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: notificationPersistedDiscussionObjectURI) else {
+                guard let persistedDiscussionPermanentIDDescription = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] as? String,
+                      let expectedEntityName = PersistedDiscussion.entity().name,
+                      let notificationPersistedDiscussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(persistedDiscussionPermanentIDDescription, expectedEntityName: expectedEntityName) else {
                           assertionFailure()
                     return .alert
                 }
 
-                if notificationPersistedDiscussionObjectID == currentPersistedDiscussionObjectID.objectID {
+                if notificationPersistedDiscussionPermanentID == currentDiscussionPermanentID {
                     return []
                 } else {
                     return .alert
@@ -182,31 +183,24 @@ extension UserNotificationCenterDelegate {
         switch action {
         case .accept, .decline:
             guard let persistedInvitationUuidAsString = userInfo[UserNotificationKeys.persistedInvitationUUID] as? String,
-                  let persistedInvitationUuid = UUID(uuidString: persistedInvitationUuidAsString)
+                  let persistedInvitationUuid = UUID(uuidString: persistedInvitationUuidAsString),
+                  let ownedIdentityAsHexString = userInfo[UserNotificationKeys.ownedIdentityAsHexString] as? String,
+                  let ownedIdentity = Data(hexString: ownedIdentityAsHexString),
+                  let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity)
             else {
                 assertionFailure()
                 return true
             }
-            try await handleInvitationActions(action: action, persistedInvitationUuid: persistedInvitationUuid)
+            try await handleInvitationActions(action: action, persistedInvitationUuid: persistedInvitationUuid, ownedCryptoId: ownedCryptoId)
             return true
         case .mute:
-            guard let persistedDiscussionObjectURIAsString = userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
-                  let persistedDiscussionObjectURI = URL(string: persistedDiscussionObjectURIAsString),
-                  let objectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI),
-                  let persistedGroupDiscussionEntityName = PersistedGroupDiscussion.entity().name,
-                  let persistedOneToOneDiscussionEntityName = PersistedOneToOneDiscussion.entity().name,
-                  let persistedDiscussionEntityName = PersistedDiscussion.entity().name
+            guard let persistedDiscussionPermanentIDDescription = userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] as? String,
+                  let discussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(persistedDiscussionPermanentIDDescription)
             else {
                 assertionFailure()
                 return true
             }
-            switch objectID.entity.name {
-            case persistedGroupDiscussionEntityName, persistedOneToOneDiscussionEntityName, persistedDiscussionEntityName:
-                let persistedDiscussionObjectID = TypeSafeManagedObjectID<PersistedDiscussion>(objectID: objectID)
-                await handleMuteAction(persistedDiscussionObjectID: persistedDiscussionObjectID)
-            default:
-                assertionFailure()
-            }
+            await handleMuteAction(discussionPermanentID: discussionPermanentID)
             return true
         case .callBack:
             guard let callUUIDAsString = userInfo[UserNotificationKeys.callUUID] as? String,
@@ -220,47 +214,44 @@ extension UserNotificationCenterDelegate {
         case .replyTo:
             guard let messageIdentifierFromEngineAsString = userInfo[UserNotificationKeys.messageIdentifierFromEngine] as? String,
                   let messageIdentifierFromEngine = Data(hexString: messageIdentifierFromEngineAsString),
-                  let persistedContactObjectURIAsString = userInfo[UserNotificationKeys.persistedContactObjectURI] as? String,
-                  let persistedContactObjectURI = URL(string: persistedContactObjectURIAsString),
-                  let persistedContactObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedContactObjectURI),
+                  let persistedContactPermanentIDDescription = userInfo[UserNotificationKeys.persistedContactPermanentIDDescription] as? String,
+                  let persistedContactPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(persistedContactPermanentIDDescription),
                   let textResponse = response as? UNTextInputNotificationResponse else {
                 assertionFailure()
                 return true
             }
-            await handleReplyToMessageAction(messageIdentifierFromEngine: messageIdentifierFromEngine, persistedContactObjectID: persistedContactObjectID, textBody: textResponse.userText)
+            await handleReplyToMessageAction(messageIdentifierFromEngine: messageIdentifierFromEngine, persistedContactPermanentID: persistedContactPermanentID, textBody: textResponse.userText)
             return true
         case .sendMessage:
-            guard let persistedDiscussionObjectURIAsString = userInfo[UserNotificationKeys.persistedDiscussionObjectURI] as? String,
-                  let persistedDiscussionObjectURI = URL(string: persistedDiscussionObjectURIAsString),
-                  let persistedDiscussionObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI),
+            guard let persistedDiscussionPermanentIDDescription = userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] as? String,
+                  let discussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(persistedDiscussionPermanentIDDescription),
                   let textResponse = response as? UNTextInputNotificationResponse else {
                 assertionFailure()
                 return true
             }
-            await handleSendMessageAction(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textResponse.userText)
+            await handleSendMessageAction(discussionPermanentID: discussionPermanentID, textBody: textResponse.userText)
             return true
         case .markAsRead:
             guard let messageIdentifierFromEngineAsString = userInfo[UserNotificationKeys.messageIdentifierFromEngine] as? String,
                   let messageIdentifierFromEngine = Data(hexString: messageIdentifierFromEngineAsString),
-                  let persistedContactObjectURIAsString = userInfo[UserNotificationKeys.persistedContactObjectURI] as? String,
-                  let persistedContactObjectURI = URL(string: persistedContactObjectURIAsString),
-                  let persistedContactObjectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedContactObjectURI) else {
+                  let persistedContactPermanentIDDescription = userInfo[UserNotificationKeys.persistedContactPermanentIDDescription] as? String,
+                  let persistedContactPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(persistedContactPermanentIDDescription) else {
                 assertionFailure()
                 return true
             }
-            await handleMarkAsReadAction(messageIdentifierFromEngine: messageIdentifierFromEngine, persistedContactObjectID: persistedContactObjectID)
+            await handleMarkAsReadAction(messageIdentifierFromEngine: messageIdentifierFromEngine, persistedContactPermanentID: persistedContactPermanentID)
             return true
         }
     }
 
     
     @MainActor
-    private func handleMuteAction(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async {
+    private func handleMuteAction(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let completionHandler = { continuation.resume() }
             ObvMessengerInternalNotification.userWantsToUpdateLocalConfigurationOfDiscussion(
                 value: .muteNotificationsDuration(.oneHour),
-                persistedDiscussionObjectID: persistedDiscussionObjectID,
+                discussionPermanentID: discussionPermanentID,
                 completionHandler: completionHandler).postOnDispatchQueue()
         }
     }
@@ -278,13 +269,13 @@ extension UserNotificationCenterDelegate {
 
 
     @MainActor
-    private func handleInvitationActions(action: UserNotificationAction, persistedInvitationUuid: UUID) async throws {
+    private func handleInvitationActions(action: UserNotificationAction, persistedInvitationUuid: UUID, ownedCryptoId: ObvCryptoId) async throws {
         
         let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
         
         let persistedInvitation: PersistedInvitation
         do {
-            guard let _persistedInvitation = try PersistedInvitation.get(uuid: persistedInvitationUuid, within: ObvStack.shared.viewContext) else {
+            guard let _persistedInvitation = try PersistedInvitation.getPersistedInvitation(uuid: persistedInvitationUuid, ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else {
                 assertionFailure()
                 return
             }
@@ -349,10 +340,10 @@ extension UserNotificationCenterDelegate {
     
 
     @MainActor
-    private func handleReplyToMessageAction(messageIdentifierFromEngine: Data, persistedContactObjectID: NSManagedObjectID, textBody: String) async {
+    private func handleReplyToMessageAction(messageIdentifierFromEngine: Data, persistedContactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, textBody: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let completionHandler = { continuation.resume() }
-            ObvMessengerInternalNotification.userRepliedToReceivedMessageWithinTheNotificationExtension(persistedContactObjectID: persistedContactObjectID,
+            ObvMessengerInternalNotification.userRepliedToReceivedMessageWithinTheNotificationExtension(contactPermanentID: persistedContactPermanentID,
                                                                                                         messageIdentifierFromEngine: messageIdentifierFromEngine,
                                                                                                         textBody: textBody,
                                                                                                         completionHandler: completionHandler)
@@ -362,10 +353,10 @@ extension UserNotificationCenterDelegate {
     
 
     @MainActor
-    private func handleSendMessageAction(persistedDiscussionObjectID: NSManagedObjectID, textBody: String) async {
+    private func handleSendMessageAction(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, textBody: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let completionHandler = { continuation.resume() }
-            ObvMessengerInternalNotification.userRepliedToMissedCallWithinTheNotificationExtension(persistedDiscussionObjectID: persistedDiscussionObjectID,
+            ObvMessengerInternalNotification.userRepliedToMissedCallWithinTheNotificationExtension(discussionPermanentID: discussionPermanentID,
                                                                                                    textBody: textBody,
                                                                                                    completionHandler: completionHandler)
             .postOnDispatchQueue()
@@ -374,10 +365,10 @@ extension UserNotificationCenterDelegate {
 
     
     @MainActor
-    private func handleMarkAsReadAction(messageIdentifierFromEngine: Data, persistedContactObjectID: NSManagedObjectID) async {
+    private func handleMarkAsReadAction(messageIdentifierFromEngine: Data, persistedContactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let completionHandler = { continuation.resume() }
-            ObvMessengerInternalNotification.userWantsToMarkAsReadMessageWithinTheNotificationExtension(persistedContactObjectID: persistedContactObjectID,
+            ObvMessengerInternalNotification.userWantsToMarkAsReadMessageWithinTheNotificationExtension(contactPermanentID: persistedContactPermanentID,
                                                                                                         messageIdentifierFromEngine: messageIdentifierFromEngine,
                                                                                                         completionHandler: completionHandler)
             .postOnDispatchQueue()
@@ -419,11 +410,10 @@ extension UserNotificationCenterDelegate {
         
         os_log("🥏 Call to handleDeepLink", log: log, type: .info)
 
-        guard let deepLinkString = response.notification.request.content.userInfo[UserNotificationKeys.deepLink] as? String else {
+        guard let deepLinkDescription = response.notification.request.content.userInfo[UserNotificationKeys.deepLinkDescription] as? String else {
             return
         }
-        guard let deepLinkURL = URL(string: deepLinkString) else { return }
-        guard let deepLink = ObvDeepLink(url: deepLinkURL) else { return }
+        guard let deepLink = ObvDeepLink(deepLinkDescription) else { return }
         
         _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
 

@@ -40,6 +40,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var composeMessageView: NewComposeMessageView?
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
     let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
     private var observationTokens = [NSObjectProtocol]()
     private var unreadMessagesSystemMessage: PersistedMessageSystem?
     private let initialScroll: InitialScroll
@@ -161,8 +162,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate, initialScroll: InitialScroll) {
         self.draftObjectID = discussion.draft.typedObjectID
         self.discussionObjectID = discussion.typedObjectID
+        self.discussionPermanentID = discussion.discussionPermanentID
         self.initialScroll = initialScroll
-        self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionObjectID: discussion.typedObjectID)
+        self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionPermanentID: discussion.discussionPermanentID)
         super.init(nibName: nil, bundle: nil)
         self.composeMessageView = NewComposeMessageView(
             draft: discussion.draft,
@@ -333,43 +335,59 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         let sceneDidActivateNotification = UIScene.didActivateNotification
         let sceneDidEnterBackgroundNotification = UIScene.didEnterBackgroundNotification
         let log = self.log
+        let discussionObjectID = self.discussionObjectID
+        let discussionPermanentID = self.discussionPermanentID
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
-                guard let _self = self else { return }
-                guard case .muteNotificationsDuration = value else { return }
-                guard let discussion = try? PersistedDiscussion.get(objectID: _self.discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-                guard discussion.localConfiguration.typedObjectID == objectId else { return }
-                _self.configureNavigationTitle()
+            ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
+                OperationQueue.main.addOperation {
+                    guard case .muteNotificationsDuration = value else { return }
+                    guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+                    guard discussion.localConfiguration.typedObjectID == objectId else { return }
+                    self?.configureNavigationTitle()
+                }
             },
-            ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities(queue: OperationQueue.main) { [weak self] _,_,_ in
-                self?.configureNewComposeMessageViewVisibility(animate: true)
+            ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities { [weak self] _,_,_ in
+                OperationQueue.main.addOperation {
+                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                }
             },
-            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished(queue: OperationQueue.main) { [weak self] groupV2ObjectID in
-                guard let group = try? PersistedGroupV2.get(objectID: groupV2ObjectID, within: ObvStack.shared.viewContext) else { return }
-                guard group.discussion?.typedObjectID.downcast == self?.discussionObjectID else { return }
-                self?.configureNewComposeMessageViewVisibility(animate: true)
+            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished { [weak self] groupV2ObjectID in
+                OperationQueue.main.addOperation {
+                    guard let group = try? PersistedGroupV2.get(objectID: groupV2ObjectID, within: ObvStack.shared.viewContext) else { return }
+                    guard group.discussion?.typedObjectID.downcast == discussionObjectID else { return }
+                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                }
             },
-            ObvMessengerInternalNotification.observeCurrentUserActivityDidChange(queue: OperationQueue.main) { [weak self] (previousUserActivity, currentUserActivity) in
-                // Check that this discussion was left by the user
-                guard let _self = self else { return }
-                guard _self.discussionObjectID == previousUserActivity.persistedDiscussionObjectID, _self.discussionObjectID != currentUserActivity.persistedDiscussionObjectID else { return }
-                _self.theUserLeftTheDiscussion()
+            ObvMessengerInternalNotification.observeCurrentUserActivityDidChange {[weak self] (previousUserActivity, currentUserActivity) in
+                OperationQueue.main.addOperation {
+                    // Check that this discussion was left by the user
+                    guard discussionPermanentID == previousUserActivity.discussionPermanentID, discussionPermanentID != currentUserActivity.discussionPermanentID else { return }
+                    self?.theUserLeftTheDiscussion()
+                }
             },
-            ObvMessengerCoreDataNotification.observePersistedContactIsActiveChanged(queue: OperationQueue.main) { [weak self] _ in
-                self?.configureNewComposeMessageViewVisibility(animate: true)
+            ObvMessengerCoreDataNotification.observePersistedContactIsActiveChanged { [weak self] _ in
+                OperationQueue.main.addOperation {
+                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                }
             },
-            ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged(queue: OperationQueue.main) { [weak self] _, _ in
-                self?.configureNewComposeMessageViewVisibility(animate: true)
+            ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged { [weak self] _, _ in
+                OperationQueue.main.addOperation {
+                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                }
             },
-            NotificationCenter.default.addObserver(forName: sceneDidActivateNotification, object: nil, queue: .main) { [weak self] _ in
-                // When the scene activates, we want to mark as not new the messages that were received while in background and that are now visible on screen.
-                self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
+            NotificationCenter.default.addObserver(forName: sceneDidActivateNotification, object: nil, queue: nil) { [weak self] _ in
+                OperationQueue.main.addOperation {
+                    // When the scene activates, we want to mark as not new the messages that were received while in background and that are now visible on screen.
+                    self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
+                }
             },
-            NotificationCenter.default.addObserver(forName: sceneDidEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-                 guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == self?.discussionObjectID else { return }
-                os_log("🛫 Start call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
-                self?.theUserLeftTheDiscussion()
-                os_log("🛫 End call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
+            NotificationCenter.default.addObserver(forName: sceneDidEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+                OperationQueue.main.addOperation {
+                    guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { return }
+                    os_log("🛫 Start call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
+                    self?.theUserLeftTheDiscussion()
+                    os_log("🛫 End call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
+                }
             },
         ])
     }
@@ -737,20 +755,22 @@ extension NewSingleDiscussionViewController {
     // Refresh the discussion title if it is updated
     private func observePersistedDiscussionChanges() {
         let notification = NSNotification.Name.NSManagedObjectContextObjectsDidChange
-        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: OperationQueue.main) { [weak self] notification in
-            guard let _self = self else { return }
-            guard _self.viewDidAppearWasCalled else { return }
-            guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
-            guard let refreshedObject = notification.userInfo?[NSRefreshedObjectsKey] as? Set<NSManagedObject> else { return }
-
-            /// Computes the set of refreshed discussions
-            let currentDiscussionDidChange = refreshedObject
-                .compactMap({ $0 as? PersistedDiscussion })
-                .map({ $0.typedObjectID })
-                .contains(where: { $0 == _self.discussionObjectID })
-
-            if currentDiscussionDidChange {
-                self?.configureNavigationTitle()
+        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: nil) { [weak self] notification in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard _self.viewDidAppearWasCalled else { return }
+                guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
+                guard let refreshedObject = notification.userInfo?[NSRefreshedObjectsKey] as? Set<NSManagedObject> else { return }
+                
+                /// Computes the set of refreshed discussions
+                let currentDiscussionDidChange = refreshedObject
+                    .compactMap({ $0 as? PersistedDiscussion })
+                    .map({ $0.typedObjectID })
+                    .contains(where: { $0 == _self.discussionObjectID })
+                
+                if currentDiscussionDidChange {
+                    self?.configureNavigationTitle()
+                }
             }
         })
     }
@@ -758,44 +778,48 @@ extension NewSingleDiscussionViewController {
 
     private func observePersistedObvContactIdentityChanges() {
         let notification = NSNotification.Name.NSManagedObjectContextObjectsDidChange
-        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: OperationQueue.main) { [weak self] notification in
-            guard let _self = self else { return }
-            guard _self.viewDidAppearWasCalled else { return }
-            guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
-            guard let refreshedObject = notification.userInfo?[NSRefreshedObjectsKey] as? Set<NSManagedObject> else { return }
-            let refreshedContactObject = refreshedObject
-                .compactMap({ $0 as? PersistedObvContactIdentity })
-
-            /// Computes the set of contact groups where at least one contact has been refreshed and check whether the current discussion is one of the discussions associated to those group
-
-            if refreshedContactObject
-                .flatMap({ $0.contactGroups })
-                .contains(where: { $0.discussion.typedObjectID.downcast == _self.discussionObjectID }) {
-                /// If the current discussion has changed, reconfigure the title
-                self?.configureNavigationTitle()
-
-                /// We know here that at least one contact of the group was refreshed.
-                ObvStack.shared.viewContext.registeredObjects
-                    .compactMap { $0 as? PersistedMessageReceived }
-                    .filter {
-                        guard let contact = $0.contactIdentity else { return false }
-                        return refreshedContactObject.contains(contact)
-                    }
-                    .forEach { ObvStack.shared.viewContext.refresh($0, mergeChanges: true) }
-            } else if refreshedContactObject
-                .compactMap({ $0.oneToOneDiscussion })
-                .contains(where: { $0.typedObjectID.downcast == _self.discussionObjectID }) {
-                /// If the current discussion has changed, reconfigure the title
-                self?.configureNavigationTitle()
+        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: nil) { [weak self] notification in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard _self.viewDidAppearWasCalled else { return }
+                guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
+                guard let refreshedObject = notification.userInfo?[NSRefreshedObjectsKey] as? Set<NSManagedObject> else { return }
+                let refreshedContactObject = refreshedObject
+                    .compactMap({ $0 as? PersistedObvContactIdentity })
+                
+                /// Computes the set of contact groups where at least one contact has been refreshed and check whether the current discussion is one of the discussions associated to those group
+                
+                if refreshedContactObject
+                    .flatMap({ $0.contactGroups })
+                    .contains(where: { $0.discussion.typedObjectID.downcast == _self.discussionObjectID }) {
+                    /// If the current discussion has changed, reconfigure the title
+                    self?.configureNavigationTitle()
+                    
+                    /// We know here that at least one contact of the group was refreshed.
+                    ObvStack.shared.viewContext.registeredObjects
+                        .compactMap { $0 as? PersistedMessageReceived }
+                        .filter {
+                            guard let contact = $0.contactIdentity else { return false }
+                            return refreshedContactObject.contains(contact)
+                        }
+                        .forEach { ObvStack.shared.viewContext.refresh($0, mergeChanges: true) }
+                } else if refreshedContactObject
+                    .compactMap({ $0.oneToOneDiscussion })
+                    .contains(where: { $0.typedObjectID.downcast == _self.discussionObjectID }) {
+                    /// If the current discussion has changed, reconfigure the title
+                    self?.configureNavigationTitle()
+                }
             }
         })
     }
 
     private func observeRouteChange() {
-        observationTokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: OperationQueue.main) { [weak self] _ in
-            self?.collectionView?.visibleCells.forEach { cell in
-                guard let audioPlayerView = cell.deepSearchSubView(ofClass: AudioPlayerView.self) else { return }
-                audioPlayerView.configureSpeakerButton()
+        observationTokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil) { [weak self] _ in
+            OperationQueue.main.addOperation {
+                self?.collectionView?.visibleCells.forEach { cell in
+                    guard let audioPlayerView = cell.deepSearchSubView(ofClass: AudioPlayerView.self) else { return }
+                    audioPlayerView.configureSpeakerButton()
+                }
             }
         })
     }
@@ -1020,21 +1044,23 @@ extension NewSingleDiscussionViewController {
     /// When a new message is sent (which is equivalent of a new `PersistedMessageSent` after viewDidAppear was called), we remove the system message showing new received messages count
     private func updateNewMessageCellOnInsertionOfSentMessage() {
         let notification = NSNotification.Name.NSManagedObjectContextObjectsDidChange
-        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: OperationQueue.main) { [weak self] notification in
-            guard let _self = self else { return }
-            guard _self.viewDidAppearWasCalled else { return }
-            guard !_self.objectIDsOfMessagesToConsiderInNewMessagesCell.isEmpty else { return }
-            guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
-            guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
-            let newSentMessages = insertedObjects
-                .compactMap({ $0 as? PersistedMessageSent })
-                .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
-            guard !newSentMessages.isEmpty else { return }
-            _self.objectIDsOfMessagesToConsiderInNewMessagesCell.removeAll()
-            // We asynchronously call `insertOrUpdateSystemMessageCountingNewMessages`.
-            // This ensures that we do not include an item deletion (the system message) as well as an item insertion (the new sent message) in the diffable datasource snapshot. In theory, this should work. In practice, the animations look ugly. Forcing two distinct snapshots (the first for the sent message inserting, the second for the deletion of the system message counting new messages) results in nice looking animations. Yes, this is a hack.
-            DispatchQueue.main.async {
-                _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: nil) { [weak self] notification in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard _self.viewDidAppearWasCalled else { return }
+                guard !_self.objectIDsOfMessagesToConsiderInNewMessagesCell.isEmpty else { return }
+                guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
+                guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
+                let newSentMessages = insertedObjects
+                    .compactMap({ $0 as? PersistedMessageSent })
+                    .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
+                guard !newSentMessages.isEmpty else { return }
+                _self.objectIDsOfMessagesToConsiderInNewMessagesCell.removeAll()
+                // We asynchronously call `insertOrUpdateSystemMessageCountingNewMessages`.
+                // This ensures that we do not include an item deletion (the system message) as well as an item insertion (the new sent message) in the diffable datasource snapshot. In theory, this should work. In practice, the animations look ugly. Forcing two distinct snapshots (the first for the sent message inserting, the second for the deletion of the system message counting new messages) results in nice looking animations. Yes, this is a hack.
+                DispatchQueue.main.async {
+                    _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+                }
             }
         })
     }
@@ -1043,18 +1069,20 @@ extension NewSingleDiscussionViewController {
     /// We observe insertion of received messages so as to update the system message cell counting new messages.
     private func updateNewMessageCellOnInsertionOfReceivedMessages() {
         let notification = NSNotification.Name.NSManagedObjectContextObjectsDidChange
-        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: OperationQueue.main) { [weak self] notification in
-            guard let _self = self else { return }
-            guard _self.viewDidAppearWasCalled else { return }
-            guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
-            guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
-            let insertedReceivedMessages = insertedObjects
-                .compactMap({ $0 as? PersistedMessageReceived })
-                .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
-            let objectIDsOfInsertedReceivedMessages = Set(insertedReceivedMessages.map({ $0.typedObjectID.downcast }))
-            guard !objectIDsOfInsertedReceivedMessages.isSubset(of: _self.objectIDsOfMessagesToConsiderInNewMessagesCell) else { return }
-            _self.objectIDsOfMessagesToConsiderInNewMessagesCell.formUnion(objectIDsOfInsertedReceivedMessages)
-            _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: nil) { [weak self] notification in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard _self.viewDidAppearWasCalled else { return }
+                guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
+                guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
+                let insertedReceivedMessages = insertedObjects
+                    .compactMap({ $0 as? PersistedMessageReceived })
+                    .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
+                let objectIDsOfInsertedReceivedMessages = Set(insertedReceivedMessages.map({ $0.typedObjectID.downcast }))
+                guard !objectIDsOfInsertedReceivedMessages.isSubset(of: _self.objectIDsOfMessagesToConsiderInNewMessagesCell) else { return }
+                _self.objectIDsOfMessagesToConsiderInNewMessagesCell.formUnion(objectIDsOfInsertedReceivedMessages)
+                _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+            }
         })
     }
     
@@ -1062,46 +1090,52 @@ extension NewSingleDiscussionViewController {
     /// We observe insertion of relevant system messages so as to update the system message cell counting new messages.
     private func updateNewMessageCellOnInsertionOfRelevantSystemMessages() {
         let notification = NSNotification.Name.NSManagedObjectContextObjectsDidChange
-        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: OperationQueue.main) { [weak self] notification in
-            guard let _self = self else { return }
-            guard _self.viewDidAppearWasCalled else { return }
-            guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
-            guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
-            let insertedSystemMessages = insertedObjects
-                .compactMap({ $0 as? PersistedMessageSystem })
-                .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
-            let insertedRelevantSystemMessages = insertedSystemMessages
-                .filter({ $0.isRelevantForCountingUnread })
-                .filter({ $0.optionalContactIdentity != nil })
-            let objectIDsOfInsertedRelevantSystemMessages = Set(insertedRelevantSystemMessages.map({ $0.typedObjectID.downcast }))
-            guard !objectIDsOfInsertedRelevantSystemMessages.isSubset(of: _self.objectIDsOfMessagesToConsiderInNewMessagesCell) else { return }
-            _self.objectIDsOfMessagesToConsiderInNewMessagesCell.formUnion(objectIDsOfInsertedRelevantSystemMessages)
-            _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+        observationTokens.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: nil) { [weak self] notification in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard _self.viewDidAppearWasCalled else { return }
+                guard (notification.object as? NSManagedObjectContext) == ObvStack.shared.viewContext else { return }
+                guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
+                let insertedSystemMessages = insertedObjects
+                    .compactMap({ $0 as? PersistedMessageSystem })
+                    .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
+                let insertedRelevantSystemMessages = insertedSystemMessages
+                    .filter({ $0.isRelevantForCountingUnread })
+                    .filter({ $0.optionalContactIdentity != nil })
+                let objectIDsOfInsertedRelevantSystemMessages = Set(insertedRelevantSystemMessages.map({ $0.typedObjectID.downcast }))
+                guard !objectIDsOfInsertedRelevantSystemMessages.isSubset(of: _self.objectIDsOfMessagesToConsiderInNewMessagesCell) else { return }
+                _self.objectIDsOfMessagesToConsiderInNewMessagesCell.formUnion(objectIDsOfInsertedRelevantSystemMessages)
+                _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+            }
         })
     }
 
     /// We observe deletion of received messages so as to update the system message cell counting new messages.
     private func updateNewMessageCellOnDeletionOfReceivedMessages() {
-        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, _, discussionObjectID) in
-            guard let _self = self else { return }
-            guard discussionObjectID == _self.discussionObjectID else { return }
-            let messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
-            guard _self.objectIDsOfMessagesToConsiderInNewMessagesCell.contains(messageObjectID) else { return }
-            _self.objectIDsOfMessagesToConsiderInNewMessagesCell.remove(messageObjectID)
-            _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted { [weak self] (objectID, _, _, _, discussionObjectID) in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard discussionObjectID == _self.discussionObjectID else { return }
+                let messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
+                guard _self.objectIDsOfMessagesToConsiderInNewMessagesCell.contains(messageObjectID) else { return }
+                _self.objectIDsOfMessagesToConsiderInNewMessagesCell.remove(messageObjectID)
+                _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+            }
         })
     }
     
     
     /// We observe deletion of system messages so as to update the system message cell counting new messages if appropriate.
     private func updateNewMessageCellOnDeletionOfRelevantSystemMessages() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageSystemWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, discussionObjectID) in
-            guard let _self = self else { return }
-            guard discussionObjectID == _self.discussionObjectID else { return }
-            let messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
-            guard _self.objectIDsOfMessagesToConsiderInNewMessagesCell.contains(messageObjectID) else { return }
-            _self.objectIDsOfMessagesToConsiderInNewMessagesCell.remove(messageObjectID)
-            _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageSystemWasDeleted { [weak self] (objectID, discussionObjectID) in
+            OperationQueue.main.addOperation {
+                guard let _self = self else { return }
+                guard discussionObjectID == _self.discussionObjectID else { return }
+                let messageObjectID = TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
+                guard _self.objectIDsOfMessagesToConsiderInNewMessagesCell.contains(messageObjectID) else { return }
+                _self.objectIDsOfMessagesToConsiderInNewMessagesCell.remove(messageObjectID)
+                _self.insertOrUpdateSystemMessageCountingNewMessages(removeExisting: false)
+            }
         })
     }
 
@@ -1138,7 +1172,7 @@ extension NewSingleDiscussionViewController {
     
     /// This method sends a notification allowing the database to mark the message as not new (which will eventually send read receipt if this setting is set)
     private func markAsNotNewTheMessageInCell(_ cell: UICollectionViewCell) {
-        guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == discussionObjectID else { return }
+        guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { return }
         guard viewDidAppearWasCalled else { return }
         
         // If the scene is not foreground active, we do not mark visible messages as not new.
@@ -1441,16 +1475,16 @@ extension NewSingleDiscussionViewController {
             if persistedMessage.forwardActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Forward) { [weak self] (_) in
                     guard let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId else { return }
-                    let vc = DiscussionsViewController(ownedCryptoId: ownedCryptoId) { discussionObjectIDs in
-                        guard !discussionObjectIDs.isEmpty else { return }
+                    let vc = DiscussionsSelectionViewController(ownedCryptoId: ownedCryptoId) { discussionPermanentIDs in
+                        guard !discussionPermanentIDs.isEmpty else { return }
                         // Forward the message to all the discussions
-                        ObvMessengerInternalNotification.userWantsToForwardMessage(messageObjectID: persistedMessage.typedObjectID, discussionObjectIDs: discussionObjectIDs)
+                        ObvMessengerInternalNotification.userWantsToForwardMessage(messagePermanentID: persistedMessage.messagePermanentID, discussionPermanentIDs: discussionPermanentIDs)
                             .postOnDispatchQueue()
                         // In case the message was forwarded to exactly one discussion, we want to push this discussion onto the navigation stack
-                        if discussionObjectIDs.count == 1,
-                           let discussionObjectID = discussionObjectIDs.first,
-                           discussionObjectID != persistedMessage.discussion.typedObjectID {
-                            let deepLink = ObvDeepLink.singleDiscussion(discussionObjectURI: discussionObjectID.uriRepresentation().url)
+                        if discussionPermanentIDs.count == 1,
+                           let discussionPermanentID = discussionPermanentIDs.first,
+                           discussionPermanentID != persistedMessage.discussion.discussionPermanentID {
+                            let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: discussionPermanentID)
                             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                                 .postOnDispatchQueue()
                         }

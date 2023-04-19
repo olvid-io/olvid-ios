@@ -27,13 +27,13 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAsReadReceivedMessageOperation.self))
 
-    let persistedContactObjectID: NSManagedObjectID
+    let contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
     let messageIdentifierFromEngine: Data
 
     private(set) var persistedMessageReceivedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>?
 
-    init(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data) {
-        self.persistedContactObjectID = persistedContactObjectID
+    init(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data) {
+        self.contactPermanentID = contactPermanentID
         self.messageIdentifierFromEngine = messageIdentifierFromEngine
         super.init()
     }
@@ -46,7 +46,7 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
 
         obvContext.performAndWait {
             do {
-                guard let contactIdentity = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: obvContext.context) else {
+                guard let contactIdentity = try PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: obvContext.context) else {
                     assertionFailure()
                     return cancel(withReason: .couldNotFindContactIdentityInDatabase)
                 }

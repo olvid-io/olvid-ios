@@ -78,7 +78,11 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
         if let sentMsg = msg as? PersistedMessageSent {
             displayName = sentMsg.discussion.ownedIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? ""
         } else if let receivedMsg = msg as? PersistedMessageReceived {
-            displayName = receivedMsg.contactIdentity?.customDisplayName ?? receivedMsg.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
+            if let receivedMsgContactIdentity = receivedMsg.contactIdentity {
+                displayName = receivedMsgContactIdentity.customDisplayName ?? receivedMsgContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? receivedMsgContactIdentity.fullDisplayName
+            } else {
+                displayName = CommonString.deletedContact
+            }
         } else {
             assertionFailure(); return nil
         }
@@ -113,7 +117,7 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
         ObvStack.shared.performBackgroundTask { (context) in
             do {
                 guard let writableDraft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { return }
-                writableDraft.replyTo = nil
+                writableDraft.removeReplyTo()
                 try context.save(logOnFailure: log)
             } catch let _error {
                 error = _error
@@ -135,8 +139,8 @@ extension ComposeMessageDataSourceWithDraft: NSFetchedResultsControllerDelegate 
     private static func configureTheFetchedResultsController(draft: PersistedDraft) -> NSFetchedResultsController<PersistedDraftFyleJoin> {
         
         let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", PersistedDraftFyleJoin.draftKey, draft)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedDraftFyleJoin.indexKey, ascending: true)]
+        fetchRequest.predicate = PersistedDraftFyleJoin.Predicate.withPersistedDraft(draft)
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedDraftFyleJoin.Predicate.Key.index.rawValue, ascending: true)]
         
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
                                                                   managedObjectContext: ObvStack.shared.viewContext,

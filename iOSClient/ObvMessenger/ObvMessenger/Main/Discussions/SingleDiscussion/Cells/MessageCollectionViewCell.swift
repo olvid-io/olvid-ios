@@ -665,7 +665,11 @@ class MessageCollectionViewCell: UICollectionViewCell {
                 }
             }
             if let rcvMsg = repliedMessage as? PersistedMessageReceived {
-                replyToLabel.text = rcvMsg.contactIdentity?.customDisplayName ?? rcvMsg.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
+                if let rcvMsgContactIdentity = rcvMsg.contactIdentity {
+                    replyToLabel.text = rcvMsgContactIdentity.customDisplayName ?? rcvMsgContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? rcvMsgContactIdentity.fullDisplayName
+                } else {
+                    replyToLabel.text = CommonString.deletedContact
+                }
                 replyToLabel.textColor = rcvMsg.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel
                 if !rcvMsg.fyleMessageJoinWithStatuses.isEmpty {
                     let numberOfAttachments = rcvMsg.fyleMessageJoinWithStatuses.count

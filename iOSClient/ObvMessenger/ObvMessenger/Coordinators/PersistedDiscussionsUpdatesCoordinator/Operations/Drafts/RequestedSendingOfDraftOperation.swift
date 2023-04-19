@@ -25,10 +25,10 @@ import CoreData
 
 final class RequestedSendingOfDraftOperation: ContextualOperationWithSpecificReasonForCancel<RequestedSendingOfDraftOperationReasonForCancel> {
     
-    let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
+    let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
-        self.draftObjectID = draftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
+        self.draftPermanentID = draftPermanentID
         super.init()
     }
 
@@ -40,7 +40,7 @@ final class RequestedSendingOfDraftOperation: ContextualOperationWithSpecificRea
         
         obvContext.performAndWait {
             do {
-                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindDraftInDatabase)
                 }
                 guard draft.isNotEmpty else {

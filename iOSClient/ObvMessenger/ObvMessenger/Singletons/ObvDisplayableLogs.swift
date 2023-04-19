@@ -99,4 +99,10 @@ final class ObvDisplayableLogs {
         let logURL = ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
         try fm.removeItem(at: logURL)
     }
+
+    func getSizeOfLog(logFilename: String) throws -> Int64? {
+        let logURL = ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+        guard let fileAttributes = try? FileManager.default.attributesOfItem(atPath: logURL.path) else { return nil }
+        return fileAttributes[FileAttributeKey.size] as? Int64
+    }
 }

@@ -25,8 +25,7 @@ extension PersistedMessageSent {
 
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    /// This method returns the number of outbound messages within the specified discussion that are at least in the `sent` state, and
-    /// that occur after the message passed as a parameter.
+    /// Returns the number of outbound messages within the specified discussion that are at least in the `sent` state, and that occur after the message passed as a parameter.
     /// This method is typically used for displaying count based retention information for a specific message.
     static func countAllSentMessages(after messageObjectID: NSManagedObjectID, discussion: PersistedDiscussion) throws -> Int {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Cannot find context in PersistedDiscussion") }
@@ -46,7 +45,7 @@ extension PersistedMessageSent {
     /// Called when a sent message with limited visibility reached the end of this visibility (in which case the `requester` is `nil`)
     /// or when a message was globally wiped (in which case the requester is non nil)
     func wipe(requester: RequesterOfMessageDeletion?) throws {
-        if let requester = requester {
+        if let requester {
             try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
         }
         switch requester {
@@ -73,14 +72,15 @@ extension PersistedMessageSent {
         unprocessedRecipientInfos.forEach({ try? $0.delete() })
     }
 
+    
     /// If `retainWipedOutboundMessages` is `true`, this method only wipes the message. Otherwise, it deletes it.
     /// For now, this method is always used with a `nil` requester (meaning that no check will be performed before wiping or deleting messages), since it is called on expired sent messages.
     func wipeOrDelete(requester: RequesterOfMessageDeletion?) throws -> InfoAboutWipedOrDeletedPersistedMessage {
         if retainWipedOutboundMessages {
             do {
                 let wipeInfo = InfoAboutWipedOrDeletedPersistedMessage(kind: .wiped,
-                                                                       discussionID: self.discussion.typedObjectID,
-                                                                       messageID: self.typedObjectID.downcast)
+                                                                       discussionPermanentID: self.discussion.discussionPermanentID,
+                                                                       messagePermanentID: self.messagePermanentID)
                 try wipe(requester: requester)
                 return wipeInfo
             } catch {

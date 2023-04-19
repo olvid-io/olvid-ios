@@ -32,6 +32,7 @@ final class MarkAsOpenedOperation: ContextualOperationWithSpecificReasonForCance
 
     init(receivedFyleMessageJoinWithStatusID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
         self.receivedFyleMessageJoinWithStatusID = receivedFyleMessageJoinWithStatusID
+        super.init()
     }
 
     override func main() {

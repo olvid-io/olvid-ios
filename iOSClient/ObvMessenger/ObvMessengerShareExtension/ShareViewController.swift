@@ -365,9 +365,8 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         self.initializeOperations()
 
         if let conversationIdentifier = delegate?.conversationIdentifier,
-           let persistedDiscussionObjectURI = URL(string: conversationIdentifier),
-           let objectID = ObvStack.shared.managedObjectID(forURIRepresentation: persistedDiscussionObjectURI),
-           let discussion = try? PersistedDiscussion.get(objectID: objectID, within: ObvStack.shared.viewContext) {
+           let discussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(conversationIdentifier),
+           let discussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext) {
             self.model.setSelectedDiscussions(to: [discussion])
         }
     }
@@ -439,7 +438,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
     /// This method creates all the `PersistedMessageSent` that we will have to send.
     /// Note that the pre-processing made in `initializeOperations` did create the `fyleJoinsProvider` global variable that are required here.
     /// This method saves the global `obvContext` that was *not* saved in the `initializeOperations()` method: this makes it possible to have atomicity.
-    private func createAllMessagesToSend(discussions: [PersistedDiscussion]) async throws -> [TypeSafeManagedObjectID<PersistedMessageSent>] {
+    private func createAllMessagesToSend(discussions: [PersistedDiscussion]) async throws -> [ObvManagedObjectPermanentID<PersistedMessageSent>] {
         
         assert(Thread.isMainThread)
         
@@ -469,16 +468,16 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         
         // Queue the save operation and wait until it is finished (and all ops are successfull) before returning the ObjectIDs of the create persisted messages to send.
         
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[TypeSafeManagedObjectID<PersistedMessageSent>], Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvManagedObjectPermanentID<PersistedMessageSent>], Error>) in
             internalQueue.addOperations([saveOp], waitUntilFinished: true)
             // Since we wait on a serial queue for the saveOp to be finished, we know that when reaching this point, all previous operations are also finished
             guard createMsgOps.allSatisfy({ !$0.isCancelled }) && !saveOp.isCancelled else {
                 continuation.resume(throwing: Self.makeError(message: "Could not create all messages to send"))
                 return
             }
-            let persistedMessageSentObjectIDs = createMsgOps.compactMap({ $0.persistedMessageSentObjectID })
-            assert(persistedMessageSentObjectIDs.count == createMsgOps.count)
-            continuation.resume(returning: persistedMessageSentObjectIDs)
+            let messageSentPermanentIDs = createMsgOps.compactMap({ $0.messageSentPermanentID })
+            assert(messageSentPermanentIDs.count == createMsgOps.count)
+            continuation.resume(returning: messageSentPermanentIDs)
         }
         
     }
@@ -486,7 +485,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
 
     /// This method performs an engine request allowing to send the message referenced by the `messageObjectID` parameter. It returns *after* the PersistedMessageSent is modified in DB using the identifier returned by the engine.
     /// The `dispatchGroupForEngine` parameter will allow to wait until all the engine completion handler are called before dismissing the share extension view.
-    private func sendUnprocessedMessageToSend(_ messageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, dispatchGroupForEngine: DispatchGroup, progress: Progress) async throws {
+    private func sendUnprocessedMessageToSend(_ messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, dispatchGroupForEngine: DispatchGroup, progress: Progress) async throws {
 
         let obvContext = ObvStack.shared.newBackgroundContext(flowId: flowId)
         
@@ -496,7 +495,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             dispatchGroupForEngine.enter()
-            let op = SendUnprocessedPersistedMessageSentOperation(persistedMessageSentObjectID: messageObjectID, extendedPayloadProvider: nil, obvEngine: obvEngine) {
+            let op = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, extendedPayloadProvider: nil, obvEngine: obvEngine) {
                 // Called by the engine when the message and its attachments were taken into account
                 progress.completedUnitCount += 1
                 dispatchGroupForEngine.leave()
@@ -538,9 +537,9 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         progress.isCancellable = false
         delegate?.showProgress(progress: progress)
         
-        let persistedMessageSentObjectIDs: [TypeSafeManagedObjectID<PersistedMessageSent>]
+        let messageSentPermanentIDs: [ObvManagedObjectPermanentID<PersistedMessageSent>]
         do {
-            persistedMessageSentObjectIDs = try await createAllMessagesToSend(discussions: discussions)
+            messageSentPermanentIDs = try await createAllMessagesToSend(discussions: discussions)
         } catch {
             os_log("📤 Could not create all messages to send: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             delegate?.showErrorAndCancelRequest()
@@ -553,9 +552,9 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         
         let dispatchGroupForEngine = DispatchGroup()
         
-        for persistedMessageSentObjectID in persistedMessageSentObjectIDs {
+        for messageSentPermanentID in messageSentPermanentIDs {
             do {
-                try await sendUnprocessedMessageToSend(persistedMessageSentObjectID, dispatchGroupForEngine: dispatchGroupForEngine, progress: progress)
+                try await sendUnprocessedMessageToSend(messageSentPermanentID, dispatchGroupForEngine: dispatchGroupForEngine, progress: progress)
             } catch {
                 os_log("📤 Could not send one of the messages", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure() // Continue anyway

@@ -24,26 +24,22 @@ import ObvEngine
 
 
 @objc(PersistedMessageReaction)
-public class PersistedMessageReaction: NSManagedObject {
+class PersistedMessageReaction: NSManagedObject {
 
     private static let entityName = "PersistedMessageReaction"
-    @nonobjc public class func fetchRequest() -> NSFetchRequest<PersistedMessageReaction> {
-        return NSFetchRequest<PersistedMessageReaction>(entityName: entityName)
-    }
-
     private static let errorDomain = "PersistedMessageReaction"
     private static func makeError(message: String) -> Error { NSError(domain: PersistedMessageReaction.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    // MARK: - Attributes
+    // MARK: Attributes
 
     @NSManaged private var rawEmoji: String
     @NSManaged private(set) var timestamp: Date
 
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged var message: PersistedMessage?
 
-    // MARK: - Other variables
+    // MARK: Other variables
     
     var emoji: String {
         return self.rawEmoji
@@ -92,10 +88,16 @@ extension PersistedMessageReaction {
 
     private struct Predicate {
         static func withObjectID(_ objectID: TypeSafeManagedObjectID<PersistedMessageReaction>) -> NSPredicate {
-            NSPredicate(format: "self == %@", objectID.objectID)
+            NSPredicate(withObjectID: objectID.objectID)
         }
     }
 
+    
+    @nonobjc public class func fetchRequest() -> NSFetchRequest<PersistedMessageReaction> {
+        return NSFetchRequest<PersistedMessageReaction>(entityName: entityName)
+    }
+
+    
     static func get(with objectID: TypeSafeManagedObjectID<PersistedMessageReaction>, within context: NSManagedObjectContext) throws -> PersistedMessageReaction? {
         let request: NSFetchRequest<PersistedMessageReaction> = PersistedMessageReaction.fetchRequest()
         request.predicate = Predicate.withObjectID(objectID)
@@ -105,6 +107,9 @@ extension PersistedMessageReaction {
 
 }
 
+
+// MARK: - PersistedMessageReactionSent
+
 @objc(PersistedMessageReactionSent)
 final class PersistedMessageReactionSent: PersistedMessageReaction {
 
@@ -113,20 +118,24 @@ final class PersistedMessageReactionSent: PersistedMessageReaction {
     convenience init(emoji: String, timestamp: Date, message: PersistedMessage) throws {
         try self.init(emoji: emoji, timestamp: timestamp, message: message, forEntityName: Self.entityName)
     }
+    
 }
+
+
+// MARK: - PersistedMessageReactionReceived
 
 @objc(PersistedMessageReactionReceived)
 final class PersistedMessageReactionReceived: PersistedMessageReaction {
 
     private static let entityName = "PersistedMessageReactionReceived"
-    private var userInfoForDeletion: [String: Any]?
-
     private static let errorDomain = "PersistedMessageReactionReceived"
     private static func makeError(message: String) -> Error { NSError(domain: PersistedMessageReactionReceived.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged private(set) var contact: PersistedObvContactIdentity?
+
+    // MARK: - Initializer
 
     convenience init(emoji: String, timestamp: Date, message: PersistedMessage, contact: PersistedObvContactIdentity) throws {
         guard message.managedObjectContext == contact.managedObjectContext else { throw PersistedMessageReactionReceived.makeError(message: "Incoherent contexts") }
@@ -135,16 +144,19 @@ final class PersistedMessageReactionReceived: PersistedMessageReaction {
     }
 
     private struct UserInfoForDeletionKeys {
-        static let messageURI = "messageURI"
-        static let contactURI = "contactURI"
+        static let messagePermanentID = "messagePermanentID"
+        static let contactPermanentID = "contactPermanentID"
     }
+
+    private var userInfoForDeletion: [String: Any]?
 
     override func prepareForDeletion() {
         super.prepareForDeletion()
-        guard let message = message,
+        // We keep user infos for deletion only in the case we are considering a reaction on a sent message
+        guard let message = message as? PersistedMessageSent,
               let contact = contact else { return }
-        userInfoForDeletion = [UserInfoForDeletionKeys.messageURI: message.objectID.uriRepresentation(),
-                               UserInfoForDeletionKeys.contactURI: contact.objectID.uriRepresentation()]
+        userInfoForDeletion = [UserInfoForDeletionKeys.messagePermanentID: message.objectPermanentID,
+                               UserInfoForDeletionKeys.contactPermanentID: contact.objectPermanentID]
     }
 
     override func didSave() {
@@ -154,12 +166,13 @@ final class PersistedMessageReactionReceived: PersistedMessageReaction {
         }
 
         if isDeleted, let userInfoForDeletion = self.userInfoForDeletion {
-            guard let messageURI = userInfoForDeletion[UserInfoForDeletionKeys.messageURI] as? URL,
-                  let contactURI = userInfoForDeletion[UserInfoForDeletionKeys.contactURI] as? URL else {
-                      assertionFailure()
-                      return
-                  }
-            ObvMessengerCoreDataNotification.persistedMessageReactionReceivedWasDeleted(messageURI: messageURI, contactURI: contactURI).postOnDispatchQueue()
+            guard let messagePermanentID = userInfoForDeletion[UserInfoForDeletionKeys.messagePermanentID] as? ObvManagedObjectPermanentID<PersistedMessageSent>,
+                  let contactPermanentID = userInfoForDeletion[UserInfoForDeletionKeys.contactPermanentID] as? ObvManagedObjectPermanentID<PersistedObvContactIdentity>
+            else {
+                return
+            }
+            ObvMessengerCoreDataNotification.persistedMessageReactionReceivedWasDeletedOnSentMessage(messagePermanentID: messagePermanentID, contactPermanentID: contactPermanentID)
+                .postOnDispatchQueue()
         } else {
             ObvMessengerCoreDataNotification.persistedMessageReactionReceivedWasInsertedOrUpdated(objectID: typedObjectID).postOnDispatchQueue()
         }

@@ -37,7 +37,6 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
     var discussion: PersistedDiscussion!
     /// If `true`, all message statuses and attachment progresses are hidden
     var hideProgresses = false
-    var restrictToLastMessages: Bool!
     var composeMessageViewDataSource: ComposeMessageDataSource!
     var composeMessageViewDocumentPickerDelegate: ComposeMessageViewDocumentPickerDelegate!
     weak var weakComposeMessageViewSendMessageDelegate: ComposeMessageViewSendMessageDelegate?
@@ -51,6 +50,7 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
     static let errorDomain = "SingleDiscussionViewController"
 
     var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { discussion.typedObjectID }
+    var discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion> { discussion.discussionPermanentID }
     
     private var fetchedResultsController: NSFetchedResultsController<PersistedMessage>!
 
@@ -242,13 +242,9 @@ extension SingleDiscussionViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionObjectID: discussionObjectID)
+        self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionPermanentID: discussionPermanentID)
         
-        if restrictToLastMessages {
-            self.fetchedResultsController = PersistedMessage.getFetchedResultsControllerForLastMessagesWithinDiscussion(discussionObjectID: discussion.objectID, within: ObvStack.shared.viewContext)
-        } else {
-            self.fetchedResultsController = PersistedMessage.getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: discussion.typedObjectID, within: ObvStack.shared.viewContext)
-        }
+        self.fetchedResultsController = PersistedMessage.getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: discussion.typedObjectID, within: ObvStack.shared.viewContext)
         
         self.composeMessageView = Bundle.main.loadNibNamed(ComposeMessageView.nibName, owner: nil, options: nil)!.first as? ComposeMessageView
         self.composeMessageView.dataSource = self.composeMessageViewDataSource
@@ -1097,9 +1093,9 @@ extension SingleDiscussionViewController {
                     guard let log = self?.log else { return }
                     ObvStack.shared.performBackgroundTask { context in
                         do {
-                            guard let writableDraft = try PersistedDraft.get(from: discussion, within: context) else { throw Self.makeError(message: "Could not find PersistedDraft") }
+                            guard let writableDraft = try PersistedDraft.getPersistedDraft(of: discussion, within: context) else { throw Self.makeError(message: "Could not find PersistedDraft") }
                             guard let writableMessage = try PersistedMessage.get(with: persistedMessageObjectID, within: context) else { throw Self.makeError(message: "Could not find PersistedMessage") }
-                            writableDraft.replyTo = writableMessage
+                            writableDraft.setReplyTo(to: writableMessage)
                             try context.save(logOnFailure: log)
                         } catch {
                             os_log("Could not attach message as a replyTo to the draft", log: log, type: .error)

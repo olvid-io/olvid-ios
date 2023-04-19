@@ -19,39 +19,41 @@
   
 
 import XCTest
+import OlvidUtils
 
 class ObvDeepLinkTests: XCTestCase {
 
     func _testLink(link: ObvDeepLink) {
-        let url = link.url
-        let linkFromUrl = ObvDeepLink(url: url)
-
-        XCTAssertNotNil(linkFromUrl)
-        XCTAssertEqual(link, linkFromUrl, "Links are not equals")
+        let description = link.description
+        let linkFromDescription = ObvDeepLink(description)
+        
+        XCTAssertNotNil(linkFromDescription)
+        XCTAssertEqual(link, linkFromDescription, "Links are not equals")
     }
 
     func testLinks() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
-        let url = temporaryDirectory.appendingPathComponent("ObvDeepLinkTests", isDirectory: true)
 
         for host in ObvDeepLinkHost.allCases {
             switch host {
             case .latestDiscussions:
                 _testLink(link: ObvDeepLink.latestDiscussions)
             case .singleDiscussion:
-                _testLink(link: ObvDeepLink.singleDiscussion(discussionObjectURI: url))
+                let permanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(entityName: "PersistedDiscussion", uuid: UUID())
+                _testLink(link: ObvDeepLink.singleDiscussion(objectPermanentID: permanentID))
             case .invitations:
                 _testLink(link: ObvDeepLink.invitations)
             case .contactGroupDetails:
-                _testLink(link: ObvDeepLink.contactGroupDetails(displayedContactGroupURI: url))
+                _testLink(link: ObvDeepLink.contactGroupDetails(objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>(entityName: "DisplayedContactGroup", uuid: UUID())))
             case .contactIdentityDetails:
-                _testLink(link: ObvDeepLink.contactIdentityDetails(contactIdentityURI: url))
+                _testLink(link: ObvDeepLink.contactIdentityDetails(objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>(entityName: "PersistedObvContactIdentity", uuid: UUID())))
             case .airDrop:
+                let url = URL(string: temporaryDirectory.appendingPathComponent("ObvDeepLinkTests.txt", isDirectory: false).path)!
                 _testLink(link: ObvDeepLink.airDrop(fileURL: url))
             case .qrCodeScan:
                 _testLink(link: ObvDeepLink.qrCodeScan)
             case .myId:
-                _testLink(link: ObvDeepLink.myId(ownedIdentityURI: url))
+                _testLink(link: ObvDeepLink.myId(objectPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(entityName: "PersistedObvOwnedIdentity", uuid: UUID())))
             case .requestRecordPermission:
                 _testLink(link: ObvDeepLink.requestRecordPermission)
             case .settings:
@@ -59,7 +61,9 @@ class ObvDeepLinkTests: XCTestCase {
             case .backupSettings:
                 _testLink(link: ObvDeepLink.backupSettings)
             case .message:
-                _testLink(link: ObvDeepLink.message(messageObjectURI: url))
+                _testLink(link: ObvDeepLink.message(objectPermanentID: ObvManagedObjectPermanentID<PersistedMessage>(entityName: "PersistedMessage", uuid: UUID())))
+            case .allGroups:
+                _testLink(link: ObvDeepLink.allGroups)
             }
         }
     }

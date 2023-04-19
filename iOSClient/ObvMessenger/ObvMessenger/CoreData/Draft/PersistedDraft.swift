@@ -22,32 +22,37 @@ import CoreData
 import OlvidUtils
 
 @objc(PersistedDraft)
-final class PersistedDraft: NSManagedObject, Draft, ObvErrorMaker {
-    
-    private static let entityName = "PersistedDraft"
+final class PersistedDraft: NSManagedObject, Draft, ObvErrorMaker, ObvIdentifiableManagedObject {
+        
+    static let entityName = "PersistedDraft"
     static let errorDomain = "PersistedDraft"
 
-    // MARK: - Attributes
+    // MARK: Attributes
     
     @NSManaged private(set) var body: String?
-    @NSManaged private(set) var sendRequested: Bool
+    @NSManaged private var permanentUUID: UUID
     @NSManaged private var rawExistenceDuration: NSNumber?
     @NSManaged private var rawVisibilityDuration: NSNumber?
     @NSManaged private(set) var readOnce: Bool
+    @NSManaged private(set) var sendRequested: Bool
 
-    // MARK: - Relationships
+    // MARK: Relationships
     
     @NSManaged private(set) var discussion: PersistedDiscussion
-    @NSManaged var replyTo: PersistedMessage?
+    @NSManaged private(set) var replyTo: PersistedMessage?
     @NSManaged private(set) var unsortedDraftFyleJoins: Set<PersistedDraftFyleJoin>
     
-    // MARK: - Computed Properties
+    // MARK: Computed Properties
+    
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraft> {
+        ObvManagedObjectPermanentID<PersistedDraft>(uuid: self.permanentUUID)
+    }
     
     var fyleJoins: [FyleJoin] {
         unsortedDraftFyleJoins.sorted(by: { $0.index < $1.index })
     }
 
-    // MARK: - Other variables
+    // MARK: Other variables
     
     private var changedKeys = Set<String>()
     
@@ -92,6 +97,7 @@ extension PersistedDraft {
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedDraft.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.body = nil
+        self.permanentUUID = UUID()
         self.sendRequested = false
         self.discussion = discussion
         self.replyTo = nil
@@ -159,10 +165,16 @@ extension PersistedDraft {
     func setContent(with body: String) {
         guard self.body != body else { return }
         self.body = body
-        self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
+        if let resultingBody = self.body, !resultingBody.isEmpty {
+            self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
+        }
     }
 
     func appendContentToBody(_ content: String) {
+        guard !content.isEmpty else { return }
+        if self.body == nil {
+            self.body = ""
+        }
         self.body?.append(content)
         self.discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(Date())
     }
@@ -171,6 +183,16 @@ extension PersistedDraft {
         readOnce == true || existenceDuration != nil || visibilityDuration != nil
     }
 
+    func removeReplyTo() {
+        guard self.replyTo != nil else { return }
+        self.replyTo = nil
+    }
+    
+    func setReplyTo(to message: PersistedMessage) {
+        guard self.replyTo != message else { return }
+        self.replyTo = message
+    }
+    
 }
 
 extension PersistedDraft {
@@ -195,30 +217,38 @@ extension PersistedDraft {
 
 extension PersistedDraft {
     
-    private struct Predicate {
-        
+    struct Predicate {
         enum Key: String {
+            case permanentUUID = "permanentUUID"
             case sendRequested = "sendRequested"
             case discussion = "discussion"
         }
-        
         static func persistedDraft(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
-            NSPredicate(format: "SELF == %@", objectID.objectID)
+            NSPredicate(withObjectID: objectID.objectID)
         }
-        
         static func whereSendRequestedIs(_ sendRequested: Bool) -> NSPredicate {
             NSPredicate(Key.sendRequested, is: sendRequested)
         }
-        
         static func forDiscussion(_ discussion: PersistedDiscussion) -> NSPredicate {
             NSPredicate(Key.discussion, equalTo: discussion)
         }
-        
+        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> NSPredicate {
+            NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
     }
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedDraft> {
         return NSFetchRequest<PersistedDraft>(entityName: PersistedDraft.entityName)
     }
+    
+    
+    static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<PersistedDraft>, within context: NSManagedObjectContext) throws -> PersistedDraft? {
+        let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
+        request.predicate = Predicate.withPermanentID(permanentID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
     
     static func get(objectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) throws -> PersistedDraft? {
         let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
@@ -227,7 +257,8 @@ extension PersistedDraft {
         return try context.fetch(request).first
     }
 
-
+    
+    /// Returns all `PersistedDraft` entities such that `sendRequested` is `true`, regardless of the owned identity.
     static func getAllUnsent(within context: NSManagedObjectContext) throws -> [PersistedDraft] {
         let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
         request.predicate = Predicate.whereSendRequestedIs(true)
@@ -236,7 +267,7 @@ extension PersistedDraft {
     }
     
 
-    static func get(from discussion: PersistedDiscussion, within context: NSManagedObjectContext) throws -> PersistedDraft? {
+    static func getPersistedDraft(of discussion: PersistedDiscussion, within context: NSManagedObjectContext) throws -> PersistedDraft? {
         let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
         request.predicate = Predicate.forDiscussion(discussion)
         request.fetchBatchSize = 1
@@ -255,18 +286,22 @@ extension PersistedDraft {
     override func didSave() {
         super.didSave()
         
+        defer {
+            changedKeys.removeAll()
+        }
+        
         if changedKeys.contains(Predicate.Key.sendRequested.rawValue) {
             if sendRequested {
                 sendNewDraftToSendNotification()
             } else {
-                let notification = ObvMessengerCoreDataNotification.draftWasSent(persistedDraftObjectID: typedObjectID)
-                notification.postOnDispatchQueue()
+                ObvMessengerCoreDataNotification.draftWasSent(persistedDraftObjectID: typedObjectID)
+                    .postOnDispatchQueue()
             }
         }
     }
     
     private func sendNewDraftToSendNotification() {
-        ObvMessengerCoreDataNotification.newDraftToSend(persistedDraftObjectID: typedObjectID)
+        ObvMessengerCoreDataNotification.newDraftToSend(draftPermanentID: objectPermanentID)
             .postOnDispatchQueue()
     }
     

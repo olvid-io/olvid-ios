@@ -44,7 +44,7 @@ final class RemoveReplyToOnDraftOperation: ContextualOperationWithSpecificReason
                 guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindDraftInDatabase)
                 }
-                draft.replyTo = nil
+                draft.removeReplyTo()
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

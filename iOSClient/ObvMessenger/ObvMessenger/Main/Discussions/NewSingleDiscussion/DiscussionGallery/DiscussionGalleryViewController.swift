@@ -455,13 +455,13 @@ extension JoinGalleryViewController {
         self.frc = makeFrc()
         self.frc.delegate = self
 
-        let mediaRegistration = UICollectionView.CellRegistration<MediaViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, indexPath, join) in
+        let mediaRegistration = UICollectionView.CellRegistration<MediaViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, _, join) in
             let thumbnailSize = CGSize(width: cell.bounds.size.width, height: cell.bounds.size.height)
-            self?.updateGalleryViewCell(cell, at: indexPath, with: join, thumbnailSize: thumbnailSize)
+            self?.updateGalleryViewCell(cell, with: join, thumbnailSize: thumbnailSize)
         }
-        let documentRegistration = UICollectionView.CellRegistration<DocumentViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, indexPath, join) in
+        let documentRegistration = UICollectionView.CellRegistration<DocumentViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, _, join) in
             let thumbnailSize = CGSize(width: cell.bounds.size.height * 1.414, height: cell.bounds.size.height) // A4 ratio
-            self?.updateGalleryViewCell(cell, at: indexPath, with: join, thumbnailSize: thumbnailSize)
+            self?.updateGalleryViewCell(cell, with: join, thumbnailSize: thumbnailSize)
         }
 
         dataSource = UICollectionViewDiffableDataSource<Section, NSManagedObjectID>(collectionView: collectionView) { (collectionView: UICollectionView, indexPath: IndexPath, objectID: NSManagedObjectID) -> UICollectionViewCell? in
@@ -481,7 +481,7 @@ extension JoinGalleryViewController {
     
     
     @MainActor
-    private func updateGalleryViewCell(_ cell: GalleryViewCell, at indexPath: IndexPath, with join: FyleMessageJoinWithStatus, thumbnailSize: CGSize) {
+    private func updateGalleryViewCell(_ cell: GalleryViewCell, with join: FyleMessageJoinWithStatus, thumbnailSize: CGSize) {
         
         if let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus, receivedJoin.receivedMessage.readingRequiresUserAction {
             cell.updateWhenReadingRequiresUserAction(join: join)
@@ -749,9 +749,9 @@ extension JoinGalleryViewController {
             
             // Show in discussion action
 
-            if let messageObjectURI = join.message?.objectID.uriRepresentation() {
+            if let messagePermanentID = join.message?.messagePermanentID {
                 let action = UIAction(title: NSLocalizedString("SHOW_IN_DISCUSSION", comment: "")) { (_) in
-                    let deepLink = ObvDeepLink.message(messageObjectURI: messageObjectURI)
+                    let deepLink = ObvDeepLink.message(objectPermanentID: messagePermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                         .postOnDispatchQueue()
                 }

@@ -25,11 +25,12 @@ import OlvidUtils
 
 final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
     
-    private let persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>
-    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
+    
+    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
 
-    init(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
-        self.persistedDraftObjectID = persistedDraftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
+        self.draftPermanentID = draftPermanentID
         super.init()
     }
     
@@ -46,7 +47,7 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
             
             let draftToSend: PersistedDraft
             do {
-                guard let _draftToSend = try PersistedDraft.get(objectID: persistedDraftObjectID, within: obvContext.context) else {
+                guard let _draftToSend = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindDraftInDatabase)
                 }
                 draftToSend = _draftToSend
@@ -79,16 +80,16 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
                 return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
             }
                         
-            let discussionObjectID = draftToSend.discussion.typedObjectID
-            let draftToSendObjectID = draftToSend.typedObjectID
+            let discussionPermanentID = draftToSend.discussion.discussionPermanentID
+            let draftPermanentID = draftToSend.objectPermanentID
             
             draftToSend.reset()
 
             do {
-                self.persistedMessageSentObjectID = persistedMessageSent.typedObjectID
+                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { assertionFailure(); return }
-                    ObvMessengerCoreDataNotification.draftToSendWasReset(discussionObjectID: discussionObjectID, draftObjectID: draftToSendObjectID)
+                    ObvMessengerCoreDataNotification.draftToSendWasReset(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
                         .postOnDispatchQueue()
                 }
             } catch {

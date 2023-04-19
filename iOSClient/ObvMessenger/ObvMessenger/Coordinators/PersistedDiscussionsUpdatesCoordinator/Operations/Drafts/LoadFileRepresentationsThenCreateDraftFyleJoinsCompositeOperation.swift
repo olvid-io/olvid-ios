@@ -41,19 +41,19 @@ final class LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation: O
         return queue
     }()
     
-    private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
+    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     private let itemProvidersOrItemURL: [ItemProviderOrItemURL]
     private let log: OSLog
     
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], log: OSLog) {
-        self.draftObjectID = draftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider], log: OSLog) {
+        self.draftPermanentID = draftPermanentID
         self.itemProvidersOrItemURL = itemProviders.map { ItemProviderOrItemURL.itemProvider(itemProvider: $0) }
         self.log = log
         super.init()
     }
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileURLs: [URL], log: OSLog) {
-        self.draftObjectID = draftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileURLs: [URL], log: OSLog) {
+        self.draftPermanentID = draftPermanentID
         self.itemProvidersOrItemURL = fileURLs.map { ItemProviderOrItemURL.itemURL(url: $0) }
         self.log = log
         super.init()
@@ -66,7 +66,7 @@ final class LoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation: O
         logReasonOfCancelledOperations(loadItemProviderOperations)
         
         let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
-        let createDraftFyleJoinsOperation = CreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftObjectID: draftObjectID, loadedItemProviders: loadedItemProviders, log: log)
+        let createDraftFyleJoinsOperation = CreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, log: log)
         internalQueue.addOperations([createDraftFyleJoinsOperation], waitUntilFinished: true)
         createDraftFyleJoinsOperation.logReasonIfCancelled(log: log)
         
@@ -93,12 +93,12 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
 
     let Sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
 
-    private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
+    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     private let log: OSLog
     private let loadedItemProviders: [LoadedItemProvider]
     
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, loadedItemProviders: [LoadedItemProvider], log: OSLog) {
-        self.draftObjectID = draftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, loadedItemProviders: [LoadedItemProvider], log: OSLog) {
+        self.draftPermanentID = draftPermanentID
         self.loadedItemProviders = loadedItemProviders
         self.log = log
         super.init()
@@ -136,7 +136,7 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
                     
                     // Create a PersistedDraftFyleJoin (if required)
                     do {
-                        try createDraftFyleJoin(draftObjectID: draftObjectID, fileName: filename, uti: uti, fyle: fyle, within: context)
+                        try createDraftFyleJoin(draftPermanentID: draftPermanentID, fileName: filename, uti: uti, fyle: fyle, within: context)
                     } catch {
                         cancelAndContinue(withReason: .couldNotCreateDraftFyleJoin)
                         tempURLsToDelete.append(tempURL)
@@ -160,7 +160,7 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
 
                     let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
 
-                    guard let draft = try? PersistedDraft.get(objectID: draftObjectID, within: context) else {
+                    guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: context) else {
                         cancelAndContinue(withReason: .couldNotGetDraft)
                         continue
                     }
@@ -169,7 +169,7 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
                     
                 case .url(content: let url):
                     
-                    guard let draft = try? PersistedDraft.get(objectID: draftObjectID, within: context) else {
+                    guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: context) else {
                         cancelAndContinue(withReason: .couldNotGetDraft)
                         continue
                     }
@@ -194,9 +194,9 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
     }
 
     
-    private func createDraftFyleJoin(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
-        if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
-            guard PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
+    private func createDraftFyleJoin(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
+        if try PersistedDraftFyleJoin.get(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, within: context) == nil {
+            guard PersistedDraftFyleJoin(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
                 throw makeError(message: "Could not create PersistedDraftFyleJoin")
             }
         }

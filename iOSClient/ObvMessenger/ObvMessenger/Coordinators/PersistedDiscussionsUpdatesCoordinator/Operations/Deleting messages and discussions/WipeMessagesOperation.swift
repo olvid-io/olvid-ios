@@ -149,13 +149,13 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             
             // Wipe each message and notify on context change
             
-            let discussionUriRepresentation = discussion.typedObjectID.uriRepresentation()
-            var messageUriRepresentations = Set<TypeSafeURL<PersistedMessage>>()
+            let discussionPermanentID = discussion.discussionPermanentID
+            var messagePermanentIDs = Set<ObvManagedObjectPermanentID<PersistedMessage>>()
 
             var objectIDOfWipedMessages = Set<TypeSafeManagedObjectID<PersistedMessage>>()
             
             for message in sentMessagesToWipe {
-                messageUriRepresentations.insert(message.typedObjectID.downcast.uriRepresentation())
+                messagePermanentIDs.insert(message.messagePermanentID)
                 let requesterOfDeletion = RequesterOfMessageDeletion.contact(ownedCryptoId: ownedIdentity.cryptoId,
                                                                              contactCryptoId: contact.cryptoId,
                                                                              messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -164,7 +164,7 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             }
             
             for message in receivedMessagesToWipe {
-                messageUriRepresentations.insert(message.typedObjectID.downcast.uriRepresentation())
+                messagePermanentIDs.insert(message.messagePermanentID)
                 try? message.wipeByContact(ownedCryptoId: ownedIdentity.cryptoId,
                                            contactCryptoId: contact.cryptoId,
                                            messageUploadTimestampFromServer: messageUploadTimestampFromServer)
@@ -174,7 +174,7 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
-                    ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+                    ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
                         .postOnDispatchQueue()
                     // The view context should refresh the wiped messages and the messages that are replies to these wiped messages
                     DispatchQueue.main.async {

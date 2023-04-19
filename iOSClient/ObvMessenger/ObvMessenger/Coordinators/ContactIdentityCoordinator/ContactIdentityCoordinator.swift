@@ -367,7 +367,7 @@ extension ContactIdentityCoordinator {
                         
                         if persistedContact.isOneToOne {
                             
-                            let contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
+                            let contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? persistedContact.fullDisplayName
 
                             DispatchQueue.main.async {
                                 
@@ -426,7 +426,7 @@ extension ContactIdentityCoordinator {
                             let commonGroupsV2 = try PersistedGroupV2.getAllPersistedGroupV2(whereContactIdentitiesInclude: persistedContact)
                             noCommonGroup = commonGroupsV1.isEmpty && commonGroupsV2.isEmpty
                             noGroupWhereContactIsPending = pendingGroupsV1.isEmpty
-                            contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
+                            contactName = persistedContact.customDisplayName ?? persistedContact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? persistedContact.fullDisplayName
                         }
                         
                         guard noCommonGroup else {

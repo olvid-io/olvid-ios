@@ -31,11 +31,11 @@ struct ContactDetailedInfosView: View {
 
     private var titlePart1: String? {
         guard contact.customDisplayName == nil else { return nil }
-        return contact.identityCoreDetails.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return contact.identityCoreDetails?.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var titlePart2: String? {
-        return (contact.customDisplayName ?? contact.identityCoreDetails.lastName)?
+        return (contact.customDisplayName ?? contact.identityCoreDetails?.lastName)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -70,8 +70,8 @@ struct ContactDetailedInfosView: View {
                         CircleAndTitlesView(
                             titlePart1: titlePart1,
                             titlePart2: titlePart2,
-                            subtitle: contact.identityCoreDetails.position,
-                            subsubtitle: contact.identityCoreDetails.company,
+                            subtitle: contact.identityCoreDetails?.position,
+                            subsubtitle: contact.identityCoreDetails?.company,
                             circleBackgroundColor: contact.cryptoId.colors.background,
                             circleTextColor: contact.cryptoId.colors.text,
                             circledTextView: circledTextView,
@@ -100,16 +100,16 @@ struct ContactDetailedInfosView: View {
                     Section {
                         ObvSimpleListItemView(
                             title: Text("FORM_FIRST_NAME"),
-                            value: contact.identityCoreDetails.firstName)
+                            value: contact.identityCoreDetails?.firstName)
                         ObvSimpleListItemView(
                             title: Text("FORM_LAST_NAME"),
-                            value: contact.identityCoreDetails.lastName)
+                            value: contact.identityCoreDetails?.lastName)
                         ObvSimpleListItemView(
                             title: Text("FORM_POSITION"),
-                            value: contact.identityCoreDetails.position)
+                            value: contact.identityCoreDetails?.position)
                         ObvSimpleListItemView(
                             title: Text("FORM_COMPANY"),
-                            value: contact.identityCoreDetails.company)
+                            value: contact.identityCoreDetails?.company)
                         ObvSimpleListItemView(
                             title: Text("FORM_NICKNAME"),
                             value: contact.customDisplayName)

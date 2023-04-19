@@ -36,7 +36,7 @@ fileprivate struct OptionalWrapper<T> {
 
 enum ObvMessengerGroupV2Notifications {
 	case groupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ObvCryptoId, groupIdentifier: Data)
-	case displayedContactGroupWasJustCreated(objectID: TypeSafeManagedObjectID<DisplayedContactGroup>)
+	case displayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
 
 	private enum Name {
 		case groupV2TrustedDetailsShouldBeReplacedByPublishedDetails
@@ -66,9 +66,9 @@ enum ObvMessengerGroupV2Notifications {
 				"ownCryptoId": ownCryptoId,
 				"groupIdentifier": groupIdentifier,
 			]
-		case .displayedContactGroupWasJustCreated(objectID: let objectID):
+		case .displayedContactGroupWasJustCreated(permanentID: let permanentID):
 			info = [
-				"objectID": objectID,
+				"permanentID": permanentID,
 			]
 		}
 		return info
@@ -108,11 +108,11 @@ enum ObvMessengerGroupV2Notifications {
 		}
 	}
 
-	static func observeDisplayedContactGroupWasJustCreated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<DisplayedContactGroup>) -> Void) -> NSObjectProtocol {
+	static func observeDisplayedContactGroupWasJustCreated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<DisplayedContactGroup>) -> Void) -> NSObjectProtocol {
 		let name = Name.displayedContactGroupWasJustCreated.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<DisplayedContactGroup>
-			block(objectID)
+			let permanentID = notification.userInfo!["permanentID"] as! ObvManagedObjectPermanentID<DisplayedContactGroup>
+			block(permanentID)
 		}
 	}
 

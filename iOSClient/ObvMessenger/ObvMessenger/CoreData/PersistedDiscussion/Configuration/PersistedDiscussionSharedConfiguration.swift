@@ -23,24 +23,28 @@ import os.log
 import ObvEngine
 import ObvTypes
 import ObvCrypto
+import OlvidUtils
 
 
 @objc(PersistedDiscussionSharedConfiguration)
-final class PersistedDiscussionSharedConfiguration: NSManagedObject {
+final class PersistedDiscussionSharedConfiguration: NSManagedObject, ObvErrorMaker {
     
     private static let entityName = "PersistedDiscussionSharedConfiguration"
-    private static let readOnceKey = "readOnce"
-    private static let rawExistenceDurationKey = "rawExistenceDuration"
-    private static let rawVisibilityDurationKey = "rawVisibilityDuration"
-    private static let versionKey = "version"
+    static let errorDomain = "PersistedDiscussionSharedConfiguration"
 
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { Self.makeError(message: message) }
-
-    @NSManaged fileprivate(set) var readOnce: Bool
+    // Attributes
+    
     @NSManaged private var rawExistenceDuration: NSNumber?
     @NSManaged private var rawVisibilityDuration: NSNumber?
+    @NSManaged fileprivate(set) var readOnce: Bool
     @NSManaged fileprivate(set) var version: Int
+    
+    // Relationships
+    
+    // In practice, this is almost never nil. If this happens, this configuration will be cascade deleted soon.
+    @NSManaged private(set) var discussion: PersistedDiscussion?
+
+    // Other variables
     
     fileprivate(set) var existenceDuration: TimeInterval? {
         get {
@@ -62,12 +66,8 @@ final class PersistedDiscussionSharedConfiguration: NSManagedObject {
         }
     }
     
-    /// In practice, this is almost never nil. If this happens, this configuration will be cascade deleted soon.
-    @NSManaged private(set) var discussion: PersistedDiscussion?
-
-    private var changedKeys = Set<String>()
-
 }
+
 
 enum PersistedDiscussionSharedConfigurationValue {
     case readOnce(readOnce: Bool)
@@ -75,7 +75,9 @@ enum PersistedDiscussionSharedConfigurationValue {
     case visibilityDuration(visibilityDuration: TimeInterval?)
 }
 
+
 extension PersistedDiscussionSharedConfigurationValue {
+
     func update(for configuration: PersistedDiscussionSharedConfiguration, initiator: ObvCryptoId) throws -> Bool {
         let newExpiration: ExpirationJSON
         switch self {
@@ -97,7 +99,9 @@ extension PersistedDiscussionSharedConfigurationValue {
         }
         return try configuration.replace(with: newExpiration, initiator: initiator)
     }
+    
 }
+
 
 // MARK: - Initializer and stuff
 
@@ -156,7 +160,7 @@ extension PersistedDiscussionSharedConfiguration {
         try ensureInitiatorIsAllowedToModifyThisSharedConfiguration(initiator: initiator)
 
         guard let discussion = self.discussion else {
-            throw makeError(message: "Cannot find discussion. It may have been deleted recently.")
+            throw Self.makeError(message: "Cannot find discussion. It may have been deleted recently.")
         }
         
         if remoteConfig.version < self.version {
@@ -192,40 +196,40 @@ extension PersistedDiscussionSharedConfiguration {
         guard let discussion = self.discussion else { assertionFailure(); return }
         switch discussion.status {
         case .locked:
-            throw makeError(message: "The discussion is locked")
+            throw Self.makeError(message: "The discussion is locked")
         case .preDiscussion:
-            throw makeError(message: "The discussion is a pre-discussion")
+            throw Self.makeError(message: "The discussion is a pre-discussion")
         case .active:
             switch try? discussion.kind {
             case .oneToOne(withContactIdentity: let contactIdentity):
                 guard [contactIdentity?.cryptoId, discussion.ownedIdentity?.cryptoId].contains(initiator) else {
-                    throw makeError(message: "The initiator is neither the contact or the owned identity of the one-to-one discussion")
+                    throw Self.makeError(message: "The initiator is neither the contact or the owned identity of the one-to-one discussion")
                 }
             case .groupV1(withContactGroup: let contactGroup):
                 guard let contactGroup = contactGroup else {
-                    throw makeError(message: "Cannot find contact group")
+                    throw Self.makeError(message: "Cannot find contact group")
                 }
                 guard contactGroup.ownerIdentity == initiator.getIdentity() else {
-                    throw makeError(message: "The initiator of the change is not the group owner")
+                    throw Self.makeError(message: "The initiator of the change is not the group owner")
                 }
             case .groupV2(withGroup: let group):
                 guard let group = group else {
-                    throw makeError(message: "Cannot find group v2")
+                    throw Self.makeError(message: "Cannot find group v2")
                 }
                 if try group.ownCryptoId == initiator {
                     guard group.ownedIdentityIsAllowedToChangeSettings else {
-                        throw makeError(message: "The initiator is not allowed to change settings")
+                        throw Self.makeError(message: "The initiator is not allowed to change settings")
                     }
                 } else if let initiatorAsMember = group.otherMembers.first(where: { $0.identity == initiator.getIdentity() }) {
                     guard initiatorAsMember.isAllowedToChangeSettings else {
-                        throw makeError(message: "The initiator is not allowed to change settings")
+                        throw Self.makeError(message: "The initiator is not allowed to change settings")
                     }
                 } else {
-                    throw makeError(message: "The initiator is not part of the group")
+                    throw Self.makeError(message: "The initiator is not part of the group")
                 }
             case .none:
                 assertionFailure()
-                throw makeError(message: "Unknown discussion type")
+                throw Self.makeError(message: "Unknown discussion type")
             }
         }
     }
@@ -265,8 +269,16 @@ extension PersistedDiscussionSharedConfiguration {
 extension PersistedDiscussionSharedConfiguration {
     
     private struct Predicate {
+
+        enum Key: String {
+            case rawExistenceDuration = "rawExistenceDuration"
+            case rawVisibilityDuration = "rawVisibilityDuration"
+            case readOnce = "readOnce"
+            case version = "version"
+        }
+
         static func persistedDiscussionSharedConfiguration(withObjectID objectID: NSManagedObjectID) -> NSPredicate {
-            NSPredicate(format: "SELF == %@", objectID)
+            NSPredicate(withObjectID: objectID)
         }
     }
 
@@ -300,11 +312,11 @@ extension PersistedDiscussionSharedConfiguration {
         case .oneToOne, .none:
             return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration)
         case .groupV1(withContactGroup: let contactGroup):
-            guard let contactGroup = contactGroup else { throw makeError(message: "Could not find contact group of group discussion") }
+            guard let contactGroup = contactGroup else { throw Self.makeError(message: "Could not find contact group of group discussion") }
             let groupV1Identifier = try contactGroup.getGroupId()
             return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration, groupV1Identifier: groupV1Identifier)
         case .groupV2(withGroup: let group):
-            guard let group = group else { throw makeError(message: "Could not find group v2 of group discussion") }
+            guard let group = group else { throw Self.makeError(message: "Could not find group v2 of group discussion") }
             let groupV2Identifier = group.groupIdentifier
             return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration, groupV2Identifier: groupV2Identifier)
         }

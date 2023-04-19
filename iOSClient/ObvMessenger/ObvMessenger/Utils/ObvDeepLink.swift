@@ -46,42 +46,104 @@ enum ObvDeepLinkHost: CaseIterable {
         return nil
     }
 
-    fileprivate var queryItemsKey: String? {
-        switch self {
-        case .latestDiscussions: return nil
-        case .allGroups: return nil
-        case .singleDiscussion: return "discussionObjectURI"
-        case .invitations: return nil
-        case .contactGroupDetails: return "displayedContactGroupURI"
-        case .contactIdentityDetails: return "contactIdentityURI"
-        case .airDrop: return "fileURL"
-        case .qrCodeScan: return nil
-        case .myId: return "ownedIdentityURI"
-        case .requestRecordPermission: return nil
-        case .settings: return nil
-        case .backupSettings: return nil
-        case .message: return "messageObjectURI"
-        }
-    }
 }
 
+
 /// Don't forget to run ObvDeepLinkTests if you made modification to ObvDeepLink ;)
-enum ObvDeepLink: Equatable {
+enum ObvDeepLink: Equatable, LosslessStringConvertible {
+    
     case latestDiscussions
-    case singleDiscussion(discussionObjectURI: URL)
+    case singleDiscussion(objectPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
     case invitations
-    case contactGroupDetails(displayedContactGroupURI: URL)
-    case contactIdentityDetails(contactIdentityURI: URL)
+    case contactGroupDetails(objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
+    case contactIdentityDetails(objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
     case airDrop(fileURL: URL)
     case qrCodeScan
-    case myId(ownedIdentityURI: URL)
+    case myId(objectPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>)
     case requestRecordPermission
     case settings
     case backupSettings
-    case message(messageObjectURI: URL)
+    case message(objectPermanentID: ObvManagedObjectPermanentID<PersistedMessage>)
     case allGroups
 
-    private static let scheme = "io.olvid.messenger"
+    var description: String {
+        switch self {
+        case .latestDiscussions:
+            return host.name
+        case .singleDiscussion(let objectPermanentID):
+            return [host.name, objectPermanentID.description].joined(separator: "/")
+        case .invitations:
+            return host.name
+        case .contactGroupDetails(let objectPermanentID):
+            return [host.name, objectPermanentID.description].joined(separator: "/")
+        case .contactIdentityDetails(let objectPermanentID):
+            return [host.name, objectPermanentID.description].joined(separator: "/")
+        case .airDrop(let fileURL):
+            return [host.name, fileURL.path].joined(separator: "/")
+        case .qrCodeScan:
+            return host.name
+        case .myId(let objectPermanentID):
+            return [host.name, objectPermanentID.description].joined(separator: "/")
+        case .requestRecordPermission:
+            return host.name
+        case .settings:
+            return host.name
+        case .backupSettings:
+            return host.name
+        case .message(let objectPermanentID):
+            return [host.name, objectPermanentID.description].joined(separator: "/")
+        case .allGroups:
+            return host.name
+        }
+    }
+    
+    
+    init?(_ description: String) {
+        let splits = description.split(separator: "/", maxSplits: 1).map { String($0) }
+        guard let hostAsString = splits.first else { assertionFailure(); return nil }
+        guard let host = ObvDeepLinkHost(name: hostAsString) else { assertionFailure(); return nil }
+        switch host {
+        case .latestDiscussions:
+            self = .latestDiscussions
+        case .singleDiscussion:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(splits[1]) else { assertionFailure(); return nil }
+            self = .singleDiscussion(objectPermanentID: objectPermanentID)
+        case .invitations:
+            self = .invitations
+        case .contactGroupDetails:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let objectPermanentID = ObvManagedObjectPermanentID<DisplayedContactGroup>(splits[1]) else { assertionFailure(); return nil }
+            self = .contactGroupDetails(objectPermanentID: objectPermanentID)
+        case .contactIdentityDetails:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(splits[1]) else { assertionFailure(); return nil }
+            self = .contactIdentityDetails(objectPermanentID: objectPermanentID)
+        case .airDrop:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let fileURL = URL(string: splits[1]) else { assertionFailure(); return nil }
+            self = .airDrop(fileURL: fileURL)
+        case .qrCodeScan:
+            self = .qrCodeScan
+        case .myId:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(splits[1]) else { assertionFailure(); return nil }
+            self = .myId(objectPermanentID: objectPermanentID)
+        case .requestRecordPermission:
+            self = .requestRecordPermission
+        case .settings:
+            self = .settings
+        case .backupSettings:
+            self = .backupSettings
+        case .message:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedMessage>(splits[1]) else { assertionFailure(); return nil }
+            self = .message(objectPermanentID: objectPermanentID)
+        case .allGroups:
+            self = .allGroups
+        }
+    }
+
 
     fileprivate var host: ObvDeepLinkHost {
         switch self {
@@ -101,97 +163,4 @@ enum ObvDeepLink: Equatable {
         }
     }
 
-    fileprivate var queryItems: [String: URL] {
-        switch self {
-        case .latestDiscussions: return [:]
-        case .allGroups: return [:]
-        case .singleDiscussion(let discussionObjectURI):
-            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: discussionObjectURI]
-        case .invitations: return [:]
-        case .contactGroupDetails(displayedContactGroupURI: let displayedContactGroupURI):
-            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: displayedContactGroupURI]
-        case .contactIdentityDetails(let contactIdentityURI):
-            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: contactIdentityURI]
-        case .airDrop(let fileURL):
-            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: fileURL]
-        case .qrCodeScan: return [:]
-        case .myId(let ownedIdentityURI):
-            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: ownedIdentityURI]
-        case .requestRecordPermission: return [:]
-        case .settings: return [:]
-        case .backupSettings: return [:]
-        case .message(messageObjectURI: let messageObjectURI):
-            guard let queryItemsKey = host.queryItemsKey else { assertionFailure(); return [:] }
-            return [queryItemsKey: messageObjectURI]
-        }
-    }
-    
-    var url: URL {
-        var components = URLComponents()
-        components.scheme = ObvDeepLink.scheme
-        components.host = host.name
-        components.queryItems = queryItems.map { URLQueryItem(name: $0.key, value: $0.value.absoluteString) }
-        assert(components.url != nil)
-        let url = components.url!
-        assert(ObvDeepLink(url: url) == self)
-        return url
-    }
-    
-    init?(url: URL) {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return nil }
-        guard components.scheme == ObvDeepLink.scheme else { return nil }
-        guard let hostName = components.host else { return nil }
-        guard let host = ObvDeepLinkHost(name: hostName) else { return nil }
-        func computeQueryItemValue() -> URL? {
-            guard let queryItems = components.queryItems else { return nil }
-            guard let queryItemsKey = host.queryItemsKey else { return nil }
-            guard Set(queryItems.map({ $0.name })) == Set([queryItemsKey]) else { return nil }
-            for queryItem in queryItems {
-                if queryItem.name == queryItemsKey, let value = queryItem.value {
-                    return URL(string: value)
-                }
-            }
-            return nil
-        }
-        switch host {
-        case .latestDiscussions:
-            self = .latestDiscussions
-        case .allGroups:
-            self = .allGroups
-        case .singleDiscussion:
-            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .singleDiscussion(discussionObjectURI: url)
-        case .invitations:
-            self = .invitations
-        case .contactGroupDetails:
-            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .contactGroupDetails(displayedContactGroupURI: url)
-        case .contactIdentityDetails:
-            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .contactIdentityDetails(contactIdentityURI: url)
-        case .airDrop:
-            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .airDrop(fileURL: url)
-        case .qrCodeScan:
-            self = .qrCodeScan
-        case .myId:
-            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .myId(ownedIdentityURI: url)
-        case .requestRecordPermission:
-            self = .requestRecordPermission
-        case .settings:
-            self = .settings
-        case .backupSettings:
-            self = .backupSettings
-        case .message:
-            guard let url = computeQueryItemValue() else { assertionFailure(); return nil }
-            self = .message(messageObjectURI: url)
-        }
-    }
-    
 }

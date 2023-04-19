@@ -25,10 +25,6 @@ final class TypeSafeManagedObjectID<T>: Hashable {
         self.objectID = objectID
     }
     
-    func uriRepresentation() -> TypeSafeURL<T> {
-        return TypeSafeURL(url: objectID.uriRepresentation())
-    }
-
     func hash(into hasher: inout Hasher) {
         hasher.combine(objectID)
     }
@@ -59,18 +55,60 @@ extension TypeWithObjectID {
 
 extension NSManagedObject: TypeWithObjectID {}
 
-struct TypeSafeURL<T>: Hashable {
-    let url: URL
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(url)
+// MARK: - ObvManagedObjectPermanentID
+
+/// Defines a permanent identifier for `NSManagedObject` subclasses.
+///
+/// This type is used instead of Core Data's `NSManagedObjectID` when we need an identifier that persists between Core Data migrations.
+/// This type is strongly typed (thanks to a "phantom" type) and can be represented as a String (i.e., it conforms to `CustomStringConvertible`).
+///
+/// When `T` conforms to `ObvIdentifiableManagedObject`, this type also conforms to `LosslessStringConvertible`.
+/// We cannot explicitely indicate the `LosslessStringConvertible` conformance though, but it trivial to declare conformance for specific types as follows:
+/// ```
+/// extension ObvManagedObjectPermanentID<MySpecificObvIdentifiableManagedObject>: LosslessStringConvertible {}
+/// ```
+struct ObvManagedObjectPermanentID<T: NSManagedObject>: CustomStringConvertible, Equatable, Hashable {
+
+    let entityName: String
+    let uuid: UUID
+    
+    init(entityName: String, uuid: UUID) {
+        self.entityName = entityName
+        self.uuid = uuid
+    }
+    
+    var description: String {
+        [entityName, uuid.uuidString].joined(separator: "/")
+    }
+    
+    init?(_ description: String, expectedEntityName: String) {
+        let splits = description.split(separator: "/", maxSplits: 1)
+        guard splits.count == 2 else { assertionFailure(); return nil }
+        guard splits[0] == expectedEntityName else { assertionFailure(); return nil }
+        guard let uuid = UUID(uuidString: String(splits[1])) else { assertionFailure(); return nil }
+        self.init(entityName: expectedEntityName, uuid: uuid)
     }
 
-    var path: String {
-        url.path
+}
+
+
+/// Protocol allowing the `ObvManagedObjectPermanentID` type to conform to `LosslessStringConvertible`.
+protocol ObvIdentifiableManagedObject: NSManagedObject {
+    static var entityName: String { get }
+    var objectPermanentID: ObvManagedObjectPermanentID<Self> { get }
+}
+
+
+extension ObvManagedObjectPermanentID: LosslessStringConvertible where T: ObvIdentifiableManagedObject {
+    
+    init(uuid: UUID) {
+        self.entityName = T.entityName
+        self.uuid = uuid
+    }
+    
+    init?(_ description: String) {
+        self.init(description, expectedEntityName: T.entityName)
     }
 
-    var absoluteString: String {
-        url.absoluteString
-    }
 }

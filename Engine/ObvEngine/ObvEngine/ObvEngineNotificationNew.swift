@@ -84,7 +84,7 @@ public enum ObvEngineNotificationNew {
 	case ContactObvCapabilitiesWereUpdated(contact: ObvContactIdentity)
 	case OwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvOwnedIdentity)
 	case newUserDialogToPresent(obvDialog: ObvDialog)
-	case aPersistedDialogWasDeleted(uuid: UUID)
+	case aPersistedDialogWasDeleted(ownedCryptoId: ObvCryptoId, uuid: UUID)
 	case groupV2WasCreatedOrUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasDeleted(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
 	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
@@ -461,8 +461,9 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"obvDialog": obvDialog,
 			]
-		case .aPersistedDialogWasDeleted(uuid: let uuid):
+		case .aPersistedDialogWasDeleted(ownedCryptoId: let ownedCryptoId, uuid: let uuid):
 			info = [
+				"ownedCryptoId": ownedCryptoId,
 				"uuid": uuid,
 			]
 		case .groupV2WasCreatedOrUpdated(obvGroupV2: let obvGroupV2, initiator: let initiator):
@@ -941,11 +942,12 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeAPersistedDialogWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (UUID) -> Void) -> NSObjectProtocol {
+	public static func observeAPersistedDialogWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID) -> Void) -> NSObjectProtocol {
 		let name = Name.aPersistedDialogWasDeleted.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let uuid = notification.userInfo!["uuid"] as! UUID
-			block(uuid)
+			block(ownedCryptoId, uuid)
 		}
 	}
 

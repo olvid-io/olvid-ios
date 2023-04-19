@@ -50,7 +50,7 @@ final class SingleDiscussionTitleView: UIView {
             return
         }
         self.init(title: contact.customOrNormalDisplayName,
-                  subtitle: contact.identityCoreDetails.positionAtCompany())
+                  subtitle: contact.identityCoreDetails?.positionAtCompany() ?? "")
         circledInitialsView.configureWith(contact.circledInitialsConfiguration)
     }
     

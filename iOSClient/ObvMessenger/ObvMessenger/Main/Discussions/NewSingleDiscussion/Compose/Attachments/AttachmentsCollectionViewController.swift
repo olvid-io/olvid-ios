@@ -137,7 +137,8 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, NSManagedObjectID>(collectionView: collectionView) { (collectionView: UICollectionView, indexPath: IndexPath, objectID: NSManagedObjectID) -> UICollectionViewCell? in
-            guard let attachment = try? PersistedDraftFyleJoin.get(withObjectID: objectID, within: ObvStack.shared.viewContext) else { return nil }
+            let typedObjectID = TypeSafeManagedObjectID<PersistedDraftFyleJoin>(objectID: objectID)
+            guard let attachment = try? PersistedDraftFyleJoin.get(withObjectID: typedObjectID, within: ObvStack.shared.viewContext) else { return nil }
             return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: attachment)
         }
 

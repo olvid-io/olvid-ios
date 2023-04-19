@@ -39,14 +39,21 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
                 return cancel(withReason: .couldNotFindDraftFyleJoin)
             }
             let draft = persistedDraftFyleJoin.draft
-            draft.removeDraftFyleJoin(persistedDraftFyleJoin)
+            let draftFyleJoinPermanentID = persistedDraftFyleJoin.objectPermanentID
+            // We expect draft to be non-nil
+            draft?.removeDraftFyleJoin(persistedDraftFyleJoin)
             do {
                 try context.save(logOnFailure: log)
             } catch(let error) {
                 return cancel(withReason: .coreDataError(error: error))
             }
 
-            ObvMessengerCoreDataNotification.draftFyleJoinWasDeleted(discussionUriRepresentation: draft.discussion.typedObjectID.uriRepresentation(), draftUriRepresentation: draft.typedObjectID.uriRepresentation(), draftFyleJoinUriRepresentation: persistedDraftFyleJoin.typedObjectID.uriRepresentation()).postOnDispatchQueue()
+            if let draft {
+                ObvMessengerCoreDataNotification.draftFyleJoinWasDeleted(discussionPermanentID: draft.discussion.discussionPermanentID,
+                                                                         draftPermanentID: draft.objectPermanentID,
+                                                                         draftFyleJoinPermanentID: draftFyleJoinPermanentID)
+                .postOnDispatchQueue()
+            }
         }
     }
 

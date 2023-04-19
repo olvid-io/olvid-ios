@@ -32,13 +32,12 @@ final class CleanExpiredMuteNotficationEndDatesOperation: ContextualOperationWit
 
         obvContext.performAndWait {
             do {
-                let allLocalConfigurations = try PersistedDiscussionLocalConfiguration.getAll(within: obvContext.context)
-                for localConfiguration in allLocalConfigurations {
-                    guard localConfiguration.isMuteNotificationsEndDateExpired else { continue }
-                    localConfiguration.cleanExpiredMuteNotificationsEndDate()
-                    assert(localConfiguration.currentMuteNotificationsEndDate == nil)
-                    try? obvContext.addContextWillSaveCompletionHandler {
-                        ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: .muteNotificationsDuration(.none), localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
+                let objectIDsOfUpdatedPersistedDiscussionLocalConfigurations = try PersistedDiscussionLocalConfiguration.deleteAllExpiredMuteNotifications(within: obvContext)
+                try? obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    for objectID in objectIDsOfUpdatedPersistedDiscussionLocalConfigurations {
+                        ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: .muteNotificationsDuration(.none), localConfigurationObjectID: objectID)
+                            .postOnDispatchQueue()
                     }
                 }
             } catch {

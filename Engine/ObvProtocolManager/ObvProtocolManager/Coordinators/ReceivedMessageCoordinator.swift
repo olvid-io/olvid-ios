@@ -98,6 +98,55 @@ extension ReceivedMessageCoordinator {
         queueForProtocolOperations.addOperation(composedOp)
         
     }
+    
+    
+    /// This method is called during boostrap. It deletes all received messages that are older than 15 days and that have no associated protocol instance.
+    func deleteObsoleteReceivedMessages(flowId: FlowIdentifier) {
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ReceivedMessageCoordinator.logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        let op1 = DeleteObsoleteReceivedMessagesOperation(delegateManager: delegateManager)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+        queueForProtocolOperations.addOperation(composedOp)
+
+    }
+    
+    
+    /// This method is called during boostrap. It re-processes all `ReceivedMessages`.
+    func processAllReceivedMessages(flowId: FlowIdentifier) {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ReceivedMessageCoordinator.logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
+        queueForProtocolOperations.addOperation { [weak self] in
+            var messageIds = Set<MessageIdentifier>()
+            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+                do {
+                    messageIds = try ReceivedMessage.getAllMessageIds(within: obvContext)
+                } catch {
+                    assertionFailure()
+                    os_log("Could not fetch all ReceivedMessage Ids", log: log, type: .fault)
+                }
+            }
+            
+            for messageId in messageIds {
+                self?.processReceivedMessage(withId: messageId, flowId: flowId)
+            }
+        }
+        
+    }
+
 
     func createBlockForAbortingProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity) -> (() -> Void) {
         

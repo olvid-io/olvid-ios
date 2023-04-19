@@ -77,6 +77,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
             cleanExpiredMuteNotificationsSetting()
             cleanOrphanedPersistedMessageTimestampedMetadata()
             synchronizeAllOneToOneDiscussionTitlesWithContactNameOperation()
+            synchronizeDiscussionsIllustrativeMessageAndRefreshNumberOfNewMessages()
             Task {
                 await regularlyUpdateFyleMessageJoinWithStatusProgresses()
             }
@@ -178,8 +179,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
         // Internal notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeNewDraftToSend() { [weak self] (persistedDraftObjectID) in
-                self?.processNewDraftToSendNotification(persistedDraftObjectID: persistedDraftObjectID)
+            ObvMessengerCoreDataNotification.observeNewDraftToSend() { [weak self] draftPermanentID in
+                self?.processNewDraftToSendNotification(draftPermanentID: draftPermanentID)
             },
             ObvMessengerCoreDataNotification.observeNewPersistedObvContactDevice() { [weak self] (contactDeviceObjectID, _) in
                 self?.sendAppropriateDiscussionSharedConfigurationsToContact(input: .contactDevice(contactDeviceObjectID: contactDeviceObjectID), sendSharedConfigOfOneToOneDiscussion: true)
@@ -213,11 +214,11 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 self?.processWipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: launchedByBackgroundTask, completionHandler: completionHandler)
             },
             ObvMessengerInternalNotification.observeCurrentUserActivityDidChange() { [weak self] (previousUserActivity, currentUserActivity) in
-                if let previousDiscussionObjectID = previousUserActivity.persistedDiscussionObjectID, previousDiscussionObjectID != currentUserActivity.persistedDiscussionObjectID {
-                    self?.userLeftDiscussion(discussionObjectID: previousDiscussionObjectID)
+                if let previousDiscussionPermanentID = previousUserActivity.discussionPermanentID, previousDiscussionPermanentID != currentUserActivity.discussionPermanentID {
+                    self?.userLeftDiscussion(discussionPermanentID: previousDiscussionPermanentID)
                 }
-                if let currentDiscussionObjectID = currentUserActivity.persistedDiscussionObjectID, currentDiscussionObjectID != previousUserActivity.persistedDiscussionObjectID {
-                    self?.userEnteredDiscussion(discussionObjectID: currentDiscussionObjectID)
+                if let currentDiscussionPermanentID = currentUserActivity.discussionPermanentID, currentDiscussionPermanentID != previousUserActivity.discussionPermanentID {
+                    self?.userEnteredDiscussion(discussionPermanentID: currentDiscussionPermanentID)
                 }
             },
             ObvMessengerInternalNotification.observeUserWantsToReadReceivedMessagesThatRequiresUserAction { [weak self] (persistedMessageObjectIDs) in
@@ -229,8 +230,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ReceivedFyleMessageJoinWithStatusNotifications.observeReceivedFyleJoinHasBeenMarkAsOpened { (receivedFyleJoinID) in
                 Task { [weak self] in await self?.processReceivedFyleJoinHasBeenMarkAsOpenedNotification(receivedFyleJoinID: receivedFyleJoinID) }
             },
-            ObvMessengerCoreDataNotification.observeAReadOncePersistedMessageSentWasSent { [weak self] (persistedMessageSentObjectID, persistedDiscussionObjectID) in
-                self?.processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentObjectID: persistedMessageSentObjectID, persistedDiscussionObjectID: persistedDiscussionObjectID)
+            ObvMessengerCoreDataNotification.observeAReadOncePersistedMessageSentWasSent { [weak self] (persistedMessageSentPermanentID, persistedDiscussionPermanentID) in
+                self?.processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentPermanentID: persistedMessageSentPermanentID, persistedDiscussionPermanentID: persistedDiscussionPermanentID)
             },
             ObvMessengerInternalNotification.observeUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration { [weak self] (persistedDiscussionObjectID, expirationJSON, ownedCryptoId) in
                 self?.processUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: persistedDiscussionObjectID, expirationJSON: expirationJSON, ownedCryptoId: ownedCryptoId)
@@ -241,8 +242,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerCoreDataNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
                 self?.processUserWantsToUpdateDiscussionLocalConfigurationNotification(with: value, localConfigurationObjectID: localConfigurationObjectID)
             },
-            ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, persistedDiscussionObjectID, completionHandler) in
-                self?.processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with: value, persistedDiscussionObjectID: persistedDiscussionObjectID, completionHandler: completionHandler)
+            ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, discussionPermanentID, completionHandler) in
+                self?.processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with: value, discussionPermanentID: discussionPermanentID, completionHandler: completionHandler)
             },
             ObvMessengerInternalNotification.observeApplyAllRetentionPoliciesNow { [weak self] (launchedByBackgroundTask, completionHandler) in
                 self?.processApplyAllRetentionPoliciesNowNotification(launchedByBackgroundTask: launchedByBackgroundTask, completionHandler: completionHandler)
@@ -271,23 +272,20 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeCleanExpiredMuteNotficationsThatExpiredEarlierThanNow { [weak self] in
                 self?.cleanExpiredMuteNotificationsSetting()
             },
-            ObvMessengerCoreDataNotification.observeAOneToOneDiscussionTitleNeedsToBeReset { [weak self] ownedIdentityObjectID in
-                self?.processAOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: ownedIdentityObjectID)
+            ObvMessengerInternalNotification.observeUserRepliedToReceivedMessageWithinTheNotificationExtension { [weak self] contactPermanentID, messageIdentifierFromEngine, textBody, completionHandler in
+                self?.processUserRepliedToReceivedMessageWithinTheNotificationExtensionNotification(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody, completionHandler: completionHandler)
             },
-            ObvMessengerInternalNotification.observeUserRepliedToReceivedMessageWithinTheNotificationExtension { [weak self] persistedContactObjectID, messageIdentifierFromEngine, textBody, completionHandler in
-                self?.processUserRepliedToReceivedMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody, completionHandler: completionHandler)
+            ObvMessengerInternalNotification.observeUserRepliedToMissedCallWithinTheNotificationExtension { [weak self] discussionPermanentID, textBody, completionHandler in
+                self?.processUserRepliedToMissedCallWithinTheNotificationExtensionNotification(discussionPermanentID: discussionPermanentID, textBody: textBody, completionHandler: completionHandler)
             },
-            ObvMessengerInternalNotification.observeUserRepliedToMissedCallWithinTheNotificationExtension { [weak self] persistedDiscussionObjectID, textBody, completionHandler in
-                self?.processUserRepliedToMissedCallWithinTheNotificationExtensionNotification(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textBody, completionHandler: completionHandler)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToMarkAsReadMessageWithinTheNotificationExtension { persistedContactObjectID, messageIdentifierFromEngine, completionHandler in
-                Task { [weak self] in await self?.processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, completionHandler: completionHandler) }
+            ObvMessengerInternalNotification.observeUserWantsToMarkAsReadMessageWithinTheNotificationExtension { contactPermanentID, messageIdentifierFromEngine, completionHandler in
+                Task { [weak self] in await self?.processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine, completionHandler: completionHandler) }
             },
             ObvMessengerInternalNotification.observeUserWantsToWipeFyleMessageJoinWithStatus { [weak self] (ownedCryptoId, objectIDs) in
                 self?.processUserWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ownedCryptoId, objectIDs: objectIDs)
             },
-            ObvMessengerInternalNotification.observeUserWantsToForwardMessage { [weak self] messageID, discussionIDs in
-                self?.processUserWantsToForwardMessage(messageObjectID: messageID, discussionObjectIDs: discussionIDs)
+            ObvMessengerInternalNotification.observeUserWantsToForwardMessage { [weak self] messagePermanentID, discussionPermanentIDs in
+                self?.processUserWantsToForwardMessage(messagePermanentID: messagePermanentID, discussionPermanentIDs: discussionPermanentIDs)
             },
             ObvMessengerInternalNotification.observeUserHasOpenedAReceivedAttachment { [weak self] receivedFyleJoinID in
                 self?.processUserHasOpenedAReceivedAttachment(receivedFyleJoinID: receivedFyleJoinID)
@@ -329,20 +327,20 @@ final class PersistedDiscussionsUpdatesCoordinator {
             NewSingleDiscussionNotification.observeUserWantsToRemoveReplyToMessage { [weak self] draftObjectID in
                 self?.processUserWantsToRemoveReplyToMessage(draftObjectID: draftObjectID)
             },
-            NewSingleDiscussionNotification.observeUserWantsToAddAttachmentsToDraft { [weak self] draftObjectID, itemProviders, completionHandler in
-                self?.processUserWantsToAddAttachmentsToDraft(draftObjectID: draftObjectID, itemProviders: itemProviders, completionHandler: completionHandler)
+            NewSingleDiscussionNotification.observeUserWantsToAddAttachmentsToDraft { [weak self] draftPermanentID, itemProviders, completionHandler in
+                self?.processUserWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID, itemProviders: itemProviders, completionHandler: completionHandler)
             },
-            NewSingleDiscussionNotification.observeUserWantsToAddAttachmentsToDraftFromURLs { [weak self] draftObjectID, urls, completionHandler in
-                self?.processUserWantsToAddAttachmentsToDraft(draftObjectID: draftObjectID, urls: urls, completionHandler: completionHandler)
+            NewSingleDiscussionNotification.observeUserWantsToAddAttachmentsToDraftFromURLs { [weak self] draftPermanentID, urls, completionHandler in
+                self?.processUserWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID, urls: urls, completionHandler: completionHandler)
             },
             NewSingleDiscussionNotification.observeUserWantsToDeleteAllAttachmentsToDraft { [weak self] draftObjectID in
                 self?.processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: draftObjectID)
             },
-            NewSingleDiscussionNotification.observeUserWantsToSendDraft { [weak self] draftObjectID, textBody in
-                self?.processUserWantsToSendDraft(draftObjectID: draftObjectID, textBody: textBody)
+            NewSingleDiscussionNotification.observeUserWantsToSendDraft { [weak self] draftPermanentID, textBody in
+                self?.processUserWantsToSendDraft(draftPermanentID: draftPermanentID, textBody: textBody)
             },
-            NewSingleDiscussionNotification.observeUserWantsToSendDraftWithOneAttachment { [weak self] draftObjectID, attachmentURL in
-                self?.processUserWantsToSendDraftWithAttachments(draftObjectID: draftObjectID, attachmentsURL: [attachmentURL])
+            NewSingleDiscussionNotification.observeUserWantsToSendDraftWithOneAttachment { [weak self] draftPermanentID, attachmentURL in
+                self?.processUserWantsToSendDraftWithAttachments(draftPermanentID: draftPermanentID, attachmentsURL: [attachmentURL])
             },
             NewSingleDiscussionNotification.observeUserWantsToUpdateDraftExpiration { [weak self] draftObjectID, value in
                 self?.processUserWantsToUpdateDraftExpiration(draftObjectID: draftObjectID, value: value)
@@ -400,8 +398,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvEngineNotificationNew.observeNewUserDialogToPresent(within: NotificationCenter.default) { [weak self] obvDialog in
                 self?.processNewUserDialogToPresent(obvDialog: obvDialog)
             },
-            ObvEngineNotificationNew.observeAPersistedDialogWasDeleted(within: NotificationCenter.default) { [weak self] uuid in
-                self?.processAPersistedDialogWasDeleted(uuid: uuid)
+            ObvEngineNotificationNew.observeAPersistedDialogWasDeleted(within: NotificationCenter.default) { [weak self] ownedCryptoId, uuid in
+                self?.processAPersistedDialogWasDeleted(uuid: uuid, ownedCryptoId: ownedCryptoId)
             },
             ObvMessengerCoreDataNotification.observeAPersistedGroupV2MemberChangedFromPendingToNonPending { [weak self] contactObjectID in
                 self?.sendAppropriateDiscussionSharedConfigurationsToContact(input: .contact(contactObjectID: contactObjectID), sendSharedConfigOfOneToOneDiscussion: false)
@@ -567,7 +565,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     private func bootstrapMessagesToBeWiped(preserveReceivedMessages: Bool) {
         do {
-            let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: preserveReceivedMessages, restrictToDiscussionWithObjectID: nil)
+            let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: preserveReceivedMessages, restrictToDiscussionWithPermanentID: nil)
             let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
             composedOp.logReasonIfCancelled(log: log)
@@ -602,15 +600,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
     }
-    
-    
-    private func processAOneToOneDiscussionTitleNeedsToBeReset(ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>) {
-        let op1 = SynchronizeOneToOneDiscussionTitlesWithContactNameOperation(ownedIdentityObjectID: ownedIdentityObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-    }
-    
+
         
     private func cleanOrphanedPersistedMessageTimestampedMetadata() {
         let op1 = CleanOrphanedPersistedMessageTimestampedMetadataOperation()
@@ -639,6 +629,16 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
     }
+    
+    
+    private func synchronizeDiscussionsIllustrativeMessageAndRefreshNumberOfNewMessages() {
+        let op1 = SynchronizeDiscussionsIllustrativeMessageOperation()
+        let op2 = RefreshNumberOfNewMessagesForAllDiscussionsOperation()
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+    }
+    
     
     private func deleteEmptyLockedDiscussion() {
         assert(OperationQueue.current != internalQueue)
@@ -718,18 +718,18 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     /// When receiving a `NewDraftToSend` notification, we turn the draft into a `PersistedMessageSent`, reset the draft, and save the context.
     /// If this succeeds, we send the new (unprocessed)  `PersistedMessageSent`.
-    private func processNewDraftToSendNotification(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+    private func processNewDraftToSendNotification(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
         assert(OperationQueue.current != internalQueue)
         assert(!Thread.isMainThread)
-        let op1 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(persistedDraftObjectID: persistedDraftObjectID)
+        let op1 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftPermanentID: draftPermanentID)
         let op2 = ComputeExtendedPayloadOperation(provider: op1)
         let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: op2, obvEngine: obvEngine)
-        let op4 = MarkAllMessagesAsNotNewWithinDiscussionOperation(persistedDraftObjectID: persistedDraftObjectID )
+        let op4 = MarkAllMessagesAsNotNewWithinDiscussionOperation(draftPermanentID: draftPermanentID)
         let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
         guard !composedOp.isCancelled else {
-            NewSingleDiscussionNotification.draftCouldNotBeSent(persistedDraftObjectID: persistedDraftObjectID)
+            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
                 .postOnDispatchQueue()
             assertionFailure()
             return
@@ -740,10 +740,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processInsertDebugMessagesInAllExistingDiscussions() {
         #if DEBUG
         assert(OperationQueue.current != internalQueue)
-        var objectIDs = [(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)]()
+        var objectIDs = [(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)]()
         ObvStack.shared.performBackgroundTaskAndWait { context in
-            guard let discussions = try? PersistedDiscussion.getAllSortedByTimestampOfLastMessage(within: context) else { assertionFailure(); return }
-            objectIDs = discussions.map({ ($0.typedObjectID, $0.draft.typedObjectID) })
+            guard let discussions = try? PersistedDiscussion.getAllSortedByTimestampOfLastMessageForAllOwnedIdentities(within: context) else { assertionFailure(); return }
+            objectIDs = discussions.map({ ($0.typedObjectID, $0.draft.objectPermanentID) })
         }
         let numberOfMessagesToInsert = 100
         for objectID in objectIDs {
@@ -751,7 +751,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 debugPrint("Message \(messageNumber) out of \(numberOfMessagesToInsert)")
                 if Bool.random() {
                     let op1 = CreateRandomDraftDebugOperation(discussionObjectID: objectID.discussionObjectID)
-                    let op2 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(persistedDraftObjectID: objectID.draftObjectID)
+                    let op2 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftPermanentID: objectID.draftPermanentID)
                     let op3 = MarkSentMessageAsDeliveredDebugOperation()
                     op3.addDependency(op2)
                     let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
@@ -780,8 +780,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
             assertionFailure()
             return
         }
-        for persistedMessageSentObjectID in op.persistedMessageSentObjectIDs {
-            let op1 = SendUnprocessedPersistedMessageSentOperation(persistedMessageSentObjectID: persistedMessageSentObjectID, extendedPayloadProvider: nil, obvEngine: obvEngine)
+        for messageSentPermanentID in op.messageSentPermanentIDs {
+            let op1 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, extendedPayloadProvider: nil, obvEngine: obvEngine)
             let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             composedOp.queuePriority = .low
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
@@ -1175,20 +1175,20 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func userLeftDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
+    private func userLeftDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         do {
-            let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: false, restrictToDiscussionWithObjectID: discussionObjectID)
+            let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: false, restrictToDiscussionWithPermanentID: discussionPermanentID)
             let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
             composedOp.logReasonIfCancelled(log: log)
         }
         do {
-            let op = DeleteMessagesWithExpiredTimeBasedRetentionOperation(restrictToDiscussionWithObjectID: discussionObjectID.objectID)
+            let op = DeleteMessagesWithExpiredTimeBasedRetentionOperation(restrictToDiscussionWithPermanentID: discussionPermanentID)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
         }
         do {
-            let op = DeleteMessagesWithExpiredCountBasedRetentionOperation(restrictToDiscussionWithObjectID: discussionObjectID.objectID)
+            let op = DeleteMessagesWithExpiredCountBasedRetentionOperation(restrictToDiscussionWithPermanentID: discussionPermanentID)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
         }
@@ -1209,8 +1209,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func userEnteredDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        let op = AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation(persistedDiscussionObjectID: discussionObjectID)
+    private func userEnteredDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+        let op = AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation(discussionPermanentID: discussionPermanentID)
         internalQueue.addOperations([op], waitUntilFinished: true)
         op.logReasonIfCancelled(log: log)
     }
@@ -1246,16 +1246,16 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentObjectID: NSManagedObjectID, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
+    private func processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         // When a readOnce sent message status becomes "sent", we check whether the user is still within the discussion corresponding to this message.
         // If this is the case, we do nothing. Otherwise, we should delete or wipe the message as it is readOnce, has already been seen, and was properly sent.
-        guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID != persistedDiscussionObjectID else {
+        guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID != persistedDiscussionPermanentID else {
             os_log("A readOnce outbound message was sent but the user is still within the discussion, so we do *not* delete the message immediately", log: log, type: .info)
             return
         }
         os_log("A readOnce outbound message was sent after the user left the discussion. We delete/wipe the message now", log: log, type: .info)
         do {
-            let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: false, restrictToDiscussionWithObjectID: persistedDiscussionObjectID)
+            let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: false, restrictToDiscussionWithPermanentID: persistedDiscussionPermanentID)
             let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
             internalQueue.addOperations([composedOp], waitUntilFinished: true)
             composedOp.logReasonIfCancelled(log: log)
@@ -1300,7 +1300,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processApplyAllRetentionPoliciesNowNotification(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void) {
         var success = true
         do {
-            let op = DeleteMessagesWithExpiredTimeBasedRetentionOperation(restrictToDiscussionWithObjectID: nil)
+            let op = DeleteMessagesWithExpiredTimeBasedRetentionOperation(restrictToDiscussionWithPermanentID: nil)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
             if launchedByBackgroundTask {
@@ -1309,7 +1309,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             success = success && !op.isCancelled
         }
         do {
-            let op = DeleteMessagesWithExpiredCountBasedRetentionOperation(restrictToDiscussionWithObjectID: nil)
+            let op = DeleteMessagesWithExpiredCountBasedRetentionOperation(restrictToDiscussionWithPermanentID: nil)
             internalQueue.addOperations([op], waitUntilFinished: true)
             op.logReasonIfCancelled(log: log)
             success = success && !op.isCancelled
@@ -1408,13 +1408,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
         composedOp.logReasonIfCancelled(log: log)
     }
     
-    private func processUserWantsToAddAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, itemProviders: [NSItemProvider], completionHandler: @escaping (Bool) -> Void) {
+    private func processUserWantsToAddAttachmentsToDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider], completionHandler: @escaping (Bool) -> Void) {
         assert(OperationQueue.current != internalQueue)
         
         let loadItemProviderOperations = itemProviders.map {
             LoadItemProviderOperation(itemProvider: $0, progressAvailable: { [weak self] progress in
                 // Called only if a progress is made available during the operation execution
-                self?.newProgressToAddForTrackingFreeze(draftObjectID: draftObjectID, progress: progress)
+                self?.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
             })
         }
         queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: true)
@@ -1422,7 +1422,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
 
-        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftObjectID: draftObjectID, loadedItemProviders: loadedItemProviders, completionHandler: completionHandler, log: log)
+        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, completionHandler: completionHandler, log: log)
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         op1.logReasonIfCancelled(log: log)
@@ -1430,20 +1430,20 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func newProgressToAddForTrackingFreeze(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, progress: Progress) {
+    private func newProgressToAddForTrackingFreeze(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, progress: Progress) {
         if #available(iOS 15, *) {
-            CompositionViewFreezeManager.shared.newProgressToAddForTrackingFreeze(draftObjectID: draftObjectID, progress: progress)
+            CompositionViewFreezeManager.shared.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
         }
     }
     
 
-    private func processUserWantsToAddAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, urls: [URL], completionHandler: @escaping (Bool) -> Void) {
+    private func processUserWantsToAddAttachmentsToDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL], completionHandler: @escaping (Bool) -> Void) {
         assert(OperationQueue.current != internalQueue)
         
         let loadItemProviderOperations = urls.map {
             LoadItemProviderOperation(itemURL: $0, progressAvailable: { [weak self] progress in
                 // Called only if a progress is made available during the operation execution
-                self?.newProgressToAddForTrackingFreeze(draftObjectID: draftObjectID, progress: progress)
+                self?.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
             })
         }
         queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: true)
@@ -1451,7 +1451,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
 
-        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftObjectID: draftObjectID, loadedItemProviders: loadedItemProviders, completionHandler: completionHandler, log: log)
+        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, completionHandler: completionHandler, log: log)
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         op1.logReasonIfCancelled(log: log)
@@ -1479,25 +1479,25 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func processUserWantsToSendDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, textBody: String) {
-        let op1 = SaveBodyTextOfPersistedDraftOperation(draftObjectID: draftObjectID, bodyText: textBody)
-        let op2 = RequestedSendingOfDraftOperation(draftObjectID: draftObjectID)
+    private func processUserWantsToSendDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String) {
+        let op1 = SaveBodyTextOfPersistedDraftOperation(draftPermanentID: draftPermanentID, bodyText: textBody)
+        let op2 = RequestedSendingOfDraftOperation(draftPermanentID: draftPermanentID)
         let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
         guard !composedOp.isCancelled else {
-            NewSingleDiscussionNotification.draftCouldNotBeSent(persistedDraftObjectID: draftObjectID)
+            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
                 .postOnDispatchQueue()
             return
         }
     }
 
-    private func processUserWantsToSendDraftWithAttachments(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, attachmentsURL: [URL]) {
+    private func processUserWantsToSendDraftWithAttachments(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, attachmentsURL: [URL]) {
         
         let loadItemProviderOperations = attachmentsURL.map {
             LoadItemProviderOperation(itemURL: $0, progressAvailable: { [weak self] progress in
                 // Called only if a progress is made available during the operation execution
-                self?.newProgressToAddForTrackingFreeze(draftObjectID: draftObjectID, progress: progress)
+                self?.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
             })
         }
         queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: true)
@@ -1505,13 +1505,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
 
-        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftObjectID: draftObjectID, loadedItemProviders: loadedItemProviders, completionHandler: nil, log: log)
-        let op2 = RequestedSendingOfDraftOperation(draftObjectID: draftObjectID)
+        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, completionHandler: nil, log: log)
+        let op2 = RequestedSendingOfDraftOperation(draftPermanentID: draftPermanentID)
         let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
         guard !composedOp.isCancelled else {
-            NewSingleDiscussionNotification.draftCouldNotBeSent(persistedDraftObjectID: draftObjectID)
+            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
                 .postOnDispatchQueue()
             return
         }
@@ -1539,8 +1539,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         composedOp.logReasonIfCancelled(log: log)
     }
 
-    private func processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, completionHandler: @escaping () -> Void) {
-        let op = UpdateDiscussionLocalConfigurationOperation(value: value, persistedDiscussionObjectID: persistedDiscussionObjectID)
+    private func processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with value: PersistedDiscussionLocalConfigurationValue, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, completionHandler: @escaping () -> Void) {
+        let op = UpdateDiscussionLocalConfigurationOperation(value: value, discussionPermanentID: discussionPermanentID)
         let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         op.completionBlock = {
             DispatchQueue.main.async {
@@ -1821,13 +1821,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processAPersistedDialogWasDeleted(uuid: UUID) {
+    private func processAPersistedDialogWasDeleted(uuid: UUID, ownedCryptoId: ObvCryptoId) {
         assert(OperationQueue.current != internalQueue)
         let log = self.log
         internalQueue.addOperation {
             ObvStack.shared.performBackgroundTaskAndWait { (context) in
                 do {
-                    guard let persistedInvitation = try PersistedInvitation.get(uuid: uuid, within: context) else { return }
+                    guard let persistedInvitation = try PersistedInvitation.getPersistedInvitation(uuid: uuid, ownedCryptoId: ownedCryptoId, within: context) else { return }
                     try persistedInvitation.delete()
                     try context.save(logOnFailure: log)
                 } catch let error {
@@ -1839,12 +1839,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processUserRepliedToReceivedMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, textBody: String, completionHandler: @escaping () -> Void) {
+    private func processUserRepliedToReceivedMessageWithinTheNotificationExtensionNotification(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data, textBody: String, completionHandler: @escaping () -> Void) {
         // This call will add the received message decrypted by the notification extension into the database to be sure that we will be able to reply to this message.
         bootstrapMessagesDecryptedWithinNotificationExtension()
 
-        let op1 = CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody)
-        let op2 = MarkAsReadReceivedMessageOperation(persistedContactObjectID: persistedContactObjectID, messageIdentifierFromEngine: messageIdentifierFromEngine)
+        let op1 = CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody)
+        let op2 = MarkAsReadReceivedMessageOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine)
         let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: nil, obvEngine: obvEngine) {
             DispatchQueue.main.async { completionHandler() }
         }
@@ -1859,9 +1859,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
 
-    private func processUserRepliedToMissedCallWithinTheNotificationExtensionNotification(persistedDiscussionObjectID: NSManagedObjectID, textBody: String, completionHandler: @escaping () -> Void) {
+    private func processUserRepliedToMissedCallWithinTheNotificationExtensionNotification(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, textBody: String, completionHandler: @escaping () -> Void) {
 
-        let op1 = CreateUnprocessedPersistedMessageSentFromBodyOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, textBody: textBody)
+        let op1 = CreateUnprocessedPersistedMessageSentFromBodyOperation(discussionPermanentID: discussionPermanentID, textBody: textBody)
         let op2 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: nil, obvEngine: obvEngine) {
             DispatchQueue.main.async { completionHandler() }
         }
@@ -1880,7 +1880,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(persistedContactObjectID: NSManagedObjectID, messageIdentifierFromEngine: Data, completionHandler: @escaping () -> Void) async {
+    private func processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data, completionHandler: @escaping () -> Void) async {
         
         let log = self.log
         
@@ -1888,18 +1888,14 @@ extension PersistedDiscussionsUpdatesCoordinator {
         // This allows to be sure that we will be able to mark it as read.
         bootstrapMessagesDecryptedWithinNotificationExtension()
 
-        let op = MarkAsReadReceivedMessageOperation(persistedContactObjectID: persistedContactObjectID,
-                                                    messageIdentifierFromEngine: messageIdentifierFromEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op,
-                                                             contextCreator: ObvStack.shared,
-                                                             log: log,
-                                                             flowId: FlowIdentifier())
+        let op1 = MarkAsReadReceivedMessageOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         
         composedOp.completionBlock = {
             
             Task { [weak self] in
                 
-                guard !op.isCancelled else {
+                guard !op1.isCancelled else {
                     DispatchQueue.main.async {
                         completionHandler()
                     }
@@ -1910,7 +1906,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 // Here, we cannot wait until this happens (because we have a completion handler to call), so we post a read receipt immediately.
                 // Yes, we might be sending two read receipts...
                 
-                if let persistedMessageReceivedObjectID = op.persistedMessageReceivedObjectID {
+                if let persistedMessageReceivedObjectID = op1.persistedMessageReceivedObjectID {
                     do {
                         try await self?.postMessageReadReceiptIfRequired(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID)
                     } catch {
@@ -1955,9 +1951,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
             .postOnDispatchQueue()
     }
 
-    private func processUserWantsToForwardMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, discussionObjectIDs: Set<TypeSafeManagedObjectID<PersistedDiscussion>>) {
-        for discussionID in discussionObjectIDs {
-            let op1 = CreateUnprocessedForwardPersistedMessageSentFromMessageOperation(messageObjectID: messageObjectID, discussionObjectID: discussionID)
+    private func processUserWantsToForwardMessage(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>) {
+        for discussionPermanentID in discussionPermanentIDs {
+            let op1 = CreateUnprocessedForwardPersistedMessageSentFromMessageOperation(messagePermanentID: messagePermanentID, discussionPermanentID: discussionPermanentID)
             let op2 = ComputeExtendedPayloadOperation(provider: op1)
             let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: op2, obvEngine: obvEngine)
             let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
@@ -2344,10 +2340,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func sendUnprocessedMessages(within discussion: PersistedDiscussion) {
         assert(OperationQueue.current != internalQueue)
         let sentMessages = discussion.messages.compactMap { $0 as? PersistedMessageSent }
-        let objectIDOfUnprocessedMessages = sentMessages.filter({ $0.status == .unprocessed || $0.status == .processing }).map({ $0.typedObjectID })
+        let objectIDOfUnprocessedMessages = sentMessages.filter({ $0.status == .unprocessed || $0.status == .processing }).map({ $0.objectPermanentID })
         let ops: [(ComputeExtendedPayloadOperation, SendUnprocessedPersistedMessageSentOperation)] = objectIDOfUnprocessedMessages.map({
-                let op1 = ComputeExtendedPayloadOperation(persistedMessageSentObjectID: $0)
-                let op2 = SendUnprocessedPersistedMessageSentOperation(persistedMessageSentObjectID: $0, extendedPayloadProvider: op1, obvEngine: obvEngine)
+            let op1 = ComputeExtendedPayloadOperation(messageSentPermanentID: $0)
+            let op2 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: $0, extendedPayloadProvider: op1, obvEngine: obvEngine)
                 return (op1, op2)
             })
         let composedOps = ops.map({ CompositionOfTwoContextualOperations(op1: $0.0, op2: $0.1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier()) })
@@ -2382,20 +2378,19 @@ private extension UserDefaults {
 extension PersistedDiscussionsUpdatesCoordinator: ScreenCaptureDetectorDelegate {
     
     
-    func screenCaptureOfSensitiveMessagesWasDetected(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async {
+    func screenCaptureOfSensitiveMessagesWasDetected(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         debugPrint("🔋 Screen capture of a discussion was detected")
-        processDectection(persistedDiscussionObjectID: persistedDiscussionObjectID)
+        processDectection(discussionPermanentID: discussionPermanentID)
     }
     
-    
-    func screenshotOfSensitiveMessagesWasDetected(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) async {
+    func screenshotOfSensitiveMessagesWasDetected(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         debugPrint("🔋 Screenshot of a discussion was detected")
-        processDectection(persistedDiscussionObjectID: persistedDiscussionObjectID)
+        processDectection(discussionPermanentID: discussionPermanentID)
     }
     
     
-    private func processDectection(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOperation(discussionObjectID: persistedDiscussionObjectID,
+    private func processDectection(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+        let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOperation(discussionPermanentID: discussionPermanentID,
                                                                                             obvEngine: obvEngine)
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperation(composedOp)

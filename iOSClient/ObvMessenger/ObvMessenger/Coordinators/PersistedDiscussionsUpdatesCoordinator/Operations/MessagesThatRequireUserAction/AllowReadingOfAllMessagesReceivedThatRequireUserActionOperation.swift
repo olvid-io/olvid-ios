@@ -32,16 +32,16 @@ final class AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation: Ope
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation.self))
 
-    let persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
     
-    init(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        self.persistedDiscussionObjectID = persistedDiscussionObjectID
+    init(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+        self.discussionPermanentID = discussionPermanentID
         super.init()
     }
 
     override func main() {
 
-        guard ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID == persistedDiscussionObjectID else { assertionFailure(); return }
+        guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { assertionFailure(); return }
         
         ObvStack.shared.performBackgroundTaskAndWait { context in
 
@@ -50,7 +50,7 @@ final class AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation: Ope
             
             let receivedMessagesThatRequireUserActionForReading: [PersistedMessageReceived]
             do {
-                receivedMessagesThatRequireUserActionForReading = try PersistedMessageReceived.getAllReceivedMessagesThatRequireUserActionForReading(discussionObjectID: persistedDiscussionObjectID, within: context)
+                receivedMessagesThatRequireUserActionForReading = try PersistedMessageReceived.getAllReceivedMessagesThatRequireUserActionForReading(discussionPermanentID: discussionPermanentID, within: context)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

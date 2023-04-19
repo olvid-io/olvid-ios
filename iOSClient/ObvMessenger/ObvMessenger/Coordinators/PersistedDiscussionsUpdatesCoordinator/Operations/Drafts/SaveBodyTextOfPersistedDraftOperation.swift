@@ -25,11 +25,11 @@ import CoreData
 
 final class SaveBodyTextOfPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<SaveBodyTextOfPersistedDraftOperationReasonForCancel> {
     
-    let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
+    let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     let bodyText: String
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, bodyText: String) {
-        self.draftObjectID = draftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, bodyText: String) {
+        self.draftPermanentID = draftPermanentID
         self.bodyText = bodyText
         super.init()
     }
@@ -42,7 +42,7 @@ final class SaveBodyTextOfPersistedDraftOperation: ContextualOperationWithSpecif
         
         obvContext.performAndWait {
             do {
-                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindDraftInDatabase)
                 }
                 let sanitizedBodyText = bodyText.trimmingCharacters(in: .whitespacesAndNewlines)

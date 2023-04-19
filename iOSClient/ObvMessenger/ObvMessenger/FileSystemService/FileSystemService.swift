@@ -92,6 +92,7 @@ extension FileSystemService {
             } catch {
                 os_log("Failed to delete a trashed file: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
+                // In production, continue anyway
             }
         }
 

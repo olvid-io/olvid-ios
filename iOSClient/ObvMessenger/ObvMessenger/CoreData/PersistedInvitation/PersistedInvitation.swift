@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvEngine
 import ObvTypes
+import OlvidUtils
 
 
 @objc(PersistedInvitation)
@@ -29,7 +30,6 @@ class PersistedInvitation: NSManagedObject {
     
     private static let entityName = "PersistedInvitation"
     private static let errorDomain = "PersistedInvitation"
-    
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     // MARK: - Attributes
@@ -51,11 +51,11 @@ class PersistedInvitation: NSManagedObject {
     @NSManaged private(set) var uuid: UUID
     
     
-    // MARK: - Relationships
+    // MARK: Relationships
     
     @NSManaged private(set) var ownedIdentity: PersistedObvOwnedIdentity? // If nil, this entity is eventually cascade-deleted
     
-    // Computed properties
+    // MARK: Computed properties
     
     var status: Status {
         return Status(rawValue: self.rawStatus)!
@@ -67,7 +67,7 @@ class PersistedInvitation: NSManagedObject {
         case old = 3
     }
     
-    // MARK: - Other variables
+    // MARK: Other variables
     
     private var changedKeys = Set<String>()
 
@@ -75,6 +75,7 @@ class PersistedInvitation: NSManagedObject {
 
 
 // MARK: - Initializer
+
 extension PersistedInvitation {
     
     /// Shall only be called from subclasses
@@ -94,8 +95,7 @@ extension PersistedInvitation {
     
     
     static func insertOrUpdate(_ obvDialog: ObvDialog, within context: NSManagedObjectContext) throws {
-        
-        if let existingInvitation = try PersistedInvitation.get(uuid: obvDialog.uuid, within: context) {
+        if let existingInvitation = try PersistedInvitation.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: context) {
             if existingInvitation.obvDialog != obvDialog {
                 existingInvitation.obvDialog = obvDialog
                 existingInvitation.date = Date()
@@ -105,13 +105,14 @@ extension PersistedInvitation {
         } else {
             _ = try PersistedInvitation(obvDialog: obvDialog, forEntityName: PersistedInvitation.entityName, within: context)
         }
-        
     }
+    
     
     func delete() throws {
         guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         context.delete(self)
     }
+    
 }
 
 
@@ -127,7 +128,7 @@ extension PersistedInvitation {
             case rawStatus = "rawStatus"
             case uuid = "uuid"
             case ownedIdentity = "ownedIdentity"
-            static var ownedIdentityIdentity: String { [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".") }
+            static var ownedIdentityIdentity: String { [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".") }
         }
         fileprivate static func withUUID(_ uuid: UUID) -> NSPredicate {
             NSPredicate(Key.uuid, EqualToUuid: uuid)
@@ -153,9 +154,13 @@ extension PersistedInvitation {
         return NSFetchRequest<PersistedInvitation>(entityName: PersistedInvitation.entityName)
     }
 
-    static func get(uuid: UUID, within context: NSManagedObjectContext) throws -> PersistedInvitation? {
+
+    static func getPersistedInvitation(uuid: UUID, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedInvitation? {
         let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
-        request.predicate = Predicate.withUUID(uuid)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedCryptoId),
+            Predicate.withUUID(uuid),
+        ])
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
@@ -197,26 +202,25 @@ extension PersistedInvitation {
     }
     
     
-    static func delete(_ persistedInvitation: PersistedInvitation, within context: NSManagedObjectContext) throws {
-        let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
-        request.predicate = NSPredicate(format: "SELF == %@", persistedInvitation)
-        request.fetchLimit = 1
-        if let object = try context.fetch(request).first {
-            context.delete(object)
-        }
-    }
-
-    
     /// This returns all invitations, for all owned identities
-    static func getAll(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
+    static func getAll(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
         let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
+        request.predicate = Predicate.withOwnedIdentity(ownedCryptoId)
+        request.fetchBatchSize = 100
+        return try context.fetch(request)
+    }
+    
+    
+    static func getAllForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
+        let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
+        request.fetchBatchSize = 100
         return try context.fetch(request)
     }
     
     
     /// This returns all group invitations (both V1 and V2), for all owned identities
-    static func getAllGroupInvites(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
-        let invitations = try getAll(within: context)
+    static func getAllGroupInvitesForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
+        let invitations = try getAllForAllOwnedIdentities(within: context)
         let groupInvites = invitations.filter({
             guard let obvDialog = $0.obvDialog else { return false }
             switch obvDialog.category {
@@ -229,9 +233,10 @@ extension PersistedInvitation {
         return groupInvites
     }
 
+    
     /// This returns all group invitations, for all owned identities
-    static func getAllGroupInvitesFromOneToOneContacts(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
-        let groupInvites = try getAllGroupInvites(within: context)
+    static func getAllGroupInvitesFromOneToOneContactsForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedInvitation] {
+        let groupInvites = try getAllGroupInvitesForAllOwnedIdentities(within: context)
         let groupInvitesFromContacts = try groupInvites.filter { persistedInvitation in
             guard let ownedCryptoId = persistedInvitation.ownedIdentity?.cryptoId else { return false }
             guard let obvDialog = persistedInvitation.obvDialog else { return false }
@@ -275,16 +280,15 @@ extension PersistedInvitation {
     
     override func willSave() {
         super.willSave()
-        
         changedKeys = Set<String>(self.changedValues().keys)
-
     }
+    
     
     override func didSave() {
         super.didSave()
+        defer { changedKeys.removeAll() }
 
         if !isDeleted {
-            
             // We do *not* notify that the invitation has changed when the reason is that the invitation status changed from new or updated to old
             if !(changedKeys.contains(Predicate.Key.rawStatus.rawValue) && status == .old) {
                 guard let obvDialog = self.obvDialog else { assertionFailure(); return }

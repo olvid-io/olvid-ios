@@ -22,6 +22,7 @@ import Foundation
 import OlvidUtils
 import ObvEngine
 import os.log
+import ObvTypes
 
 
 final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -49,75 +50,82 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
             return cancel(withReason: .contextIsNil)
         }
 
-        let uuidsWithinEngine = Set(obvDialogsFromEngine.map { $0.uuid })
+        let uuidsWithinEngineForOwnedCryptoID: [ObvCryptoId: Set<UUID>] = obvDialogsFromEngine.reduce(into: [ObvCryptoId: Set<UUID>]()) { dict, obvDialog in
+            if var existingSet = dict[obvDialog.ownedCryptoId] {
+                existingSet.insert(obvDialog.uuid)
+                dict[obvDialog.ownedCryptoId] = existingSet
+            } else {
+                dict[obvDialog.ownedCryptoId] = Set([obvDialog.uuid])
+            }
+        }
         
         obvContext.performAndWait {
             
-            // Get the persisted invitations within the app
+            for (ownedCryptoId, uuidsWithinEngine) in uuidsWithinEngineForOwnedCryptoID {
             
-            let invitations: [PersistedInvitation]
-            do {
-                invitations = try PersistedInvitation.getAll(within: obvContext.context)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            // Determine the invitations to create, delete, or update
-
-            let uuidsWithinApp = Set(invitations.map { $0.uuid })
-            let missingUuids = uuidsWithinEngine.subtracting(uuidsWithinApp)
-            let uuidsToDelete = uuidsWithinApp.subtracting(uuidsWithinEngine)
-            let uuidsToUpdate = uuidsWithinApp.subtracting(uuidsToDelete)
-
-            os_log("Bootstrap: Number of missing invitations to create: %d", log: log, type: .info, missingUuids.count)
-            os_log("Bootstrap: Number of existing invitations to delete: %d", log: log, type: .info, uuidsToDelete.count)
-            os_log("Bootstrap: Number of existing invitations to refresh: %d", log: log, type: .info, uuidsToUpdate.count)
-
-            // Create the missing invitations, leveraging the existing ProcessObvDialogOperation.
-            
-            do {
+                // Get the persisted invitations within the app
                 
-                let dialogsToProcess = obvDialogsFromEngine.filter({ missingUuids.contains($0.uuid) })
-                let ops = dialogsToProcess.map { ProcessObvDialogOperation(obvDialog: $0, obvEngine: obvEngine) }
-                
-                ops.forEach {
-                    $0.obvContext = obvContext
-                    $0.viewContext = viewContext
-                    $0.main()
-                }
-                
-            }
-            
-            // Update pre-existing invitations, leveraging the existing ProcessObvDialogOperation
-            // Although the code is almost the same as the 'create' case, we separate it for clarity
-            
-            do {
-                
-                let dialogsToProcess = obvDialogsFromEngine.filter({ uuidsToUpdate.contains($0.uuid) })
-                let ops = dialogsToProcess.map { ProcessObvDialogOperation(obvDialog: $0, obvEngine: obvEngine) }
-                
-                ops.forEach {
-                    $0.obvContext = obvContext
-                    $0.viewContext = viewContext
-                    $0.main()
-                }
-                
-            }
-            
-            // Delete obsolete invitations
-            
-            uuidsToDelete.forEach { uuid in
+                let invitations: [PersistedInvitation]
                 do {
-                    if let invitation = try PersistedInvitation.get(uuid: uuid, within: obvContext.context) {
-                        try invitation.delete()
-                    }
+                    invitations = try PersistedInvitation.getAll(ownedCryptoId: ownedCryptoId, within: obvContext.context)
                 } catch {
-                    os_log("Could not delete obsolete PersistedInvitation during bootstrap: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    // Continue anyway
+                    return cancel(withReason: .coreDataError(error: error))
                 }
-            }
+                
+                // Determine the invitations to create, delete, or update
 
+                let uuidsWithinApp = Set(invitations.map { $0.uuid })
+                let missingUuids = uuidsWithinEngine.subtracting(uuidsWithinApp)
+                let uuidsToDelete = uuidsWithinApp.subtracting(uuidsWithinEngine)
+                let uuidsToUpdate = uuidsWithinApp.subtracting(uuidsToDelete)
+
+                // Create the missing invitations, leveraging the existing ProcessObvDialogOperation.
+                
+                do {
+                    
+                    let dialogsToProcess = obvDialogsFromEngine.filter({ missingUuids.contains($0.uuid) })
+                    let ops = dialogsToProcess.map { ProcessObvDialogOperation(obvDialog: $0, obvEngine: obvEngine) }
+                    
+                    ops.forEach {
+                        $0.obvContext = obvContext
+                        $0.viewContext = viewContext
+                        $0.main()
+                    }
+                    
+                }
+                
+                // Update pre-existing invitations, leveraging the existing ProcessObvDialogOperation
+                // Although the code is almost the same as the 'create' case, we separate it for clarity
+                
+                do {
+                    
+                    let dialogsToProcess = obvDialogsFromEngine.filter({ uuidsToUpdate.contains($0.uuid) })
+                    let ops = dialogsToProcess.map { ProcessObvDialogOperation(obvDialog: $0, obvEngine: obvEngine) }
+                    
+                    ops.forEach {
+                        $0.obvContext = obvContext
+                        $0.viewContext = viewContext
+                        $0.main()
+                    }
+                    
+                }
+                
+                // Delete obsolete invitations
+                
+                uuidsToDelete.forEach { uuid in
+                    do {
+                        if let invitation = try PersistedInvitation.getPersistedInvitation(uuid: uuid, ownedCryptoId: ownedCryptoId, within: obvContext.context) {
+                            try invitation.delete()
+                        }
+                    } catch {
+                        os_log("Could not delete obsolete PersistedInvitation during bootstrap: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure()
+                        // Continue anyway
+                    }
+                }
+
+            }
+            
         }
             
     }

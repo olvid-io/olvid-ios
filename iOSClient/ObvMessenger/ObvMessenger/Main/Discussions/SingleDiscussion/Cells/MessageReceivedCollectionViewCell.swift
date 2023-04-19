@@ -111,8 +111,13 @@ final class MessageReceivedCollectionViewCell: MessageCollectionViewCell, CellWi
             authorNameLabel.isHidden = true
         case .groupV1, .groupV2:
             authorNameLabelPaddingView.isHidden = false
-            authorNameLabel.text = message.contactIdentity?.customDisplayName ?? message.contactIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName) ?? CommonString.deletedContact
-            authorNameLabel.textColor = message.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel
+            if let messageContactIdentity = message.contactIdentity {
+                authorNameLabel.text = messageContactIdentity.customDisplayName ?? messageContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? messageContactIdentity.fullDisplayName
+                authorNameLabel.textColor = messageContactIdentity.cryptoId.textColor
+            } else {
+                authorNameLabel.text = CommonString.deletedContact
+                authorNameLabel.textColor = appTheme.colorScheme.secondaryLabel
+            }
         }
         super.prepare(with: message, attachments: message.fyleMessageJoinWithStatuses, withDateFormatter: dateFormatter, hideProgresses: false)
         refreshMessageReceivedCellCountdown()

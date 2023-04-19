@@ -30,14 +30,13 @@ final class PersistedInvitationOneToOneInvitationSent: PersistedInvitation {
     
     private static let entityName = "PersistedInvitationOneToOneInvitationSent"
     private static let errorDomain = "PersistedInvitationOneToOneInvitationSent"
-
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    // MARK: - Attributes
+    // MARK: Attributes
 
     @NSManaged private var rawContactIdentity: Data
     
-    // MARK: - Computed variables
+    // MARK: Computed variables
     
     var contactIdentity: ObvCryptoId? {
         get {
@@ -63,7 +62,7 @@ extension PersistedInvitationOneToOneInvitationSent {
         default:
             throw Self.makeError(message: "Unexpected category")
         }
-        if let existingInvitation = try PersistedInvitation.get(uuid: obvDialog.uuid, within: context) {
+        if let existingInvitation = try PersistedInvitation.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: context) {
             try existingInvitation.delete()
         }
         try self.init(obvDialog: obvDialog, forEntityName: PersistedInvitationOneToOneInvitationSent.entityName, within: context)

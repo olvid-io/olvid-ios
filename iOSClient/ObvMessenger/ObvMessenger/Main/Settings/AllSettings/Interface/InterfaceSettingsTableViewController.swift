@@ -44,6 +44,93 @@ class InterfaceSettingsTableViewController: UITableViewController {
         tableView.reloadData()
     }
     
+    
+    private enum Section: CaseIterable {
+        case customizeMessageComposeArea
+        case interfaceOptions
+        case identityColorStyle
+        static var shown: [Section] {
+            var result = [Section]()
+            if #available(iOS 15, *) {
+                result += [customizeMessageComposeArea]
+                result += [interfaceOptions]
+            }
+            result += [identityColorStyle]
+            return result
+        }
+        var numberOfItems: Int {
+            switch self {
+            case .customizeMessageComposeArea: return CustomizeMessageComposeAreaItem.shown.count
+            case .interfaceOptions: return InterfaceOptionsItem.shown.count
+            case .identityColorStyle: return IdentityColorStyleItem.shown.count
+            }
+        }
+        static func shownSectionAt(section: Int) -> Section? {
+            return shown[safe: section]
+        }
+    }
+    
+    
+    private enum CustomizeMessageComposeAreaItem: CaseIterable {
+        case customizeMessageComposeArea
+        static var shown: [CustomizeMessageComposeAreaItem] {
+            var result = [CustomizeMessageComposeAreaItem]()
+            if #available(iOS 15, *) {
+                result += [customizeMessageComposeArea]
+            }
+            return result
+        }
+        static func shownItemAt(item: Int) -> CustomizeMessageComposeAreaItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .customizeMessageComposeArea: return "customizeMessageComposeArea"
+            }
+        }
+    }
+
+    
+    private enum InterfaceOptionsItem: CaseIterable {
+        case useOldDiscussionInterface
+        case useOldListOfDiscussionsInterface
+        static var shown: [InterfaceOptionsItem] {
+            var result = [InterfaceOptionsItem]()
+            if #available(iOS 15, *) {
+                result += [useOldDiscussionInterface]
+            }
+            if #available(iOS 16, *) {
+                result += [useOldListOfDiscussionsInterface]
+            }
+            return result
+        }
+        static func shownItemAt(item: Int) -> InterfaceOptionsItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .useOldDiscussionInterface: return "useOldDiscussionInterface"
+            case .useOldListOfDiscussionsInterface: return "useOldListOfDiscussionsInterface"
+            }
+        }
+    }
+
+        
+    private enum IdentityColorStyleItem: CaseIterable {
+        case identityColorStyle
+        static var shown: [IdentityColorStyleItem] {
+            return self.allCases
+        }
+        static func shownItemAt(item: Int) -> IdentityColorStyleItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .identityColorStyle: return "identityColorStyle"
+            }
+        }
+    }
+
 }
 
 // MARK: - UITableViewDataSource
@@ -51,79 +138,116 @@ class InterfaceSettingsTableViewController: UITableViewController {
 extension InterfaceSettingsTableViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
-        if #available(iOS 15, *) {
-            return 3
-        } else {
-            return 1
-        }
+        return Section.shown.count
     }
     
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch section {
-        case 0: return 1
-        case 1: return 1 // For iOS 15 only, otherwise 2 sections only
-        case 2: return 1 // For iOS 15 only, otherwise 2 sections only
-        default: return 0
-        }
+        guard let section = Section.shownSectionAt(section: section) else { return 0 }
+        return section.numberOfItems
     }
+    
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        let cell: UITableViewCell
-        
-        switch indexPath {
-        case IndexPath(row: 0, section: 0):
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.textLabel?.text = Strings.identityColorStyle
-            cell.detailTextLabel?.text = ObvMessengerSettings.Interface.identityColorStyle.description
-            cell.accessoryType = .disclosureIndicator
-        case IndexPath(row: 0, section: 1):
-            let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "UseOldDiscussionInterface")
-            _cell.selectionStyle = .none
-            _cell.title = Strings.useOldDiscussionInterface
-            _cell.switchIsOn = ObvMessengerSettings.Interface.useOldDiscussionInterface
-            _cell.blockOnSwitchValueChanged = { (value) in
-                ObvMessengerSettings.Interface.useOldDiscussionInterface = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
-                    tableView.reloadData()
-                }
-            }
-            cell = _cell
-        case IndexPath(row: 0, section: 2):
-            cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            if #available(iOS 14, *) {
-                var configuration = cell.defaultContentConfiguration()
-                configuration.text = Strings.newComposeMessageViewActionOrder
-                cell.contentConfiguration = configuration
-            } else {
-                cell.textLabel?.text = Strings.newComposeMessageViewActionOrder
-            }
-            cell.accessoryType = .disclosureIndicator
-        default:
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            assert(false)
+        let cellInCaseOfError = UITableViewCell(style: .default, reuseIdentifier: nil)
+
+        guard let section = Section.shownSectionAt(section: indexPath.section) else {
+            assertionFailure()
+            return cellInCaseOfError
         }
-        
-        return cell
+
+        switch section {
+        case .customizeMessageComposeArea:
+            guard let item = CustomizeMessageComposeAreaItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .customizeMessageComposeArea:
+                let cell = UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = Strings.newComposeMessageViewActionOrder
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = Strings.newComposeMessageViewActionOrder
+                }
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+        case .interfaceOptions:
+            guard let item = InterfaceOptionsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .useOldDiscussionInterface:
+                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.selectionStyle = .none
+                cell.title = Strings.useOldDiscussionInterface
+                cell.switchIsOn = ObvMessengerSettings.Interface.useOldDiscussionInterface
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Interface.useOldDiscussionInterface = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
+            case .useOldListOfDiscussionsInterface:
+                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.selectionStyle = .none
+                cell.title = Strings.useOldListOfDiscussionsInterface
+                cell.switchIsOn = ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
+            }
+        case .identityColorStyle:
+            guard let item = IdentityColorStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .identityColorStyle:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = Strings.identityColorStyle
+                    configuration.secondaryText = ObvMessengerSettings.Interface.identityColorStyle.description
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = Strings.identityColorStyle
+                    cell.detailTextLabel?.text = ObvMessengerSettings.Interface.identityColorStyle.description
+                }
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+        }
     }
 
+    
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        switch indexPath {
-        case IndexPath(row: 0, section: 0):
-            let vc = IdentityColorStyleChooserTableViewController()
-            self.navigationController?.pushViewController(vc, animated: true)
-        case IndexPath(row: 0, section: 2):
-            if #available(iOS 15, *) {
-                let vc = ComposeMessageViewSettingsViewController(input: .global)
-                self.navigationController?.pushViewController(vc, animated: true)
+        guard let section = Section.shownSectionAt(section: indexPath.section) else { assertionFailure(); return }
+        switch section {
+        case .customizeMessageComposeArea:
+            guard let item = CustomizeMessageComposeAreaItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .customizeMessageComposeArea:
+                if #available(iOS 15, *) {
+                    let vc = ComposeMessageViewSettingsViewController(input: .global)
+                    navigationController?.pushViewController(vc, animated: true)
+                }
             }
-        default:
-            break
+        case .interfaceOptions:
+            return
+        case .identityColorStyle:
+            guard let item = IdentityColorStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .identityColorStyle:
+                let vc = IdentityColorStyleChooserTableViewController()
+                navigationController?.pushViewController(vc, animated: true)
+            }
         }
     }
 
 }
+
 
 extension ContactsSortOrder: CustomStringConvertible {
     var description: String {
@@ -132,8 +256,6 @@ extension ContactsSortOrder: CustomStringConvertible {
         case .byLastName: return InterfaceSettingsTableViewController.Strings.lastNameThenFirstName
         }
     }
-
-
 }
 
 
@@ -145,6 +267,7 @@ private extension InterfaceSettingsTableViewController {
         static let firstNameThenLastName = NSLocalizedString("FIRST_NAME_LAST_NAME", comment: "")
         static let lastNameThenFirstName = NSLocalizedString("LAST_NAME_FIRST_NAME", comment: "")
         static let useOldDiscussionInterface = NSLocalizedString("USE_OLD_DISCUSSION_INTERFACE", comment: "")
+        static let useOldListOfDiscussionsInterface = NSLocalizedString("USE_OLD_LIST_OF_DISCUSSIONS_INTERFACE", comment: "")
     }
     
 }

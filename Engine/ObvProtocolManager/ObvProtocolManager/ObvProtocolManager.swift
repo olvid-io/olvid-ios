@@ -113,72 +113,15 @@ extension ObvProtocolManager {
         await delegateManager.contactTrustLevelWatcher.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
 
         if forTheFirstTime {
-            deleteOldReceivedMessages(flowId: flowId)
             Task(priority: .low) {
                 await deleteOldUploadingUserData()
             }
             delegateManager.receivedMessageDelegate.deleteProtocolInstancesInAFinalState(flowId: flowId)
+            delegateManager.receivedMessageDelegate.deleteObsoleteReceivedMessages(flowId: flowId)
+            // Now that we cleaned the databases, we can try to re-process all protocol's `ReceivedMessage`s
+            delegateManager.receivedMessageDelegate.processAllReceivedMessages(flowId: flowId)
         }
 
-    }
-    
-    
-    /// Deletes all received messages that are older than 15 days and that have no associated protocol instance. All other messages should be processed.
-    private func deleteOldReceivedMessages(flowId: FlowIdentifier) {
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = self.log
-        
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { [weak self] (obvContext) in
-
-            guard let _self = self else { return }
-            
-            let receivedMessages: [ReceivedMessage]
-            do {
-                receivedMessages = try ReceivedMessage.getAll(delegateManager: _self.delegateManager, within: obvContext)
-            } catch {
-                os_log("Could not get all received messages in finalizeInitialization", log: _self.log, type: .fault)
-                return
-            }
-
-            // Delete all received messages that are older than 15 days and that have no associated protocol instance. All other messages should be processed
-            
-            let fifteenDays = TimeInterval(1_296_000)
-            let oldDate = Date(timeIntervalSinceNow: -fifteenDays)
-            assert(oldDate < Date())
-
-            let messagesToDelete = receivedMessages.filter { (message) in
-                guard message.timestamp < oldDate else { return false }
-                do {
-                    return try !ProtocolInstance.exists(cryptoProtocolId: message.cryptoProtocolId, uid: message.protocolInstanceUid, ownedIdentity: message.messageId.ownedCryptoIdentity, within: obvContext)
-                } catch {
-                    assertionFailure()
-                    return false
-                }
-            }
-
-            os_log("We have %d old protocol messages to delete", log: log, type: .info, messagesToDelete.count)
-            
-            var contextNeedsToBeSaved = false
-            
-            for message in receivedMessages {
-                if messagesToDelete.contains(message) {
-                    obvContext.delete(message)
-                    contextNeedsToBeSaved = true
-                } else {
-                    _self.delegateManager.receivedMessageDelegate.processReceivedMessage(withId: message.messageId, flowId: flowId)
-                }
-            }
-            
-            if contextNeedsToBeSaved {
-                try? obvContext.save(logOnFailure: log)
-            }
-            
-        }
     }
 
     

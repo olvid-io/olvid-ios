@@ -1952,6 +1952,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "USE_OLD_DISCUSSION_INTERFACE" = "Use old discussion interface";
 
+"USE_OLD_LIST_OF_DISCUSSIONS_INTERFACE" = "Use old list of discussions interface";
+
 "TAP_TO_CANCEL" = "Tap to cancel";
 
 "PLEASE_UPDATE_OLVID_FROM_MAIN_APP" = "Please launch the Olvid App in order to finalize its update 🚀. You will be able to share content once this is done 😉.";
@@ -2615,3 +2617,5 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_LABEL" = "Suggest this discussion when sharing";
 
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "If you activate this option, this discussion will be suggested when sharing from another app.";
+
+"DISCUSSIONS_FILTER_CELL_PICKER_TEXT" = "Filter discussions";

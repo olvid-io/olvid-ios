@@ -75,8 +75,8 @@ final class BootstrapCoordinator {
         // Internal Notifications
 
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observePersistedContactWasInserted() { [weak self] (objectID, contactCryptoId) in
-                self?.processPersistedContactWasInsertedNotification(objectID: objectID, contactCryptoId: contactCryptoId)
+            ObvMessengerCoreDataNotification.observePersistedContactWasInserted() { [weak self] contactPermanentID in
+                self?.processPersistedContactWasInsertedNotification(contactPermanentID: contactPermanentID)
             },
             ObvMessengerInternalNotification.observeRequestSyncAppDatabasesWithEngine() { [weak self] completion in
                 self?.processRequestSyncAppDatabasesWithEngine(completion: completion)
@@ -223,7 +223,7 @@ extension BootstrapCoordinator {
     }
 
     
-    private func processPersistedContactWasInsertedNotification(objectID: NSManagedObjectID, contactCryptoId: ObvCryptoId) {
+    private func processPersistedContactWasInsertedNotification(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) {
         /* When receiving a PersistedContactWasInsertedNotification, we re-sync the groups from the engine. This is required when the following situation occurs :
          * Bob creates a group with Alice and Charlie, who do not know each other. Alice receives a new list of group members including Charlie *before* she includes
          * Charlie in her contacts. In that case, Charlie stays in the list of pending members. Here, we re-sync the groups members, making sure Charlie appears in

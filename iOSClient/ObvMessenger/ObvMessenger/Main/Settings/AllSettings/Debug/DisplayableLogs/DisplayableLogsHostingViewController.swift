@@ -56,6 +56,8 @@ final class DisplayableLogsViewStore: ObservableObject {
     private(set) var logFilenames: [String]
     @Published var changed: Bool
 
+    private let byteCountFormatter = ByteCountFormatter()
+
     weak var delegate: DisplayableLogsViewStoreDelegate?
     
     init() {
@@ -66,14 +68,18 @@ final class DisplayableLogsViewStore: ObservableObject {
     func getLogContentAction(_ logFilename: String) -> String {
         (try? ObvDisplayableLogs.shared.getContentOfLog(logFilename: logFilename)) ?? ""
     }
-    
-    func deleteLog(_ indexSet: IndexSet) {
-        for index in indexSet {
-            let logFilename = logFilenames[index]
-            try? ObvDisplayableLogs.shared.deleteLog(logFilename: logFilename)
-            self.logFilenames = (try? ObvDisplayableLogs.shared.getAvailableLogs()) ?? []
-            self.changed.toggle()
+
+    func getSizeOfLogAction(_ logFilename: String) -> String? {
+        guard let size = try? ObvDisplayableLogs.shared.getSizeOfLog(logFilename: logFilename) else {
+            return nil
         }
+        return byteCountFormatter.string(fromByteCount: size)
+    }
+    
+    func deleteLog(_ logFilename: String) {
+        try? ObvDisplayableLogs.shared.deleteLog(logFilename: logFilename)
+        self.logFilenames = (try? ObvDisplayableLogs.shared.getAvailableLogs()) ?? []
+        self.changed.toggle()
     }
     
     func shareLogAction(_ logFilename: String) {
@@ -90,6 +96,7 @@ struct DisplayableLogsListView: View {
     var body: some View {
         DisplayableLogsListInnerView(logFilenames: store.logFilenames,
                                      getLogContentAction: store.getLogContentAction,
+                                     getSizeOfLogAction: store.getSizeOfLogAction,
                                      deleteLogAction: store.deleteLog,
                                      shareAction: store.shareLogAction,
                                      changed: $store.changed)
@@ -102,7 +109,8 @@ struct DisplayableLogsListInnerView: View {
     
     let logFilenames: [String]
     let getLogContentAction: (String) -> String
-    let deleteLogAction: (IndexSet) -> Void
+    let getSizeOfLogAction: (String) -> String?
+    let deleteLogAction: (String) -> Void
     let shareAction: (String) -> Void
     @Binding var changed: Bool
 
@@ -110,14 +118,38 @@ struct DisplayableLogsListInnerView: View {
         NavigationView {
             List {
                 ForEach(logFilenames, id: \.self) { filename in
-                    NavigationLink(destination: SingleDisplayableLogView(content: getLogContentAction(filename), shareAction: { shareAction(filename) })) {
-                        HStack {
+                    let navigationLink = NavigationLink(destination:
+                                                            SingleDisplayableLogView(content: getLogContentAction(filename),
+                                                                                     shareAction: { shareAction(filename) },
+                                                                                     deleteLogAction: { deleteLogAction(filename) })) {
+                        VStack(alignment: .leading) {
                             Text(filename)
                                 .font(.body)
+                            if let size = getSizeOfLogAction(filename) {
+                                Text(size)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
+                    if #available(iOS 15.0, *) {
+                        navigationLink.swipeActions {
+                            Button(role: .destructive) {
+                                deleteLogAction(filename)
+                            } label: {
+                                Image(systemIcon: .trash)
+                            }
+                            Button {
+                                shareAction(filename)
+                            } label: {
+                                Image(systemIcon: .squareAndArrowUp)
+                            }
+                        }
+                    } else {
+                        // Delete and share actions are in SingleDisplayableLogView
+                        navigationLink
+                    }
                 }
-                .onDelete(perform: deleteLogAction)
             }
             .navigationBarTitle("All logs", displayMode: .inline)
         }
@@ -164,6 +196,7 @@ struct DisplayableLogsListInnerView_Previews: PreviewProvider {
     static var previews: some View {
         DisplayableLogsListInnerView(logFilenames: logFilenames,
                                      getLogContentAction: { str in str },
+                                     getSizeOfLogAction: { str in nil },
                                      deleteLogAction: { _ in },
                                      shareAction: { _ in },
                                      changed: .constant(false))

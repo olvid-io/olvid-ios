@@ -141,10 +141,10 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
     convenience init(contactIdentity: PersistedObvContactIdentity) {
         assert(Thread.isMainThread)
         let coreDetails = contactIdentity.identityCoreDetails
-        self.init(firstName: coreDetails.firstName ?? "",
-                  lastName: coreDetails.lastName ?? "",
-                  position: coreDetails.position ?? "",
-                  company: coreDetails.company ?? "",
+        self.init(firstName: coreDetails?.firstName ?? "",
+                  lastName: coreDetails?.lastName ?? "",
+                  position: coreDetails?.position ?? "",
+                  company: coreDetails?.company ?? "",
                   isKeycloakManaged: contactIdentity.isCertifiedByOwnKeycloak,
                   showGreenShield: contactIdentity.isCertifiedByOwnKeycloak,
                   showRedShield: false,
@@ -224,10 +224,10 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
     
     fileprivate func setTrustedVariables(with contact: PersistedObvContactIdentity) {
         let coreDetails = contact.identityCoreDetails
-        self.firstName = coreDetails.firstName ?? ""
-        self.lastName = coreDetails.lastName ?? ""
-        self.position = coreDetails.position ?? ""
-        self.company = coreDetails.company ?? ""
+        self.firstName = coreDetails?.firstName ?? ""
+        self.lastName = coreDetails?.lastName ?? ""
+        self.position = coreDetails?.position ?? ""
+        self.company = coreDetails?.company ?? ""
         if self.photoURL != contact.photoURL {
             self.photoURL = contact.photoURL
         }
@@ -406,11 +406,11 @@ final class SingleContactIdentity: SingleIdentity {
         } else {
             self.oneToOneInvitationSentFetchRequest = PersistedInvitationOneToOneInvitationSent.getFetchRequestWithNoResult()
         }
-        super.init(firstName: coreDetails.firstName,
-                   lastName: coreDetails.lastName,
-                   position: coreDetails.position,
-                   company: coreDetails.company,
-                   isKeycloakManaged: coreDetails.signedUserDetails != nil,
+        super.init(firstName: coreDetails?.firstName,
+                   lastName: coreDetails?.lastName,
+                   position: coreDetails?.position,
+                   company: coreDetails?.company,
+                   isKeycloakManaged: coreDetails?.signedUserDetails != nil,
                    showGreenShield: persistedContact.isCertifiedByOwnKeycloak,
                    showRedShield: !persistedContact.isActive,
                    identityColors: persistedContact.cryptoId.colors,

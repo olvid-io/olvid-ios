@@ -1978,7 +1978,9 @@
 
 "Loading" = "Chargement";
 
-"USE_OLD_DISCUSSION_INTERFACE" = "Utiliser ancien style de discussions";
+"USE_OLD_DISCUSSION_INTERFACE" = "Utiliser l'ancien style de discussions";
+
+"USE_OLD_LIST_OF_DISCUSSIONS_INTERFACE" = "Utiliser l'ancien style de liste de discussions";
 
 "TAP_TO_CANCEL" = "Appuyez pour annuler";
 
@@ -2646,3 +2648,5 @@
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_LABEL" = "Suggérer cette discussion pendant un partage";
 
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "Si vous activez cette option, cette discussion apparaitra directement lorsque vous partagerez du contenu depuis une autre app.";
+
+"DISCUSSIONS_FILTER_CELL_PICKER_TEXT" = "Filtrer les discussions";

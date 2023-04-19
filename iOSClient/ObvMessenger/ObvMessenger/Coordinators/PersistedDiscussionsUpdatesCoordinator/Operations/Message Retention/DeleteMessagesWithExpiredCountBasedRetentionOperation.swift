@@ -30,10 +30,10 @@ final class DeleteMessagesWithExpiredCountBasedRetentionOperation: OperationWith
 
     private(set) var numberOfDeletedMessages = 0
     
-    private let restrictToDiscussionWithObjectID: NSManagedObjectID?
+    private let restrictToDiscussionWithPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>?
     
-    init(restrictToDiscussionWithObjectID: NSManagedObjectID?) {
-        self.restrictToDiscussionWithObjectID = restrictToDiscussionWithObjectID
+    init(restrictToDiscussionWithPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>?) {
+        self.restrictToDiscussionWithPermanentID = restrictToDiscussionWithPermanentID
         super.init()
     }
 
@@ -43,14 +43,14 @@ final class DeleteMessagesWithExpiredCountBasedRetentionOperation: OperationWith
             
             let allDiscussions: [PersistedDiscussion]
             do {
-                if let discussionObjectID = restrictToDiscussionWithObjectID {
-                    guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: context) else {
+                if let discussionPermanentID = restrictToDiscussionWithPermanentID {
+                    guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: context) else {
                         /// We allow here that this given discussion no longer exists
                         return
                     }
                     allDiscussions = [discussion]
                 } else {
-                    allDiscussions = try PersistedDiscussion.getAllSortedByTimestampOfLastMessage(within: context)
+                    allDiscussions = try PersistedDiscussion.getAllSortedByTimestampOfLastMessageForAllOwnedIdentities(within: context)
                 }
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
@@ -90,18 +90,17 @@ final class DeleteMessagesWithExpiredCountBasedRetentionOperation: OperationWith
                     try PersistedMessage.deleteFirstMessages(discussion: discussion, count: numberOfMessagesToDelete)
                 } catch {
                     os_log("Could not respect time based retention policy: deletion of %{public}d messages failed: %{public}@", log: log, type: .fault, numberOfMessagesToDelete, error.localizedDescription)
+                    // We continue anyway
                 }
                 
-                // We save the context each time the work is done for a specific discussion
-                do {
-                    try context.save(logOnFailure: log)
-                } catch {
-                    cancel(withReason: .coreDataError(error: error))
-                    return
-                }
-
             }
             
+            do {
+                try context.save(logOnFailure: log)
+            } catch {
+                return cancel(withReason: .coreDataError(error: error))
+            }
+
         }
         
     }

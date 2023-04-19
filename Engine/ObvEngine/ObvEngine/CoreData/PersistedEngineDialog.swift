@@ -76,8 +76,13 @@ final class PersistedEngineDialog: NSManagedObject, ObvManagedObject {
 
     func delete() throws {
         guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context")}
+        self.uuidOnDeletion = self.uuid
+        self.ownedCryptoIdOnDeletion = self.obvDialog?.ownedCryptoId
         context.delete(self)
     }
+    
+    private var uuidOnDeletion: UUID?
+    private var ownedCryptoIdOnDeletion: ObvCryptoId?
     
 }
 
@@ -131,6 +136,16 @@ extension PersistedEngineDialog {
         let rawValue: UInt8
         static let obvDialog = NotificationRelatedChanges(rawValue: 1 << 1)
     }
+    
+    override func prepareForDeletion() {
+        super.prepareForDeletion()
+        if self.uuidOnDeletion == nil {
+            self.uuidOnDeletion = self.uuid
+        }
+        if self.ownedCryptoIdOnDeletion == nil {
+            self.ownedCryptoIdOnDeletion = self.obvDialog?.ownedCryptoId
+        }
+    }
 
     override func didSave() {
         super.didSave()
@@ -140,8 +155,8 @@ extension PersistedEngineDialog {
             return
         }
         
-        if isDeleted {
-            ObvEngineNotificationNew.aPersistedDialogWasDeleted(uuid: uuid)
+        if isDeleted, let uuidOnDeletion, let ownedCryptoIdOnDeletion {
+            ObvEngineNotificationNew.aPersistedDialogWasDeleted(ownedCryptoId: ownedCryptoIdOnDeletion, uuid: uuidOnDeletion)
                 .postOnBackgroundQueue(within: appNotificationCenter)
         }
 

@@ -82,18 +82,21 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
         showHUD(type: .spinner)
         // We want to dismiss this vc and to navigate to the details of the contact. Either this contact is not created yet in DB, or it is already.
         // We need to consider both cases here.
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactWasInserted(queue: OperationQueue.main) { [weak self] (objectID, insertedContactCryptoId) in
-            guard newContactCryptoId == insertedContactCryptoId else { return }
-            let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: objectID.uriRepresentation())
-            self?.showHUD(type: .checkmark) {
-                self?.dismiss(animated: true) {
-                    ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-                        .postOnDispatchQueue()
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactWasInserted { contactPermanentID in
+            OperationQueue.main.addOperation { [weak self] in
+                guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+                guard contact.cryptoId == newContactCryptoId && contact.ownedIdentity?.cryptoId == ownedCryptoId else { return }
+                let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: contactPermanentID)
+                self?.showHUD(type: .checkmark) {
+                    self?.dismiss(animated: true) {
+                        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                            .postOnDispatchQueue()
+                    }
                 }
             }
         })
         if let persistedContact = try? PersistedObvContactIdentity.get(contactCryptoId: newContactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
-            let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentityURI: persistedContact.objectID.uriRepresentation())
+            let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: persistedContact.objectPermanentID)
             self.showHUD(type: .checkmark) {
                 self.dismiss(animated: true) {
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)

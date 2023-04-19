@@ -20,15 +20,22 @@
 import UIKit
 import os.log
 import ObvEngine
+import Combine
 
 
-class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
+final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
 
     @IBOutlet weak var tableViewControllerPlaceholder: UIView!
-    private var discussionsTVC: DiscussionsTableViewController!
+
+    private var cancellables = [AnyCancellable]()
 
     weak var delegate: RecentDiscussionsViewControllerDelegate?
-        
+    
+    deinit {
+        cancellables.forEach({ $0.cancel() })
+        cancellables.removeAll()
+    }
+
 }
 
 
@@ -39,6 +46,7 @@ extension RecentDiscussionsViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         addAndConfigureDiscussionsTableViewController()
+        observeUseOldListOfDiscussionsInterfaceInAppSettings()
         
         var rightBarButtonItems = [UIBarButtonItem]()
 
@@ -59,6 +67,18 @@ extension RecentDiscussionsViewController {
     }
     
     
+    private func observeUseOldListOfDiscussionsInterfaceInAppSettings() {
+        ObvMessengerSettingsObservableObject.shared.$useOldListOfDiscussionsInterface
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                assert(Thread.isMainThread)
+                self?.addAndConfigureDiscussionsTableViewController()
+            }
+            .store(in: &cancellables)
+    }
+
+    
     @available(iOS, introduced: 13.0, deprecated: 14.0, message: "Used because iOS 13 does not support UIMenu on UIBarButtonItem")
     @objc private func ellipsisButtonTappedSelector() {
         ellipsisButtonTapped(sourceBarButtonItem: navigationItem.rightBarButtonItem)
@@ -71,29 +91,41 @@ extension RecentDiscussionsViewController {
             .postOnDispatchQueue()
     }
     #endif
-        
+    
     private func addAndConfigureDiscussionsTableViewController() {
+        removePreviousChildViewControllerIfAny()
+        let vc: UIViewController
+        if #available(iOS 16.0, *), !ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface {
+            let discussionsVC = DiscussionsViewController(ownedCryptoId: ownedCryptoId)
+            discussionsVC.delegate = self
+            vc = discussionsVC
+        } else {
+            let discussionsTVC = DiscussionsTableViewController(ownedCryptoId: ownedCryptoId,
+                                                                allowDeletion: true,
+                                                                withRefreshControl: true)
+            discussionsTVC.delegate = self
+            vc = discussionsTVC
+        }
         
-        discussionsTVC = DiscussionsTableViewController(ownedCryptoId: ownedCryptoId,
-                                                        allowDeletion: true,
-                                                        withRefreshControl: true)
-        discussionsTVC.setFetchRequestsAndImages([
-            (PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "clock")!),
-            (PersistedOneToOneDiscussion.getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person")!),
-            (PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId), UIImage(systemName: "person.3")!),
-        ])
-
-        discussionsTVC.view.translatesAutoresizingMaskIntoConstraints = false
-        discussionsTVC.delegate = self
+        vc.view.translatesAutoresizingMaskIntoConstraints = false
         
-        discussionsTVC.willMove(toParent: self)
-        self.addChild(discussionsTVC)
-        discussionsTVC.didMove(toParent: self)
+        vc.willMove(toParent: self)
+        self.addChild(vc)
+        (vc as? DiscussionsTableViewController)?.setFetchRequestsAndImages(DiscussionsFetchRequests(ownedCryptoId: ownedCryptoId).allRequestsAndImages)
+        vc.didMove(toParent: self)
         
-        self.tableViewControllerPlaceholder.addSubview(discussionsTVC.view)
-        self.tableViewControllerPlaceholder.pinAllSidesToSides(of: discussionsTVC.view)
+        self.tableViewControllerPlaceholder.addSubview(vc.view)
+        self.tableViewControllerPlaceholder.pinAllSidesToSides(of: vc.view)
     }
     
+    
+    private func removePreviousChildViewControllerIfAny() {
+        guard let childViewController = children.first else { return }
+        childViewController.view.removeFromSuperview()
+        childViewController.willMove(toParent: nil)
+        childViewController.removeFromParent()
+        childViewController.didMove(toParent: nil)
+    }
     
 }
 
@@ -117,7 +149,6 @@ extension RecentDiscussionsViewController: DiscussionsTableViewControllerDelegat
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void) {
         delegate?.userAskedToRefreshDiscussions(completionHandler: completionHandler)
     }
-    
 }
 
 // MARK: - CanScrollToTop
@@ -125,8 +156,6 @@ extension RecentDiscussionsViewController: DiscussionsTableViewControllerDelegat
 extension RecentDiscussionsViewController: CanScrollToTop {
     
     func scrollToTop() {
-        guard self.discussionsTVC.tableView.numberOfRows(inSection: self.discussionsTVC.tableView.numberOfSections-1) > 0 else { return }
-        self.discussionsTVC.tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: true)
+        children.forEach({ ($0 as? CanScrollToTop)?.scrollToTop() })
     }
-    
 }

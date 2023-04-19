@@ -202,6 +202,7 @@ notifications:
   - {name: obvDialog, type: ObvDialog}
 - name: aPersistedDialogWasDeleted
   params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: uuid, type: UUID}
 - name: groupV2WasCreatedOrUpdated
   params:

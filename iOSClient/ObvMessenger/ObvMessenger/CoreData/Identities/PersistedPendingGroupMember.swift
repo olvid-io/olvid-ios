@@ -21,36 +21,30 @@ import Foundation
 import CoreData
 import ObvEngine
 import ObvTypes
+import OlvidUtils
 
 @objc(PersistedPendingGroupMember)
-final class PersistedPendingGroupMember: NSManagedObject {
+final class PersistedPendingGroupMember: NSManagedObject, ObvErrorMaker {
     
     private static let entityName = "PersistedPendingGroupMember"
-    private static let fullDisplayNameKey = "fullDisplayName"
-    private static let rawContactGroupKey = "rawContactGroup"
-    private static let errorDomain = "PersistedPendingGroupMember"
+    static let errorDomain = "PersistedPendingGroupMember"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
-    // MARK: - Attributes
+    // MARK: Attributes
     
     @NSManaged var declined: Bool
-    @NSManaged var fullDisplayName: String
+    @NSManaged private(set) var fullDisplayName: String
     @NSManaged private var identity: Data
     @NSManaged private var rawGroupOwnerIdentity: Data // Required for core data constraints
     @NSManaged private var rawGroupUidRaw: Data // Required for core data constraints
     @NSManaged private var rawOwnedIdentityIdentity: Data // Required for core data constraints
     @NSManaged private var serializedIdentityCoreDetails: Data
 
-    // MARK: - Relationships
+    // MARK: Relationships
     
     // If nil, the following entity is eventually cascade-deleted
     @NSManaged private var rawContactGroup: PersistedContactGroup? // *Never* accessed directly
 
-    // MARK: - Variables
+    // MARK: Variables
     
     private(set) var contactGroup: PersistedContactGroup? {
         get {
@@ -77,7 +71,7 @@ final class PersistedPendingGroupMember: NSManagedObject {
 }
 
 
-// MARK: Initializer
+// MARK: - Initializer
 
 extension PersistedPendingGroupMember {
     
@@ -108,28 +102,41 @@ extension PersistedPendingGroupMember {
 
 extension PersistedPendingGroupMember {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case declined = "declined"
+            case fullDisplayName = "fullDisplayName"
+            case identity = "identity"
+            case rawGroupOwnerIdentity = "rawGroupOwnerIdentity"
+            case rawGroupUidRaw = "rawGroupUidRaw"
+            case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
+            case serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
+            // Relationships
+            case rawContactGroup = "rawContactGroup"
+        }
+        static func withPersistedContactGroup(_ persistedContactGroup: PersistedContactGroup) -> NSPredicate {
+            NSPredicate(Key.rawContactGroup, equalTo: persistedContactGroup)
+        }
+    }
+    
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedPendingGroupMember> {
         return NSFetchRequest<PersistedPendingGroupMember>(entityName: self.entityName)
     }
+    
 
     static func getFetchedResultsControllerForContactGroup(_ persistedContactGroup: PersistedContactGroup) throws -> NSFetchedResultsController<PersistedPendingGroupMember> {
-        
         guard let context = persistedContactGroup.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
-        
         let fetchRequest: NSFetchRequest<PersistedPendingGroupMember> = PersistedPendingGroupMember.fetchRequest()
-        
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedPendingGroupMember.fullDisplayNameKey, ascending: true)]
-        
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", rawContactGroupKey, persistedContactGroup)
-        
+        fetchRequest.predicate = Predicate.withPersistedContactGroup(persistedContactGroup)
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.fullDisplayName.rawValue, ascending: true)]
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
                                                                   managedObjectContext: context,
                                                                   sectionNameKeyPath: nil,
                                                                   cacheName: nil)
-        
         return fetchedResultsController
         
     }
 
-    
 }

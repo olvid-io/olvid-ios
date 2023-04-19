@@ -1177,7 +1177,7 @@ extension ObvEngine {
                                                                ownedCryptoIdentity: ownedCryptoId.cryptoIdentity,
                                                                identityDelegate: identityDelegate,
                                                                within: obvContext) else {
-                error = NSError()
+                error = Self.makeError(message: "Could not create ObvContactIdentity")
                 return
             }
             obvContactIdentity = _obvContactIdentity
@@ -1213,7 +1213,7 @@ extension ObvEngine {
                 
                 do {
                     _contactIdentities = try Set<ObvContactIdentity>(contactCryptoIdentities.map {
-                        guard let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: $0, ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { throw NSError() }
+                        guard let obvContactIdentity = ObvContactIdentity(contactCryptoIdentity: $0, ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { throw Self.makeError(message: "Could not create ObvContactIdentity") }
                         return obvContactIdentity
                     })
                 } catch {
@@ -1249,7 +1249,7 @@ extension ObvEngine {
             
             do {
                 guard try !identityDelegate.contactIdentityBelongsToSomeContactGroup(contactCryptoId.cryptoIdentity, forOwnedIdentity: ownedCryptoId.cryptoIdentity, within: obvContext) else {
-                    error = NSError()
+                    error = Self.makeError(message: "The contact identity does not belong to any contact group")
                     return
                 }
             } catch let _error {
@@ -1572,8 +1572,12 @@ extension ObvEngine {
 
 
         // Like un cochon
-        guard let listOfEncoded = [ObvEncoded](obvDialog.encodedElements, expectedCount: 4) else { throw NSError() }
-        guard let protocolInstanceUid = UID(listOfEncoded[1]) else { throw NSError() }
+        guard let listOfEncoded = [ObvEncoded](obvDialog.encodedElements, expectedCount: 4) else {
+            throw Self.makeError(message: "Could not abort protocol as we could not decode as a list of encoded")
+        }
+        guard let protocolInstanceUid = UID(listOfEncoded[1]) else {
+            throw Self.makeError(message: "Could not abort protocol as we could not decode the protocol instance UID")
+        }
         try protocolDelegate.abortProtocol(withProtocolInstanceUid: protocolInstanceUid,
                                            forOwnedIdentity: obvDialog.ownedCryptoId.cryptoIdentity)
         
@@ -1675,7 +1679,7 @@ extension ObvEngine {
         let randomFlowId = FlowIdentifier()
         createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
             guard let _obvOwnedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else {
-                error = NSError()
+                error = Self.makeError(message: "Could not create ObvOwnedIdentity")
                 return
             }
             obvOwnedIdentity = _obvOwnedIdentity
@@ -1811,7 +1815,9 @@ extension ObvEngine {
         guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
         guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
         
-        guard groupStructure.groupType == .owned else { throw NSError() }
+        guard groupStructure.groupType == .owned else {
+            throw Self.makeError(message: "Could not start owned group latest details publication protocol as the group type is not owned")
+        }
         
         let message = try protocolDelegate.getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol(groupUid: groupStructure.groupUid, ownedIdentity: groupStructure.groupOwner, within: obvContext)
         _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
@@ -2469,7 +2475,9 @@ extension ObvEngine {
                 obvContactGroups = Set(groupStructures.compactMap({ (groupStructure) in
                     return ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext)
                 }))
-                guard obvContactGroups.count == groupStructures.count else { throw NSError() }
+                guard obvContactGroups.count == groupStructures.count else {
+                    throw Self.makeError(message: "While getting the contact groups of an owned identity, the number of contact groups is not equal to the number of group structures")
+                }
             } catch let _error {
                 error = _error
                 return
@@ -2495,10 +2503,10 @@ extension ObvEngine {
         createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
             do {
                 guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
-                    throw NSError()
+                    throw Self.makeError(message: "Could not get group owned structure")
                 }
                 guard let _obvContactGroup = ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext) else {
-                    throw NSError()
+                    throw Self.makeError(message: "Could not create ObvContactGroup")
                 }
                 obvContactGroup = _obvContactGroup
             } catch let _error {
@@ -2527,10 +2535,10 @@ extension ObvEngine {
         createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
             do {
                 guard let groupStructure = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, groupOwner: groupOwner.cryptoIdentity, within: obvContext) else {
-                    throw NSError()
+                    throw Self.makeError(message: "Could not get group joined structure")
                 }
                 guard let _obvContactGroup = ObvContactGroup(groupStructure: groupStructure, identityDelegate: identityDelegate, within: obvContext) else {
-                    throw NSError()
+                    throw Self.makeError(message: "Could not create ObvContactGroup")
                 }
                 obvContactGroup = _obvContactGroup
             } catch let _error {
@@ -2597,9 +2605,11 @@ extension ObvEngine {
             createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
                 do {
                     guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
-                        throw NSError()
+                        throw Self.makeError(message: "Could not get group owned structure")
                     }
-                    guard groupStructure.groupType == .owned else { throw NSError() }
+                    guard groupStructure.groupType == .owned else {
+                        throw Self.makeError(message: "Could not discard latest details of owned contact group as the group type is not owned")
+                    }
                     try identityDelegate.discardLatestDetailsOfContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext)
                     try obvContext.save(logOnFailure: log)
                 } catch let _error {
@@ -2625,7 +2635,9 @@ extension ObvEngine {
             guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext) else {
                 throw makeError(message: "Could not find group structure")
             }
-            guard groupStructure.groupType == .owned else { throw NSError() }
+            guard groupStructure.groupType == .owned else {
+                throw Self.makeError(message: "Could not publish latest details of owned contact group as the group type is not owned")
+            }
             try startOwnedGroupLatestDetailsPublicationProtocol(for: groupStructure, within: obvContext)
             try obvContext.save(logOnFailure: log)
         }
@@ -2644,9 +2656,11 @@ extension ObvEngine {
             createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
                 do {
                     guard let groupStructure = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, groupOwner: groupOwner.cryptoIdentity, within: obvContext) else {
-                        throw NSError()
+                        throw Self.makeError(message: "Could not trust published details of joined contact group as we could not get the group joined structure")
                     }
-                    guard groupStructure.groupType == .joined else { throw NSError() }
+                    guard groupStructure.groupType == .joined else {
+                        throw Self.makeError(message: "Could not trust published details of joined contact group as the group type is not .joined")
+                    }
                     try identityDelegate.trustPublishedDetailsOfContactGroupJoined(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, groupOwner: groupOwner.cryptoIdentity, within: obvContext)
                     try obvContext.save(logOnFailure: log)
                 } catch let _error {
@@ -2909,7 +2923,9 @@ extension ObvEngine {
         let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
         let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
 
-        guard let flowId = flowDelegate.startBackgroundActivityForDeletingAnAttachment(attachmentId: attachmentId) else { throw NSError() }
+        guard let flowId = flowDelegate.startBackgroundActivityForDeletingAnAttachment(attachmentId: attachmentId) else {
+            throw Self.makeError(message: "Could not delete obvAttachment since we could not start a background activity for it")
+        }
                 
         var error: Error?
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
@@ -2937,7 +2953,9 @@ extension ObvEngine {
         let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
         let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
         
-        guard let flowId = flowDelegate.startBackgroundActivityForDeletingAnAttachment(attachmentId: attachmentId) else { throw NSError() }
+        guard let flowId = flowDelegate.startBackgroundActivityForDeletingAnAttachment(attachmentId: attachmentId) else {
+            throw Self.makeError(message: "Could not delete attachment as we could not start a background activity for it")
+        }
         var error: Error?
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             do {
@@ -2991,9 +3009,13 @@ extension ObvEngine {
         let randomFlowId = FlowIdentifier()
         createContextDelegate.performBackgroundTask(flowId: randomFlowId) { (obvContext) in
             do {
-                guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else { throw NSError() }
+                guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
+                    throw Self.makeError(message: "Could not download all messages for owned identities as identity delegate could not return owned identities")
+                }
                 try ownedIdentities.forEach { (ownedIdentity) in
-                    guard let flowId = flowDelegate.startBackgroundActivityForDownloadingMessages(ownedIdentity: ownedIdentity) else { throw NSError() }
+                    guard let flowId = flowDelegate.startBackgroundActivityForDownloadingMessages(ownedIdentity: ownedIdentity) else {
+                        throw Self.makeError(message: "Could not download all messages for owned identities as we could not start a background activity for this")
+                    }
                     if let currentDeviceUid = try? identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext) {
                         networkFetchDelegate.downloadMessages(for: ownedIdentity, andDeviceUid: currentDeviceUid, flowId: flowId)
                     }
@@ -3014,7 +3036,9 @@ extension ObvEngine {
         guard let uid = UID(uid: messageIdRaw) else { throw ObvEngine.makeError(message: "Could not parse message id") }
         let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, uid: uid)
         
-        guard let flowId = flowDelegate.startBackgroundActivityForDeletingAMessage(messageId: messageId) else { throw NSError() }
+        guard let flowId = flowDelegate.startBackgroundActivityForDeletingAMessage(messageId: messageId) else {
+            throw Self.makeError(message: "Could not cancel download of message since we could not start a background activity for this")
+        }
         var error: Error?
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             obvContext.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump // In-memory changes (made here) trump (override) external (made elsewhere) changes. We do want to delete the message.

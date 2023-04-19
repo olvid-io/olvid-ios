@@ -12,4 +12,4 @@ notifications:
   - {name: groupIdentifier, type: Data}
 - name: displayedContactGroupWasJustCreated
   params:
-  - {name: objectID, type: TypeSafeManagedObjectID<DisplayedContactGroup>}
+  - {name: permanentID, type: ObvManagedObjectPermanentID<DisplayedContactGroup>}

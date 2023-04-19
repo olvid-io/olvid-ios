@@ -22,7 +22,7 @@ import CoreData
 import os.log
 import OlvidUtils
 
-/// This operation is typically called when the user leaves a discussion. In that case, we may have read once messages that can be deleted or wiped.
+/// This operation is typically executed when the user leaves a discussion. In that case, we may have read once messages that can be deleted or wiped.
 /// For outbound messages, we delete all readOnce messages that are marked as "sent".
 /// For inbound messages, we delete all readOnce messages that are marked as "read".
 final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -34,11 +34,11 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
     private let preserveReceivedMessages: Bool
     
     /// If set, we only consider messages within this discussion
-    private let restrictToDiscussionWithObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?
+    private let restrictToDiscussionWithPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>?
     
-    init(preserveReceivedMessages: Bool, restrictToDiscussionWithObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?) {
+    init(preserveReceivedMessages: Bool, restrictToDiscussionWithPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>?) {
         self.preserveReceivedMessages = preserveReceivedMessages
-        self.restrictToDiscussionWithObjectID = restrictToDiscussionWithObjectID
+        self.restrictToDiscussionWithPermanentID = restrictToDiscussionWithPermanentID
         super.init()
     }
     
@@ -55,7 +55,7 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
             let sentMessages: [PersistedMessageSent]
             do {
                 sentMessages = try PersistedMessageSent.getReadOnceThatWasSent(
-                    restrictToDiscussionWithObjectID: restrictToDiscussionWithObjectID,
+                    restrictToDiscussionWithPermanentID: restrictToDiscussionWithPermanentID,
                     within: obvContext.context)
             } catch {
                 os_log("Could not get all readOnce sent messages that should be deleted: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -82,7 +82,7 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
                 let receivedMessages: [PersistedMessageReceived]
                 do {
                     receivedMessages = try PersistedMessageReceived.getReadOnceMarkedAsRead(
-                        restrictToDiscussionWithObjectID: restrictToDiscussionWithObjectID,
+                        restrictToDiscussionWithPermanentID: restrictToDiscussionWithPermanentID,
                         within: obvContext.context)
                 } catch {
                     os_log("Could not get all readOnce received messages that should be deleted: %{public}@", log: log, type: .fault, error.localizedDescription)

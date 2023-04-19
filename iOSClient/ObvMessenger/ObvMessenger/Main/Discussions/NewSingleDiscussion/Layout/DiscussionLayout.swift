@@ -336,7 +336,6 @@ extension DiscussionLayout {
             
             // To perform a nice animation, we store the frame of the deleted item
             
-            assert(indexPathsBeingDeleted[indexPath] == nil)
             indexPathsBeingDeleted[indexPath] = deletedItemInfos.getFrame(using: sectionInfo)
             
             // Update the section infos

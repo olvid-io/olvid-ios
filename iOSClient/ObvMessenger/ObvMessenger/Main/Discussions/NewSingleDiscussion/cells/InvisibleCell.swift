@@ -29,6 +29,10 @@ import UIKit
 @available(iOS 14.0, *)
 final class InvisibleCell: UICollectionViewCell {
     
+    static var registration: UICollectionView.CellRegistration<InvisibleCell, AnyObject> {
+        return UICollectionView.CellRegistration<InvisibleCell, AnyObject> { _, _, _ in }
+    }
+    
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear

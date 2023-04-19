@@ -156,7 +156,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 return
             }
             do {
-                messageReceivedStructure = try messageReceived.toStructure()
+                messageReceivedStructure = try messageReceived.toStruct()
             } catch {
                 assertionFailure()
                 os_log("Could create PersistedMessageReceived.Structure: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -429,10 +429,10 @@ final class NotificationService: UNNotificationServiceExtension {
                 var messageSentStructure: PersistedMessageSent.Structure?
                 
                 ObvStack.shared.performBackgroundTaskAndWait { context in
-                    guard let persistedDiscussion = try? PersistedDiscussion.get(objectID: discussionKind.typedObjectID, within: context) else { return }
+                    guard let persistedDiscussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionKind.discussionPermanentID, within: context) else { return }
                     guard let message = try? PersistedMessage.findMessageFrom(reference: reactionJSON.messageReference, within: persistedDiscussion) else { return }
                     guard let messageSent = message as? PersistedMessageSent, !messageSent.isWiped else { return }
-                    messageSentStructure = try? messageSent.toStructure()
+                    messageSentStructure = try? messageSent.toStruct()
                 }
                 
                 guard let messageSentStructure = messageSentStructure else { return true }

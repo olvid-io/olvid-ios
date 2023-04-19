@@ -20,22 +20,22 @@
 import Foundation
 import CoreData
 import os.log
+import OlvidUtils
  
 
 @objc(RemoteDeleteAndEditRequest)
-final class RemoteDeleteAndEditRequest: NSManagedObject {
+final class RemoteDeleteAndEditRequest: NSManagedObject, ObvErrorMaker {
     
     private static let entityName = "RemoteDeleteAndEditRequest"
+    static let errorDomain = "RemoteDeleteAndEditRequest"
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "RemoteDeleteAndEditRequest")
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: Self.self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { RemoteDeleteAndEditRequest.makeError(message: message) }
 
     enum RequestType: Int {
         case delete = 0
         case edit = 1
     }
     
-    // MARK: - Attributes
+    // MARK: Attributes
 
     @NSManaged private(set) var body: String?
     @NSManaged private var rawRequestType: Int
@@ -45,11 +45,11 @@ final class RemoteDeleteAndEditRequest: NSManagedObject {
     @NSManaged private var senderThreadIdentifier: UUID
     @NSManaged private(set) var serverTimestamp: Date
     
-    // MARK: - Relationships
+    // MARK: Relationships
 
     @NSManaged private var discussion: PersistedDiscussion? // Expected to be non-nil
     
-    // MARK: - Other variables
+    // MARK: Other variables
     
     var requestType: RequestType {
         get { RequestType(rawValue: rawRequestType)! }
@@ -172,7 +172,7 @@ final class RemoteDeleteAndEditRequest: NSManagedObject {
     
     
     func delete() throws {
-        guard let context = self.managedObjectContext else { throw makeError(message: "Cannot find context") }
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Cannot find context") }
         context.delete(self)
     }
 
@@ -185,35 +185,35 @@ final class RemoteDeleteAndEditRequest: NSManagedObject {
 
     
     private struct Predicate {
-        
         enum Key: String {
-            case senderIdentifier = "senderIdentifier"
-            case senderThreadIdentifier = "senderThreadIdentifier"
-            case senderSequenceNumber = "senderSequenceNumber"
+            // Attributes
             case rawRequestType = "rawRequestType"
+            case senderIdentifier = "senderIdentifier"
+            case senderSequenceNumber = "senderSequenceNumber"
+            case senderThreadIdentifier = "senderThreadIdentifier"
             case serverTimestamp = "serverTimestamp"
+            // Relationships
             case discussion = "discussion"
         }
-        
         static func withPrimaryKey(discussion: PersistedDiscussion, senderIdentifier: Data, senderThreadIdentifier: UUID, senderSequenceNumber: Int) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(format: "%K == %@", Key.discussion.rawValue, discussion),
+                NSPredicate(Key.discussion, equalTo: discussion),
                 NSPredicate(Key.senderIdentifier, EqualToData: senderIdentifier),
                 NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
                 NSPredicate(Key.senderSequenceNumber, EqualToInt: senderSequenceNumber),
             ])
         }
         static func olderThanServerTimestamp(_ serverTimestamp: Date) -> NSPredicate {
-            NSPredicate(format: "%K < %@", Key.serverTimestamp.rawValue, serverTimestamp as NSDate)
+            NSPredicate(Key.serverTimestamp, earlierThan: serverTimestamp)
         }
         static func moreRecentThanServerTimestamp(_ serverTimestamp: Date) -> NSPredicate {
-            NSPredicate(format: "%K > %@", Key.serverTimestamp.rawValue, serverTimestamp as NSDate)
+            NSPredicate(Key.serverTimestamp, laterThan: serverTimestamp)
         }
         static func ofRequestType(_ requestType: RequestType) -> NSPredicate {
             NSPredicate(Key.rawRequestType, EqualToInt: requestType.rawValue)
         }
         static var withoutAssociatedDiscussion: NSPredicate {
-            NSPredicate(format: "%K == NIL", Key.discussion.rawValue)
+            NSPredicate(withNilValueForKey: Key.discussion)
         }
     }
     
@@ -269,6 +269,7 @@ final class RemoteDeleteAndEditRequest: NSManagedObject {
     }
     
     
+    /// Deletes obsolete `RemoteDeleteAndEditRequest` instances, regardless of the owned identity or discussion.
     static func deleteRequestsOlderThanDate(_ date: Date, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = RemoteDeleteAndEditRequest.fetchRequest()
         request.predicate = Predicate.olderThanServerTimestamp(date)

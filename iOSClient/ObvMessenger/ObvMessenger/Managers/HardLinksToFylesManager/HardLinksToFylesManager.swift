@@ -24,7 +24,6 @@ import MobileCoreServices
 import CoreData
 
 
-
 /// The purpose of this coordinator is to manage all the hard links to fyles within Olvid. It subscribes to `RequestHardLinkToFyle` notifications.
 /// These notifications provide a completion handler that this coordinator calls on a background thread as soon as a hard link is avaible for the requested
 /// fyle.
@@ -62,23 +61,23 @@ final class HardLinksToFylesManager {
     
     private func observeNotifications() {
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observePersistedMessagesWereDeleted(queue: queueForNotifications) { [weak self] (discussionUriRepresentation, messageUriRepresentations) in
-                self?.processPersistedMessagesWereWipedOrDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+            ObvMessengerCoreDataNotification.observePersistedMessagesWereDeleted(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentIDs) in
+                self?.processPersistedMessagesWereWipedOrDeleted(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
             },
-            ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted(queue: queueForNotifications) { [weak self] discussionUriRepresentation in
-                self?.processPersistedDiscussionWasDeletedNotification(discussionUriRepresentation: discussionUriRepresentation)
+            ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted(queue: queueForNotifications) { [weak self] discussionPermanentID in
+                self?.processPersistedDiscussionWasDeletedNotification(discussionPermanentID: discussionPermanentID)
             },
-            ObvMessengerCoreDataNotification.observePersistedMessagesWereWiped(queue: queueForNotifications) { [weak self] (discussionUriRepresentation, messageUriRepresentations) in
-                self?.processPersistedMessagesWereWipedOrDeleted(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentations: messageUriRepresentations)
+            ObvMessengerCoreDataNotification.observePersistedMessagesWereWiped(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentIDs) in
+                self?.processPersistedMessagesWereWipedOrDeleted(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
             },
-            ObvMessengerCoreDataNotification.observeDraftToSendWasReset(queue: queueForNotifications) { [weak self] (discussionObjectID, draftObjectID) in
-                self?.processDraftToSendWasResetNotification(discussionObjectID: discussionObjectID, draftObjectID: draftObjectID)
+            ObvMessengerCoreDataNotification.observeDraftToSendWasReset(queue: queueForNotifications) { [weak self] (discussionPermanentID, draftPermanentID) in
+                self?.processDraftToSendWasResetNotification(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
             },
-            ObvMessengerCoreDataNotification.observeDraftFyleJoinWasDeleted(queue: queueForNotifications) { [weak self] (discussionUriRepresentation, draftUriRepresentation, draftFyleJoinUriRepresentation) in
-                self?.processDraftFyleJoinWasDeletedNotification(discussionUriRepresentation: discussionUriRepresentation, draftUriRepresentation: draftUriRepresentation, draftFyleJoinUriRepresentation: draftFyleJoinUriRepresentation)
+            ObvMessengerCoreDataNotification.observeDraftFyleJoinWasDeleted(queue: queueForNotifications) { [weak self] (discussionPermanentID, draftPermanentID, draftFyleJoinPermanentID) in
+                self?.processDraftFyleJoinWasDeletedNotification(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID, draftFyleJoinPermanentID: draftFyleJoinPermanentID)
             },
-            ObvMessengerCoreDataNotification.observeFyleMessageJoinWasWiped(queue: queueForNotifications) { [weak self] (discussionUriRepresentation, messageUriRepresentation, fyleMessageJoinUriRepresentation) in
-                self?.processFyleMessageJoinWasWiped(discussionUriRepresentation: discussionUriRepresentation, messageUriRepresentation: messageUriRepresentation, fyleMessageJoinUriRepresentation: fyleMessageJoinUriRepresentation)
+            ObvMessengerCoreDataNotification.observeFyleMessageJoinWasWiped(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentID, fyleMessageJoinPermanentID) in
+                self?.processFyleMessageJoinWasWiped(discussionPermanentID: discussionPermanentID, messagePermanentID: messagePermanentID, fyleMessageJoinPermanentID: fyleMessageJoinPermanentID)
             },
             HardLinksToFylesNotifications.observeRequestHardLinkToFyle() { [weak self] (fyleElement, completionHandler) in
                 self?.requestHardLinkToFyle(fyleElement: fyleElement, completionHandler: completionHandler)
@@ -152,12 +151,12 @@ final class HardLinksToFylesManager {
 
     // MARK: Processing notifications
 
-    private func processPersistedMessagesWereWipedOrDeleted(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentations: Set<TypeSafeURL<PersistedMessage>>) {
-        for messageUriRepresentation in messageUriRepresentations {
+    private func processPersistedMessagesWereWipedOrDeleted(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>) {
+        for messagePermanentID in messagePermanentIDs {
             do {
                 try FyleElementForFyleMessageJoinWithStatus.trashMessageDirectory(
-                    discussionURIRepresentation: discussionUriRepresentation,
-                    messageURIRepresentation: messageUriRepresentation,
+                    discussionPermanentID: discussionPermanentID,
+                    messagePermanentID: messagePermanentID,
                     in: currentSessionDirectoryForHardlinks)
             } catch {
                 os_log("Failed to delete hard links of message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
@@ -166,7 +165,7 @@ final class HardLinksToFylesManager {
         }
         do {
             try FyleElementForFyleMessageJoinWithStatus.trashDiscussionDirectoryIfEmpty(
-                discussionURIRepresentation: discussionUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
                 in: currentSessionDirectoryForHardlinks)
         } catch {
             os_log("Failed to delete hard links of message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
@@ -175,10 +174,10 @@ final class HardLinksToFylesManager {
     }
     
     
-    private func processPersistedDiscussionWasDeletedNotification(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>) {
+    private func processPersistedDiscussionWasDeletedNotification(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         do {
             try FyleElementForFyleMessageJoinWithStatus.trashDiscussionDirectory(
-                discussionURIRepresentation: discussionUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
                 in: currentSessionDirectoryForHardlinks)
         } catch {
             os_log("Failed to delete hard links of discussion: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
@@ -187,16 +186,14 @@ final class HardLinksToFylesManager {
     }
 
 
-    private func processDraftToSendWasResetNotification(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
-        let discussionUriRepresentation = discussionObjectID.uriRepresentation()
-        let draftUriRepresentation = draftObjectID.uriRepresentation()
+    private func processDraftToSendWasResetNotification(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
         do {
             try FyleElementForPersistedDraftFyleJoin.trashDraftDirectory(
-                discussionURIRepresentation: discussionUriRepresentation,
-                draftURIRepresentation: draftUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
+                draftPermanentID: draftPermanentID,
                 in: currentSessionDirectoryForHardlinks)
             try FyleElementForFyleMessageJoinWithStatus.trashDiscussionDirectoryIfEmpty(
-                discussionURIRepresentation: discussionUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
                 in: currentSessionDirectoryForHardlinks)
         } catch {
             os_log("Failed to delete hard links of draft: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
@@ -204,15 +201,15 @@ final class HardLinksToFylesManager {
         }
     }
 
-    private func processDraftFyleJoinWasDeletedNotification(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, draftUriRepresentation: TypeSafeURL<PersistedDraft>, draftFyleJoinUriRepresentation: TypeSafeURL<PersistedDraftFyleJoin>) {
+    private func processDraftFyleJoinWasDeletedNotification(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>) {
         do {
             try FyleElementForPersistedDraftFyleJoin.trashDraftFyleJoinDirectory(
-                discussionURIRepresentation: discussionUriRepresentation,
-                draftURIRepresentation: draftUriRepresentation,
-                draftFyleJoinURIRepresentation: draftFyleJoinUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
+                draftPermanentID: draftPermanentID,
+                draftFyleJoinPermanentID: draftFyleJoinPermanentID,
                 in: currentSessionDirectoryForHardlinks)
             try FyleElementForFyleMessageJoinWithStatus.trashDiscussionDirectoryIfEmpty(
-                discussionURIRepresentation: discussionUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
                 in: currentSessionDirectoryForHardlinks)
         } catch {
             os_log("Failed to delete hard links of draft fyle join: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
@@ -221,19 +218,19 @@ final class HardLinksToFylesManager {
     }
     
     
-    private func processFyleMessageJoinWasWiped(discussionUriRepresentation: TypeSafeURL<PersistedDiscussion>, messageUriRepresentation: TypeSafeURL<PersistedMessage>, fyleMessageJoinUriRepresentation: TypeSafeURL<FyleMessageJoinWithStatus>) {
+    private func processFyleMessageJoinWasWiped(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) {
         do {
             try FyleElementForFyleMessageJoinWithStatus.trashFyleMessageJoinWithStatusDirectory(
-                discussionURIRepresentation: discussionUriRepresentation,
-                messageURIRepresentation: messageUriRepresentation,
-                fyleMessageJoinWithStatusURIRepresentation: fyleMessageJoinUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
+                messagePermanentID: messagePermanentID,
+                fyleMessageJoinPermanentID: fyleMessageJoinPermanentID,
                 in: currentSessionDirectoryForHardlinks)
             try FyleElementForFyleMessageJoinWithStatus.trashMessageDirectoryIfEmpty(
-                discussionURIRepresentation: discussionUriRepresentation,
-                messageURIRepresentation: messageUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
+                messagePermanentID: messagePermanentID,
                 in: currentSessionDirectoryForHardlinks)
             try FyleElementForFyleMessageJoinWithStatus.trashDiscussionDirectoryIfEmpty(
-                discussionURIRepresentation: discussionUriRepresentation,
+                discussionPermanentID: discussionPermanentID,
                 in: currentSessionDirectoryForHardlinks)
         } catch {
             os_log("Failed to delete hard link to fyle message join: %{public}@", log: Self.log, type: .fault, error.localizedDescription)

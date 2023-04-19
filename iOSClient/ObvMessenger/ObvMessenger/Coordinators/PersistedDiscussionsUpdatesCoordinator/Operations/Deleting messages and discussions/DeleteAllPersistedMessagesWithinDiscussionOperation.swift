@@ -74,6 +74,7 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                 case .active:
                     let sharedConfigurationToKeep = discussion.sharedConfiguration
                     let localConfigurationToKeep = discussion.localConfiguration
+                    let permanentUUIDToKeep = discussion.permanentUUID
                     do {
                         switch try discussion.kind {
                         case .oneToOne(withContactIdentity: let contactIdentity):
@@ -88,7 +89,8 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                     status: .active,
                                     insertDiscussionIsEndToEndEncryptedSystemMessage: false,
                                     sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                    localConfigurationToKeep: localConfigurationToKeep)
+                                    localConfigurationToKeep: localConfigurationToKeep,
+                                    permanentUUIDToKeep: permanentUUIDToKeep)
                                 try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID
@@ -108,7 +110,8 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                     status: .active,
                                     insertDiscussionIsEndToEndEncryptedSystemMessage: false,
                                     sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                    localConfigurationToKeep: localConfigurationToKeep)
+                                    localConfigurationToKeep: localConfigurationToKeep,
+                                    permanentUUIDToKeep: permanentUUIDToKeep)
                                 try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID
@@ -125,7 +128,8 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                     insertDiscussionIsEndToEndEncryptedSystemMessage: false,
                                     shouldApplySharedConfigurationFromGlobalSettings: false,
                                     sharedConfigurationToKeep: sharedConfigurationToKeep,
-                                    localConfigurationToKeep: localConfigurationToKeep)
+                                    localConfigurationToKeep: localConfigurationToKeep,
+                                    permanentUUIDToKeep: permanentUUIDToKeep)
                                 try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID

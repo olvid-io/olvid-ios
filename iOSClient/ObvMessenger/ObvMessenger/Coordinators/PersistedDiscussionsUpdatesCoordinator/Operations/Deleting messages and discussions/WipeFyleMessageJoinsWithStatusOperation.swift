@@ -92,17 +92,16 @@ final class WipeFyleMessageJoinsWithStatusOperation: ContextualOperationWithSpec
                     
                     // If the context is successfully saved, we want to notify that the join was wiped (so as to deleted hard links)
                                 
-                    if let discussionUriRepresentation = join.message?.discussion.typedObjectID.uriRepresentation(),
-                       let messageUriRepresentation = join.message?.typedObjectID.uriRepresentation() {
-                        let fyleMessageJoinUriRepresentation = join.typedObjectID.uriRepresentation()
+                    if let discussionPermanentID = join.message?.discussion.discussionPermanentID,
+                       let messagePermanentID = join.message?.messagePermanentID {
+                        let fyleMessageJoinPermanentID = join.fyleMessageJoinPermanentID
                         do {
                             let queueForPostingNotifications = self.queueForPostingNotifications
                             try obvContext.addContextDidSaveCompletionHandler { error in
                                 guard error == nil else { return }
-                                ObvMessengerCoreDataNotification.fyleMessageJoinWasWiped(
-                                    discussionUriRepresentation: discussionUriRepresentation,
-                                    messageUriRepresentation: messageUriRepresentation,
-                                    fyleMessageJoinUriRepresentation: fyleMessageJoinUriRepresentation)
+                                ObvMessengerCoreDataNotification.fyleMessageJoinWasWiped(discussionPermanentID: discussionPermanentID,
+                                                                                         messagePermanentID: messagePermanentID,
+                                                                                         fyleMessageJoinPermanentID: fyleMessageJoinPermanentID)
                                 .postOnDispatchQueue(queueForPostingNotifications)
                             }
                         } catch {

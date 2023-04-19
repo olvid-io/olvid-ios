@@ -155,7 +155,7 @@ extension UserNotificationsManager {
                     }
                     guard let discussion = discussion, discussion.status == .active else { return }
 
-                    var contactIdentityDisplayName = contactIdentity.customDisplayName ?? contactIdentity.identityCoreDetails.getDisplayNameWithStyle(.full)
+                    var contactIdentityDisplayName = contactIdentity.customDisplayName ?? contactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.full) ?? contactIdentity.fullDisplayName
                     if let participantCount = participantCount, participantCount > 1 {
                         contactIdentityDisplayName += " + \(participantCount - 1)"
                     }
@@ -233,7 +233,7 @@ extension UserNotificationsManager {
                 let discussion = messageReceived.discussion
                 do {
                     let infos = UserNotificationCreator.NewMessageNotificationInfos(
-                        messageReceived: try messageReceived.toStructure(),
+                        messageReceived: try messageReceived.toStruct(),
                         attachmentLocation: .notificationID,
                         urlForStoringPNGThumbnail: nil)
                     let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
@@ -303,7 +303,7 @@ extension UserNotificationsManager {
                 guard !messageIdentifiersOfMissingNotifications.isEmpty else { return }
                 for (newMessage, identifierForNotification) in newMessagesAndNotificationIdentifiers {
                     guard messageIdentifiersOfMissingNotifications.contains(identifierForNotification) else { continue }
-                    guard let newMessageStruct = try? newMessage.toStructure() else { assertionFailure(); continue }
+                    guard let newMessageStruct = try? newMessage.toStruct() else { assertionFailure(); continue }
                     guard let discussionKind = try? newMessage.discussion.toStruct() else { assertionFailure(); continue }
                     let infos = UserNotificationCreator.NewMessageNotificationInfos(
                         messageReceived: newMessageStruct,
@@ -318,9 +318,9 @@ extension UserNotificationsManager {
 
     /// When a received reaction message is deleted (for whatever reason), we remove any existing notification related to this reaction.
     private func observePersistedMessageReactionReceivedWasDeletedNotifications() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasDeleted { (messageURI, contactURI) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasDeletedOnSentMessage { (sentMessagePermanentID, contactPermanentID) in
             let notificationCenter = UNUserNotificationCenter.current()
-            let notificationId = ObvUserNotificationIdentifier.newReaction(messageURI: messageURI, contactURI: contactURI)
+            let notificationId = ObvUserNotificationIdentifier.newReaction(messagePermanentID: sentMessagePermanentID, contactPermanentId: contactPermanentID)
 
             // Remove the notification if it was added by the app
             ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the app) as its corresponding PersistedMessageReaction was deleted")
@@ -351,7 +351,7 @@ extension UserNotificationsManager {
                 
                 do {
                     let infos = UserNotificationCreator.ReactionNotificationInfos(
-                        messageSent: try message.toStructure(),
+                        messageSent: try message.toStruct(),
                         contact: try contact.toStruct(),
                         urlForStoringPNGThumbnail: nil)
                     let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: reactionReceived.emoji, reactionTimestamp: reactionReceived.timestamp)

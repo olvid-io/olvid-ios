@@ -508,7 +508,7 @@ final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             ])
         }
         static func withObjectID(_ objectID: TypeSafeManagedObjectID<PersistedGroupV2>) -> NSPredicate {
-            NSPredicate.init(format: "SELF = %@", objectID.objectID)
+            NSPredicate(withObjectID: objectID.objectID)
         }
         static func otherMembersIncludeContact(_ contactIdentity: PersistedObvContactIdentity) -> NSPredicate {
             guard let ownedIdentity = contactIdentity.ownedIdentity else { assertionFailure(); return NSPredicate(value: false) }
@@ -779,7 +779,6 @@ final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         
     struct Structure {
         
-        let typedObjectID: TypeSafeManagedObjectID<PersistedGroupV2>
         let groupIdentifier: Data
         let displayName: String
         let displayPhotoURL: URL?
@@ -791,8 +790,7 @@ final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         
         func toStruct() throws -> Structure {
             let contactIdentities = Set(try self.contactsAmongOtherPendingAndNonPendingMembers.map({ try $0.toStruct() }))
-            return Structure(typedObjectID: self.typedObjectID,
-                             groupIdentifier: self.groupIdentifier,
+            return Structure(groupIdentifier: self.groupIdentifier,
                              displayName: self.displayName,
                              displayPhotoURL: self.displayPhotoURL,
                              contactIdentities: contactIdentities)
@@ -1015,10 +1013,13 @@ final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErrorMaker
         self.init(entity: entityDescription, insertInto: context)
 
         self.groupIdentifier = groupIdentifier
+        guard let contactIdentityCoreDetails = contact.identityCoreDetails else {
+            throw Self.makeError(message: "Could not get contact identity core details")
+        }
         let identityAndPermissionsAndDetails = ObvGroupV2.IdentityAndPermissionsAndDetails(
             identity: contact.cryptoId,
             permissions: ObvMessengerConstants.defaultObvGroupV2PermissionsForNewGroupMembers,
-            serializedIdentityCoreDetails: try contact.identityCoreDetails.jsonEncode(),
+            serializedIdentityCoreDetails: try contactIdentityCoreDetails.jsonEncode(),
             isPending: true)
         try self.updateWith(identityAndPermissionsAndDetails: identityAndPermissionsAndDetails)
         guard let ownedIdentity = contact.ownedIdentity?.cryptoId else { throw Self.makeError(message: "Could not determine owned identity") }

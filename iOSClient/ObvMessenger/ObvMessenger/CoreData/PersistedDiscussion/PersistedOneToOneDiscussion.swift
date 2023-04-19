@@ -27,9 +27,9 @@ import ObvTypes
 
 
 @objc(PersistedOneToOneDiscussion)
-final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
+final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker, ObvIdentifiableManagedObject {
     
-    private static let entityName = "PersistedOneToOneDiscussion"
+    static let entityName = "PersistedOneToOneDiscussion"
     static let errorDomain = "PersistedOneToOneDiscussion"
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedOneToOneDiscussion")
 
@@ -55,11 +55,16 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
             self.rawContactIdentity = newValue
         }
     }
-
     
+    
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedOneToOneDiscussion> {
+        ObvManagedObjectPermanentID<PersistedOneToOneDiscussion>(uuid: self.permanentUUID)
+    }
+
+
     // MARK: - Initializer
     
-    convenience init(contactIdentity: PersistedObvContactIdentity, status: Status, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+    convenience init(contactIdentity: PersistedObvContactIdentity, status: Status, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil, permanentUUIDToKeep: UUID? = nil) throws {
         guard let ownedIdentity = contactIdentity.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it was just deleted.", log: PersistedOneToOneDiscussion.log, type: .error)
             throw Self.makeError(message: "Could not find owned identity. This is ok if it was just deleted.")
@@ -70,7 +75,8 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
                       status: status,
                       shouldApplySharedConfigurationFromGlobalSettings: true,
                       sharedConfigurationToKeep: sharedConfigurationToKeep,
-                      localConfigurationToKeep: localConfigurationToKeep)
+                      localConfigurationToKeep: localConfigurationToKeep,
+                      permanentUUIDToKeep: permanentUUIDToKeep)
 
         self.contactIdentity = contactIdentity
 
@@ -100,6 +106,19 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
                                            discussion: self)
         }
     }
+
+
+    /// Exclusively called from `PersistedObvContactIdentity`, when the contact is updated.
+    func resetDiscussionTitleWithContactIfAppropriate() {
+        guard self.managedObjectContext != nil else { assertionFailure(); return }
+        guard let contactIdentity else { assertionFailure(); return }
+        do {
+            try self.resetTitle(to: contactIdentity.nameForSettingOneToOneDiscussionTitle)
+        } catch {
+            os_log("one2one discussion title could not be reset: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+        }
+    }
         
 }
 
@@ -109,7 +128,7 @@ final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMaker {
 extension PersistedOneToOneDiscussion {
     
     struct Structure {
-        let typedObjectID: TypeSafeManagedObjectID<PersistedOneToOneDiscussion>
+        let objectPermanentID: ObvManagedObjectPermanentID<PersistedOneToOneDiscussion>
         let contactIdentity: PersistedObvContactIdentity.Structure
         fileprivate let discussionStruct: PersistedDiscussion.AbstractStructure
         var title: String { discussionStruct.title }
@@ -122,7 +141,7 @@ extension PersistedOneToOneDiscussion {
             throw Self.makeError(message: "Could not extract required relationships")
         }
         let discussionStruct = try toAbstractStruct()
-        return Structure(typedObjectID: self.typedObjectID,
+        return Structure(objectPermanentID: objectPermanentID,
                          contactIdentity: try contactIdentity.toStruct(),
                          discussionStruct: discussionStruct)
     }
@@ -138,9 +157,7 @@ extension PersistedOneToOneDiscussion {
         enum Key: String {
             case rawContactIdentityIdentity = "rawContactIdentityIdentity"
             case rawContactIdentity = "rawContactIdentity"
-            static var ownedIdentityIdentity: String {
-                [PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.identityKey].joined(separator: ".")
-            }
+            static let ownedIdentityIdentity = [PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
         }
         static func withContactCryptoId(_ cryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.rawContactIdentityIdentity, EqualToData: cryptoId.getIdentity())
@@ -150,6 +167,9 @@ extension PersistedOneToOneDiscussion {
         }
         static func withOwnedCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownCryptoId.getIdentity())
+        }
+        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedOneToOneDiscussion>) -> NSPredicate {
+            PersistedDiscussion.Predicate.withPermanentID(permanentID.downcast)
         }
     }
     
@@ -162,11 +182,15 @@ extension PersistedOneToOneDiscussion {
     /// Returns a `NSFetchRequest` for all the one-tone discussions of the owned identity, sorted by the discussion title.
     static func getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
         let request: NSFetchRequest<PersistedDiscussion> = NSFetchRequest<PersistedDiscussion>(entityName: PersistedOneToOneDiscussion.entityName)
+        request.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.Predicate.Key.title.rawValue, ascending: true)]
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withOwnedCryptoId(ownedCryptoId),
             PersistedDiscussion.Predicate.withStatus(.active),
         ])
-        request.sortDescriptors = [NSSortDescriptor(key: PersistedDiscussion.Predicate.Key.title.rawValue, ascending: true)]
+        request.relationshipKeyPathsForPrefetching = [
+            PersistedDiscussion.Predicate.Key.illustrativeMessage.rawValue,
+            PersistedDiscussion.Predicate.Key.localConfiguration.rawValue,
+        ]
         return request
     }
 
@@ -195,6 +219,14 @@ extension PersistedOneToOneDiscussion {
         ])
         request.fetchLimit = 1
         return (try context.fetch(request)).first
+    }
+
+    
+    static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<PersistedOneToOneDiscussion>, within context: NSManagedObjectContext) throws -> PersistedOneToOneDiscussion? {
+        let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
+        request.predicate = Predicate.withPermanentID(permanentID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
 
 }

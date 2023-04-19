@@ -28,17 +28,17 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAllMessagesAsNotNewWithinDiscussionOperation.self))
 
     private let persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?
-    private let persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
+    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>?
 
     init(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID
-        self.persistedDraftObjectID = nil
+        self.draftPermanentID = nil
         super.init()
     }
 
-    init(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
         self.persistedDiscussionObjectID = nil
-        self.persistedDraftObjectID = persistedDraftObjectID
+        self.draftPermanentID = draftPermanentID
         super.init()
     }
 
@@ -60,8 +60,8 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
                     discussion = _discussion
-                } else if let persistedDraftObjectID = self.persistedDraftObjectID {
-                    guard let draft = try PersistedDraft.get(objectID: persistedDraftObjectID, within: obvContext.context) else {
+                } else if let draftPermanentID = self.draftPermanentID {
+                    guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
                     discussion = draft.discussion

@@ -53,7 +53,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
             return cancel(withReason: .contextIsNil)
         }
         
-        let currentUserActivityPersistedDiscussionObjectID = ObvUserActivitySingleton.shared.currentPersistedDiscussionObjectID
+        let currentUserActivityDiscussionPermanentID = ObvUserActivitySingleton.shared.currentDiscussionPermanentID
         
         obvContext.performAndWait {
             
@@ -240,7 +240,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                  * In that case, and in that case only, we immediately allow reading of the message.
                  */
                 
-                if let currentUserActivityPersistedDiscussionObjectID = currentUserActivityPersistedDiscussionObjectID {
+                if let currentUserActivityDiscussionPermanentID {
                     
                     let insertedReceivedEphemeralMessagesWithUserAction: [PersistedMessageReceived] = obvContext.context.insertedObjects.compactMap({
                         guard let receivedMessage = $0 as? PersistedMessageReceived,
@@ -252,7 +252,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     })
                     
                     insertedReceivedEphemeralMessagesWithUserAction.forEach { insertedReceivedEphemeralMessageWithUserAction in
-                        guard insertedReceivedEphemeralMessageWithUserAction.discussion.typedObjectID == currentUserActivityPersistedDiscussionObjectID,
+                        guard insertedReceivedEphemeralMessageWithUserAction.discussion.discussionPermanentID == currentUserActivityDiscussionPermanentID,
                               insertedReceivedEphemeralMessageWithUserAction.discussion.autoRead == true
                         else {
                             return

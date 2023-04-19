@@ -32,7 +32,7 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
 
     enum Input {
         case configurationObjectID(TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
-        case discussionObjectID(TypeSafeManagedObjectID<PersistedDiscussion>)
+        case discussionPermanentID(ObvManagedObjectPermanentID<PersistedDiscussion>)
     }
 
     init(value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) {
@@ -41,9 +41,9 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
         super.init()
     }
 
-    init(value: PersistedDiscussionLocalConfigurationValue, persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
+    init(value: PersistedDiscussionLocalConfigurationValue, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         self.value = value
-        self.input = .discussionObjectID(persistedDiscussionObjectID)
+        self.input = .discussionPermanentID(discussionPermanentID)
         super.init()
     }
 
@@ -61,8 +61,8 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
                         return cancel(withReason: .couldNotFindDiscussionLocalConfiguration)
                     }
                     localConfiguration = _localConfiguration
-                case .discussionObjectID(let objectID):
-                    guard let discussion = try? PersistedDiscussion.get(objectID: objectID, within: obvContext.context) else {
+                case .discussionPermanentID(let discussionPermanentID):
+                    guard let discussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindDiscussionLocalConfiguration)
                     }
                     localConfiguration = discussion.localConfiguration

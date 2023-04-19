@@ -30,13 +30,13 @@ final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOp
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation.self))
 
     let textBody: String
-    let persistedDiscussionObjectID: NSManagedObjectID
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
 
-    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
 
-    init(persistedDiscussionObjectID: NSManagedObjectID, textBody: String) {
+    init(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, textBody: String) {
         self.textBody = textBody
-        self.persistedDiscussionObjectID = persistedDiscussionObjectID
+        self.discussionPermanentID = discussionPermanentID
         super.init()
     }
 
@@ -48,7 +48,7 @@ final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOp
 
         obvContext.performAndWait {
             do {
-                guard let discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: obvContext.context) else {
+                guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
                     assertionFailure()
                     return cancel(withReason: .couldNotFindDiscussionInDatabase)
                 }
@@ -61,7 +61,7 @@ final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOp
                     return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
                 }
 
-                self.persistedMessageSentObjectID = persistedMessageSent.typedObjectID
+                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
 
             } catch(let error) {
                 assertionFailure()

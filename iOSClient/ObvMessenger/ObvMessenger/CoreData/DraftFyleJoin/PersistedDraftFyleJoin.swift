@@ -22,29 +22,31 @@ import CoreData
 import OlvidUtils
 
 @objc(PersistedDraftFyleJoin)
-final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvErrorMaker {
+final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentifiableManagedObject, ObvErrorMaker {
     
-    private static let entityName = "PersistedDraftFyleJoin"
-    static let draftKey = "draft"
-    private static let fyleKey = "fyle"
-    static let indexKey = "index"
+    static let entityName = "PersistedDraftFyleJoin"
     static let errorDomain = "PersistedDraftFyleJoin"
     
-    // MARK: - Attributes
+    // MARK: Attributes
     
     @NSManaged private(set) var fileName: String
     @NSManaged private(set) var index: Int
+    @NSManaged private var permanentUUID: UUID
     @NSManaged private(set) var uti: String
     
-    // MARK: - Relationships
+    // MARK: Relationships
     
-    @NSManaged private(set) var draft: PersistedDraft
+    @NSManaged private(set) var draft: PersistedDraft? // If nil, this entity is eventually cascade-deleted
     @NSManaged private(set) var fyle: Fyle? // If nil, this entity is eventually cascade-deleted
 
-    // MARK: - Computed properties
+    // MARK: Computed properties
     
     var fyleElement: FyleElement? {
         FyleElementForPersistedDraftFyleJoin(self)
+    }
+
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin> {
+        ObvManagedObjectPermanentID<PersistedDraftFyleJoin>(uuid: self.permanentUUID)
     }
 
 }
@@ -54,12 +56,12 @@ final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvErrorMaker {
 
 extension PersistedDraftFyleJoin {
     
-    convenience init?(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, fileName: String, uti: String, within context: NSManagedObjectContext) {
+    convenience init?(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fyleObjectID: NSManagedObjectID, fileName: String, uti: String, within context: NSManagedObjectContext) {
 
         let draft: PersistedDraft
         let fyle: Fyle
         do {
-            guard let fetchedDraft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { return nil }
+            guard let fetchedDraft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: context) else { return nil }
             guard let fetchedFyle = try Fyle.get(objectID: fyleObjectID, within: context) else { return nil }
             draft = fetchedDraft
             fyle = fetchedFyle
@@ -74,6 +76,7 @@ extension PersistedDraftFyleJoin {
         self.uti = uti
         let currentIndexes = draft.unsortedDraftFyleJoins.map { return $0.index }
         self.index = 1 + (currentIndexes.max() ?? -1)
+        self.permanentUUID = UUID()
         
         self.draft = draft
         self.fyle = fyle
@@ -86,30 +89,70 @@ extension PersistedDraftFyleJoin {
 
 extension PersistedDraftFyleJoin {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case fileName = "fileName"
+            case index = "index"
+            case permanentUUID = "permanentUUID"
+            case uti = "uti"
+            // Relationships
+            case draft = "draft"
+            case fyle = "fyle"
+            // Others
+            static let draftPermanentUUID = [draft.rawValue, PersistedDraft.Predicate.Key.permanentUUID.rawValue].joined(separator: ".")
+        }
+        static func persistedDraftFyleJoin(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) -> NSPredicate {
+            NSPredicate(withObjectID: objectID.objectID)
+        }
+        static func withPersistedDraft(_ persistedDraft: PersistedDraft) -> NSPredicate {
+            NSPredicate(Key.draft, equalTo: persistedDraft)
+        }
+        static func withPersistedDraft(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
+            NSPredicate(Key.draft, equalToObjectWithObjectID: objectID.objectID)
+        }
+        static func withFyle(_ fyle: Fyle) -> NSPredicate {
+            NSPredicate(Key.fyle, equalTo: fyle)
+        }
+        static func withFyleWithObjectID(_ fyleObjectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(Key.fyle, equalToObjectWithObjectID: fyleObjectID)
+        }
+        static var withoutDraft: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.draft)
+        }
+        static func withDraft(withPermanentID draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> NSPredicate {
+            NSPredicate(Key.draftPermanentUUID, EqualToUuid: draftPermanentID.uuid)
+        }
+        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>) -> NSPredicate {
+            NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
+    }
+    
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedDraftFyleJoin> {
         return NSFetchRequest<PersistedDraftFyleJoin>(entityName: PersistedDraftFyleJoin.entityName)
     }
     
-    private struct Predicate {
-        static func withPersistedDraft(draftObjectID: NSManagedObjectID) -> NSPredicate {
-            NSPredicate(format: "%K == %@", PersistedDraftFyleJoin.draftKey, draftObjectID)
-        }
-        static func withObjectID(_ persistedDraftFyleJoinObjectID: NSManagedObjectID) -> NSPredicate {
-            NSPredicate(format: "SELF == %@", persistedDraftFyleJoinObjectID)
-        }
-    }
 
-    static func get(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fyleObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
-        guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { throw Self.makeError(message: "Could not find PersistedDraft") }
-        guard let fyle = try Fyle.get(objectID: fyleObjectID, within: context) else { throw Self.makeError(message: "Could not find Fyle") }
+    static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
         let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        PersistedDraftFyleJoin.draftKey, draft,
-                                        PersistedDraftFyleJoin.fyleKey, fyle)
+        request.predicate = Predicate.withPermanentID(permanentID)
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
 
+    
+    static func get(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fyleObjectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
+        let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withDraft(withPermanentID: draftPermanentID),
+            Predicate.withFyleWithObjectID(fyleObjectID),
+        ])
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    
     static func get(objectID typeSafeObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>, within context: NSManagedObjectContext) -> PersistedDraftFyleJoin? {
         let join: PersistedDraftFyleJoin
         do {
@@ -121,9 +164,10 @@ extension PersistedDraftFyleJoin {
         return join
     }
     
-    static func get(withObjectID objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
+    
+    static func get(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>, within context: NSManagedObjectContext) throws -> PersistedDraftFyleJoin? {
         let request: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
-        request.predicate = Predicate.withObjectID(objectID)
+        request.predicate = Predicate.persistedDraftFyleJoin(withObjectID: objectID)
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
@@ -131,18 +175,17 @@ extension PersistedDraftFyleJoin {
 
     static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = PersistedDraftFyleJoin.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == NIL", draftKey)
+        request.predicate = Predicate.withoutDraft
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         try context.execute(deleteRequest)
     }
     
     
     static func getFetchedResultsControllerForAllDraftFyleJoinsOfDraft(withObjectID draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDraftFyleJoin> {
-        
         let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: PersistedDraftFyleJoin.indexKey, ascending: false)]
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.index.rawValue, ascending: false)]
         fetchRequest.fetchBatchSize = 50
-        fetchRequest.predicate = Predicate.withPersistedDraft(draftObjectID: draftObjectID.objectID)
+        fetchRequest.predicate = Predicate.withPersistedDraft(withObjectID: draftObjectID)
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
                                                                   managedObjectContext: context,
                                                                   sectionNameKeyPath: nil,

@@ -28,11 +28,11 @@ import ObvTypes
 /// It first sends a message to all contacts of the discussion to warn them about this capture and inserts a local system message in this discussion to warn the user of what just happened.
 final class ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
      
-    let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
     let obvEngine: ObvEngine
     
-    init(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, obvEngine: ObvEngine) {
-        self.discussionObjectID = discussionObjectID
+    init(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, obvEngine: ObvEngine) {
+        self.discussionPermanentID = discussionPermanentID
         self.obvEngine = obvEngine
         super.init()
     }
@@ -49,7 +49,7 @@ final class ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOper
                 
                 // Find the discussion and owned identity
                 
-                guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID.objectID, within: obvContext.context) else {
+                guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
                     // The discussion could not be found, nothing left to do
                     assertionFailure()
                     return

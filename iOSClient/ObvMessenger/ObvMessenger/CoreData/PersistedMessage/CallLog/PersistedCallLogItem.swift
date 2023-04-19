@@ -31,8 +31,8 @@ final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
     // MARK: Internal constants
 
     private static let entityName = "PersistedCallLogItem"
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedCallLogItem.self))
     static var errorDomain = "PersistedCallLogItem"
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedCallLogItem.self))
     
     // MARK: - Attributes
 
@@ -41,13 +41,19 @@ final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
     @NSManaged private var groupOwnerIdentity: Data? // For group V1 identifier
     @NSManaged private var groupUidRaw: Data?  // For group V1 identifier
     @NSManaged private var groupV2Identifier: Data? // For group V2 identifier
-    @NSManaged private var rawInitialParticipantCount: NSNumber? // Should only be accessed through initialParticipantCount
     @NSManaged private(set) var isIncoming: Bool
+    @NSManaged private var rawInitialParticipantCount: NSNumber? // Should only be accessed through initialParticipantCount
     @NSManaged private var rawOwnedCryptoId: Data
     @NSManaged private var rawReportKind: NSNumber?
     @NSManaged var startDate: Date?
     @NSManaged private(set) var unknownContactsCount: Int
+    
+    // MARK: - Relationships
 
+    @NSManaged private(set) var logContacts: Set<PersistedCallLogContact>
+    
+    // MARK: Computed variables
+    
     var initialParticipantCount: Int? {
         get {
             guard let raw = self.rawInitialParticipantCount else { return nil }
@@ -61,15 +67,17 @@ final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
             }
         }
     }
-    
-    // MARK: - Relationships
-
-    @NSManaged var logContacts: Set<PersistedCallLogContact>
 
     // MARK: - Inits
 
-    convenience init(callUUID: UUID, ownedCryptoId: ObvCryptoId, isIncoming: Bool, unknownContactsCount: Int, groupIdentifier: GroupIdentifierBasedOnObjectID?, within context: NSManagedObjectContext) {
+    convenience init(callUUID: UUID, ownedCryptoId: ObvCryptoId, isIncoming: Bool, unknownContactsCount: Int, groupIdentifier: GroupIdentifierBasedOnObjectID?, within context: NSManagedObjectContext) throws {
 
+        // Make sure no other PersistedCallLogItem exist with the same UUID
+        
+        guard try Self.get(callUUID: callUUID, within: context) == nil else {
+            throw Self.makeError(message: "A PersistedCallLogItem already exist with the same UUID. We cannot create a new one.")
+        }
+        
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedCallLogItem.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
@@ -229,6 +237,7 @@ extension PersistedCallLogItem {
     static func get(callUUID: UUID, within context: NSManagedObjectContext) throws -> PersistedCallLogItem? {
         let request: NSFetchRequest<PersistedCallLogItem> = PersistedCallLogItem.fetchRequest()
         request.predicate = Predicate.withCallUUID(equalTo: callUUID)
+        request.fetchLimit = 1
         return try context.fetch(request).first
     }
 

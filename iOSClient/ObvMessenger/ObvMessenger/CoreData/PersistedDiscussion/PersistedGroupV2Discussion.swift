@@ -26,7 +26,7 @@ import ObvTypes
 
 
 @objc(PersistedGroupV2Discussion)
-final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
+final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker, ObvIdentifiableManagedObject {
     
     static let entityName = "PersistedGroupV2Discussion"
     static let errorDomain = "PersistedGroupV2Discussion"
@@ -55,9 +55,13 @@ final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
         }
     }
 
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupV2Discussion> {
+        ObvManagedObjectPermanentID<PersistedGroupV2Discussion>(uuid: self.permanentUUID)
+    }
+
     // Initializer
 
-    convenience init(persistedGroupV2: PersistedGroupV2, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool, shouldApplySharedConfigurationFromGlobalSettings: Bool, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+    convenience init(persistedGroupV2: PersistedGroupV2, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool, shouldApplySharedConfigurationFromGlobalSettings: Bool, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil, permanentUUIDToKeep: UUID? = nil) throws {
         
         guard let context = persistedGroupV2.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -77,7 +81,8 @@ final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
                       status: .active,
                       shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettings,
                       sharedConfigurationToKeep: sharedConfigurationToKeep,
-                      localConfigurationToKeep: localConfigurationToKeep)
+                      localConfigurationToKeep: localConfigurationToKeep,
+                      permanentUUIDToKeep: permanentUUIDToKeep)
 
         self.groupIdentifier = persistedGroupV2.groupIdentifier
         self.rawOwnedIdentityIdentity = try persistedGroupV2.ownCryptoId.getIdentity()
@@ -163,7 +168,7 @@ final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
     // MARK: - Thread safe struct
         
     struct Structure {
-        let typedObjectID: TypeSafeManagedObjectID<PersistedGroupV2Discussion>
+        let objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupV2Discussion>
         let groupIdentifier: Data
         let ownerIdentity: PersistedObvOwnedIdentity.Structure
         let group: PersistedGroupV2.Structure
@@ -182,7 +187,7 @@ final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMaker {
             throw Self.makeError(message: "Could not extract required relationships")
         }
         let discussionStruct = try toAbstractStruct()
-        return Structure(typedObjectID: self.typedObjectID,
+        return Structure(objectPermanentID: objectPermanentID,
                          groupIdentifier: self.groupIdentifier,
                          ownerIdentity: try ownerIdentity.toStruct(),
                          group: try group.toStruct(),

@@ -23,33 +23,25 @@ import os.log
 import ObvEngine
 import ObvTypes
 import ObvCrypto
+import OlvidUtils
 
 @objc(PersistedGroupDiscussion)
-final class PersistedGroupDiscussion: PersistedDiscussion {
+final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker, ObvIdentifiableManagedObject {
     
     static let entityName = "PersistedGroupDiscussion"
-    private static let errorDomain = "PersistedGroupDiscussion"
-    
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
+    static let errorDomain = "PersistedGroupDiscussion"
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "PersistedGroupDiscussion")
     
-    
-    // Attributes
+    // MARK: Attributes
     
     @NSManaged private var rawGroupUID: Data?
     @NSManaged private var rawOwnerIdentityIdentity: Data?
 
-    
-    // Relationships
+    // MARK: Relationships
 
-    @NSManaged var rawContactGroup: PersistedContactGroup? // Nil if we left the group
+    @NSManaged private var rawContactGroup: PersistedContactGroup? // Nil if we left the group
     
-    
-    // Other variables
+    // MARK: Other variables
     
     private(set) var contactGroup: PersistedContactGroup? {
         get {
@@ -64,17 +56,22 @@ final class PersistedGroupDiscussion: PersistedDiscussion {
         }
     }
 
-    
+
+    var objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupDiscussion> {
+        ObvManagedObjectPermanentID<PersistedGroupDiscussion>(uuid: self.permanentUUID)
+    }
+
     // MARK: - Initializer
     
-    convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, status: Status, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil) throws {
+    convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, status: Status, insertDiscussionIsEndToEndEncryptedSystemMessage: Bool = true, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil, permanentUUIDToKeep: UUID? = nil) throws {
         try self.init(title: groupName,
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedGroupDiscussion.entityName,
                       status: status,
                       shouldApplySharedConfigurationFromGlobalSettings: contactGroup.category == .owned,
                       sharedConfigurationToKeep: sharedConfigurationToKeep,
-                      localConfigurationToKeep: localConfigurationToKeep)
+                      localConfigurationToKeep: localConfigurationToKeep,
+                      permanentUUIDToKeep: permanentUUIDToKeep)
         self.contactGroup = contactGroup
         if sharedConfigurationToKeep == nil && contactGroup.category == .owned {
             self.sharedConfiguration.setValuesUsingSettings()
@@ -111,11 +108,6 @@ final class PersistedGroupDiscussion: PersistedDiscussion {
 
 extension PersistedGroupDiscussion {
     
-    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedGroupDiscussion> {
-        return NSFetchRequest<PersistedGroupDiscussion>(entityName: PersistedGroupDiscussion.entityName)
-    }
-
-    
     struct Predicate {
         enum Key: String {
             case rawGroupUID = "rawGroupUID"
@@ -134,6 +126,11 @@ extension PersistedGroupDiscussion {
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(PersistedDiscussion.Predicate.Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
+    }
+
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedGroupDiscussion> {
+        return NSFetchRequest<PersistedGroupDiscussion>(entityName: PersistedGroupDiscussion.entityName)
     }
 
     
@@ -167,7 +164,7 @@ extension TypeSafeManagedObjectID where T == PersistedGroupDiscussion {
 extension PersistedGroupDiscussion {
     
     struct Structure {
-        let typedObjectID: TypeSafeManagedObjectID<PersistedGroupDiscussion>
+        let objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupDiscussion>
         let groupUID: Data
         let ownerIdentity: PersistedObvOwnedIdentity.Structure
         let contactGroup: PersistedContactGroup.Structure
@@ -187,7 +184,7 @@ extension PersistedGroupDiscussion {
             throw Self.makeError(message: "Could not extract required relationships")
         }
         let discussionStruct = try toAbstractStruct()
-        return Structure(typedObjectID: self.typedObjectID,
+        return Structure(objectPermanentID: self.objectPermanentID,
                          groupUID: groupUID,
                          ownerIdentity: try ownerIdentity.toStruct(),
                          contactGroup: try contactGroup.toStruct(),

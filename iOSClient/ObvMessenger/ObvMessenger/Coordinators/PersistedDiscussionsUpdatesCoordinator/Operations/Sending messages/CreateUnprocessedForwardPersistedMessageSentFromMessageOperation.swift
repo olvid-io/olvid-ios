@@ -23,18 +23,19 @@ import os.log
 import CoreData
 import OlvidUtils
 
+
 final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: CreateUnprocessedForwardPersistedMessageSentFromMessageOperation.self))
 
-    let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
-    let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
+    let messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>
+    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
 
-    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
 
-    init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        self.messageObjectID = messageObjectID
-        self.discussionObjectID = discussionObjectID
+    init(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+        self.messagePermanentID = messagePermanentID
+        self.discussionPermanentID = discussionPermanentID
         super.init()
     }
 
@@ -46,13 +47,13 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
         obvContext.performAndWait {
             do {
                 // Find discussion
-                guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
+                guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
                     assertionFailure()
                     return cancel(withReason: .couldNotFindDiscussionInDatabase)
                 }
 
                 // Find message to forward
-                guard let messageToForward = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
+                guard let messageToForward = try PersistedMessage.getManagedObject(withPermanentID: messagePermanentID, within: obvContext.context) else {
                     assertionFailure()
                     return cancel(withReason: .couldNotFindMessageInDatabase)
                 }
@@ -60,13 +61,7 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
                 // Create message to send
                 let persistedMessageSent = try PersistedMessageSent(body: messageToForward.textBody, replyTo: nil, fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: true)
 
-                do {
-                    try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
-                } catch {
-                    return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
-                }
-
-                self.persistedMessageSentObjectID = persistedMessageSent.typedObjectID
+                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
 
             } catch {
                 assertionFailure()
@@ -84,7 +79,6 @@ enum CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationRe
     case coreDataError(error: Error)
     case couldNotFindDiscussionInDatabase
     case couldNotFindMessageInDatabase
-    case couldNotObtainPermanentIDForPersistedMessageSent
 
     var logType: OSLogType {
         switch self {
@@ -96,8 +90,6 @@ enum CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationRe
             return .error
         case .couldNotFindMessageInDatabase:
             return .error
-        case .couldNotObtainPermanentIDForPersistedMessageSent:
-            return .error
         }
     }
 
@@ -107,7 +99,6 @@ enum CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationRe
         case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
         case .couldNotFindDiscussionInDatabase: return "Could not obtain persisted discussion in database"
         case .couldNotFindMessageInDatabase: return "Could not find message in database"
-        case .couldNotObtainPermanentIDForPersistedMessageSent: return "Could not obtain persisted permanent ID for PersistedMessageSent"
         }
     }
 

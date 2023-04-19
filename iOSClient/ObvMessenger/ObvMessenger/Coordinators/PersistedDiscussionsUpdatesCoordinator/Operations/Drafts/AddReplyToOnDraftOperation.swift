@@ -55,7 +55,7 @@ final class AddReplyToOnDraftOperation: ContextualOperationWithSpecificReasonFor
                 guard repliedTo is PersistedMessageReceived || repliedTo is PersistedMessageSent else {
                     return cancel(withReason: .repliedToMessageIsNeitherSentOrReceived)
                 }
-                draft.replyTo = repliedTo
+                draft.setReplyTo(to: repliedTo)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

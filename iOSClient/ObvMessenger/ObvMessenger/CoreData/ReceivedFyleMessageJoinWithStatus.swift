@@ -25,24 +25,25 @@ import ObvEngine
 @objc(ReceivedFyleMessageJoinWithStatus)
 final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
     
+    private static let entityName = "ReceivedFyleMessageJoinWithStatus"
+
     enum FyleStatus: Int {
         case downloadable = 0
         case downloading = 1
         case complete = 2
         case cancelledByServer = 3
     }
-    
-    // MARK: - Internal constants
-    
-    private static let entityName = "ReceivedFyleMessageJoinWithStatus"
-    private static let fyleKey = "fyle"
-
-    // MARK: - Properties
+        
+    // MARK: Properties
     
     @NSManaged private(set) var downsizedThumbnail: Data?
     @NSManaged private(set) var wasOpened: Bool
 
-    // MARK: - Computed properties
+    // MARK: Relationships
+    
+    @NSManaged private(set) var receivedMessage: PersistedMessageReceived
+
+    // MARK: Computed properties
     
     var status: FyleStatus {
         return FyleStatus(rawValue: self.rawStatus)!
@@ -64,11 +65,6 @@ final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identi
     }
 
     private var changedKeys = Set<String>()
-
-    // MARK: - Relationships
-    
-    @NSManaged private(set) var receivedMessage: PersistedMessageReceived
-
 
     // MARK: - Initializer
     
@@ -156,6 +152,7 @@ extension ReceivedFyleMessageJoinWithStatus {
     func tryToSetStatusTo(_ newStatus: FyleStatus) {
         guard self.status != .complete else { return }
         self.rawStatus = newStatus.rawValue
+        self.message?.setHasUpdate()
         if self.status == .complete {
             let joinObjectID = (self as FyleMessageJoinWithStatus).typedObjectID
             Task {
@@ -198,32 +195,28 @@ extension ReceivedFyleMessageJoinWithStatus {
     
     struct Predicate {
         enum Key: String {
+            // Properties
+            case downsizedThumbnail = "downsizedThumbnail"
             case wasOpened = "wasOpened"
+            // Relationships
             case receivedMessage = "receivedMessage"
         }
-        static var FyleIsNonNil: NSPredicate {
-            NSPredicate(format: "\(ReceivedFyleMessageJoinWithStatus.fyleKey) != NIL")
-        }
-        static func withSha256(_ sha256: Data) -> NSPredicate {
-            let key = [ReceivedFyleMessageJoinWithStatus.fyleKey, Fyle.Predicate.Key.sha256.rawValue].joined(separator: ".")
-            return NSCompoundPredicate(andPredicateWithSubpredicates: [
-                FyleIsNonNil,
-                NSPredicate(format: "\(key) == %@", sha256 as NSData)
-            ])
-        }
         static func forReceivedMessage(_ receivedMessage: PersistedMessageReceived) -> NSPredicate {
-            NSPredicate(format: "\(Key.receivedMessage.rawValue) == %@", receivedMessage)
+            NSPredicate(Key.receivedMessage, equalTo: receivedMessage)
         }
     }
 
+    
     @nonobjc static func fetchRequest() -> NSFetchRequest<ReceivedFyleMessageJoinWithStatus> {
         return NSFetchRequest<ReceivedFyleMessageJoinWithStatus>(entityName: ReceivedFyleMessageJoinWithStatus.entityName)
     }
+    
     
     static func getReceivedFyleMessageJoinWithStatus(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus {
         guard let obj = try context.existingObject(with: objectID) as? ReceivedFyleMessageJoinWithStatus else { throw makeError(message: "The objectID does not exist or is not a ReceivedFyleMessageJoinWithStatus") }
         return obj
     }
+    
     
     static func get(metadata: FyleMetadata, obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
         guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier,
@@ -231,7 +224,7 @@ extension ReceivedFyleMessageJoinWithStatus {
                                                                      within: context) else { throw makeError(message: "Could not find the associated PersistedMessageReceived") }
         let request: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withSha256(metadata.sha256),
+            FyleMessageJoinWithStatus.Predicate.withSha256(metadata.sha256),
             Predicate.forReceivedMessage(receivedMessage),
         ])
         request.fetchLimit = 1
@@ -247,6 +240,7 @@ extension ReceivedFyleMessageJoinWithStatus {
         try context.execute(deleteRequest)
     }
 
+    
     static func get(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
         return try super.get(objectID: objectID.objectID, within: context) as? ReceivedFyleMessageJoinWithStatus
     }

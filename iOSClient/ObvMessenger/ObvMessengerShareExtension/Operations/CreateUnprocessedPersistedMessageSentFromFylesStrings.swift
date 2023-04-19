@@ -48,7 +48,7 @@ final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: Contextual
     private let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     private let log: OSLog
 
-    private(set) var persistedMessageSentObjectID: TypeSafeManagedObjectID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
 
     init(body: String?, fyleJoinsProvider: FyleJoinsProvider, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, log: OSLog) {
         self.body = body
@@ -84,7 +84,7 @@ final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: Contextual
                     return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
                 }
 
-                self.persistedMessageSentObjectID = persistedMessageSent.typedObjectID
+                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

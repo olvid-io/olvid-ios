@@ -39,7 +39,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
     
     let Sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
 
-    private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
+    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     private let log: OSLog
     private let loadedItemProviders: [LoadedItemProvider]
     private let completionHandler: ((Bool) -> Void)?
@@ -47,8 +47,8 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, loadedItemProviders: [LoadedItemProvider], completionHandler: ((Bool) -> Void)?, log: OSLog) {
-        self.draftObjectID = draftObjectID
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, loadedItemProviders: [LoadedItemProvider], completionHandler: ((Bool) -> Void)?, log: OSLog) {
+        self.draftPermanentID = draftPermanentID
         self.loadedItemProviders = loadedItemProviders
         self.log = log
         self.completionHandler = completionHandler
@@ -93,7 +93,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
                     
                     // Create a PersistedDraftFyleJoin (if required)
                     do {
-                        try createDraftFyleJoin(draftObjectID: draftObjectID, fileName: filename, uti: uti, fyle: fyle, within: obvContext.context)
+                        try createDraftFyleJoin(draftPermanentID: draftPermanentID, fileName: filename, uti: uti, fyle: fyle, within: obvContext.context)
                     } catch {
                         cancelAndContinue(withReason: .couldNotCreateDraftFyleJoin)
                         tempURLsToDelete.append(tempURL)
@@ -117,7 +117,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
                     
                     let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
                     
-                    guard let draft = try? PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                    guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                         cancelAndContinue(withReason: .couldNotGetDraft)
                         continue
                     }
@@ -126,7 +126,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
                     
                 case .url(content: let url):
                     
-                    guard let draft = try? PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                    guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                         cancelAndContinue(withReason: .couldNotGetDraft)
                         continue
                     }
@@ -146,7 +146,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
             completionHandler?(false)
         } else {
             do {
-                let localDraftObjectID = self.draftObjectID
+                let draftPermanentID = self.draftPermanentID
                 let localCompletionHandler = self.completionHandler
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else {
@@ -154,7 +154,9 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
                         return
                     }
                     ObvStack.shared.viewContext.perform {
-                        if let draftInViewContext = try? ObvStack.shared.viewContext.existingObject(with: localDraftObjectID.objectID) as? PersistedDraft {
+                        if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
+                            .filter({ !$0.isDeleted })
+                            .first(where: { ($0 as? PersistedDraft)?.objectPermanentID == draftPermanentID }) {
                             ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: true)
                         }
                         localCompletionHandler?(true)
@@ -168,9 +170,9 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
     }
 
     
-    private func createDraftFyleJoin(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
-        if try PersistedDraftFyleJoin.get(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, within: context) == nil {
-            guard PersistedDraftFyleJoin(draftObjectID: draftObjectID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
+    private func createDraftFyleJoin(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
+        if try PersistedDraftFyleJoin.get(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, within: context) == nil {
+            guard PersistedDraftFyleJoin(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
                 throw makeError(message: "Could not create PersistedDraftFyleJoin")
             }
         }
