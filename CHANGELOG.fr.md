@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.2 (602)] - 2022-11-29
+
+- Refonte complète de la liste des discussions récentes sous iOS 16 !
+- Pour retrouver l'ancien style, aller dans le menu Interface des paramètres.
+- Corrige un bug qui empêchait la suppression de certains fichiers.
+- Corrige un bug pouvant entraîner l'affichage d'une mauvaise discussion après un appui sur une notification ou un partage utilisant Siri.
+- Corrige un bug entraînant parfois un crash de l'app au moment de l'appui sur le bouton discuter de la fiche d'un contact.
+- Autres améliorations mineures.
+
 ## [0.12.1 (584)] - 2022-10-31
 
 - Les discussions que vous utilisez le plus seront maintenant directement suggérées lorsque vous partagerez du contenu.

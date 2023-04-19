@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.2 (602)] - 2022-11-29
+
+- New redesigned (and more efficient!) list of recent discussions under iOS 16!
+- To switch back to the old style, go to All Settings > Interface.
+- Fixes a bug that would prevent certain files to be properly deleted.
+- Fixes a issue where tapping a notification or sharing using Siri would not always choose the appropriate discussion.
+- Fixes a crash sometimes occuring when tapping the discussion button of a contact detailed view.
+- Other minor improvements.
+
 ## [0.12.1 (584)] - 2022-10-31
 
 - The discussions you use the most within Olvid will now be suggested when sharing.
