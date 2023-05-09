@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 /// This `UIButton` subclass is the UIKit equivalent of the `OlvidButton` used in our SwiftUI structs.
@@ -70,7 +71,7 @@ final class ObvImageButton: UIButton {
     }
     
 
-    func setImage(_ systemIcon: ObvSystemIcon, for state: UIControl.State) {
+    func setImage(_ systemIcon: SystemIcon, for state: UIControl.State) {
         self.setImage(UIImage(systemIcon: systemIcon), for: state)
     }
     

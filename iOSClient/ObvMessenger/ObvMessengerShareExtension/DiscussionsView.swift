@@ -17,114 +17,110 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
-import ObvTypes
+
+
 import CoreData
+import ObvUI
+import ObvTypes
+import os.log
+import SwiftUI
+
 
 protocol DiscussionsHostingViewControllerDelegate: AnyObject {
-    func setSelectedDiscussions(to: [PersistedDiscussion])
+    func setSelectedDiscussions(to: [PersistedDiscussion]) async throws
 }
 
-final class DiscussionsHostingViewController: UIHostingController<DiscussionsView> {
 
-    private let model: DiscussionsViewModel
+// MARK: - DiscussionViewModel
 
-    init(ownedIdentity: PersistedObvOwnedIdentity, selectedDiscussions: [PersistedDiscussion]) {
-        self.model = DiscussionsViewModel(ownedIdentity: ownedIdentity, selectedDiscussions: selectedDiscussions)
-        let view = DiscussionsView(model: model)
-
-        super.init(rootView: view)
-    }
-
-    @objc required dynamic init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    var delegate: DiscussionsHostingViewControllerDelegate? {
-        get { model.delegate }
-        set { model.delegate = newValue }
-    }
-
-
-}
-
-fileprivate class DiscussionViewModel: NSObject, ObservableObject {
-
-    let discussionUI: PersistedDiscussionUI
+final class DiscussionViewModel: NSObject, ObservableObject {
 
     @Published var selected: Bool
-    @Published var profilePicture: UIImage? = nil
+    let profilePicture: UIImage?
+    let discussionUI: PersistedDiscussionUI
 
     static let circleDiameter = 40.0
 
     init(discussionUI: PersistedDiscussionUI, selected: Bool) {
         self.discussionUI = discussionUI
         self.selected = selected
-        self.profilePicture = nil
-        super.init()
+
         if let photoURL = discussionUI.photoURL {
             let image = UIImage(contentsOfFile: photoURL.path)
             if #available(iOS 15, *) {
                 let scale = UIScreen.main.scale
                 let size = CGSize(width: scale * Self.circleDiameter, height: scale * Self.circleDiameter)
                 self.profilePicture = image?.preparingThumbnail(of: size)
+            } else {
+                self.profilePicture = nil
             }
+        } else {
+            self.profilePicture = nil
         }
     }
 }
 
-class DiscussionsViewModel: NSObject, ObservableObject {
-    private let ownedIdentityContext: NSManagedObjectContext?
 
-    fileprivate var discussions: [DiscussionViewModel] = []
+// MARK: - DiscussionsViewModel
 
-    var context: NSManagedObjectContext {
-        guard let ownedIdentityContext = ownedIdentityContext else {
-            assertionFailure()
-            return ObvStack.shared.viewContext
-
-        }
-        return ownedIdentityContext
+final class DiscussionsViewModel {
+    
+    private(set) var discussions: [DiscussionViewModel] = []
+    
+    var selectedDiscussions: [DiscussionViewModel] {
+        return discussions.filter({ $0.selected })
     }
 
     weak var delegate: DiscussionsHostingViewControllerDelegate?
 
-    init(ownedIdentity: PersistedObvOwnedIdentity, selectedDiscussions: [PersistedDiscussion]) {
-        let fetchRequest = PersistedDiscussion.getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with: ownedIdentity.cryptoId)
-        self.ownedIdentityContext = ownedIdentity.managedObjectContext
-        super.init()
-        let discussions = (try? context.fetch(fetchRequest)) ?? []
-        for discussion in discussions {
-            assert(discussion.status == .active)
-            guard discussion.status == .active else { continue }
-            guard let discussionUI = discussion as? PersistedDiscussionUI else {
-                assertionFailure(); continue
+    init(discussions: [DiscussionViewModel]) {
+        self.discussions = discussions
+    }
+}
+
+
+// MARK: - DiscussionsView
+
+struct DiscussionsView: View {
+    
+    var model: DiscussionsViewModel
+    let ownedCryptoId: ObvCryptoId
+    
+    var body: some View {
+        subView
+            .onDisappear {
+                let selectedDiscussion = model.selectedDiscussions.map { $0.discussionUI }
+                Task {
+                    do {
+                        try await  model.delegate?.setSelectedDiscussions(to: selectedDiscussion)
+                    } catch {
+                        os_log("onDisappear in DiscussionsView: %@", type: .error, error.localizedDescription)
+                        assertionFailure(error.localizedDescription)
+                    }
+                }
             }
-            let discussionModel = DiscussionViewModel(discussionUI: discussionUI, selected: selectedDiscussions.contains(discussion))
-            self.discussions += [discussionModel]
+    }
+    
+    private var subView: some View {
+        if #available(iOSApplicationExtension 16.0, *) {
+            return DiscussionsListView(ownedCryptoId: ownedCryptoId, discussionsViewModel: model)
+        } else {
+            return DiscussionsScrollingView(discussionModels: model.discussions)
         }
     }
 }
 
-struct DiscussionsView: View {
-    @ObservedObject var model: DiscussionsViewModel
-    var body: some View {
-        DiscussionsScrollingView(discussionModels: model.discussions)
-            .onDisappear {
-                let selectedDiscussion = model.discussions.filter { $0.selected }.map { $0.discussionUI }
-                model.delegate?.setSelectedDiscussions(to: selectedDiscussion)
-            }
-    }
-}
 
+@available(iOS, introduced: 13.0, deprecated: 16.0, message: "This SwiftUI view is should be replaced by the DiscussionsListView")
 fileprivate struct DiscussionsScrollingView: View {
     var discussionModels: [DiscussionViewModel]
     var body: some View {
         DiscussionsInnerView(discussionModels: discussionModels)
     }
-
 }
 
+
+@available(iOS, introduced: 13.0, deprecated: 16.0, message: "Used by DiscussionsScrollingView")
 fileprivate struct DiscussionsInnerView: View {
 
     var discussionModels: [DiscussionViewModel]
@@ -143,7 +139,10 @@ fileprivate struct DiscussionsInnerView: View {
     }
 }
 
+
+@available(iOS, introduced: 13.0, deprecated: 16.0, message: "Used by DiscussionsInnerView")
 fileprivate struct DiscussionCellView: View {
+    
     @ObservedObject var model: DiscussionViewModel
 
     private var identityColors: (background: UIColor, text: UIColor)? {
@@ -183,7 +182,6 @@ fileprivate struct DiscussionCellView: View {
                            showRedShield: model.discussionUI.showRedShield,
                            customCircleDiameter: DiscussionViewModel.circleDiameter)
     }
-
 
     var body: some View {
         HStack {

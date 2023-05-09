@@ -17,8 +17,10 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
+
 import CoreData
+import ObvUI
+import UIKit
 
 class MessageSystemCollectionViewCell: UICollectionViewCell {
     

@@ -17,10 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
+
+import Combine
 import os.log
 import ObvEngine
-import Combine
+import ObvTypes
+import ObvUI
+import UIKit
 
 
 final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
@@ -31,11 +34,29 @@ final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewContro
 
     weak var delegate: RecentDiscussionsViewControllerDelegate?
     
+    private var discussionsListCoordinator: Coordinator?
+    
     deinit {
         cancellables.forEach({ $0.cancel() })
         cancellables.removeAll()
     }
 
+    
+    // MARK: - Switching current owned identity
+
+    @MainActor
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        if #available(iOS 16, *) {
+            children.compactMap({ $0 as? DiscussionsListViewController<PersistedDiscussion> }).forEach { discussionsViewController in
+                Task { await discussionsViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId) }
+            }
+        } else {
+            children.compactMap({ $0 as? DiscussionsTableViewController }).forEach { discussionsTableViewController in
+                Task { await discussionsTableViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId) }
+            }
+        }
+    }
 }
 
 
@@ -63,7 +84,6 @@ extension RecentDiscussionsViewController {
         #endif
 
         navigationItem.rightBarButtonItems = rightBarButtonItems
-
     }
     
     
@@ -94,28 +114,29 @@ extension RecentDiscussionsViewController {
     
     private func addAndConfigureDiscussionsTableViewController() {
         removePreviousChildViewControllerIfAny()
+
         let vc: UIViewController
         if #available(iOS 16.0, *), !ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface {
-            let discussionsVC = DiscussionsViewController(ownedCryptoId: ownedCryptoId)
-            discussionsVC.delegate = self
-            vc = discussionsVC
+            discussionsListCoordinator = DiscussionsListCoordinator(navigationController: navigationController,
+                                                                    ownedCryptoId: currentOwnedCryptoId,
+                                                                    parentVC: self,
+                                                                    tableViewControllerPlaceholder: tableViewControllerPlaceholder,
+                                                                    delegate: self)
+            discussionsListCoordinator?.start()
         } else {
-            let discussionsTVC = DiscussionsTableViewController(ownedCryptoId: ownedCryptoId,
-                                                                allowDeletion: true,
-                                                                withRefreshControl: true)
+            let discussionsTVC = DiscussionsTableViewController(allowDeletion: true, withRefreshControl: true)
             discussionsTVC.delegate = self
             vc = discussionsTVC
+            vc.view.translatesAutoresizingMaskIntoConstraints = false
+            
+            vc.willMove(toParent: self)
+            self.addChild(vc)
+            (vc as? DiscussionsTableViewController)?.setFetchRequestsAndImages(DiscussionsFetchRequests(ownedCryptoId: currentOwnedCryptoId).allRequestsAndImages)
+            vc.didMove(toParent: self)
+            
+            self.tableViewControllerPlaceholder.addSubview(vc.view)
+            self.tableViewControllerPlaceholder.pinAllSidesToSides(of: vc.view)
         }
-        
-        vc.view.translatesAutoresizingMaskIntoConstraints = false
-        
-        vc.willMove(toParent: self)
-        self.addChild(vc)
-        (vc as? DiscussionsTableViewController)?.setFetchRequestsAndImages(DiscussionsFetchRequests(ownedCryptoId: ownedCryptoId).allRequestsAndImages)
-        vc.didMove(toParent: self)
-        
-        self.tableViewControllerPlaceholder.addSubview(vc.view)
-        self.tableViewControllerPlaceholder.pinAllSidesToSides(of: vc.view)
     }
     
     

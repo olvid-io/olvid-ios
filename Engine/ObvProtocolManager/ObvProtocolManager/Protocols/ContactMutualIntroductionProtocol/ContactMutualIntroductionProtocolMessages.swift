@@ -144,9 +144,13 @@ extension ContactMutualIntroductionProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
+            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Could not get encodedUserDialogResponse in AcceptMediatorInviteDialogMessage")
+            }
             invitationAccepted = try encodedUserDialogResponse.obvDecode()
-            guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
+            guard let userDialogUuid = message.userDialogUuid else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Could not get userDialogUuid in AcceptMediatorInviteDialogMessage")
+            }
             dialogUuid = userDialogUuid
         }
         
@@ -217,15 +221,23 @@ extension ContactMutualIntroductionProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 2 else { throw NSError() }
-            guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else { throw NSError() }
+            guard encodedElements.count == 2 else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Unexpected number of encoded elements in NotifyContactOfAcceptedInvitationMessage")
+            }
+            guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Could not get listOfEncodedUids in NotifyContactOfAcceptedInvitationMessage")
+            }
             var uids = [UID]()
             for encodedUid in listOfEncodedUids {
-                guard let uid = UID(encodedUid) else { throw NSError() }
+                guard let uid = UID(encodedUid) else {
+                    throw ContactMutualIntroductionProtocol.makeError(message: "Could not decode UID in NotifyContactOfAcceptedInvitationMessage")
+                }
                 uids.append(uid)
             }
             self.contactDeviceUids = uids
-            guard let signature = Data(encodedElements[1]) else { throw NSError() }
+            guard let signature = Data(encodedElements[1]) else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Could not decode signature in NotifyContactOfAcceptedInvitationMessage")
+            }
             self.signature = signature
         }
         
@@ -258,11 +270,17 @@ extension ContactMutualIntroductionProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 1 else { throw NSError() }
-            guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else { throw NSError() }
+            guard encodedElements.count == 1 else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Unexpected number of encoded elements in PropagateContactNotificationOfAcceptedInvitationMessage")
+            }
+            guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Could not get listOfEncodedUids in PropagateContactNotificationOfAcceptedInvitationMessage")
+            }
             var uids = [UID]()
             for encodedUid in listOfEncodedUids {
-                guard let uid = UID(encodedUid) else { throw NSError() }
+                guard let uid = UID(encodedUid) else {
+                    throw ContactMutualIntroductionProtocol.makeError(message: "Could not get uid in PropagateContactNotificationOfAcceptedInvitationMessage")
+                }
                 uids.append(uid)
             }
             self.contactDeviceUids = uids
@@ -339,7 +357,9 @@ extension ContactMutualIntroductionProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 1 else { throw NSError() }
+            guard encodedElements.count == 1 else {
+                throw ContactMutualIntroductionProtocol.makeError(message: "Unexpected number of encoded elements in TrustLevelIncreasedMessage")
+            }
             self.contactIdentity = try encodedElements.first!.obvDecode()
         }
         

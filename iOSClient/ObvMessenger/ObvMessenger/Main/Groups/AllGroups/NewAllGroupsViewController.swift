@@ -18,9 +18,12 @@
  */
   
 
-import UIKit
+
 import CoreData
+import ObvUI
 import ObvTypes
+import UIKit
+
 
 /// We implement the list of groups using a plain collection view. Since we require this view controller to be used under iOS 13, we cannot use modern  techniques (such as list in collection views or UIContentConfiguration).
 final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, HeaderViewDelegate, UISearchResultsUpdating {
@@ -45,13 +48,14 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
     private var constraintsWhenViewForCreatingFirstGroupIsShown = [NSLayoutConstraint]()
     private var constraintsWhenViewForCreatingFirstGroupIsHidden = [NSLayoutConstraint]()
     private var dataSource: UICollectionViewDiffableDataSource<Int, NSManagedObjectID>! = nil
+    private var viewDidLoadWasCalled = false
 
     // Implementing search using this view controller as the search results controller
     
     private let searchController = UISearchController(searchResultsController: nil)
     private var searchPredicate: NSPredicate? {
         didSet {
-            self.frc = Self.configureFrc(ownedCryptoId: ownedCryptoId, with: searchPredicate)
+            self.frc = Self.configureFrc(ownedCryptoId: currentOwnedCryptoId, with: searchPredicate)
             self.frc.delegate = self
             try? self.frc.performFetch()
             collectionView.reloadData()
@@ -77,6 +81,7 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        viewDidLoadWasCalled = true
         
         configureHierarchy()
         configureDataSource()
@@ -101,6 +106,19 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
         
     }
     
+    
+    // MARK: - Switching current owned identity
+
+    @MainActor
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        guard viewDidLoadWasCalled else { return }
+        self.frc = Self.configureFrc(ownedCryptoId: newOwnedCryptoId, with: nil)
+        self.frc.delegate = self
+        try? self.frc.performFetch()
+        collectionView.reloadData()
+    }
+
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -412,7 +430,7 @@ fileprivate final class ObvSubtitleCollectionViewCell: UICollectionViewCell {
     
     enum BadgeType: Equatable {
         case none
-        case symbol(systemIcon: ObvSystemIcon, color: UIColor)
+        case symbol(systemIcon: SystemIcon, color: UIColor)
         case spinner
         static func == (lhs: BadgeType, rhs: BadgeType) -> Bool {
             switch lhs {

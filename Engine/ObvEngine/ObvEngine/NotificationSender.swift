@@ -302,6 +302,9 @@ extension ObvEngine {
             ObvProtocolNotification.observeGroupV2UpdateDidFail(within: notificationDelegate) { [weak self] ownedIdentity, appGroupIdentifier, flowId in
                 self?.processGroupV2UpdateDidFail(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier, flowId: flowId)
             },
+            ObvIdentityNotificationNew.observeOwnedIdentityWasDeleted(within: notificationDelegate) { [weak self] in
+                self?.processOwnedIdentityWasDeleted()
+            },
         ])
 
         do {
@@ -763,6 +766,12 @@ extension ObvEngine {
     
     private func processGroupV2UpdateDidFail(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data, flowId: FlowIdentifier) {
         ObvEngineNotificationNew.groupV2UpdateDidFail(ownedIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity), appGroupIdentifier: appGroupIdentifier)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
+    private func processOwnedIdentityWasDeleted() {
+        ObvEngineNotificationNew.ownedIdentityWasDeleted
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }
 

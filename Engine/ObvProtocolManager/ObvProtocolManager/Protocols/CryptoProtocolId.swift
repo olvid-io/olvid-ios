@@ -46,6 +46,7 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
     case OneToOneContactInvitation = 17
     case GroupV2 = 18
     case DownloadGroupV2Photo = 19
+    case ownedIdentityDeletionProtocol = 20
 
     func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
         return self.concreteCryptoProtocol.init(protocolInstance: instance, prng: prng)
@@ -91,6 +92,8 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
             return GroupV2Protocol.self
         case .DownloadGroupV2Photo:
             return DownloadGroupV2PhotoProtocol.self
+        case .ownedIdentityDeletionProtocol:
+            return OwnedIdentityDeletionProtocol.self
         }
     }
     
@@ -133,6 +136,7 @@ extension CryptoProtocolId {
         case .OneToOneContactInvitation: return "OneToOneContactInvitation"
         case .GroupV2: return "GroupV2"
         case .DownloadGroupV2Photo: return "DownloadGroupV2Photo"
+        case .ownedIdentityDeletionProtocol: return "OwnedIdentityDeletionProtocol"
         }
     }
 

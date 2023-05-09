@@ -144,7 +144,10 @@ extension KeycloakContactAdditionProtocol {
             let childProtocolInitialMessage = DeviceDiscoveryForRemoteIdentityProtocol.InitialMessage(
                 coreProtocolMessage: coreMessage,
                 remoteIdentity: contactIdentity)
-            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
 
 
@@ -206,7 +209,10 @@ extension KeycloakContactAdditionProtocol {
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                 let concreteProtocolMessage = PropagateContactAdditionToOtherDevicesMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity, keycloakServerURL: keycloakServerURL, identityCoreDetails: identityCoreDetails, contactDeviceUids: deviceUidsSentState.deviceUids, trustTimestamp: trustTimestamp)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 

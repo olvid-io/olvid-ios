@@ -26,6 +26,7 @@ final class SingleLinkView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithEx
     enum Configuration: Equatable, Hashable {
         case metadataNotYetAvailable(url: URL)
         case metadataAvailable(url: URL, metadata: LPLinkMetadata)
+        case metadataRetrievalFailed
     }
     
     private var currentConfiguration: Configuration?
@@ -34,7 +35,7 @@ final class SingleLinkView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithEx
         guard newConfiguration != currentConfiguration else { return }
         self.currentConfiguration = newConfiguration
         switch newConfiguration {
-        case .metadataNotYetAvailable(url: _):
+        case .metadataNotYetAvailable:
             coverView.alpha = 1.0
             spinner.alpha = 1.0
             spinner.startAnimating()
@@ -43,9 +44,12 @@ final class SingleLinkView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithEx
             UIView.animate(withDuration: 0.3) { [weak self] in
                 self?.coverView.alpha = 0
             }
+        case .metadataRetrievalFailed/*(let error)*/:
+            coverView.alpha = 0.0
+            spinner.alpha = 0.0
+            spinner.stopAnimating()
         }
     }
-    
     
     func prepareForReuse() {
         spinner.startAnimating()

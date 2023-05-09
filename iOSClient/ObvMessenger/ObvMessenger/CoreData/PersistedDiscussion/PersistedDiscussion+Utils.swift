@@ -20,6 +20,7 @@
 
 import Foundation
 import CoreData
+import ObvUI
 
 extension PersistedDiscussion {
 
@@ -30,7 +31,7 @@ extension PersistedDiscussion {
         return numberOfNewMessages
     }
 
-    var circledInitialsConfiguration: CircledInitialsConfiguration? {
+    var circledInitialsConfiguration: ObvUI.CircledInitialsConfiguration? {
         switch status {
         case .locked:
             return .icon(.lockFill)

@@ -117,11 +117,19 @@ extension NetworkReceivedMessageDecryptor {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: NetworkReceivedMessageDecryptor.logCategory)
         
         guard let protocolDelegate = delegateManager.protocolDelegate else {
+            assertionFailure()
             os_log("The protocol delegate is not set", log: log, type: .fault)
             return
         }
 
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            assertionFailure()
+            os_log("The notification delegate is not set", log: log, type: .fault)
+            return
+        }
+
         guard let networkFetchDelegate = delegateManager.networkFetchDelegate else {
+            assertionFailure()
             os_log("The network fetch delegate is not set", log: log, type: .fault)
             return
         }
@@ -136,10 +144,13 @@ extension NetworkReceivedMessageDecryptor {
             
         case .ProtocolMessage:
             os_log("🔑 New protocol message with id %{public}@", log: log, type: .info, receivedMessage.messageId.debugDescription)
+            ObvChannelNotification.protocolMessageDecrypted(protocolMessageId: receivedMessage.messageId, flowId: obvContext.flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
             if let receivedProtocolMessage = ReceivedProtocolMessage(with: obvChannelReceivedMessage) {
                 let protocolReceivedMessage = receivedProtocolMessage.protocolReceivedMessage
                 do {
-                    try protocolDelegate.process(protocolReceivedMessage, within: obvContext)
+                    os_log("Processing a decrypted received protocol message with messageId %{public}@", log: log, type: .info, protocolReceivedMessage.messageId.debugDescription)
+                    try protocolDelegate.processProtocolReceivedMessage(protocolReceivedMessage, within: obvContext)
                 } catch {
                     os_log("A received protocol message could not be processed", log: log, type: .error)
                 }
@@ -152,6 +163,7 @@ extension NetworkReceivedMessageDecryptor {
             
         case .ApplicationMessage:
             os_log("🔑🌊 New application message within flow %{public}@ with id %{public}@", log: log, type: .info, obvContext.flowId.debugDescription, receivedMessage.messageId.debugDescription)
+            // We do not post an applicationMessageDecrypted notification, this is done by the Network Fetch Manager.
             if let receivedApplicationMessage = ReceivedApplicationMessage(with: obvChannelReceivedMessage) {
                 do {
                     // At this point, we expect the `knownAttachmentCount` of the `obvChannelReceivedMessage` to be set and equal to `receivedApplicationMessage.attachmentsInfos`

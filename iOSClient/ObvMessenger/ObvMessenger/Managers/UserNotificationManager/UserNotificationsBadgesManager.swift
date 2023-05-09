@@ -95,9 +95,6 @@ extension UserNotificationsBadgesManager {
     private func observeNotifications() {
         
         notificationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged { newOwnedCryptoId, _ in
-                Task { [weak self] in await self?.setCurrentOwnedCryptoId(to: newOwnedCryptoId) }
-            },
             ObvMessengerInternalNotification.observeNeedToRecomputeAllBadges { completion in
                 Task { [weak self] in await self?.recomputeAllBadges(completion: completion) }
             },
@@ -106,6 +103,12 @@ extension UserNotificationsBadgesManager {
                     await self?.recomputeAllBadges(completion: completion)
                     os_log("🤿 Update badge task has been done in background", log: Self.log, type: .info)
                 }
+            },
+            ObvMessengerInternalNotification.observeMetaFlowControllerDidSwitchToOwnedIdentity { ownedCryptoId in
+                Task { [weak self] in await self?.switchCurrentOwnedCryptoId(to: ownedCryptoId) }
+            },
+            ObvMessengerCoreDataNotification.observeNumberOfNewMessagesChangedForOwnedIdentity { _, _ in
+                Task { [weak self] in await self?.recomputeAllBadges(completion: { _ in }) }
             },
         ])
         
@@ -256,9 +259,15 @@ extension UserNotificationsBadgesManager {
 
     }
     
+}
+
+
+// MARK: - Updating the current owned identity
+
+extension UserNotificationsBadgesManager {
     
-    private func setCurrentOwnedCryptoId(to newCurrentOwnedCryptoId: ObvCryptoId) {
-        currentOwnedCryptoId = newCurrentOwnedCryptoId
+    private func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        currentOwnedCryptoId = newOwnedCryptoId
     }
     
 }

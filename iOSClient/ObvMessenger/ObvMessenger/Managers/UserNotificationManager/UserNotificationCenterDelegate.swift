@@ -91,13 +91,13 @@ extension UserNotificationCenterDelegate {
 
         // If we reach this point, we know we are initialized and active. We decide what to show depending on the current activity of the user.
         switch ObvUserActivitySingleton.shared.currentUserActivity {
-        case .continueDiscussion(discussionPermanentID: let currentDiscussionPermanentID):
+        case .continueDiscussion(ownedCryptoId: _, discussionPermanentID: let currentDiscussionPermanentID):
             switch id {
             case .newReactionNotificationWithHiddenContent, .newReaction:
                 // Always show reaction notification even if it is a reaction for the current discussion.
                 return .alert
             case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall:
-                // The current activity type is `continueDiscussion`. We check whether the notification concerns the "single discussion". If this is the case, we do not display the notification, otherwise, we do.
+                // The current activity type is `continueDiscussion`. We check whether the notification concerns the current "single discussion". If this is the case, we do not display the notification, otherwise, we do.
                 guard let persistedDiscussionPermanentIDDescription = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] as? String,
                       let expectedEntityName = PersistedDiscussion.entity().name,
                       let notificationPersistedDiscussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(persistedDiscussionPermanentIDDescription, expectedEntityName: expectedEntityName) else {
@@ -143,7 +143,8 @@ extension UserNotificationCenterDelegate {
              .displayContacts,
              .displayGroups,
              .displaySingleGroup,
-             .displaySettings:
+             .displaySettings,
+             .unknown:
             return .alert
         }
         

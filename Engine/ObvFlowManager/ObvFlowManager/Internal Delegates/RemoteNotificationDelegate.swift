@@ -21,12 +21,13 @@ import Foundation
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
+import ObvCrypto
 
 protocol RemoteNotificationDelegate {
     
     func observeEngineNotifications()
     
-    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
+    func startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: Set<ObvCryptoIdentity>, withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
 
     func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 

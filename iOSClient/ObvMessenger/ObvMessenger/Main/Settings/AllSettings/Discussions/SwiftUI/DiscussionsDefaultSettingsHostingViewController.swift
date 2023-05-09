@@ -20,6 +20,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import ObvUI
 
 
 final class DiscussionsDefaultSettingsHostingViewController: UIHostingController<DiscussionsDefaultSettingsWrapperView> {
@@ -36,7 +37,7 @@ final class DiscussionsDefaultSettingsHostingViewController: UIHostingController
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = CommonString.Word.Discussion
+        title = CommonString.Word.Discussions
     }
     
     @objc required dynamic init?(coder aDecoder: NSCoder) {

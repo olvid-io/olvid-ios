@@ -17,20 +17,20 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
-import JWS
 import AppAuth
+import JWS
+import ObvUI
 import ObvTypes
+import SwiftUI
+
 
 protocol IdentityProviderValidationHostingViewControllerDelegate: AnyObject {
-    func newKeycloakUserDetailsAndStuff(_ keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)
-    func newKeycloakState(_ keycloakState: ObvKeycloakState)
-    func userWantsToRestoreBackup()
+    func newKeycloakUserDetailsAndStuff(_ keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) async
+    func userWantsToRestoreBackup() async
 }
 
-final class IdentityProviderValidationHostingViewController: UIHostingController<IdentityProviderValidationHostingView>, IdentityProviderValidationHostingViewStoreDelegate {
+final class IdentityProviderValidationHostingViewController: UIHostingController<IdentityProviderValidationHostingView> {
  
-    weak var delegate: IdentityProviderValidationHostingViewControllerDelegate?
     private let store: IdentityProviderValidationHostingViewStore
     
     init(keycloakConfig: KeycloakConfiguration, isConfiguredFromMDM: Bool, delegate: IdentityProviderValidationHostingViewControllerDelegate) {
@@ -38,8 +38,7 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
         let view = IdentityProviderValidationHostingView(store: store)
         self.store = store
         super.init(rootView: view)
-        store.delegate = self
-        self.delegate = delegate
+        store.delegate = delegate
     }
  
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -88,27 +87,6 @@ final class IdentityProviderValidationHostingViewController: UIHostingController
         static let title = NSLocalizedString("IDENTITY_PROVIDER", comment: "")
     }
 
-    // IdentityProviderValidationHostingViewStoreDelegate
-    
-    func newKeycloakState(_ keycloakState: ObvKeycloakState) {
-        delegate?.newKeycloakState(keycloakState)
-    }
-
-    func newKeycloakUserDetailsAndStuff(_ keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff) {
-        delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff)
-    }
-
-    func userWantsToRestoreBackup() {
-        delegate?.userWantsToRestoreBackup()
-    }
-    
-}
-
-
-protocol IdentityProviderValidationHostingViewStoreDelegate: UIViewController {
-    func newKeycloakUserDetailsAndStuff(_ keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)
-    func newKeycloakState(_ keycloakState: ObvKeycloakState)
-    func userWantsToRestoreBackup()
 }
 
 
@@ -117,7 +95,7 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
     fileprivate let keycloakConfig: KeycloakConfiguration
     fileprivate let isConfiguredFromMDM: Bool
 
-    fileprivate var delegate: IdentityProviderValidationHostingViewStoreDelegate?
+    fileprivate var delegate: IdentityProviderValidationHostingViewControllerDelegate?
     
     // Nil while validating
     @Published fileprivate var validationStatus: ValidationStatus
@@ -246,12 +224,11 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
             rawAuthState: rawAuthState,
             signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
             latestLocalRevocationListTimestamp: nil)
-        delegate?.newKeycloakState(keycloakState)
-        delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff)
+        Task { await delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff, keycloakState: keycloakState) }
     }
 
     func userWantsToRestoreBackup() {
-        delegate?.userWantsToRestoreBackup()
+        Task { await delegate?.userWantsToRestoreBackup() }
     }
 
 }
@@ -408,7 +385,7 @@ fileprivate struct KeycloakConfigurationDetailsView: View {
 
 fileprivate struct BigCircledSystemIconView: View {
     
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     let backgroundColor: Color
     
     var body: some View {

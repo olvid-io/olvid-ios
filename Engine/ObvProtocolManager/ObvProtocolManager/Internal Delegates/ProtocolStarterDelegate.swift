@@ -45,9 +45,13 @@ protocol ProtocolStarterDelegate {
     
     func getRemoveGroupMembersMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, removedGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend
 
+    func getRemoveGroupMembersMessageForStartingGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, removedGroupMembers: Set<ObvCryptoIdentity>, simulateReceivedMessage: Bool, within obvContext: ObvContext) throws -> GroupManagementProtocol.RemoveGroupMembersMessage
+    
     func getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend
 
     func getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend
+    
+    func getLeaveGroupJoinedMessageForStartingGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, simulateReceivedMessage: Bool, within obvContext: ObvContext) throws -> GroupManagementProtocol.LeaveGroupJoinedMessage
 
     func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
 
@@ -81,10 +85,18 @@ protocol ProtocolStarterDelegate {
 
     func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
     
+    func getInitiateGroupLeaveMessageForStartingGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, simulateReceivedMessage: Bool, flowId: FlowIdentifier) throws -> GroupV2Protocol.InitiateGroupLeaveMessage
+    
     func getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
     func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
+    
+    func getInitiateInitiateGroupDisbandMessageForStartingGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, simulateReceivedMessage: Bool, flowId: FlowIdentifier) throws -> GroupV2Protocol.InitiateGroupDisbandMessage
 
     func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
+    // MARK: - Owned identities
+    
+    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
+    
 }

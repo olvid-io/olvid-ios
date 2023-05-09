@@ -61,4 +61,9 @@ public protocol ObvChannelDelegate: ObvManager {
     func getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, remoteIdentities: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>]
 
     func getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
+    
+    // Preparing for an owned identity deletion
+    
+    func deleteAllObliviousChannelsWithTheCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws
+
 }

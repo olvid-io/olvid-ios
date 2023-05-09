@@ -19,6 +19,7 @@
 
 import Foundation
 import MobileCoreServices
+import ObvUI
 import UniformTypeIdentifiers
 
 
@@ -142,7 +143,7 @@ final class ObvUTIUtils {
     }
 
     @available(iOS 14.0, *)
-    static func getIcon(forUTI uti: String) -> ObvSystemIcon {
+    static func getIcon(forUTI uti: String) -> SystemIcon {
         if let utType = UTType(uti) {
             if utType.conforms(to: .image) {
                 return .photoOnRectangleAngled

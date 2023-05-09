@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
 
@@ -69,6 +70,10 @@ struct EditSingleOwnedIdentityView: View {
     
     private var disablePublishMyIdButton: Bool {
         !canPublish || isPublishActionSheetShown || newIdentityPublishingInProgress
+    }
+    
+    private var disableManualPersonalDetailsFields: Bool {
+        isPublishActionSheetShown || newIdentityPublishingInProgress
     }
 
     private func olvidButtonText() -> Text {
@@ -165,13 +170,13 @@ struct EditSingleOwnedIdentityView: View {
                     } else {
                         Form {
                             Section(header: Text("Enter your personal details")) {
-                                TextField(LocalizedStringKey("FORM_FIRST_NAME"), text: $singleIdentity.firstName.map({ $0.trimmingWhitespacesAndNewlines() }))
+                                TextField(LocalizedStringKey("FORM_FIRST_NAME"), text: $singleIdentity.firstName)
                                     .disableAutocorrection(true)
-                                TextField(LocalizedStringKey("FORM_LAST_NAME"), text: $singleIdentity.lastName.map({ $0.trimmingWhitespacesAndNewlines() }))
+                                TextField(LocalizedStringKey("FORM_LAST_NAME"), text: $singleIdentity.lastName)
                                     .disableAutocorrection(true)
-                                TextField(LocalizedStringKey("FORM_POSITION"), text: $singleIdentity.position.map({ $0.trimmingWhitespacesAndNewlines() }))
-                                TextField(LocalizedStringKey("FORM_COMPANY"), text: $singleIdentity.company.map({ $0.trimmingWhitespacesAndNewlines() }))
-                            }.disabled(isPublishActionSheetShown)
+                                TextField(LocalizedStringKey("FORM_POSITION"), text: $singleIdentity.position)
+                                TextField(LocalizedStringKey("FORM_COMPANY"), text: $singleIdentity.company)
+                            }.disabled(disableManualPersonalDetailsFields)
                             if let serverAndAPIKeyToShow = singleIdentity.serverAndAPIKeyToShow {
                                 Section(header: Text("IDENTITY_SETTINGS")) {
                                     VStack(alignment: .leading, spacing: 4) {

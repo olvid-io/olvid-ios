@@ -27,7 +27,7 @@ public protocol ObvSolveChallengeDelegate: ObvManager {
     
     func solveChallenge(_ challengeType: ChallengeType, for: ObvCryptoIdentity, using: PRNGService, within obvContext: ObvContext) throws -> Data
     
-    func getApiKeyForOwnedIdentity(_: ObvCryptoIdentity) throws -> UUID
+    func getApiKeyForOwnedIdentity(_: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID?
 }
 
 
@@ -66,6 +66,7 @@ public enum ChallengeType {
     case groupLockNonce(lockNonce: Data)
     case groupUpdate(lockNonce: Data, encryptedBlob: EncryptedData, encodedServerAdminPublicKey: ObvEncoded)
     case groupKick(encryptedAdministratorChain: EncryptedData, groupInvitationNonce: Data)
+    case ownedIdentityDeletion(notifiedContactIdentity: ObvCryptoIdentity)
 
     public var challengePrefix: Data {
         switch self {
@@ -93,6 +94,8 @@ public enum ChallengeType {
             return "updateGroup".data(using: .utf8)!
         case .groupKick:
             return "groupKick".data(using: .utf8)!
+        case .ownedIdentityDeletion:
+            return "ownedIdentityDeletion".data(using: .utf8)!
         }
     }
     
@@ -122,6 +125,8 @@ public enum ChallengeType {
             return lockNonce + encryptedBlob.raw + encodedServerAdminPublicKey.rawData
         case .groupKick(encryptedAdministratorChain: let encryptedAdministratorChain, groupInvitationNonce: let groupInvitationNonce):
             return encryptedAdministratorChain.raw + groupInvitationNonce
+        case .ownedIdentityDeletion(notifiedContactIdentity: let notifiedContactIdentity):
+            return notifiedContactIdentity.getIdentity()
         }
     }
 

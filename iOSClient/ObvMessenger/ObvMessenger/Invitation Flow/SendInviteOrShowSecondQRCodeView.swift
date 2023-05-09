@@ -17,9 +17,12 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
-import ObvTypes
+
 import ObvEngine
+import ObvTypes
+import ObvUI
+import SwiftUI
+
 
 struct SendInviteOrShowSecondQRCodeView: View {
     
@@ -128,15 +131,18 @@ struct SendInviteOrShowSecondQRCodeView: View {
         if let notificationToken = notificationToken {
             NotificationCenter.default.removeObserver(notificationToken)
         }
-        notificationToken = ObvEngineNotificationNew.observeMutualScanContactAdded(within: NotificationCenter.default, queue: OperationQueue.main) { obvContactIdentity, signature in
-            guard signature == expectedSignature else { return }
-            if let notificationToken = notificationToken {
-                NotificationCenter.default.removeObserver(notificationToken)
+        notificationToken = ObvEngineNotificationNew.observeMutualScanContactAdded(within: NotificationCenter.default) { obvContactIdentity, signature in
+            DispatchQueue.main.async {
+                guard signature == expectedSignature else { return }
+                if let notificationToken = notificationToken {
+                    NotificationCenter.default.removeObserver(notificationToken)
+                }
+                let deepLink = ObvDeepLink.latestDiscussions(ownedCryptoId: obvContactIdentity.ownedIdentity.cryptoId)
+                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                    .postOnDispatchQueue()
+                UINotificationFeedbackGenerator()
+                    .notificationOccurred(.success)
             }
-            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .latestDiscussions)
-                .postOnDispatchQueue()
-            UINotificationFeedbackGenerator()
-                .notificationOccurred(.success)
         }
     }
 
@@ -337,7 +343,7 @@ struct InviteLocallyCard: View {
 fileprivate struct SectionTitle: View {
     
     let text: Text
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     let iconColor: Color
     
     var body: some View {

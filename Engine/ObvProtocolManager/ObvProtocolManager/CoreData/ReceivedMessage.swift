@@ -186,9 +186,13 @@ extension ReceivedMessage {
     }
     
     
-    static func deleteAllAssociatedWithProtocolInstance(withUid protocolInstanceUid: UID, within obvContext: ObvContext) throws {
+    static func deleteAllAssociatedWithProtocolInstance(withUid protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
-        request.predicate = Predicate.withProtocolInstanceUid(protocolInstanceUid)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withProtocolInstanceUid(protocolInstanceUid),
+            Predicate.withOwnedCryptoIdentity(ownedIdentity),
+        ])
+        
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
         _ = try obvContext.execute(deleteRequest)
     }
@@ -209,6 +213,14 @@ extension ReceivedMessage {
         request.propertiesToFetch = [Predicate.Key.rawMessageIdUid.rawValue, Predicate.Key.rawMessageIdOwnedIdentity.rawValue]
         let items = try obvContext.fetch(request)
         return Set(items.map { $0.messageId })
+    }
+    
+    
+    static func batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", Predicate.Key.rawMessageIdOwnedIdentity.rawValue, ownedCryptoIdentity.getIdentity() as NSData)
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(request)
     }
     
 }

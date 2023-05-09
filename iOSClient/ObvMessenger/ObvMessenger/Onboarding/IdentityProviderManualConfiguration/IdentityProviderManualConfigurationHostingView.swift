@@ -22,27 +22,25 @@ import Combine
 import JWS
 import AppAuth
 import ObvTypes
+import ObvUI
 
 protocol IdentityProviderManualConfigurationHostingViewDelegate: AnyObject {
     
-    func userWantsToValidateManualKeycloakConfiguration(keycloakConfig: KeycloakConfiguration)
+    func userWantsToValidateManualKeycloakConfiguration(keycloakConfig: KeycloakConfiguration) async
     
 }
 
 
-final class IdentityProviderManualConfigurationHostingView: UIHostingController<IdentityProviderManualConfigurationView>, IdentityProviderManualConfigurationViewStoreDelegate {
+final class IdentityProviderManualConfigurationHostingView: UIHostingController<IdentityProviderManualConfigurationView> {
     
     private let store: IdentityProviderManualConfigurationViewStore
-    var delegate: IdentityProviderManualConfigurationHostingViewDelegate?
     
     init(delegate: IdentityProviderManualConfigurationHostingViewDelegate) {
-        let store = IdentityProviderManualConfigurationViewStore()
+        let store = IdentityProviderManualConfigurationViewStore(delegate: delegate)
         let view = IdentityProviderManualConfigurationView(store: store)
         self.store = store
         super.init(rootView: view)
-        self.delegate = delegate
         title = Strings.title
-        self.store.delegate = self
     }
     
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -63,17 +61,6 @@ final class IdentityProviderManualConfigurationHostingView: UIHostingController<
         static let title = NSLocalizedString("IDENTITY_PROVIDER", comment: "")
     }
 
-    // IdentityProviderOptionsViewStoreDelegate
-
-    func userWantsToValidateKeycloakConfig(keycloakConfig: KeycloakConfiguration) {
-        delegate?.userWantsToValidateManualKeycloakConfiguration(keycloakConfig: keycloakConfig)
-    }
-    
-}
-
-
-protocol IdentityProviderManualConfigurationViewStoreDelegate: UIViewController {
-    func userWantsToValidateKeycloakConfig(keycloakConfig: KeycloakConfiguration)
 }
 
 
@@ -87,12 +74,13 @@ final class IdentityProviderManualConfigurationViewStore: ObservableObject {
     
     private var cancellables = [AnyCancellable]()
 
-    weak var delegate: IdentityProviderManualConfigurationViewStoreDelegate?
+    weak var delegate: IdentityProviderManualConfigurationHostingViewDelegate?
     
     @Published private var identityServer: URL?
     @Published private(set) var keycloakConfig: KeycloakConfiguration?
     
-    init() {
+    init(delegate: IdentityProviderManualConfigurationHostingViewDelegate?) {
+        self.delegate = delegate
         processDisplayedValues()
     }
     
@@ -120,7 +108,7 @@ final class IdentityProviderManualConfigurationViewStore: ObservableObject {
     
     fileprivate func userWantsToValidateDisplayedServer() {
         guard let keycloakConfig = keycloakConfig else { assertionFailure(); return }
-        delegate?.userWantsToValidateKeycloakConfig(keycloakConfig: keycloakConfig)
+        Task { await delegate?.userWantsToValidateManualKeycloakConfiguration(keycloakConfig: keycloakConfig) }
     }
         
 }
@@ -211,7 +199,7 @@ fileprivate struct IdentityProviderServerAndOtherTextFields: View {
 
 struct IdentityProviderOptionsView_Previews: PreviewProvider {
     
-    private static let mockStore = IdentityProviderManualConfigurationViewStore()
+    private static let mockStore = IdentityProviderManualConfigurationViewStore(delegate: nil)
     
     static var previews: some View {
         IdentityProviderManualConfigurationView(store: mockStore)

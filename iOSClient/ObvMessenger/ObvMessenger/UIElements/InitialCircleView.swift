@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
 struct InitialCircleView: View {
@@ -41,6 +42,7 @@ struct InitialCircleView: View {
         case .person3Fill: return 3
         case .personFillXmark: return 2
         case .lockFill: return 2
+        case .plus: return 1
         }
     }
     

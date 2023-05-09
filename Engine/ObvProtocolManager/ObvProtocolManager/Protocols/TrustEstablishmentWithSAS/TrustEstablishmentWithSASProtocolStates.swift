@@ -101,7 +101,7 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 5) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 5) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -143,7 +143,7 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 6) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 6) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -194,7 +194,7 @@ extension TrustEstablishmentWithSASProtocol {
 
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 8) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 8) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -260,7 +260,7 @@ extension TrustEstablishmentWithSASProtocol {
 
         init(_ encoded: ObvEncoded) throws {
             let encodedContactIdentityCoreDetails: Data
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             encodedContactIdentityCoreDetails = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)

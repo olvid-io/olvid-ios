@@ -16,7 +16,8 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
+
+import ObvUI
 import UIKit
 
 private enum Licence {

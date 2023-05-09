@@ -128,6 +128,14 @@ extension RegisteredPushNotification {
         _ = try obvContext.execute(deleteRequest)
     }
     
+    static func deleteAllRegisteredPushNotificationForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<NSFetchRequestResult> = RegisteredPushNotification.fetchRequest()
+        request.predicate = NSPredicate(format: "%K == %@", cryptoIdentityKey, ownedCryptoIdentity)
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+        deleteRequest.resultType = .resultTypeStatusOnly
+        _ = try obvContext.execute(deleteRequest)
+    }
+    
     static func countAll(within obvContext: ObvContext) throws -> Int {
         let request: NSFetchRequest<NSFetchRequestResult> = RegisteredPushNotification.fetchRequest()
         return try obvContext.count(for: request)

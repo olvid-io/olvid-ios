@@ -17,10 +17,11 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
-/// A View Builder allowing to create a card around the content.
 
+/// A View Builder allowing to create a card around the content.
 struct ObvCardView<Content: View>: View {
     
     let shadow: Bool

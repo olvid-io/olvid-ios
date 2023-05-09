@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
 
@@ -56,10 +57,12 @@ protocol BodyEditViewStoreDelegate: AnyObject {
 fileprivate final class BodyEditViewStore: ObservableObject {
     
     @Published var body: String
+    let initialBody: String?
     
     weak var delegate: BodyEditViewStoreDelegate? = nil
     
     init(currentBody: String?) {
+        self.initialBody = currentBody
         self.body = currentBody ?? ""
     }
     
@@ -68,9 +71,8 @@ fileprivate final class BodyEditViewStore: ObservableObject {
     }
     
     func sendAction() {
-        delegate?.send(body.isEmpty ? nil : body)
+        delegate?.send(body.mapToNilIfZeroLength())
     }
-    
 }
 
 
@@ -80,6 +82,7 @@ struct BodyEditView: View {
     
     var body: some View {
         BodyEditInnerView(text: $store.body,
+                          initialBody: store.initialBody,
                           dismissAction: store.dismissAction,
                           sendAction: store.sendAction)
     }
@@ -91,6 +94,7 @@ struct BodyEditView: View {
 struct BodyEditInnerView: View {
     
     @Binding var text: String
+    let initialBody: String?
     let dismissAction: () -> Void
     let sendAction: () -> Void
     
@@ -125,9 +129,8 @@ struct BodyEditInnerView: View {
                     .padding(.bottom, 16.0)
                     HStack {
                         OlvidButton(style: .standard, title: Text("Cancel"), systemIcon: .xmarkCircleFill, action: dismissAction)
-                        OlvidButton(style: .blue, title: Text("Send"), systemIcon: .paperplaneFill, action: {
-                            sendAction()
-                        })
+                        OlvidButton(style: .blue, title: Text("Send"), systemIcon: .paperplaneFill, action: sendAction)
+                            .disabled(text.trimmingWhitespacesAndNewlines().mapToNilIfZeroLength() == initialBody)
                     }
                 }
                 .padding()
@@ -186,6 +189,9 @@ fileprivate struct MultilineTextView: UIViewRepresentable {
 
 struct BodyEditInnerView_Previews: PreviewProvider {
     static var previews: some View {
-        BodyEditInnerView(text: .constant("Test"), dismissAction: {}, sendAction: {})
+        BodyEditInnerView(text: .constant("Test"),
+                          initialBody: "Foo",
+                          dismissAction: {},
+                          sendAction: {})
     }
 }

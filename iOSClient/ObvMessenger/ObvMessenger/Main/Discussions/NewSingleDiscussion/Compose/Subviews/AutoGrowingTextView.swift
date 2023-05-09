@@ -19,9 +19,33 @@
 
 import UIKit
 import MobileCoreServices
+import OSLog
 
+/// Namespace for types related to `AutoGrowingTextViewDelegate`
+enum AutoGrowingTextViewDelegateTypes {
+    /// Possible actions
+    ///
+    /// - keyboardPerformReturn: The user wants to send the given text
+    enum Action {
+        /// The user wants to send the given text
+        case keyboardPerformReturn
+    }
+
+}
+
+/// Protocol denoting available methods for `AutoGrowingTextView`
+protocol AutoGrowingTextViewDelegate: AnyObject {
+    func userPastedItemProviders(in autoGrowingTextView: AutoGrowingTextView, itemProviders: [NSItemProvider])
+
+    /// Method is called whenever the user requested a given action
+    /// - Parameters:
+    ///   - textView: The text view that this applies to
+    ///   - action: The action to perform
+    func autoGrowingTextView(_ textView: AutoGrowingTextView, perform action: AutoGrowingTextViewDelegateTypes.Action)
+}
 
 final class AutoGrowingTextView: UITextViewFixed {
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AutoGrowingTextView.self))
 
     private var heightConstraint: NSLayoutConstraint!
     private var minHeightConstraint: NSLayoutConstraint!
@@ -30,7 +54,22 @@ final class AutoGrowingTextView: UITextViewFixed {
     private let sizingTextView = UITextViewFixed()
     
     weak var autoGrowingTextViewDelegate: AutoGrowingTextViewDelegate?
-    
+
+    /// Helper instance of `UIKeyCommand` when using the combo cmd + return
+    private lazy var returnKeyCommand = UIKeyCommand(input: "\r",
+                                                     modifierFlags: .command,
+                                                     action: #selector(handleKeyCommand))..{
+        $0.title = NSLocalizedString("Send", comment: "Send word, capitalized")
+    }
+
+    override var keyCommands: [UIKeyCommand]? {
+        guard let superValue = super.keyCommands else {
+            return [returnKeyCommand]
+        }
+
+        return superValue + [returnKeyCommand]
+    }
+
     var maxHeight: CGFloat {
         get { maxHeightConstraint.constant }
         set {
@@ -75,7 +114,18 @@ final class AutoGrowingTextView: UITextViewFixed {
             heightConstraint.constant = newHeight
         }
     }
-    
+
+    @objc
+    private func handleKeyCommand(_ command: UIKeyCommand) {
+        if command === returnKeyCommand {
+            guard let autoGrowingTextViewDelegate = autoGrowingTextViewDelegate else {
+                os_log("🎤 we're missing our delegate", log: log, type: .fault)
+                return
+            }
+
+            autoGrowingTextViewDelegate.autoGrowingTextView(self, perform: .keyboardPerformReturn)
+        }
+    }
 }
 
 
@@ -107,9 +157,4 @@ extension AutoGrowingTextView {
     }
     
     
-}
-
-
-protocol AutoGrowingTextViewDelegate: AnyObject {
-    func userPastedItemProviders(in autoGrowingTextView: AutoGrowingTextView, itemProviders: [NSItemProvider])
 }

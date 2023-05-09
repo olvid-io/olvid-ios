@@ -43,7 +43,9 @@ extension UIViewController {
     
     func moveContentController(from previousContent: UIViewController, to nextContent: UIViewController, duration: Double = 0.9, options: UIView.AnimationOptions = [.transitionFlipFromLeft]) throws {
         
-        guard children.contains(previousContent) else { throw NSError() }
+        guard children.contains(previousContent) else {
+            throw NSError(domain: "UIViewController+extension", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: "Error in moveContentController"])
+        }
         
         addChild(nextContent) // Automatic call to willMove(...)
 

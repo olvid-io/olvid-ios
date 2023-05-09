@@ -20,6 +20,7 @@
 import Foundation
 import UIKit
 import ObvTypes
+import ObvUI
 
 struct ObvMessengerConstants {
     
@@ -63,9 +64,9 @@ struct ObvMessengerConstants {
         ObvMessengerConstants.developmentMode || ObvMessengerConstants.isTestFlight || ObvMessengerSettings.BetaConfiguration.showBetaSettings
     }
 
-    static let muteIcon: ObvSystemIcon = .moonZzzFill
+    static let muteIcon: SystemIcon = .moonZzzFill
     static let defaultEmoji = "👍"
-    static let forwardIcon: ObvSystemIcon = .arrowshapeTurnUpForward
+    static let forwardIcon: SystemIcon = .arrowshapeTurnUpForward
 
     static let downsizedImageSize = CGSize(width: 40, height: 40) // In pixels
 
@@ -75,6 +76,9 @@ struct ObvMessengerConstants {
     static let iTunesOlvidIdentifier = NSNumber(value: 1414865219) // Found via https://tools.applemediaservices.com
     static let shortLinkToOlvidAppIniTunes = URL(string: "https://apple.co/3lrdOUV")!
     
+    static let minimumLengthOfPasswordForHiddenProfiles = 4
+    static let seedLengthForHiddenProfiles = 8
+
     static var isRunningOnRealDevice: Bool {
         #if targetEnvironment(simulator)
         return false
@@ -215,9 +219,12 @@ struct ObvMessengerConstants {
 
     // Keys of userDefault properties shared between app and extensions
 
-    static let objectsModifiedByShareExtension = "objectsModifiedByShareExtension"
-    static let extensionFailedToWipeAllEphemeralMessagesBeforeDate = "extensionFailedToWipeAllEphemeralMessagesBeforeDate"
-    
+    enum SharedUserDefaultsKey: String {
+        case objectsModifiedByShareExtension = "objectsModifiedByShareExtension"
+        case extensionFailedToWipeAllEphemeralMessagesBeforeDate = "extensionFailedToWipeAllEphemeralMessagesBeforeDate"
+        case latestCurrentOwnedIdentity = "latestCurrentOwnedIdentity"
+    }
+
     // Capabilities
     
     static let supportedObvCapabilities: Set<ObvCapability> = {

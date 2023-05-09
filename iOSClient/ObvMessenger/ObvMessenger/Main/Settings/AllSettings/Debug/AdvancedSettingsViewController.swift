@@ -22,6 +22,7 @@ import ObvTypes
 import LinkPresentation
 import OlvidUtils
 import os.log
+import ObvUI
 
 
 @MainActor
@@ -201,7 +202,6 @@ final class AdvancedSettingsViewController: UITableViewController {
             }
         }
     }
-
 }
 
 
@@ -291,22 +291,14 @@ extension AdvancedSettingsViewController {
                 Task {
                     let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
                     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval * 5), execute: toDoIfPingsTakesTooLong)
-                    obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId) { [weak self] result in
-                        toDoIfPingsTakesTooLong.cancel()
-                        switch result {
-                        case .failure:
-                            break
-                        case .success(let webSocketStatus):
-                            self?.currentWebSocketStatus = webSocketStatus
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) {
-                            guard let tableView = self?.tableView else { return }
-                            guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                            if #available(iOS 15, *) {
-                                tableView.reconfigureRows(at: [indexPath])
-                            } else {
-                                tableView.reloadRows(at: [indexPath], with: .none)
-                            }
+                    currentWebSocketStatus = try? await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) { [weak self] in
+                        guard let tableView = self?.tableView else { return }
+                        guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
+                        if #available(iOS 15, *) {
+                            tableView.reconfigureRows(at: [indexPath])
+                        } else {
+                            tableView.reloadRows(at: [indexPath], with: .none)
                         }
                     }
                 }
@@ -386,6 +378,7 @@ extension AdvancedSettingsViewController {
             switch item {
             case .clearCache:
                 LPMetadataProvider.removeCachedURLMetadata(olderThan: Date())
+                CachedLPMetadataProvider.shared.clearCache()
                 tableView.deselectRow(at: indexPath, animated: true)
             }
             return

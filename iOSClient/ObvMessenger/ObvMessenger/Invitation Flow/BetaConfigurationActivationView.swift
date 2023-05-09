@@ -17,9 +17,10 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
-import ObvTypes
 import ObvEngine
+import ObvTypes
+import ObvUI
+import SwiftUI
 
 
 struct BetaConfigurationActivationView: View {

@@ -17,13 +17,15 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
-import CoreData
-import os.log
-import MobileCoreServices
-import QuickLook
 import AVFoundation
+import CoreData
+import MobileCoreServices
+import ObvUI
 import OlvidUtils
+import ObvTypes
+import os.log
+import QuickLook
+import UIKit
 
 
 protocol DiscussionViewController: UIViewController {
@@ -34,6 +36,7 @@ protocol DiscussionViewController: UIViewController {
 
 final class SingleDiscussionViewController: UICollectionViewController, DiscussionViewController, SomeSingleDiscussionViewController, ObvErrorMaker {
     
+    let currentOwnedCryptoId: ObvCryptoId
     var discussion: PersistedDiscussion!
     /// If `true`, all message statuses and attachment progresses are hidden
     var hideProgresses = false
@@ -220,6 +223,14 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
         return true
     }
 
+    init(ownedCryptoId: ObvCryptoId, collectionViewLayout: UICollectionViewLayout) {
+        self.currentOwnedCryptoId = ownedCryptoId
+        super.init(collectionViewLayout: collectionViewLayout)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
@@ -1163,7 +1174,7 @@ extension SingleDiscussionViewController {
 
                     ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactsToCall, groupId: groupId).postOnDispatchQueue()
                 }
-                action.image = UIImage(systemName: ObvSystemIcon.phoneFill.systemName)
+                action.image = UIImage(systemName: SystemIcon.phoneFill.systemName)
                 children.append(action)
             }
             

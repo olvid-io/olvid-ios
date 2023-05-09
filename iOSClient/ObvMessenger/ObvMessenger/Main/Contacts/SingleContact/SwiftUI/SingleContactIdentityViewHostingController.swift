@@ -22,6 +22,7 @@ import os.log
 import ObvTypes
 import ObvEngine
 import CoreData
+import OlvidUtils
 
 
 protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
@@ -34,10 +35,13 @@ protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
 }
 
 
-final class SingleContactIdentityViewHostingController: UIHostingController<SingleContactIdentityView>, SingleContactIdentityDelegate, SomeSingleContactViewController {
+final class SingleContactIdentityViewHostingController: UIHostingController<SingleContactIdentityView>, SingleContactIdentityDelegate, SomeSingleContactViewController, ObvErrorMaker {
     
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SingleContactIdentityViewHostingController")
-
+    static let errorDomain = "SingleContactIdentityViewHostingController"
+    
+    let currentOwnedCryptoId: ObvCryptoId
+    let contactPermanentID: ContactPermanentID
     private let contact: SingleContactIdentity
     private var editedSingleContact: SingleContactIdentity? = nil
     private var observationTokens = [NSObjectProtocol]()
@@ -49,7 +53,12 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
 
     weak var delegate: SingleContactIdentityViewHostingControllerDelegate?
     
-    init(contact: PersistedObvContactIdentity, obvEngine: ObvEngine) {
+    init(contact: PersistedObvContactIdentity, obvEngine: ObvEngine) throws {
+        guard let ownCryptoId = contact.ownedIdentity?.cryptoId else {
+            throw Self.makeError(message: "Could not determine owned identity")
+        }
+        self.currentOwnedCryptoId = ownCryptoId
+        self.contactPermanentID = contact.objectPermanentID
         self.persistedObvContactIdentityObjectID = contact.objectID
         self.contactCryptoId = contact.cryptoId
         self.ownedIdentityCryptoId = contact.ownedIdentity?.cryptoId
@@ -94,6 +103,8 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         super.viewDidAppear(animated)
         guard let ownedIdentityCryptoId = self.ownedIdentityCryptoId else { assertionFailure(); return }
         ObvMessengerInternalNotification.userDidSeeNewDetailsOfContact(contactCryptoId: contactCryptoId, ownedCryptoId: ownedIdentityCryptoId)
+            .postOnDispatchQueue()
+        ObvMessengerInternalNotification.resyncContactIdentityDevicesWithEngine(contactCryptoId: contactCryptoId, ownedCryptoId: ownedIdentityCryptoId)
             .postOnDispatchQueue()
     }
     

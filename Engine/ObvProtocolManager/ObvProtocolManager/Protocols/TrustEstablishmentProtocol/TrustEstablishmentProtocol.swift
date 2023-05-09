@@ -28,13 +28,15 @@ import ObvMetaManager
 import OlvidUtils
 
 /// This protocol corresponds to the 'Establish mutual trust with an untrusted identity protocol'
-public struct TrustEstablishmentProtocol: ConcreteCryptoProtocol {
+public struct TrustEstablishmentProtocol: ConcreteCryptoProtocol, ObvErrorMaker {
 
     static let logCategory = "TrustEstablishmentProtocol"
 
     static let id = CryptoProtocolId.TrustEstablishment
 
     static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled, StateId.MutualTrustConfirmed]
+
+    public static let errorDomain = "TrustEstablishmentProtocol"
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
@@ -80,7 +82,7 @@ public struct TrustEstablishmentProtocol: ConcreteCryptoProtocol {
 extension TrustEstablishmentProtocol {
 
     static func decodeEncodedListOfDeviceUids(_ obvEncoded: ObvEncoded) throws -> [UID] {
-        guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { throw NSError() }
+        guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
         return try listOfEncodedUids.map { try $0.obvDecode() }
     }
 

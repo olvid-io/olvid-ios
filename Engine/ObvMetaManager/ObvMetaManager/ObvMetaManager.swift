@@ -21,15 +21,10 @@ import Foundation
 import ObvTypes
 import OlvidUtils
 
-public final class ObvMetaManager {
+public final class ObvMetaManager: ObvErrorMaker {
     
-    private static let errorDomain = "ObvMetaManager"
+    public static let errorDomain = "ObvMetaManager"
     
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
     // MARK: Init
     
     public init() {}

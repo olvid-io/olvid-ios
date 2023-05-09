@@ -375,11 +375,11 @@ extension GroupV2Protocol {
                     break
                 case .permanentFailure:
                     // We were not able to upload the blob to the server --> roll back the group creation
-                    try identityDelegate.deleteContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                    try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                     return FinalState()
                 case .temporaryFailure:
                     // We could try again. For now, we behave just like in the .permanentFailure case
-                    try identityDelegate.deleteContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                    try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                     return FinalState()
                 }
                 // If we reach this point, the blob was successfully uploaded on the server
@@ -482,7 +482,7 @@ extension GroupV2Protocol {
                 guard let key = blobKeys.groupAdminServerAuthenticationPrivateKey, blobKeys.blobMainSeed != nil else { throw Self.makeError(message: "key and main seed cannot be nil during group creation") }
                 groupAdminServerAuthenticationPrivateKey = key
             } catch {
-                try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 return FinalState()
             }
             
@@ -494,7 +494,7 @@ extension GroupV2Protocol {
                 pendingMembersAndPermissions = try identityDelegate.getPendingMembersAndPermissionsOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             } catch {
                 try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
-                try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 return FinalState()
             }
             let identitesOfPendingMembers = Set(pendingMembersAndPermissions.map({ $0.identity }))
@@ -507,7 +507,7 @@ extension GroupV2Protocol {
                 // We have a problem, we invited a member with whom we do not have a channel...
                 // Rollback everything and delete the group
                 try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
-                try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 return FinalState()
             }
             
@@ -518,7 +518,7 @@ extension GroupV2Protocol {
                 invitationProtocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
             } catch {
                 try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
-                try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 return FinalState()
             }
             
@@ -535,7 +535,7 @@ extension GroupV2Protocol {
                 }
             } catch {
                 try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
-                try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 return FinalState()
             }
 
@@ -1148,7 +1148,7 @@ extension GroupV2Protocol {
                     
                     // If the group is deleted from server, we delete the group, and remove any related dialog and abort the protocol.
                     
-                    try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                    try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                     
                     do {
                         let dialogType = ObvChannelDialogToSendType.delete
@@ -3250,7 +3250,7 @@ extension GroupV2Protocol {
 
             // Delete the group
             
-            try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+            try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             
             // Depending on the current state, we either return the final state, or the current state.
             // This allows to deal with the case occuring when we are part of the group, go offline, an admin kick then re-invites us.
@@ -3586,7 +3586,7 @@ extension GroupV2Protocol {
             
             // Delete the group from DB
             
-            try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+            try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             
             // In the case we propagate the message, we move to the RejectingInvitationOrLeavingGroupState, otherwise, we are done.
             
@@ -3870,7 +3870,7 @@ extension GroupV2Protocol {
                 
                 // Since no propagation is needed, we only have to delete the group locally
                 
-                try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 
                 return FinalState()
                 
@@ -4050,7 +4050,7 @@ extension GroupV2Protocol {
 
             // Locally delete the group
             
-            try identityDelegate.deleteGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+            try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             
             // We are done
             

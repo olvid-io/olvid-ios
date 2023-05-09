@@ -84,9 +84,9 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformationWithPhoto = try message.encodedInputs[0].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
+            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded members") }
             self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
         }
         
@@ -119,9 +119,9 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
+            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded members") }
             self.pendingGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             
         }
@@ -152,7 +152,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
             
         }
@@ -190,11 +190,11 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 4 else { throw NSError() }
+            guard message.encodedInputs.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
+            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded members") }
             self.groupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
-            guard let listOfEncodedPendingMembers = [ObvEncoded](message.encodedInputs[2]) else { throw NSError() }
+            guard let listOfEncodedPendingMembers = [ObvEncoded](message.encodedInputs[2]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded pending members") }
             self.pendingMembers = try Set(listOfEncodedPendingMembers.map { try $0.obvDecode() })
             self.groupMembersVersion = try message.encodedInputs[3].obvDecode()
         }
@@ -230,9 +230,9 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
+            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded members") }
             self.newGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
         }
         
@@ -265,9 +265,9 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { throw NSError() }
+            guard let listOfEncodedMembers = [ObvEncoded](message.encodedInputs[1]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded members") }
             self.removedGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
         }
         
@@ -297,7 +297,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
@@ -326,7 +326,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
@@ -355,7 +355,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
@@ -384,7 +384,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
@@ -413,7 +413,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
         
@@ -443,7 +443,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
             self.memberIdentity = try message.encodedInputs[1].obvDecode()
         }
@@ -475,7 +475,7 @@ extension GroupManagementProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
             self.memberIdentity = try message.encodedInputs[1].obvDecode()
         }
@@ -503,7 +503,7 @@ extension GroupManagementProtocol {
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
 

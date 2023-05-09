@@ -70,10 +70,14 @@ extension ChannelCreationWithContactDeviceProtocol {
         let ephemeralPrivateKey: PrivateKeyForPublicKeyEncryption
         
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 3) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 3) else {
+                throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Unexpected number of encoded elements in WaitingForK1State")
+            }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.contactDeviceUid = try encodedElements[1].obvDecode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else {
+                throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Could not decode private key in WaitingForK1State")
+            }
             self.ephemeralPrivateKey = ephemeralPrivateKey
         }
         
@@ -127,10 +131,14 @@ extension ChannelCreationWithContactDeviceProtocol {
         let k1: AuthenticatedEncryptionKey
         
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else {
+                throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Unexpected number of encoded elements in WaitingForK2State")
+            }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.contactDeviceUid = try encodedElements[1].obvDecode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else {
+                throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Could not decode private key in WaitingForK2State")
+            }
             self.ephemeralPrivateKey = ephemeralPrivateKey
             k1 = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[3])
         }

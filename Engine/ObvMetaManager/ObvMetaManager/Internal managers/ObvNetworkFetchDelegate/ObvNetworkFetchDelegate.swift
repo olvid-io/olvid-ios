@@ -54,20 +54,22 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
     func unregisterPushNotification(for: ObvCryptoIdentity, within: ObvContext)
     func forceRegisterToPushNotification(identity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
-    func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) throws
+    func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws
     
-    func getWebSocketState(ownedIdentity: ObvCryptoIdentity, completionHander: @escaping (Result<(URLSessionTask.State,TimeInterval?),Error>) -> Void)
-    func connectWebsockets(flowId: FlowIdentifier)
-    func disconnectWebsockets(flowId: FlowIdentifier)
+    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (URLSessionTask.State,TimeInterval?)
+    func connectWebsockets(flowId: FlowIdentifier) async
+    func disconnectWebsockets(flowId: FlowIdentifier) async
 
     func getTurnCredentials(ownedIdenty: ObvCryptoIdentity, callUuid: UUID, username1: String, username2: String, flowId: FlowIdentifier)
 
     func queryAPIKeyStatus(for identity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier)
     func resetServerSession(for identity: ObvCryptoIdentity, within obvContext: ObvContext) throws
     func queryFreeTrial(for identity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier)
-    func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
+    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
     func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier)
 
     func postServerQuery(_: ServerQuery, within: ObvContext)
+
+    func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
 }

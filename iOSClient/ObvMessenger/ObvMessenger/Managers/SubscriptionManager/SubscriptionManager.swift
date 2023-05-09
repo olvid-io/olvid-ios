@@ -33,7 +33,7 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SubscriptionManager.self))
     private var observationTokens = [NSObjectProtocol]()
     private var currentProductRequest: SKProductsRequest?
-    private var currentPurchaseTransactionsSentToEngine = [String: SKPaymentTransaction]()
+    private var currentPurchaseTransactionsSentToEngine = [String: PurchaseTransactionForToEngine]()
     private var numberOfTransactionsToRestore = 0
     private let internalQueue: OperationQueue = {
        let queue = OperationQueue()
@@ -47,35 +47,60 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
         super.init()
         observeNotifications()
     }
-
-    private func observeNotifications() {
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserRequestedAPIKeyStatus(queue: internalQueue, block: { [weak self] (ownedCryptoId, apiKey) in
-            self?.obvEngine.queryAPIKeyStatus(for: ownedCryptoId, apiKey: apiKey)
-        }))
-        notificationTokens.append(ObvMessengerInternalNotification.observeUserRequestedNewAPIKeyActivation(queue: internalQueue) { [weak self] (ownedCryptoId, apiKey) in
-            try? self?.obvEngine.setAPIKey(for: ownedCryptoId, apiKey: apiKey)
-        })
-        notificationTokens.append(SubscriptionNotification.observeUserRequestedListOfSKProducts { [weak self] in
-            self?.processUserRequestedListOfSKProducts()
-        })
-        notificationTokens.append(SubscriptionNotification.observeUserRequestedToBuySKProduct { [weak self] (product) in
-            self?.processUserRequestedToBuySKProduct(product: product)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeAppStoreReceiptVerificationSucceededAndSubscriptionIsValid(within: NotificationCenter.default, queue: internalQueue) { [weak self] (ownedIdentity, transactionIdentifier) in
-            self?.processAppStoreReceiptVerificationSucceededAndSubscriptionIsValidNotification(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeAppStoreReceiptVerificationFailed(within: NotificationCenter.default, queue: internalQueue) { [weak self] (ownedIdentity, transactionIdentifier) in
-            self?.processAppStoreReceiptVerificationFailedNotification(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier)
-        })
-        notificationTokens.append(ObvEngineNotificationNew.observeAppStoreReceiptVerificationSucceededButSubscriptionIsExpired(within: NotificationCenter.default, queue: internalQueue) { [weak self] (ownedIdentity, transactionIdentifier) in
-            self?.processAppStoreReceiptVerificationSucceededButSubscriptionIsExpiredNotification(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier)
-        })
-        notificationTokens.append(SubscriptionNotification.observeUserRequestedToRestoreAppStorePurchases { [weak self] in
-            self?.processUserRequestedToRestoreAppStorePurchasesNotification()
-        })
+    
+    
+    struct PurchaseTransactionForToEngine {
+        
+        let transactionIdentifier: String
+        let transaction: SKPaymentTransaction
+        var ownedCryptoIds: Set<ObvCryptoId>
+        
+        mutating func wasProcessedByEngineForOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) {
+            ownedCryptoIds.remove(ownedCryptoId)
+        }
+        
+        var wasProcessedByEngineForAllOwnedIdentities: Bool {
+            ownedCryptoIds.isEmpty
+        }
+        
     }
     
-    // Called at an appropriate time by the MetaFlowController
+
+    private func observeNotifications() {
+        notificationTokens.append(contentsOf: [
+            // ObvMessengerInternalNotification
+            ObvMessengerInternalNotification.observeUserRequestedAPIKeyStatus(queue: internalQueue) { [weak self] (ownedCryptoId, apiKey) in
+                self?.obvEngine.queryAPIKeyStatus(for: ownedCryptoId, apiKey: apiKey)
+            },
+            ObvMessengerInternalNotification.observeUserRequestedNewAPIKeyActivation(queue: internalQueue) { [weak self] (ownedCryptoId, apiKey) in
+                try? self?.obvEngine.setAPIKey(for: ownedCryptoId, apiKey: apiKey)
+            },
+            
+            // SubscriptionNotification
+            SubscriptionNotification.observeUserRequestedListOfSKProducts { [weak self] in
+                self?.processUserRequestedListOfSKProducts()
+            },
+            SubscriptionNotification.observeUserRequestedToBuySKProduct { [weak self] (product) in
+                self?.processUserRequestedToBuySKProduct(product: product)
+            },
+            SubscriptionNotification.observeUserRequestedToRestoreAppStorePurchases { [weak self] in
+                self?.processUserRequestedToRestoreAppStorePurchasesNotification()
+            },
+            
+            // ObvEngineNotificationNew
+            ObvEngineNotificationNew.observeAppStoreReceiptVerificationSucceededAndSubscriptionIsValid(within: NotificationCenter.default, queue: internalQueue) { [weak self] (ownedIdentity, transactionIdentifier) in
+                self?.processAppStoreReceiptVerificationSucceededAndSubscriptionIsValidNotification(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier)
+            },
+            ObvEngineNotificationNew.observeAppStoreReceiptVerificationFailed(within: NotificationCenter.default, queue: internalQueue) { [weak self] (ownedIdentity, transactionIdentifier) in
+                self?.processAppStoreReceiptVerificationFailedNotification(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier)
+            },
+            ObvEngineNotificationNew.observeAppStoreReceiptVerificationSucceededButSubscriptionIsExpired(within: NotificationCenter.default, queue: internalQueue) { [weak self] (ownedIdentity, transactionIdentifier) in
+                self?.processAppStoreReceiptVerificationSucceededButSubscriptionIsExpiredNotification(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier)
+            },
+        ])
+    }
+    
+    // Called at an appropriate time by the AppManagersHolder
     func listenToSKPaymentTransactions() {
         guard SKPaymentQueue.canMakePayments() else { return }
         SKPaymentQueue.default().add(self)
@@ -112,26 +137,13 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
     
     
     private func processUserRequestedToBuySKProduct(product: SKProduct) {
-        
         let log = self.log
         os_log("💰 User requested purchase of the SKProduct with identifier %{public}@", log: log, type: .info, product.productIdentifier)
-
-        // We make sure there is only one owned identity for now
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            let ownedIdentities: [PersistedObvOwnedIdentity]
-            do {
-                ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: context)
-            } catch {
-                assertionFailure(error.localizedDescription)
-                return
-            }
-            guard ownedIdentities.count == 1 else { assertionFailure(); return }
-            internalQueue.addOperation {
-                let payment = SKMutablePayment(product: product)
-                payment.quantity = 1
-                os_log("💰 Adding the payment for SKProduct with identifier %{public}@ to the payment queue", log: log, type: .info, product.productIdentifier)
-                SKPaymentQueue.default().add(payment)
-            }
+        internalQueue.addOperation {
+            let payment = SKMutablePayment(product: product)
+            payment.quantity = 1
+            os_log("💰 Adding the payment for SKProduct with identifier %{public}@ to the payment queue", log: log, type: .info, product.productIdentifier)
+            SKPaymentQueue.default().add(payment)
         }
     }
     
@@ -145,6 +157,7 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
             refresh.start()
         }
     }
+    
 }
 
 
@@ -202,7 +215,7 @@ extension SubscriptionManager {
         }
         
         if !originalTransactionsToRestore.isEmpty {
-            os_log("💰 We have found %d candidate(s) for the restore process. We Process it now", log: log, type: .info, originalTransactionsToRestore.count)
+            os_log("💰 We have found %d candidate(s) for the restore process. We process them now", log: log, type: .info, originalTransactionsToRestore.count)
             for original in originalTransactionsToRestore.values {
                 let op = ProcessPurchasedOperation(transaction: original, delegate: self)
                 internalQueue.addOperation(op)
@@ -216,16 +229,24 @@ extension SubscriptionManager {
     private func processAppStoreReceiptVerificationSucceededAndSubscriptionIsValidNotification(ownedIdentity: ObvCryptoId, transactionIdentifier: String) {
         assert(OperationQueue.current == internalQueue)
         assert(currentPurchaseTransactionsSentToEngine.keys.contains(transactionIdentifier))
-        os_log("💰 The AppStore receipt was successfully verified by Olvid's server for the transaction identifier by %{public}@", log: log, type: .info, transactionIdentifier)
-        if let transaction = currentPurchaseTransactionsSentToEngine.removeValue(forKey: transactionIdentifier) {
-            os_log("💰 Finishing the transaction with identifier %{public}@", log: log, type: .info, transactionIdentifier)
-            SKPaymentQueue.default().finishTransaction(transaction)
-        } else {
-            os_log("💰 Could not find the transaction with identifier %{public}@", log: log, type: .fault, transactionIdentifier)
+        os_log("💰 The AppStore receipt was successfully verified by Olvid's server for the transaction identifier by %{public}@ for identity %{public}@", log: log, type: .info, transactionIdentifier, ownedIdentity.debugDescription)
+        defer {
+            if currentPurchaseTransactionsSentToEngine.isEmpty {
+                SubscriptionNotification.allPurchaseTransactionsSentToEngineWereProcessed
+                    .postOnDispatchQueue()
+            }
         }
-        if currentPurchaseTransactionsSentToEngine.isEmpty {
-            SubscriptionNotification.allPurchaseTransactionsSentToEngineWereProcessed
-                .postOnDispatchQueue()
+        guard var transactionSentToEngine = currentPurchaseTransactionsSentToEngine.removeValue(forKey: transactionIdentifier) else {
+            os_log("💰 Could not find the transaction with identifier %{public}@", log: log, type: .fault, transactionIdentifier)
+            assertionFailure()
+            return
+        }
+        transactionSentToEngine.wasProcessedByEngineForOwnedCryptoId(ownedIdentity)
+        if transactionSentToEngine.wasProcessedByEngineForAllOwnedIdentities {
+            os_log("💰 Finishing the transaction with identifier %{public}@", log: log, type: .info, transactionIdentifier)
+            SKPaymentQueue.default().finishTransaction(transactionSentToEngine.transaction)
+        } else {
+            currentPurchaseTransactionsSentToEngine[transactionIdentifier] = transactionSentToEngine
         }
     }
 
@@ -235,27 +256,35 @@ extension SubscriptionManager {
     /// if the problem persists.
     private func processAppStoreReceiptVerificationFailedNotification(ownedIdentity: ObvCryptoId, transactionIdentifier: String) {
         assert(OperationQueue.current == internalQueue)
-        assert(currentPurchaseTransactionsSentToEngine.keys.contains(transactionIdentifier))
-        os_log("💰 The AppStore receipt with identifier by %{public}@ verification failed", log: log, type: .info, transactionIdentifier)
+        os_log("💰 The AppStore receipt with identifier by %{public}@ verification failed for owned identity %{public}@", log: log, type: .info, transactionIdentifier, ownedIdentity.debugDescription)
+        // If the verification fails for one identity, we consider it fails for all identities
         _ = currentPurchaseTransactionsSentToEngine.removeValue(forKey: transactionIdentifier)
         if currentPurchaseTransactionsSentToEngine.isEmpty {
             SubscriptionNotification.allPurchaseTransactionsSentToEngineWereProcessed
                 .postOnDispatchQueue()
         }
     }
+
     
-    
-    private func  processAppStoreReceiptVerificationSucceededButSubscriptionIsExpiredNotification(ownedIdentity: ObvCryptoId, transactionIdentifier: String) {
-        os_log("💰 The AppStore receipt with identifier by %{public}@ verification succeed but the subscription has expired", log: log, type: .info, transactionIdentifier)
-        if let transaction = currentPurchaseTransactionsSentToEngine.removeValue(forKey: transactionIdentifier) {
-            os_log("💰 Finishing the transaction with identifier %{public}@", log: log, type: .info, transactionIdentifier)
-            SKPaymentQueue.default().finishTransaction(transaction)
-        } else {
-            os_log("💰 Could not find the transaction with identifier %{public}@", log: log, type: .fault, transactionIdentifier)
+    private func processAppStoreReceiptVerificationSucceededButSubscriptionIsExpiredNotification(ownedIdentity: ObvCryptoId, transactionIdentifier: String) {
+        os_log("💰 The AppStore receipt with identifier by %{public}@ verification succeed but the subscription has expired for owned identity %{public}@", log: log, type: .info, transactionIdentifier, ownedIdentity.debugDescription)
+        defer {
+            if currentPurchaseTransactionsSentToEngine.isEmpty {
+                SubscriptionNotification.allPurchaseTransactionsSentToEngineWereProcessed
+                    .postOnDispatchQueue()
+            }
         }
-        if currentPurchaseTransactionsSentToEngine.isEmpty {
-            SubscriptionNotification.allPurchaseTransactionsSentToEngineWereProcessed
-                .postOnDispatchQueue()
+        guard var transactionSentToEngine = currentPurchaseTransactionsSentToEngine.removeValue(forKey: transactionIdentifier) else {
+            os_log("💰 Could not find the transaction with identifier %{public}@", log: log, type: .fault, transactionIdentifier)
+            assertionFailure()
+            return
+        }
+        transactionSentToEngine.wasProcessedByEngineForOwnedCryptoId(ownedIdentity)
+        if transactionSentToEngine.wasProcessedByEngineForAllOwnedIdentities {
+            os_log("💰 Finishing the transaction with identifier %{public}@", log: log, type: .info, transactionIdentifier)
+            SKPaymentQueue.default().finishTransaction(transactionSentToEngine.transaction)
+        } else {
+            currentPurchaseTransactionsSentToEngine[transactionIdentifier] = transactionSentToEngine
         }
     }
 
@@ -274,18 +303,22 @@ extension SubscriptionManager: PaymentOperationsDelegate {
         assert(OperationQueue.current == internalQueue)
         assert(!currentPurchaseTransactionsSentToEngine.keys.contains(transactionIdentifier))
         os_log("💰 Processing AppStore purchase transaction with identifier %{public}@", log: log, type: .info, transactionIdentifier)
-        currentPurchaseTransactionsSentToEngine[transactionIdentifier] = transaction
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            let ownedIdentities: [PersistedObvOwnedIdentity]
+            let ownedCryptoIds: Set<ObvCryptoId>
             do {
-                ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: context)
+                let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: context)
+                ownedCryptoIds = Set(ownedIdentities.map({ $0.cryptoId }))
             } catch {
                 assertionFailure(error.localizedDescription)
                 return
             }
-            guard ownedIdentities.count == 1 else { assertionFailure(); return }
-            os_log("💰 Sending the receipt data to the engine for verification. Transaction identifier is %{public}@", log: log, type: .info, transactionIdentifier, transactionIdentifier)
-            obvEngine.processAppStorePurchase(for: ownedIdentities.first!.cryptoId, receiptData: receiptData, transactionIdentifier: transactionIdentifier)
+            let transactionSentToEngine = PurchaseTransactionForToEngine(transactionIdentifier: transactionIdentifier,
+                                                                         transaction: transaction,
+                                                                         ownedCryptoIds: ownedCryptoIds)
+            currentPurchaseTransactionsSentToEngine[transactionIdentifier] = transactionSentToEngine
+
+            os_log("💰 Sending the receipt data to the engine for verification. Transaction identifier is %{public}@ and it concerns %d identitie(s)", log: log, type: .info, transactionIdentifier, ownedCryptoIds.count)
+            obvEngine.processAppStorePurchase(for: ownedCryptoIds, receiptData: receiptData, transactionIdentifier: transactionIdentifier)
         }
     }
 }

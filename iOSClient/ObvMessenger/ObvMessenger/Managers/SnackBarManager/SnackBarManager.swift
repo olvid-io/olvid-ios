@@ -57,7 +57,7 @@ actor SnackBarManager {
     private func listenToNotifications() async {
         await listenToUIApplicationNotifications()
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged { newOwnedCryptoId, _ in
+            ObvMessengerInternalNotification.observeMetaFlowControllerDidSwitchToOwnedIdentity { newOwnedCryptoId in
                 Task { [weak self] in await self?.replaceCurrentCryptoId(by: newOwnedCryptoId) }
             },
             ObvMessengerInternalNotification.observeUserDismissedSnackBarForLater { [weak self] ownedCryptoId, snackBarCategory in

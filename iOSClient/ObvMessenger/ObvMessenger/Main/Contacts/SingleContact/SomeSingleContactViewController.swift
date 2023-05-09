@@ -18,6 +18,12 @@
  */
 
 import Foundation
+import ObvTypes
 
 
-protocol SomeSingleContactViewController {}
+protocol SomeSingleContactViewController {
+    
+    var currentOwnedCryptoId: ObvCryptoId { get }
+    var contactPermanentID: ContactPermanentID { get }
+    
+}

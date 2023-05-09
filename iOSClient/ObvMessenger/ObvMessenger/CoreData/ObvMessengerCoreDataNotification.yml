@@ -4,6 +4,7 @@ import:
   - ObvEngine
   - ObvCrypto
   - ObvTypes
+  - ObvUI
 notifications:
 - name: newDraftToSend
   params:
@@ -16,6 +17,7 @@ notifications:
   - {name: persistedMessageObjectID, type: NSManagedObjectID}
 - name: newOrUpdatedPersistedInvitation
   params:
+  - {name: concernedOwnedIdentityIsHidden, type: Bool}
   - {name: obvDialog, type: ObvDialog}
   - {name: persistedInvitationUUID, type: UUID}
 - name: persistedContactWasInserted
@@ -123,3 +125,17 @@ notifications:
 - name: aPersistedGroupV2MemberChangedFromPendingToNonPending
   params:
   - {name: contactObjectID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
+- name: ownedCircledInitialsConfigurationDidChange
+  params:
+  - {name: ownedIdentityPermanentID, type: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: newOwnedCircledInitialsConfiguration, type: CircledInitialsConfiguration}
+- name: persistedObvOwnedIdentityWasDeleted
+- name: ownedIdentityHiddenStatusChanged
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: isHidden, type: Bool}
+- name: numberOfNewMessagesChangedForOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: numberOfNewMessages, type: Int}

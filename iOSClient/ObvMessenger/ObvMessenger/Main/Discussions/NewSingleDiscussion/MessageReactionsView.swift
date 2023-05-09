@@ -17,9 +17,12 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import Foundation
-import SwiftUI
+
 import CoreData
+import Foundation
+import ObvUI
+import SwiftUI
+
 
 final class MessageReactionsListHostingViewController: UIHostingController<MessageReactionsListView>, MessageReactionsListViewModelDelegate {
 
@@ -276,7 +279,7 @@ struct MessageReactionsListInnerView: View {
 
 fileprivate struct FixedWidthImage: View {
     
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     
     var body: some View {
         Image(systemIcon: systemIcon)

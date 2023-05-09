@@ -26,14 +26,16 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
 
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DiscussionsFlowViewController.self))
 
-    let ownedCryptoId: ObvCryptoId
+    private(set) var currentOwnedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
     
+    static let errorDomain = "DiscussionsFlowViewController"
+
     var observationTokens = [NSObjectProtocol]()
 
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
 
-        self.ownedCryptoId = ownedCryptoId
+        self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         
         let recentDiscussionsVC = RecentDiscussionsViewController(ownedCryptoId: ownedCryptoId, logCategory: "RecentDiscussionsViewController")
@@ -86,6 +88,21 @@ extension DiscussionsFlowViewController {
     }
     
 }
+
+
+// MARK: - Switching current owned identity
+
+extension DiscussionsFlowViewController {
+    
+    @MainActor
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        popToRootViewController(animated: false)
+        guard let recentDiscussionsViewController = viewControllers.first as? RecentDiscussionsViewController else { assertionFailure(); return }
+        await recentDiscussionsViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    }
+    
+}
+
 
 // MARK: - RecentDiscussionsViewControllerDelegate and DiscussionPickerViewControllerDelegate
 

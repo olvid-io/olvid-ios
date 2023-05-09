@@ -31,8 +31,6 @@ final class PendingDeleteFromServer: NSManagedObject, ObvManagedObject {
     // MARK: Internal constants
     
     private static let entityName = "PendingDeleteFromServer"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
 
     // MARK: Attributes
     
@@ -63,15 +61,32 @@ final class PendingDeleteFromServer: NSManagedObject, ObvManagedObject {
 
 extension PendingDeleteFromServer {
     
+    struct Predicate {
+        enum Key: String {
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+        }
+        static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
+        }
+        static func withMessageIdUid(_ messageIdUid: UID) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdUid, EqualToData: messageIdUid.raw)
+        }
+        static func withMessageId(_ messageId: MessageIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnedCryptoIdentity(messageId.ownedCryptoIdentity),
+                withMessageIdUid(messageId.uid),
+            ])
+        }
+    }
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<PendingDeleteFromServer> {
         return NSFetchRequest<PendingDeleteFromServer>(entityName: PendingDeleteFromServer.entityName)
     }
 
     static func get(messageId: MessageIdentifier, within obvContext: ObvContext) throws -> PendingDeleteFromServer? {
         let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                        rawMessageIdOwnedIdentityKey, messageId.ownedCryptoIdentity.getIdentity() as NSData,
-                                        rawMessageIdUidKey, messageId.uid.raw as NSData)
+        request.predicate = Predicate.withMessageId(messageId)
         request.fetchLimit = 1
         let item = (try obvContext.fetch(request)).first
         return item
@@ -81,5 +96,10 @@ extension PendingDeleteFromServer {
         let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
         let items = try obvContext.fetch(request)
         return items
+    }
+    
+    static func deleteAllPendingDeleteFromServerForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
     }
 }

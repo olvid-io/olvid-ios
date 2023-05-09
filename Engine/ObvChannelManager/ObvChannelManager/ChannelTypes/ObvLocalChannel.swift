@@ -82,7 +82,8 @@ final class ObvLocalChannel: ObvChannel {
                                                              receptionChannelInfo: .Local,
                                                              encodedElements: message.encodedElements)
                         
-            try protocolDelegate.process(receivedMessage, within: obvContext)
+            os_log("Processing a posted protocol message with a (just created) messageId %{public}@", log: log, type: .info, messageId.debugDescription)
+            try protocolDelegate.processProtocolReceivedMessage(receivedMessage, within: obvContext)
             
             return messageId
             

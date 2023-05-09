@@ -151,8 +151,8 @@ extension ObvFlowManager {
     
     // Handling the completion handler received together with a remote push notification
     
-    public func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier {
-        try self.delegateManager.remoteNotificationDelegate.startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler: handler)
+    public func startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: Set<ObvCryptoIdentity>, withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier {
+        try self.delegateManager.remoteNotificationDelegate.startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: ownedCryptoIds, withCompletionHandler: handler)
     }
 
     public func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {

@@ -26,6 +26,7 @@ import os.log
 import VisionKit
 import PDFKit
 import SwiftUI
+import ObvUI
 
 
 @available(iOS 15.0, *)
@@ -34,7 +35,7 @@ protocol NewComposeMessageViewDelegate: UIViewController {
 }
 
 @available(iOS 15.0, *)
-final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextViewDelegate, ViewShowingHardLinks {
+final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLinks {
     
     private let multipleButtonsStackView = UIStackView()
     private let textViewForTyping = AutoGrowingTextView()
@@ -65,7 +66,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
 
     private var constraintsForState = [State: [NSLayoutConstraint]]()
     private var constraintsWhenButtonsHolderIsHiden: [NSLayoutConstraint]!
-    private var currentState = State.multipleButtonsWithoutText
+    private var currentState = State.initial
     private var viewsToShowForState = [State: [UIView]]()
     
     private var constraintsWhenShowingReplyTo = [NSLayoutConstraint]()
@@ -107,7 +108,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
     // When switching state, we often perfom multiple views animations. If multiple events occurs, it might occur that we start an animation for switching from state A to B, and start another animation for switch from B to C before the previous animation finishes. To prevent this situation, we use a DispatchGroup and a serial queue in order to wait until an animation is finished before starting the next one.
     private let dispatchGroupForCoordinatingStateSwitches = DispatchGroup() // Tested
     private let queueForCoordinatingStateSwitches = DispatchQueue(label: "Compose view animation coordinator queue", qos: .userInteractive)
-    
+
     private static let errorDomain = "NewComposeMessageView"
     private func makeError(message: String) -> Error {
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]
@@ -342,7 +343,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
         textViewForTyping.backgroundColor = .none
         textViewForTyping.delegate = self
         textViewForTyping.autoGrowingTextViewDelegate = self
-                
+
         textFieldBubble.addSubview(textPlaceholder)
         textPlaceholder.translatesAutoresizingMaskIntoConstraints = false
         textPlaceholder.font = textViewForTyping.font
@@ -395,6 +396,10 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
         
         // Configure the attachments collection view
         
+        assert(delegate != nil)
+        attachmentsCollectionViewController.willMove(toParent: delegate)
+        delegate?.addChild(attachmentsCollectionViewController)
+        attachmentsCollectionViewController.didMove(toParent: delegate)
         addSubview(attachmentsCollectionViewController.view)
         attachmentsCollectionViewController.view.translatesAutoresizingMaskIntoConstraints = false
         
@@ -582,6 +587,9 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, AutoGrowingTextVi
         
         for state in State.allCases {
             switch state {
+            case .initial:
+                constraintsForState[state] = []
+                viewsToShowForState[state] = []
             case .multipleButtonsWithoutText:
                 constraintsForState[state] = [
                     textFieldBubble.topAnchor.constraint(equalTo: multipleButtonsStackView.topAnchor),
@@ -1079,24 +1087,12 @@ extension NewComposeMessageView {
     
 
     @objc func textFieldBubbleWasTapped() {
-        ObvDisplayableLogs.shared.log("🎹 Text Field Bubble Was Tapped")
-        ObvDisplayableLogs.shared.log("🎹 Current State is \(currentState.debugDescription)")
         guard currentState != .recording else { return }
         textFieldBubbleWasJustTapped = true
         if textViewForTyping.isFirstResponder {
-            ObvDisplayableLogs.shared.log("🎹 textViewForTyping is First Responder")
-            ObvDisplayableLogs.shared.log("🎹 textFieldBubbleWasTapped calls switchToState")
             switchToState(newState: .typing, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
         } else {
-            ObvDisplayableLogs.shared.log("🎹 textViewForTyping is not First Responder")
-            ObvDisplayableLogs.shared.log("🎹 textViewForTyping can become First Responder: \(textViewForTyping.canBecomeFirstResponder)")
-            if let window = textViewForTyping.window {
-                ObvDisplayableLogs.shared.log("🎹 textViewForTyping window is key window: \(window.isKeyWindow)")
-            } else {
-                ObvDisplayableLogs.shared.log("🎹 textViewForTyping has no windows :/")
-            }
-            let successed = textViewForTyping.becomeFirstResponder()
-            ObvDisplayableLogs.shared.log("🎹 textViewForTyping is now the first responder: \(successed)")
+            textViewForTyping.becomeFirstResponder()
             // The state is switched when the keyboard appears
         }
     }
@@ -1105,6 +1101,9 @@ extension NewComposeMessageView {
     @objc func paperplaneButtonTapped() {
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         switch currentState {
+        case .initial:
+            do { try CompositionViewFreezeManager.shared.unfreeze(draft.objectPermanentID, success: true) } catch { assertionFailure() }
+            return
         case .recording:
             if ObvAudioRecorder.shared.isRecording {
                 let draftPermanentID = draft.objectPermanentID
@@ -1175,6 +1174,7 @@ extension NewComposeMessageView: ObvAudioRecorderDelegate {
 extension NewComposeMessageView {
     
     enum State: CaseIterable {
+        case initial
         case multipleButtonsWithText
         case multipleButtonsWithoutText
         case typing
@@ -1182,6 +1182,7 @@ extension NewComposeMessageView {
         
         var debugDescription: String {
             switch self {
+            case .initial: return "initial"
             case .multipleButtonsWithText: return "multipleButtonsWithText"
             case .multipleButtonsWithoutText: return "multipleButtonsWithoutText"
             case .typing: return "typing"
@@ -1227,77 +1228,107 @@ extension NewComposeMessageView {
     ///
     /// Although the `newAttachmentsState` could be computed locally, we keep it in the arguments to make it clear that the `AttachmentsState` is part of this view state.
     private func switchToState(newState: State, newAttachmentsState: AttachmentsState, animationValues: (duration: Double, options: UIView.AnimationOptions)?, completionForSendButton: (() -> Void)?) {
-        ObvDisplayableLogs.shared.log("🎹 Switch from (\(currentState.debugDescription), \(currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription))")
-        let animationDebugUIDPrefix = UUID().uuidString.prefix(5)
-        self.currentState = newState
-        if let animationValues = animationValues {
-            // We asynchronously dispatch the call to the DispatchGroup to prevent a deadlock
-            queueForCoordinatingStateSwitches.async { [weak self] in
-                guard let _self = self else { return }
-                ObvDisplayableLogs.shared.log("🎹 Dispatch group will wait")
-                _self.dispatchGroupForCoordinatingStateSwitches.wait()
-                ObvDisplayableLogs.shared.log("🎹 Dispatch group did wait: current (\(_self.currentState.debugDescription), \(_self.currentAttachmentsState.debugDescription)); new (\(newState.debugDescription), \(newAttachmentsState.debugDescription))")
-                ObvDisplayableLogs.shared.log("🎹 Dispatch group will enter")
-                _self.dispatchGroupForCoordinatingStateSwitches.enter()
-                ObvDisplayableLogs.shared.log("🎹 Dispatch group did enter")
+
+        guard newState != .initial else { return }
+        
+        let animationDebugId = String(UUID().uuidString.prefix(5))
+        
+        debugPrint("🎹 [\(animationDebugId)] Call to switchToState: (\(currentState.debugDescription), \(currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription))")
+        
+        // We want successive calls to be executed in order.
+        // We asynchronously dispatch the call to the DispatchGroup to prevent a deadlock
+
+        queueForCoordinatingStateSwitches.async { [weak self] in
+            guard let _self = self else { return }
+            
+            _self.dispatchGroupForCoordinatingStateSwitches.wait()
+            _self.dispatchGroupForCoordinatingStateSwitches.enter()
+            
+            guard _self.currentState != newState || _self.currentAttachmentsState != newAttachmentsState else {
+                debugPrint("🎹 [\(animationDebugId)] No need to animate")
+                // We still need to perform an atomic switch (since newState and newAttachmentsState do not capture the full state of the UI, yes, this is a bad design).
                 DispatchQueue.main.async {
-                    debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 1")
-
-                    let animatedLayoutIsNeeded = _self.adjustConstraintsForState(newState: newState, newAttachmentsState: newAttachmentsState)
-                    _self.unhideViewsForState(newState: newState)
-                    _self.textViewForTyping.setNeedsLayout()
-
-                    UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) { [weak self] in
-                        
-                        self?.configureViewsContentAndStyleForState(newState: newState)
-                        self?.textViewForTyping.layoutIfNeeded()
-                        if animatedLayoutIsNeeded {
-                            self?.layoutIfNeeded()
-                        }
-                        self?.adjustAlphasForState(newState: newState)
-                        
-                        debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 2")
-
-                    } completion: { [weak self] _ in
-                        
-                        self?.hideViewsForState(newState: newState)
-                        self?.unhideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
-                        
-                        debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 3")
-
-                        UIView.animate(withDuration: animationValues.duration, delay: 0.0) { [weak self] in
-                            
-                            self?.adjustAlphasForAttachmentsState(newAttachmentsState: newAttachmentsState)
-                            
-                            debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 4")
-
-                        } completion: { [weak self] _ in
-                            
-                            self?.hideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
-                            self?.currentAttachmentsState = newAttachmentsState
-                            self?.switchToAppropriateSendButton(animate: true, completion: completionForSendButton)
-
-                            self?.atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
-
-                            debugPrint("🥵 [\(animationDebugUIDPrefix)] Step 5")
-                            
-                            ObvDisplayableLogs.shared.log("🎹 Dispatch group will leave")
-                            self?.dispatchGroupForCoordinatingStateSwitches.leave()
-                            ObvDisplayableLogs.shared.log("🎹 Dispatch group did leave")
-                        }
+                    _self.atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
+                    _self.dispatchGroupForCoordinatingStateSwitches.leave()
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                if let animationValues = animationValues {
+                    
+                    debugPrint("🎹 [\(animationDebugId)] Animated switch: (\(_self.currentState.debugDescription), \(_self.currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription)) ")
+                    _self.animatedSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton, animationDebugId: animationDebugId, animationValues: animationValues) { [weak self] in
+                        self?.dispatchGroupForCoordinatingStateSwitches.leave()
                     }
+
+                } else {
+                    
+                    debugPrint("🎹 [\(animationDebugId)] Atomic switch: (\(_self.currentState.debugDescription), \(_self.currentAttachmentsState.debugDescription)) to (\(newState.debugDescription), \(newAttachmentsState.debugDescription)) ")
+                    _self.atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
+                    _self.dispatchGroupForCoordinatingStateSwitches.leave()
 
                 }
             }
-            
-            
-        } else {
-            atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
+
         }
     }
     
     
+    private func animatedSwitchToState(newState: State, newAttachmentsState: AttachmentsState, completionForSendButton: (() -> Void)?, animationDebugId: String, animationValues: (duration: Double, options: UIView.AnimationOptions), completion: @escaping () -> Void) {
+        
+        assert(Thread.isMainThread)
+        
+        debugPrint("🎹 [\(animationDebugId)] Step 1")
+
+        let animatedLayoutIsNeeded = adjustConstraintsForState(newState: newState, newAttachmentsState: newAttachmentsState)
+        unhideViewsForState(newState: newState)
+        textViewForTyping.setNeedsLayout()
+
+        UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) { [weak self] in
+            
+            self?.configureViewsContentAndStyleForState(newState: newState)
+            self?.textViewForTyping.layoutIfNeeded()
+            if animatedLayoutIsNeeded {
+                self?.layoutIfNeeded()
+            }
+            self?.adjustAlphasForState(newState: newState)
+            
+            debugPrint("🎹 [\(animationDebugId)] Step 2")
+
+        } completion: { [weak self] _ in
+            
+            self?.hideViewsForState(newState: newState)
+            self?.unhideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
+            
+            debugPrint("🎹 [\(animationDebugId)] Step 3")
+
+            UIView.animate(withDuration: animationValues.duration, delay: 0.0) { [weak self] in
+                
+                self?.adjustAlphasForAttachmentsState(newAttachmentsState: newAttachmentsState)
+                
+                debugPrint("🎹 [\(animationDebugId)] Step 4")
+
+            } completion: { [weak self] _ in
+                
+                self?.hideViewsForAttachmentsState(newAttachmentsState: newAttachmentsState)
+                self?.currentState = newState
+                self?.currentAttachmentsState = newAttachmentsState
+
+                self?.atomicSwitchToState(newState: newState, newAttachmentsState: newAttachmentsState, completionForSendButton: completionForSendButton)
+
+                debugPrint("🎹 [\(animationDebugId)] Step 5")
+                
+                completion()
+                
+            }
+        }
+
+    }
+    
+    
     private func atomicSwitchToState(newState: State, newAttachmentsState: AttachmentsState, completionForSendButton: (() -> Void)?) {
+        assert(Thread.isMainThread)
         _ = adjustConstraintsForState(newState: newState, newAttachmentsState: newAttachmentsState)
         configureViewsContentAndStyleForState(newState: newState)
         unhideViewsForState(newState: newState)
@@ -1309,7 +1340,6 @@ extension NewComposeMessageView {
         currentState = newState
         currentAttachmentsState = newAttachmentsState
         switchToAppropriateSendButton(animate: true, completion: completionForSendButton)
-        ObvDisplayableLogs.shared.log("🎹 State was switch to \(currentState.debugDescription)")
     }
 
 
@@ -1365,7 +1395,7 @@ extension NewComposeMessageView {
     /// This method should only be called from the `switchToState` method
     private func configureViewsContentAndStyleForState(newState: State) {
         switch newState {
-        case .multipleButtonsWithoutText:
+        case .multipleButtonsWithoutText, .initial:
             textPlaceholder.textColor = .secondaryLabel
             textPlaceholder.text = "Aa"
             textFieldBubble.backgroundColor = .systemFill
@@ -1513,7 +1543,6 @@ extension NewComposeMessageView {
         let curve = UIView.AnimationOptions(rawValue: curveInt)
         let animationValues = (duration, curve)
 
-        ObvDisplayableLogs.shared.log("🎹 keyboardWillShow calls switchToState")
         switchToState(newState: .typing, newAttachmentsState: evaluateNewAttachmentState(), animationValues: animationValues, completionForSendButton: nil)
         
     }
@@ -1549,13 +1578,11 @@ extension NewComposeMessageView {
 extension NewComposeMessageView {
 
     func textViewDidBeginEditing(_ textView: UITextView) {
-        ObvDisplayableLogs.shared.log("🎹 textViewDidBeginEditing calls switchToState")
         switchToState(newState: .typing, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
     }
     
     
     func textViewDidChange(_ textView: UITextView) {
-        ObvDisplayableLogs.shared.log("🎹 textViewDidChange calls switchToState")
         switchToState(newState: .typing, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
         textSubject.send(DraftBodyWithId(body: textView.text, id: currentDraftId))
     }
@@ -1575,8 +1602,7 @@ extension NewComposeMessageView {
 // MARK: - AutoGrowingTextViewDelegate
 
 @available(iOS 15.0, *)
-extension NewComposeMessageView {
-    
+extension NewComposeMessageView: AutoGrowingTextViewDelegate {
     func userPastedItemProviders(in autoGrowingTextView: AutoGrowingTextView, itemProviders: [NSItemProvider]) {
         guard autoGrowingTextView == self.textViewForTyping else { assertionFailure(); return }
         let draftPermanentID = draft.objectPermanentID
@@ -1587,7 +1613,18 @@ extension NewComposeMessageView {
         }
         .postOnDispatchQueue(self.internalQueue)
     }
-    
+
+    func autoGrowingTextView(_ textView: AutoGrowingTextView, perform action: AutoGrowingTextViewDelegateTypes.Action) {
+        switch action {
+        case .keyboardPerformReturn:
+            // Make sure that we actually have text to submit, since we're creating a temp draft
+            guard textView.hasText else {
+                return
+            }
+
+            paperplaneButtonTapped()
+        }
+    }
 }
 
 
@@ -1685,6 +1722,7 @@ extension NewComposeMessageView: PHPickerViewControllerDelegate {
     
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
+        guard !results.isEmpty else { return }
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         let draftPermanentID = draft.objectPermanentID
         delegateViewController?.showHUD(type: .spinner)

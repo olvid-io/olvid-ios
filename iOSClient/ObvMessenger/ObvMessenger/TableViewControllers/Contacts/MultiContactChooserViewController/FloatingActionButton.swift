@@ -17,17 +17,18 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
 
 class FloatingButtonModel: ObservableObject {
 
     let title: String
-    let systemIcon: ObvSystemIcon?
+    let systemIcon: SystemIcon?
     @Published var isEnabled: Bool
     let action: () -> Void
 
-    init(title: String, systemIcon: ObvSystemIcon?, isEnabled: Bool, action: @escaping () -> Void) {
+    init(title: String, systemIcon: SystemIcon?, isEnabled: Bool, action: @escaping () -> Void) {
         self.title = title
         self.systemIcon = systemIcon
         self.isEnabled = isEnabled

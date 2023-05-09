@@ -112,18 +112,18 @@ actor WebSocketManager {
         guard requiresWebSocket != currentStateNeedsWebsockets else { return }
         currentStateNeedsWebsockets = requiresWebSocket
         if requiresWebSocket {
-            connectWebsockets()
+            Task { await connectWebsockets() }
         } else {
-            disconnectWebsockets()
+            Task { await disconnectWebsockets() }
         }
     }
     
 
-    private func connectWebsockets() {
+    private func connectWebsockets() async {
         assert(!Thread.isMainThread)
         do {
             os_log("🧦🏁☎️🏓 Will request the engine to connect websockets", log: Self.log, type: .info)
-            try obvEngine.downloadMessagesAndConnectWebsockets()
+            try await obvEngine.downloadMessagesAndConnectWebsockets()
         } catch {
             os_log("Could not download messages not connect websockets: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             assertionFailure()
@@ -131,11 +131,11 @@ actor WebSocketManager {
     }
     
     
-    private func disconnectWebsockets() {
+    private func disconnectWebsockets() async {
         assert(!Thread.isMainThread)
         os_log("🧦🏁☎️🏓 Will request the engine to disconnect websockets", log: Self.log, type: .info)
         do {
-            try obvEngine.disconnectWebsockets()
+            try await obvEngine.disconnectWebsockets()
         } catch {
             os_log("🧦Could not disconnect websockets: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             assertionFailure()

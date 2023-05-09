@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvTypes
 import ObvEngine
+import ObvUI
 
 final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
 
@@ -31,6 +32,7 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
     private let collectionViewLayout: UICollectionViewLayout
     private let collectionView: UICollectionView
     private var collectionViewSizeChanged = false
+    private var viewDidLoadWasCalled = false
     
     private let obvEngine: ObvEngine
     
@@ -83,6 +85,19 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    
+    // MARK: - Switching current owned identity
+
+    @MainActor
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        guard viewDidLoadWasCalled else { return }
+        configureTheFetchedResultsController()
+        performFetch()
+        collectionView.reloadData()
+    }
+
 }
 
 // MARK: - Mappings between IndexPath
@@ -108,6 +123,7 @@ extension InvitationsCollectionViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        viewDidLoadWasCalled = true
         
         registerCells()
         configureFlowLayoutForAutoSizingCells()
@@ -193,10 +209,10 @@ extension InvitationsCollectionViewController {
         
         // Mark all the invitations as "old"
         
-        let ownedCryptoId = self.ownedCryptoId
+        let ownCryptoId = self.currentOwnedCryptoId
         let log = self.log
         ObvStack.shared.performBackgroundTask { (context) in
-            guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else { return }
+            guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownCryptoId, within: context) else { return }
             do {
                 try PersistedInvitation.markAllAsOld(for: persistedOwnedIdentity)
                 try context.save(logOnFailure: log)
@@ -214,7 +230,7 @@ extension InvitationsCollectionViewController {
 extension InvitationsCollectionViewController: NSFetchedResultsControllerDelegate {
     
     private func configureTheFetchedResultsController() {
-        fetchedResultsController = PersistedInvitation.getFetchedResultsControllerForOwnedIdentity(with: ownedCryptoId, within: ObvStack.shared.viewContext)
+        fetchedResultsController = PersistedInvitation.getFetchedResultsControllerForOwnedIdentity(with: currentOwnedCryptoId, within: ObvStack.shared.viewContext)
         fetchedResultsController.delegate = self
     }
     
@@ -452,8 +468,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.identityColors = contactURLIdentity.cryptoId.colors
             cell.details = Strings.InviteSent.details(contactURLIdentity.fullDisplayName)
             cell.buttonTitle = CommonString.Word.Abort
-            cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
+            cell.buttonAction = { [weak self] in
+                self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
@@ -469,11 +485,11 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.details = Strings.AcceptInvite.details(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))
             cell.buttonTitle1 = CommonString.Word.Accept
             cell.buttonTitle2 = Strings.AcceptInvite.buttonTitle2
-            cell.button1Action = {
-                [weak self] in self?.acceptInvitation(dialog: obvDialog)
+            cell.button1Action = { [weak self] in
+                self?.acceptInvitation(dialog: obvDialog)
             }
-            cell.button2Action = {
-                [weak self] in self?.rejectInvitation(dialog: obvDialog, confirmed: false)
+            cell.button2Action = { [weak self] in
+                self?.rejectInvitation(dialog: obvDialog, confirmed: false)
             }
             
         case .invitationAccepted(contactIdentity: let contactIdentity):
@@ -487,8 +503,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.identityColors = contactIdentity.cryptoId.colors
             cell.details = Strings.InvitationAccepted.details(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))
             cell.buttonTitle = CommonString.Word.Abort
-            cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
+            cell.buttonAction = { [weak self] in
+                self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
@@ -533,8 +549,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.details = Strings.SasConfirmed.details(contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.firstNameThenLastName), sas)
             try? cell.setOwnSas(ownSas: sasToDisplay)
             cell.buttonTitle = CommonString.Word.Abort
-            cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
+            cell.buttonAction = { [weak self] in
+                self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
@@ -552,9 +568,9 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.addButton(title: Strings.showContactButtonTitle, style: .obvButtonBorderless) { [weak self] in
                 guard let _self = self else { return }
                 ObvStack.shared.performBackgroundTask { (context) in
-                    guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
+                    guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.currentOwnedCryptoId, within: context) else { return }
                     guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject, whereOneToOneStatusIs: .any) else { return }
-                    let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: contactIdendityObject.objectPermanentID)
+                    let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: _self.currentOwnedCryptoId, objectPermanentID: contactIdendityObject.objectPermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                         .postOnDispatchQueue()
                 }
@@ -626,8 +642,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.identityColors = mediatorIdentity.cryptoId.colors
             cell.details = Strings.MediatorInviteAccepted.details(mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full), contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full))
             cell.buttonTitle = CommonString.Word.Abort
-            cell.buttonAction = {
-                [weak self] in self?.abandonInvitation(dialog: obvDialog, confirmed: false)
+            cell.buttonAction = { [weak self] in
+                self?.abandonInvitation(dialog: obvDialog, confirmed: false)
             }
             cell.useLeadingButton()
             
@@ -645,9 +661,9 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.addButton(title: Strings.showContactButtonTitle, style: .obvButtonBorderless) { [weak self] in
                 guard let _self = self else { return }
                 ObvStack.shared.performBackgroundTask { (context) in
-                    guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { return }
+                    guard let ownedIdentityObject = try? PersistedObvOwnedIdentity.get(cryptoId: _self.currentOwnedCryptoId, within: context) else { return }
                     guard let contactIdendityObject = try? PersistedObvContactIdentity.get(cryptoId: contactIdentity.cryptoId, ownedIdentity: ownedIdentityObject, whereOneToOneStatusIs: .any) else { return }
-                    let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: contactIdendityObject.objectPermanentID)
+                    let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: _self.currentOwnedCryptoId, objectPermanentID: contactIdendityObject.objectPermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                         .postOnDispatchQueue()
                 }
@@ -716,8 +732,8 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             cell.buttonTitle = CommonString.Word.Abort
             cell.buttonAction = { [weak self] in
                 assert(Thread.isMainThread)
-                guard let ownedCryptoId = self?.ownedCryptoId else { return }
-                self?.delegate?.userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ownedCryptoId, contactCryptoId: contactIdentity.cryptoId)
+                guard let ownCryptoId = self?.currentOwnedCryptoId else { return }
+                self?.delegate?.userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ownCryptoId, contactCryptoId: contactIdentity.cryptoId)
             }
             cell.useLeadingButton()
 
@@ -759,7 +775,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
                 os_log("The cell type (%{public}@) does not correspond to the dialog's category of the invitation (%{public}@)", log: log, type: .fault, String(describing: cellToConfigure), obvDialog.category.description)
                 return
             }
-            guard let inviterContact = try? PersistedObvContactIdentity.get(contactCryptoId: inviter, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else {
+            guard let inviterContact = try? PersistedObvContactIdentity.get(contactCryptoId: inviter, ownedIdentityCryptoId: currentOwnedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else {
                 assertionFailure()
                 return
             }
@@ -778,7 +794,7 @@ extension InvitationsCollectionViewController: UICollectionViewDataSource {
             }
             cell.setTitle(with: Strings.AcceptGroupInvite.subsubTitle)
             let list: [String] = group.otherMembers.map {
-                if let memberContact = try? PersistedObvContactIdentity.get(contactCryptoId: $0.identity, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
+                if let memberContact = try? PersistedObvContactIdentity.get(contactCryptoId: $0.identity, ownedIdentityCryptoId: currentOwnedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
                     return memberContact.customOrNormalDisplayName
                 } else if let details = try? ObvIdentityCoreDetails($0.serializedIdentityCoreDetails) {
                     return details.getDisplayNameWithStyle(.firstNameThenLastName)

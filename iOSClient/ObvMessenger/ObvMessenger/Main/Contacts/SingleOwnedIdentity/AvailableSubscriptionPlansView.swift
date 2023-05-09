@@ -17,12 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
+
 import ObvEngine
-import StoreKit
 import os.log
 import ObvTypes
-
+import ObvUI
+import StoreKit
+import SwiftUI
 
 
 final class AvailableSubscriptionPlans: ObservableObject {
@@ -389,11 +390,11 @@ struct SKProductCardView: View {
     let price: Text
     let description: Text
     let buttonTitle: Text
-    let buttonSystemIcon: ObvSystemIcon?
+    let buttonSystemIcon: SystemIcon?
     let buttonAction: () -> Void
     @Binding var buttonIsDisabled: Bool
         
-    init(title: Text, price: Text, description: Text, buttonTitle: Text, buttonSystemIcon: ObvSystemIcon?, buttonAction: @escaping () -> Void, buttonIsDisabled: Binding<Bool>) {
+    init(title: Text, price: Text, description: Text, buttonTitle: Text, buttonSystemIcon: SystemIcon?, buttonAction: @escaping () -> Void, buttonIsDisabled: Binding<Bool>) {
         self.title = title
         self.price = price
         self.description = description
@@ -403,7 +404,7 @@ struct SKProductCardView: View {
         self._buttonIsDisabled = buttonIsDisabled
     }
     
-    init(skProduct: SKProduct, buttonTitle: Text, buttonSystemIcon: ObvSystemIcon?, buttonAction: @escaping () -> Void, buttonIsDisabled: Binding<Bool>) {
+    init(skProduct: SKProduct, buttonTitle: Text, buttonSystemIcon: SystemIcon?, buttonAction: @escaping () -> Void, buttonIsDisabled: Binding<Bool>) {
         let price: Text
         if let subscriptionPeriod = skProduct.subscriptionPeriod {
             price = Text("\(skProduct.localizedPrice)/\(subscriptionPeriod.unit.localizedDescription)")

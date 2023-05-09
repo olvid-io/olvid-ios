@@ -82,10 +82,10 @@ extension GroupInvitationProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 3) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 3) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             self.groupInformation = try encodedElements[0].obvDecode()
             self.dialogUuid = try encodedElements[1].obvDecode()
-            guard let listOfEncodedMembers = [ObvEncoded](encodedElements[2]) else { throw NSError() }
+            guard let listOfEncodedMembers = [ObvEncoded](encodedElements[2]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded members") }
             self.pendingGroupMembers = Set(try listOfEncodedMembers.map { try $0.obvDecode() })
         }
 

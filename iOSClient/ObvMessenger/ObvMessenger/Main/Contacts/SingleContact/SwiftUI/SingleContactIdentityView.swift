@@ -17,11 +17,11 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
+import CoreData
 import ObvTypes
 import ObvEngine
-import CoreData
-
+import ObvUI
+import SwiftUI
 
 
 struct SingleContactIdentityView: View {

@@ -17,8 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
   
-
+import ObvUI
 import SwiftUI
+
 
 enum CircleAndTitlesDisplayMode {
     case normal
@@ -29,7 +30,7 @@ enum CircleAndTitlesDisplayMode {
 enum CircleAndTitlesEditionMode {
     case none
     case picture(update: (UIImage?) -> Void)
-    case custom(icon: ObvSystemIcon, action: () -> Void)
+    case custom(icon: SystemIcon, action: () -> Void)
 }
 
 // Note from TB on 2022-08-04: we probably should be using CircledInitialsConfiguration here

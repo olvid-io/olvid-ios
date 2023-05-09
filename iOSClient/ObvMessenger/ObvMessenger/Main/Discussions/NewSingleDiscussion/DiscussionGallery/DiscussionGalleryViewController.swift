@@ -18,13 +18,16 @@
  */
   
 
-import UIKit
+
 import CoreData
-import os.log
-import OlvidUtils
-import UniformTypeIdentifiers
-import QuickLook
 import MobileCoreServices
+import ObvUI
+import OlvidUtils
+import os.log
+import QuickLook
+import UIKit
+import UniformTypeIdentifiers
+
 
 fileprivate enum JoinKind: Int, CaseIterable {
     case medias = 0
@@ -749,9 +752,9 @@ extension JoinGalleryViewController {
             
             // Show in discussion action
 
-            if let messagePermanentID = join.message?.messagePermanentID {
+            if let messagePermanentID = join.message?.messagePermanentID, let ownedCryptoId = join.message?.discussion.ownedIdentity?.cryptoId {
                 let action = UIAction(title: NSLocalizedString("SHOW_IN_DISCUSSION", comment: "")) { (_) in
-                    let deepLink = ObvDeepLink.message(objectPermanentID: messagePermanentID)
+                    let deepLink = ObvDeepLink.message(ownedCryptoId: ownedCryptoId, objectPermanentID: messagePermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                         .postOnDispatchQueue()
                 }
@@ -1244,7 +1247,7 @@ final class IconView: UIView {
     let iconView = UIImageView()
 
     struct Configuration: Equatable {
-        let icon: ObvSystemIcon
+        let icon: SystemIcon
         let tintColor: UIColor?
     }
 

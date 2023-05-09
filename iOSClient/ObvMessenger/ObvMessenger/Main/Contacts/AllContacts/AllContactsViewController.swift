@@ -17,10 +17,12 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
-import os.log
-import ObvTypes
 import CoreData
+import os.log
+import ObvUI
+import ObvTypes
+import UIKit
+
 
 final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, OlvidMenuProvider, ViewControllerWithEllipsisCircleRightBarButtonItem {
 
@@ -32,6 +34,7 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     private let oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus
     private let showExplanation: Bool
     private let textAboveContactList: String?
+    private var viewDidLoadWasCalled = false
 
     // Delegates
     
@@ -39,11 +42,11 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     
     // MARK: - Initializer
     
-    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool, textAboveContactList: String?) {
+    init(ownedCryptoId: ObvCryptoId, oneToOneStatus: PersistedObvContactIdentity.OneToOneStatus, title: String = CommonString.Word.Contacts, showExplanation: Bool, textAboveContactList: String?, barButtonItemToShowInsteadOfProfilePicture: UIBarButtonItem? = nil) {
         self.oneToOneStatus = oneToOneStatus
         self.showExplanation = showExplanation
         self.textAboveContactList = textAboveContactList
-        super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllContactsViewController")
+        super.init(ownedCryptoId: ownedCryptoId, logCategory: "AllContactsViewController", barButtonItemToShowInsteadOfProfilePicture: barButtonItemToShowInsteadOfProfilePicture)
         self.title = title
         observeContactsSortOrderDidChangeNotifications()
     }
@@ -51,6 +54,23 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    
+    // MARK: - Switching current owned identity
+
+    @MainActor
+    override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        guard viewDidLoadWasCalled else { return }
+        for multipleContactsHostingViewController in children.compactMap({ $0 as? MultipleContactsHostingViewController }) {
+            multipleContactsHostingViewController.view.removeFromSuperview()
+            multipleContactsHostingViewController.willMove(toParent: nil)
+            multipleContactsHostingViewController.removeFromParent()
+            multipleContactsHostingViewController.didMove(toParent: nil)
+        }
+        addAndConfigureContactsTableViewController()
+    }
+        
 }
 
 
@@ -60,6 +80,7 @@ extension AllContactsViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        viewDidLoadWasCalled = true
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         addAndConfigureContactsTableViewController()
         definesPresentationContext = true
@@ -87,7 +108,7 @@ extension AllContactsViewController {
             menuElements.append(contentsOf: parentMenu.children)
         }
         
-        let ownedCryptoId = self.ownedCryptoId
+        let ownedCryptoId = self.currentOwnedCryptoId
         func buildAction(sortOrder: ContactsSortOrder) -> UIAction {
             .init(title: sortOrder.description,
                   image: nil,
@@ -135,13 +156,20 @@ extension AllContactsViewController {
     
     private func presentViewControllerOfAllNonOneToOneContacts() {
         assert(Thread.isMainThread)
-        let vc = AllContactsViewController(ownedCryptoId: ownedCryptoId,
+        
+        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+        let image = UIImage(systemIcon: .xmarkCircleFill, withConfiguration: symbolConfiguration)
+        let barButtonItem = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
+        barButtonItem.tintColor = AppTheme.shared.colorScheme.olvidLight
+
+        let vc = AllContactsViewController(ownedCryptoId: currentOwnedCryptoId,
                                            oneToOneStatus: .nonOneToOne,
                                            title: NSLocalizedString("OTHER_KNOWN_USERS", comment: ""),
                                            showExplanation: false,
-                                           textAboveContactList: CommonString.explanationNonOneToOneContact)
+                                           textAboveContactList: CommonString.explanationNonOneToOneContact,
+                                           barButtonItemToShowInsteadOfProfilePicture: barButtonItem)
         vc.delegate = self.delegate
-        vc.replaceOwnedIdentityButton(byIcon: .xmarkCircle, target: self, action: #selector(dismissViewControllerOfAllNonOneToOneContacts))
+                
         let nav = UINavigationController(rootViewController: vc)
         self.present(nav, animated: true)
     }
@@ -183,7 +211,7 @@ extension AllContactsViewController {
     
     private func addAndConfigureContactsTableViewController() {
         let mode: MultipleContactsMode = .all(oneToOneStatus: self.oneToOneStatus, requiredCapabilitites: nil)
-        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
+        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: currentOwnedCryptoId,
                                                                               mode: mode,
                                                                               disableContactsWithoutDevice: false,
                                                                               allowMultipleSelection: false,

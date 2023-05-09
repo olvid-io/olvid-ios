@@ -36,6 +36,7 @@ public enum APIKeyStatus: Int, CustomStringConvertible {
     case awaitingPaymentGracePeriod = 6
     case awaitingPaymentOnHold = 7
     case freeTrialExpired = 8
+    case anotherOwnedIdentityHasValidAPIKey = 9
     
     public var description: String {
         switch self {
@@ -48,6 +49,7 @@ public enum APIKeyStatus: Int, CustomStringConvertible {
         case .awaitingPaymentGracePeriod: return "awaiting payment - grace period"
         case .awaitingPaymentOnHold: return "awaiting payment - on hold"
         case .freeTrialExpired: return "free trial expired"
+        case .anotherOwnedIdentityHasValidAPIKey: return "another owned identity has valid API Key"
         }
     }
     
@@ -55,7 +57,7 @@ public enum APIKeyStatus: Int, CustomStringConvertible {
         switch self {
         case .valid, .free, .freeTrial:
             return true
-        case .licensesExhausted, .expired, .unknown, .awaitingPaymentGracePeriod, .awaitingPaymentOnHold, .freeTrialExpired:
+        case .licensesExhausted, .expired, .unknown, .awaitingPaymentGracePeriod, .awaitingPaymentOnHold, .freeTrialExpired, .anotherOwnedIdentityHasValidAPIKey:
             return false
         }
     }

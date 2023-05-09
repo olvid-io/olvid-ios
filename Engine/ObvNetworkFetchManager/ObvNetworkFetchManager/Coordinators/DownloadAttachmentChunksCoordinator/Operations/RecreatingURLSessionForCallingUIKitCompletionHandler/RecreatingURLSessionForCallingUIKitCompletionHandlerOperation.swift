@@ -85,10 +85,13 @@ final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Opera
             let attachmentSession: InboxAttachmentSession
             do {
                 let _attachmentSession = try InboxAttachmentSession.getWithSessionIdentifier(urlSessionIdentifier, within: obvContext)
-                guard _attachmentSession != nil else { throw NSError() }
-                attachmentSession = _attachmentSession!
+                guard let _attachmentSession else {
+                    os_log("Could not find any OutboxAttachmentSession for the given session identifier. Callin the completion handler now.", log: log, type: .error)
+                    return cancel(withReason: .couldNotFindOutboxAttachmentSessionInDatabase)
+                }
+                attachmentSession = _attachmentSession
             } catch {
-                os_log("Could not find any OutboxAttachmentSession for the given session identifier. Callin the completion handler now.", log: log, type: .error)
+                os_log("Could not find any OutboxAttachmentSession for the given session identifier. Callin the completion handler now (2).", log: log, type: .error)
                 return cancel(withReason: .couldNotFindOutboxAttachmentSessionInDatabase)
             }
 

@@ -25,6 +25,7 @@ import os.log
 import QuickLook
 import CoreData
 import OlvidUtils
+import ObvUI
 
 protocol CustomQLPreviewControllerDelegate: QLPreviewControllerDelegate {
     func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)

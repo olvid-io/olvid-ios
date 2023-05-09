@@ -25,10 +25,14 @@ import MobileCoreServices
 import AVFoundation
 import Combine
 import ObvTypes
+import OlvidUtils
+import ObvUI
 
 @available(iOS 15.0, *)
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate, ObvErrorMaker {
     
+    static let errorDomain = "NewSingleDiscussionViewController"
+    let currentOwnedCryptoId: ObvCryptoId
     static let sectionHeaderElementKind = UICollectionView.elementKindSectionHeader
     private var collectionView: DiscussionCollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, NSManagedObjectID>!
@@ -65,8 +69,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var singleTapOnCell: UITapGestureRecognizer!
     private var doubleTapOnCell: UITapGestureRecognizer!
     
-    /// The following variables allow to simulate the keyboardLayoutGuide introduced by Apple in iOS 15. Since, for now in iOS 15.0.2, it does not work with the
-    /// emoji keyboard, we simulate it.
+    /// Apple introduced a keyboardLayoutGuide in iOS 15. Yet, this guide does not work with the emoji keyboard in iOS 15.0.2.
+    /// The bug is fixed in iOS 15.5.
+    /// So we simulate this guide with a custom UILayoutGuide for iOS up to 15.5 (excluded) and use the built-in keyboardLayoutGuide for iOS 15.5 and up.
     private let myKeyboardLayoutGuide = UILayoutGuide()
     private var myKeyboardLayoutGuideHeightConstraint: NSLayoutConstraint? // Set later
 
@@ -102,11 +107,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         
     weak var delegate: SingleDiscussionViewControllerDelegate?
     
-    private static let errorDomain = "NewSingleDiscussionViewController"
-    private func makeError(message: String) -> Error {
-        NSError(domain: NewSingleDiscussionViewController.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
-    }
-
     private let dateFormaterForHeaders: DateFormatter = {
         let df = DateFormatter()
         df.locale = Locale.current
@@ -159,7 +159,11 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         case newMessageSystemOrLastMessage
     }
 
-    init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate, initialScroll: InitialScroll) {
+    init(discussion: PersistedDiscussion, delegate: SingleDiscussionViewControllerDelegate, initialScroll: InitialScroll) throws {
+        guard let ownCryptoId = discussion.ownedIdentity?.cryptoId else {
+            throw Self.makeError(message: "Could not determine owned identity")
+        }
+        self.currentOwnedCryptoId = ownCryptoId
         self.draftObjectID = discussion.draft.typedObjectID
         self.discussionObjectID = discussion.typedObjectID
         self.discussionPermanentID = discussion.discussionPermanentID
@@ -243,8 +247,11 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
 
         // This constraint was *not* set in viewDidLoad. We want to reset it every time the main view will appear
         // Otherwise, it seems that the constraint "disappears" each time another VC is presented over this one.
-        // NOTE: replaced by myKeyboardLayoutGuide until Apple fixes the bug with keyboardLayoutGuide
-        myKeyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView!.bottomAnchor).isActive = true
+        if #available(iOS 15.5, *) {
+            view.keyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView!.bottomAnchor).isActive = true
+        } else {
+            myKeyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView!.bottomAnchor).isActive = true
+        }
 
         configureNewComposeMessageViewVisibility(animate: false)
     }
@@ -545,17 +552,20 @@ extension NewSingleDiscussionViewController {
 
     
     private func configureComposeMessageViewHierarchy() {
-        
-        // We configure the in-house layout guide and use it until Apple fixes the bug with the keyboardLayoutGuide.
-        view.addLayoutGuide(myKeyboardLayoutGuide)
-        
-        NSLayoutConstraint.activate([
-            myKeyboardLayoutGuide.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            myKeyboardLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
-        ])
-        myKeyboardLayoutGuideHeightConstraint = myKeyboardLayoutGuide.heightAnchor.constraint(equalToConstant: view.safeAreaInsets.bottom)
-        myKeyboardLayoutGuideHeightConstraint?.isActive = true
-        
+
+        if #unavailable(iOS 15.5) {
+            // We configure the in-house layout guide.
+            view.addLayoutGuide(myKeyboardLayoutGuide)
+
+            NSLayoutConstraint.activate([
+                myKeyboardLayoutGuide.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                myKeyboardLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
+            ])
+            myKeyboardLayoutGuideHeightConstraint = myKeyboardLayoutGuide.heightAnchor.constraint(equalToConstant: view.safeAreaInsets.bottom)
+            myKeyboardLayoutGuideHeightConstraint?.isActive = true
+
+        }
+
         backgroundEffectViewForComposeView = UIVisualEffectView()
         view.addSubview(backgroundEffectViewForComposeView)
         backgroundEffectViewForComposeView.translatesAutoresizingMaskIntoConstraints = false
@@ -566,14 +576,24 @@ extension NewSingleDiscussionViewController {
 
         // The bottomAnchor of the composeMessageView is pinned to the view's keyboardLayoutGuide in viewWillAppear.
         // In practice, this allows to reset this constraint after a new VC was presented or pushed over this one.
-        NSLayoutConstraint.activate([
-            composeMessageView!.widthAnchor.constraint(equalTo: view.widthAnchor),
-            composeMessageView!.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            backgroundEffectViewForComposeView.topAnchor.constraint(equalTo: composeMessageView!.topAnchor),
-            backgroundEffectViewForComposeView.trailingAnchor.constraint(equalTo: composeMessageView!.trailingAnchor),
-            backgroundEffectViewForComposeView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            backgroundEffectViewForComposeView.leadingAnchor.constraint(equalTo: composeMessageView!.leadingAnchor),
-        ])
+        if #available(iOS 15.5, *) {
+            NSLayoutConstraint.activate([
+                composeMessageView!.widthAnchor.constraint(equalTo: view.widthAnchor),
+                backgroundEffectViewForComposeView.topAnchor.constraint(equalTo: composeMessageView!.topAnchor),
+                backgroundEffectViewForComposeView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                backgroundEffectViewForComposeView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                backgroundEffectViewForComposeView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                composeMessageView!.widthAnchor.constraint(equalTo: view.widthAnchor),
+                composeMessageView!.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                backgroundEffectViewForComposeView.topAnchor.constraint(equalTo: composeMessageView!.topAnchor),
+                backgroundEffectViewForComposeView.trailingAnchor.constraint(equalTo: composeMessageView!.trailingAnchor),
+                backgroundEffectViewForComposeView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                backgroundEffectViewForComposeView.leadingAnchor.constraint(equalTo: composeMessageView!.leadingAnchor),
+            ])
+        }
                 
     }
     
@@ -986,7 +1006,7 @@ extension NewSingleDiscussionViewController {
     /// This method is called once, during init, to compute the initial value of the `objectIDsOfMessagesToConsiderInNewMessagesCell` set.
     private func computeInitialValueOfObjectIDsOfMessagesToConsiderInNewMessagesCell() throws {
         guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
-            throw makeError(message: "Could not find discussion")
+            throw Self.makeError(message: "Could not find discussion")
         }
         let newReceivedMessages = try PersistedMessageReceived.getAllNew(in: discussion)
         let newSystemMessages = try PersistedMessageSystem.getAllNewRelevantSystemMessages(in: discussion)
@@ -1483,8 +1503,10 @@ extension NewSingleDiscussionViewController {
                         // In case the message was forwarded to exactly one discussion, we want to push this discussion onto the navigation stack
                         if discussionPermanentIDs.count == 1,
                            let discussionPermanentID = discussionPermanentIDs.first,
-                           discussionPermanentID != persistedMessage.discussion.discussionPermanentID {
-                            let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: discussionPermanentID)
+                           discussionPermanentID != persistedMessage.discussion.discussionPermanentID,
+                           let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId {
+                            // We assume the discussion belongs the current owned identity
+                            let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
                             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                                 .postOnDispatchQueue()
                         }
@@ -1720,7 +1742,11 @@ extension NewSingleDiscussionViewController {
         if newComposeMessageView.isHidden {
             bottom = view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
         } else {
-            bottom = frame.height + myKeyboardLayoutGuideHeightConstraint!.constant - view.safeAreaInsets.bottom
+            if #available(iOS 15.5, *) {
+                bottom = frame.height + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
+            } else {
+                bottom = frame.height + myKeyboardLayoutGuideHeightConstraint!.constant - view.safeAreaInsets.bottom
+            }
         }
         guard collectionView.contentInset.bottom != bottom else { return }
         
@@ -1751,10 +1777,11 @@ extension NewSingleDiscussionViewController {
         defer { isRegisteredToKeyboardNotifications = true }
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHideOrShow(_:)), name: UIResponder.keyboardDidHideNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHideOrShow(_:)), name: UIResponder.keyboardDidShowNotification, object: nil)
-        
-        // This observers updates the in-house keyboard layout guide. It will be removed as soon as Apple's keyboardLayoutGuide works as expected
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowOrHide(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowOrHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+        if #unavailable(iOS 15.5) {
+            // This observers updates the in-house keyboard layout guide. It will be removed as soon as Apple's keyboardLayoutGuide works as expected
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowOrHide(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShowOrHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+        }
     }
 
     
@@ -1766,7 +1793,8 @@ extension NewSingleDiscussionViewController {
         }
     }
 
-    
+    // Should only be used for iOS < 15.5
+    @available(iOS, introduced: 15.0, deprecated: 15.5, message: "Used to simulated Apple's built-in keyboardLayoutGuide as it is bugged for iOS before 15.5")
     @objc private func keyboardWillShowOrHide(_ notification: Notification) {
         let info = notification.userInfo
         guard let endRect = info?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { assertionFailure(); return }

@@ -17,9 +17,10 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
-import ObvTypes
 import CoreData
+import ObvUI
+import ObvTypes
+import SwiftUI
 
 
 struct MessageMetadatasSectionView: View {
@@ -58,7 +59,7 @@ fileprivate struct MetadataView: View {
     let forKind: PersistedMessage.MetadataKind
     var dateAsString: String?
     
-    private var icon: ObvSystemIcon {
+    private var icon: SystemIcon {
         switch forKind {
         case .read:
             return .eyeFill

@@ -81,8 +81,10 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
             let encryptedData = EncryptedData(data: data)
             // Ugly hack: the filename contains a timestamp after which the file is considered "orphan" and can be deleted
             let expiration = Int(Date().addingTimeInterval(ObvConstants.getUserDataLocalFileLifespan).timeIntervalSince1970)
-            /// REMARK This file name is parsed in ServerUserDataCoordinator#initialQueueing
-            let filename = String(expiration) + "." + serverLabel.hexString()
+            // Remark: This file name is parsed in ServerUserDataCoordinator#initialQueueing
+            // 2023-01-10: we added a random UUID at the end of the filename to make sure that when two owned identity dowload the same user data at the same time
+            // (e.g., the same group photo), each downloaded data has its own URL (otherwise, deleting one actually deletes the other, which is unexpected).
+            let filename = String(expiration) + "." + serverLabel.hexString() + "-" + UUID().uuidString
             let userDataPath = downloadedUserData.appendingPathComponent(filename)
 
             do {

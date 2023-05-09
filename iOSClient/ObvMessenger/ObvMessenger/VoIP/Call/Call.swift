@@ -39,6 +39,9 @@ actor Call: GenericCall, ObvErrorMaker {
     let uuidForWebRTC: UUID
     let groupId: GroupIdentifierBasedOnObjectID?
     let ownedIdentity: ObvCryptoId
+    /// Used for an outgoing call. If the owned identity making the call is allowed to do so, this is set to this owned identity. If she is not, this is set to some other owned identity on this device that is allowed to make calls.
+    /// This makes it possible to make secure outgoing calls available to all profiles on this device as soon as one profile is allowed to make secure outgoing calls.
+    let ownedIdentityForRequestingTurnCredentials: ObvCryptoId
     private var callParticipants = Set<HashableCallParticipant>()
 
     private var tokens: [NSObjectProtocol] = []
@@ -256,7 +259,7 @@ actor Call: GenericCall, ObvErrorMaker {
     }
 
     
-    private init(direction: CallDirection, uuid: UUID, usesCallKit: Bool, uuidForWebRTC: UUID?, groupId: GroupIdentifierBasedOnObjectID?, ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data?, messageUploadTimestampFromServer: Date?, initialParticipantCount: Int, turnCredentialsReceivedFromCaller: TurnCredentials?, obvTurnCredentials: ObvTurnCredentials?, queueForPostingNotifications: DispatchQueue) {
+    private init(direction: CallDirection, uuid: UUID, usesCallKit: Bool, uuidForWebRTC: UUID?, groupId: GroupIdentifierBasedOnObjectID?, ownedIdentity: ObvCryptoId, ownedIdentityForRequestingTurnCredentials: ObvCryptoId?, messageIdentifierFromEngine: Data?, messageUploadTimestampFromServer: Date?, initialParticipantCount: Int, turnCredentialsReceivedFromCaller: TurnCredentials?, obvTurnCredentials: ObvTurnCredentials?, queueForPostingNotifications: DispatchQueue) {
         
         self.uuid = uuid
         self.usesCallKit = usesCallKit
@@ -264,6 +267,7 @@ actor Call: GenericCall, ObvErrorMaker {
         self.uuidForWebRTC = uuidForWebRTC ?? uuid
         self.groupId = groupId
         self.ownedIdentity = ownedIdentity
+        self.ownedIdentityForRequestingTurnCredentials = ownedIdentityForRequestingTurnCredentials ?? ownedIdentity
         self.queueForPostingNotifications = queueForPostingNotifications
 
         // Specific to incoming calls
@@ -310,6 +314,7 @@ actor Call: GenericCall, ObvErrorMaker {
                         uuidForWebRTC: uuidForWebRTC,
                         groupId: groupId,
                         ownedIdentity: callParticipant.ownedIdentity,
+                        ownedIdentityForRequestingTurnCredentials: nil,
                         messageIdentifierFromEngine: messageIdentifierFromEngine,
                         messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                         initialParticipantCount: startCallMessage.participantCount,
@@ -330,7 +335,7 @@ actor Call: GenericCall, ObvErrorMaker {
     
     // MARK: Creating an outgoing call
 
-    static func createOutgoingCall(contactIds: [OlvidUserId], delegate: OutgoingCallDelegate, usesCallKit: Bool, groupId: GroupIdentifierBasedOnObjectID?, queueForPostingNotifications: DispatchQueue) async throws -> Call {
+    static func createOutgoingCall(contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, delegate: OutgoingCallDelegate, usesCallKit: Bool, groupId: GroupIdentifierBasedOnObjectID?, queueForPostingNotifications: DispatchQueue) async throws -> Call {
 
         var callParticipants = [CallParticipantImpl]()
         for contactId in contactIds {
@@ -348,6 +353,7 @@ actor Call: GenericCall, ObvErrorMaker {
                         uuidForWebRTC: nil,
                         groupId: groupId,
                         ownedIdentity: participant.ownCryptoId,
+                        ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
                         messageIdentifierFromEngine: nil,
                         messageUploadTimestampFromServer: nil,
                         initialParticipantCount: callParticipants.count,
@@ -1385,7 +1391,7 @@ extension Call {
         }
         await setCallState(to: .gettingTurnCredentials)
         assert(outgoingCallDelegate != nil)
-        await outgoingCallDelegate?.turnCredentialsRequiredByOutgoingCall(outgoingCallUuidForWebRTC: uuidForWebRTC, forOwnedIdentity: ownedIdentity)
+        await outgoingCallDelegate?.turnCredentialsRequiredByOutgoingCall(outgoingCallUuidForWebRTC: uuidForWebRTC, forOwnedIdentity: ownedIdentityForRequestingTurnCredentials)
     }
 
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,7 +42,7 @@ public enum ObvNetworkFetchNotificationNew {
 	case inboxAttachmentDownloadWasResumed(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case inboxAttachmentDownloadWasPaused(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
 	case inboxAttachmentWasTakenCareOf(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-	case noInboxMessageToProcess(flowId: FlowIdentifier)
+	case noInboxMessageToProcess(flowId: FlowIdentifier, ownedCryptoIdentity: ObvCryptoIdentity)
 	case newInboxMessageToProcess(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], flowId: FlowIdentifier)
 	case turnCredentialsReceived(ownedIdentity: ObvCryptoIdentity, callUuid: UUID, turnCredentialsWithTurnServers: TurnCredentialsWithTurnServers, flowId: FlowIdentifier)
 	case turnCredentialsReceptionFailure(ownedIdentity: ObvCryptoIdentity, callUuid: UUID, flowId: FlowIdentifier)
@@ -194,9 +194,10 @@ public enum ObvNetworkFetchNotificationNew {
 				"attachmentId": attachmentId,
 				"flowId": flowId,
 			]
-		case .noInboxMessageToProcess(flowId: let flowId):
+		case .noInboxMessageToProcess(flowId: let flowId, ownedCryptoIdentity: let ownedCryptoIdentity):
 			info = [
 				"flowId": flowId,
+				"ownedCryptoIdentity": ownedCryptoIdentity,
 			]
 		case .newInboxMessageToProcess(messageId: let messageId, attachmentIds: let attachmentIds, flowId: let flowId):
 			info = [
@@ -421,11 +422,12 @@ public enum ObvNetworkFetchNotificationNew {
 		}
 	}
 
-	public static func observeNoInboxMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeNoInboxMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (FlowIdentifier, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
 		let name = Name.noInboxMessageToProcess.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(flowId)
+			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
+			block(flowId, ownedCryptoIdentity)
 		}
 	}
 

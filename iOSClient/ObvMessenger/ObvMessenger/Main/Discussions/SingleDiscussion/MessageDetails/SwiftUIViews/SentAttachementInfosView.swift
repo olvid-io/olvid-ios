@@ -18,6 +18,7 @@
  */
 
 
+import ObvUI
 import SwiftUI
 
 
@@ -40,7 +41,7 @@ struct AllSentFyleMessageJoinWithStatusView: View {
 
 fileprivate extension SentFyleMessageJoinWithStatus {
     
-    var systemIcon: ObvSystemIcon {
+    var systemIcon: SystemIcon {
         switch self.receptionStatus {
         case .read: return .eyeFill
         case .delivered: return .checkmarkCircleFill
@@ -80,7 +81,7 @@ struct SentFyleMessageJoinWithStatusView: View {
         sentFyleMessageJoinWithStatus.fileName
     }
     
-    private var systemIcon: ObvSystemIcon {
+    private var systemIcon: SystemIcon {
         sentFyleMessageJoinWithStatus.systemIcon
     }
 
@@ -167,7 +168,7 @@ struct AllPersistedAttachmentSentRecipientInfosView: View {
 
 fileprivate extension PersistedAttachmentSentRecipientInfos {
     
-    var systemIcon: ObvSystemIcon {
+    var systemIcon: SystemIcon {
         switch self.status {
         case .uploadable: return .circleDashed
         case .uploading: return .arrowUpCircle
@@ -188,7 +189,7 @@ struct PersistedAttachmentSentRecipientInfosView: View {
         persistedAttachmentSentRecipientInfos.messageInfo?.recipientName ?? ""
     }
     
-    private var systemIcon: ObvSystemIcon {
+    private var systemIcon: SystemIcon {
         persistedAttachmentSentRecipientInfos.systemIcon
     }
     

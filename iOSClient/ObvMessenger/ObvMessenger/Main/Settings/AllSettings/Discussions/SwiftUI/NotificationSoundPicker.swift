@@ -18,8 +18,9 @@
  */
   
 
-import SwiftUI
 import AudioToolbox
+import ObvUI
+import SwiftUI
 
 
 struct NotificationSoundPicker<Content: View>: View {
@@ -115,7 +116,7 @@ struct NotificationSoundList<Content: View>: View {
 }
 
 struct InnerNotificationSoundList<Content: View>: View {
-    let icon: (ObvSystemIcon, Color)?
+    let icon: (SystemIcon, Color)?
     let title: String?
     let subtitle: String?
     let sounds: [OptionalNotificationSound]

@@ -89,11 +89,7 @@ extension PersistedMessageSystem {
                 }
             } else if let otherCount = content.othersCount, otherCount >= 1 {
                 result += " "
-                if otherCount == 1 {
-                    result += NSLocalizedString("WITH_ONE_PARTICIPANT", comment: "")
-                } else {
-                    result += String.localizedStringWithFormat(NSLocalizedString("WITH_%@_PARTICIPANTS", comment: ""), String(otherCount))
-                }
+                result += String.localizedStringWithFormat(NSLocalizedString("WITH_N_PARTICIPANTS", comment: ""), otherCount)
             }
             if let dateString = content.dateString {
                 result += " - "

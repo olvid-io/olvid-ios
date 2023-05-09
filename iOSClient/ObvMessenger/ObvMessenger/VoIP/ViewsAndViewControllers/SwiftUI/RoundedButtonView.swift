@@ -17,7 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
+
 
 struct RoundedButtonView: View {
     var size: CGFloat = 60

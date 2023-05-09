@@ -164,25 +164,25 @@
 			<string>%u most recent backups</string>
 		</dict>
 	</dict>
-    <key>backups count</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>zero</key>
-            <string>No backups</string>
-            <key>one</key>
-            <string>One backup</string>
-            <key>other</key>
-            <string>%u backups</string>
-        </dict>
-    </dict>
-    <key>missed messages count</key>
+	<key>backups count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No backups</string>
+			<key>one</key>
+			<string>One backup</string>
+			<key>other</key>
+			<string>%u backups</string>
+		</dict>
+	</dict>
+	<key>missed messages count</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@Variable@</string>
@@ -198,125 +198,143 @@
 			<string>%u missing messages</string>
 		</dict>
 	</dict>
-    <key>clean in progress count</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>zero</key>
-            <string>no deleted backups</string>
-            <key>one</key>
-            <string>one deleted backup</string>
-            <key>other</key>
-            <string>%u deleted backups</string>
-        </dict>
-    </dict>
-    <key>KEYCLOAK_MISSING_SEARCH_RESULT</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>one</key>
-            <string>One additional search result is available. Please refine your search.</string>
-            <key>other</key>
-            <string>%u additional search results are available. Please refine your search.</string>
-        </dict>
-    </dict>
-    <key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_MESSAGE</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>one</key>
-            <string>Modifying this setting requires you to accept one pending group invitation.</string>
-            <key>other</key>
-            <string>Modifying this setting requires you to accept %u pending group invitations.</string>
-        </dict>
-    </dict>
-    <key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_ACCEPT_ACTION_TITLE</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>one</key>
-            <string>Accept the pending group invitation now</string>
-            <key>other</key>
-            <string>Accept the %u pending group invitations now</string>
-        </dict>
-    </dict>
-    <key>CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>zero</key>
-            <string>choose</string>
-            <key>one</key>
-            <string>one selected</string>
-            <key>other</key>
-            <string>%u selected</string>
-        </dict>
-    </dict>
-    <key>NUMBER_OF_ITEMS_SELECTED</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>zero</key>
-            <string>Choose items</string>
-            <key>one</key>
-            <string>1 item selected</string>
-            <key>other</key>
-            <string>%u items selected</string>
-        </dict>
-    </dict>
-    <key>NUMBER_OF_ELEMENTS</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@Variable@</string>
-        <key>Variable</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>u</string>
-            <key>zero</key>
-            <string>No element</string>
-            <key>one</key>
-            <string>1 element</string>
-            <key>other</key>
-            <string>%u elements</string>
-        </dict>
-    </dict>
+	<key>clean in progress count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>no deleted backups</string>
+			<key>one</key>
+			<string>one deleted backup</string>
+			<key>other</key>
+			<string>%u deleted backups</string>
+		</dict>
+	</dict>
+	<key>KEYCLOAK_MISSING_SEARCH_RESULT</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>One additional search result is available. Please refine your search.</string>
+			<key>other</key>
+			<string>%u additional search results are available. Please refine your search.</string>
+		</dict>
+	</dict>
+	<key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_MESSAGE</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Modifying this setting requires you to accept one pending group invitation.</string>
+			<key>other</key>
+			<string>Modifying this setting requires you to accept %u pending group invitations.</string>
+		</dict>
+	</dict>
+	<key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_ACCEPT_ACTION_TITLE</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Accept the pending group invitation now</string>
+			<key>other</key>
+			<string>Accept the %u pending group invitations now</string>
+		</dict>
+	</dict>
+	<key>CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>choose</string>
+			<key>one</key>
+			<string>one selected</string>
+			<key>other</key>
+			<string>%u selected</string>
+		</dict>
+	</dict>
+	<key>NUMBER_OF_ITEMS_SELECTED</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Choose items</string>
+			<key>one</key>
+			<string>1 item selected</string>
+			<key>other</key>
+			<string>%u items selected</string>
+		</dict>
+	</dict>
+	<key>NUMBER_OF_ELEMENTS</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>No element</string>
+			<key>one</key>
+			<string>1 element</string>
+			<key>other</key>
+			<string>%u elements</string>
+		</dict>
+	</dict>
+	<key>WITH_N_PARTICIPANTS</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>without any participant</string>
+			<key>one</key>
+			<string>with one participant</string>
+			<key>other</key>
+			<string>with %u participants</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

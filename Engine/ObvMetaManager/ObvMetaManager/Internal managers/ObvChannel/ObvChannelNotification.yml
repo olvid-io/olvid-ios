@@ -25,3 +25,7 @@ notifications:
   params:
   - {name: messageId, type: MessageIdentifier}
   - {name: flowId, type: FlowIdentifier}
+- name: protocolMessageDecrypted
+  params:
+  - {name: protocolMessageId, type: MessageIdentifier}
+  - {name: flowId, type: FlowIdentifier}

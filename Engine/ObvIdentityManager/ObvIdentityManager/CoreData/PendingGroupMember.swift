@@ -129,7 +129,9 @@ extension PendingGroupMember {
 
     
     static func get(cryptoIdentity: ObvCryptoIdentity, contactGroup: ContactGroup, delegateManager: ObvIdentityDelegateManager) throws -> PendingGroupMember? {
-        guard let obvContext = contactGroup.obvContext else { throw NSError() }
+        guard let obvContext = contactGroup.obvContext else {
+            throw Self.makeError(message: "No obvContext")
+        }
         let request: NSFetchRequest<PendingGroupMember> = PendingGroupMember.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
                                         cryptoIdentityKey, cryptoIdentity,
@@ -142,7 +144,9 @@ extension PendingGroupMember {
     
     
     static func delete(cryptoIdentity: ObvCryptoIdentity, contactGroup: ContactGroup, delegateManager: ObvIdentityDelegateManager) throws {
-        guard let obvContext = contactGroup.obvContext else { throw NSError() }
+        guard let obvContext = contactGroup.obvContext else {
+            throw Self.makeError(message: "No obvContext")
+        }
         guard let obj = try get(cryptoIdentity: cryptoIdentity, contactGroup: contactGroup, delegateManager: delegateManager) else { return }
         obvContext.delete(obj)
     }

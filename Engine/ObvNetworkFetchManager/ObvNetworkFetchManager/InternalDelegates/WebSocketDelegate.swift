@@ -24,19 +24,17 @@ import OlvidUtils
 
 protocol WebSocketDelegate {
     
-    func connectAll(flowId: FlowIdentifier)
-    func reconnectAll()
-    func disconnectAll(flowId: FlowIdentifier)
+    func connectAll(flowId: FlowIdentifier) async
+    func disconnectAll(flowId: FlowIdentifier) async
 
-    func setWebSocketServerURL(to webSocketServerURL: URL, for identity: ObvCryptoIdentity)
-    func setDeviceUid(to deviceUid: UID, for identity: ObvCryptoIdentity)
-    func setServerSessionToken(to token: Data, for identity: ObvCryptoIdentity)
-    func updateWebSocketServerURL(for serverURL: URL, to webSocketServerURL: URL)
+    func setWebSocketServerURL(for serverURL: URL, to webSocketServerURL: URL) async
+    func setDeviceUid(to deviceUid: UID, for identity: ObvCryptoIdentity) async
+    func setServerSessionToken(to token: Data, for identity: ObvCryptoIdentity) async
 
-    func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) throws
+    func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws
 
-    func getWebSocketState(ownedIdentity: ObvCryptoIdentity, completionHander: @escaping (Result<(URLSessionTask.State,TimeInterval?),Error>) -> Void)
+    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (URLSessionTask.State,TimeInterval?)
 
-    func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier)
+    func updateListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async
 
 }

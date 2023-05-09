@@ -588,6 +588,8 @@ extension EngineCoordinator {
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
             do {
+                // We first make sure the owned identity stil exist before trying to reactivate it
+                guard try identityDelegate.isOwned(ownedCryptoIdentity, within: obvContext) else { return }
                 try identityDelegate.reactivateOwnedIdentity(ownedIdentity: ownedCryptoIdentity, within: obvContext)
                 try obvContext.save(logOnFailure: log)
             } catch let error {

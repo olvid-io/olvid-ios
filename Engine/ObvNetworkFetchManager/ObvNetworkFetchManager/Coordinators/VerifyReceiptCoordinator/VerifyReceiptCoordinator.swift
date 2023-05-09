@@ -50,7 +50,7 @@ final class VerifyReceiptCoordinator: NSObject {
 
 extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
     
-    func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
+    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -74,17 +74,19 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
             
             _self.currentTransactions.insert(transactionIdentifier)
             
-            let op = VerifyReceiptOperation(identity: ownedIdentity,
-                                            receiptData: receiptData,
-                                            transactionIdentifier: transactionIdentifier,
-                                            log: log,
-                                            flowId: flowId,
-                                            delegateManager: delegateManager,
-                                            delegate: _self)
-            _self.internalOperationQueue.addOperation(op)
-            _self.internalOperationQueue.waitUntilAllOperationsAreFinished()
+            let ops = ownedCryptoIdentities.map({
+                VerifyReceiptOperation(identity: $0,
+                                       receiptData: receiptData,
+                                       transactionIdentifier: transactionIdentifier,
+                                       log: log,
+                                       flowId: flowId,
+                                       delegateManager: delegateManager,
+                                       delegate: _self)            })
+            _self.internalOperationQueue.addOperations(ops, waitUntilFinished: true)
             os_log("💰 VerifyReceiptOperation is finished", log: log, type: .info)
-            op.logReasonIfCancelled(log: log)
+            for op in ops {
+                op.logReasonIfCancelled(log: log)
+            }
             
         }
         
@@ -111,10 +113,10 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
             _self.receiptToVerifyWhenNewSessionIsAvailable.removeAll()
         }
         
-        os_log("💰 We very the %d receipt(s) that were exepecting a new server session", log: log, type: .info, receipts.count)
+        os_log("💰 We verify the %d receipt(s) that were exepecting a new server session", log: log, type: .info, receipts.count)
         
         for receipt in receipts {
-            verifyReceipt(ownedIdentity: receipt.ownedIdentity,
+            verifyReceipt(ownedCryptoIdentities: [receipt.ownedIdentity],
                           receiptData: receipt.receiptData,
                           transactionIdentifier: receipt.transactionIdentifier,
                           flowId: receipt.flowId)

@@ -17,9 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
+import ObvUI
 import UIKit
-
-
 
 
 final class EphemeralityInformationsView: ViewForOlvidStack {
@@ -107,7 +107,7 @@ final fileprivate class ImageAndLabelView: ViewForOlvidStack {
     
     private let label = UILabel()
     private let imageView = UIImageView()
-    private let imageSystemIcon: ObvSystemIcon
+    private let imageSystemIcon: SystemIcon
     private let showLabel: Bool
     
     var text: String? {
@@ -115,7 +115,7 @@ final fileprivate class ImageAndLabelView: ViewForOlvidStack {
         set { label.text = newValue }
     }
     
-    init(imageSystemIcon: ObvSystemIcon, showLabel: Bool) {
+    init(imageSystemIcon: SystemIcon, showLabel: Bool) {
         self.imageSystemIcon = imageSystemIcon
         self.showLabel = showLabel
         super.init(frame: .zero)

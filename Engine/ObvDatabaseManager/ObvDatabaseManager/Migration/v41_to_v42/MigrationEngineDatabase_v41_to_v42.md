@@ -6,4 +6,4 @@ Add the creationDate attribute. This requires a heavyweight migration.
 
 ## Conclusion
 
-A heavywight migration is required.
+A heavyweight migration is required.

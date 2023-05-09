@@ -60,7 +60,7 @@ extension DownloadIdentityPhotoChildProtocol {
         }
         
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             let encodedContactIdentityDetailsElements: Data = try encodedElements[1].obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)

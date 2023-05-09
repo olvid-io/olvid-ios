@@ -141,6 +141,10 @@ final class CompositionViewFreezeManager {
                 }
                 completion?()
             }
+        } else {
+            DispatchQueue.main.async {
+                completion?()
+            }
         }
     }
 

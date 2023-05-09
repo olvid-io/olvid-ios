@@ -21,12 +21,14 @@ import Foundation
 import OlvidUtils
 import ObvMetaManager
 import os.log
+import ObvCrypto
 
 
 final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     private static let batchSize = 10
     
+    private let ownedCryptoIdentity: ObvCryptoIdentity
     private let debugUuid = UUID()
     private let queueForPostingNotifications: DispatchQueue
     private let notificationDelegate: ObvNotificationDelegate
@@ -35,7 +37,8 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
     
     private(set) var moreUnprocessedMessagesRemain: Bool? // If the operation finishes without canceling, this is guaranteed to be set
     
-    init(queueForPostingNotifications: DispatchQueue, notificationDelegate: ObvNotificationDelegate, processDownloadedMessageDelegate: ObvProcessDownloadedMessageDelegate, log: OSLog) {
+    init(ownedCryptoIdentity: ObvCryptoIdentity, queueForPostingNotifications: DispatchQueue, notificationDelegate: ObvNotificationDelegate, processDownloadedMessageDelegate: ObvProcessDownloadedMessageDelegate, log: OSLog) {
+        self.ownedCryptoIdentity = ownedCryptoIdentity
         self.queueForPostingNotifications = queueForPostingNotifications
         self.notificationDelegate = notificationDelegate
         self.processDownloadedMessageDelegate = processDownloadedMessageDelegate
@@ -64,11 +67,11 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                 
                 // Find all inbox messages that still need to be processed
                 
-                let messages = try InboxMessage.getBatchOfUnprocessedMessages(batchSize: Self.batchSize, within: obvContext)
+                let messages = try InboxMessage.getBatchOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, batchSize: Self.batchSize, within: obvContext)
                 
                 guard !messages.isEmpty else {
                     moreUnprocessedMessagesRemain = false
-                    ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: obvContext.flowId)
+                    ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: obvContext.flowId, ownedCryptoIdentity: ownedCryptoIdentity)
                         .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                     return
                 }

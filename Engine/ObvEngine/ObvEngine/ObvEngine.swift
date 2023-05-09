@@ -68,8 +68,6 @@ public final class ObvEngine: ObvManager {
     
     let queueForPostingNotificationsToTheApp = DispatchQueue(label: "Queue for posting notifications to the app")
     
-    let queueForPerformingBootstrapMethods = DispatchQueue(label: "Background queue for performing the engine bootstrap methods")
-
     private let queueForSynchronizingCallsToManagers = DispatchQueue(label: "Queue for synchronizing calls to managers")
     
     // MARK: - Public factory methods
@@ -518,38 +516,91 @@ extension ObvEngine {
     }
     
     
-    public func generateOwnedIdentity(withApiKey apiKey: UUID, onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, keycloakState: ObvKeycloakState?, completion: @escaping (Result<ObvCryptoId,Error>) -> Void) throws {
+    public func generateOwnedIdentity(withApiKey apiKey: UUID, onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, keycloakState: ObvKeycloakState?) async throws -> ObvCryptoId {
+        return try await withCheckedThrowingContinuation { [weak self] continuation in
+            self?.generateOwnedIdentity(withApiKey: apiKey, onServerURL: serverURL, with: identityDetails, keycloakState: keycloakState, completion: { result in
+                switch result {
+                case .failure(let failure):
+                    continuation.resume(throwing: failure)
+                case .success(let ownedCryptoId):
+                    continuation.resume(returning: ownedCryptoId)
+                }
+            })
+        }
+    }
+    
+    
+    private func generateOwnedIdentity(withApiKey apiKey: UUID, onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, keycloakState: ObvKeycloakState?, completion: @escaping (Result<ObvCryptoId,Error>) -> Void) {
         
         // At this point, we should not pass signed details to the identity manager.
         assert(identityDetails.coreDetails.signedUserDetails == nil)
         
-        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
-        guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { completion(.failure(makeError(message: "The context delegate is not set"))); return  }
+        guard let identityDelegate = identityDelegate else { completion(.failure(makeError(message: "The identity delegate is not set"))); return }
 
         let flowId = FlowIdentifier()
 
-        var _ownedCryptoIdentity: ObvCryptoIdentity? = nil
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
-            guard let ownedCryptoIdentity = identityDelegate.generateOwnedIdentity(withApiKey: apiKey, onServerURL: serverURL, with: identityDetails, keycloakState: keycloakState, using: prng, within: obvContext) else {
-                throw makeError(message: "Could not generate owned identity")
-            }
-            let publishedIdentityDetails = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedCryptoIdentity, within: obvContext)
-            let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
-            try startIdentityDetailsPublicationProtocol(ownedIdentity: ownedCryptoId, publishedIdentityDetailsVersion: publishedIdentityDetails.ownedIdentityDetailsElements.version, within: obvContext)
-
-            do {
+        do {
+            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
+                guard let ownedCryptoIdentity = identityDelegate.generateOwnedIdentity(withApiKey: apiKey, onServerURL: serverURL, with: identityDetails, keycloakState: keycloakState, using: prng, within: obvContext) else {
+                    throw makeError(message: "Could not generate owned identity")
+                }
+                let publishedIdentityDetails = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+                let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                try startIdentityDetailsPublicationProtocol(ownedIdentity: ownedCryptoId,
+                                                            publishedIdentityDetailsVersion: publishedIdentityDetails.ownedIdentityDetailsElements.version,
+                                                            within: obvContext)
                 try obvContext.save(logOnFailure: log)
-            } catch {
-                os_log("Could not generate owned identity", log: log, type: .fault)
+                completion(.success(ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)))
+            }
+        } catch {
+            completion(.failure(error))
+            return
+        }
+        
+    }
+    
+    
+    public func deleteOwnedIdentity(with ownedCryptoId: ObvCryptoId, notifyContacts: Bool) throws {
+
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let networkPostDelegate = networkPostDelegate else { throw makeError(message: "The network post delegate is not set") }
+        guard let networkFetchDelegate = networkFetchDelegate else { throw makeError(message: "networkFetchDelegate is not set") }
+
+        let ownedCryptoIdentity = ownedCryptoId.cryptoIdentity
+        let flowId = FlowIdentifier()
+
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+        
+            // To delete an owned identity, we launch a protocol that will take care of everything except :
+            // - deleting sent/received messages
+            // - deleting ObvDialogs
+            // So we delete these items now.
+            
+            do {
+                let obvDialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
+                for obvDialog in obvDialogs {
+                    guard obvDialog.obvDialog?.ownedCryptoId == ownedCryptoId else { continue }
+                    deleteDialog(with: obvDialog.uuid, within: obvContext)
+                }
             }
             
-            _ownedCryptoIdentity = ownedCryptoIdentity
-            
-        }
-        guard let ownedCryptoIdentity = _ownedCryptoIdentity else { assertionFailure(); throw makeError(message: "Could not get owned identity. This is a bug.")}
-        
-        completion(.success(ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)))
+            try protocolDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
+            try networkPostDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
+            try networkFetchDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
 
+            // We can now launch the protocol taking care of the rest
+            
+            let message = try protocolDelegate.getInitiateOwnedIdentityDeletionMessage(
+                ownedCryptoIdentityToDelete: ownedCryptoIdentity,
+                notifyContacts: notifyContacts,
+                flowId: flowId)
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+        
     }
     
     
@@ -638,10 +689,11 @@ extension ObvEngine {
     }
     
     
-    public func processAppStorePurchase(for identity: ObvCryptoId, receiptData: String, transactionIdentifier: String) {
+    public func processAppStorePurchase(for ownedCryptoIds: Set<ObvCryptoId>, receiptData: String, transactionIdentifier: String) {
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); return }
         let flowId = FlowIdentifier()
-        networkFetchDelegate.verifyReceipt(ownedIdentity: identity.cryptoIdentity, receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
+        let ownedCryptoIdentities = ownedCryptoIds.map { $0.cryptoIdentity }
+        networkFetchDelegate.verifyReceipt(ownedCryptoIdentities: Array(ownedCryptoIdentities), receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
     }
     
     
@@ -2683,7 +2735,7 @@ extension ObvEngine {
             let randomFlowId = FlowIdentifier()
             createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
                 do {
-                    try identityDelegate.deleteContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, within: obvContext)
+                    try identityDelegate.deleteContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, deleteEvenIfGroupMembersStillExist: false, within: obvContext)
                     try obvContext.save(logOnFailure: log)
                 } catch let _error {
                     error = _error
@@ -2751,8 +2803,9 @@ extension ObvEngine {
 extension ObvEngine {
         
     /// This method returns the status of each register websocket. This is essentially used for debugging the websockets.
-    public func getWebSocketState(ownedIdentity: ObvCryptoId, completionHander: @escaping (Result<(URLSessionTask.State,TimeInterval?),Error>) -> Void) {
-        networkFetchDelegate?.getWebSocketState(ownedIdentity: ownedIdentity.cryptoIdentity, completionHander: completionHander)
+    public func getWebSocketState(ownedIdentity: ObvCryptoId) async throws -> (URLSessionTask.State,TimeInterval?) {
+        guard let networkFetchDelegate = networkFetchDelegate else { throw makeError(message: "The network fetch delegate is not set") }
+        return try await networkFetchDelegate.getWebSocketState(ownedIdentity: ownedIdentity.cryptoIdentity)
     }
     
     /// This method returns a 16 bytes nonce and a serialized encryption key. This is called when sending a message, in order to make it
@@ -2807,9 +2860,9 @@ extension ObvEngine {
     }
     
     
-    public func deleteObvReturnReceipt(_ obvReturnReceipt: ObvReturnReceipt) {
+    public func deleteObvReturnReceipt(_ obvReturnReceipt: ObvReturnReceipt) async {
         do {
-            try delegateManager.networkFetchDelegate?.sendDeleteReturnReceipt(ownedIdentity: obvReturnReceipt.identity, serverUid: obvReturnReceipt.serverUid)
+            try await delegateManager.networkFetchDelegate?.sendDeleteReturnReceipt(ownedIdentity: obvReturnReceipt.identity, serverUid: obvReturnReceipt.serverUid)
         } catch let error {
             os_log("Could not delete the ReturnReceipt on server: %{public}@", log: log, type: .error, error.localizedDescription)
         }
@@ -2822,14 +2875,13 @@ extension ObvEngine {
 extension ObvEngine {
     
     /// This method posts a message and its attachments to all the specified contacts.
-    /// It returns a dictionary where the keys correspond to all the recipients for which the message has been successfully sent. Each value of the disctionnary correspond to a message identifier chosen by this engine. Note that two users on the same server will receive the same message identifier.
+    /// It returns a dictionary where the keys correspond to all the recipients for which the message has been successfully sent. Each value of the dictionary corresponds to a message identifier chosen by this engine. Note that two users on the same server will receive the same message identifier.
     /// - Parameters:
     ///   - messagePayload: The payload of the message.
     ///   - withUserContent: Set this to `true` if the sent message contains user content that can typically be displayed in a user notification. Set this to `false` for e.g. system receipts.
     ///   - attachmentsToSend: An array of attachments to send alongside the message.
     ///   - contactCryptoIds: The set of contacts to whom the message shall be sent.
     ///   - ownedCryptoId: The owned cryptoId sending the message.
-    ///   - maxTimeIntervalAndHandler: The time interval  indicates the maximum amount of time this call is allowed to take in order to perform all its tasks (including async tasks). Note that the time does not start until essential expectations have been met. The (optional) associated completion handler is called when the timer starts, i.e., after essential expectations have been met. This essential expectations allow to make sure that the message (and its attachments) will eventually be posted.
     ///   - completionHandler: A completion block, executed when the post has done was is required. Hint : for now, this is only used when calling this method from the share extension, in order to dismiss the share extension on post completion.
     public func post(messagePayload: Data, extendedPayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachmentsToSend: [ObvAttachmentToSend], toContactIdentitiesWithCryptoId contactCryptoIds: Set<ObvCryptoId>, ofOwnedIdentityWithCryptoId ownedCryptoId: ObvCryptoId, completionHandler: (() -> Void)? = nil) throws -> [ObvCryptoId: Data] {
         
@@ -3166,64 +3218,50 @@ extension ObvEngine {
             completionHandler(.failed)
             return
         }
-        
-        // For now, we only handle the case where there is not more than one identity
-        
-        var ownedIdentity: ObvCryptoIdentity!
-        var currentDeviceUid: UID!
-        var error: Error?
-        let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            guard let identities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
-                os_log("Could not get owned identities", log: log, type: .fault)
-                completionHandler(.failed)
-                error = Self.makeError(message: "Could not get owned identities")
+                
+        do {
+                    
+            // Get all owned identities and their respective current device uids
+
+            var ownedIdentitiesAndCurrentDeviceUids = [(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID)]()
+            
+            let randomFlowId = FlowIdentifier()
+            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { obvContext in
+                ownedIdentitiesAndCurrentDeviceUids = try identityDelegate.getOwnedIdentitiesAndCurrentDeviceUids(within: obvContext)
+            }
+
+            guard !ownedIdentitiesAndCurrentDeviceUids.isEmpty else {
+                completionHandler(.noData)
                 return
             }
-            switch identities.count {
-            case 0:
-                os_log("There is no owned identity", log: log, type: .error)
+            
+            os_log("🌊 Will start a background activity for handling the remote notification", log: log, type: .info)
+            
+            let flowId: FlowIdentifier
+            do {
+                let ownedCryptoIds = Set(ownedIdentitiesAndCurrentDeviceUids.map({ $0.ownedCryptoIdentity }))
+                flowId = try flowDelegate.startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: ownedCryptoIds, withCompletionHandler: completionHandler)
+            } catch {
                 completionHandler(.failed)
-                error = Self.makeError(message: "There is no owned identity")
-            case 1:
-                ownedIdentity = identities.first!
-                do {
-                    currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-                } catch let _error {
-                    os_log("Could not get current device uid", log: log, type: .fault)
-                    completionHandler(.failed)
-                    error = _error
-                }
-            default:
-                os_log("For now, we only handle the case where there one, and only one owned identity", log: log, type: .fault)
-                completionHandler(.failed)
-                error = Self.makeError(message: "For now, we only handle the case where there one, and only one owned identity")
+                assertionFailure()
+                return
             }
-        }
-        guard error == nil else {
-            completionHandler(.failed)
-            return
-        }
-        
-        // If we reach this point, we found the owned identity concerned by the silent push notification. We can store the completion handler and ask the network fetch delegate to download her message(s).
-        
-        os_log("🌊 Will start a background activity for handling the remote notification", log: log, type: .info)
-        
-        let flowId: FlowIdentifier
-        do {
-            flowId = try flowDelegate.startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler: completionHandler)
-        } catch {
-            completionHandler(.failed)
-            assertionFailure()
-            return
-        }
-        
-        os_log("🌊🌊 Completion handler created within flow %{public}@", log: log, type: .info, flowId.debugDescription)
-        
-        networkFetchDelegate.downloadMessages(for: ownedIdentity,
-                                              andDeviceUid: currentDeviceUid,
-                                              flowId: flowId)
+            
+            os_log("🌊🌊 Completion handler created within flow %{public}@", log: log, type: .info, flowId.debugDescription)
+            
+            for (ownedCryptoIdentity, currentDeviceUid) in ownedIdentitiesAndCurrentDeviceUids {
+                networkFetchDelegate.downloadMessages(for: ownedCryptoIdentity,
+                                                      andDeviceUid: currentDeviceUid,
+                                                      flowId: flowId)
 
+            }
+            
+        } catch {
+            assertionFailure()
+            completionHandler(.failed)
+            return
+        }
+        
     }
     
 }
@@ -3318,52 +3356,41 @@ extension ObvEngine {
 
     
     /// This method allows to immediately download all messages from the server, for all owned identities, and connect all websockets.
-    public func downloadMessagesAndConnectWebsockets() throws {
-
+    public func downloadMessagesAndConnectWebsockets() async throws {
+        
         assert(!Thread.isMainThread)
         
         guard let createContextDelegate = createContextDelegate else { assertionFailure(); throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { assertionFailure(); throw makeError(message: "The identityDelegate is not set") }
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); throw makeError(message: "The networkFetchDelegate is not set") }
         let log = self.log
-
-        queueForPerformingBootstrapMethods.async {
-
-            let flowId = FlowIdentifier()
+        
+        let flowId = FlowIdentifier()
+        
+        await networkFetchDelegate.connectWebsockets(flowId: flowId)
+        
+        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
             
-            networkFetchDelegate.connectWebsockets(flowId: flowId)
-            
-            createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-            
-                do {
-                    let ownedidentities = try identityDelegate.getOwnedIdentities(within: obvContext)
-                    try ownedidentities.forEach { ownedidentity in
-                        let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedidentity, within: obvContext)
-                        networkFetchDelegate.downloadMessages(for: ownedidentity, andDeviceUid: currentDeviceUid, flowId: obvContext.flowId)
-                    }
-                } catch {
-                    os_log("Could not download all messages for all identities: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    return
+            do {
+                let ownedidentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+                try ownedidentities.forEach { ownedidentity in
+                    let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedidentity, within: obvContext)
+                    networkFetchDelegate.downloadMessages(for: ownedidentity, andDeviceUid: currentDeviceUid, flowId: obvContext.flowId)
                 }
-                
+            } catch {
+                os_log("Could not download all messages for all identities: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
             }
             
         }
     }
     
     
-    public func disconnectWebsockets() throws {
-        
-        assert(!Thread.isMainThread)
-
+    public func disconnectWebsockets() async throws {
         guard let networkFetchDelegate = networkFetchDelegate else { assertionFailure(); throw makeError(message: "The networkFetchDelegate is not set") }
-
-        queueForPerformingBootstrapMethods.async {
-            let flowId = FlowIdentifier()
-            networkFetchDelegate.disconnectWebsockets(flowId: flowId)
-        }
-        
+        let flowId = FlowIdentifier()
+        await networkFetchDelegate.disconnectWebsockets(flowId: flowId)
     }
         
 }

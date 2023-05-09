@@ -17,11 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
-import ObvEngine
+
 import CoreData
 import os.log
+import ObvEngine
 import ObvTypes
+import ObvUI
+import SwiftUI
 
 
 final class MultipleContactsHostingViewController: UIHostingController<ContactsView>, ContactsViewStoreDelegate {
@@ -132,8 +134,8 @@ extension MultipleContactsMode {
 
 enum MultipleContactsButton {
     case done(_: String? = nil)
-    case system(_: ObvSystemIcon)
-    case floating(title: String, systemIcon: ObvSystemIcon?) // Cannot be used with UIKit
+    case system(_: SystemIcon)
+    case floating(title: String, systemIcon: SystemIcon?) // Cannot be used with UIKit
 }
 
 final class MultipleContactsViewController: UIViewController, MultiContactChooserViewControllerDelegate {

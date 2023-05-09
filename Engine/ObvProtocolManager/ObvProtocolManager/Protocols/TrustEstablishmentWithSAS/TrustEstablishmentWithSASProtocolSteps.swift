@@ -147,7 +147,10 @@ extension TrustEstablishmentWithSASProtocol {
                                                                                                 contactIdentityFullDisplayName: contactIdentityFullDisplayName,
                                                                                                 decommitment: decommitment,
                                                                                                 seedAliceForSas: seedAliceForSas)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate invite to other devices.", log: log, type: .fault)
@@ -170,7 +173,10 @@ extension TrustEstablishmentWithSASProtocol {
                                                                           contactIdentity: ownedIdentity,
                                                                           contactDeviceUids: [UID](ownedDeviceUids),
                                                                           commitment: commitment)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -270,7 +276,10 @@ extension TrustEstablishmentWithSASProtocol {
             do {
                 let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = AliceSendsDecommitmentMessage(coreProtocolMessage: coreMessage, decommitment: decommitment)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -487,7 +496,10 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = BobPropagatesConfirmationToOtherDevicesMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
@@ -547,7 +559,10 @@ extension TrustEstablishmentWithSASProtocol {
                                                                   seedBobForSas: seedBobForSas,
                                                                   contactIdentityCoreDetails: ownedIdentityCoreDetails,
                                                                   contactDeviceUids: [UID](ownedDeviceUids))
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -805,7 +820,10 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateEnteredSasToOtherDevicesMessage(coreProtocolMessage: coreMessage, contactSas: sasEnteredByUser)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate sas to other devices.", log: log, type: .fault)

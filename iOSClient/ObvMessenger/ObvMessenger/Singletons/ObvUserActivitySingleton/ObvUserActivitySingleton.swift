@@ -18,18 +18,21 @@
  */
 
 import UIKit
+import ObvTypes
 
 final class ObvUserActivitySingleton: NSObject, UINavigationControllerDelegate {
     
     static let shared: ObvUserActivitySingleton = ObvUserActivitySingleton()
+    
+    private override init() {}
 
     private let internalQueue = DispatchQueue(label: "ObvUserActivitySingleton internal queue")
     
-    @Published private(set) var currentUserActivity = ObvUserActivityType.other
+    @Published private(set) var currentUserActivity = ObvUserActivityType.unknown
         
     var currentDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>? {
         switch currentUserActivity {
-        case .continueDiscussion(let discussionPermanentID):
+        case .continueDiscussion(_, let discussionPermanentID):
             return discussionPermanentID
         case .watchLatestDiscussions,
              .displaySingleContact,
@@ -38,7 +41,33 @@ final class ObvUserActivitySingleton: NSObject, UINavigationControllerDelegate {
              .displaySingleGroup,
              .displayInvitations,
              .displaySettings,
-             .other:
+             .other,
+             .unknown:
+            return nil
+        }
+    }
+    
+    var currentOwnedCryptoId: ObvCryptoId? {
+        switch currentUserActivity {
+        case .watchLatestDiscussions(let ownedCryptoId):
+            return ownedCryptoId
+        case .continueDiscussion(let ownedCryptoId, _):
+            return ownedCryptoId
+        case .displaySingleContact(ownedCryptoId: let ownedCryptoId, contactPermanentID: _):
+            return ownedCryptoId
+        case .displayContacts(let ownedCryptoId):
+            return ownedCryptoId
+        case .displayGroups(let ownedCryptoId):
+            return ownedCryptoId
+        case .displaySingleGroup(ownedCryptoId: let ownedCryptoId, displayedContactGroupPermanentID: _):
+            return ownedCryptoId
+        case .displayInvitations(let ownedCryptoId):
+            return ownedCryptoId
+        case .displaySettings(let ownedCryptoId):
+            return ownedCryptoId
+        case .other(let ownedCryptoId):
+            return ownedCryptoId
+        case .unknown:
             return nil
         }
     }
@@ -58,26 +87,68 @@ extension ObvUserActivitySingleton {
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
         
         let newUserActivity: ObvUserActivityType
+
         switch viewController {
-        case is RecentDiscussionsViewController:
-            newUserActivity = .watchLatestDiscussions
+
+        case let vc as RecentDiscussionsViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            newUserActivity = .watchLatestDiscussions(ownedCryptoId: ownedCryptoId)
+
         case let vc as SomeSingleDiscussionViewController:
             let discussionPermanentID = vc.discussionPermanentID
-            newUserActivity = .continueDiscussion(discussionPermanentID: discussionPermanentID)
-        case is SomeSingleContactViewController:
-            newUserActivity = .displaySingleContact
-        case is AllContactsViewController:
-            newUserActivity = .displayContacts
-        case is NewAllGroupsViewController:
-            newUserActivity = .displayGroups
-        case is SingleGroupViewController:
-            newUserActivity = .displaySingleGroup
-        case is SingleGroupV2ViewController:
-            newUserActivity = .displaySingleGroup
-        case is InvitationsCollectionViewController:
-            newUserActivity = .displayInvitations
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            newUserActivity = .continueDiscussion(ownedCryptoId: ownedCryptoId, discussionPermanentID: discussionPermanentID)
+
+        case let vc as SomeSingleContactViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            let contactPermanentID = vc.contactPermanentID
+            newUserActivity = .displaySingleContact(ownedCryptoId: ownedCryptoId, contactPermanentID: contactPermanentID)
+
+        case let vc as AllContactsViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            newUserActivity = .displayContacts(ownedCryptoId: ownedCryptoId)
+
+        case let vc as NewAllGroupsViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            newUserActivity = .displayGroups(ownedCryptoId: ownedCryptoId)
+
+        case let vc as SingleGroupViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            let displayedContactGroupPermanentID = vc.displayedContactGroupPermanentID
+            newUserActivity = .displaySingleGroup(ownedCryptoId: ownedCryptoId, displayedContactGroupPermanentID: displayedContactGroupPermanentID)
+
+        case let vc as SingleGroupV2ViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            let displayedContactGroupPermanentID = vc.displayedContactGroupPermanentID
+            newUserActivity = .displaySingleGroup(ownedCryptoId: ownedCryptoId, displayedContactGroupPermanentID: displayedContactGroupPermanentID)
+
+        case let vc as InvitationsCollectionViewController:
+            let ownedCryptoId = vc.currentOwnedCryptoId
+            newUserActivity = .displayInvitations(ownedCryptoId: ownedCryptoId)
+
         default:
-            newUserActivity = .other
+            if let ownedCryptoId = currentUserActivity.ownedCryptoId {
+                newUserActivity = .other(ownedCryptoId: ownedCryptoId)
+            } else {
+                assertionFailure("The unknown type is expect to bet set as an initial value only")
+                newUserActivity = .unknown
+            }
+        }
+        
+        // Check whether the owned identity associated to the new user activity corresponds to a hidden profile.
+        // If this is the case, we won't publish the new user activity.
+        
+        let newUserActivityIsForHiddenProfile: Bool
+        if let ownedCryptoId = newUserActivity.ownedCryptoId {
+            do {
+                let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext)
+                newUserActivityIsForHiddenProfile = ownedIdentity?.isHidden ?? false
+            } catch {
+                assertionFailure()
+                newUserActivityIsForHiddenProfile = false
+            }
+        } else {
+            newUserActivityIsForHiddenProfile = false
         }
 
         internalQueue.async { [weak self] in
@@ -94,7 +165,7 @@ extension ObvUserActivitySingleton {
             
             // Inform the system about the user new activity
             
-            if let newUserActivity = self?.currentUserActivity {
+            if let newUserActivity = self?.currentUserActivity, !newUserActivityIsForHiddenProfile {
                 DispatchQueue.main.async {
                     let newUserActivity = ObvUserActivity(activityType: newUserActivity)
                     viewController.userActivity = newUserActivity
@@ -136,34 +207,81 @@ fileprivate final class ObvUserActivity: NSUserActivity {
         self.type = activityType
         super.init(activityType: activityType.nsUserActivityType)
         switch activityType {
-        case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
+        case .continueDiscussion(ownedCryptoId: let ownedCryptoId, discussionPermanentID: let discussionPermanentID):
             self.title = "Continue Discussion"
-            self.userInfo = ["discussionPermanentIDDescription": discussionPermanentID.description]
-        case .watchLatestDiscussions:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+                "discussionPermanentIDDescription": discussionPermanentID.description,
+            ]
+        case .watchLatestDiscussions(ownedCryptoId: let ownedCryptoId):
             self.title = "Watch latest discussions"
-        case .displaySingleContact:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+            ]
+        case .displaySingleContact(ownedCryptoId: let ownedCryptoId, contactPermanentID: let contactPermanentID):
             self.title = "Display single contact"
-        case .displayContacts:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+                "contactPermanentIDDescription": contactPermanentID.description,
+            ]
+        case .displayContacts(ownedCryptoId: let ownedCryptoId):
             self.title = "displayContacts"
-        case .displayGroups:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+            ]
+        case .displayGroups(ownedCryptoId: let ownedCryptoId):
             self.title = "displayGroups"
-        case .displayInvitations:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+            ]
+        case .displayInvitations(ownedCryptoId: let ownedCryptoId):
             self.title = "displayInvitations"
-        case .displaySettings:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+            ]
+        case .displaySettings(ownedCryptoId: let ownedCryptoId):
             self.title = "displaySettings"
-        case .displaySingleGroup:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+            ]
+        case .displaySingleGroup(ownedCryptoId: let ownedCryptoId, displayedContactGroupPermanentID: let displayedContactGroupPermanentID):
             self.title = "displaySingleGroup"
-        case .other:
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+                "displayedContactGroupPermanentIDDescription": displayedContactGroupPermanentID.description,
+            ]
+        case .other(ownedCryptoId: let ownedCryptoId):
             self.title = "Other"
+            self.userInfo = [
+                "ownedCryptoIdDescription": ownedCryptoId.description,
+            ]
+        case .unknown:
+            self.title = "Unknown"
         }
     }
     
     override var debugDescription: String {
         assert(self.title != nil)
         switch type {
-        case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
-            return "\(self.title ?? "No title") - \(discussionPermanentID.description)"
-        default:
+        case .watchLatestDiscussions(let ownedCryptoId):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription)"
+        case .continueDiscussion(let ownedCryptoId, let discussionPermanentID):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription) - \(discussionPermanentID.debugDescription)"
+        case .displaySingleContact(let ownedCryptoId, let contactPermanentID):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription) - \(contactPermanentID.debugDescription)"
+        case .displayContacts(let ownedCryptoId):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription)"
+        case .displayGroups(let ownedCryptoId):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription)"
+        case .displaySingleGroup(let ownedCryptoId, let displayedContactGroupPermanentID):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription) - \(displayedContactGroupPermanentID.debugDescription)"
+        case .displayInvitations(let ownedCryptoId):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription)"
+        case .displaySettings(let ownedCryptoId):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription)"
+        case .other(let ownedCryptoId):
+            return "\(self.title ?? "No title") - \(ownedCryptoId.debugDescription)"
+        case .unknown:
             return self.title ?? "No title"
         }
     }

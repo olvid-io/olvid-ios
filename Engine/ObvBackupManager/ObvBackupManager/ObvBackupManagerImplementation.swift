@@ -509,13 +509,9 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
 
         try await restoreBackupableManagerObjects(backupableManagerObjects: backupableManagerObjects, fullBackup: fullBackup, backupRequestIdentifier: backupRequestIdentifier)
         
-        // Restore the app object
+        // Restore the app object (the internalJson may be nil for very old backups, made at a time when the app did not provide backup data).
         
-        guard let internalJson = fullBackup.allInternalJsonAndIdentifier[backupableAppObject.backupSource]?[backupableAppObject.backupIdentifier] else {
-            os_log("Could not recover the internal backup of the app (identified by key %{public}@)", log: log, type: .default, backupableAppObject.backupIdentifier)
-            throw Self.makeError(message: "Could not recover the internal backup of the app")
-        }
-
+        let internalJson = fullBackup.allInternalJsonAndIdentifier[backupableAppObject.backupSource]?[backupableAppObject.backupIdentifier]
         try await backupableAppObject.restoreBackup(backupRequestIdentifier: backupRequestIdentifier, internalJson: internalJson)
         
         // If we reach this point, the full backup was restored

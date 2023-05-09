@@ -333,11 +333,11 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 1 else { throw NSError() }
-            guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else { throw NSError() }
+            guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Failed to get list of encoded inputs") }
             var uids = [UID]()
             for encodedUid in listOfEncodedUids {
-                guard let uid = UID(encodedUid) else { throw NSError() }
+                guard let uid = UID(encodedUid) else { assertionFailure(); throw Self.makeError(message: "Failed to decode UID") }
                 uids.append(uid)
             }
             self.deviceUids = uids
@@ -396,9 +396,9 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             let deviceUidsAsEncodedList = message.encodedInputs[0]
-            guard let listOfEncodedUids = [ObvEncoded](deviceUidsAsEncodedList) else { throw NSError() }
+            guard let listOfEncodedUids = [ObvEncoded](deviceUidsAsEncodedList) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain encoded device uids") }
             deviceUids = try listOfEncodedUids.map { try $0.obvDecode() }
         }
         
@@ -464,9 +464,9 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         let deviceUids: [UID]
         
         init(_ obvEncoded: ObvEncoded) throws {
-            guard let listOfEncoded = [ObvEncoded](obvEncoded, expectedCount: 2) else { throw NSError() }
+            guard let listOfEncoded = [ObvEncoded](obvEncoded, expectedCount: 2) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             remoteIdentity = try listOfEncoded[0].obvDecode()
-            guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[1]) else { throw NSError() }
+            guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[1]) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain encoded device uids") }
             deviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
         }
         

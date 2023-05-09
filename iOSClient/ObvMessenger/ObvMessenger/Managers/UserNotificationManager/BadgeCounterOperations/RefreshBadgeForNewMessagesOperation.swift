@@ -29,9 +29,7 @@ final class RefreshBadgeForNewMessagesOperation: BadgeCounterOperation {
         ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
             guard let _self = self else { return }
             guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { _self.cancel();  return }
-            guard let freshCountOfNewPersistedMessageReceived = try? PersistedMessageReceived.countNew(for: persistedObvOwnedIdentity) else { _self.cancel(); return }
-            guard let freshCountOfNewPersistedMessageSystem = try? PersistedMessageSystem.countNew(for: persistedObvOwnedIdentity) else { _self.cancel(); return }
-            let newCount = freshCountOfNewPersistedMessageReceived + freshCountOfNewPersistedMessageSystem
+            let newCount = persistedObvOwnedIdentity.numberOfNewMessages
             guard !_self.isCancelled else { return }
             _self.setCurrentCountForNewMessagesBadge(to: newCount)
         }

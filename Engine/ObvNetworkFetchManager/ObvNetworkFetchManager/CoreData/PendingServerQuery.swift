@@ -27,15 +27,15 @@ import ObvTypes
 import OlvidUtils
 
 @objc(PendingServerQuery)
-class PendingServerQuery: NSManagedObject, ObvManagedObject {
+class PendingServerQuery: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
     // MARK: Internal constants
 
     private static let entityName = "PendingServerQuery"
+    static let errorDomain = "PendingServerQuery"
     private static let encodedElementsKey = "encodedElements"
     private static let encodedQueryTypeKey = "encodedQueryType"
     private static let encodedResponseTypeKey = "encodedResponseType"
-    private static let ownedIdentityKey = "ownedIdentity"
 
     // MARK: Attributes
 
@@ -115,21 +115,31 @@ extension PendingServerQuery {
 // MARK: - Convenience DB getters
 
 extension PendingServerQuery {
+    
+    struct Predicate {
+        enum Key: String {
+            case ownedIdentity = "ownedIdentity"
+        }
+        static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.ownedIdentity.rawValue, ownedCryptoIdentity)
+        }
+    }
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<PendingServerQuery> {
         return NSFetchRequest<PendingServerQuery>(entityName: PendingServerQuery.entityName)
     }
 
     static func get(objectId: NSManagedObjectID, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> PendingServerQuery {
-        guard let serverQuery = try obvContext.existingObject(with: objectId) as? PendingServerQuery else { throw NSError() }
+        guard let serverQuery = try obvContext.existingObject(with: objectId) as? PendingServerQuery else {
+            throw Self.makeError(message: "Could not find PendingServerQuery")
+        }
         serverQuery.delegateManager = delegateManager
         return serverQuery
     }
 
     static func getAllServerQuery(for identity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", PendingServerQuery.ownedIdentityKey,
-                    identity)
+        request.predicate = Predicate.withOwnedCryptoIdentity(identity)
         return try obvContext.fetch(request)
     }
 
@@ -137,6 +147,13 @@ extension PendingServerQuery {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         request.fetchBatchSize = 1_000
         return try obvContext.fetch(request)
+    }
+    
+    static func deleteAllServerQuery(for identity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws {
+        let serverQueries = try getAllServerQuery(for: identity, delegateManager: delegateManager, within: obvContext)
+        for serverQuery in serverQueries {
+            serverQuery.delete(flowId: obvContext.flowId)
+        }
     }
 
 }

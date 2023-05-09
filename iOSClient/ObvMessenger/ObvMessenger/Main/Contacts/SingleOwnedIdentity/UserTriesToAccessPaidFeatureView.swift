@@ -19,12 +19,14 @@
 
 import SwiftUI
 import ObvTypes
+import ObvEngine
+import ObvUI
 
 
 final class UserTriesToAccessPaidFeatureHostingController: UIHostingController<UserTriesToAccessPaidFeatureView> {
     
-    init(requestedPermission: APIPermissions, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>) {
-        let view = UserTriesToAccessPaidFeatureView(requestedPermission: requestedPermission, ownedIdentityPermanentID: ownedIdentityPermanentID)
+    init(requestedPermission: APIPermissions, ownedCryptoId: ObvCryptoId) {
+        let view = UserTriesToAccessPaidFeatureView(requestedPermission: requestedPermission, ownedCryptoId: ownedCryptoId)
         super.init(rootView: view)
     }
     
@@ -39,7 +41,7 @@ struct UserTriesToAccessPaidFeatureView: View {
     
     /// This is the permission required for the feature the user requested but for which she has no permission
     let requestedPermission: APIPermissions
-    let ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>
+    let ownedCryptoId: ObvCryptoId
     
     private static func getTextFor(permission: APIPermissions) -> Text {
         if permission == .canCall {
@@ -82,7 +84,7 @@ struct UserTriesToAccessPaidFeatureView: View {
                         }
                         .padding(.bottom)
                         OlvidButton(style: .blue, title: Text("BUTTON_LABEL_CHECK_SUBSCRIPTION"), systemIcon: .eyesInverse) {
-                            let deepLink = ObvDeepLink.myId(objectPermanentID: ownedIdentityPermanentID)
+                            let deepLink = ObvDeepLink.myId(ownedCryptoId: ownedCryptoId)
                             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                                 .postOnDispatchQueue()
                         }
@@ -101,20 +103,23 @@ struct UserTriesToAccessPaidFeatureView: View {
 
 
 
-
-
+// MARK: - PreviewProvider
 
 struct UserTriesToAccessPaidFeatureView_Previews: PreviewProvider {
+    
+    private static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!
+    private static let identity = ObvURLIdentity(urlRepresentation: identityAsURL)!
+
     static var previews: some View {
         Group {
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedCryptoId: identity.cryptoId)
                 .environment(\.colorScheme, .light)
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedCryptoId: identity.cryptoId)
                 .environment(\.colorScheme, .dark)
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedCryptoId: identity.cryptoId)
                 .environment(\.colorScheme, .light)
                 .environment(\.locale, .init(identifier: "fr"))
-            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: UUID()))
+            UserTriesToAccessPaidFeatureView(requestedPermission: .canCall, ownedCryptoId: identity.cryptoId)
                 .environment(\.colorScheme, .dark)
                 .environment(\.locale, .init(identifier: "fr"))
         }

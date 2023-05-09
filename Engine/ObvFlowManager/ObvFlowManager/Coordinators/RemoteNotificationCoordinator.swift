@@ -61,7 +61,7 @@ final class RemoteNotificationCoordinator: RemoteNotificationDelegate {
 
 extension RemoteNotificationCoordinator {
 
-    private func startFlow(completionHandler: @escaping CompletionHandler) throws -> FlowIdentifier {
+    private func startFlow(ownedCryptoIds: Set<ObvCryptoIdentity>, completionHandler: @escaping CompletionHandler) throws -> FlowIdentifier {
         
         guard let delegateManager = delegateManager else {
             assertionFailure()
@@ -71,7 +71,8 @@ extension RemoteNotificationCoordinator {
         
         let flowId = FlowIdentifier()
         
-        let initalExpectations = Set([Expectation.uidsOfMessagesToProcess])
+        let initalExpectations = Set(ownedCryptoIds.map({ Expectation.uidsOfMessagesToProcess(ownedCryptoIdentity: $0) }))
+        assert(initalExpectations.count == ownedCryptoIds.count)
         
         backgroundActivitiesQueue.sync {
             
@@ -241,15 +242,17 @@ extension RemoteNotificationCoordinator {
         notificationCenterTokens.append(contentsOf: [
             
             // NoInboxMessageToProcess
-            ObvNetworkFetchNotificationNew.observeNoInboxMessageToProcess(within: notificationDelegate) { [weak self] (flowId) in
+            ObvNetworkFetchNotificationNew.observeNoInboxMessageToProcess(within: notificationDelegate) { [weak self] (flowId, ownedCryptoIdentity) in
+                os_log("Received a NoInboxMessageToProcess", log: log, type: .info)
                 self?.updateExpectationsOfFlow(withId: flowId,
-                                               expectationsToRemove: [.uidsOfMessagesToProcess],
+                                               expectationsToRemove: [.uidsOfMessagesToProcess(ownedCryptoIdentity: ownedCryptoIdentity)],
                                                expectationsToAdd: [])
 
             },
             
             // NewInboxMessageToProcess
             ObvNetworkFetchNotificationNew.observeNewInboxMessageToProcess(within: notificationDelegate) { [weak self] (messageId, _, flowId) in
+                os_log("Received a NewInboxMessageToProcess for messageId %{public}@", log: log, type: .info, messageId.debugDescription)
                 self?.updateExpectationsOfFlow(withId: flowId,
                                                expectationsToRemove: [],
                                                expectationsToAdd: [.networkReceivedMessageWasProcessed(messageId: messageId)])
@@ -258,6 +261,7 @@ extension RemoteNotificationCoordinator {
             // NetworkReceivedMessageWasProcessed
             // At the time we receive this notification, we expect the expectations to contain either .processingOfProtocolMessage or .decisionToDownloadAttachmentOrNotHasBeenTaken
             ObvChannelNotification.observeNetworkReceivedMessageWasProcessed(within: notificationDelegate) { [weak self] messageId, flowId in
+                os_log("Received a NetworkReceivedMessageWasProcessed for messageId %{public}@", log: log, type: .info, messageId.debugDescription)
                 self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.networkReceivedMessageWasProcessed(messageId: messageId)]),
                                                    expectationsToAdd: [],
                                                    receivedOnFlowId: flowId)
@@ -299,7 +303,7 @@ extension RemoteNotificationCoordinator {
             
             // OutboxMessageAndAttachmentsDeleted
             ObvNetworkPostNotification.observeOutboxMessageAndAttachmentsDeleted(within: notificationDelegate) { [weak self] (messageId, flowId) in
-                os_log("Received a notification: OutboxMessageAndAttachmentsDeleted", log: log, type: .info)
+                os_log("Received a notification: OutboxMessageAndAttachmentsDeleted for messageId %{public}@", log: log, type: .info, messageId.debugDescription)
                 self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.deletionOfOutboxMessage(withId: messageId)]),
                                                    expectationsToAdd: [],
                                                    receivedOnFlowId: flowId)
@@ -315,11 +319,13 @@ extension RemoteNotificationCoordinator {
             
             // InboxAttachmentWasTakenCareOf
             ObvNetworkFetchNotificationNew.observeInboxAttachmentWasTakenCareOf(within: notificationDelegate) { [weak self] (attachmentId, flowId) in
+                os_log("Received a InboxAttachmentWasTakenCareOf for attachmentId %{public}@", log: log, type: .info, attachmentId.debugDescription)
                 self?.attachmentDownloadDecisionHasBeenTaken(attachmentId: attachmentId, flowId: flowId)
             },
             
             // DownloadingMessageExtendedPayloadFailed
             ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadFailed(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                os_log("Received a DownloadingMessageExtendedPayloadFailed for messageId %{public}@", log: log, type: .info, messageId.debugDescription)
                 self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.extendedMessagePayloadWasDownloaded(messageId: messageId)]),
                                                    expectationsToAdd: [],
                                                    receivedOnFlowId: flowId)
@@ -327,6 +333,7 @@ extension RemoteNotificationCoordinator {
             
             // DownloadingMessageExtendedPayloadWasPerformed
             ObvNetworkFetchNotificationNew.observeDownloadingMessageExtendedPayloadWasPerformed(within: notificationDelegate) { [weak self] (messageId, flowId) in
+                os_log("Received a DownloadingMessageExtendedPayloadWasPerformed for messageId %{public}@", log: log, type: .info, messageId.debugDescription)
                 self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.extendedMessagePayloadWasDownloaded(messageId: messageId)]),
                                                    expectationsToAdd: [],
                                                    receivedOnFlowId: flowId)
@@ -334,18 +341,28 @@ extension RemoteNotificationCoordinator {
             
             // ProtocolMessageToProcess
             ObvProtocolNotification.observeProtocolMessageToProcess(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
+                os_log("Received a ProtocolMessageToProcess for protocolMessageId %{public}@", log: log, type: .info, protocolMessageId.debugDescription)
                 self?.updateExpectationsOfFlow(withId: flowId,
                                                expectationsToRemove: [],
-                                               expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId), .deletionOfInboxMessage(withId: protocolMessageId)])
+                                               expectationsToAdd: [.endOfProcessingOfProtocolMessage(withId: protocolMessageId)])
             },
             
             // ProtocolMessageProcessed
             ObvProtocolNotification.observeProtocolMessageProcessed(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
+                os_log("Received a ProtocolMessageProcessed for protocolMessageId %{public}@", log: log, type: .info, protocolMessageId.debugDescription)
                 self?.updateExpectationsOfAllFlows(expectationsToFindAndRemove: Set([.endOfProcessingOfProtocolMessage(withId: protocolMessageId)]),
                                                    expectationsToAdd: [],
                                                    receivedOnFlowId: flowId)
             },
-
+            
+            // ProtocolMessageDecrypted
+            ObvChannelNotification.observeProtocolMessageDecrypted(within: notificationDelegate) { [weak self] (protocolMessageId, flowId) in
+                os_log("Received a ProtocolMessageDecrypted for protocolMessageId %{public}@", log: log, type: .info, protocolMessageId.debugDescription)
+                self?.updateExpectationsOfFlow(withId: flowId,
+                                               expectationsToRemove: [],
+                                               expectationsToAdd: [.deletionOfInboxMessage(withId: protocolMessageId)])
+            },
+            
         ])
 
         // InboxMessageDeletedFromServerAndInboxesWithinBackgroundActivity
@@ -368,8 +385,8 @@ extension RemoteNotificationCoordinator {
 
 extension RemoteNotificationCoordinator {
 
-    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier {
-        try self.startFlow(completionHandler: completionHandler)
+    func startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: Set<ObvCryptoIdentity>, withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier {
+        try self.startFlow(ownedCryptoIds: ownedCryptoIds, completionHandler: completionHandler)
     }
     
     public func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {

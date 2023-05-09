@@ -17,16 +17,17 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 import SwiftUI
 
 
 protocol WelcomeScreenHostingControllerDelegate: AnyObject {
     
-    func userWantsToContinueAsNewUser()
-    func userWantsToRestoreBackup()
-    func userWantsWantsToScanQRCode()
-    func userWantsToClearExternalOlvidURL()
+    func userWantsToContinueAsNewUser() async
+    func userWantsToRestoreBackup() async
+    func userWantsWantsToScanQRCode() async
+    func userWantsToClearExternalOlvidURL() async
 
 }
 
@@ -56,19 +57,27 @@ final class WelcomeScreenHostingController: UIHostingController<WelcomeScreenHos
     // WelcomeScreenHostingViewStoreDelegate
     
     func userWantsToContinueAsNewUser() {
-        delegate?.userWantsToContinueAsNewUser()
+        Task { await
+            delegate?.userWantsToContinueAsNewUser()
+        }
     }
     
     func userWantsToRestoreBackup() {
-        delegate?.userWantsToRestoreBackup()
+        Task { await
+            delegate?.userWantsToRestoreBackup()
+        }
     }
 
     func userWantsWantsToScanQRCode() {
-        delegate?.userWantsWantsToScanQRCode()
+        Task { await
+            delegate?.userWantsWantsToScanQRCode()
+        }
     }
     
     func userWantsToClearExternalOlvidURL() {
-        delegate?.userWantsToClearExternalOlvidURL()
+        Task { await
+            delegate?.userWantsToClearExternalOlvidURL()
+        }
     }
     
     // CanShowInformationAboutExternalOlvidURL
@@ -126,7 +135,7 @@ struct WelcomeScreenHostingView: View {
         switch olvidURL.category {
         case .invitation(urlIdentity: let urlIdentity):
             return Text("WILL_INVITE_\(urlIdentity.fullDisplayName)_AFTER_ONBOARDING")
-        case .mutualScan(mutualScanURL: _):
+        case .mutualScan:
             return nil
         case .configuration(serverAndAPIKey: let serverAndAPIKey, betaConfiguration: _, keycloakConfig: _):
             guard serverAndAPIKey != nil else { return nil }

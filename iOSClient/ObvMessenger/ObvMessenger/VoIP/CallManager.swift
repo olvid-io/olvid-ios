@@ -135,8 +135,8 @@ final actor CallManager: ObvErrorMaker {
                                                              messageIdentifierFromEngine: messageIdentifierFromEngine)
                 }
             },
-            ObvMessengerInternalNotification.observeUserWantsToCallAndIsAllowedTo { (contactIds, groupId) in
-                Task { [weak self] in await self?.processUserWantsToCallNotification(contactIds: contactIds, groupId: groupId) }
+            ObvMessengerInternalNotification.observeUserWantsToCallAndIsAllowedTo { (contactIds, ownedIdentityForRequestingTurnCredentials, groupId) in
+                Task { [weak self] in await self?.processUserWantsToCallNotification(contactIds: contactIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId) }
             },
             ObvMessengerInternalNotification.observeNetworkInterfaceTypeChanged { [weak self] (isConnected) in
                 Task { [weak self] in await self?.processNetworkStatusChangedNotification(isConnected: isConnected) }
@@ -217,8 +217,9 @@ final actor CallManager: ObvErrorMaker {
     }
 
 
-    private func createOutgoingCall(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?) async throws -> Call {
+    private func createOutgoingCall(contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifierBasedOnObjectID?) async throws -> Call {
         let outgoingCall = try await Call.createOutgoingCall(contactIds: contactIds,
+                                                             ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
                                                              delegate: self,
                                                              usesCallKit: ObvMessengerSettings.VoIP.isCallKitEnabled,
                                                              groupId: groupId,
@@ -713,7 +714,7 @@ extension CallManager {
     }
 
 
-    private func processUserWantsToCallNotification(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?) async {
+    private func processUserWantsToCallNotification(contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifierBasedOnObjectID?) async {
 
         debugPrint("Call to processUserWantsToCallNotification")
         
@@ -732,7 +733,7 @@ extension CallManager {
         
         let granted = await AVAudioSession.sharedInstance().requestRecordPermission()
         if granted {
-            await initiateCall(with: contactIds, groupId: groupId)
+            await initiateCall(with: contactIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId)
         } else {
             ObvMessengerInternalNotification.outgoingCallFailedBecauseUserDeniedRecordPermission
                 .postOnDispatchQueue(queueForPostingNotifications)
@@ -806,7 +807,7 @@ extension CallManager {
 
 extension CallManager {
 
-    private func initiateCall(with contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?) async {
+    private func initiateCall(with contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifierBasedOnObjectID?) async {
 
         guard !contactIds.isEmpty else { assertionFailure(); return }
 
@@ -823,7 +824,7 @@ extension CallManager {
 
         let outgoingCall: Call
         do {
-            outgoingCall = try await createOutgoingCall(contactIds: sortedContactIds, groupId: groupId)
+            outgoingCall = try await createOutgoingCall(contactIds: sortedContactIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId)
             assert(outgoingCall.direction == .outgoing)
         } catch {
             os_log("☎️ Could not create outgoing call: %{public}@", log: Self.log, type: .error, error.localizedDescription)

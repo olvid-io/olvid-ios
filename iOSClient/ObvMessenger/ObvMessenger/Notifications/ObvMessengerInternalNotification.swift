@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,11 +37,10 @@ fileprivate struct OptionalWrapper<T> {
 enum ObvMessengerInternalNotification {
 	case messagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
 	case userWantsToRefreshContactGroupJoined(obvContactGroup: ObvContactGroup)
-	case currentOwnedCryptoIdChanged(newOwnedCryptoId: ObvCryptoId, apiKey: UUID)
 	case externalTransactionsWereMergedIntoViewContext
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], groupId: GroupIdentifierBasedOnObjectID?)
+	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifierBasedOnObjectID?)
 	case userWantsToSelectAndCallContacts(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?)
 	case userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?)
 	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, contactId: OlvidUserId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data)
@@ -147,11 +146,22 @@ enum ObvMessengerInternalNotification {
 	case backupForExportWasExported
 	case backupForUploadWasUploaded
 	case backupForUploadFailedToUpload
+	case userWantsToCreateNewOwnedIdentity
+	case userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ObvCryptoId)
+	case userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ObvCryptoId)
+	case userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, notifyContacts: Bool)
+	case userWantsToHideOwnedIdentity(ownedCryptoId: ObvCryptoId, password: String)
+	case failedToHideOwnedIdentity(ownedCryptoId: ObvCryptoId)
+	case userWantsToSwitchToOtherHiddenOwnedIdentity(password: String)
+	case userWantsToUnhideOwnedIdentity(ownedCryptoId: ObvCryptoId)
+	case metaFlowControllerDidSwitchToOwnedIdentity(ownedCryptoId: ObvCryptoId)
+	case recomputeNumberOfNewMessagesForAllOwnedIdentities
+	case closeAnyOpenHiddenOwnedIdentity
+	case userWantsToUpdateOwnedCustomDisplayName(ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
 		case userWantsToRefreshContactGroupJoined
-		case currentOwnedCryptoIdChanged
 		case externalTransactionsWereMergedIntoViewContext
 		case newMuteExpiration
 		case wipeAllMessagesThatExpiredEarlierThanNow
@@ -261,6 +271,18 @@ enum ObvMessengerInternalNotification {
 		case backupForExportWasExported
 		case backupForUploadWasUploaded
 		case backupForUploadFailedToUpload
+		case userWantsToCreateNewOwnedIdentity
+		case userWantsToSwitchToOtherOwnedIdentity
+		case userWantsToDeleteOwnedIdentityButHasNotConfirmedYet
+		case userWantsToDeleteOwnedIdentityAndHasConfirmed
+		case userWantsToHideOwnedIdentity
+		case failedToHideOwnedIdentity
+		case userWantsToSwitchToOtherHiddenOwnedIdentity
+		case userWantsToUnhideOwnedIdentity
+		case metaFlowControllerDidSwitchToOwnedIdentity
+		case recomputeNumberOfNewMessagesForAllOwnedIdentities
+		case closeAnyOpenHiddenOwnedIdentity
+		case userWantsToUpdateOwnedCustomDisplayName
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -275,7 +297,6 @@ enum ObvMessengerInternalNotification {
 			switch notification {
 			case .messagesAreNotNewAnymore: return Name.messagesAreNotNewAnymore.name
 			case .userWantsToRefreshContactGroupJoined: return Name.userWantsToRefreshContactGroupJoined.name
-			case .currentOwnedCryptoIdChanged: return Name.currentOwnedCryptoIdChanged.name
 			case .externalTransactionsWereMergedIntoViewContext: return Name.externalTransactionsWereMergedIntoViewContext.name
 			case .newMuteExpiration: return Name.newMuteExpiration.name
 			case .wipeAllMessagesThatExpiredEarlierThanNow: return Name.wipeAllMessagesThatExpiredEarlierThanNow.name
@@ -385,6 +406,18 @@ enum ObvMessengerInternalNotification {
 			case .backupForExportWasExported: return Name.backupForExportWasExported.name
 			case .backupForUploadWasUploaded: return Name.backupForUploadWasUploaded.name
 			case .backupForUploadFailedToUpload: return Name.backupForUploadFailedToUpload.name
+			case .userWantsToCreateNewOwnedIdentity: return Name.userWantsToCreateNewOwnedIdentity.name
+			case .userWantsToSwitchToOtherOwnedIdentity: return Name.userWantsToSwitchToOtherOwnedIdentity.name
+			case .userWantsToDeleteOwnedIdentityButHasNotConfirmedYet: return Name.userWantsToDeleteOwnedIdentityButHasNotConfirmedYet.name
+			case .userWantsToDeleteOwnedIdentityAndHasConfirmed: return Name.userWantsToDeleteOwnedIdentityAndHasConfirmed.name
+			case .userWantsToHideOwnedIdentity: return Name.userWantsToHideOwnedIdentity.name
+			case .failedToHideOwnedIdentity: return Name.failedToHideOwnedIdentity.name
+			case .userWantsToSwitchToOtherHiddenOwnedIdentity: return Name.userWantsToSwitchToOtherHiddenOwnedIdentity.name
+			case .userWantsToUnhideOwnedIdentity: return Name.userWantsToUnhideOwnedIdentity.name
+			case .metaFlowControllerDidSwitchToOwnedIdentity: return Name.metaFlowControllerDidSwitchToOwnedIdentity.name
+			case .recomputeNumberOfNewMessagesForAllOwnedIdentities: return Name.recomputeNumberOfNewMessagesForAllOwnedIdentities.name
+			case .closeAnyOpenHiddenOwnedIdentity: return Name.closeAnyOpenHiddenOwnedIdentity.name
+			case .userWantsToUpdateOwnedCustomDisplayName: return Name.userWantsToUpdateOwnedCustomDisplayName.name
 			}
 		}
 	}
@@ -399,11 +432,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"obvContactGroup": obvContactGroup,
 			]
-		case .currentOwnedCryptoIdChanged(newOwnedCryptoId: let newOwnedCryptoId, apiKey: let apiKey):
-			info = [
-				"newOwnedCryptoId": newOwnedCryptoId,
-				"apiKey": apiKey,
-			]
 		case .externalTransactionsWereMergedIntoViewContext:
 			info = nil
 		case .newMuteExpiration(expirationDate: let expirationDate):
@@ -415,9 +443,10 @@ enum ObvMessengerInternalNotification {
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
 			]
-		case .userWantsToCallAndIsAllowedTo(contactIds: let contactIds, groupId: let groupId):
+		case .userWantsToCallAndIsAllowedTo(contactIds: let contactIds, ownedIdentityForRequestingTurnCredentials: let ownedIdentityForRequestingTurnCredentials, groupId: let groupId):
 			info = [
 				"contactIds": contactIds,
+				"ownedIdentityForRequestingTurnCredentials": ownedIdentityForRequestingTurnCredentials,
 				"groupId": OptionalWrapper(groupId),
 			]
 		case .userWantsToSelectAndCallContacts(contactIDs: let contactIDs, groupId: let groupId):
@@ -889,6 +918,51 @@ enum ObvMessengerInternalNotification {
 			info = nil
 		case .backupForUploadFailedToUpload:
 			info = nil
+		case .userWantsToCreateNewOwnedIdentity:
+			info = nil
+		case .userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
+		case .userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
+		case .userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: let ownedCryptoId, notifyContacts: let notifyContacts):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"notifyContacts": notifyContacts,
+			]
+		case .userWantsToHideOwnedIdentity(ownedCryptoId: let ownedCryptoId, password: let password):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"password": password,
+			]
+		case .failedToHideOwnedIdentity(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
+		case .userWantsToSwitchToOtherHiddenOwnedIdentity(password: let password):
+			info = [
+				"password": password,
+			]
+		case .userWantsToUnhideOwnedIdentity(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
+		case .metaFlowControllerDidSwitchToOwnedIdentity(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
+		case .recomputeNumberOfNewMessagesForAllOwnedIdentities:
+			info = nil
+		case .closeAnyOpenHiddenOwnedIdentity:
+			info = nil
+		case .userWantsToUpdateOwnedCustomDisplayName(ownedCryptoId: let ownedCryptoId, newCustomDisplayName: let newCustomDisplayName):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"newCustomDisplayName": OptionalWrapper(newCustomDisplayName),
+			]
 		}
 		return info
 	}
@@ -934,15 +1008,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeCurrentOwnedCryptoIdChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID) -> Void) -> NSObjectProtocol {
-		let name = Name.currentOwnedCryptoIdChanged.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let newOwnedCryptoId = notification.userInfo!["newOwnedCryptoId"] as! ObvCryptoId
-			let apiKey = notification.userInfo!["apiKey"] as! UUID
-			block(newOwnedCryptoId, apiKey)
-		}
-	}
-
 	static func observeExternalTransactionsWereMergedIntoViewContext(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.externalTransactionsWereMergedIntoViewContext.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -967,13 +1032,14 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([OlvidUserId], GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([OlvidUserId], ObvCryptoId, GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToCallAndIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let contactIds = notification.userInfo!["contactIds"] as! [OlvidUserId]
+			let ownedIdentityForRequestingTurnCredentials = notification.userInfo!["ownedIdentityForRequestingTurnCredentials"] as! ObvCryptoId
 			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
 			let groupId = groupIdWrapper.value
-			block(contactIds, groupId)
+			block(contactIds, ownedIdentityForRequestingTurnCredentials, groupId)
 		}
 	}
 
@@ -1896,6 +1962,103 @@ enum ObvMessengerInternalNotification {
 		let name = Name.backupForUploadFailedToUpload.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
+		}
+	}
+
+	static func observeUserWantsToCreateNewOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToCreateNewOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeUserWantsToSwitchToOtherOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToSwitchToOtherOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
+		}
+	}
+
+	static func observeUserWantsToDeleteOwnedIdentityButHasNotConfirmedYet(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDeleteOwnedIdentityButHasNotConfirmedYet.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
+		}
+	}
+
+	static func observeUserWantsToDeleteOwnedIdentityAndHasConfirmed(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDeleteOwnedIdentityAndHasConfirmed.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let notifyContacts = notification.userInfo!["notifyContacts"] as! Bool
+			block(ownedCryptoId, notifyContacts)
+		}
+	}
+
+	static func observeUserWantsToHideOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, String) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToHideOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let password = notification.userInfo!["password"] as! String
+			block(ownedCryptoId, password)
+		}
+	}
+
+	static func observeFailedToHideOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.failedToHideOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
+		}
+	}
+
+	static func observeUserWantsToSwitchToOtherHiddenOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (String) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToSwitchToOtherHiddenOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let password = notification.userInfo!["password"] as! String
+			block(password)
+		}
+	}
+
+	static func observeUserWantsToUnhideOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUnhideOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
+		}
+	}
+
+	static func observeMetaFlowControllerDidSwitchToOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.metaFlowControllerDidSwitchToOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
+		}
+	}
+
+	static func observeRecomputeNumberOfNewMessagesForAllOwnedIdentities(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.recomputeNumberOfNewMessagesForAllOwnedIdentities.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeCloseAnyOpenHiddenOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.closeAnyOpenHiddenOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeUserWantsToUpdateOwnedCustomDisplayName(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, String?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdateOwnedCustomDisplayName.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let newCustomDisplayNameWrapper = notification.userInfo!["newCustomDisplayName"] as! OptionalWrapper<String>
+			let newCustomDisplayName = newCustomDisplayNameWrapper.value
+			block(ownedCryptoId, newCustomDisplayName)
 		}
 	}
 

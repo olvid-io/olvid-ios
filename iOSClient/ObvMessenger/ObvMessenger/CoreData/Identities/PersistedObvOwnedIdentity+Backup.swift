@@ -29,6 +29,9 @@ extension PersistedObvOwnedIdentity {
         let groupsV2 = self.contactGroupsV2.map { $0.backupItem }
         let backupItem = PersistedObvOwnedIdentityBackupItem(
             identity: self.identity,
+            customDisplayName: self.customDisplayName,
+            hiddenProfileHash: self.hiddenProfileHashAndSaltForBackup?.hash,
+            hiddenProfileSalt: self.hiddenProfileHashAndSaltForBackup?.salt,
             contacts: contacts.isEmpty ? nil : contacts,
             groupsV1: groupsV1.isEmpty ? nil : groupsV1,
             groupsV2: groupsV2.isEmpty ? nil : groupsV2.isEmpty ? nil : groupsV2)
@@ -45,6 +48,11 @@ extension PersistedObvOwnedIdentityBackupItem {
         guard let ownedIdentity = try PersistedObvOwnedIdentity.get(identity: self.identity, within: context) else {
             assertionFailure()
             throw PersistedObvOwnedIdentityBackupItem.makeError(message: "Could not find owned identity corresponding to backup item")
+        }
+        ownedIdentity.isBeingRestoredFromBackup = true
+        ownedIdentity.setOwnedCustomDisplayName(to: customDisplayName)
+        if let hiddenProfileHash, let hiddenProfileSalt {
+            ownedIdentity.setHiddenProfileHashAndSaltDuringBackupRestore(hash: hiddenProfileHash, salt: hiddenProfileSalt)
         }
         for contact in self.contacts ?? [] {
             guard let persistedContact = ownedIdentity.contacts.first(where: {

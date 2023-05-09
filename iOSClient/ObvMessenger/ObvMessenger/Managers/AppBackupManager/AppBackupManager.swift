@@ -676,7 +676,7 @@ extension AppBackupManager: ObvBackupable {
     }
  
     
-    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String) async throws {
+    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String?) async throws {
         
         // This is called when all the engine data have been restored. We can thus start the restore of app backuped data.
         
@@ -688,58 +688,65 @@ extension AppBackupManager: ObvBackupable {
             ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine { result in
 
                 switch result {
-
+                    
                 case .failure(let error):
                     continuation.resume(throwing: error)
                     return
                     
                 case .success:
-
-                    // The app database is in sync with the engine database.
-                    // We can use the backuped data so as to "update" certain app database objects.
-                    // We first need to parse the internal json
                     
-                    let internalJsonData = internalJson.data(using: .utf8)!
-                    let jsonDecoder = JSONDecoder()
-                    let appBackupItem: AppBackupItem
-                    do {
-                        appBackupItem = try jsonDecoder.decode(AppBackupItem.self, from: internalJsonData)
-                    } catch {
-                        // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
-                        assertionFailure()
-                        continuation.resume()
-                        return
-                    }
-
-                    // Step 1: update all owned identities, contacts, and groups
+                    // If internalJson is nil, we are restoring a very old backup, that does not contain backuped data for the app.
+                    // In general, we expect it to be non-nil.
                     
-                    if let ownedIdentityBackupItems = appBackupItem.ownedIdentities {
-                        ObvStack.shared.performBackgroundTaskAndWait { context in
-                            
-                            ownedIdentityBackupItems.forEach { ownedIdentityBackupItem in
-                                do {
-                                    try ownedIdentityBackupItem.updateExistingInstance(within: context)
-                                } catch {
-                                    os_log("One of the app backup item could not be fully restored: %{public}@", log: self.log, type: .fault, error.localizedDescription)
-                                    assertionFailure()
-                                    // Continue anyway
-                                }
-                            }
-                            
-                            do {
-                                try context.save(logOnFailure: self.log)
-                            } catch {
-                                // Although we did not succeed to restore the app backup, we consider its ok (for now)
-                                assertionFailure(error.localizedDescription)
-                                return
-                            }
-
+                    if let internalJson {
+                        
+                        // The app database is in sync with the engine database.
+                        // We can use the backuped data so as to "update" certain app database objects.
+                        // We first need to parse the internal json
+                        
+                        let internalJsonData = internalJson.data(using: .utf8)!
+                        let jsonDecoder = JSONDecoder()
+                        let appBackupItem: AppBackupItem
+                        do {
+                            appBackupItem = try jsonDecoder.decode(AppBackupItem.self, from: internalJsonData)
+                        } catch {
+                            // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
+                            assertionFailure()
+                            continuation.resume()
+                            return
                         }
+                        
+                        // Step 1: update all owned identities, contacts, and groups
+                        
+                        if let ownedIdentityBackupItems = appBackupItem.ownedIdentities {
+                            ObvStack.shared.performBackgroundTaskAndWait { context in
+                                
+                                ownedIdentityBackupItems.forEach { ownedIdentityBackupItem in
+                                    do {
+                                        try ownedIdentityBackupItem.updateExistingInstance(within: context)
+                                    } catch {
+                                        os_log("One of the app backup item could not be fully restored: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                                        assertionFailure()
+                                        // Continue anyway
+                                    }
+                                }
+                                
+                                do {
+                                    try context.save(logOnFailure: self.log)
+                                } catch {
+                                    // Although we did not succeed to restore the app backup, we consider its ok (for now)
+                                    assertionFailure(error.localizedDescription)
+                                    return
+                                }
+                                
+                            }
+                        }
+                        
+                        // Step 2: Update the app global configuration
+                        
+                        appBackupItem.globalSettings.updateExistingObvMessengerSettings()
+                        
                     }
-                    
-                    // Step 2: Update the app global configuration
-                    
-                    appBackupItem.globalSettings.updateExistingObvMessengerSettings()
 
                     // Step 3: Perform additional step after backup restoration
 

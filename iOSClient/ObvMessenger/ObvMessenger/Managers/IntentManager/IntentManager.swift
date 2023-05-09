@@ -22,7 +22,9 @@ import Foundation
 import CoreData
 import Intents
 import os.log
+import ObvUI
 import UIKit
+
 
 protocol IntentDelegate: AnyObject {
     @available(iOS 14.0, *)
@@ -52,11 +54,13 @@ final class IntentManager {
     /// One-stop method called when this manager needs to donate an `INSendMessageIntent` object to the system.
     ///
     /// Systematically using this method allows to make sure that users preferences are always taken into account, i.e., that we only perform donations if the global or discussion local configuration lets us do so.
+    /// Moreover, we can make sure we *never* perform a donation concerning a hidden profile.
     private static func makeDonation(discussionKind: PersistedDiscussion.StructureKind,
                                      intent: INSendMessageIntent,
                                      direction: INInteractionDirection) async {
 
         guard discussionKind.localConfiguration.performInteractionDonation ?? ObvMessengerSettings.Discussions.performInteractionDonation else { return }
+        guard !discussionKind.ownedIdentity.isHidden else { return }
 
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = direction
@@ -505,7 +509,7 @@ fileprivate extension PersistedContactGroup.Structure {
 
     func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
         let groupColor = AppTheme.shared.groupColors(forGroupUid: groupUid)
-        let circledSymbol = UIImage.makeCircledSymbol(from: ObvSystemIcon.person3Fill.systemName,
+        let circledSymbol = UIImage.makeCircledSymbol(from: SystemIcon.person3Fill.systemName,
                                                       circleDiameter: thumbnailSide,
                                                       fillColor: groupColor.background,
                                                       symbolColor: groupColor.text)
@@ -521,7 +525,7 @@ fileprivate extension PersistedGroupV2.Structure {
 
     func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
         let groupColor = AppTheme.shared.groupV2Colors(forGroupIdentifier: groupIdentifier)
-        let circledSymbol = UIImage.makeCircledSymbol(from: ObvSystemIcon.person3Fill.systemName,
+        let circledSymbol = UIImage.makeCircledSymbol(from: SystemIcon.person3Fill.systemName,
                                                       circleDiameter: thumbnailSide,
                                                       fillColor: groupColor.background,
                                                       symbolColor: groupColor.text)
@@ -533,17 +537,6 @@ fileprivate extension PersistedGroupV2.Structure {
 }
 
 fileprivate extension PersistedDiscussion.StructureKind {
-
-    var ownedIdentity: PersistedObvOwnedIdentity.Structure {
-        switch self {
-        case .oneToOneDiscussion(structure: let structure):
-            return structure.contactIdentity.ownedIdentity
-        case .groupDiscussion(structure: let structure):
-            return structure.ownerIdentity
-        case .groupV2Discussion(structure: let structure):
-            return structure.ownerIdentity
-        }
-    }
 
     var interactionGroupIdentifier: String {
         self.discussionPermanentID.interactionGroupIdentifier

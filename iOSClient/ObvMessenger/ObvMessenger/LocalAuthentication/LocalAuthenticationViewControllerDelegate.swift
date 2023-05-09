@@ -21,6 +21,6 @@ import Foundation
 
 
 protocol LocalAuthenticationViewControllerDelegate: AnyObject {
-    func userLocalAuthenticationDidSucceedOrWasNotRequired()
-    func tooManyWrongPasscodeAttemptsCausedLockOut()
+    func userLocalAuthenticationDidSucceed(authenticationWasPerformed: Bool) async
+    func tooManyWrongPasscodeAttemptsCausedLockOut() async
 }

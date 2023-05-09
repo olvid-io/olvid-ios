@@ -52,4 +52,39 @@ struct CoreProtocolMessage {
         self.cryptoProtocolId = cryptoProtocolId
         self.timestamp = Date()
     }
+    
+    /// Exclusively used by ``getLocalCoreProtocolMessageForSimulatingReceivedMessage()``
+    private init(localOrServerQueryType: ObvChannelSendChannelType, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID) {
+        switch localOrServerQueryType {
+        case .Local, .ServerQuery:
+            break
+        default:
+            assertionFailure()
+        }
+        self.channelType = localOrServerQueryType
+        self.receptionChannelInfo = .Local
+        self.toOwnedIdentity = localOrServerQueryType.fromOwnedIdentity
+        self.cryptoProtocolId = cryptoProtocolId
+        self.protocolInstanceUid = protocolInstanceUid
+        self.partOfFullRatchetProtocolOfTheSendSeed = false
+        self.timestamp = Date()
+    }
+    
+    /// Returns a `CoreProtocolMessage` suitable for creating a protocol message that can be immediately used to execute a step, without having the post the message to the channel manager.
+    ///
+    /// This method is used, e.g., in the protocol allowing to delete and owned identity, in order to, e.g., execute the step allowing to leave a group from the group management protocol.
+    static func getLocalCoreProtocolMessageForSimulatingReceivedMessage(ownedIdentity: ObvCryptoIdentity, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID) -> CoreProtocolMessage {
+        return CoreProtocolMessage(
+            localOrServerQueryType: .Local(ownedIdentity: ownedIdentity),
+            cryptoProtocolId: cryptoProtocolId,
+            protocolInstanceUid: protocolInstanceUid)
+    }
+    
+    static func getServerQueryCoreProtocolMessageForSimulatingReceivedMessage(ownedIdentity: ObvCryptoIdentity, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID) -> CoreProtocolMessage {
+        return CoreProtocolMessage(
+            localOrServerQueryType: .ServerQuery(ownedIdentity: ownedIdentity),
+            cryptoProtocolId: cryptoProtocolId,
+            protocolInstanceUid: protocolInstanceUid)
+    }
+    
 }

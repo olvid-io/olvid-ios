@@ -38,7 +38,9 @@ final class UserNotificationsScheduler {
         
     }
 
+    /// One-stop method for scheduling a notification concerning a discussion. This allows to make sure notifications concerning a muted discussion are never shown. This also allows to make sure no message notification is shown for a hidden profile.
     static func filteredScheduleNotification(discussionKind: PersistedDiscussion.StructureKind, notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent, notificationCenter: UNUserNotificationCenter) {
+        guard !discussionKind.ownedIdentity.isHidden else { return }
         guard !discussionKind.localConfiguration.shouldMuteNotifications else { return }
 
         scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)

@@ -26,11 +26,12 @@ import ObvTypes
 import ObvCrypto
 
 @objc(ProtocolInstance)
-final class ProtocolInstance: NSManagedObject, ObvManagedObject {
+final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: Internal constants
     
     private static let entityName = "ProtocolInstance"
+    static let errorDomain = "ProtocolInstance"
     
     // MARK: Attributes
     
@@ -97,6 +98,11 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject {
         self.delegateManager = delegateManager
     }
     
+    private func delete() throws {
+        guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context")}
+        context.delete(self)
+    }
+    
 }
 
 
@@ -126,6 +132,9 @@ extension ProtocolInstance {
         }
         static func withUID(_ uid: UID) -> NSPredicate {
             NSPredicate(format: "%K == %@", Key.uid.rawValue, uid)
+        }
+        static func withUIDDistinctFrom(_ uid: UID) -> NSPredicate {
+            NSPredicate(format: "%K != %@", Key.uid.rawValue, uid)
         }
         static func withOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(format: "%K == %@", Key.ownedCryptoIdentity.rawValue, ownedIdentity)
@@ -222,5 +231,18 @@ extension ProtocolInstance {
             items.forEach({ obvContext.delete($0) })
         }
         
+    }
+    
+    
+    static func deleteAllProtocolInstancesOfOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, withProtocolInstanceUidDistinctFrom protocolInstanceUid: UID, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedCryptoIdentity),
+            Predicate.withUIDDistinctFrom(protocolInstanceUid),
+        ])
+        request.fetchBatchSize = 100
+        request.propertiesToFetch = []
+        let items = try obvContext.fetch(request)
+        try items.forEach({ try $0.delete() })
     }
 }

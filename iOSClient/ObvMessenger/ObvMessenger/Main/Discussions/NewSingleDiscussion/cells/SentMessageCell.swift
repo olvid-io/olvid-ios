@@ -22,6 +22,7 @@ import UniformTypeIdentifiers
 import LinkPresentation
 import CoreData
 import os.log
+import ObvUI
 
 
 @available(iOS 14.0, *)
@@ -138,13 +139,16 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             break
         case .always, .withinSentMessagesOnly:
             if let text = message.textBody, !message.isWiped, let linkURL = cacheDelegate?.getFirstHttpsURL(text: text) {
-                content.singleLinkConfiguration = .metadataNotYetAvailable(url: linkURL)
-                CachedLPMetadataProvider.shared.getCachedOrStartFetchingMetadata(for: linkURL) { metadata in
+                switch CachedLPMetadataProvider.shared.getCachedMetada(for: linkURL) {
+                case .metadataCached(metadata: let metadata):
                     content.singleLinkConfiguration = .metadataAvailable(url: linkURL, metadata: metadata)
-                } completionHandler: { [weak self] _, error in
-                    assert(Thread.isMainThread)
-                    guard error == nil else { return }
-                    self?.setNeedsUpdateConfiguration()
+                case .siteDoesNotProvideMetada, .failureOccuredWhenFetchingOrCachingMetadata:
+                    content.singleLinkConfiguration = .metadataRetrievalFailed
+                case .metadaNotCachedYet:
+                    content.singleLinkConfiguration = .metadataNotYetAvailable(url: linkURL)
+                    CachedLPMetadataProvider.shared.fetchAndCacheMetadata(for: linkURL) { [weak self] in
+                        self?.setNeedsUpdateConfiguration()
+                    }
                 }
             }
         }

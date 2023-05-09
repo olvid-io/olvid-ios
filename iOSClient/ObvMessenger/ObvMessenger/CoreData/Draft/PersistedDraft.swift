@@ -222,6 +222,7 @@ extension PersistedDraft {
             case permanentUUID = "permanentUUID"
             case sendRequested = "sendRequested"
             case discussion = "discussion"
+            case replyTo = "replyTo"
         }
         static func persistedDraft(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
             NSPredicate(withObjectID: objectID.objectID)
@@ -234,6 +235,9 @@ extension PersistedDraft {
         }
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedDraft>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
+        static func whereReplyToIsMessage(_ message: PersistedMessage) -> NSPredicate {
+            NSPredicate(Key.replyTo, equalTo: message)
         }
     }
 
@@ -274,6 +278,16 @@ extension PersistedDraft {
         return try context.fetch(request).first
     }
     
+    
+    static func getObjectIDsOfAllDraftsReplyingTo(message: PersistedMessage) throws -> Set<TypeSafeManagedObjectID<PersistedDraft>> {
+        let request: NSFetchRequest<PersistedDraft> = PersistedDraft.fetchRequest()
+        guard let context = message.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        request.predicate = Predicate.whereReplyToIsMessage(message)
+        request.propertiesToFetch = []
+        request.fetchBatchSize = 1_000
+        let drafts = try context.fetch(request)
+        return Set(drafts.map({ $0.typedObjectID }))
+    }
 }
 
 

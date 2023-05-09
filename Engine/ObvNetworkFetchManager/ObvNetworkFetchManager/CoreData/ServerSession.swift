@@ -26,11 +26,12 @@ import OlvidUtils
 
 
 @objc(ServerSession)
-class ServerSession: NSManagedObject, ObvManagedObject {
+final class ServerSession: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
     // MARK: Internal constants
 
     private static let entityName = "ServerSession"
+    static let errorDomain = "ServerSession"
     private static let challengeKey = "challenge"
     private static let cryptoIdentityKey = "cryptoIdentity"
     private static let responseKey = "response"
@@ -85,14 +86,14 @@ extension ServerSession {
     }
 
     func store(response: Data, ifCurrentNonceIs serverNonce: Data) throws {
-        guard let localNonce = nonce else { throw NSError() }
-        guard serverNonce == localNonce else { throw NSError() }
+        guard let localNonce = nonce else { throw Self.makeError(message: "No local nonce") }
+        guard serverNonce == localNonce else { throw Self.makeError(message: "server nonce is distinct from local nonce") }
         self.response = response
     }
 
     func store(token: Data, ifCurrentNonceIs serverNonce: Data) throws {
-        guard let localNonce = nonce else { throw NSError() }
-        guard serverNonce == localNonce else { throw NSError() }
+        guard let localNonce = nonce else { throw Self.makeError(message: "No local nonce") }
+        guard serverNonce == localNonce else { throw Self.makeError(message: "server nonce is distinct from local nonce") }
         self.token = token
     }
 }

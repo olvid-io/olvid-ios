@@ -60,47 +60,47 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
     
     public func deleteProtocolMetadataRelatingToContact(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         os_log("deleteProtocolMetadataRelatingToContact does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "deleteProtocolMetadataRelatingToContact does nothing in this dummy implementation")
     }
 
-    public func process(_: ObvProtocolReceivedMessage, within: ObvContext) throws {
-        os_log("process(_: ObvProtocolReceivedMessage, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+    public func processProtocolReceivedMessage(_: ObvProtocolReceivedMessage, within: ObvContext) throws {
+        os_log("processProtocolReceivedMessage(_: ObvProtocolReceivedMessage, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "processProtocolReceivedMessage(_: ObvProtocolReceivedMessage, within: ObvContext) does nothing in this dummy implementation")
     }
     
     public func process(_: ObvProtocolReceivedDialogResponse, within: ObvContext) throws {
         os_log("process(_: ObvProtocolReceivedDialogResponse, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "process(_: ObvProtocolReceivedDialogResponse, within: ObvContext) does nothing in this dummy implementation")
     }
     
     public func process(_: ObvProtocolReceivedServerResponse, within: ObvContext) throws {
         os_log("process(_: ObvProtocolReceivedServerResponse, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "process(_: ObvProtocolReceivedServerResponse, within: ObvContext) does nothing in this dummy implementation")
     }
     
     public func abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity) throws {
         os_log("abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity) does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity) does nothing in this dummy implementation")
     }
     
     public func getInitialMessageForTrustEstablishmentProtocol(of: ObvCryptoIdentity, withFullDisplayName: String, forOwnedIdentity: ObvCryptoIdentity, withOwnedIdentityCoreDetails: ObvIdentityCoreDetails, usingProtocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForTrustEstablishmentProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitialMessageForTrustEstablishmentProtocol does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForContactMutualIntroductionProtocol(of: ObvCryptoIdentity, withContactIdentityCoreDetails: ObvIdentityCoreDetails, with: ObvCryptoIdentity, withOtherContactIdentityCoreDetails: ObvIdentityCoreDetails, byOwnedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForContactMutualIntroductionProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitialMessageForContactMutualIntroductionProtocol does nothing in this dummy implementation")
     }
     
     public func getInitiateGroupCreationMessageForGroupManagementProtocol(groupCoreDetails: ObvGroupCoreDetails, photoURL: URL?, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, ownedIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateGroupCreationMessageForGroupManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitiateGroupCreationMessageForGroupManagementProtocol does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ObvCryptoIdentity, andTheDeviceUid: UID, ofTheContactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForChannelCreationWithContactDeviceProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitialMessageForChannelCreationWithContactDeviceProtocol does nothing in this dummy implementation")
     }
     
     public func startFullRatchetProtocolForObliviousChannelBetween(currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, ofRemoteIdentity remoteIdentity: ObvCryptoIdentity) throws {
@@ -109,92 +109,92 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
     
     public func getInitialMessageForIdentityDetailsPublicationProtocol(ownedIdentity: ObvCryptoIdentity, publishedIdentityDetailsVersion: Int) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForIdentityDetailsPublicationProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitialMessageForIdentityDetailsPublicationProtocol does nothing in this dummy implementation")
     }
 
     public func getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         os_log("getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol does nothing in this dummy implementation")
     }
     
     public func getAddGroupMembersMessageForAddingMembersToContactGroupOwned(groupUid: UID, ownedIdentity: ObvCryptoIdentity, newGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         os_log("getAddGroupMembersMessageForAddingMembersToContactGroupOwned does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getAddGroupMembersMessageForAddingMembersToContactGroupOwned does nothing in this dummy implementation")
     }
 
     public func getRemoveGroupMembersMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, removedGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         os_log("getRemoveGroupMembersMessageForGroupManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getRemoveGroupMembersMessageForGroupManagementProtocol does nothing in this dummy implementation")
     }
     
     public func getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         os_log("getLeaveGroupJoinedMessageForGroupManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getLeaveGroupJoinedMessageForGroupManagementProtocol does nothing in this dummy implementation")
     }
     
     public func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateContactDeletionMessageForContactManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitiateContactDeletionMessageForContactManagementProtocol does nothing in this dummy implementation")
     }
 
     public func getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd contactIdentity: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol does nothing in this dummy implementation")
     }
 
     public func getInitiateGroupMembersQueryMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateGroupMembersQueryMessageForGroupManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw NSError()
+        throw Self.makeError(message: "getInitiateGroupMembersQueryMessageForGroupManagementProtocol does nothing in this dummy implementation")
     }
     
     public func getTriggerReinviteMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, memberIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         os_log("getTriggerReinviteMessageForGroupManagementProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getTriggerReinviteMessageForGroupManagementProtocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getTriggerReinviteMessageForGroupManagementProtocol does nothing in this dummy implementation")
     }
     
     public func getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForDeviceDiscoveryForContactIdentityProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForDeviceDiscoveryForContactIdentityProtocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForDeviceDiscoveryForContactIdentityProtocol does nothing in this dummy implementation")
     }
     
     public func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
         os_log("getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances does nothing in this dummy implementation")
+        throw Self.makeError(message: "getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForDownloadIdentityPhotoChildProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForDownloadIdentityPhotoChildProtocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForDownloadIdentityPhotoChildProtocol does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForDownloadGroupPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForDownloadGroupPhotoChildProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForDownloadGroupPhotoChildProtocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForDownloadGroupPhotoChildProtocol does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, signature: Data) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForTrustEstablishmentWithMutualScanProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForTrustEstablishmentWithMutualScanProtocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForTrustEstablishmentWithMutualScanProtocol does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForAddingOwnCapabilities(ownedIdentity: ObvCryptoIdentity, newOwnCapabilities: Set<ObvCapability>) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForOneToOneContactInvitationProtocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForAddingOwnCapabilities does nothing in this dummy implementation")
     }
     
     public func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForDowngradingOneToOneContact does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForDowngradingOneToOneContact does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForDowngradingOneToOneContact does nothing in this dummy implementation")
     }
 
     public func getInitialMessageForOneStatusSyncRequest(ownedIdentity: ObvCryptoIdentity, contactsToSync: Set<ObvCryptoIdentity>) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation")
     }
     
     public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
@@ -204,27 +204,42 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
 
     public func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateGroupUpdateMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupUpdateMessageForGroupV2Protocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitiateGroupUpdateMessageForGroupV2Protocol does nothing in this dummy implementation")
     }
   
     public func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateGroupLeaveMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupLeaveMessageForGroupV2Protocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitiateGroupLeaveMessageForGroupV2Protocol does nothing in this dummy implementation")
     }
     
     public func getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateGroupReDownloadMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupReDownloadMessageForGroupV2Protocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitiateGroupReDownloadMessageForGroupV2Protocol does nothing in this dummy implementation")
     }
     
     public func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateInitiateGroupDisbandMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitiateInitiateGroupDisbandMessageForGroupV2Protocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitiateInitiateGroupDisbandMessageForGroupV2Protocol does nothing in this dummy implementation")
     }
 
     public func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateBatchKeysResendMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
-        throw ObvProtocolManagerDummy.makeError(message: "getInitiateBatchKeysResendMessageForGroupV2Protocol does nothing in this dummy implementation")
+        throw Self.makeError(message: "getInitiateBatchKeysResendMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+    
+    public func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateOwnedIdentityDeletionMessage does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getInitiateOwnedIdentityDeletionMessage does nothing in this dummy implementation")
+    }
+    
+    public func prepareForOwnedIdentityDeletion(_ ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws {
+        os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "prepareForOwnedIdentityDeletion does nothing in this dummy implementation")
+    }
+    
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "prepareForOwnedIdentityDeletion does nothing in this dummy implementation")
     }
     
     // MARK: - Implementing ObvManager

@@ -23,10 +23,11 @@ import ObvTypes
 import ObvCrypto
 import OlvidUtils
 
-public struct ChannelCreationWithContactDeviceProtocol: ConcreteCryptoProtocol {
+public struct ChannelCreationWithContactDeviceProtocol: ConcreteCryptoProtocol, ObvErrorMaker {
     
     static let logCategory = "ChannelCreationWithContactDeviceProtocol"
-    
+    public static let errorDomain = "ChannelCreationWithContactDeviceProtocol"
+
     static let id = CryptoProtocolId.ChannelCreationWithContactDevice
     
     static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,

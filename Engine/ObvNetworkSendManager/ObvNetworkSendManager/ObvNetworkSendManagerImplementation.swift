@@ -25,7 +25,9 @@ import ObvCrypto
 import CoreData
 import ObvMetaManager
 
-public final class ObvNetworkSendManagerImplementation: ObvNetworkPostDelegate {
+public final class ObvNetworkSendManagerImplementation: ObvNetworkPostDelegate, ObvErrorMaker {
+    
+    public static let errorDomain = "ObvNetworkSendManagerImplementation"
     
     public var logSubsystem: String { return delegateManager.logSubsystem }
     
@@ -79,22 +81,22 @@ extension ObvNetworkSendManagerImplementation {
     public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
         switch delegateType {
         case .ObvCreateContextDelegate:
-            guard let delegate = delegate as? ObvCreateContextDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvCreateContextDelegate else { throw Self.makeError(message: "Implementation error with ObvCreateContextDelegate") }
             delegateManager.contextCreator = delegate
         case .ObvNotificationDelegate:
-            guard let delegate = delegate as? ObvNotificationDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNotificationDelegate else { throw Self.makeError(message: "Implementation error with ObvNotificationDelegate") }
             delegateManager.notificationDelegate = delegate
         case .ObvChannelDelegate:
-            guard let delegate = delegate as? ObvChannelDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvChannelDelegate else { throw Self.makeError(message: "Implementation error with ObvChannelDelegate") }
             delegateManager.channelDelegate = delegate
         case .ObvSimpleFlowDelegate:
-            guard let delegate = delegate as? ObvSimpleFlowDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvSimpleFlowDelegate else { throw Self.makeError(message: "Implementation error with ObvSimpleFlowDelegate") }
             delegateManager.simpleFlowDelegate = delegate
         case .ObvIdentityDelegate:
-            guard let delegate = delegate as? ObvIdentityDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvIdentityDelegate else { throw Self.makeError(message: "Implementation error with ObvIdentityDelegate") }
             delegateManager.identityDelegate = delegate
         default:
-            throw NSError()
+            throw Self.makeError(message: "Implementation error - unexpected delegate")
         }
     }
     
@@ -158,6 +160,19 @@ extension ObvNetworkSendManagerImplementation {
     
     public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: [MessageIdentifier], flowId: FlowIdentifier) {
         bootstrapWorker.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: messageIdentifiers, flowId: flowId)
+    }
+    
+    /// Called when an owned identity is about to be deleted.
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        // Delete all outbox messages relating to the owned identity
+        
+        try OutboxMessage.deleteAllForOwnedIdentity(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+        
+        // Delete all `DeletedOutboxMessage` relating to the owned identity
+        
+        try DeletedOutboxMessage.batchDelete(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
+
     }
     
 }

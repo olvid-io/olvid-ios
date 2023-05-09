@@ -352,7 +352,7 @@ extension MessagesCoordinator: MessagesDelegate {
         }
         
         queueForCallingDelegate.async { [weak self] in
-            self?.delegateManager?.networkFetchFlowDelegate.aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(flowId: flowId)
+            self?.delegateManager?.networkFetchFlowDelegate.aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(ownedCryptoIdentity: ownedIdentity, flowId: flowId)
         }
         
     }
@@ -899,6 +899,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                 
                 let message: InboxMessage
                 do {
+                    os_log("Trying yo insert InboxMessage for identity %{public}@: %{public}@", log: log, type: .info, ownedIdentity.debugDescription, messageId.debugDescription)
                     message = try InboxMessage(
                         messageId: messageId,
                         encryptedContent: messageAndAttachmentsOnServer.encryptedContent,

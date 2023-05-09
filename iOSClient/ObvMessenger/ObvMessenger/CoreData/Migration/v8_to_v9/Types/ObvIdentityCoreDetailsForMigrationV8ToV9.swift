@@ -18,19 +18,20 @@
  */
 
 import Foundation
+import OlvidUtils
 
-struct ObvIdentityCoreDetailsForMigrationV8ToV9: Equatable {
+struct ObvIdentityCoreDetailsForMigrationV8ToV9: Equatable, ObvErrorMaker {
     
     let firstName: String?
     let lastName: String?
     let company: String?
     let position: String?
     
-    private static let errorDomain = String(describing: ObvIdentityCoreDetailsForMigrationV8ToV9.self)
+    static let errorDomain = String(describing: ObvIdentityCoreDetailsForMigrationV8ToV9.self)
     
     
     init(firstName: String?, lastName: String?, company: String?, position: String?) throws {
-        guard ObvIdentityCoreDetailsForMigrationV8ToV9.areAcceptable(firstName: firstName, lastName: lastName) else { throw NSError() }
+        guard ObvIdentityCoreDetailsForMigrationV8ToV9.areAcceptable(firstName: firstName, lastName: lastName) else { throw Self.makeError(message: "Inacceptable core details") }
         self.firstName = firstName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
         self.lastName = lastName?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()
         self.company = company?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).mapToNilIfZeroLength()

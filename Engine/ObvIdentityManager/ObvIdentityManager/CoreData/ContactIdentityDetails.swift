@@ -213,7 +213,8 @@ extension ContactIdentityDetails {
         
         // Notify of the change
         guard let obvContext = self.obvContext else { assertionFailure(); return }
-        let ownedCryptoIdentity = self.contactIdentity.ownedIdentity.cryptoIdentity
+        guard let ownedIdentity = self.contactIdentity.ownedIdentity else { assertionFailure(); return }
+        let ownedCryptoIdentity = ownedIdentity.cryptoIdentity
         let contactCryptoIdentity = self.contactIdentity.cryptoIdentity
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { assertionFailure(); return }

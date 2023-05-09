@@ -23,9 +23,10 @@ import ObvTypes
 import os.log
 import CoreData
 import ObvCrypto
+import OlvidUtils
 
 
-protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate {
+protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, ObvErrorMaker {
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
@@ -35,6 +36,11 @@ protocol ObvFlowController: UINavigationController, SingleDiscussionViewControll
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToDisplay(persistedMessage message: PersistedMessage)
     
+    // Switching the current owned identity
+    
+    var currentOwnedCryptoId: ObvCryptoId { get }
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async
+
 }
 
 
@@ -141,7 +147,7 @@ extension ObvFlowController {
         }
     }
 
-    private func buildSingleDiscussionVC(discussion: PersistedDiscussion, messageToShow: PersistedMessage?) -> DiscussionViewController {
+    private func buildSingleDiscussionVC(discussion: PersistedDiscussion, messageToShow: PersistedMessage?) throws -> DiscussionViewController {
         if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
             let initialScroll: NewSingleDiscussionViewController.InitialScroll
             if let messageToShow = messageToShow {
@@ -149,11 +155,14 @@ extension ObvFlowController {
             } else {
                 initialScroll = .newMessageSystemOrLastMessage
             }
-            let singleDiscussionVC = NewSingleDiscussionViewController(discussion: discussion, delegate: self, initialScroll: initialScroll)
+            let singleDiscussionVC = try NewSingleDiscussionViewController(discussion: discussion, delegate: self, initialScroll: initialScroll)
             singleDiscussionVC.hidesBottomBarWhenPushed = true
             return singleDiscussionVC
         } else {
-            let singleDiscussionVC = SingleDiscussionViewController(collectionViewLayout: UICollectionViewLayout())
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
+                throw Self.makeError(message: "Could not determine owned identity")
+            }
+            let singleDiscussionVC = SingleDiscussionViewController(ownedCryptoId: ownedCryptoId, collectionViewLayout: UICollectionViewLayout())
             singleDiscussionVC.discussion = discussion
             singleDiscussionVC.composeMessageViewDataSource = ComposeMessageDataSourceWithDraft(draft: discussion.draft)
             singleDiscussionVC.composeMessageViewDocumentPickerDelegate = ComposeMessageViewDocumentPickerAdapterWithDraft(draft: discussion.draft)
@@ -186,7 +195,13 @@ extension ObvFlowController {
         
         // If we reach this point, we need to push a new SingleDiscussionViewController.
 
-        let discussionVC = buildSingleDiscussionVC(discussion: discussion, messageToShow: messageToShow)
+        let discussionVC: DiscussionViewController
+        do {
+            discussionVC = try buildSingleDiscussionVC(discussion: discussion, messageToShow: messageToShow)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return
+        }
         showDetailViewController(discussionVC, sender: self)
 
         // There might be some AirDrop'ed files, add them to the discussion draft
@@ -256,7 +271,12 @@ extension ObvFlowController {
                 os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
                 return
             }
-            vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
+            do {
+                vcToPresent = try SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
+            } catch {
+                assertionFailure(error.localizedDescription)
+                return
+            }
             (vcToPresent as? SingleContactIdentityViewHostingController)?.delegate = self
             
         case .groupV1(withContactGroup: let contactGroup):
@@ -302,7 +322,13 @@ extension ObvFlowController {
             return
         }
 
-        let vcToPresent = SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
+        let vcToPresent: SingleContactIdentityViewHostingController
+        do {
+            vcToPresent = try SingleContactIdentityViewHostingController(contact: contactIdentity, obvEngine: obvEngine)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return
+        }
         vcToPresent.delegate = self
 
         let closeButton = BlockBarButtonItem.forClosing { [weak self] in self?.presentedViewController?.dismiss(animated: true) }
@@ -511,7 +537,13 @@ extension ObvFlowController {
             return
         }
         // If we reach this point, we could not find an appropriate VC within the navigation stack, so we push a new one
-        let vcToPush = SingleContactIdentityViewHostingController(contact: persistedContact, obvEngine: obvEngine)
+        let vcToPush: SingleContactIdentityViewHostingController
+        do {
+            vcToPush = try SingleContactIdentityViewHostingController(contact: persistedContact, obvEngine: obvEngine)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return
+        }
         vcToPush.delegate = self
         appropriateNav.pushViewController(vcToPush, animated: true)
         

@@ -18,19 +18,22 @@
  */
   
 
+import CoreData
+import CoreDataStack
 import Foundation
+import Intents
 import ObvEngine
+import ObvTypes
 import OlvidUtils
 import os.log
 import SwiftUI
-import CoreData
-import CoreDataStack
-import Intents
+
+
 
 @objc(ShareViewController)
 final class ShareViewController: UIViewController, ShareExtensionErrorViewControllerDelegate {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: "ShareViewController"))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: "ShareViewController"))
     private let runningLog = RunningLogError()
     private let localAuthenticationDelegate: LocalAuthenticationDelegate = LocalAuthenticationManager()
     private let internalQueue = OperationQueue.createSerialQueue(name: "ShareViewController internal queue", qualityOfService: .userInitiated)
@@ -66,11 +69,12 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
                     self?.cancelRequest()
                 }
                 self?.earlyAbortWipe()
-            }
+            },
         ])
     }
 
     override func viewDidLoad() {
+        super.viewDidLoad()
         do {
             // Initialize the CoreData Stack
             try ObvStack.initSharedInstance(transactionAuthor: ObvMessengerConstants.AppType.shareExtension.transactionAuthor, runningLog: runningLog, enableMigrations: false)
@@ -78,7 +82,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
             // Initialize the Oblivious Engine
             try initializeObliviousEngine(runningLog: runningLog)
         } catch let error {
-            os_log("📤 Could not initialize the ObvStack and Engine within the main share view controller: %{public}@", log: log, type: .fault, error.localizedDescription)
+            os_log("📤 Could not initialize the ObvStack and Engine within the main share view controller: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             if (error as NSError).code == CoreDataStackErrorCodes.migrationRequiredButNotEnabled.rawValue {
                 let vc = ShareExtensionErrorViewController()
                 vc.delegate = self
@@ -97,11 +101,11 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         // Make sure at least one owned identity has been generated within the main app
         
         do {
-            let allOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: ObvStack.shared.viewContext)
+            let allOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
             guard !allOwnedIdentities.isEmpty else {
                 throw Self.makeError(message: "Cannot find any owned identity")
             }
-            self.model = ShareViewModel(allOwnedIdentities: allOwnedIdentities)
+            self.model = try ShareViewModel(allOwnedIdentities: allOwnedIdentities)
         } catch {
             let vc = ShareExtensionErrorViewController()
             vc.delegate = self
@@ -112,7 +116,6 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
 
         // Instantiate the two view controllers that we might need and add them as child view controllers
         // The appropriate vc view will be added as a subview later, in showAppropriateViewControllerView()
-        
         let shareViewHostingController = ShareViewHostingController(obvEngine: self.obvEngine,
                                                                     model: self.model,
                                                                     internalQueue: internalQueue,
@@ -129,14 +132,14 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         self.localAuthenticationViewController = localAuthenticationViewController
 
         // Show the appropriate view controller
-        
         showAppropriateViewControllerView()
-
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        authenticateIfRequired()
+        Task {
+            await authenticateIfRequired()
+        }
     }
 
     
@@ -174,13 +177,13 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         } completion: { finished in
             vcToHide.view.removeFromSuperview()
         }
-
     }
     
     
-    private func authenticateIfRequired() {
+    private func authenticateIfRequired() async {
+        assert(model != nil, "Should not occur. May be nil under testing conditions via Xcode with no owned identity set up.")
         if !model.isAuthenticated {
-            localAuthenticationViewController?.performLocalAuthentication()
+            await localAuthenticationViewController?.performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: nil)
         }
     }
 
@@ -201,7 +204,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
     }
     
     private func completeRequest() {
-        os_log("📤 Complete request.", log: self.log, type: .info)
+        os_log("📤 Complete request.", log: Self.log, type: .info)
         doCompleteRequest()
     }
 
@@ -262,7 +265,7 @@ extension ShareViewController: ShareViewHostingControllerDelegate {
 
 
     func cancelRequest() {
-        os_log("📤 Cancel request.", log: self.log, type: .info)
+        os_log("📤 Cancel request.", log: Self.log, type: .info)
         doCompleteRequest()
     }
 
@@ -271,7 +274,7 @@ extension ShareViewController: ShareViewHostingControllerDelegate {
 
 extension ShareViewController: LocalAuthenticationViewControllerDelegate {
 
-    func userLocalAuthenticationDidSucceedOrWasNotRequired() {
+    func userLocalAuthenticationDidSucceed(authenticationWasPerformed: Bool) async {
         assert(Thread.isMainThread)
         self.model.isAuthenticated = true
         showAppropriateViewControllerView()
@@ -367,7 +370,14 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         if let conversationIdentifier = delegate?.conversationIdentifier,
            let discussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(conversationIdentifier),
            let discussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext) {
-            self.model.setSelectedDiscussions(to: [discussion])
+            
+            Task {
+                do {
+                    try await model.setSelectedDiscussions(to: [discussion])
+                } catch {
+                    os_log("When setting selected discussions", log: Self.log, type: .error)
+                }
+            }
         }
     }
 
@@ -479,7 +489,6 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
             assert(messageSentPermanentIDs.count == createMsgOps.count)
             continuation.resume(returning: messageSentPermanentIDs)
         }
-        
     }
 
 
@@ -518,9 +527,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
             } else {
                 continuation.resume()
             }
-
         }
-        
     }
     
     

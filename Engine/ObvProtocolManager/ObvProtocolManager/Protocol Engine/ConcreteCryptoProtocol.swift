@@ -88,9 +88,11 @@ extension ConcreteCryptoProtocol {
 
     func getConcreteProtocolMessage(from message: ReceivedMessage) -> ConcreteProtocolMessage? {
         guard let messageId = Self.messageId(fromRawValue: message.protocolMessageRawId) else {
+            assertionFailure()
             return nil
         }
         let concreteProtocolMessage = messageId.getConcreteProtocolMessage(with: message)
+        assert(concreteProtocolMessage != nil)
         return concreteProtocolMessage
     }
     

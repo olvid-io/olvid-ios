@@ -22,7 +22,7 @@ import UIKit
 import CoreData
 import ObvEngine
 import ObvTypes
-
+import ObvUI
 
 /// VC responsible for selection discussions -- e.g. when forwarding a message
 @available(iOS 15.0, *)

@@ -29,7 +29,7 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
 
     private static let errorDomain = "DataMigrationManagerForObvEngine"
     
-    private func makeError(message: String) -> Error {
+    private static func makeError(message: String) -> Error {
         let userInfo = [NSLocalizedFailureReasonErrorKey: message]
         return NSError(domain: DataMigrationManagerForObvEngine.errorDomain, code: 0, userInfo: userInfo)
     }
@@ -78,9 +78,11 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case version40 = "ObvEngineModel-v40"
         case version41 = "ObvEngineModel-v41"
         case version42 = "ObvEngineModel-v42"
+        case version43 = "ObvEngineModel-v43"
+        case version44 = "ObvEngineModel-v44"
 
         static var latest: ObvEngineModelVersion {
-            return .version42
+            return .version44
         }
         
         var identifier: String {
@@ -88,9 +90,18 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         }
         
         init(model: NSManagedObjectModel) throws {
-            guard model.versionIdentifiers.count == 1 else { throw NSError() }
-            guard let versionIdentifier = model.versionIdentifiers.first! as? String else { throw NSError() }
-            guard let version = ObvEngineModelVersion(rawValue: versionIdentifier) else { throw NSError() }
+            guard model.versionIdentifiers.count == 1 else {
+                assertionFailure()
+                throw DataMigrationManagerForObvEngine.makeError(message: "Expecting 1 version identifier, got \(model.versionIdentifiers.count)")
+            }
+            guard let versionIdentifier = model.versionIdentifiers.first! as? String else {
+                assertionFailure()
+                throw DataMigrationManagerForObvEngine.makeError(message: "Could not parse version identifier")
+            }
+            guard let version = ObvEngineModelVersion(rawValue: versionIdentifier) else {
+                assertionFailure()
+                throw DataMigrationManagerForObvEngine.makeError(message: "Could not turn the version identifier into an ObvEngineModelVersion instance")
+            }
             self = version
         }
         
@@ -100,11 +111,20 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
     private func getManagedObjectModel(version: ObvEngineModelVersion) throws -> NSManagedObjectModel {
         let allModels = try getAllManagedObjectModels()
         let model = try allModels.filter {
-            guard $0.versionIdentifiers.count == 1 else { throw NSError() }
-            guard let versionIdentifier = $0.versionIdentifiers.first! as? String else { throw NSError() }
+            guard $0.versionIdentifiers.count == 1 else {
+                assertionFailure()
+                throw Self.makeError(message: "Expecting 1 version identifier, got \($0.versionIdentifiers.count)")
+            }
+            guard let versionIdentifier = $0.versionIdentifiers.first! as? String else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not parse the version identifier as string")
+            }
             return versionIdentifier == version.identifier
         }
-        guard model.count == 1 else { throw NSError() }
+        guard model.count == 1 else {
+            assertionFailure()
+            throw Self.makeError(message: "Expecting 1 model, got \(model.count)")
+        }
         return model.first!
     }
 
@@ -159,7 +179,9 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case .version39: migrationType = .lightweight; destinationVersion = .version40
         case .version40: migrationType = .heavyweight; destinationVersion = .version41
         case .version41: migrationType = .heavyweight; destinationVersion = .version42
-        case .version42: migrationType = .heavyweight; destinationVersion = .version42
+        case .version42: migrationType = .lightweight; destinationVersion = .version43
+        case .version43: migrationType = .lightweight; destinationVersion = .version44
+        case .version44: migrationType = .heavyweight; destinationVersion = .version44
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)
@@ -218,20 +240,20 @@ extension DataMigrationManagerForObvEngine {
         os_log("Starting the deletion of old expired key materials", log: log, type: .info)
         
         guard let containerURL = ObvDatabaseManager.containerURL else {
-            throw makeError(message: "ObvDatabaseManager.containerURL not set in deleteOldExpiredKeyMaterialsUsingSQLite")
+            throw Self.makeError(message: "ObvDatabaseManager.containerURL not set in deleteOldExpiredKeyMaterialsUsingSQLite")
         }
         
         let storeURL = containerURL.appendingPathComponent("\(modelName).sqlite")
                 
         guard FileManager.default.fileExists(atPath: storeURL.path) else {
-            throw makeError(message: "Cannot find \(modelName).sqlite in container within deleteOldExpiredKeyMaterialsUsingSQLite")
+            throw Self.makeError(message: "Cannot find \(modelName).sqlite in container within deleteOldExpiredKeyMaterialsUsingSQLite")
         }
         
         // Open the database
         
         var db: OpaquePointer?
         guard sqlite3_open(storeURL.path, &db) == SQLITE_OK else {
-            throw makeError(message: "Could not open database with SQLite for deleting old expired key materials")
+            throw Self.makeError(message: "Could not open database with SQLite for deleting old expired key materials")
         }
                 
         defer {
@@ -250,7 +272,7 @@ extension DataMigrationManagerForObvEngine {
           }
         } else {
             os_log("Could not delete old key materials (DELETE statement could not be prepared)", log: log, type: .fault)
-            throw makeError(message: "Could not delete old key materials (DELETE statement could not be prepared)")
+            throw Self.makeError(message: "Could not delete old key materials (DELETE statement could not be prepared)")
         }
 
         sqlite3_finalize(deleteStatement)

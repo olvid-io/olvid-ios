@@ -24,13 +24,15 @@ import ObvTypes
 import OlvidUtils
 
 
-final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Operation {
+final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Operation, ObvErrorMaker {
     
     enum ReasonForCancel: Hashable {
         case contextCreatorIsNotSet
         case couldNotFindOutboxAttachmentSessionInDatabase
         case cannotFindAttachmentInDatabase
     }
+
+    static let errorDomain = "RecreatingURLSessionForCallingUIKitCompletionHandlerOperation"
 
     private let uuid = UUID()
     private let appType: AppType
@@ -87,7 +89,7 @@ final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Opera
             let attachmentSession: OutboxAttachmentSession
             do {
                 let _attachmentSession = try OutboxAttachmentSession.getWithSessionIdentifier(urlSessionIdentifier, within: obvContext)
-                guard _attachmentSession != nil else { throw NSError() }
+                guard _attachmentSession != nil else { throw Self.makeError(message: "No attachment session") }
                 attachmentSession = _attachmentSession!
             } catch {
                 os_log("Could not find any OutboxAttachmentSession for the given session identifier. Callin the completion handler now.", log: log, type: .error)

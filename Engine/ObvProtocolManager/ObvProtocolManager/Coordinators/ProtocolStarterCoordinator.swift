@@ -388,36 +388,63 @@ extension ProtocolStarterCoordinator {
     func getRemoveGroupMembersMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, removedGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let initialMessage = try getRemoveGroupMembersMessageForStartingGroupManagementProtocol(
+            groupUid: groupUid,
+            ownedIdentity: ownedIdentity,
+            removedGroupMembers: removedGroupMembers,
+            simulateReceivedMessage: false,
+            within: obvContext)
+        
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw Self.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+    
+    
+    func getRemoveGroupMembersMessageForStartingGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, removedGroupMembers: Set<ObvCryptoIdentity>, simulateReceivedMessage: Bool, within obvContext: ObvContext) throws -> GroupManagementProtocol.RemoveGroupMembersMessage {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not get group owned structure")
         }
         
         guard groupStructure.groupType == .owned else {
-            throw NSError()
+            throw Self.makeError(message: "The group type is not '.owned'")
         }
         
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
-                                              protocolInstanceUid: protocolInstanceUid)
+        let coreMessage: CoreProtocolMessage
+        if simulateReceivedMessage {
+            coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
+                ownedIdentity: ownedIdentity,
+                cryptoProtocolId: .GroupManagement,
+                protocolInstanceUid: protocolInstanceUid)
+        } else {
+            coreMessage = CoreProtocolMessage(
+                channelType: .Local(ownedIdentity: ownedIdentity),
+                cryptoProtocolId: .GroupManagement,
+                protocolInstanceUid: protocolInstanceUid)
+        }
         let initialMessage = GroupManagementProtocol.RemoveGroupMembersMessage(coreProtocolMessage: coreMessage,
                                                                                groupInformation: groupInformationWithPhoto.groupInformation,
                                                                                removedGroupMembers: removedGroupMembers)
-        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-            os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
-        }
-        return initialMessageToSend
 
+        return initialMessage
+        
     }
+    
     
     func getInitialMessageForIdentityDetailsPublicationProtocol(ownedIdentity: ObvCryptoIdentity, publishedIdentityDetailsVersion: Int) throws -> ObvChannelProtocolMessageToSend {
         
@@ -440,33 +467,57 @@ extension ProtocolStarterCoordinator {
     func getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let initialMessage = try getLeaveGroupJoinedMessageForStartingGroupManagementProtocol(ownedIdentity: ownedIdentity, groupUid: groupUid, groupOwner: groupOwner, simulateReceivedMessage: false, within: obvContext)
+
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw Self.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+    
+    
+    /// Returns a `LeaveGroupJoinedMessage` instance suitable to start the `GroupManagement` step allowing to leave a joined group v1.
+    ///
+    /// The `simulateReceivedMessage` shall generally be set to `false`, except when using the message to manually executing the `GroupManagement` step,  like we do in the `OwnedIdentityDeletion` protocol.
+    func getLeaveGroupJoinedMessageForStartingGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, simulateReceivedMessage: Bool, within obvContext: ObvContext) throws -> GroupManagementProtocol.LeaveGroupJoinedMessage {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         guard let groupStructure = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedIdentity, groupUid: groupUid, groupOwner: groupOwner, within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not find group structure")
         }
         
         guard groupStructure.groupType == .joined else {
-            throw NSError()
+            throw Self.makeError(message: "The group type is not 'joined'")
         }
         
         let groupInformationWithPhoto = try identityDelegate.getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, groupOwner: groupOwner, within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
-                                              protocolInstanceUid: protocolInstanceUid)
+        let coreMessage: CoreProtocolMessage
+        if simulateReceivedMessage {
+            coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
+                ownedIdentity: ownedIdentity,
+                cryptoProtocolId: .GroupManagement,
+                protocolInstanceUid: protocolInstanceUid)
+        } else {
+            coreMessage = CoreProtocolMessage(
+                channelType: .Local(ownedIdentity: ownedIdentity),
+                cryptoProtocolId: .GroupManagement,
+                protocolInstanceUid: protocolInstanceUid)
+        }
         let initialMessage = GroupManagementProtocol.LeaveGroupJoinedMessage(coreProtocolMessage: coreMessage,
                                                                              groupInformation: groupInformationWithPhoto.groupInformation)
-        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-            os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
-        }
-        return initialMessageToSend
+        
+        return initialMessage
 
     }
     
@@ -482,7 +533,7 @@ extension ProtocolStarterCoordinator {
         let initialMessage = ContactManagementProtocol.InitiateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToDelete)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
 
@@ -499,7 +550,7 @@ extension ProtocolStarterCoordinator {
         let initialMessage = KeycloakContactAdditionProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToAdd, signedContactDetails: signedContactDetails)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
 
@@ -524,7 +575,7 @@ extension ProtocolStarterCoordinator {
         let initialMessage = GroupManagementProtocol.InitiateGroupMembersQueryMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
         
@@ -745,12 +796,11 @@ extension ProtocolStarterCoordinator {
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
-        let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
-                                              protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = GroupV2Protocol.InitiateGroupLeaveMessage(coreProtocolMessage: coreMessage,
-                                                                       groupIdentifier: groupIdentifier)
+        let initialMessage = try getInitiateGroupLeaveMessageForStartingGroupV2Protocol(
+            ownedIdentity: ownedIdentity,
+            groupIdentifier: groupIdentifier,
+            simulateReceivedMessage: false,
+            flowId: flowId)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw makeError(message: "Could create generic protocol message to send")
@@ -758,7 +808,32 @@ extension ProtocolStarterCoordinator {
         return initialMessageToSend
         
     }
+    
+    
+    func getInitiateGroupLeaveMessageForStartingGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, simulateReceivedMessage: Bool, flowId: FlowIdentifier) throws -> GroupV2Protocol.InitiateGroupLeaveMessage {
+        
+        let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
+        
+        let coreMessage: CoreProtocolMessage
+        if simulateReceivedMessage {
+            coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
+                ownedIdentity: ownedIdentity,
+                cryptoProtocolId: .GroupV2,
+                protocolInstanceUid: protocolInstanceUid)
+        } else {
+            coreMessage = CoreProtocolMessage(
+                channelType: .Local(ownedIdentity: ownedIdentity),
+                cryptoProtocolId: .GroupV2,
+                protocolInstanceUid: protocolInstanceUid)
+        }
+        
+        let initialMessage = GroupV2Protocol.InitiateGroupLeaveMessage(coreProtocolMessage: coreMessage,
+                                                                       groupIdentifier: groupIdentifier)
 
+        return initialMessage
+        
+    }
+    
     
     func getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
@@ -781,18 +856,40 @@ extension ProtocolStarterCoordinator {
     func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-        
-        let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
-                                              protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = GroupV2Protocol.InitiateGroupDisbandMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
+
+        let initialMessage = try getInitiateInitiateGroupDisbandMessageForStartingGroupV2Protocol(
+            ownedIdentity: ownedIdentity,
+            groupIdentifier: groupIdentifier,
+            simulateReceivedMessage: false,
+            flowId: flowId)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
 
+    }
+
+    
+    func getInitiateInitiateGroupDisbandMessageForStartingGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, simulateReceivedMessage: Bool, flowId: FlowIdentifier) throws -> GroupV2Protocol.InitiateGroupDisbandMessage {
+        
+        let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
+        let coreMessage: CoreProtocolMessage
+        if simulateReceivedMessage {
+            coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
+                ownedIdentity: ownedIdentity,
+                cryptoProtocolId: .GroupV2,
+                protocolInstanceUid: protocolInstanceUid)
+        } else {
+            coreMessage = CoreProtocolMessage(
+                channelType: .Local(ownedIdentity: ownedIdentity),
+                cryptoProtocolId: .GroupV2,
+                protocolInstanceUid: protocolInstanceUid)
+        }
+        let initialMessage = GroupV2Protocol.InitiateGroupDisbandMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
+
+        return initialMessage
+        
     }
 
     
@@ -814,4 +911,22 @@ extension ProtocolStarterCoordinator {
 
     }
 
+    
+    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentityToDelete),
+                                              cryptoProtocolId: .ownedIdentityDeletionProtocol,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = OwnedIdentityDeletionProtocol.InitiateOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage, ownedCryptoIdentityToDelete: ownedCryptoIdentityToDelete, notifyContacts: notifyContacts)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+    
 }

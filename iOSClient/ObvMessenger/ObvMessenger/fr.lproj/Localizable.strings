@@ -422,7 +422,7 @@
 "Mutual trust confirmed!" = "Canal sécurisé en cours";
 
 /* Title of a tab, Title of the MyIdViewController, View Controller title */
-"My Id" = "Mon ID";
+"My Id" = "Mon profil";
 
 /* Table View section title */
 "My Olvid Card" = "Mon ID";
@@ -1271,10 +1271,6 @@
 
 "AND_%@_OTHERS" = "et %@ autres";
 
-"WITH_ONE_PARTICIPANT" = "avec un participant";
-
-"WITH_%@_PARTICIPANTS" = "avec %@ participants";
-
 "Hangup" = "Raccrocher";
 
 "HOW_DO_YOU_WANT_TO_SHARE_ID" = "Comment voulez-vous partager votre ID ?";
@@ -1570,6 +1566,8 @@
 
 "THIRTY_SECONDS" = "30 secondes";
 
+"TWO_MINUTES" = "2 minutes";
+
 "THIRTY_MINUTES" = "30 minutes";
 
 "SIX_HOUR" = "6 heures";
@@ -1716,7 +1714,7 @@
 
 "Edited" = "Modifié";
 
-"CREATE_MY_ID" = "Créer mon ID";
+"CREATE_MY_ID" = "Créer mon profil";
 
 "TAKE_PICTURE" = "Prendre une photo";
 
@@ -2650,3 +2648,114 @@
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "Si vous activez cette option, cette discussion apparaitra directement lorsque vous partagerez du contenu depuis une autre app.";
 
 "DISCUSSIONS_FILTER_CELL_PICKER_TEXT" = "Filtrer les discussions";
+
+"MY_OWN_IDS" = "Mes profils";
+
+"CREATE_NEW_OWNED_IDENTITY" = "Créer un nouveau profil";
+
+"DELETE_THIS_IDENTITY_QUESTION_TITLE_%@" = "Supprimer le profil « %@ » ?";
+
+"DELETE_THIS_IDENTITY_QUESTION_MESSAGE" = "Supprimer un profil effacera toute information associée à ce profil de votre appareil. Cela inclut vos contacts, vos groupes et le contenu de toutes vos discussions pour ce profil. Vos autres profils ne seront pas affectés par cette opération.\nSi vous avez activé les sauvegardes Olvid, vos futures sauvegardes ne contiendront aucune trace de ce profil et vous ne serez pas en mesure de le restaurer.";
+
+"DELETE_THIS_IDENTITY_BUTTON" = "Supprimer ce profil";
+
+"CHOOSE_PASSWORD" = "Choisissez un mot de passe";
+
+"HIDE_PROFILE_EXPLANATION" = "Les profils masqués sont protégés par un mot de passe et n'apparaissent dans la liste de profils qu'après avoir saisi ce mot de passe.\nFaites un appui long sur le bouton supérieur gauche affiché sur chaque onglet pour accéder à un profil masqué.\nSi vous oubliez ce mot de passe, vous perdrez définitivement accès à ce profil 😱 !";
+
+"ENTER_PASSWORD" = "Entrez un mot de passe";
+
+"CONFIRM_PASSWORD" = "Confirmez le mot de passe";
+
+"CREATE_PASSWORD" = "Créer le mot de passe";
+
+"EDIT_CURRENT_IDENTITY" = "Éditer le profil courant";
+
+"HIDE_THIS_IDENTITY" = "Masquer ce profil";
+
+"UNHIDE_THIS_IDENTITY" = "Démasquer ce profil";
+
+"SHOW_OWNED_IDENTITY_DETAILS" = "Afficher les détails de ce profil";
+
+"FAILED_TO_HIDE_OWNED_ID_ALERT_TITLE" = "Le profil n'a pas pu être masquée";
+
+"FAILED_TO_HIDE_OWNED_ID_ALERT_MESSAGE" = "Vous pouvez essayer à nouveau, en prenant garde à choisir un mot de passe qui ne soit pas le préfixe d'un mot de passe d'un autre profil masqué.";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_TITLE" = "Démasquer ce profil ?";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_MESSAGE" = "Vous êtes sur le point de démasquer un profil. Si vous confirmez, ce profil sera sytématiquement visible, sans mot de passe spécifique.";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_ACTION_STAY_HIDDEN" = "Ne pas démasquer";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_ACTION_UNHIDE" = "Démasquer";
+
+"OPEN_HIDDEN_PROFILE_ALERT_TITLE" = "Afficher un profil masqué";
+
+"OPEN_HIDDEN_PROFILE_ALERT_MESSAGE" = "Si vous avez créé un profil masqué, veuillez entrer son mot de passe pour l'afficher.";
+
+"AT_LEAST_ONE_UNHIDDEN_PROFILE_MUST_EXIST_TITLE" = "Impossible de masquer ce profil pour le moment";
+
+"AT_LEAST_ONE_UNHIDDEN_PROFILE_MUST_EXIST_MESSAGE" = "Vous devez toujours avoir au moins un profil visible. Comme ce profil est le seul que vous ayez, vous ne pouvez pas le masquer. Vous pouvez néanmoins créer un nouveau profil et essayer à nouveau.";
+
+"DELETE_THIS_LAST_UNHIDDEN_IDENTITY_QUESTION_TITLE" = "Supprimer ce dernier profil ?";
+
+"DELETE_THIS_LAST_UNHIDDEN_IDENTITY_QUESTION_MESSAGE" = "Supprimer un profil effacera toute information associée à ce profil de votre appareil. Cela inclut vos contacts, vos groupes et le contenu de toutes vos discussions pour ce profil.\n\nCe profil est votre seul profil visible et si vous avez des profils masqués, ceux-ci seront également supprimés.\nSi vous avez activé les sauvegardes Olvid, vos futures sauvegardes ne contiendront aucune trace de ce profil et vous ne serez pas en mesure de le restaurer.";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_TITLE" = "Voulez-vous prévenir vos contacts ?";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE" = "Nous vous recommandons de prévenir vos contacts. De cette façon:\n- votre profil supprimé n'apparaitra plus dans le carnet d'adresses de vos contacts,\n- les groupes que vous gérez serons dissous si vous en êtes le seul administrateur,\n- vous quitterez les groupes dont vous êtes membre.\n\nSi vous ne prévenez pas, à moins d\'avoir transféré votre ID sur un autre appareil, vos contacts pourraient continuer à vous écrire sans réaliser que leurs messages ne peuvent vous être distribués.";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOTIFY_CONTACTS_ACTION" = "Prévenir mes contacts (recommandé)";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOT_NOTIFY_CONTACTS_ACTION" = "Ne pas prévenir mes contacts";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_TITLE_%@" = "Confirmez la suppression du profil « %@ »";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_MESSAGE" = "Pour confirmer la suppression de votre profil, veuillez taper le mot 'SUPPRIMER'.";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_DO_DELETE_ACTION" = "Supprimer mon profil";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_WORD_TO_TYPE" = "SUPPRIMER";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_TITLE" = "Quand désirez-vous fermer un profil masqué ?";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_MESSAGE" = "Veuillez choisir le bon moment pour fermer un profil masqué. Par défaut, un profil masqué est fermé quand vous basculez manuellement vers un autre profil.";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_SCREEN_LOCK" = "Au verrouillage de l'écran d'Olvid";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_MANUAL_SWITCHING" = "En changeant de profil manuellement";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_BACKGROUND" = "Quand Olvid passe en arrière-plan";
+
+"CLOSE_OPEN_HIDDEN_PROFILE" = "Fermer un profil masqué ouvert";
+
+"HIDDEN_PROFILES" = "Profils masqués";
+
+"AFTER_TEN_SECONDS" = "après 10 secondes";
+"AFTER_THIRTY_SECONDS" = "après 30 secondes";
+"AFTER_ONE_MINUTE" = "après 1 minute";
+"AFTER_TWO_MINUTE" = "après 2 minutes";
+"AFTER_FIVE_MINUTE" = "après 5 minutes";
+
+"TIME_INTERVAL_FOR_BG_HIDDEN_PROFILE_CLOSE_POLICY" = "Fermer un profil masqué quand Olvid passe en arrière plan...";
+
+"ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_TITLE" = "Écran de verrouillage non configuré";
+"ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_MESSAGE" = "Vous avez choisi de fermer les profils masqués ouverts au verrouillage de l'écran d'Olvid. Cependant, vous n'avez pas configuré d'écran de verrouillage.\n\nAvec le réglage actuel, les profils masqués ne seront fermés que si vous basculez manuellement vers un autre profil.\n\nPour configurer un écran de verrouillage, allez dans les paramètres de « Vie privée ».";
+"ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_ACTION_GOTO_PRIVACY_SETTINGS" = "Aller dans les paramètres";
+
+"PLEASE_CHOOSE_PROFILE_TO_PROCESS_OLVID_URL" = "Veuillez choisir le profil avec lequel vous désirez continuer.";
+
+"EDIT_OWNED_IDENTITY_NICKNAME" = "Éditer mon pseudo";
+
+"ALERT_FOR_EDITING_NICKNAME_TITLE" = "Éditer mon pseudo";
+"ALERT_FOR_EDITING_NICKNAME_MESSAGE" = "Votre pseudo n'est visible que par vous et vous permet de facilement distinguer vos profils les uns des autres.";
+
+"DISCUSSIONS_LIST_SELECTED_DISCUSSION_GROUP_SUBTITLE" = "Participants : %d";
+
+"SHARE_VIEW_PROFILE_SELECTION_BAR_TITLE" = "Profil";
+
+"PLEASE_WAIT_DURING_UPDATE" = "Mise à jour en cours. Veuillez ne pas quitter Olvid.";
+
+"Message" = "Message";
+
+"ANOTHER_PROFILE_HAS_VALID_API_KEY" = "Ce profil bénéficie de la licence d'un autre profil.";

@@ -25,6 +25,7 @@ import ObvCrypto
 import ObvTypes
 import SwiftUI
 import AVFAudio
+import ObvUI
 
 @MainActor
 final class MetaFlowController: UIViewController, OlvidURLHandler {
@@ -127,6 +128,25 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
                     self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID)
                 }
             },
+            ObvMessengerInternalNotification.observeUserWantsToCreateNewOwnedIdentity { [weak self] in
+                Task { await self?.processUserWantsToCreateNewOwnedIdentityNotification() }
+            },
+            ObvMessengerInternalNotification.observeUserWantsToSwitchToOtherOwnedIdentity { [weak self] ownedCryptoId in
+                Task { await self?.processUserWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ownedCryptoId) }
+            },
+            ObvMessengerInternalNotification.observeUserWantsToSwitchToOtherHiddenOwnedIdentity { [weak self] password in
+                Task { await self?.processUserWantsToSwitchToOtherHiddenOwnedIdentity(password: password) }
+            },
+            ObvMessengerCoreDataNotification.observePersistedObvOwnedIdentityWasDeleted { [weak self] in
+                Task { try? await self?.setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: nil) }
+            },
+            ObvMessengerCoreDataNotification.observeOwnedIdentityHiddenStatusChanged { [weak self] _, isHidden in
+                guard isHidden else { return }
+                Task { await self?.askUserToChooseHiddenProfileClosePolicyIfItIsNotSetYet() }
+            },
+            ObvMessengerInternalNotification.observeCloseAnyOpenHiddenOwnedIdentity { [weak self] in
+                Task { await self?.switchToNonHiddenOwnedIdentityIfCurrentIsHidden() }
+            },
         ])
         
         // VoIP notifications
@@ -145,8 +165,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
                 self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: false)
             }
         ])
-
-                
     }
     
     
@@ -274,19 +292,23 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     private func observeUserWantsToNavigateToDeepLinkNotifications() {
         let log = self.log
         os_log("🥏🏁 We observe UserWantsToNavigateToDeepLink notifications", log: log, type: .info)
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToNavigateToDeepLink(queue: OperationQueue.main) { [weak self] (deepLink) in
-            os_log("🥏🏁 We received a UserWantsToNavigateToDeepLink notification", log: log, type: .info)
-            guard let _self = self else { return }
-            let toExecuteAfterViewDidAppear = { [weak self] in
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToNavigateToDeepLink { [weak self] (deepLink) in
+            DispatchQueue.main.async {
+                os_log("🥏🏁 We received a UserWantsToNavigateToDeepLink notification", log: log, type: .info)
                 guard let _self = self else { return }
-                VoIPNotification.hideCallView.postOnDispatchQueue()
-                assert(_self.mainFlowViewController != nil)
-                _self.mainFlowViewController?.performCurrentDeepLinkInitialNavigation(deepLink: deepLink)
-            }
-            if _self.viewDidAppearWasCalled {
-                toExecuteAfterViewDidAppear()
-            } else {
-                _self.completionHandlersToCallOnViewDidAppear.append(toExecuteAfterViewDidAppear)
+                let toExecuteAfterViewDidAppear = { [weak self] in
+                    guard let _self = self else { return }
+                    VoIPNotification.hideCallView.postOnDispatchQueue()
+                    assert(_self.mainFlowViewController != nil)
+                    Task {
+                        await _self.mainFlowViewController?.performCurrentDeepLinkInitialNavigation(deepLink: deepLink)
+                    }
+                }
+                if _self.viewDidAppearWasCalled {
+                    toExecuteAfterViewDidAppear()
+                } else {
+                    _self.completionHandlersToCallOnViewDidAppear.append(toExecuteAfterViewDidAppear)
+                }
             }
         })
     }
@@ -311,12 +333,14 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
         viewOnTopOfCallBannerView.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         viewOnTopOfCallBannerView.isHidden = true
         
-        do {
-            try setupAndShowAppropriateChildViewControllers()
-        } catch {
-            os_log("Could not determine which child view controller to show", log: log, type: .fault)
-            assertionFailure()
-            return
+        Task {
+            do {
+                try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: nil)
+            } catch {
+                os_log("Could not determine which child view controller to show", log: log, type: .fault)
+                assertionFailure()
+                return
+            }
         }
         
     }
@@ -361,10 +385,10 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     }
     
     
-    func onboardingIsFinished(olvidURLScannedDuringOnboarding: OlvidURL?) {
+    func onboardingIsFinished(ownedCryptoIdGeneratedDuringOnboarding: ObvCryptoId?, olvidURLScannedDuringOnboarding: OlvidURL?) async {
         let log = self.log
         do {
-            try setupAndShowAppropriateChildViewControllers() { result in
+            try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: ownedCryptoIdGeneratedDuringOnboarding) { result in
                 assert(Thread.isMainThread)
                 switch result {
                 case .failure(let error):
@@ -411,11 +435,100 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
 
     }
     
+    /// When deleting the last owned identity, we want to restart all over: show the onboarding screen and remove the main flow from the hierarchy
+    private func destroyCurrentMainFlowViewController() {
+        if let mainFlowViewController {
+            mainFlowViewController.view.removeFromSuperview()
+            mainFlowViewController.willMove(toParent: nil)
+            mainFlowViewController.removeFromParent()
+            mainFlowViewController.didMove(toParent: nil)
+        }
+        mainFlowViewController = nil
+        mainFlowViewControllerConstraintsWithoutCallBannerView.removeAll()
+        mainFlowViewControllerConstraintsWithCallBannerView.removeAll()
+    }
+
+    
+    private func destroyCurrentOnboardingFlowViewController() {
+        if let onboardingFlowViewController {
+            onboardingFlowViewController.view.removeFromSuperview()
+            onboardingFlowViewController.willMove(toParent: nil)
+            onboardingFlowViewController.removeFromParent()
+            onboardingFlowViewController.didMove(toParent: nil)
+        }
+        onboardingFlowViewController  = nil
+    }
+    
+    
+    /// Asks the user to choose a hidding policy if it is not set yet.
+    ///
+    /// This is typically called each time an owned identity becomes hidden.
+    @MainActor
+    func askUserToChooseHiddenProfileClosePolicyIfItIsNotSetYet() async {
+        let traitCollection = self.traitCollection
+        guard ObvMessengerSettings.Privacy.hiddenProfileClosePolicyHasYetToBeSet else { return }
+        let alert = UIAlertController(title: Strings.AlertChooseHiddenProfileClosePolicy.title,
+                                      message: Strings.AlertChooseHiddenProfileClosePolicy.message,
+                                      preferredStyleForTraitCollection: traitCollection)
+        alert.addAction(.init(title: Strings.AlertChooseHiddenProfileClosePolicy.actionManualSwitching, style: .default) { _ in
+            ObvMessengerSettings.Privacy.hiddenProfileClosePolicy = .manualSwitching
+        })
+        alert.addAction(.init(title: Strings.AlertChooseHiddenProfileClosePolicy.actionScreenLock, style: .default) { [weak self] _ in
+            ObvMessengerSettings.Privacy.hiddenProfileClosePolicy = .screenLock
+            Task { await self?.askUserToActivateScreenLockIfNoneExists() }
+        })
+        alert.addAction(.init(title: Strings.AlertChooseHiddenProfileClosePolicy.actionBackground, style: .default) { [weak self] _ in
+            ObvMessengerSettings.Privacy.hiddenProfileClosePolicy = .background
+            // Show another alert allowing to choose the time interval allowed in background
+            let alert = UIAlertController(title: Strings.AlertTimeIntervalForBackgroundHiddenProfileClosePolicy.title,
+                                          message: nil,
+                                          preferredStyleForTraitCollection: traitCollection)
+            for timeInterval in ObvMessengerSettings.Privacy.TimeIntervalForBackgroundHiddenProfileClosePolicy.allCases {
+                alert.addAction(.init(title: Strings.AlertTimeIntervalForBackgroundHiddenProfileClosePolicy.actionTitle(for: timeInterval), style: .default) { _ in
+                    ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy = timeInterval
+                })
+            }
+            if let presentedViewController = self?.presentedViewController {
+                presentedViewController.present(alert, animated: true)
+            } else {
+                self?.present(alert, animated: true)
+            }
+        })
+        if let presentedViewController {
+            presentedViewController.present(alert, animated: true)
+        } else {
+            present(alert, animated: true)
+        }
+    }
+    
+    
+    /// When a user creates a hidden profile with a `.screenLock` close policy, we make sure she actually has a screen lock activated.
+    /// If not, we recommend to activate a screen lock and provide a way to navigate to the appropriate settings screen.
+    @MainActor func askUserToActivateScreenLockIfNoneExists() async {
+        guard ObvMessengerSettings.Privacy.localAuthenticationPolicy == .none else { return }
+        // The user has no screen lock (i.e., no local authentication policy), we recommend to activate one now.
+        let alert = UIAlertController(title: Strings.AlertShouldActivateScreenLockAfterCreatingHiddenProfile.title,
+                                      message: Strings.AlertShouldActivateScreenLockAfterCreatingHiddenProfile.message,
+                                      preferredStyleForTraitCollection: traitCollection)
+        alert.addAction(.init(title: Strings.AlertShouldActivateScreenLockAfterCreatingHiddenProfile.actionGotToPrivacySettings, style: .default) { _ in
+            let deepLink = ObvDeepLink.privacySettings
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                .postOnDispatchQueue()
+        })
+        alert.addAction(.init(title: CommonString.Word.Later, style: .cancel))
+        if let presentedViewController = presentedViewController {
+            presentedViewController.present(alert, animated: true)
+        } else {
+            present(alert, animated: true)
+        }
+    }
+
     
     @MainActor
-    private func setupAndShowAppropriateChildViewControllers(completion: (@MainActor (Result<Void,Error>) -> Void)? = nil) throws {
+    private func setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: ObvCryptoId?, completion: (@MainActor (Result<Void,Error>) -> Void)? = nil) async throws {
         
         assert(viewDidLoadWasCalled)
+        assert(Thread.isMainThread)
         
         let internalCompletion = { (result: Result<Void,Error>) -> Void in
             Task { [weak self] in
@@ -428,12 +541,17 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
             }
         }
         
-        let ownedIdentities = try obvEngine.getOwnedIdentities()
-        
-        if let ownedIdentity = ownedIdentities.first {
-            
-            currentOwnedCryptoId = ownedIdentity.cryptoId
+        // Determine the most appropriate owned identity to show
 
+        let appropriateOwnedCryptoIdToShow: ObvCryptoId?
+        if let ownedCryptoIdGeneratedDuringOnboarding {
+            appropriateOwnedCryptoIdToShow = ownedCryptoIdGeneratedDuringOnboarding
+        } else {
+            appropriateOwnedCryptoIdToShow = await getMostAppropriateOwnedCryptoIdToShow()
+        }
+        
+        if let ownedCryptoId = appropriateOwnedCryptoIdToShow {
+                        
             if mainFlowViewController == nil {
                 guard let createPasscodeDelegate = self.createPasscodeDelegate else {
                     assertionFailure(); return
@@ -441,19 +559,20 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 guard let appBackupDelegate = self.appBackupDelegate else {
                     assertionFailure(); return
                 }
-                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedIdentity.cryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
+                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
             }
 
-            guard let mainFlowViewController = mainFlowViewController else {
+            guard let mainFlowViewController else {
                 assertionFailure()
                 internalCompletion(.failure(makeError(message: "No main flow view controller")))
                 return
             }
-            
+                        
             if let currentFirstChild = children.first {
                             
                 guard currentFirstChild != mainFlowViewController else {
-                    internalCompletion(.failure(makeError(message: "First child is not the main flow view controller")))
+                    presentedViewController?.dismiss(animated: true)
+                    await processUserWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ownedCryptoId)
                     return
                 }
                 
@@ -465,7 +584,9 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 }
                 
                 if mainFlowViewController.parent == nil {
+                    mainFlowViewController.willMove(toParent: self)
                     addChild(mainFlowViewController)
+                    mainFlowViewController.didMove(toParent: self)
                 }
                                 
                 transition(from: currentFirstChild, to: mainFlowViewController, duration: 0.9, options: [.transitionFlipFromLeft]) { [weak self] in
@@ -474,11 +595,15 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                     _self.setupMainFlowViewControllerConstraintsWithoutCallBannerViewIfNecessary()
                     NSLayoutConstraint.activate(_self.mainFlowViewControllerConstraintsWithoutCallBannerView)
                     _self.callBannerView.isHidden = true
-                } completion: { _ in
+                } completion: { [weak self] _ in
                     currentFirstChild.view.removeFromSuperview()
                     currentFirstChild.removeFromParent() // Automatic call to didMove(...) ?
                     mainFlowViewController.didMove(toParent: self)
                     internalCompletion(.success(()))
+                    self?.destroyCurrentOnboardingFlowViewController()
+                    Task {
+                        await self?.switchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
+                    }
                 }
                          
             } else {
@@ -497,11 +622,22 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 
                 internalCompletion(.success(()))
 
+                await switchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
+
             }
             
         } else {
+            
+            destroyCurrentMainFlowViewController()
 
-            if onboardingFlowViewController == nil {
+            if let onboardingFlowViewController {
+                if onboardingFlowViewController.parent != nil {
+                    // Nothing left to do
+                    return
+                } else {
+                    assertionFailure()
+                }
+            } else {
                 onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine, appBackupDelegate: appBackupDelegate)
                 onboardingFlowViewController?.delegate = self
             }
@@ -511,35 +647,75 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 internalCompletion(.failure(makeError(message: "No onboarding flow view controller")))
                 return
             }
-
+            
             if let currentFirstChild = children.first {
                 
-                assert(currentFirstChild == onboardingFlowViewController)
-                internalCompletion(.success(()))
-                
-            } else {
-                
-                // This view controller has no child view controller.
-                // We set this first child to the onboardingFlowViewController
-
-                addChild(onboardingFlowViewController)
-                onboardingFlowViewController.didMove(toParent: self)
-                
-                view.addSubview(onboardingFlowViewController.view)
-                onboardingFlowViewController.view.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    onboardingFlowViewController.view.topAnchor.constraint(equalTo: view.topAnchor),
-                    onboardingFlowViewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                    onboardingFlowViewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-                    onboardingFlowViewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                ])
-
-                internalCompletion(.success(()))
+                if currentFirstChild != onboardingFlowViewController {
+                    // Happens when deleting the last owned identity
+                    currentFirstChild.view.removeFromSuperview()
+                    currentFirstChild.willMove(toParent: nil)
+                    currentFirstChild.removeFromParent()
+                    currentFirstChild.didMove(toParent: nil)
+                } else {
+                    internalCompletion(.success(()))
+                    return
+                }
                 
             }
-
+                
+            // This view controller has no child view controller.
+            // We set this first child to the onboardingFlowViewController
+            
+            addChild(onboardingFlowViewController)
+            onboardingFlowViewController.didMove(toParent: self)
+            
+            view.addSubview(onboardingFlowViewController.view)
+            onboardingFlowViewController.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                onboardingFlowViewController.view.topAnchor.constraint(equalTo: view.topAnchor),
+                onboardingFlowViewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                onboardingFlowViewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                onboardingFlowViewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            ])
+            
+            internalCompletion(.success(()))
+                
         }
 
+    }
+    
+    
+    /// Returns the most appropriate owned identity to show. Returns `nil` if no owned identity exists.
+    @MainActor private func getMostAppropriateOwnedCryptoIdToShow() async -> ObvCryptoId? {
+        guard let latestCurrentOWnedIdentityStored = await LatestCurrentOwnedIdentityStorage.shared.getLatestCurrentOwnedIdentityStored() else {
+            // Return a random non hidden owned identity if one can be found
+            return await getRandomExistingNonHiddenOwnedCryptoId()
+        }
+        guard let hiddenCryptoId = latestCurrentOWnedIdentityStored.hiddenCryptoId else {
+            let nonHiddenCryptoId = latestCurrentOWnedIdentityStored.nonHiddenCryptoId
+            // Make sure the identity still exists, otherwise, return a random non hidden owned identity
+            guard (try? PersistedObvOwnedIdentity.get(cryptoId: nonHiddenCryptoId, within: ObvStack.shared.viewContext)) != nil else {
+                return await getRandomExistingNonHiddenOwnedCryptoId()
+            }
+            return nonHiddenCryptoId
+        }
+        // If we reach this point, we are in the complex situation where the latest current identity was a hidden one. We must determine if it is appropriate to show it.
+        guard (try? PersistedObvOwnedIdentity.get(cryptoId: hiddenCryptoId, within: ObvStack.shared.viewContext)) != nil else {
+            return await getRandomExistingNonHiddenOwnedCryptoId()
+        }
+        switch ObvMessengerSettings.Privacy.hiddenProfileClosePolicy {
+        case .manualSwitching:
+            return hiddenCryptoId
+        case .screenLock, .background:
+            assertionFailure("The hidden cryptoId should have been cleared by now")
+            return latestCurrentOWnedIdentityStored.nonHiddenCryptoId
+        }
+    }
+    
+    
+    @MainActor private func getRandomExistingNonHiddenOwnedCryptoId() async -> ObvCryptoId? {
+        guard let ownedIdentities = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext) else { assertionFailure(); return nil }
+        return ownedIdentities.first?.cryptoId
     }
     
     
@@ -920,17 +1096,104 @@ extension MetaFlowController {
     private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         guard automaticallyNavigateToCreatedDisplayedContactGroup else { return }
+        guard let currentOwnedCryptoId else { return }
         guard let displayedContactGroup = try? DisplayedContactGroup.getManagedObject(withPermanentID: permanentID, within: ObvStack.shared.viewContext) else { return }
+        guard let ownedCryptoId = try? displayedContactGroup.ownedCryptoId else { assertionFailure(); return }
+        guard currentOwnedCryptoId == ownedCryptoId else { return }
         // We only automatically navigate to groups we juste created, where we are admin
         guard displayedContactGroup.ownPermissionAdmin else { return }
         // Navigate to the group
         automaticallyNavigateToCreatedDisplayedContactGroup = false
-        let deepLink = ObvDeepLink.contactGroupDetails(objectPermanentID: permanentID)
+        let deepLink = ObvDeepLink.contactGroupDetails(ownedCryptoId: currentOwnedCryptoId, objectPermanentID: permanentID)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
             .postOnDispatchQueue()
     }
 
+    
+    @MainActor
+    private func processUserWantsToCreateNewOwnedIdentityNotification() async {
+        presentedViewController?.dismiss(animated: true)
+        let onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine, appBackupDelegate: nil)
+        onboardingFlowViewController.delegate = self
+        present(onboardingFlowViewController, animated: true)
+    }
+    
 }
+
+
+// MARK: - Switching current owned identity
+
+extension MetaFlowController {
+    
+    /// Changes the current owned identity of the user. Called as a response to the corresponding notification and from the MainFlowViewController as well, when processing an externally tapped or scanned `OlvidURL`.
+    @MainActor func processUserWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ObvCryptoId) async {
+        presentedViewController?.dismiss(animated: true)
+        await switchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
+    }
+    
+    
+    @MainActor
+    private func processUserWantsToSwitchToOtherHiddenOwnedIdentity(password: String) async {
+        let ownedCryptoId: ObvCryptoId
+        do {
+            guard let unlockedOwnedIdentity = try PersistedObvOwnedIdentity.getHiddenOwnedIdentity(password: password, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+            ownedCryptoId = unlockedOwnedIdentity.cryptoId
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return
+        }
+        await switchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
+    }
+    
+    
+    /// Certain events trigger the immediate closing of a hidden owned identity if one is open. For example, when using a custom passcode, we should close any open hidden identity.
+    /// When this is required, a `CloseAnyOpenHiddenOwnedIdentity` notification is sent, and we process it here, where we simply switch to any non-hidden identity.
+    @MainActor func switchToNonHiddenOwnedIdentityIfCurrentIsHidden() async {
+        guard let currentOwnedCryptoId else { return }
+        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: currentOwnedCryptoId, within: ObvStack.shared.viewContext) else {
+            await switchToNonHiddenOwnedIdentity()
+            return
+        }
+        guard ownedIdentity.isHidden else { return }
+        // If we reach this point, the current owned identity is hidden. We close it, as requested.
+        await switchToNonHiddenOwnedIdentity()
+    }
+    
+    
+    /// Alows to switch to the most appropriate non-hidden owned identity
+    @MainActor private func switchToNonHiddenOwnedIdentity() async {
+        let ownedCryptoId: ObvCryptoId
+        if let _ownedCryptoId = await LatestCurrentOwnedIdentityStorage.shared.getLatestCurrentOwnedIdentityStored()?.nonHiddenCryptoId {
+            ownedCryptoId = _ownedCryptoId
+        } else {
+            guard let ownedIdentity = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext).first else { assertionFailure(); return }
+            ownedCryptoId = ownedIdentity.cryptoId
+        }
+        await switchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
+    }
+    
+    
+    /// Called from the other aboves methods when they need to switch identity.
+    @MainActor private func switchToOwnedIdentity(ownedCryptoId: ObvCryptoId) async {
+        let isHidden: Bool
+        do {
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { return }
+            isHidden = ownedIdentity.isHidden
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return
+        }
+        guard let mainFlowViewController else { assertionFailure(); return }
+        self.currentOwnedCryptoId = ownedCryptoId
+        await LatestCurrentOwnedIdentityStorage.shared.storeLatestCurrentOwnedCryptoId(ownedCryptoId, isHidden: isHidden)
+        await mainFlowViewController.switchCurrentOwnedCryptoId(to: ownedCryptoId)
+        
+        ObvMessengerInternalNotification.metaFlowControllerDidSwitchToOwnedIdentity(ownedCryptoId: ownedCryptoId)
+            .postOnDispatchQueue()
+    }
+    
+}
+
 
 // MARK: OlvidURLHandler
 

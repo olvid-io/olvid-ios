@@ -17,9 +17,11 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
+
 import MobileCoreServices
 import LinkPresentation
+import ObvUI
+import UIKit
 
 
 class MessageCollectionViewCell: UICollectionViewCell {
@@ -493,7 +495,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
             case .remoteWiped: return NSLocalizedString("REMOTE_WIPED_MESSAGE", comment: "")
             case .tapToRead: return NSLocalizedString("TAP_TO_READ", comment: "")
             case .onlyAttachments(count: let count):
-                return DiscussionsTableViewController.Strings.countAttachments(count)
+                return PersistedMessage.Strings.countAttachments(count)
             }
         }
 
@@ -587,15 +589,13 @@ class MessageCollectionViewCell: UICollectionViewCell {
                !urls.isEmpty {
                 // Fetch the metadata
                 let firstURL = urls.first!
-                let metadadataProvider = LPMetadataProvider()
-                metadadataProvider.getCachedOrStartFetchingMetadata(for: firstURL, cacheHit: { (metadata) in
-                    assert(Thread.current == Thread.main)
-                    guard let metadata = metadata else { return }
+                switch CachedLPMetadataProvider.shared.getCachedMetada(for: firstURL) {
+                case .metadataCached(metadata: let metadata):
                     displayLinkMetadata(metadata, for: message, animate: false)
-                }) { (metadata, error) in
-                    guard error == nil else { return }
-                    guard metadata != nil else { return }
-                    DispatchQueue.main.async { [weak self] in
+                case .siteDoesNotProvideMetada, .failureOccuredWhenFetchingOrCachingMetadata:
+                    break
+                case .metadaNotCachedYet:
+                    CachedLPMetadataProvider.shared.fetchAndCacheMetadata(for: firstURL) { [weak self] in
                         guard let _self = self else { return }
                         guard self?.message == message else { return }
                         self?.delegate?.reloadCell(_self)

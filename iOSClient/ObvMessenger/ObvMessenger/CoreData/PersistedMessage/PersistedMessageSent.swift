@@ -199,6 +199,7 @@ final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManagedObject
         guard self.textBodyCanBeEdited else {
             throw Self.makeError(message: "The text body of this sent message cannot be edited now")
         }
+        guard self.textBody != newTextBody else { return }
         try super.editTextBody(newTextBody: newTextBody)
         try deleteMetadataOfKind(.edited)
         try addMetadata(kind: .edited, date: Date())

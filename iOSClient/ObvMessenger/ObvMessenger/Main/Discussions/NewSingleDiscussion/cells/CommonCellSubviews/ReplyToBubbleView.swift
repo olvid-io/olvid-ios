@@ -28,6 +28,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
     enum Configuration: Equatable, Hashable {
         case loading
         case messageWasDeleted
+        case remotelyWiped(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, deleterName: String?, bodyColor: UIColor, name: String?, nameColor: UIColor?, lineColor: UIColor?, bubbleColor: UIColor?, showThumbnail: Bool, hardlink: HardLinkToFyle?, thumbnail: UIImage?)
         case loaded(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, body: String?, bodyColor: UIColor, name: String?, nameColor: UIColor?, lineColor: UIColor?, bubbleColor: UIColor?, showThumbnail: Bool, hardlink: HardLinkToFyle?, thumbnail: UIImage?)
         
         var messageObjectID: NSManagedObjectID? {
@@ -36,17 +37,16 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
                 return nil
             case .loaded(messageObjectID: let messageObjectID, body: _, bodyColor: _, name: _, nameColor: _, lineColor: _, bubbleColor: _, showThumbnail: _, hardlink: _, thumbnail: _):
                 return messageObjectID.objectID
+            case .remotelyWiped(messageObjectID: let messageObjectID, deleterName: _, bodyColor: _, name: _, nameColor: _, lineColor: _, bubbleColor: _, showThumbnail: _, hardlink: _, thumbnail: _):
+                return messageObjectID.objectID
             }
         }
         
         func replaceHardLink(with hardlink: HardLinkToFyle) -> Configuration {
             switch self {
-            case .loading:
+            case .loading, .messageWasDeleted, .remotelyWiped:
                 assertionFailure()
-                return .loading
-            case .messageWasDeleted:
-                assertionFailure()
-                return .messageWasDeleted
+                return self
             case .loaded(messageObjectID: let messageObjectID, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let previousHardlink, thumbnail: let thumbnail):
                 assert(previousHardlink == nil)
                 assert(showThumbnail)
@@ -66,12 +66,9 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         
         func replaceThumbnail(with thumbnail: UIImage) -> Configuration {
             switch self {
-            case .loading:
+            case .loading, .messageWasDeleted, .remotelyWiped:
                 assertionFailure()
-                return .loading
-            case .messageWasDeleted:
-                assertionFailure()
-                return .messageWasDeleted
+                return self
             case .loaded(messageObjectID: let messageObjectID, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let hardlink, thumbnail: let previousThumbnail):
                 assert(previousThumbnail == nil)
                 return .loaded(
@@ -128,6 +125,31 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
             bubble.backgroundColor = appTheme.colorScheme.newReceivedCellReplyToBackground
             imageView.reset()
             imageView.showInStack = false
+        case .remotelyWiped(messageObjectID: _, deleterName: let deleterName, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let hardlink, thumbnail: let thumbnail):
+            let body = Strings.remotelyWiped(deleterName: deleterName)
+            if bodyLabel.text != body {
+                bodyLabel.text = body
+            }
+            bodyLabel.textColor = bodyColor
+            bodyLabel.showInStack = (bodyLabel.text != nil)
+            if nameLabel.text != name {
+                nameLabel.text = name
+            }
+            nameLabel.textColor = nameColor ?? .white
+            nameLabel.showInStack = true
+            line.backgroundColor = lineColor ?? .systemFill
+            bubble.backgroundColor = bubbleColor ?? appTheme.colorScheme.newReceivedCellReplyToBackground
+            if showThumbnail {
+                imageView.backgroundColor = appTheme.colorScheme.systemFill
+                imageView.showInStack = true
+                if let hardlink = hardlink {
+                    imageView.setHardlink(newHardlink: hardlink, withImage: thumbnail)
+                } else {
+                    imageView.reset()
+                }
+            } else {
+                imageView.showInStack = false
+            }
         case .loaded(messageObjectID: _, body: let body, bodyColor: let bodyColor, name: let name, nameColor: let nameColor, lineColor: let lineColor, bubbleColor: let bubbleColor, showThumbnail: let showThumbnail, hardlink: let hardlink, thumbnail: let thumbnail):
             if bodyLabel.text != body {
                 bodyLabel.text = body
@@ -205,7 +227,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
     func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
         guard !self.isHidden && self.showInStack else { return nil }
         guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
-        guard let replyToMessageObjectID = replyToMessageObjectID else { assertionFailure(); return nil }
+        guard let replyToMessageObjectID = replyToMessageObjectID else { return nil }
         return .replyTo(replyToMessageObjectID: replyToMessageObjectID)
     }
     
@@ -299,6 +321,19 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         mainStack.isUserInteractionEnabled = false
     }
   
+    
+    private struct Strings {
+        
+        static func remotelyWiped(deleterName: String?) -> String {
+            if let deleterName {
+                return String.localizedStringWithFormat(NSLocalizedString("WIPED_MESSAGE_BY_%@", comment: ""), deleterName)
+            } else {
+                return NSLocalizedString("Remotely wiped", comment: "")
+            }
+        }
+
+    }
+
 }
 
 

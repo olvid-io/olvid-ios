@@ -25,12 +25,17 @@ class LocalAuthenticationViewController: UIViewController {
     private enum AuthenticationStatus {
         case initial
         case shouldPerformLocalAuthentication
-        case authenticated
+        case authenticated(authenticationWasPerformed: Bool)
         case authenticationFailed
         case lockedOut
 
         var isLockedOut: Bool {
-            self == .lockedOut
+            switch self {
+            case .lockedOut:
+                return true
+            default:
+                return false
+            }
         }
     }
     
@@ -89,7 +94,8 @@ class LocalAuthenticationViewController: UIViewController {
         configure()
     }
 
-    private func setAuthenticationStatus(to newAuthenticationStatus: AuthenticationStatus) {
+    @MainActor
+    private func setAuthenticationStatus(to newAuthenticationStatus: AuthenticationStatus) async {
         assert(Thread.isMainThread)
         authenticationStatus = newAuthenticationStatus
         switch authenticationStatus {
@@ -97,13 +103,13 @@ class LocalAuthenticationViewController: UIViewController {
             break
         case .shouldPerformLocalAuthentication:
             break
-        case .authenticated:
-            delegate?.userLocalAuthenticationDidSucceedOrWasNotRequired()
+        case .authenticated(authenticationWasPerformed: let authenticationWasPerformed):
+            await delegate?.userLocalAuthenticationDidSucceed(authenticationWasPerformed: authenticationWasPerformed)
             authenticationStatus = .initial
         case .authenticationFailed:
             break
         case .lockedOut:
-            delegate?.tooManyWrongPasscodeAttemptsCausedLockOut()
+            await delegate?.tooManyWrongPasscodeAttemptsCausedLockOut()
         }
         configure()
     }
@@ -155,8 +161,8 @@ class LocalAuthenticationViewController: UIViewController {
         }
         Task {
             guard await localAuthenticationDelegate.isLockedOut else {
-                DispatchQueue.main.async {
-                    self.setAuthenticationStatus(to: .authenticationFailed)
+                Task {
+                    await setAuthenticationStatus(to: .authenticationFailed)
                 }
                 return
             }
@@ -173,34 +179,31 @@ class LocalAuthenticationViewController: UIViewController {
         }
     }
     
-    @MainActor
-    @objc func authenticateButtonTapped() {
-        performLocalAuthentication()
+    @objc private func authenticateButtonTapped() {
+        Task {
+            await performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: nil)
+        }
     }
     
     @MainActor
-    func shouldPerformLocalAuthentication() {
-        setAuthenticationStatus(to: .shouldPerformLocalAuthentication)
+    func shouldPerformLocalAuthentication() async {
+        await setAuthenticationStatus(to: .shouldPerformLocalAuthentication)
     }
 
     @MainActor
-    func performLocalAuthentication() {
+    func performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?) async {
         guard let localAuthenticationDelegate = self.localAuthenticationDelegate else {
             assertionFailure()
             return
         }
-        Task {
-            let laResult = await localAuthenticationDelegate.performLocalAuthentication(viewController: self, localizedReason: Strings.startOlvid)
-            DispatchQueue.main.async { [ weak self] in
-                switch laResult {
-                case .authenticated:
-                    self?.setAuthenticationStatus(to: .authenticated)
-                case .cancelled:
-                    self?.setAuthenticationStatus(to: .authenticationFailed)
-                case .lockedOut:
-                    self?.setAuthenticationStatus(to: .lockedOut)
-                }
-            }
+        let laResult = await localAuthenticationDelegate.performLocalAuthentication(viewController: self, uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState, localizedReason: Strings.startOlvid)
+        switch laResult {
+        case .authenticated(let authenticationWasPerformed):
+            await setAuthenticationStatus(to: .authenticated(authenticationWasPerformed: authenticationWasPerformed))
+        case .cancelled:
+            await setAuthenticationStatus(to: .authenticationFailed)
+        case .lockedOut:
+            await setAuthenticationStatus(to: .lockedOut)
         }
     }
     

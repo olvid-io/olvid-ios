@@ -128,3 +128,4 @@ notifications:
   params:
   - {name: ownedIdentity, type: ObvCryptoIdentity}
   - {name: appGroupIdentifier, type: Data}
+- name: ownedIdentityWasDeleted

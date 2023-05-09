@@ -18,8 +18,9 @@
  */
 
 import UIKit
-import ObvTypes
 import ObvCrypto
+import ObvTypes
+import ObvUI
 
 protocol PersistedDiscussionUI: PersistedDiscussion {
     var title: String { get }

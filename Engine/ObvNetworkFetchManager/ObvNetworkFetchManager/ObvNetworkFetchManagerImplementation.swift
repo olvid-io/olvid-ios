@@ -87,6 +87,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
                                                          serverUserDataDelegate: serverUserDataCoordinator,
                                                          wellKnownCacheDelegate: wellKnownCoordinator)
         
+        self.log = OSLog(subsystem: delegateManager.logSubsystem, category: "ObvNetworkFetchManagerImplementation")
         
         networkFetchFlowCoordinator.delegateManager = delegateManager // Weak reference
         getAndSolveChallengeCoordinator.delegateManager = delegateManager  // Weak reference
@@ -103,9 +104,10 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         serverUserDataCoordinator.delegateManager = delegateManager
         wellKnownCoordinator.delegateManager = delegateManager
         bootstrapWorker.delegateManager = delegateManager
-        webSocketCoordinator.delegateManager = delegateManager
+        Task {
+            await webSocketCoordinator.setDelegateManager(to: delegateManager)
+        }
 
-        self.log = OSLog(subsystem: delegateManager.logSubsystem, category: "ObvNetworkFetchManagerImplementation")
     }
 }
 
@@ -193,20 +195,20 @@ extension ObvNetworkFetchManagerImplementation {
         delegateManager.getTurnCredentialsDelegate?.getTurnCredentials(ownedIdenty: ownedIdenty, callUuid: callUuid, username1: username1, username2: username2, flowId: flowId)
     }
     
-    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity, completionHander: @escaping (Result<(URLSessionTask.State,TimeInterval?),Error>) -> Void) {
-        delegateManager.webSocketDelegate.getWebSocketState(ownedIdentity: ownedIdentity, completionHander: completionHander)
+    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (URLSessionTask.State,TimeInterval?) {
+        return try await delegateManager.webSocketDelegate.getWebSocketState(ownedIdentity: ownedIdentity)
     }
     
-    public func connectWebsockets(flowId: FlowIdentifier) {
-        delegateManager.webSocketDelegate.connectAll(flowId: flowId)
+    public func connectWebsockets(flowId: FlowIdentifier) async {
+        await delegateManager.webSocketDelegate.connectAll(flowId: flowId)
     }
     
-    public func disconnectWebsockets(flowId: FlowIdentifier) {
-        delegateManager.webSocketDelegate.disconnectAll(flowId: flowId)
+    public func disconnectWebsockets(flowId: FlowIdentifier) async {
+        await delegateManager.webSocketDelegate.disconnectAll(flowId: flowId)
     }
     
-    public func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) throws {
-        try delegateManager.webSocketDelegate.sendDeleteReturnReceipt(ownedIdentity: ownedIdentity, serverUid: serverUid)
+    public func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws {
+        try await delegateManager.webSocketDelegate.sendDeleteReturnReceipt(ownedIdentity: ownedIdentity, serverUid: serverUid)
     }
     
     
@@ -392,6 +394,35 @@ extension ObvNetworkFetchManagerImplementation {
         delegateManager.downloadAttachmentChunksDelegate.processCompletionHandler(handler, forHandlingEventsForBackgroundURLSessionWithIdentifier: sessionIdentifier, withinFlowId: flowId)
     }
         
+    
+    /// Called when an owned identity is about to be deleted.
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        // Delete all inbox messages relating to the owned identity
+        
+        let inboxMessages = try InboxMessage.getAll(forIdentity: ownedCryptoIdentity, within: obvContext)
+        for inboxMessage in inboxMessages {
+            deleteMessageAndAttachments(messageId: inboxMessage.messageId, within: obvContext)
+        }
+        
+        // Delete all pending deletes from server relating to the owned identity
+        
+        try PendingDeleteFromServer.deleteAllPendingDeleteFromServerForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        
+        // Delete all pending server queries relating to the owned identity
+        
+        try PendingServerQuery.deleteAllServerQuery(for: ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+        
+        // Delete all registered push notifications relating to the owned identity
+        
+        try RegisteredPushNotification.deleteAllRegisteredPushNotificationForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        
+        // Delete all server sessions of owned identity
+        
+        try ServerSession.deleteAllSessionsOfIdentity(ownedCryptoIdentity, within: obvContext)
+
+    }
+    
 }
 
 
@@ -570,8 +601,8 @@ extension ObvNetworkFetchManagerImplementation {
         delegateManager.freeTrialQueryDelegate?.queryFreeTrial(for: identity, retrieveAPIKey: retrieveAPIKey, flowId: flowId)
     }
 
-    public func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
-        delegateManager.networkFetchFlowDelegate.verifyReceipt(ownedIdentity: ownedIdentity, receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
+    public func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
+        delegateManager.networkFetchFlowDelegate.verifyReceipt(ownedCryptoIdentities: ownedCryptoIdentities, receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
     }
     
     public func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) {

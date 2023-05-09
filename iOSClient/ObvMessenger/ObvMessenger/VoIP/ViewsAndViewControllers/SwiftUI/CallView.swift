@@ -613,7 +613,8 @@ struct ParticipantView: View {
                     ObvStack.shared.viewContext.perform {
                         guard let persistedContact = try? PersistedObvContactIdentity.get(objectID: contactObjectID, within: ObvStack.shared.viewContext) else { return }
                         guard let discussionPermanentID = persistedContact.oneToOneDiscussion?.discussionPermanentID else { assertionFailure(); return }
-                        let deepLink = ObvDeepLink.singleDiscussion(objectPermanentID: discussionPermanentID)
+                        guard let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId else { assertionFailure(); return }
+                        let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                             .postOnDispatchQueue()
                         return

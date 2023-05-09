@@ -42,7 +42,7 @@ protocol NetworkFetchFlowDelegate {
     func newToken(_ token: Data, for: ObvCryptoIdentity, flowId: FlowIdentifier)
     func newAPIKeyElementsForCurrentAPIKeyOf(_ ownedIdentity: ObvCryptoIdentity, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier)
     func newAPIKeyElementsForAPIKey(serverURL: URL, apiKey: UUID, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier)
-    func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
+    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
     func apiKeyStatusQueryFailed(ownedIdentity: ObvCryptoIdentity, apiKey: UUID)
 
     func newFreeTrialAPIKeyForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier)
@@ -54,8 +54,7 @@ protocol NetworkFetchFlowDelegate {
     func downloadingMessagesAndListingAttachmentFailed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
     func downloadingMessagesAndListingAttachmentWasNotNeeded(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
     func downloadingMessagesAndListingAttachmentWasPerformed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
-    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(flowId: FlowIdentifier)
-    func processUnprocessedMessages(flowId: FlowIdentifier)
+    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func messagePayloadAndFromIdentityWereSet(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
     
     // MARK: - Downloading encrypted extended message payload

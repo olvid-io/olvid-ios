@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.3 (611)] - 2023-01-11
+
+- Vous l'attendiez tous... Vous pouvez maintenant créer autant de profils (indépendants) que vous voulez ! Par exemple, vous pouvez créer un profil pour la famille et les amis et un autre pour vos activités professionnelles.
+- Un profil peut être « masqué » : pour l'afficher, il vous faudra entrer un mot de passe.
+- Si un profil a le droit de passer des appels sécurisés, tous les profils ont automatiquement ce droit.
+- Certaines notifications étaient affichées deux fois, c'est corrigé.
+- Les utilisateurs iPad avec un clavier physique peuvent envoyer un message en appuyant sur Command + Entrée.
+- Vous pouvez maintenant cloner n'importe quel groupe, même si vous n'en êtes pas l'administrateur.
+- Amélioration de l'expérience de partage via Olvid : une liste des discussions sélectionnées s'affiche au dessus des discussions disponibles.
+- Si vous transférez un message que vous aviez écrit vous-même, le message transféré n'indiquera plus la mention « Transféré ».
+- Améliore le comportement du clavier virtuel sous iOS 15.5+
+- Il n'était pas possible d'avoir d'espace dans son nom ou prénom, c'est corrigé.
+- Certaines pré-visualisations de lien pouvaient échouer. C'est corrigé.
+- Corrections mineures pour iOS 13 et pour iPadOS.
+- Corrige des bugs d'animation de la zone de composition de message.
+- Autres corrections mineures.
+
 ## [0.12.2 (602)] - 2022-11-29
 
 - Refonte complète de la liste des discussions récentes sous iOS 16 !

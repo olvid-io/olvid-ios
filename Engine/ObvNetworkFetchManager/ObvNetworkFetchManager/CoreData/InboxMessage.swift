@@ -332,9 +332,10 @@ extension InboxMessage {
     }
 
     
-    static func getBatchOfUnprocessedMessages(batchSize: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
+    static func getBatchOfUnprocessedMessages(ownedCryptoIdentity: ObvCryptoIdentity, batchSize: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withMessageIdOwnedCryptoId(ownedCryptoIdentity),
             Predicate.isUnprocessed,
             Predicate.isNotMarkedForDeletion,
         ])
@@ -359,20 +360,20 @@ extension InboxMessage {
 
 extension InboxMessage {
     
-    override func prepareForDeletion() {
-        super.prepareForDeletion()
+    override func willSave() {
+        super.willSave()
         
         // We do not wait until the context is saved for inserting the current message in the list of recently deleted messages.
         // The reason is the following :
         // - Either the save fails: in that case, the message stays in the database and we won't be able to create a new one with the same Id anyway.
         //   This message will eventually be deleted and the list of recently deleted messages will be updated with a new, more recent, timestamp.
         // - Either the save succeeds: in that case, we make sure that there won't be a time interval during which the message does not exists in DB without being stored in the list of recently deleted messages.
-        // 2022-10-23: The following line crashes regularly on the main thread (more precisely, the getter of messageId crashes, probably because the object is already deleted and thus we cannot access its attributes). This is why we now filter out calls made on the main thread and make sure `self` is not deleted yet.
         
-        if self.managedObjectContext?.concurrencyType == .privateQueueConcurrencyType {
+        assert(managedObjectContext?.concurrencyType != .mainQueueConcurrencyType)
+        if isDeleted, self.managedObjectContext?.concurrencyType != .mainQueueConcurrencyType {
             Self.trackRecentlyDeletedMessage(messageId: self.messageId)
         }
-        
+
     }
     
 }

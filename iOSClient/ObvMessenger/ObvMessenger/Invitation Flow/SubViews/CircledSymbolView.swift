@@ -17,11 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
+
 
 struct CircledSymbolView: View {
 
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     var radius: CGFloat = 28
 
     var body: some View {

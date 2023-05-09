@@ -20,6 +20,7 @@
 import SwiftUI
 import AVFoundation
 import os.log
+import ObvUI
 
 
 protocol ScannerHostingViewDelegate: AnyObject {

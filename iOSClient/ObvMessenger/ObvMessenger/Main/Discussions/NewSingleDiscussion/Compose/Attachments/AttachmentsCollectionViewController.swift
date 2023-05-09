@@ -31,7 +31,7 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
     private var collectionView: UICollectionView!
     private let attachmentTrashView: AttachmentTrashView
     static let cellSize = CGFloat(80)
-    private var viewDidAppearWasCalled = false
+    private var performFetchWasCalled = false
     
     private var constraintWhenNotEmpty = [NSLayoutConstraint]()
 
@@ -65,9 +65,14 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
         configureDataSource()
     }
     
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        viewDidAppearWasCalled = true
+        assert(frc != nil)
+        if let frc, !performFetchWasCalled {
+            try? frc.performFetch()
+            performFetchWasCalled = true
+        }
     }
 
     @Published private(set) var numberOfAttachments = 0
@@ -142,8 +147,8 @@ final class AttachmentsCollectionViewController: UIViewController, NSFetchedResu
             return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: attachment)
         }
 
-        // Initial data
-        try? self.frc.performFetch()
+        // Initial data fetched in viewDidAppear
+
     }
 
 }

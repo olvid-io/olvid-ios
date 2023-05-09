@@ -98,8 +98,8 @@ extension FullRatchetProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 2 else { assertionFailure(); throw NSError() }
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { assertionFailure(); throw NSError() }
+            guard encodedElements.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Could not decode public key") }
             contactEphemeralPublicKey = pk
             restartCounter = try encodedElements[1].obvDecode()
         }
@@ -135,8 +135,8 @@ extension FullRatchetProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 3 else { assertionFailure(); throw NSError() }
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { assertionFailure(); throw NSError() }
+            guard encodedElements.count == 3 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Could not decode public key") }
             contactEphemeralPublicKey = pk
             c1 = try encodedElements[1].obvDecode()
             restartCounter = try encodedElements[2].obvDecode()
@@ -173,7 +173,7 @@ extension FullRatchetProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 2 else { assertionFailure(); throw NSError() }
+            guard encodedElements.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             c2 = try encodedElements[0].obvDecode()
             restartCounter = try encodedElements[1].obvDecode()
         }

@@ -18,6 +18,7 @@
  */
   
 
+import ObvUI
 import SwiftUI
 
 
@@ -40,7 +41,7 @@ struct AllReceivedFyleMessageJoinWithStatusView: View {
 
 fileprivate extension ReceivedFyleMessageJoinWithStatus {
     
-    var systemIcon: ObvSystemIcon {
+    var systemIcon: SystemIcon {
         switch self.status {
         case .downloadable: return .arrowDownCircle
         case .downloading: return .arrowDownCircle
@@ -72,7 +73,7 @@ struct ReceivedFyleMessageJoinWithStatusView: View {
     
     @ObservedObject var receivedFyleMessageJoinWithStatus: ReceivedFyleMessageJoinWithStatus
     
-    private var systemIcon: ObvSystemIcon {
+    private var systemIcon: SystemIcon {
         receivedFyleMessageJoinWithStatus.systemIcon
     }
     

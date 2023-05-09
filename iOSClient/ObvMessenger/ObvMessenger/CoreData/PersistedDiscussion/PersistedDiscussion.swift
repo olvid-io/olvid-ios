@@ -365,9 +365,12 @@ extension PersistedDiscussion {
         let numberOfNewMessagesReceived = try PersistedMessageReceived.countNew(within: self)
         let numberOfNewMessagesSystem = try PersistedMessageSystem.countNew(within: self)
         let newNumberOfNewMessages = numberOfNewMessagesReceived + numberOfNewMessagesSystem
+        var incrementForOwnedIdentity = 0
         if self.numberOfNewMessages != newNumberOfNewMessages {
+            incrementForOwnedIdentity = newNumberOfNewMessages - self.numberOfNewMessages
             self.numberOfNewMessages = newNumberOfNewMessages
         }
+        ownedIdentity?.incrementNumberOfNewMessages(by: incrementForOwnedIdentity)
     }
     
 }
@@ -712,12 +715,45 @@ extension PersistedDiscussion {
         return try context.fetch(request).first
     }
     
+    
+    /// This method uses aggregate functions to return the sum of the number of new messages for all discussions corresponding to a specific owned identity.
+    static func countSumOfNewMessagesWithinDiscussionsForOwnedIdentity(_ persistedOwnedIdentity: PersistedObvOwnedIdentity) throws -> Int {
+        guard let context = persistedOwnedIdentity.managedObjectContext else { throw Self.makeError(message: "Context is not set") }
+        // Create an expression description that will allow to aggregate the values of the numberOfNewMessages column
+        let expressionDescription = NSExpressionDescription()
+        expressionDescription.name = "sumOfNumberOfNewMessages"
+        expressionDescription.expression = NSExpression(format: "@sum.\(Predicate.Key.numberOfNewMessages.rawValue)")
+        expressionDescription.expressionResultType = .integer64AttributeType
+        // Create a predicate that will restrict to the discussions of the owned identity
+        let predicate = Predicate.withOwnCryptoId(persistedOwnedIdentity.cryptoId)
+        // Create the fetch request
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+        request.resultType = .dictionaryResultType
+        request.predicate = predicate
+        request.propertiesToFetch = [expressionDescription]
+        request.includesPendingChanges = true
+        guard let results = try context.fetch(request).first as? [String: Int] else { throw makeError(message: "Could cast fetched result") }
+        guard let sumOfNumberOfNewMessages = results["sumOfNumberOfNewMessages"] else { throw makeError(message: "Could not get uploadedByteCount") }
+        return sumOfNumberOfNewMessages
+    }
+    
 }
 
 
 // MARK: - NSFetchRequest creators
 
 extension PersistedDiscussion {
+
+    /// Returns the `objectID`s of all the discussions of the given owned identity. This is typically used to perform a deletion of all the discussions when the owned identity gets deleted.
+    static func getObjectIDsOfAllDiscussionsOfOwnedIdentity(persistedOwnedIdentity: PersistedObvOwnedIdentity) throws -> [NSManagedObjectID] {
+        guard let context = persistedOwnedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
+        let request = NSFetchRequest<NSManagedObjectID>(entityName: Self.entityName)
+        request.resultType = .managedObjectIDResultType
+        request.predicate = Predicate.withOwnCryptoId(persistedOwnedIdentity.cryptoId)
+        let objectIDs = try context.fetch(request)
+        return objectIDs
+    }
+    
     
     /// Returns a `NSFetchRequest` for all the group discussions (both V1 and V2) of the owned identity, sorted by the discussion title.
     static func getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> NSFetchRequest<PersistedDiscussion> {
@@ -779,13 +815,17 @@ extension PersistedDiscussion {
 extension PersistedDiscussion {
     
     struct AbstractStructure {
+        let ownedIdentity: PersistedObvOwnedIdentity.Structure
         let objectPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
         let title: String
         let localConfiguration: PersistedDiscussionLocalConfiguration.Structure
+        var ownedCryptoId: ObvCryptoId { ownedIdentity.cryptoId }
     }
     
     func toAbstractStruct() throws -> AbstractStructure {
-        return AbstractStructure(objectPermanentID: self.discussionPermanentID,
+        guard let ownedIdentityStruct = try ownedIdentity?.toStruct() else { assertionFailure(); throw Self.makeError(message: "Could not determine owned identity") }
+        return AbstractStructure(ownedIdentity: ownedIdentityStruct,
+                                 objectPermanentID: self.discussionPermanentID,
                                  title: self.title,
                                  localConfiguration: try self.localConfiguration.toStruct())
     }
@@ -823,6 +863,26 @@ extension PersistedDiscussion {
                 return structure.objectPermanentID.downcast
             case .groupV2Discussion(let structure):
                 return structure.objectPermanentID.downcast
+            }
+        }
+        var ownedCryptoId: ObvCryptoId {
+            switch self {
+            case .groupDiscussion(let structure):
+                return structure.ownedCryptoId
+            case .oneToOneDiscussion(let structure):
+                return structure.ownedCryptoId
+            case .groupV2Discussion(let structure):
+                return structure.ownedCryptoId
+            }
+        }
+        var ownedIdentity: PersistedObvOwnedIdentity.Structure {
+            switch self {
+            case .groupDiscussion(let structure):
+                return structure.ownedIdentity
+            case .oneToOneDiscussion(let structure):
+                return structure.ownedIdentity
+            case .groupV2Discussion(let structure):
+                return structure.ownedIdentity
             }
         }
     }
@@ -905,3 +965,8 @@ extension ObvManagedObjectPermanentID where T: PersistedDiscussion {
     }
 
 }
+
+
+// MARK: - DiscussionPermanentID
+
+typealias DiscussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>

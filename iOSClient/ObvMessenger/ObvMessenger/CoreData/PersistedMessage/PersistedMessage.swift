@@ -61,6 +61,7 @@ class PersistedMessage: NSManagedObject, ObvErrorMaker {
     @NSManaged private var persistedMetadata: Set<PersistedMessageTimestampedMetadata>
     @NSManaged private(set) var rawMessageRepliedTo: PersistedMessage? // Should *only* be accessed from subentities
     @NSManaged private var rawReactions: [PersistedMessageReaction]?
+    @NSManaged private var replies: Set<PersistedMessage>
 
     // MARK: - Other variables
 
@@ -93,6 +94,7 @@ class PersistedMessage: NSManagedObject, ObvErrorMaker {
     var textBodyToSend: String? { self.body }
 
     func deleteBody() {
+        guard self.body != nil else { return }
         self.body = nil
     }
 
@@ -139,13 +141,19 @@ class PersistedMessage: NSManagedObject, ObvErrorMaker {
     var textBodyCanBeEdited: Bool { false }
 
 
-    @objc func editTextBody(newTextBody: String?) throws {
+    func editTextBody(newTextBody: String?) throws {
         guard self.textBodyCanBeEdited else {
             throw Self.makeError(message: "The text body of this message cannot be edited now")
         }
-        self.body = newTextBody
+        let trimmed = newTextBody?.trimmingWhitespacesAndNewlines().mapToNilIfZeroLength()
+        if self.body != trimmed {
+            self.body = trimmed
+        }
     }
 
+    var repliesObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>> {
+        Set(self.replies.map({ $0.typedObjectID }))
+    }
     
     var isEdited: Bool {
         self.metadata.first(where: { $0.kind == .edited }) != nil

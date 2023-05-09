@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 
@@ -73,7 +74,6 @@ final class ShareExtensionErrorViewController: UIViewController {
         case .shouldLaunchTheApp:
             label.text = NSLocalizedString("PLEASE_LAUNCH_OLVID_FROM_MAIN_APP", comment: "")
         }
-
     }
 
     @objc func okOlvidButtonTapped() {

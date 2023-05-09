@@ -62,6 +62,30 @@ final class EditTextBodyOfSentMessageOperation: ContextualOperationWithSpecificR
                 return cancel(withReason: .failedToEditTextBody(error: error))
             }
             
+            // If the message appears as a reply-to in some other messages, we must refresh those messages in the view context
+            // Similarly, if a draft is replying to this message, we must refresh the draft in the view context
+
+            do {
+                let repliesObjectIDs = messageSent.repliesObjectIDs.map({ $0.objectID })
+                let draftObjectIDs = try PersistedDraft.getObjectIDsOfAllDraftsReplyingTo(message: messageSent).map({ $0.objectID })
+                let objectIDsToRefresh = repliesObjectIDs + draftObjectIDs
+                if !objectIDsToRefresh.isEmpty {
+                    try? obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        DispatchQueue.main.async {
+                            let objectsToRefresh = ObvStack.shared.viewContext.registeredObjects
+                                .filter({ objectIDsToRefresh.contains($0.objectID) })
+                            objectsToRefresh.forEach { objectID in
+                                ObvStack.shared.viewContext.refresh(objectID, mergeChanges: true)
+                            }
+                        }
+                    }
+                }
+            } catch {
+                assertionFailure()
+                // In production, continue anyway
+            }
+            
         }
         
     }

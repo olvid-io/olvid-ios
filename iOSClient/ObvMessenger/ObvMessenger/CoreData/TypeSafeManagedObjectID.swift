@@ -68,7 +68,7 @@ extension NSManagedObject: TypeWithObjectID {}
 /// ```
 /// extension ObvManagedObjectPermanentID<MySpecificObvIdentifiableManagedObject>: LosslessStringConvertible {}
 /// ```
-struct ObvManagedObjectPermanentID<T: NSManagedObject>: CustomStringConvertible, Equatable, Hashable {
+struct ObvManagedObjectPermanentID<T: NSManagedObject>: CustomStringConvertible, Equatable, Hashable, CustomDebugStringConvertible {
 
     let entityName: String
     let uuid: UUID
@@ -90,6 +90,10 @@ struct ObvManagedObjectPermanentID<T: NSManagedObject>: CustomStringConvertible,
         self.init(entityName: expectedEntityName, uuid: uuid)
     }
 
+    var debugDescription: String {
+        description
+    }
+    
 }
 
 

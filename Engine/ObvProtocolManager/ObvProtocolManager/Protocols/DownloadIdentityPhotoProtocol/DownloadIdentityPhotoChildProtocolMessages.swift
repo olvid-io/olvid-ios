@@ -59,7 +59,7 @@ extension DownloadIdentityPhotoChildProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.contactIdentity = try message.encodedInputs[0].obvDecode()
             let encodedContactIdentityDetailsElements: Data = try message.encodedInputs[1].obvDecode()
             self.contactIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)

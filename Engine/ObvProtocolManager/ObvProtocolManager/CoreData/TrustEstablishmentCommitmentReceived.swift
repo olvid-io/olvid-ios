@@ -91,4 +91,11 @@ extension TrustEstablishmentCommitmentReceived {
     }
 
     
+    static func batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: TrustEstablishmentCommitmentReceived.entityName)
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", Self.rawOwnedIdentityKey, ownedCryptoIdentity.getIdentity() as NSData)
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(request)
+    }
+
 }

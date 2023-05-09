@@ -70,6 +70,7 @@
 		C48E16142791C0E300A5CF9C /* DeviceCapabilitiesDiscoveryProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48E16132791C0E300A5CF9C /* DeviceCapabilitiesDiscoveryProtocolStates.swift */; };
 		C48E16162791C15500A5CF9C /* DeviceCapabilitiesDiscoveryProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48E16152791C15500A5CF9C /* DeviceCapabilitiesDiscoveryProtocolMessages.swift */; };
 		C48E16182791CE8D00A5CF9C /* DeviceCapabilitiesDiscoveryProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48E16172791CE8D00A5CF9C /* DeviceCapabilitiesDiscoveryProtocolSteps.swift */; };
+		C49684142965A8A9002C34DE /* ContactOwnedIdentityDeletionSignatureReceived.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49684132965A8A9002C34DE /* ContactOwnedIdentityDeletionSignatureReceived.swift */; };
 		C4A7568F201B643B00A7F1D1 /* ObvProtocolManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C4A7568D201B643B00A7F1D1 /* ObvProtocolManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C4A9F6E120DCF30D00306839 /* TrustEstablishmentProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A9F6E020DCF30D00306839 /* TrustEstablishmentProtocolStates.swift */; };
 		C4A9F6E320DCF5B200306839 /* TrustEstablishmentProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A9F6E220DCF5B200306839 /* TrustEstablishmentProtocolMessages.swift */; };
@@ -88,6 +89,10 @@
 		C4CB7B8521FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CB7B8421FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift */; };
 		C4CB7B8721FB09210010228A /* DownloadIdentityPhotoChildProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CB7B8621FB09210010228A /* DownloadIdentityPhotoChildProtocolMessages.swift */; };
 		C4CB7B8921FB092A0010228A /* DownloadIdentityPhotoChildProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CB7B8821FB092A0010228A /* DownloadIdentityPhotoChildProtocolStates.swift */; };
+		C4D0143F292FAF450021940A /* OwnedIdentityDeletionProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D0143E292FAF450021940A /* OwnedIdentityDeletionProtocol.swift */; };
+		C4D01441292FAFBA0021940A /* OwnedIdentityDeletionProtocolMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D01440292FAFBA0021940A /* OwnedIdentityDeletionProtocolMessages.swift */; };
+		C4D01443292FB18C0021940A /* OwnedIdentityDeletionProtocolStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D01442292FB18C0021940A /* OwnedIdentityDeletionProtocolStates.swift */; };
+		C4D01445292FB2130021940A /* OwnedIdentityDeletionProtocolSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D01444292FB2130021940A /* OwnedIdentityDeletionProtocolSteps.swift */; };
 		C4D25D912747BE17005BAB17 /* JWS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4121D69262E46D300CD07AF /* JWS.framework */; };
 		C4DCD991201B9963004FF917 /* ProtocolInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DCD990201B9963004FF917 /* ProtocolInstance.swift */; };
 		C4DCD993201B9B0B004FF917 /* ReceivedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DCD992201B9B0B004FF917 /* ReceivedMessage.swift */; };
@@ -214,6 +219,7 @@
 		C48E16132791C0E300A5CF9C /* DeviceCapabilitiesDiscoveryProtocolStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCapabilitiesDiscoveryProtocolStates.swift; sourceTree = "<group>"; };
 		C48E16152791C15500A5CF9C /* DeviceCapabilitiesDiscoveryProtocolMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCapabilitiesDiscoveryProtocolMessages.swift; sourceTree = "<group>"; };
 		C48E16172791CE8D00A5CF9C /* DeviceCapabilitiesDiscoveryProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCapabilitiesDiscoveryProtocolSteps.swift; sourceTree = "<group>"; };
+		C49684132965A8A9002C34DE /* ContactOwnedIdentityDeletionSignatureReceived.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactOwnedIdentityDeletionSignatureReceived.swift; sourceTree = "<group>"; };
 		C4A7568A201B643B00A7F1D1 /* ObvProtocolManager.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ObvProtocolManager.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4A7568D201B643B00A7F1D1 /* ObvProtocolManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObvProtocolManager.h; sourceTree = "<group>"; };
 		C4A7568E201B643B00A7F1D1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -234,6 +240,10 @@
 		C4CB7B8421FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadIdentityPhotoChildProtocolSteps.swift; sourceTree = "<group>"; };
 		C4CB7B8621FB09210010228A /* DownloadIdentityPhotoChildProtocolMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadIdentityPhotoChildProtocolMessages.swift; sourceTree = "<group>"; };
 		C4CB7B8821FB092A0010228A /* DownloadIdentityPhotoChildProtocolStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadIdentityPhotoChildProtocolStates.swift; sourceTree = "<group>"; };
+		C4D0143E292FAF450021940A /* OwnedIdentityDeletionProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityDeletionProtocol.swift; sourceTree = "<group>"; };
+		C4D01440292FAFBA0021940A /* OwnedIdentityDeletionProtocolMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityDeletionProtocolMessages.swift; sourceTree = "<group>"; };
+		C4D01442292FB18C0021940A /* OwnedIdentityDeletionProtocolStates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityDeletionProtocolStates.swift; sourceTree = "<group>"; };
+		C4D01444292FB2130021940A /* OwnedIdentityDeletionProtocolSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnedIdentityDeletionProtocolSteps.swift; sourceTree = "<group>"; };
 		C4DCD986201B6BE7004FF917 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		C4DCD990201B9963004FF917 /* ProtocolInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolInstance.swift; sourceTree = "<group>"; };
 		C4DCD992201B9B0B004FF917 /* ReceivedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceivedMessage.swift; sourceTree = "<group>"; };
@@ -367,6 +377,7 @@
 				C09D9FDB25F779F000CDCB5F /* KeycloakContactAdditionProtocol */,
 				C44686C326AD790200762CC8 /* TrustEstablishmentWithMutualScanProtocol */,
 				C425FBFC2791BFE9005B2710 /* DeviceCapabilitiesDiscoveryProtocol */,
+				C4D01439292FAF2C0021940A /* OwnedIdentityDeletionProtocol */,
 			);
 			path = Protocols;
 			sourceTree = "<group>";
@@ -568,6 +579,7 @@
 				C4B8EA982216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift */,
 				C44687BE26ADBFF500762CC8 /* MutualScanSignatureReceived.swift */,
 				C4BA68D72811851D008FC95E /* GroupV2SignatureReceived.swift */,
+				C49684132965A8A9002C34DE /* ContactOwnedIdentityDeletionSignatureReceived.swift */,
 			);
 			path = CoreData;
 			sourceTree = "<group>";
@@ -592,6 +604,17 @@
 				C4CB7B8821FB092A0010228A /* DownloadIdentityPhotoChildProtocolStates.swift */,
 			);
 			path = DownloadIdentityPhotoProtocol;
+			sourceTree = "<group>";
+		};
+		C4D01439292FAF2C0021940A /* OwnedIdentityDeletionProtocol */ = {
+			isa = PBXGroup;
+			children = (
+				C4D0143E292FAF450021940A /* OwnedIdentityDeletionProtocol.swift */,
+				C4D01444292FB2130021940A /* OwnedIdentityDeletionProtocolSteps.swift */,
+				C4D01440292FAFBA0021940A /* OwnedIdentityDeletionProtocolMessages.swift */,
+				C4D01442292FB18C0021940A /* OwnedIdentityDeletionProtocolStates.swift */,
+			);
+			path = OwnedIdentityDeletionProtocol;
 			sourceTree = "<group>";
 		};
 		C4E9A6AA21FA205400DAD46F /* IdentityDetailsPublicationProtocol */ = {
@@ -833,6 +856,7 @@
 				C4B23EAD2923BEB500E0163C /* DeleteObsoleteReceivedMessagesOperation.swift in Sources */,
 				C41F43E42840CEC900AE3E21 /* DownloadGroupV2PhotoProtocol.swift in Sources */,
 				C4FDA733228C39A10050B49F /* GroupManagementProtocolStates.swift in Sources */,
+				C4D01445292FB2130021940A /* OwnedIdentityDeletionProtocolSteps.swift in Sources */,
 				C4E4B6A520DBCA45007B46E2 /* TrustEstablishmentProtocol.swift in Sources */,
 				C4E9A6B521FA218C00DAD46F /* IdentityDetailsPublicationProtocolMessages.swift in Sources */,
 				C416509927F7364300ECF472 /* GroupV2Protocol.swift in Sources */,
@@ -852,12 +876,14 @@
 				C4FDA72D228C383F0050B49F /* GroupManagementProtocol.swift in Sources */,
 				C41F43E62840CF9400AE3E21 /* DownloadGroupV2PhotoProtocolStates.swift in Sources */,
 				C417627221AD86FC008D2F29 /* ObvProtocolManagerDummy.swift in Sources */,
+				C4D01443292FB18C0021940A /* OwnedIdentityDeletionProtocolStates.swift in Sources */,
 				C0AFFDF4259E1F8600653FE9 /* DownloadGroupPhotoChildProtocolStates.swift in Sources */,
 				C4A9F6E120DCF30D00306839 /* TrustEstablishmentProtocolStates.swift in Sources */,
 				C486261525B9B3D800788B96 /* TrustEstablishmentCommitmentReceived.swift in Sources */,
 				C488DD172028ADBF00B6B811 /* ConcreteProtocolInitialState.swift in Sources */,
 				C48E16162791C15500A5CF9C /* DeviceCapabilitiesDiscoveryProtocolMessages.swift in Sources */,
 				C4EF525422D363BE00B505B0 /* ContactManagementProtocolMessages.swift in Sources */,
+				C49684142965A8A9002C34DE /* ContactOwnedIdentityDeletionSignatureReceived.swift in Sources */,
 				C09DA07C25F7BA3000CDCB5F /* KeycloakContactAdditionProtocolStates.swift in Sources */,
 				C4EF525022D362C500B505B0 /* ContactManagementProtocol.swift in Sources */,
 				C4224DD2243CB313008E43B8 /* FullRatchetProtocolMessages.swift in Sources */,
@@ -882,6 +908,7 @@
 				C48E160E2791C05B00A5CF9C /* DeviceCapabilitiesDiscoveryProtocol.swift in Sources */,
 				C48E16142791C0E300A5CF9C /* DeviceCapabilitiesDiscoveryProtocolStates.swift in Sources */,
 				C4FDA72F228C39950050B49F /* GroupManagementProtocolSteps.swift in Sources */,
+				C4D0143F292FAF450021940A /* OwnedIdentityDeletionProtocol.swift in Sources */,
 				C47693502022241A008E2E28 /* ConcreteProtocolStep.swift in Sources */,
 				C4AF0F0F2023C9E300E6C2FE /* CoreProtocolMessage.swift in Sources */,
 				C476934C2022233B008E2E28 /* ConcreteProtocolState.swift in Sources */,
@@ -890,6 +917,7 @@
 				C4E9A6AE21FA206700DAD46F /* IdentityDetailsPublicationProtocolStates.swift in Sources */,
 				C46C2D8A27A4495700525761 /* OneToOneContactInvitationProtocolStates.swift in Sources */,
 				C09DA07925F7BA2400CDCB5F /* KeycloakContactAdditionProtocolMessages.swift in Sources */,
+				C4D01441292FAFBA0021940A /* OwnedIdentityDeletionProtocolMessages.swift in Sources */,
 				C4808C512361C93700BF98E5 /* TrustEstablishmentWithSASProtocolMessages.swift in Sources */,
 				C4B8EA992216CC3500FA0BC7 /* ProtocolInstanceWaitingForContactUpgradeToOneToOne.swift in Sources */,
 				C4CB7B8521FB091A0010228A /* DownloadIdentityPhotoChildProtocolSteps.swift in Sources */,

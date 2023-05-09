@@ -71,6 +71,18 @@ public final class ObvCryptoIdentity: NSObject, NSCopying, ObvCodable {
         identity.append(publicKeyForPublicKeyEncryption.getCompactKey())
         return identity
     }
+    
+    // MARK: - Implementing LosslessStringConvertible
+        
+    public override var description: String {
+        getIdentity().hexString()
+    }
+    
+    public convenience init?(_ description: String) {
+        guard let identity = Data(hexString: description) else { assertionFailure(); return nil }
+        self.init(from: identity)
+    }
+
 }
 
 // MARK: Implementing Hashable

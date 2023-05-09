@@ -29,7 +29,7 @@ enum VerifyPasscodeResult {
 }
 
 enum LocalAuthenticationResult {
-    case authenticated
+    case authenticated(authenticationWasPerformed: Bool)
     case cancelled
     case lockedOut
 }
@@ -51,8 +51,7 @@ protocol LocalAuthenticationDelegate: AnyObject {
     var remainingLockoutTime: TimeInterval? { get async }
     var isLockedOut: Bool { get async }
 
-    func performLocalAuthentication(viewController: UIViewController, localizedReason: String) async -> LocalAuthenticationResult
-    func setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow() async
+    func performLocalAuthentication(viewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String) async -> LocalAuthenticationResult
 }
 
 
@@ -82,8 +81,6 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
             ObvMessengerSettings.Privacy.lockoutUptime = nil
         }
     }
-
-    private var uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?
 
     private var lastCandidate: String? = nil
     private var isDeleting: Bool = false
@@ -115,13 +112,6 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         return timeIntervalSinceLockout < ObvMessengerConstants.lockOutDuration
     }
 
-    /// If the app was initialized and goes to the background at a time the user was authenticated, we reset the `uptimeAtTheTimeOfChangeoverToNotActiveState`.
-    /// As for now, this is called from the Scene Delegate.
-    func setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow() {
-        uptimeAtTheTimeOfChangeoverToNotActiveState = TimeInterval.getUptime()
-    }
-
-
     func savePasscode(_ passcode: String, passcodeIsPassword: Bool) throws {
         let prng = ObvCryptoSuite.sharedInstance.prngService()
         let salt = prng.genBytes(count: Self.pinSaltByteLength)
@@ -130,8 +120,8 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         ObvMessengerSettings.Privacy.passcodeIsPassword = passcodeIsPassword
     }
 
-    func performLocalAuthentication(viewController: UIViewController, localizedReason: String) async -> LocalAuthenticationResult {
-        let result = await self.internalPerformLocalAuthentication(viewController: viewController, localizedReason: localizedReason)
+    func performLocalAuthentication(viewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String) async -> LocalAuthenticationResult {
+        let result = await self.internalPerformLocalAuthentication(viewController: viewController, uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState, localizedReason: localizedReason)
         switch result {
         case .authenticated:
             ObvMessengerSettings.Privacy.userHasBeenLockedOut = false
@@ -141,7 +131,7 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         return result
     }
 
-    private func internalPerformLocalAuthentication(viewController: UIViewController, localizedReason: String) async -> LocalAuthenticationResult {
+    private func internalPerformLocalAuthentication(viewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String) async -> LocalAuthenticationResult {
         guard !isLockedOut else {
             return .lockedOut
         }
@@ -157,24 +147,24 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
             userIsAlreadyAuthenticated = false
         }
         guard !userIsAlreadyAuthenticated else {
-            return .authenticated
+            return .authenticated(authenticationWasPerformed: false)
         }
         switch ObvMessengerSettings.Privacy.localAuthenticationPolicy {
         case .none:
-            return .authenticated
+            return .authenticated(authenticationWasPerformed: false)
         case .deviceOwnerAuthentication:
             let laContext = LAContext()
             var error: NSError?
             laContext.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
             guard error == nil else {
                 if error!.code == LAError.Code.passcodeNotSet.rawValue {
-                    return .authenticated
+                    return .authenticated(authenticationWasPerformed: false)
                 }
                 return .cancelled
             }
             do {
                 try await laContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: localizedReason)
-                return .authenticated
+                return .authenticated(authenticationWasPerformed: true)
             } catch {
                 return .cancelled
             }
@@ -186,7 +176,7 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
             }
             do {
                 try await laContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: localizedReason)
-                return .authenticated
+                return .authenticated(authenticationWasPerformed: true)
             } catch {
                 return await requestCustomPasscode(viewController: viewController)
             }
@@ -200,7 +190,7 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         await viewController.present(passcodeViewController, animated: true)
         switch await passcodeViewController.getResult() {
         case .succeed:
-            return .authenticated
+            return .authenticated(authenticationWasPerformed: true)
         case .lockedOut:
             return .lockedOut
         case .cancelled:

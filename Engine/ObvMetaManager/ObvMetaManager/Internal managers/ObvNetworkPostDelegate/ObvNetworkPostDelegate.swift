@@ -21,6 +21,7 @@ import Foundation
 import ObvTypes
 import CoreData
 import OlvidUtils
+import ObvCrypto
 
 
 public protocol ObvNetworkPostDelegate: ObvManager {
@@ -35,5 +36,7 @@ public protocol ObvNetworkPostDelegate: ObvManager {
     func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: [MessageIdentifier], flowId: FlowIdentifier)
 
     func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
+
+    func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
 }

@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
 
@@ -25,7 +26,7 @@ struct SentMessageStatusView: View {
     let forStatus: PersistedMessageSent.MessageStatus
     var dateAsString: String?
     
-    private var icon: ObvSystemIcon {
+    private var icon: SystemIcon {
         switch forStatus {
         case .unprocessed:
             return .hourglass

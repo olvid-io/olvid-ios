@@ -101,16 +101,16 @@ extension ChannelCreationWithContactDeviceProtocolInstance {
         return item?.protocolInstance.uid
     }
     
-    static func delete(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UID {
+    static func delete(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UID? {
         let request: NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> = ChannelCreationWithContactDeviceProtocolInstance.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
                                         contactIdentityKey, contactIdentity,
                                         contactDeviceUidKey, contactDeviceUid,
                                         protocolInstanceOwnedCryptoIdentityKey, ownedCryptoIdentity)
-        guard let item = (try? obvContext.fetch(request))?.first else {
+        guard let item = (try obvContext.fetch(request)).first else {
             let log = OSLog(subsystem: ObvProtocolDelegateManager.defaultLogSubsystem, category: ChannelCreationWithContactDeviceProtocolInstance.entityName)
-            os_log("Did not find a ChannelCreationProtocolInstanceInWaitingState to delete", log: log, type: .fault)
-            throw NSError()
+            os_log("Did not find a ChannelCreationProtocolInstanceInWaitingState to delete", log: log, type: .error)
+            return nil
         }
         let protocolInstanceUid = item.protocolInstance.uid
         obvContext.delete(item)

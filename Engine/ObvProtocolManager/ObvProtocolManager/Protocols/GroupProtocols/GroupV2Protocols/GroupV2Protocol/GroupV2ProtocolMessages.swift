@@ -482,6 +482,17 @@ extension GroupV2Protocol {
             self.coreProtocolMessage = coreProtocolMessage
             self.groupDeletionWasSuccessful = false // Not important when posting this message from a protocol step
         }
+        
+        // Simulating a returned server query (used in the OwnedIdentityDeletionProtocol)
+                
+        init(forSimulatingReceivedMessageForOwnedIdentity ownedIdentity: ObvCryptoIdentity, protocolInstanceUid: UID) {
+            self.coreProtocolMessage = CoreProtocolMessage.getServerQueryCoreProtocolMessageForSimulatingReceivedMessage(
+                ownedIdentity: ownedIdentity,
+                cryptoProtocolId: .GroupV2,
+                protocolInstanceUid: protocolInstanceUid)
+            self.groupDeletionWasSuccessful = true
+        }
+        
     }
 
     

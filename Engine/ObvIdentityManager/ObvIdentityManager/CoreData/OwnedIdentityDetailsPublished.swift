@@ -48,7 +48,8 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
 
     // MARK: Relationships
     
-    @NSManaged private(set) var ownedIdentity: OwnedIdentity
+    // Expected to be non nil, except when the owned identity gets deleted
+    @NSManaged private(set) var ownedIdentity: OwnedIdentity?
     
     // MARK: Other variables
     
@@ -74,7 +75,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     }
 
     var delegateManager: ObvIdentityDelegateManager? {
-        return ownedIdentity.delegateManager
+        return ownedIdentity?.delegateManager
     }
 
     var obvContext: ObvContext?
@@ -110,7 +111,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         self.ownedIdentity = ownedIdentity
         
         do {
-            _ = try setOwnedIdentityPhotot(with: identityDetails.photoURL, delegateManager: delegateManager)
+            _ = try setOwnedIdentityPhoto(with: identityDetails.photoURL, delegateManager: delegateManager)
         } catch {
             return nil
         }
@@ -149,12 +150,12 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     func setOwnedIdentityPhoto(data: Data, delegateManager: ObvIdentityDelegateManager) throws {
         guard let photoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
         try data.write(to: photoURLInEngine)
-        _ = try setOwnedIdentityPhotot(with: photoURLInEngine, delegateManager: delegateManager)
+        _ = try setOwnedIdentityPhoto(with: photoURLInEngine, delegateManager: delegateManager)
         try FileManager.default.removeItem(at: photoURLInEngine) // The previous call created another hard link so we can delete the file we just created
     }
 
     
-    private func setOwnedIdentityPhotot(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
+    private func setOwnedIdentityPhoto(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
         
         guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); throw makeError(message: "The notification delegate is not set") }
         let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
@@ -191,7 +192,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         
         // Notify of the change
         guard let obvContext = self.obvContext else { assertionFailure(); return true }
-        let ownedCryptoIdentity = self.ownedIdentity.cryptoIdentity
+        guard let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity else { assertionFailure(); return true }
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { return }
             ObvIdentityNotificationNew.publishedPhotoOfOwnedIdentityHasBeenUpdated(ownedIdentity: ownedCryptoIdentity)
@@ -232,7 +233,7 @@ extension OwnedIdentityDetailsPublished {
             self.serializedIdentityCoreDetails = try newIdentityDetails.coreDetails.jsonEncode()
             detailsWereUpdated = true
         }
-        if try setOwnedIdentityPhotot(with: newIdentityDetails.photoURL, delegateManager: delegateManager) {
+        if try setOwnedIdentityPhoto(with: newIdentityDetails.photoURL, delegateManager: delegateManager) {
             self.photoServerKeyEncoded = nil
             self.labelToDelete = self.photoServerLabel
             notificationRelatedChanges.insert(.photoServerLabel)
@@ -352,16 +353,16 @@ extension OwnedIdentityDetailsPublished {
         }
 
         if notificationRelatedChanges.contains(.photoServerLabel) || isDeleted {
-            if let labelToDelete = self.labelToDelete {
-                let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedIdentity.cryptoIdentity, label: labelToDelete)
+            if let labelToDelete = self.labelToDelete, let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity {
+                let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoIdentity, label: labelToDelete)
                 notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             }
         }
 
-        if !isInserted && !isDeleted {
+        if !isInserted && !isDeleted, let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity {
             
             let NotificationType = ObvIdentityNotification.OwnedIdentityDetailsPublicationInProgress.self
-            let userInfo = [NotificationType.Key.ownedCryptoIdentity: self.ownedIdentity.cryptoIdentity]
+            let userInfo = [NotificationType.Key.ownedCryptoIdentity: ownedCryptoIdentity]
             notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
             
         }

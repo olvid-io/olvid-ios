@@ -17,7 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
+
 
 /// When setting this class within a storyboard, the type should be set to "custom"
 /// This is an old class. See `ObvImageButton` instead.

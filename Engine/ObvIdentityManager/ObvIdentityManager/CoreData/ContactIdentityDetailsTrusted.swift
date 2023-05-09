@@ -122,12 +122,12 @@ extension ContactIdentityDetailsTrusted {
             return
         }
 
-        if !isDeleted {
+        if !isDeleted, let ownedIdentity = contactIdentity.ownedIdentity {
             
             if let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
                 let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
                 let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
-                                NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
+                                NotificationType.Key.ownedCryptoIdentity: ownedIdentity.cryptoIdentity,
                                 NotificationType.Key.trustedIdentityDetails: trustedIdentityDetails] as [String: Any]
                 notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
             } else {

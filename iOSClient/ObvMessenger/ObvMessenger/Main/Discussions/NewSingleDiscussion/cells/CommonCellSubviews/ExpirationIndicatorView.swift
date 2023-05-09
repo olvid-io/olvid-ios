@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 
@@ -93,7 +94,7 @@ final class ExpirationIndicatorView: UIView {
     
     private func configureImage() {
         assert(shouldShow)
-        let imageSystemIcon: ObvSystemIcon?
+        let imageSystemIcon: SystemIcon?
         if readOnce && !readingRequiresUserAction {
             imageSystemIcon = .flameFill
         } else {

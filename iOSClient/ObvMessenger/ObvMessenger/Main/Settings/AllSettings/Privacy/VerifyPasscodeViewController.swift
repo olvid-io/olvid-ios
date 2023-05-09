@@ -22,6 +22,7 @@ import Foundation
 import SwiftUI
 import Combine
 import os.log
+import ObvUI
 
 enum VerifyPasscodeViewResult {
     case succeed

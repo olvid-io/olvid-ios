@@ -85,5 +85,12 @@ extension MutualScanSignatureReceived {
         let count = try obvContext.count(for: request)
         return count > 0
     }
-    
+ 
+    static func batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: MutualScanSignatureReceived.entityName)
+        fetchRequest.predicate = Predicate.withOwnedIdentity(ownedCryptoIdentity)
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(request)
+    }
+
 }

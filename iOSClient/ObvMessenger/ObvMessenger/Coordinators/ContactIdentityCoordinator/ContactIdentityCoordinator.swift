@@ -29,7 +29,6 @@ final class ContactIdentityCoordinator {
     
     private let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactIdentityCoordinator.self))
-    private var currentOwnedCryptoId: ObvCryptoId?
     private var observationTokens = [NSObjectProtocol]()
     private let internalQueue: OperationQueue
     
@@ -48,7 +47,6 @@ final class ContactIdentityCoordinator {
                         
         // Internal notifications
         
-        observeCurrentOwnedCryptoIdChangedNotifications()
         observeUserWantsToDeleteContactNotifications()
 
         observationTokens.append(contentsOf: [
@@ -226,16 +224,6 @@ extension ContactIdentityCoordinator {
     }
 
 
-    private func observeCurrentOwnedCryptoIdChangedNotifications() {
-        let token = ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged { [weak self] (newOwnedCryptoId, apiKey) in
-            self?.internalQueue.addOperation {
-                self?.currentOwnedCryptoId = newOwnedCryptoId
-            }
-        }
-        observationTokens.append(token)
-    }
-    
-    
     private func observeUserWantsToDeleteContactNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToDeleteContact(queue: internalQueue) { [weak self] (contactCryptoId, ownedCryptoId, viewController, completionHandler) in
             DispatchQueue.main.async {
@@ -344,7 +332,6 @@ extension ContactIdentityCoordinator {
         assert(Thread.isMainThread)
         
         let log = self.log
-        guard self.currentOwnedCryptoId == ownedCryptoId else { return }
         
         switch confirmation {
             

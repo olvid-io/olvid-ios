@@ -17,12 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 extension UIView {
     
-    var appTheme: AppTheme {
-        return AppTheme.shared
+    var appTheme: ObvUI.AppTheme {
+        return ObvUI.AppTheme.shared
     }
     
 }

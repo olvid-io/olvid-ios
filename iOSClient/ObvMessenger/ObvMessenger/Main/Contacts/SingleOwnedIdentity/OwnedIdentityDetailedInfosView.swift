@@ -20,15 +20,20 @@
 
 import SwiftUI
 import ObvTypes
+import ObvUI
 
-@available(iOS 13, *)
+
+protocol OwnedIdentityDetailedInfosViewDelegate: AnyObject {
+    func userWantsToDismissOwnedIdentityDetailedInfosView() async
+}
+
+
 struct OwnedIdentityDetailedInfosView: View {
 
     @ObservedObject var ownedIdentity: PersistedObvOwnedIdentity
+    weak var delegate: OwnedIdentityDetailedInfosViewDelegate?
     @State private var signedContactDetails: SignedUserDetails? = nil
     
-    @Environment(\.presentationMode) var presentationMode
-
     private var titlePart1: String? {
         ownedIdentity.identityCoreDetails.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -82,7 +87,7 @@ struct OwnedIdentityDetailedInfosView: View {
                             .padding()
 
                         OlvidButton(style: .blue, title: Text(CommonString.Word.Back), systemIcon: .arrowshapeTurnUpBackwardFill) {
-                            presentationMode.wrappedValue.dismiss()
+                            Task { await delegate?.userWantsToDismissOwnedIdentityDetailedInfosView() }
                         }
                         .padding(.horizontal)
                         .padding(.bottom)

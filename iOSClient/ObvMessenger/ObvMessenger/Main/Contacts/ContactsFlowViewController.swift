@@ -24,10 +24,12 @@ import ObvTypes
 
 
 final class ContactsFlowViewController: UINavigationController, ObvFlowController {
-    
+
+    static let errorDomain = "ContactsFlowViewController"
+        
     // Variables
     
-    let ownedCryptoId: ObvCryptoId
+    private(set) var currentOwnedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
 
     var observationTokens = [NSObjectProtocol]()
@@ -44,7 +46,7 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
 
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         
-        self.ownedCryptoId = ownedCryptoId
+        self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         
         let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true, textAboveContactList: nil)
@@ -95,12 +97,32 @@ extension ContactsFlowViewController {
 }
 
 
+// MARK: - Switching current owned identity
+
+extension ContactsFlowViewController {
+    
+    @MainActor
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        popToRootViewController(animated: false)
+        guard let allContactsVC = viewControllers.first as? AllContactsViewController else { assertionFailure(); return }
+        await allContactsVC.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    }
+    
+}
+
+
 // MARK: - AllContactsViewControllerDelegate
 
 extension ContactsFlowViewController: AllContactsViewControllerDelegate {
 
     func userDidSelect(_ contact: PersistedObvContactIdentity, within nav: UINavigationController?) {
-        let vc = SingleContactIdentityViewHostingController(contact: contact, obvEngine: obvEngine)
+        let vc: SingleContactIdentityViewHostingController
+        do {
+            vc = try SingleContactIdentityViewHostingController(contact: contact, obvEngine: obvEngine)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return
+        }
         vc.delegate = self
         if let nav = nav {
             nav.pushViewController(vc, animated: true)

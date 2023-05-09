@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUI
 
 enum ObvHUDType {
     case checkmark
@@ -25,4 +26,5 @@ enum ObvHUDType {
     case spinner
     case progress(progress: Progress?)
     case text(text: String)
+    case icon(systemIcon: SystemIcon, feedbackOnDisplay: Bool)
 }

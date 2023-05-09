@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 
@@ -43,7 +44,7 @@ final class BlockBarButtonItem: UIBarButtonItem {
         self.actionHandler = actionHandler
     }
 
-    convenience init(systemIcon: ObvSystemIcon, actionHandler: (() -> Void)?) {
+    convenience init(systemIcon: SystemIcon, actionHandler: (() -> Void)?) {
         let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 18.0, weight: .bold)
         let image = UIImage(systemIcon: systemIcon, withConfiguration: symbolConfiguration)
         self.init(image: image, style: .plain, target: nil, action: #selector(barButtonItemPressed))

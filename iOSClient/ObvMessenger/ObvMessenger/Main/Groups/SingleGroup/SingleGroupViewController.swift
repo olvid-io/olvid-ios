@@ -24,6 +24,7 @@ import ObvEngine
 import ObvTypes
 import SwiftUI
 import ObvMetaManager
+import ObvUI
 
 class SingleGroupViewController: UIViewController {
 
@@ -59,6 +60,8 @@ class SingleGroupViewController: UIViewController {
     @IBOutlet weak var actionsLabel: UILabel!
     @IBOutlet weak var refreshGroupView: UIView!
     @IBOutlet weak var refreshGroupButton: UIButton!
+    @IBOutlet weak var smallCloneGroupView: UIView!
+    @IBOutlet weak var smallCloneGroupButton: UIButton!
     @IBOutlet weak var deleteOrLeaveGroupView: UIView!
     @IBOutlet weak var deleteOrLeaveGroupButton: UIButton!
     
@@ -97,7 +100,8 @@ class SingleGroupViewController: UIViewController {
     let persistedContactGroup: PersistedContactGroup
     let obvEngine: ObvEngine
     private(set) var obvContactGroup: ObvContactGroup!
-    
+    let currentOwnedCryptoId: ObvCryptoId
+    let displayedContactGroupPermanentID: DisplayedContactGroupPermanentID
     
     // Subviews set in viewDidLoad
     
@@ -116,6 +120,14 @@ class SingleGroupViewController: UIViewController {
     // Initializer
     
     init(persistedContactGroupOwned: PersistedContactGroupOwned, obvEngine: ObvEngine) throws {
+        guard let ownCryptoId = persistedContactGroupOwned.ownedIdentity?.cryptoId else {
+            throw Self.makeError(message: "Could not determine owned identity")
+        }
+        guard let displayedContactGroupPermanentID = persistedContactGroupOwned.displayedContactGroup?.objectPermanentID else {
+            throw Self.makeError(message: "Could not determine displayed contact group")
+        }
+        self.currentOwnedCryptoId = ownCryptoId
+        self.displayedContactGroupPermanentID = displayedContactGroupPermanentID
         self.persistedContactGroup = persistedContactGroupOwned
         self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
@@ -126,6 +138,14 @@ class SingleGroupViewController: UIViewController {
     }
 
     init(persistedContactGroupJoined: PersistedContactGroupJoined, obvEngine: ObvEngine) throws {
+        guard let ownCryptoId = persistedContactGroupJoined.ownedIdentity?.cryptoId else {
+            throw Self.makeError(message: "Could not determine owned identity")
+        }
+        guard let displayedContactGroupPermanentID = persistedContactGroupJoined.displayedContactGroup?.objectPermanentID else {
+            throw Self.makeError(message: "Could not determine displayed contact group")
+        }
+        self.currentOwnedCryptoId = ownCryptoId
+        self.displayedContactGroupPermanentID = displayedContactGroupPermanentID
         self.persistedContactGroup = persistedContactGroupJoined
         self.obvEngine = obvEngine
         super.init(nibName: nil, bundle: nil)
@@ -258,6 +278,10 @@ extension SingleGroupViewController {
             refreshGroupButton.addTarget(self, action: #selector(refreshGroupButtonTapped), for: .touchUpInside)
         }
         
+        smallCloneGroupView.backgroundColor = AppTheme.shared.colorScheme.tertiarySystemBackground
+        smallCloneGroupButton.setTitle(NSLocalizedString("CLONE_THIS_GROUP_V1_TO_GROUP_V2", comment: ""), for: .normal)
+        smallCloneGroupButton.addTarget(self, action: #selector(smallCloneGroupButtonTapped), for: .touchUpInside)
+
         deleteOrLeaveGroupView.backgroundColor = AppTheme.shared.colorScheme.tertiarySystemBackground
         deleteOrLeaveGroupButton.setTitleColor(.red, for: .normal)
         switch obvContactGroup.groupType {
@@ -760,6 +784,11 @@ extension SingleGroupViewController {
 
     @objc func refreshGroupButtonTapped() {
         refreshGroup()
+    }
+    
+    @objc func smallCloneGroupButtonTapped() {
+        guard let displayedContactGroup = persistedContactGroup.displayedContactGroup else { return }
+        delegate?.userWantsToCloneGroup(displayedContactGroupObjectID: displayedContactGroup.typedObjectID)
     }
     
     /// This method is called from viewDidLoad and each time the user taps the refresh button

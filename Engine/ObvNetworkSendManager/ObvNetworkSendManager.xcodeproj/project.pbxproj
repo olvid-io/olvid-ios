@@ -16,7 +16,6 @@
 		C434EDF8248C4C4B002BBB4C /* FinalizePostAttachmentUploadRequestOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C434EDF7248C4C4B002BBB4C /* FinalizePostAttachmentUploadRequestOperation.swift */; };
 		C43E2A9C26A7172300982C5E /* OlvidUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C43E2A9B26A7171C00982C5E /* OlvidUtils.framework */; };
 		C441D5DD24A3BE3000B2E3B0 /* DeletedOutboxMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C441D5DC24A3BE3000B2E3B0 /* DeletedOutboxMessage.swift */; };
-		C446B9212493D147003E0151 /* InternalNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = C446B9202493D147003E0151 /* InternalNotification.swift */; };
 		C457060420C132BF00AC9E23 /* NetworkSendFlowCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C457060320C132BF00AC9E23 /* NetworkSendFlowCoordinator.swift */; };
 		C457060E20C132DC00AC9E23 /* NetworkSendFlowDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C457060D20C132DC00AC9E23 /* NetworkSendFlowDelegate.swift */; };
 		C468891A250C248A00EE0754 /* CancelAllTasksAndInvalidateURLSessionOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4688919250C248A00EE0754 /* CancelAllTasksAndInvalidateURLSessionOperation.swift */; };
@@ -102,7 +101,6 @@
 		C434EDF7248C4C4B002BBB4C /* FinalizePostAttachmentUploadRequestOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalizePostAttachmentUploadRequestOperation.swift; sourceTree = "<group>"; };
 		C43E2A9226A7171C00982C5E /* OlvidUtils.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = OlvidUtils.xcodeproj; path = ../../OlvidUtils/OlvidUtils.xcodeproj; sourceTree = "<group>"; };
 		C441D5DC24A3BE3000B2E3B0 /* DeletedOutboxMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletedOutboxMessage.swift; sourceTree = "<group>"; };
-		C446B9202493D147003E0151 /* InternalNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InternalNotification.swift; sourceTree = "<group>"; };
 		C457060320C132BF00AC9E23 /* NetworkSendFlowCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSendFlowCoordinator.swift; sourceTree = "<group>"; };
 		C457060D20C132DC00AC9E23 /* NetworkSendFlowDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSendFlowDelegate.swift; sourceTree = "<group>"; };
 		C4688919250C248A00EE0754 /* CancelAllTasksAndInvalidateURLSessionOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancelAllTasksAndInvalidateURLSessionOperation.swift; sourceTree = "<group>"; };
@@ -190,7 +188,6 @@
 				C48FE95622E9FE8700CC6BBE /* FailedFetchAttemptsCounterManager.swift */,
 				C4B910E023DA4AC100949EF6 /* SendRetryManager.swift */,
 				C40A354A24701C3700F539E7 /* BootstrapWorker.swift */,
-				C446B9202493D147003E0151 /* InternalNotification.swift */,
 				C46EE3AB200E0FB800A76F50 /* InternalDelegates */,
 				C489A2EA20C0477700EE6B1C /* Coordinators */,
 				C4AC7C8C1FA3FFC400E2AEC3 /* CoreData */,
@@ -561,7 +558,6 @@
 				C434EDF8248C4C4B002BBB4C /* FinalizePostAttachmentUploadRequestOperation.swift in Sources */,
 				C4C62DF6248ADF7100287601 /* UploadAttachmentChunksSessionDelegate.swift in Sources */,
 				C4CA7377248D62C800EB559B /* DeletePreviousAttachmentSignedURLsOperation.swift in Sources */,
-				C446B9212493D147003E0151 /* InternalNotification.swift in Sources */,
 				C4A1691320C42C9A00DC605C /* TryToDeleteMessageAndAttachmentsDelegate.swift in Sources */,
 				C4B910E123DA4AC100949EF6 /* SendRetryManager.swift in Sources */,
 			);

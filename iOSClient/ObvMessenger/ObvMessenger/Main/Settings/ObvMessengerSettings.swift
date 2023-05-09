@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUI
 
 
 struct ObvMessengerSettings {
@@ -334,25 +335,79 @@ struct ObvMessengerSettings {
     
     struct Privacy {
         
-        struct Keys {
-            static let localAuthenticationPolicy = "settings.privacy.localAuthenticationPolicy"
-            static let lockScreenGracePeriod = "settings.privacy.lockScreenGracePeriod"
-            static let hideNotificationContent = "settings.privacy.hideNotificationContent"
+        enum Key: String {
+            case localAuthenticationPolicy = "localAuthenticationPolicy"
+            case lockScreenGracePeriod = "lockScreenGracePeriod"
+            case hideNotificationContent = "hideNotificationContent"
             
-            static let passcodeHashAnsSalt = "settings.privacy.passcodeHashAndSalt"
-            static let passcodeIsPassword = "settings.privacy.passcodeIsPassword"
-            static let passcodeFailedCount = "settings.privacy.passcodeFailedCount"
-            static let passcodeAttempsSessions = "settings.privacy.passcodeAttempsSessions"
-            static let lockoutUptime = "settings.privacy.lockoutUptime"
-            static let lockoutCleanEphemeral = "settings.privacy.lockoutCleanEphemeral"
-            static let userHasBeenLockedOut = "settings.privacy.userHasBeenLockedOut"
+            case hiddenProfileClosePolicy = "hiddenProfileClosePolicy"
+            case timeIntervalForBackgroundHiddenProfileClosePolicy = "timeIntervalForBackgroundHiddenProfileClosePolicy"
+
+            case passcodeHashAnsSalt = "passcodeHashAndSalt"
+            case passcodeIsPassword = "passcodeIsPassword"
+            case passcodeFailedCount = "passcodeFailedCount"
+            case passcodeAttempsSessions = "passcodeAttempsSessions"
+            case lockoutUptime = "lockoutUptime"
+            case lockoutCleanEphemeral = "lockoutCleanEphemeral"
+            case userHasBeenLockedOut = "userHasBeenLockedOut"
+            
+            private var kPrivacy: String { "privacy" }
+            
+            var path: String {
+                [kSettingsKeyPath, kPrivacy, self.rawValue].joined(separator: ".")
+            }
+
+        }
+        
+        // MARK: Hidden profile close policy
+        
+        enum HiddenProfileClosePolicy: Int, CaseIterable {
+            case manualSwitching = 0
+            case screenLock = 1
+            case background = 2
+        }
+        
+        enum TimeIntervalForBackgroundHiddenProfileClosePolicy: TimeInterval, CaseIterable {
+            case immediately = 0
+            case tenSeconds = 10
+            case thirtySeconds = 30
+            case oneMinute = 60
+            case twoMinutes = 120
+            case fiveMinutes = 300
+            var timeInterval: TimeInterval {
+                rawValue
+            }
+        }
+        
+        static var hiddenProfileClosePolicy: HiddenProfileClosePolicy {
+            get {
+                guard let raw = userDefaults.integerOrNil(forKey: Key.hiddenProfileClosePolicy.path) else { return .manualSwitching }
+                return HiddenProfileClosePolicy.init(rawValue: raw) ?? .manualSwitching
+            }
+            set {
+                userDefaults.set(newValue.rawValue, forKey: Key.hiddenProfileClosePolicy.path)
+            }
+        }
+        
+        static var timeIntervalForBackgroundHiddenProfileClosePolicy: TimeIntervalForBackgroundHiddenProfileClosePolicy {
+            get {
+                guard let raw = userDefaults.doubleOrNil(forKey: Key.timeIntervalForBackgroundHiddenProfileClosePolicy.path) else { return .immediately }
+                return TimeIntervalForBackgroundHiddenProfileClosePolicy.init(rawValue: raw) ?? .immediately
+            }
+            set {
+                userDefaults.set(newValue.rawValue, forKey: Key.timeIntervalForBackgroundHiddenProfileClosePolicy.path)
+            }
+        }
+        
+        static var hiddenProfileClosePolicyHasYetToBeSet: Bool {
+            return userDefaults.integerOrNil(forKey: Key.hiddenProfileClosePolicy.path) == nil
         }
         
         // MARK: Local Authentication Policy
         
         static var localAuthenticationPolicy: LocalAuthenticationPolicy {
             get {
-                guard let rawPolicy = userDefaults.integerOrNil(forKey: Keys.localAuthenticationPolicy) else {
+                guard let rawPolicy = userDefaults.integerOrNil(forKey: Key.localAuthenticationPolicy.path) else {
                     return .none
                 }
                 guard let policy = LocalAuthenticationPolicy(rawValue: rawPolicy) else {
@@ -361,7 +416,7 @@ struct ObvMessengerSettings {
                 return policy
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Keys.localAuthenticationPolicy)
+                userDefaults.set(newValue.rawValue, forKey: Key.localAuthenticationPolicy.path)
             }
         }
         
@@ -369,7 +424,7 @@ struct ObvMessengerSettings {
         
         static var passcodeHashAndSalt: (Data, Data)? {
             get {
-                guard let passcodeHashAndSaltAsString = userDefaults.stringOrNil(forKey: Keys.passcodeHashAnsSalt) else {
+                guard let passcodeHashAndSaltAsString = userDefaults.stringOrNil(forKey: Key.passcodeHashAnsSalt.path) else {
                     return nil
                 }
                 let components = passcodeHashAndSaltAsString.split(separator: " ")
@@ -385,19 +440,19 @@ struct ObvMessengerSettings {
                     let passcodeHashAsString = passcodeHash.base64EncodedString()
                     let passcodeSaltAsString = passcodeSalt.base64EncodedString()
                     let passcodeHashAndSaltAsString = [passcodeHashAsString, passcodeSaltAsString].joined(separator: " ")
-                    userDefaults.set(passcodeHashAndSaltAsString, forKey: Keys.passcodeHashAnsSalt)
+                    userDefaults.set(passcodeHashAndSaltAsString, forKey: Key.passcodeHashAnsSalt.path)
                 } else {
-                    userDefaults.removeObject(forKey: Keys.passcodeHashAnsSalt)
+                    userDefaults.removeObject(forKey: Key.passcodeHashAnsSalt.path)
                 }
             }
         }
         
         static var passcodeIsPassword: Bool {
             get {
-                userDefaults.boolOrNil(forKey: Keys.passcodeIsPassword) ?? false
+                userDefaults.boolOrNil(forKey: Key.passcodeIsPassword.path) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.passcodeIsPassword)
+                userDefaults.set(newValue, forKey: Key.passcodeIsPassword.path)
             }
         }
         
@@ -407,20 +462,20 @@ struct ObvMessengerSettings {
         /// 3) then backslash -> "A", here "A" is a subset of "AB", we count on ``passcodeFailedCount``
         static var passcodeFailedCount: Int {
             get {
-                userDefaults.integerOrNil(forKey: Keys.passcodeFailedCount) ?? 0
+                userDefaults.integerOrNil(forKey: Key.passcodeFailedCount.path) ?? 0
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.passcodeFailedCount)
+                userDefaults.set(newValue, forKey: Key.passcodeFailedCount.path)
             }
         }
         
         /// Count the number of first passcode tries, i.e. when the user open a passcode verification view controller and starts to type something
         static var passcodeAttempsSessions: Int {
             get {
-                userDefaults.integerOrNil(forKey: Keys.passcodeAttempsSessions) ?? 0
+                userDefaults.integerOrNil(forKey: Key.passcodeAttempsSessions.path) ?? 0
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.passcodeAttempsSessions)
+                userDefaults.set(newValue, forKey: Key.passcodeAttempsSessions.path)
             }
         }
         
@@ -431,28 +486,28 @@ struct ObvMessengerSettings {
         
         static var lockoutUptime: TimeInterval? {
             get {
-                userDefaults.doubleOrNil(forKey: Keys.lockoutUptime)
+                userDefaults.doubleOrNil(forKey: Key.lockoutUptime.path)
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.lockoutUptime)
+                userDefaults.set(newValue, forKey: Key.lockoutUptime.path)
             }
         }
         
         static var lockoutCleanEphemeral: Bool {
             get {
-                userDefaults.boolOrNil(forKey: Keys.lockoutCleanEphemeral) ?? false
+                userDefaults.boolOrNil(forKey: Key.lockoutCleanEphemeral.path) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.lockoutCleanEphemeral)
+                userDefaults.set(newValue, forKey: Key.lockoutCleanEphemeral.path)
             }
         }
         
         static var userHasBeenLockedOut: Bool {
             get {
-                userDefaults.boolOrNil(forKey: Keys.userHasBeenLockedOut) ?? false
+                userDefaults.boolOrNil(forKey: Key.userHasBeenLockedOut.path) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.userHasBeenLockedOut)
+                userDefaults.set(newValue, forKey: Key.userHasBeenLockedOut.path)
             }
         }
         
@@ -463,10 +518,10 @@ struct ObvMessengerSettings {
         
         static var lockScreenGracePeriod: TimeInterval {
             get {
-                return userDefaults.doubleOrNil(forKey: Keys.lockScreenGracePeriod) ?? 0
+                return userDefaults.doubleOrNil(forKey: Key.lockScreenGracePeriod.path) ?? 0
             }
             set {
-                userDefaults.set(newValue, forKey: Keys.lockScreenGracePeriod)
+                userDefaults.set(newValue, forKey: Key.lockScreenGracePeriod.path)
             }
         }
         
@@ -480,11 +535,11 @@ struct ObvMessengerSettings {
         
         static var hideNotificationContent: HideNotificationContentType {
             get {
-                let raw = userDefaults.integerOrNil(forKey: Keys.hideNotificationContent) ?? HideNotificationContentType.no.rawValue
+                let raw = userDefaults.integerOrNil(forKey: Key.hideNotificationContent.path) ?? HideNotificationContentType.no.rawValue
                 return HideNotificationContentType(rawValue: raw) ?? HideNotificationContentType.no
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Keys.hideNotificationContent)
+                userDefaults.set(newValue.rawValue, forKey: Key.hideNotificationContent.path)
             }
         }
         
@@ -781,19 +836,19 @@ final class ObvMessengerSettingsObservableObject: ObservableObject {
 extension UserDefaults {
 
     func addObjectsModifiedByShareExtension(_ urlsAndEntityName: [(URL, String)]) {
-        var dict = dictionary(forKey: ObvMessengerConstants.objectsModifiedByShareExtension) ?? [:]
+        var dict = dictionary(forKey: ObvMessengerConstants.SharedUserDefaultsKey.objectsModifiedByShareExtension.rawValue) ?? [:]
         for (url, entityName) in urlsAndEntityName {
             dict[url.absoluteString] = entityName
         }
-        set(dict, forKey: ObvMessengerConstants.objectsModifiedByShareExtension)
+        set(dict, forKey: ObvMessengerConstants.SharedUserDefaultsKey.objectsModifiedByShareExtension.rawValue)
     }
 
     func resetObjectsModifiedByShareExtension() {
-        removeObject(forKey: ObvMessengerConstants.objectsModifiedByShareExtension)
+        removeObject(forKey: ObvMessengerConstants.SharedUserDefaultsKey.objectsModifiedByShareExtension.rawValue)
     }
 
     var objectsModifiedByShareExtensionURLAndEntityName: [(URL, String)] {
-        guard let dict = dictionary(forKey: ObvMessengerConstants.objectsModifiedByShareExtension) else {
+        guard let dict = dictionary(forKey: ObvMessengerConstants.SharedUserDefaultsKey.objectsModifiedByShareExtension.rawValue) else {
             return []
         }
         return dict.compactMap { (urlAsString, entityNameAsAny) in
@@ -804,11 +859,11 @@ extension UserDefaults {
     }
 
     var getExtensionFailedToWipeAllEphemeralMessagesBeforeDate: Date? {
-        return self.dateOrNil(forKey: ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate)
+        return self.dateOrNil(forKey: ObvMessengerConstants.SharedUserDefaultsKey.extensionFailedToWipeAllEphemeralMessagesBeforeDate.rawValue)
     }
 
     func setExtensionFailedToWipeAllEphemeralMessagesBeforeDate(with date: Date?) {
-        self.setValue(date, forKey: ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate)
+        self.setValue(date, forKey: ObvMessengerConstants.SharedUserDefaultsKey.extensionFailedToWipeAllEphemeralMessagesBeforeDate.rawValue)
     }
 
 }

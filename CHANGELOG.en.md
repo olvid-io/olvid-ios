@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.3 (611)] - 2023-01-11
+
+- Introducing a long awaited feature! You can now create as many (independent) profiles as you want! For example, you can create one for family and friends and another for work.
+- A profile can be "hidden": showing it back requires a specific password. For an extra layer of privacy!
+- If a profile is allowed to make secure outgoing calls, all other profiles are as well.
+- Certain notifications were received twice, this is fixed.
+- iPad users with a physical keyboard can send messages by simply tapping Command + Return.
+- You can now clone any group, even if you are not administrator of the group.
+- Improved experience when sharing with Olvid: a list of all selected discussions now appears on top of the available discussions.
+- When forwarding a previously sent message, the forwarded message does not show the "forward" sign anymore.
+- Improves the virtual keyboard dismissal under iOS 15.5+.
+- It was not possible to have a white space when specifying a first name or a last name. This is fixed.
+- Certain link previews could "spin" forever. This is fixed.
+- Many minor bugfixes for iOS 13 and iPadOS.
+- Fixes animation issues of the composition view.
+- Other minor bugfixes.
+
 ## [0.12.2 (602)] - 2022-11-29
 
 - New redesigned (and more efficient!) list of recent discussions under iOS 16!

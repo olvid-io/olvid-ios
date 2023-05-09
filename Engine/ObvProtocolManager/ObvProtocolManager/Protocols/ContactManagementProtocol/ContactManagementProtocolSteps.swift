@@ -239,7 +239,7 @@ extension ContactManagementProtocol {
                     assert(groupInformationWithPhoto.groupOwnerIdentity == contactIdentity)
                     
                     do {
-                        try identityDelegate.leaveContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformationWithPhoto.groupUid, groupOwner: groupInformationWithPhoto.groupOwnerIdentity, within: obvContext)
+                        try identityDelegate.deleteContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformationWithPhoto.groupUid, groupOwner: groupInformationWithPhoto.groupOwnerIdentity, within: obvContext)
                     } catch let error {
                         os_log("The call to leaveContactGroupJoined of the identity manager failed", log: log, type: .error)
                         throw error

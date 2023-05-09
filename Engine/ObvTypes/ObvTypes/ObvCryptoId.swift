@@ -42,6 +42,29 @@ public struct ObvCryptoId {
 }
 
 
+extension ObvCryptoId: LosslessStringConvertible {
+    
+    public var description: String {
+        self.cryptoIdentity.description
+    }
+    
+    public init?(_ description: String) {
+        guard let cryptoIdentity = ObvCryptoIdentity(description) else { assertionFailure(); return nil }
+        self.init(cryptoIdentity: cryptoIdentity)
+    }
+    
+}
+
+
+extension ObvCryptoId: CustomDebugStringConvertible {
+    
+    public var debugDescription: String {
+        self.cryptoIdentity.debugDescription
+    }
+    
+}
+
+
 extension ObvCryptoId: Hashable {
     
     public func hash(into hasher: inout Hasher) {

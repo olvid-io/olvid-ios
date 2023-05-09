@@ -93,14 +93,10 @@ extension GroupV2SignatureReceived {
     }
     
     static func deleteAllAssociatedWithOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        let request: NSFetchRequest<ChannelCreationPingSignatureReceived> = ChannelCreationPingSignatureReceived.fetchRequest()
-        request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
-        request.fetchBatchSize = 100
-        request.includesPropertyValues = false
-        let items = try obvContext.fetch(request)
-        for item in items {
-            obvContext.delete(item)
-        }
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: GroupV2SignatureReceived.entityName)
+        fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(request)
     }
     
 }

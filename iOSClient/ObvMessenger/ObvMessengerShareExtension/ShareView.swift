@@ -17,175 +17,14 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
+import ObvUI
 import SwiftUI
-import QuickLookThumbnailing
-import MobileCoreServices
 
-protocol ShareViewModelDelegate: AnyObject {
-    func closeView()
-    func userWantsToSendMessages(to discussions: [PersistedDiscussion]) async
-}
-
-fileprivate enum ThumbnailValue {
-    case loading
-    case symbol(_ symbol: ObvSystemIcon)
-    case image(_ image: UIImage)
-}
-
-fileprivate struct Thumbnail: Identifiable {
-    let index: Int
-    let value: ThumbnailValue
-    var id: Int { index }
-}
-
-final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDelegate {
-
-    @Published private(set) var text: String = ""
-    @Published private(set) var selectedDiscussions: [PersistedDiscussion] = []
-    @Published fileprivate var thumbnails: [Thumbnail]? = nil
-    @Published private(set) var selectedOwnedIdentity: PersistedObvOwnedIdentity
-    @Published private(set) var messageIsSending: Bool = false
-    @Published private(set) var bodyTextHasBeenSet: Bool = false
-    @Published var isAuthenticated: Bool = false
-
-    private var viewIsClosing: Bool = false
-    private(set) var hardlinks: [HardLinkToFyle?]? = nil
-
-    let allOwnedIdentities: [PersistedObvOwnedIdentity]
-
-    init(allOwnedIdentities: [PersistedObvOwnedIdentity]) {
-        self.allOwnedIdentities = allOwnedIdentities
-        assert(allOwnedIdentities.count == 1)
-        self.selectedOwnedIdentity = allOwnedIdentities.first!
-    }
-
-    weak var delegate: ShareViewModelDelegate?
-
-    func setSelectedDiscussions(to discussions: [PersistedDiscussion]) {
-        self.selectedDiscussions = discussions
-    }
-
-    func setBodyTexts(_ bodyTexts: [String]) {
-        assert(!self.bodyTextHasBeenSet)
-        for bodyText in bodyTexts {
-            text.append(bodyText)
-        }
-        DispatchQueue.main.async {
-            self.bodyTextHasBeenSet = true
-        }
-    }
-
-    func setHardlinks(_ hardlinks: [HardLinkToFyle?]) {
-        self.hardlinks = hardlinks
-        var thumbnails = [Thumbnail]()
-        for index in 0..<hardlinks.count {
-            thumbnails += [Thumbnail(index: index, value: .loading)]
-        }
-        DispatchQueue.main.async {
-            withAnimation {
-                self.thumbnails = thumbnails
-            }
-        }
-        Task {
-            for index in 0..<hardlinks.count {
-                guard let hardlink = hardlinks[index] else { assertionFailure(); continue }
-                let symbolOrImage = await createThumbnail(hardlink: hardlink)
-                DispatchQueue.main.async {
-                    withAnimation {
-                        self.thumbnails?[index] = Thumbnail(index: index, value: symbolOrImage)
-                    }
-                }
-            }
-        }
-    }
-
-    var userCanSendsMessages: Bool {
-        guard !messageIsSending else { return false }
-        return !selectedDiscussions.isEmpty
-    }
-
-    var discussionsModel: DiscussionsViewModel {
-        let model = DiscussionsViewModel(ownedIdentity: selectedOwnedIdentity,
-                                         selectedDiscussions: selectedDiscussions)
-        model.delegate = self
-        return model
-    }
-
-    var isDisabled: Bool {
-        // Disable the view until authentication was performed
-        // Disable the view until bodyTexts have been set
-        !self.isAuthenticated || !self.bodyTextHasBeenSet
-    }
-
-    var textBinding: Binding<String> {
-        .init {
-            self.text
-        } set: {
-            guard !self.isDisabled else { return }
-            self.text = $0
-        }
-
-    }
-
-    func userWantsToCloseView() {
-        guard !viewIsClosing else { return }
-        viewIsClosing = true
-        delegate?.closeView()
-    }
-
-    func viewIsDisappeared() {
-        guard !viewIsClosing else { return } // Avoid to execute twice closeView if the user has tap close button
-        guard !messageIsSending else { return } // Avoid to execute twice closeView if the user wants to send the message
-        delegate?.closeView()
-    }
-
-    func userWantsToSendMessages(to discussions: [PersistedDiscussion]) {
-        guard !messageIsSending else { return }
-        self.messageIsSending = true
-        Task {
-            await delegate?.userWantsToSendMessages(to: discussions)
-        }
-    }
-
-    private func createThumbnail(hardlink: HardLinkToFyle?) async -> ThumbnailValue {
-        guard let hardlink = hardlink else { return .symbol(.paperclip) }
-        guard let hardlinkURL = hardlink.hardlinkURL else { return .symbol(.paperclip) }
-        let scale = await UIScreen.main.scale
-        let size = CGSize(width: 80, height: 80)
-        let request = QLThumbnailGenerator.Request(fileAt: hardlinkURL, size: size, scale: scale, representationTypes: .thumbnail)
-        let generator = QLThumbnailGenerator.shared
-        do {
-            let thumbnail = try await generator.generateBestRepresentation(for: request)
-            return .image(thumbnail.uiImage)
-        } catch {
-            let uti = hardlink.uti
-            if #available(iOS 14.0, *) {
-                let icon = ObvUTIUtils.getIcon(forUTI: uti)
-                return .symbol(icon)
-            } else {
-                // See CoreServices > UTCoreTypes
-                if ObvUTIUtils.uti(uti, conformsTo: "org.openxmlformats.wordprocessingml.document" as CFString) {
-                    // Word (docx) document
-                    return .symbol(.docFill)
-                } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeArchive) {
-                    // Zip archive
-                    return .symbol(.rectangleCompressVertical)
-                } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeWebArchive) {
-                    // Web archive
-                    return .symbol(.archiveboxFill)
-                } else {
-                    return .symbol(.paperclip)
-                }
-            }
-        }
-    }
-
-
-
-}
 
 private enum ActiveSheet: Identifiable {
     case discussionsChooser
+    case ownedIdentityChooser
     var id: Int { hashValue }
 }
 
@@ -194,100 +33,34 @@ struct ShareView: View {
     @ObservedObject var model: ShareViewModel
     @State private var activeSheet: ActiveSheet? = nil
     @State private var isFocused: Bool = true
+
+    /// This height allows to have the same height for both bars. It is acceptable for almost all size categories (available via @Environment(\.sizeCategory) var sizeCategory if required)
+    private var barHeight: CGFloat {
+        return 50
+    }
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button(action: {
-                    model.userWantsToCloseView()
-                }) {
-                    Image(systemIcon: .xmarkCircleFill)
-                        .font(Font.system(size: 24, weight: .semibold, design: .default))
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
-                }
-                    .disabled(model.messageIsSending)
-                Spacer()
-                Image("badge")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 30, height: 30)
-                Spacer()
-                Button(action: {
-                    if #available(iOSApplicationExtension 15.0, *) {
-                        isFocused = false
-                    }
-                    model.userWantsToSendMessages(to: model.selectedDiscussions)
-                }) {
-                    Image(systemIcon: .paperplaneFill)
-                        .font(Font.system(size: 24, weight: .semibold, design: .default))
-                }
-                .disabled(!model.userCanSendsMessages || model.messageIsSending)
-            }
-            .padding()
+            topBarView
+                .padding()
             Divider()
-            Group {
-                if #available(iOSApplicationExtension 15.0, *) {
-                    TextEditor(text: model.textBinding)
-                        .obvFocused(state: $isFocused)
-                } else if #available(iOSApplicationExtension 14.0, *) {
-                    TextEditor(text: model.textBinding)
-                } else {
-                    TextField(LocalizedStringKey("YOUR_MESSAGE"), text: model.textBinding)
-                }
-            }
-            .padding(.horizontal)
+            textArea
+                .padding(.horizontal)
             Divider()
             if let thumbnails = model.thumbnails, !thumbnails.isEmpty {
-                ScrollView(.horizontal) {
-                    HStack {
-                        ForEach(thumbnails) { thumbnail in
-                            switch thumbnail.value {
-                            case .loading:
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10.0)
-                                        .foregroundColor(.secondary)
-                                        .aspectRatio(1.0, contentMode: .fill)
-                                    ObvProgressView()
-                                }
-                                .frame(height: 100)
-                            case .image(let image):
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .cornerRadius(10.0)
-                                    .frame(height: 100)
-                            case .symbol(let icon):
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 10.0)
-                                        .stroke(Color.secondary, lineWidth: 1)
-                                        .foregroundColor(.clear)
-                                        .aspectRatio(1.0, contentMode: .fill)
-                                    Image(systemIcon: icon)
-                                        .font(Font.system(size: 36, weight: .heavy, design: .rounded))
-                                }
-                                .frame(height: 100)
-                            }
-                        }
-                    }
-                }
-                .padding()
+                attachmentsPreviewView(for: thumbnails)
+                    .padding()
                 Divider()
             }
-            Button {
-                activeSheet = .discussionsChooser
-            } label: {
-                HStack {
-                    Text(LocalizedStringKey("Discussions"))
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
-                    Spacer()
-                    Text(String.localizedStringWithFormat(NSLocalizedString("CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION", comment: ""), model.selectedDiscussions.count))
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    Image(systemIcon: .chevronRight)
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                }
-            }
-            .disabled(model.messageIsSending)
-            .padding()
+            profileSelectionBarView
+                .disabled(model.messageIsSending)
+                .padding()
+                .frame(height: barHeight)
+            Divider()
+            bottomBarView
+                .disabled(model.messageIsSending)
+                .padding()
+                .frame(height: barHeight)
         }
         .onDisappear(perform: {
             model.viewIsDisappeared()
@@ -295,24 +68,177 @@ struct ShareView: View {
         .sheet(item: $activeSheet) { item in
             switch item {
             case .discussionsChooser:
-                NavigationView {
-                    DiscussionsView(model: model.discussionsModel)
-                        .navigationBarItems(leading: Button(action: {
-                            activeSheet = nil
-                        },
-                                                            label: {
-                            Image(systemIcon: .xmarkCircleFill)
-                                .font(Font.system(size: 24, weight: .semibold, design: .default))
-                                .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
-                        }),
-                                            trailing: Button(action: {
-                            activeSheet = nil
-                        }, label: {
-                            Text("Choose")
-                        }))
-                }
+                navigationViewPresentingDiscussionView
+            case .ownedIdentityChooser:
+                navigationViewPresentingOwnedIdentityChooserView
             }
         }
         .disabled(model.isDisabled)
+    }
+    
+    private var topBarView: some View {
+        HStack {
+            Button(action: {
+                model.userWantsToCloseView()
+            }) {
+                Image(systemIcon: .xmarkCircleFill)
+                    .font(Font.system(size: 24, weight: .semibold, design: .default))
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+            }
+            .disabled(model.messageIsSending)
+            Spacer()
+            Image("badge")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 30, height: 30)
+            Spacer()
+            Button(action: {
+                if #available(iOSApplicationExtension 15.0, *) {
+                    isFocused = false
+                }
+                model.userWantsToSendMessages(to: model.selectedDiscussions)
+            }) {
+                Image(systemIcon: .paperplaneFill)
+                    .font(Font.system(size: 24, weight: .semibold, design: .default))
+            }
+            .disabled(!model.userCanSendsMessages || model.messageIsSending)
+        }
+    }
+    
+    private var textArea: some View {
+        Group {
+            if #available(iOSApplicationExtension 14.0, *) {
+                ZStack {
+                    TextEditor(text: model.textBinding)
+                    if model.textBinding.wrappedValue.isEmpty {
+                        textEditorPlaceholderView
+                    }
+                }
+            } else {
+                TextField(LocalizedStringKey("YOUR_MESSAGE"), text: model.textBinding)
+            }
+        }
+    }
+    
+    
+    /// This is a hack allowing to add a text placeholder view above the TextEditor. Values for the top and leading paddings are best guesses and seem to work for larger text sizes too.
+    private var textEditorPlaceholderView: some View {
+        VStack {
+            HStack {
+                Text("YOUR_MESSAGE")
+                    .padding(.top, 8)
+                    .padding(.leading, 5)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .allowsHitTesting(false)
+                    .font(.body)
+                Spacer()
+            }
+            Spacer()
+        }
+    }
+    
+    private func attachmentsPreviewView(for thumbnails: [ShareViewModel.Thumbnail]) -> some View {
+        ScrollView(.horizontal) {
+            HStack {
+                ForEach(thumbnails) { thumbnail in
+                    switch thumbnail.value {
+                    case .loading:
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10.0)
+                                .foregroundColor(.secondary)
+                                .aspectRatio(1.0, contentMode: .fill)
+                            ObvProgressView()
+                        }
+                        .frame(height: 100)
+                    case .image(let image):
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .cornerRadius(10.0)
+                            .frame(height: 100)
+                    case .symbol(let icon):
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10.0)
+                                .stroke(Color.secondary, lineWidth: 1)
+                                .foregroundColor(.clear)
+                                .aspectRatio(1.0, contentMode: .fill)
+                            Image(systemIcon: icon)
+                                .font(Font.system(size: 36, weight: .heavy, design: .rounded))
+                        }
+                        .frame(height: 100)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var profileSelectionBarView: some View {
+        Button {
+            activeSheet = .ownedIdentityChooser
+        } label: {
+            HStack {
+                Text(LocalizedStringKey("SHARE_VIEW_PROFILE_SELECTION_BAR_TITLE"))
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                Spacer()
+                CircledInitialsView(configuration: model.selectedOwnedIdentity.circledInitialsConfiguration, size: .small)
+                Image(systemIcon: .chevronRight)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+            }
+        }
+    }
+    
+    private var bottomBarView: some View {
+        Button {
+            activeSheet = .discussionsChooser
+        } label: {
+            HStack {
+                Text(LocalizedStringKey("Discussions"))
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                Spacer()
+                Text(String.localizedStringWithFormat(NSLocalizedString("CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION", comment: ""), model.selectedDiscussions.count))
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                Image(systemIcon: .chevronRight)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+            }
+        }
+    }
+    
+    private var navigationViewPresentingOwnedIdentityChooserView: some View {
+        NavigationView {
+            if #available(iOSApplicationExtension 14.0, *) {
+                ownedIdentityChooserView
+                    .onChange(of: model.selectedOwnedIdentity) { _ in
+                        activeSheet = nil
+                    }
+            } else {
+                ownedIdentityChooserView
+            }
+        }
+    }
+    
+    private var ownedIdentityChooserView: some View {
+        OwnedIdentityChooserView(currentOwnedCryptoId: model.selectedOwnedIdentity.cryptoId,
+                                 ownedIdentities: model.allOwnedIdentities,
+                                 delegate: model)
+        .navigationBarItems(leading: Button(action: {
+            activeSheet = nil
+        }, label: {
+            Image(systemIcon: .xmarkCircleFill)
+                .font(Font.system(size: 24, weight: .semibold, design: .default))
+                .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
+        }))
+    }
+    
+    
+    private var navigationViewPresentingDiscussionView: some View {
+        NavigationView {
+            DiscussionsView(model: model.discussionsModel,
+                            ownedCryptoId: model.selectedOwnedIdentity.cryptoId)
+            .navigationBarItems(trailing: Button(action: {
+                activeSheet = nil
+            }, label: {
+                Text(CommonString.Word.Ok)
+            }))
+        }
     }
 }

@@ -41,6 +41,7 @@ class ProtocolStep {
     let channelDelegate: ObvChannelDelegate
     let solveChallengeDelegate: ObvSolveChallengeDelegate
     let notificationDelegate: ObvNotificationDelegate
+    let protocolStarterDelegate: ProtocolStarterDelegate
     
     var ownedIdentity: ObvCryptoIdentity {
         concreteCryptoProtocol.ownedIdentity
@@ -52,6 +53,10 @@ class ProtocolStep {
     
     var protocolInstanceUid: UID {
         return concreteCryptoProtocol.instanceUid
+    }
+    
+    var delegateManager: ObvProtocolDelegateManager {
+        return concreteCryptoProtocol.delegateManager
     }
 
     init?(expectedToIdentity: ObvCryptoIdentity, expectedReceptionChannelInfo: ObvProtocolReceptionChannelInfo, receivedMessage: ConcreteProtocolMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
@@ -72,7 +77,8 @@ class ProtocolStep {
             return nil
         }
         self.identityDelegate = _identityDelegate
-
+        self.protocolStarterDelegate = concreteCryptoProtocol.delegateManager.protocolStarterDelegate
+        
         guard let _channelDelegate = concreteCryptoProtocol.delegateManager.channelDelegate else {
             os_log("The channel delegate is not set", log: log, type: .fault)
             assertionFailure()
@@ -114,7 +120,7 @@ class ProtocolStep {
         do {
             os_log("[%{public}@] Starting step        : %{public}@", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription)
             newState = try executeStep(within: obvContext)
-            os_log("[%{public}@] Ending step          : %{public}@", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription)
+            os_log("[%{public}@] Ending step          : %{public}@. New state is %{public}@.", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription, String(describing: newState?.description))
         } catch {
             os_log("[%{public}@] Ending step (throwed): %{public}@", log: log, type: .info, concreteCryptoProtocol.logCategory, stepDescription)
             isCancelled = true
@@ -143,6 +149,13 @@ class ProtocolStep {
         return CoreProtocolMessage(channelType: .Local(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                                    cryptoProtocolId: otherCryptoProtocolId,
                                    protocolInstanceUid: otherProtocolInstanceUid)
+    }
+    
+    func getCoreMessageForOtherProtocol(for channelType: ObvChannelSendChannelType, otherCryptoProtocolId: CryptoProtocolId, otherProtocolInstanceUid: UID) -> CoreProtocolMessage {
+        return CoreProtocolMessage(channelType: channelType,
+                                   cryptoProtocolId: otherCryptoProtocolId,
+                                   protocolInstanceUid: otherProtocolInstanceUid,
+                                   partOfFullRatchetProtocolOfTheSendSeed: false)
     }
     
     static func makeError(message: String) -> Error {

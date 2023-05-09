@@ -38,7 +38,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     private static let devicesKey = "devices"
     private static let groupMembershipsKey = "groupMemberships"
     static let ownedIdentityKey = "ownedIdentity"
-    private static let ownedIdentityCryptoIdentityKey = [ownedIdentityKey, OwnedIdentity.cryptoIdentityKey].joined(separator: ".")
+    private static let ownedIdentityCryptoIdentityKey = [ownedIdentityKey, OwnedIdentity.Predicate.Key.cryptoIdentity.rawValue].joined(separator: ".")
     private static let persistedTrustOriginsKey = "persistedTrustOrigins"
     private static let trustOriginsKey = "trustOrigins"
     private static let contactGroupsKey = "contactGroups"
@@ -105,14 +105,15 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     
     
     // Unique (together with `cryptoIdentity`)
-    private(set) var ownedIdentity: OwnedIdentity {
+    private(set) var ownedIdentity: OwnedIdentity? {
         get {
-            let res = kvoSafePrimitiveValue(forKey: ContactIdentity.ownedIdentityKey) as! OwnedIdentity
+            guard let res = kvoSafePrimitiveValue(forKey: ContactIdentity.ownedIdentityKey) as? OwnedIdentity else { return nil }
             res.delegateManager = delegateManager
             res.obvContext = self.obvContext
             return res
         }
         set {
+            guard let newValue else { assertionFailure(); return }
             self.ownedIdentityIdentity = newValue.cryptoIdentity.getIdentity()
             kvoSafeSetPrimitiveValue(newValue, forKey: ContactIdentity.ownedIdentityKey)
         }
@@ -267,6 +268,9 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     
     func delete(delegateManager: ObvIdentityDelegateManager, failIfContactIsPartOfACommonGroup: Bool, within obvContext: ObvContext) throws {
         self.delegateManager = delegateManager
+        guard let ownedIdentity else {
+            throw Self.makeError(message: "The owned identity associated to the contact is nil")
+        }
         if failIfContactIsPartOfACommonGroup {
             let numberOfCommonGroupV2 = try ContactGroupV2.countAllContactGroupV2WithContact(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: self.cryptoIdentity, delegateManager: delegateManager, within: obvContext)
             guard numberOfCommonGroupV2 == 0 else {
@@ -298,6 +302,10 @@ extension ContactIdentity {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactIdentity.entityName)
 
         guard let obvContext = self.obvContext else { assertionFailure(); throw makeError(message: "Could not find ObvContext") }
+        
+        guard let ownedIdentity else {
+            throw Self.makeError(message: "The owned identity associated to the contact is nil")
+        }
         
         guard ownedIdentity.isKeycloakManaged else {
             return
@@ -382,6 +390,9 @@ extension ContactIdentity {
         let details = publishedIdentityDetails ?? trustedIdentityDetails
         guard let identityDetails = details.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory) else {
             throw Self.makeError(message: "Failed to get signed details as we could not get the contact identity details")
+        }
+        guard let ownedIdentity else {
+            throw Self.makeError(message: "The owned identity associated to the contact is nil")
         }
         guard let signedUserDetails = identityDetails.coreDetails.signedUserDetails else {
             return nil
@@ -548,9 +559,18 @@ extension ContactIdentity {
     }
     
     func addTrustOrigin(_ trustOrigin: TrustOrigin) throws {
-        guard let delegateManager = self.delegateManager else { throw NSError() }
-        guard let persistedTrustOrigin = PersistedTrustOrigin(trustOrigin: trustOrigin, contact: self, delegateManager: delegateManager) else { throw NSError() }
-        guard let trustOriginTrustLevel = persistedTrustOrigin.trustLevel else { throw NSError() }
+        guard let delegateManager = self.delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "The delegate manager is not set")
+        }
+        guard let persistedTrustOrigin = PersistedTrustOrigin(trustOrigin: trustOrigin, contact: self, delegateManager: delegateManager) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not create PersistedTrustOrigin")
+        }
+        guard let trustOriginTrustLevel = persistedTrustOrigin.trustLevel else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not get trust level")
+        }
         if self.trustLevel < trustOriginTrustLevel {
             self.trustLevelRaw = trustOriginTrustLevel.rawValue
             trustLevelWasIncreased = true
@@ -682,7 +702,10 @@ extension ContactIdentity {
     
     override func prepareForDeletion() {
         super.prepareForDeletion()
-        ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
+        // In case we are actually deleting an owned identity, `ownedIdentity` is nil at this point.
+        if let ownedIdentity {
+            ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
+        }
     }
     
     override func willSave() {
@@ -712,7 +735,7 @@ extension ContactIdentity {
         assert(obvContext != nil)
         let flowId = obvContext?.flowId ?? FlowIdentifier()
         
-        if isInserted {
+        if isInserted, let ownedIdentity {
 
             do {
                 os_log("Sending a ContactIdentityIsNowTrusted notification", log: log, type: .debug)
@@ -721,7 +744,7 @@ extension ContactIdentity {
             }
             
             ObvIdentityNotificationNew.contactTrustLevelWasIncreased(
-                ownedIdentity: self.ownedIdentity.cryptoIdentity,
+                ownedIdentity: ownedIdentity.cryptoIdentity,
                 contactIdentity: self.cryptoIdentity,
                 trustLevelOfContactIdentity: self.trustLevel,
                 isOneToOne: self.isOneToOne,
@@ -734,18 +757,18 @@ extension ContactIdentity {
                 flowId: flowId)
                 .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
 
-        } else if isDeleted {
+        } else if isDeleted, let ownedIdentityCryptoIdentityOnDeletion {
                         
             os_log("Sending a ContactWasDeleted notification", log: log, type: .debug)
-            ObvIdentityNotificationNew.contactWasDeleted(ownedCryptoIdentity: ownedIdentityCryptoIdentityOnDeletion!,
+            ObvIdentityNotificationNew.contactWasDeleted(ownedCryptoIdentity: ownedIdentityCryptoIdentityOnDeletion,
                                                          contactCryptoIdentity: cryptoIdentity)
                 .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             
-        } else {
+        } else if let ownedIdentity {
                         
             if !changedKeys.isEmpty {
                 
-                ObvIdentityNotificationNew.contactWasUpdatedWithinTheIdentityManager(ownedIdentity: self.ownedIdentity.cryptoIdentity, contactIdentity: self.cryptoIdentity, flowId: flowId)
+                ObvIdentityNotificationNew.contactWasUpdatedWithinTheIdentityManager(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: self.cryptoIdentity, flowId: flowId)
                     .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
                 
             }
@@ -783,10 +806,10 @@ extension ContactIdentity {
             
         }
 
-        if trustLevelWasIncreased {
+        if trustLevelWasIncreased, let ownedIdentity {
             
             ObvIdentityNotificationNew.contactTrustLevelWasIncreased(
-                ownedIdentity: self.ownedIdentity.cryptoIdentity,
+                ownedIdentity: ownedIdentity.cryptoIdentity,
                 contactIdentity: self.cryptoIdentity,
                 trustLevelOfContactIdentity: self.trustLevel,
                 isOneToOne: self.isOneToOne,

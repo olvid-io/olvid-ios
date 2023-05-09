@@ -20,10 +20,11 @@
 import UIKit
 import OlvidUtils
 import CoreDataStack
+import ObvUI
 
 final class InitializerViewController: UIViewController {
     
-    private var activityIndicatorView: UIActivityIndicatorView!
+    private var activityIndicatorView = UIActivityIndicatorView(style: .large)
     private let exportRunningLogButton = UIButton()
     private var progressView: UIProgressView?
     private var observationTokens = [NSObjectProtocol]()
@@ -39,8 +40,6 @@ final class InitializerViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        activityIndicatorView = UIActivityIndicatorView(style: .large)
         
         let launchScreenStoryBoard = UIStoryboard(name: "LaunchScreen", bundle: nil)
         guard let launchViewController = launchScreenStoryBoard.instantiateInitialViewController() else { assertionFailure(); return }
@@ -144,15 +143,38 @@ final class InitializerViewController: UIViewController {
             progressView = UIProgressView(progressViewStyle: .default)
             progressView!.translatesAutoresizingMaskIntoConstraints = false
             self.view.addSubview(progressView!)
-            let constraints = [
+            NSLayoutConstraint.activate([
                 self.view.centerXAnchor.constraint(equalTo: progressView!.centerXAnchor),
                 self.view.centerYAnchor.constraint(equalTo: progressView!.centerYAnchor, constant: -32),
                 progressView!.widthAnchor.constraint(equalTo: self.view.widthAnchor, multiplier: 0.5),
-            ]
-            NSLayoutConstraint.activate(constraints)
+            ])
+            // Add some text explaining what happens
+            let progressLabel = UILabel()
+            progressLabel.translatesAutoresizingMaskIntoConstraints = false
+            progressView!.addSubview(progressLabel)
+            progressLabel.text = Strings.pleaseWaitDuringUpdate
+            progressLabel.font = UIFont.preferredFont(forTextStyle: .callout)
+            progressLabel.numberOfLines = 0
+            progressLabel.textAlignment = .center
+            progressLabel.textColor = .white
+            NSLayoutConstraint.activate([
+                progressLabel.topAnchor.constraint(equalTo: progressView!.bottomAnchor, constant: 16.0),
+                progressLabel.centerXAnchor.constraint(equalTo: progressView!.centerXAnchor),
+                progressLabel.widthAnchor.constraint(equalTo: progressView!.widthAnchor),
+            ])
+            
         }
         progressView?.isHidden = false
         progressView?.observedProgress = migrationProgress
     }
          
+}
+
+
+// MAKR: - Strings
+
+extension InitializerViewController {
+    struct Strings {
+        static let pleaseWaitDuringUpdate = NSLocalizedString("PLEASE_WAIT_DURING_UPDATE", comment: "")
+    }
 }

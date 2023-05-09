@@ -18,7 +18,9 @@
  */
 
 import Foundation
+import ObvUI
 import UserNotifications
+
 
 enum UserNotificationAction: String {
     case accept = "ACCEPT_ACTION"
@@ -55,7 +57,7 @@ extension UserNotificationAction {
         }
     }
 
-    private var icon: ObvSystemIcon {
+    private var icon: SystemIcon {
         switch self {
         case .accept: return .checkmark
         case .decline: return .multiply
@@ -86,7 +88,7 @@ extension UserNotificationAction {
 
 extension UNNotificationAction {
 
-    convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: ObvSystemIcon) {
+    convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: SystemIcon) {
         if #available(iOS 15.0, *) {
             let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
             self.init(identifier: identifier, title: title, options: options, icon: actionIcon)
@@ -99,7 +101,7 @@ extension UNNotificationAction {
 
 extension UNTextInputNotificationAction {
 
-    convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: ObvSystemIcon, textInputButtonTitle: String, textInputPlaceholder: String) {
+    convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: SystemIcon, textInputButtonTitle: String, textInputPlaceholder: String) {
         if #available(iOS 15.0, *) {
             let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
             self.init(identifier: identifier, title: title, options: options, icon: actionIcon, textInputButtonTitle: textInputButtonTitle, textInputPlaceholder: textInputPlaceholder)

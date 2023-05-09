@@ -54,6 +54,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
     private var callInProgress: GenericCall?
     private var preferMetaWindowOverCallWindow = false
     private var keycloakManagerWillPresentAuthenticationScreen = false
+    
+    private var uptimeAtTheTimeOfChangeoverToNotActiveStateForScene = [UIScene: TimeInterval]()
         
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SceneDelegate")
     
@@ -157,6 +159,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
         // Use this method to undo the changes made on entering the background.
         debugPrint("sceneWillEnterForeground")
         os_log("🧦 sceneWillEnterForeground", log: Self.log, type: .info)
+        
+        // We now deal with the closing of opened hidden profiles:
+        // - If the `hiddenProfileClosePolicy` is `.background`
+        // - and the elapsed time since the last switch to background is "large",
+        // We close any opened hidden profile.
+        if ObvMessengerSettings.Privacy.hiddenProfileClosePolicy == .background {
+            let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene] ?? 0
+            let timeIntervalSinceLastChangeoverToNotActiveState = TimeInterval.getUptime() - uptimeAtTheTimeOfChangeoverToNotActiveState
+            assert(0 <= timeIntervalSinceLastChangeoverToNotActiveState)
+            if timeIntervalSinceLastChangeoverToNotActiveState > ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy.timeInterval || ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy == .immediately {
+                Task {
+                    // The following line allows to make sure we won't switch to the hidden profile
+                    await LatestCurrentOwnedIdentityStorage.shared.removeLatestHiddenCurrentOWnedIdentityStored()
+                    await switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
+                }
+            }
+        }
+        
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
@@ -165,19 +185,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
 
         os_log("🧦 sceneDidEnterBackground", log: Self.log, type: .info)
 
-        // If the user successfully authenticated, we want to inform the Local authentication manager that it should reset the `uptimeAtTheTimeOfChangeoverToNotActiveState`.
+        // If the user successfully authenticated, we want to reset reset the `uptimeAtTheTimeOfChangeoverToNotActiveState` for this scene.
         // Note that if the user successfully authenticated, it means that the app was initialized properly.
-        if userSuccessfullyPerformedLocalAuthentication {
-            Task {
-                guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-                    assertionFailure(); return
-                }
-                guard let localAuthenticationDelegate = await appDelegate.localAuthenticationDelegate else {
-                    assertionFailure(); return
-                }
-                await localAuthenticationDelegate.setUptimeAtTheTimeOfChangeoverToNotActiveStateToNow()
-            }
-        }
+        uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene] = TimeInterval.getUptime()
 
         userSuccessfullyPerformedLocalAuthentication = false
         shouldAutomaticallyPerformLocalAuthentication = true
@@ -360,11 +370,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
                     return
                 } else {
                     changeKeyWindow(to: localAuthenticationWindow)
+                    let localAuthenticationViewController = localAuthenticationWindow.rootViewController as? LocalAuthenticationViewController
                     if shouldAutomaticallyPerformLocalAuthentication {
                         shouldAutomaticallyPerformLocalAuthentication = false
-                        (localAuthenticationWindow.rootViewController as? LocalAuthenticationViewController)?.performLocalAuthentication()
+                        let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene]
+                        await localAuthenticationViewController?.performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState)
                     } else {
-                        (localAuthenticationWindow.rootViewController as? LocalAuthenticationViewController)?.shouldPerformLocalAuthentication()
+                        await localAuthenticationViewController?.shouldPerformLocalAuthentication()
                     }
                     return
                 }
@@ -568,17 +580,36 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
 extension SceneDelegate: LocalAuthenticationViewControllerDelegate {
     
     @MainActor
-    func userLocalAuthenticationDidSucceedOrWasNotRequired() {
+    func userLocalAuthenticationDidSucceed(authenticationWasPerformed: Bool) async {
         userSuccessfullyPerformedLocalAuthentication = true
         guard let scene = localAuthenticationWindow?.windowScene else { assertionFailure(); return }
+        // If we just performed authentication, it means the screen was locked. If the hidden profile close policy is `.screenLock`, we should make sure the current identity is not hidden.
+        if authenticationWasPerformed && ObvMessengerSettings.Privacy.hiddenProfileClosePolicy == .screenLock {
+            // The following line allows to make sure we won't switch to the hidden profile
+            await LatestCurrentOwnedIdentityStorage.shared.removeLatestHiddenCurrentOWnedIdentityStored()
+            await switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
+        }
         Task(priority: .userInitiated) {
             await switchToNextWindowForScene(scene)
         }
     }
 
     @MainActor
-    func tooManyWrongPasscodeAttemptsCausedLockOut() {
+    func tooManyWrongPasscodeAttemptsCausedLockOut() async {
+        await switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
         ObvMessengerInternalNotification.tooManyWrongPasscodeAttemptsCausedLockOut.postOnDispatchQueue()
+    }
+    
+    
+    /// Allows to switch to a non hidden profile if the current one is hidden
+    ///
+    /// This is called in two cases:
+    /// - when the user just authenticated and the hidden profile closing policy is `screenLock`
+    /// - or when she was locked out after entering too many bad passcodes.
+    private func switchToNonHiddenOwnedIdentityIfCurrentIsHidden() async {
+        let metaFlowController = metaWindow?.rootViewController as? MetaFlowController
+        // In case the meta flow controller is nil, we do nothing. This is not an issue: if it is nil, there is no risk it displays a hidden profile.
+        await metaFlowController?.switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
     }
     
 }

@@ -28,7 +28,7 @@ import ObvMetaManager
 import OlvidUtils
 
 /// This protocol corresponds to the 'Establish mutual trust with an untrusted identity protocol'
-public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol {
+public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol, ObvErrorMaker {
     
     static let logCategory = "TrustEstablishmentWithSASProtocol"
     
@@ -36,6 +36,8 @@ public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol {
     
     static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled, StateId.MutualTrustConfirmed]
     
+    public static let errorDomain = "TrustEstablishmentWithSASProtocol"
+
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
     
@@ -81,7 +83,7 @@ public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol {
 extension TrustEstablishmentWithSASProtocol {
     
     static func decodeEncodedListOfDeviceUids(_ obvEncoded: ObvEncoded) throws -> [UID] {
-        guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { throw NSError() }
+        guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
         return try listOfEncodedUids.map { try $0.obvDecode() }
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,11 +37,13 @@ public enum ObvChannelNotification {
 	case newConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
 	case deletedConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
 	case networkReceivedMessageWasProcessed(messageId: MessageIdentifier, flowId: FlowIdentifier)
+	case protocolMessageDecrypted(protocolMessageId: MessageIdentifier, flowId: FlowIdentifier)
 
 	private enum Name {
 		case newConfirmedObliviousChannel
 		case deletedConfirmedObliviousChannel
 		case networkReceivedMessageWasProcessed
+		case protocolMessageDecrypted
 
 		private var namePrefix: String { String(describing: ObvChannelNotification.self) }
 
@@ -57,6 +59,7 @@ public enum ObvChannelNotification {
 			case .newConfirmedObliviousChannel: return Name.newConfirmedObliviousChannel.name
 			case .deletedConfirmedObliviousChannel: return Name.deletedConfirmedObliviousChannel.name
 			case .networkReceivedMessageWasProcessed: return Name.networkReceivedMessageWasProcessed.name
+			case .protocolMessageDecrypted: return Name.protocolMessageDecrypted.name
 			}
 		}
 	}
@@ -78,6 +81,11 @@ public enum ObvChannelNotification {
 		case .networkReceivedMessageWasProcessed(messageId: let messageId, flowId: let flowId):
 			info = [
 				"messageId": messageId,
+				"flowId": flowId,
+			]
+		case .protocolMessageDecrypted(protocolMessageId: let protocolMessageId, flowId: let flowId):
+			info = [
+				"protocolMessageId": protocolMessageId,
 				"flowId": flowId,
 			]
 		}
@@ -119,6 +127,15 @@ public enum ObvChannelNotification {
 			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, flowId)
+		}
+	}
+
+	public static func observeProtocolMessageDecrypted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.protocolMessageDecrypted.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! MessageIdentifier
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(protocolMessageId, flowId)
 		}
 	}
 

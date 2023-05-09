@@ -139,7 +139,10 @@ extension DeviceDiscoveryForContactIdentityProtocol {
                                                                   otherProtocolInstanceUid: childProtocolInstanceUid)
             let childProtocolInitialMessage = DeviceDiscoveryForRemoteIdentityProtocol.InitialMessage(coreProtocolMessage: coreMessage,
                                                                                                       remoteIdentity: contactIdentity)
-            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
 
             // Return the new state
@@ -294,7 +297,7 @@ extension DeviceDiscoveryForContactIdentityProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let inputs = ChildToParentProtocolMessageInputs(message.encodedInputs) else { throw NSError() }
+            guard let inputs = ChildToParentProtocolMessageInputs(message.encodedInputs) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain inputs") }
             childToParentProtocolMessageInputs = inputs
             deviceUidsSentState = try DeviceDiscoveryForRemoteIdentityProtocol.DeviceUidsReceivedState(childToParentProtocolMessageInputs.childProtocolInstanceEncodedReachedState)
         }

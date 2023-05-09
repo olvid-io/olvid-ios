@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUI
 import UIKit
 
 final class CallBannerView: UIView {

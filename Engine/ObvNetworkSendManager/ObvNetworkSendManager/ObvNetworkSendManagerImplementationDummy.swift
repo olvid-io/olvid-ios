@@ -23,6 +23,7 @@ import CoreData
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
 
 public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDelegate, ObvErrorMaker {
@@ -72,6 +73,11 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
     public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
         os_log("requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
+    }
+    
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "prepareForOwnedIdentityDeletion does nothing in this dummy implementation")
     }
         
     // MARK: - Implementing ObvManager

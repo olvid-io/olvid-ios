@@ -573,7 +573,7 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         switch error {
         case .couldNotRecoverAttachmentIdFromTask,
              .couldNotRetrieveAnHTTPResponse,
-             .sessionInvalidationError(error: _),
+             .sessionInvalidationError,
              .couldNotSaveContext,
              .atLeastOneChunkIsNotYetAvailableOnServer,
              .couldNotOpenEncryptedChunkFile,
@@ -888,12 +888,12 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunksSignedURLsTracker
         // If we reach this point, something went wrong while downloading the signed URLs
         
         switch error {
-        case .aTaskDidBecomeInvalidWithError(error: _),
+        case .aTaskDidBecomeInvalidWithError,
              .couldNotParseServerResponse,
              .coreDataFailure,
              .couldNotSaveContext,
              .generalErrorFromServer,
-             .sessionInvalidationError(error: _):
+             .sessionInvalidationError:
             let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
             retryManager.executeWithDelay(delay) { [weak self] in
                 self?.downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
@@ -982,7 +982,7 @@ extension DownloadAttachmentChunksCoordinator: FinalizeSignedURLsOperationsDeleg
         case .aDependencyCancelled,
              .nonNilSignedURLWasFound,
              .coreDataFailure,
-             .failedToCreateTask(error: _):
+             .failedToCreateTask:
             let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
             retryManager.executeWithDelay(delay) { [weak self] in
                 self?.downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)

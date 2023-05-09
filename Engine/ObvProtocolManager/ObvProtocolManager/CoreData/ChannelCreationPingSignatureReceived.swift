@@ -102,4 +102,11 @@ extension ChannelCreationPingSignatureReceived {
         }
     }
     
+    static func batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: ChannelCreationPingSignatureReceived.entityName)
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", Predicate.Key.rawOwnedIdentity.rawValue, ownedCryptoIdentity.getIdentity() as NSData)
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(request)
+    }
+
 }

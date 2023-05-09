@@ -124,7 +124,7 @@ extension TrustEstablishmentWithSASProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 4 else { throw NSError() }
+            guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             let encodedContactIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -198,7 +198,7 @@ extension TrustEstablishmentWithSASProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 4 else { throw NSError() }
+            guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             contactIdentity = try encodedElements[0].obvDecode()
             let encodedContactIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
@@ -232,9 +232,9 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
+            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog response") }
             invitationAccepted = try encodedUserDialogResponse.obvDecode()
-            guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
+            guard let userDialogUuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog uuid") }
             dialogUuid = userDialogUuid
         }
         
@@ -294,7 +294,7 @@ extension TrustEstablishmentWithSASProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 3 else { throw NSError() }
+            guard encodedElements.count == 3 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             seedBobForSas = try encodedElements[0].obvDecode()
             contactDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[1])
             let encodedContactIdentityCoreDetails: Data = try encodedElements[2].obvDecode()
@@ -353,9 +353,9 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
+            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog response") }
             sasEnteredByUser = try encodedUserDialogResponse.obvDecode()
-            guard let uuid = message.userDialogUuid else { throw NSError() }
+            guard let uuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog uuid") }
             self.dialogUuid = uuid
         }
         
@@ -436,11 +436,11 @@ extension TrustEstablishmentWithSASProtocol {
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { throw NSError() }
+            guard let encodedUserDialogResponse = message.encodedUserDialogResponse else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog response") }
             let encodedContactIdentityCoreDetails: Data
             (encodedContactIdentityCoreDetails, contactIdentity) = try encodedUserDialogResponse.obvDecode()
             contactIdentityCoreDetails = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetails)
-            guard let userDialogUuid = message.userDialogUuid else { throw NSError() }
+            guard let userDialogUuid = message.userDialogUuid else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded user dialog uuid") }
             dialogUuid = userDialogUuid
         }
         

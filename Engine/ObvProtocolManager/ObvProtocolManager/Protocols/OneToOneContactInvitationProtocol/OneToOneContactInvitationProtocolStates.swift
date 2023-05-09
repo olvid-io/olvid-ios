@@ -55,7 +55,7 @@ extension OneToOneContactInvitationProtocol {
         func obvEncode() -> ObvEncoded { [contactIdentity, dialogUuid].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 2) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { throw NSError() }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.dialogUuid = try encodedElements[1].obvDecode()
         }
@@ -78,7 +78,7 @@ extension OneToOneContactInvitationProtocol {
         func obvEncode() -> ObvEncoded { [contactIdentity, dialogUuid].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 2) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { throw NSError() }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.dialogUuid = try encodedElements[1].obvDecode()
         }

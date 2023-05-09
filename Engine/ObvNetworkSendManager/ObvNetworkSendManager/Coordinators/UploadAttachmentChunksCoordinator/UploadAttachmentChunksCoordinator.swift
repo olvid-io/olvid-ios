@@ -676,11 +676,11 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunksSignedURLsTracker {
         // If we reach this point, something went wrong while downloading the signed URLs
         
         switch error {
-        case .aTaskDidBecomeInvalidWithError(error: _),
+        case .aTaskDidBecomeInvalidWithError,
              .couldNotSaveContext,
              .couldNotParseServerResponse,
              .generalErrorFromServer,
-             .sessionInvalidationError(error: _):
+             .sessionInvalidationError:
             delegateManager.networkSendFlowDelegate.signedURLsDownloadFailedForAttachment(attachmentId: attachmentId, flowId: flowId)
         case .cannotFindAttachmentInDatabase:
             // We do nothing
@@ -856,8 +856,8 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
             break
         case .couldNotRecoverAttachmentIdFromTask,
              .couldNotRetrieveAnHTTPResponse,
-             .aTaskDidBecomeInvalidWithError(error: _),
-             .sessionInvalidationError(error: _),
+             .aTaskDidBecomeInvalidWithError,
+             .sessionInvalidationError,
              .couldNotSaveContext,
              .unsupportedHTTPErrorStatusCode:
             resumeMissingAttachmentUploads(flowId: flowId)
@@ -920,7 +920,7 @@ extension UploadAttachmentChunksCoordinator: FinalizeSignedURLsOperationsDelegat
             return
         case .aDependencyCancelled,
              .nonNilSignedURLWasFound,
-             .failedToCreateTask(error: _):
+             .failedToCreateTask:
             delegateManager.networkSendFlowDelegate.signedURLsDownloadFailedForAttachment(attachmentId: attachmentId, flowId: flowId)
         case .identityDelegateNotSet,
              .attachmentChunksSignedURLsTrackerNotSet:

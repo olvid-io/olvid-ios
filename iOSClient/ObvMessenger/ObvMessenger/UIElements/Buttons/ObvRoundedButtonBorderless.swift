@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUI
 
 final class ObvRoundedButtonBorderless: ObvRoundedButton {
     

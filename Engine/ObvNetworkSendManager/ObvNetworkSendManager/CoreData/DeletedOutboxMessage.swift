@@ -126,4 +126,12 @@ extension DeletedOutboxMessage {
         _ = try obvContext.execute(request)
     }
     
+    
+    static func batchDelete(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", Predicate.Key.rawMessageIdOwnedIdentity.rawValue, ownedCryptoIdentity.getIdentity() as NSData)
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(request)
+    }
+    
 }

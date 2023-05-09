@@ -21,6 +21,7 @@ import UIKit
 import LocalAuthentication
 import OlvidUtils
 import ObvTypes
+import ObvUI
 
 
 final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
@@ -75,111 +76,272 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         self.authenticationMethod = AuthenticationMethod.bestAvailableAuthenticationMethod()
         tableView.reloadData()
     }
+    
+    
+    private enum Section: CaseIterable {
+        case notificationContentPrivacyStyle
+        case localAuthenticationPolicy
+        case lockScreenGracePeriod
+        case deleteSensitiveMessagesOnBadPasscode
+        case hiddenProfileClosePolicy
+        static var shown: [Section] {
+            var result = [Section]()
+            result += [.notificationContentPrivacyStyle, .localAuthenticationPolicy]
+            if ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
+                result += [.lockScreenGracePeriod]
+                if ObvMessengerSettings.Privacy.localAuthenticationPolicy.useCustomPasscode {
+                    result += [.deleteSensitiveMessagesOnBadPasscode]
+                }
+            }
+            result += [.hiddenProfileClosePolicy]
+            return result
+        }
+        var numberOfItems: Int {
+            switch self {
+            case .notificationContentPrivacyStyle: return NotificationContentPrivacyStyleItem.shown.count
+            case .localAuthenticationPolicy: return LocalAuthenticationPolicyItem.shown.count
+            case .lockScreenGracePeriod: return LockScreenGracePeriodItem.shown.count
+            case .deleteSensitiveMessagesOnBadPasscode: return DeleteSensitiveMessagesOnBadPasscodeItem.shown.count
+            case .hiddenProfileClosePolicy: return HiddenProfileClosePolicyItem.shown.count
+            }
+        }
+        static func shownSectionAt(section: Int) -> Section? {
+            return shown[safe: section]
+        }
+    }
+    
+    
+    private enum NotificationContentPrivacyStyleItem: CaseIterable {
+        case hideContent
+        static var shown: [NotificationContentPrivacyStyleItem] {
+            return NotificationContentPrivacyStyleItem.allCases
+        }
+        static func shownItemAt(item: Int) -> NotificationContentPrivacyStyleItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .hideContent: return "hideContent"
+            }
+        }
+    }
+    
+    
+    private enum LocalAuthenticationPolicyItem: CaseIterable {
+        case none
+        case deviceOwnerAuthentication
+        case biometricsWithCustomPasscodeFallback
+        case customPasscode
+        static var shown: [LocalAuthenticationPolicyItem] {
+            assert(LocalAuthenticationPolicy.allCases.count == LocalAuthenticationPolicyItem.allCases.count)
+            return LocalAuthenticationPolicyItem.allCases
+        }
+        static func shownItemAt(item: Int) -> LocalAuthenticationPolicyItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .none: return "none"
+            case .deviceOwnerAuthentication: return "deviceOwnerAuthentication"
+            case .biometricsWithCustomPasscodeFallback: return "biometricsWithCustomPasscodeFallback"
+            case .customPasscode: return "customPasscode"
+            }
+        }
+        var localAuthenticationPolicy: LocalAuthenticationPolicy {
+            switch self {
+            case .none: return .none
+            case .deviceOwnerAuthentication: return .deviceOwnerAuthentication
+            case .biometricsWithCustomPasscodeFallback: return .biometricsWithCustomPasscodeFallback
+            case .customPasscode: return .customPasscode
+            }
+        }
+    }
+    
+    
+    private enum LockScreenGracePeriodItem: CaseIterable {
+        case requireAuthentication
+        static var shown: [LockScreenGracePeriodItem] {
+            return LockScreenGracePeriodItem.allCases
+        }
+        static func shownItemAt(item: Int) -> LockScreenGracePeriodItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .requireAuthentication: return "requireAuthentication"
+            }
+        }
+    }
+    
+    
+    private enum DeleteSensitiveMessagesOnBadPasscodeItem: CaseIterable {
+        case eraseSensitive
+        static var shown: [DeleteSensitiveMessagesOnBadPasscodeItem] {
+            return DeleteSensitiveMessagesOnBadPasscodeItem.allCases
+        }
+        static func shownItemAt(item: Int) -> DeleteSensitiveMessagesOnBadPasscodeItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .eraseSensitive: return "eraseSensitive"
+            }
+        }
+    }
+    
+    
+    private enum HiddenProfileClosePolicyItem: CaseIterable {
+        case hiddenProfileClosePolicyItem
+        static var shown: [HiddenProfileClosePolicyItem] {
+            return HiddenProfileClosePolicyItem.allCases
+        }
+        static func shownItemAt(item: Int) -> HiddenProfileClosePolicyItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .hiddenProfileClosePolicyItem: return "hiddenProfileClosePolicyItem"
+            }
+        }
+    }
+    
 
     // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        var count = 0
-        count += 1 // NotificationContentPrivacyStyle
-        count += 1 // LocalAuthenticationPolicy
-        if ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
-            count += 1 // Grace periods
-            if ObvMessengerSettings.Privacy.localAuthenticationPolicy.useCustomPasscode {
-                count += 1 // Lockout clean ephemeral
-            }
-        }
-        return count
+        return Section.shown.count
     }
+    
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch section {
-        case 0:
-            return 1
-        case 1:
-            return LocalAuthenticationPolicy.allCases.count
-        case 2:
-            return 1
-        case 3:
-            return 1
-        default:
-            return 0
-        }
+        guard let section = Section.shownSectionAt(section: section) else { return 0 }
+        return section.numberOfItems
     }
+    
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell: UITableViewCell
-        switch indexPath.section {
-        case 0:
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.textLabel?.text = Strings.notificationContentPrivacyStyle.title
-            switch ObvMessengerSettings.Privacy.hideNotificationContent {
-            case .no:
-                cell.detailTextLabel?.text = CommonString.Word.No
-            case .partially:
-                cell.detailTextLabel?.text = CommonString.Word.Partially
-            case .completely:
-                cell.detailTextLabel?.text = CommonString.Word.Completely
-            }
-            cell.accessoryType = .disclosureIndicator
-        case 1:
-            cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            if let policy = LocalAuthenticationPolicy(rawValue: indexPath.row) {
-                let isPolicyAvailable = policy.isAvailable(whenBestAvailableAuthenticationMethodIs: authenticationMethod)
-                let title = policy.title(authenticationMethod: authenticationMethod)
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = title
-                    configuration.textProperties.color = isPolicyAvailable ? AppTheme.shared.colorScheme.label : AppTheme.shared.colorScheme.secondaryLabel
-                    cell.contentConfiguration = configuration
-                } else {
-                    cell.textLabel?.text = title
-                    cell.textLabel?.isEnabled = isPolicyAvailable
+        
+        let cellInCaseOfError = UITableViewCell(style: .default, reuseIdentifier: nil)
+
+        guard let section = Section.shownSectionAt(section: indexPath.section) else {
+            assertionFailure()
+            return cellInCaseOfError
+        }
+
+        switch section {
+            
+        case .notificationContentPrivacyStyle:
+            guard let item = NotificationContentPrivacyStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .hideContent:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = Strings.notificationContentPrivacyStyle.title
+                switch ObvMessengerSettings.Privacy.hideNotificationContent {
+                case .no:
+                    cell.detailTextLabel?.text = CommonString.Word.No
+                case .partially:
+                    cell.detailTextLabel?.text = CommonString.Word.Partially
+                case .completely:
+                    cell.detailTextLabel?.text = CommonString.Word.Completely
                 }
-                if ObvMessengerSettings.Privacy.localAuthenticationPolicy == policy {
-                    cell.accessoryType = .checkmark
-                } else {
-                    cell.accessoryType = .none
-                }
-            } else {
-                assertionFailure()
+                cell.accessoryType = .disclosureIndicator
+                return cell
             }
-        case 2:
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            let gracePeriod = ObvMessengerSettings.Privacy.lockScreenGracePeriod
-            let title = CommonString.Title.gracePeriod
-            var details: String?
-            if gracePeriod == 0 {
-                details = CommonString.Word.Immediately
-            } else if let duration = dateComponentsFormatter.string(from: gracePeriod) {
-                details = CommonString.gracePeriodTitle(duration)
-            }
+
+        case .localAuthenticationPolicy:
+            guard let item = LocalAuthenticationPolicyItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            let policy = item.localAuthenticationPolicy
+            let cell = UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+            let isPolicyAvailable = policy.isAvailable(whenBestAvailableAuthenticationMethodIs: authenticationMethod)
+            let title = policy.title(authenticationMethod: authenticationMethod)
             if #available(iOS 14, *) {
                 var configuration = cell.defaultContentConfiguration()
                 configuration.text = title
-                configuration.secondaryText = details
+                configuration.textProperties.color = isPolicyAvailable ? AppTheme.shared.colorScheme.label : AppTheme.shared.colorScheme.secondaryLabel
                 cell.contentConfiguration = configuration
             } else {
                 cell.textLabel?.text = title
-                cell.detailTextLabel?.text = details
+                cell.textLabel?.isEnabled = isPolicyAvailable
             }
-            cell.accessoryType = .disclosureIndicator
-        case 3:
-            let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: nil)
-            _cell.title = Strings.lockoutCleanEphemeralTitle
-            _cell.switchIsOn = ObvMessengerSettings.Privacy.lockoutCleanEphemeral
-            _cell.blockOnSwitchValueChanged = { (value) in
-                ObvMessengerSettings.Privacy.lockoutCleanEphemeral = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
-                    tableView.reloadRows(at: [indexPath], with: .none) // The footer disappears under iOS 16 if calling reloadData() here
+            if ObvMessengerSettings.Privacy.localAuthenticationPolicy == policy {
+                cell.accessoryType = .checkmark
+            } else {
+                cell.accessoryType = .none
+            }
+            return cell
+            
+        case .lockScreenGracePeriod:
+            guard let item = LockScreenGracePeriodItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .requireAuthentication:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: item.cellIdentifier)
+                let gracePeriod = ObvMessengerSettings.Privacy.lockScreenGracePeriod
+                let title = CommonString.Title.gracePeriod
+                var details: String?
+                if gracePeriod == 0 {
+                    details = CommonString.Word.Immediately
+                } else if let duration = dateComponentsFormatter.string(from: gracePeriod) {
+                    details = CommonString.gracePeriodTitle(duration)
                 }
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = title
+                    configuration.secondaryText = details
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = title
+                    cell.detailTextLabel?.text = details
+                }
+                cell.accessoryType = .disclosureIndicator
+                return cell
             }
-            cell = _cell
-        default:
-            assertionFailure()
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+            
+        case .deleteSensitiveMessagesOnBadPasscode:
+            guard let item = DeleteSensitiveMessagesOnBadPasscodeItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .eraseSensitive:
+                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.title = Strings.lockoutCleanEphemeralTitle
+                cell.switchIsOn = ObvMessengerSettings.Privacy.lockoutCleanEphemeral
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Privacy.lockoutCleanEphemeral = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadRows(at: [indexPath], with: .none) // The footer disappears under iOS 16 if calling reloadData() here
+                    }
+                }
+                return cell
+            }
+            
+        case .hiddenProfileClosePolicy:
+            guard let item = HiddenProfileClosePolicyItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .hiddenProfileClosePolicyItem:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: item.cellIdentifier)
+                let title = CommonString.Title.closeOpenHiddenProfile
+                let details: String
+                switch ObvMessengerSettings.Privacy.hiddenProfileClosePolicy {
+                case .manualSwitching:
+                    details = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_MANUAL_SWITCHING", comment: "")
+                case .screenLock:
+                    details = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_SCREEN_LOCK", comment: "")
+                case .background:
+                    details = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_BACKGROUND", comment: "")
+                }
+                if #available(iOS 14, *) {
+                    var configuration = cell.defaultContentConfiguration()
+                    configuration.text = title
+                    configuration.secondaryText = details
+                    cell.contentConfiguration = configuration
+                } else {
+                    cell.textLabel?.text = title
+                    cell.detailTextLabel?.text = details
+                }
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
         }
-        return cell
     }
+    
 
     private func localAuthenticationPolicy(changeTo newPolicy: LocalAuthenticationPolicy, completionHandler: @escaping () -> Void) {
         let currentPolicy = ObvMessengerSettings.Privacy.localAuthenticationPolicy
@@ -300,6 +462,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         }
     }
 
+    
     private func showErrorDialog(with error: Error) {
         let title: String
         let message: String?
@@ -344,6 +507,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         }
     }
 
+    
     private func requestLocalAuthentication(with policy: LAPolicy) async throws {
         let laContext = LAContext()
         var error: NSError?
@@ -359,11 +523,13 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
 
     }
 
+    
     private func startCustomPasscodeDefinitionWorkflow() async throws {
         let (passcode, passcodeIsPassword) = try await defineCustomPasscode()
         try await saveCustomPasscode(passcode: passcode, passcodeIsPassword: passcodeIsPassword)
     }
 
+    
     private func defineCustomPasscode() async throws -> (passcode: String, passcodeIsPassword: Bool) {
         let passcodeViewController = CreatePasscodeViewController()
         self.present(passcodeViewController, animated: true)
@@ -376,6 +542,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         }
     }
 
+    
     private func requestCustomPasscode() async throws {
         do {
             guard let createPasscodeDelegate = self.createPasscodeDelegate else {
@@ -394,6 +561,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         }
     }
 
+    
     private func clearCustomPasscode() async {
         guard let createPasscodeDelegate = self.createPasscodeDelegate else {
             assertionFailure(); return
@@ -401,6 +569,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         await createPasscodeDelegate.clearPasscode()
     }
 
+    
     private func saveCustomPasscode(passcode: String, passcodeIsPassword: Bool) async throws {
         guard let createPasscodeDelegate = self.createPasscodeDelegate else {
             assertionFailure(); return
@@ -408,52 +577,69 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         try await createPasscodeDelegate.savePasscode(passcode, passcodeIsPassword: passcodeIsPassword)
     }
     
+    
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        switch indexPath.section {
-        case 0:
-            guard indexPath.row == 0 else { return }
-            let vc = NotificationContentPrivacyStyleChooserTableViewController()
-            self.navigationController?.pushViewController(vc, animated: true)
-        case 1:
-            guard let policy = LocalAuthenticationPolicy(rawValue: indexPath.row) else {
-                assertionFailure(); return
+        guard let section = Section.shownSectionAt(section: indexPath.section) else { assertionFailure(); return }
+        switch section {
+        case .notificationContentPrivacyStyle:
+            guard let item = NotificationContentPrivacyStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .hideContent:
+                let vc = NotificationContentPrivacyStyleChooserTableViewController()
+                self.navigationController?.pushViewController(vc, animated: true)
             }
+        case .localAuthenticationPolicy:
+            guard let item = LocalAuthenticationPolicyItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            let policy = item.localAuthenticationPolicy
             localAuthenticationPolicy(changeTo: policy) { [weak self] in
                 self?.tableView.reloadData()
                 self?.tableView.deselectRow(at: indexPath, animated: true)
             }
-        case 2:
-            guard indexPath.row == 0 else { return }
-            let vc = GracePeriodsChooserTableViewController()
+        case .lockScreenGracePeriod:
+            guard let item = LockScreenGracePeriodItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .requireAuthentication:
+                let vc = GracePeriodsChooserTableViewController()
+                self.navigationController?.pushViewController(vc, animated: true)
+            }
+        case .deleteSensitiveMessagesOnBadPasscode:
+            break
+        case .hiddenProfileClosePolicy:
+            let vc = HiddenProfileClosePolicyChooserViewController()
             self.navigationController?.pushViewController(vc, animated: true)
-        default:
-            return
         }
     }
     
     
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
         switch section {
-        case 0:
+        case .notificationContentPrivacyStyle:
             return CommonString.Word.Notifications
-        case 1:
+        case .localAuthenticationPolicy:
             return Strings.screenLock
-        default:
+        case .lockScreenGracePeriod:
             return nil
+        case .deleteSensitiveMessagesOnBadPasscode:
+            return nil
+        case .hiddenProfileClosePolicy:
+            return NSLocalizedString("HIDDEN_PROFILES", comment: "")
         }
     }
     
+    
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
         switch section {
-        case 0:
+        case .notificationContentPrivacyStyle:
             switch ObvMessengerSettings.Privacy.hideNotificationContent {
             case .no: return Strings.notificationContentPrivacyStyle.explanation.whenNo
             case .partially: return Strings.notificationContentPrivacyStyle.explanation.whenPartially
             case .completely: return Strings.notificationContentPrivacyStyle.explanation.whenCompletely
             }
-        case 1:
+        case .localAuthenticationPolicy:
             return ObvMessengerSettings.Privacy.localAuthenticationPolicy.explanation(authenticationMethod: authenticationMethod)
-        case 2:
+        case .lockScreenGracePeriod:
             if ObvMessengerSettings.Privacy.lockScreenGracePeriod == 0 {
                 return Strings.noGracePeriodExplanation
             } else {
@@ -462,9 +648,9 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
                 }
                 return Strings.gracePeriodExplanation(duration)
             }
-        case 3:
+        case .deleteSensitiveMessagesOnBadPasscode:
             return Strings.lockoutCleanEphemeralExplanation
-        default:
+        case .hiddenProfileClosePolicy:
             return nil
         }
     }

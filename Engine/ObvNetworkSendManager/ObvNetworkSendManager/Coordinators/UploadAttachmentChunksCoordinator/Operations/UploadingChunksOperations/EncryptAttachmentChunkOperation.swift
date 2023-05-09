@@ -25,7 +25,7 @@ import ObvMetaManager
 import OlvidUtils
 
 
-final class EncryptAttachmentChunkOperation: Operation {
+final class EncryptAttachmentChunkOperation: Operation, ObvErrorMaker {
     
     enum ReasonForCancel: Hashable {
         case contextCreatorIsNotSet
@@ -37,6 +37,8 @@ final class EncryptAttachmentChunkOperation: Operation {
         case couldNotSaveContext
         case fileDoesNotExistAnymore
     }
+
+    static let errorDomain = "EncryptAttachmentChunkOperation"
 
     private let uuid = UUID()
     let attachmentId: AttachmentIdentifier
@@ -175,8 +177,14 @@ extension EncryptAttachmentChunkOperation {
 
 
     private func getFileSize(url: URL) throws -> Int {
-        guard FileManager.default.fileExists(atPath: url.path) else { throw NSError() }
-        guard let size = try FileManager.default.attributesOfItem(atPath: url.path)[FileAttributeKey.size] as? Int else { assertionFailure(); throw NSError() }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            assertionFailure()
+            throw Self.makeError(message: "File does not exist")
+        }
+        guard let size = try FileManager.default.attributesOfItem(atPath: url.path)[FileAttributeKey.size] as? Int else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not get file size")
+        }
         return size
     }
 }

@@ -70,6 +70,7 @@ final class UserNotificationsManager: NSObject {
         observeReportCallEventNotifications()
         observePersistedMessageReactionReceivedWasDeletedNotifications()
         observePersistedMessageReactionReceivedWasInsertedOrUpdatedNotifications()
+        removeAllNotificationsWhenHidingProfile()
     }
     
     
@@ -232,13 +233,21 @@ extension UserNotificationsManager {
                 guard let messageReceived = try? PersistedMessageReceived.get(with: persistedMessageReceivedObjectID, within: context) as? PersistedMessageReceived else { assertionFailure(); return }
                 let discussion = messageReceived.discussion
                 do {
-                    let infos = UserNotificationCreator.NewMessageNotificationInfos(
-                        messageReceived: try messageReceived.toStruct(),
-                        attachmentLocation: .notificationID,
-                        urlForStoringPNGThumbnail: nil)
-                    let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
-                    let discussionKind = try discussion.toStruct()
-                    UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+                    if messageReceived.textBody == nil {
+                        assert(messageReceived.isWiped)
+                        // The message should be wiped, we remove associated notifications to not expose previous body.
+                        let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine)
+                        ObvDisplayableLogs.shared.log("📣 Removing a user notification as its corresponding PersistedMessageReceived was wiped")
+                        UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
+                    } else {
+                        let infos = UserNotificationCreator.NewMessageNotificationInfos(
+                            messageReceived: try messageReceived.toStruct(),
+                            attachmentLocation: .notificationID,
+                            urlForStoringPNGThumbnail: nil)
+                        let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
+                        let discussionKind = try discussion.toStruct()
+                        UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+                    }
                 } catch {
                     assertionFailure()
                     return
@@ -247,8 +256,8 @@ extension UserNotificationsManager {
         })
     }
     
-    
-    // Eeach time the notification extension adds a notification with minimal content (e.g., when it fails to decrypt the notification), we execute the following block.
+
+    // Each time the notification extension adds a notification with minimal content (e.g., when it fails to decrypt the notification), we execute the following block.
     // This block first removes all "minimal" notifications and search for unread messages which do not have a corresponding user notifications. The missing notifications are then added.
     private func observeRequestIdentifiersOfSilentNotificationsAddedByExtension() {
         guard let userDefaults = self.userDefaults else {
@@ -387,6 +396,18 @@ extension UserNotificationsManager {
             }
         })
     }
+    
+    
+    /// When a profile (owned identity) is hidden, we remove all notifications to make sure no notification concerning this hidden profile is shown.
+    private func removeAllNotificationsWhenHidingProfile() {
+        observationTokens.append(ObvMessengerCoreDataNotification.observeOwnedIdentityHiddenStatusChanged { _, isHidden in
+            guard isHidden else { return }
+            let notificationCenter = UNUserNotificationCenter.current()
+            notificationCenter.removeAllDeliveredNotifications()
+            notificationCenter.removeAllPendingNotificationRequests()
+        })
+    }
+    
 }
 
 
@@ -395,7 +416,8 @@ extension UserNotificationsManager {
 extension UserNotificationsManager {
     
     private func observeNewPersistedInvitationNotifications() {
-        let token = ObvMessengerCoreDataNotification.observeNewOrUpdatedPersistedInvitation { (obvDialog, persistedInvitationUUID) in
+        let token = ObvMessengerCoreDataNotification.observeNewOrUpdatedPersistedInvitation { (concernedOwnedIdentityIsHidden, obvDialog, persistedInvitationUUID) in
+            guard !concernedOwnedIdentityIsHidden else { return }
             let notificationCenter = UNUserNotificationCenter.current()
             notificationCenter.getNotificationSettings { (settings) in
                 // Do not schedule notifications if not authorized.

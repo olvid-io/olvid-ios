@@ -25,7 +25,7 @@ import OlvidUtils
 
 public protocol ObvProtocolDelegate: ObvManager {
     
-    func process(_: ObvProtocolReceivedMessage, within: ObvContext) throws
+    func processProtocolReceivedMessage(_: ObvProtocolReceivedMessage, within: ObvContext) throws
     func process(_: ObvProtocolReceivedDialogResponse, within: ObvContext) throws
     func process(_: ObvProtocolReceivedServerResponse, within: ObvContext) throws
 
@@ -89,4 +89,10 @@ public protocol ObvProtocolDelegate: ObvManager {
 
     func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
+    // MARK: - Owned identities
+    
+    func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+
+    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
+    
 }

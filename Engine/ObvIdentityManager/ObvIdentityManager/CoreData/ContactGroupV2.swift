@@ -595,7 +595,7 @@ extension ContactGroupV2 {
     }
     
     
-    func getAllNonPendingAdministratorsIdentitites() throws  -> Set<ObvCryptoIdentity> {
+    func getAllNonPendingAdministratorsIdentitites() throws -> Set<ObvCryptoIdentity> {
         var admins: Set<ObvCryptoIdentity> = Set(self.otherMembers.compactMap { member in
             guard let allMembersPermission = member.allPermissions else { assertionFailure(); return nil }
             guard allMembersPermission.contains(.groupAdmin) else { return nil }

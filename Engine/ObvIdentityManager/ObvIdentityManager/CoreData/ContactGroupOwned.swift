@@ -108,6 +108,15 @@ final class ContactGroupOwned: ContactGroup {
             try self.latestDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
         }
     }
+    
+    
+    func delete(delegateManager: ObvIdentityDelegateManager) throws {
+        guard let obvContext else { throw Self.makeError(message: "Could not find context") }
+        try latestDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        try publishedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        // Pending group members are cascade deleted
+        obvContext.delete(self)
+    }
 
 }
 

@@ -846,7 +846,7 @@ public struct GroupV2 {
         
         
         /// Returns an updated `ServerBlob` given the changeset.
-        public func consolidateWithChangeset(_ changeset: ObvGroupV2.Changeset, ownedIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws  -> ServerBlob {
+        public func consolidateWithChangeset(_ changeset: ObvGroupV2.Changeset, ownedIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws -> ServerBlob {
             
             var updatedSerializedGroupCoreDetails = self.serializedGroupCoreDetails
             var updatedServerPhotoInfo = self.serverPhotoInfo

@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 
@@ -132,7 +133,7 @@ enum OlvidSnackBarCategory: CaseIterable {
         }
     }
 
-    var icon: ObvSystemIcon {
+    var icon: SystemIcon {
         switch self {
         case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey:
             return .arrowCounterclockwiseCircleFill

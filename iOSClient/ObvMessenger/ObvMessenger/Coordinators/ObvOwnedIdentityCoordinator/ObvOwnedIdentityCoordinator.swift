@@ -62,6 +62,9 @@ final class ObvOwnedIdentityCoordinator {
             ObvEngineNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: NotificationCenter.default) { [weak self] obvOwnedIdentity in
                 self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: obvOwnedIdentity)
             },
+            ObvEngineNotificationNew.observeOwnedIdentityWasDeleted(within: NotificationCenter.default) { [weak self] in
+                self?.processOwnedIdentityWasDeleted()
+            },
         ])
 
         // Internal Notifications
@@ -77,16 +80,95 @@ final class ObvOwnedIdentityCoordinator {
             ObvMessengerInternalNotification.observeUiRequiresSignedOwnedDetails { [weak self] ownedIdentityCryptoId, completion in
                 self?.processUiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ownedIdentityCryptoId, completion: completion)
             },
+            ObvMessengerInternalNotification.observeUserWantsToHideOwnedIdentity { [weak self] ownedCryptoId, password in
+                self?.processUserWantsToHideOwnedIdentity(ownedCryptoId: ownedCryptoId, password: password)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUnhideOwnedIdentity { [weak self] ownedCryptoId in
+                self?.processUserWantsToUnhideOwnedIdentity(ownedCryptoId: ownedCryptoId)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedIdentityAndHasConfirmed { [weak self] ownedCryptoId, notifyContacts in
+                self?.processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, notifyContacts: notifyContacts)
+            },
+            ObvMessengerInternalNotification.observeRecomputeNumberOfNewMessagesForAllOwnedIdentities { [weak self] in
+                self?.recomputeNumberOfNewMessagesForAllOwnedIdentities()
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUpdateOwnedCustomDisplayName { [weak self] ownedCryptoId, newCustomDisplayName in
+                self?.updateOwnedNickname(ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
+            },
         ])
         
     }
     
-    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {}
+    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
+        if forTheFirstTime {
+            recomputeNumberOfNewMessagesForAllOwnedIdentities()
+        }
+    }
 
 }
 
 
 extension ObvOwnedIdentityCoordinator {
+    
+    private func updateOwnedNickname(ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?) {
+        let op1 = UpdateOwnedCustomDisplayNameOperation(ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+
+    
+    private func recomputeNumberOfNewMessagesForAllOwnedIdentities() {
+        let op1 = RefreshNumberOfNewMessagesForAllOwnedIdentitiesOperation()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
+    
+    private func processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, notifyContacts: Bool) {
+        let op1 = DeleteOwnedIdentityOperation(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, notifyContacts: notifyContacts, delegate: self)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        composedOp.queuePriority = .veryHigh
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
+    private func processUserWantsToUnhideOwnedIdentity(ownedCryptoId: ObvCryptoId) {
+        let op1 = UnhideOwnedIdentityOperation(ownedCryptoId: ownedCryptoId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        composedOp.queuePriority = .veryHigh
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
+    }
+    
+    
+    private func processUserWantsToHideOwnedIdentity(ownedCryptoId: ObvCryptoId, password: String) {
+        
+        let op1 = HideOwnedIdentityOperation(ownedCryptoId: ownedCryptoId, password: password)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        composedOp.queuePriority = .veryHigh
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            ObvMessengerInternalNotification.failedToHideOwnedIdentity(ownedCryptoId: ownedCryptoId)
+                .postOnDispatchQueue()
+        }
+
+    }
+    
     
     private func processUiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: @escaping (SignedUserDetails?) -> Void) {
         let log = self.log
@@ -112,6 +194,7 @@ extension ObvOwnedIdentityCoordinator {
         let obvEngine = self.obvEngine
         let token = ObvMessengerCoreDataNotification.observeNewPersistedObvOwnedIdentity(queue: internalQueue) { ownedCryptoId in
             os_log("We received an NewPersistedObvOwnedIdentity notification", log: log, type: .info)
+            Task { try? await obvEngine.downloadMessagesAndConnectWebsockets() }
             // Fetch the owned identity from DB. If it is active, we want to kick other devices on next register to push notifications.
             // This works because:
             // Case 1: the owned identity is new, created on this device, and the kick does nothing
@@ -213,13 +296,11 @@ extension ObvOwnedIdentityCoordinator {
     private func processNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentityNotification(ownedIdentity: ObvCryptoId, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?) {
         let log = self.log
         ObvStack.shared.performBackgroundTask { (context) in
-            guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity, within: context) else {
-                os_log("Could not get owned identity", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            persistedOwnedIdentity.set(apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
             do {
+                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity, within: context) else {
+                    return
+                }
+                persistedOwnedIdentity.set(apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
                 try context.save(logOnFailure: log)
             } catch {
                 os_log("Could not save api key status, permissions, and expiration date: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -252,7 +333,18 @@ extension ObvOwnedIdentityCoordinator {
         if composedOp.isCancelled {
             assertionFailure()
         }
-
+    }
+    
+    
+    private func processOwnedIdentityWasDeleted() {
+        assert(OperationQueue.current != internalQueue)
+        let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        internalQueue.addOperations([composedOp], waitUntilFinished: true)
+        composedOp.logReasonIfCancelled(log: log)
+        if composedOp.isCancelled {
+            assertionFailure()
+        }
     }
     
     
@@ -306,6 +398,20 @@ extension ObvOwnedIdentityCoordinator {
             } catch {
                 await completion(false)
             }
+        }
+    }
+    
+}
+
+
+// MARK: - DeleteOwnedIdentityOperationDelegate
+
+extension ObvOwnedIdentityCoordinator: DeleteOwnedIdentityOperationDelegate {
+    
+    func deleteHiddenOwnedIdentityAsTheLastVisibleOwnedIdentityIsBeingDeleted(hiddenOwnedCryptoId: ObvCryptoId, notifyContacts: Bool) {
+        // We make sure we are not bloquing the caller to prevent deadlocks
+        Task {
+            processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: hiddenOwnedCryptoId, notifyContacts: notifyContacts)
         }
     }
     

@@ -21,53 +21,7 @@ import UIKit
 import ObvEngine
 import ObvTypes
 import ObvCrypto
-
-final class AppTheme {
-    
-    static let shared = AppTheme(with: .edmond)
-    
-    static let appleBadgeRedColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0)
-    static let appleTableSeparatorColor = UIColor { (traitCollection: UITraitCollection) in
-        if traitCollection.userInterfaceStyle == .dark {
-            return UIColor(red: 0.24, green: 0.24, blue: 0.26, alpha: 1.0)
-        } else {
-            return UIColor(red: 0.78, green: 0.78, blue: 0.8, alpha: 1.0)
-
-        }
-    }
-    
-    static let appleTableSeparatorHeight: CGFloat = 0.33
-    
-    fileprivate enum Name {
-        case edmond
-    }
-    
-    private let name: Name
-    
-    let colorScheme: ObvSemanticColorScheme
-    let images: ObvImages
-    
-    private init(with name: Name) {
-        self.name = name
-        self.colorScheme = ObvSemanticColorScheme(with: name)
-        self.images = ObvImages()
-        self.adaptTabBarAppearance()
-    }
-    
-    func restoreDefaultNavigationBarAppearance() {
-        let navigationBarAppearance = UINavigationBar.appearance()
-        navigationBarAppearance.isTranslucent = true
-        navigationBarAppearance.barTintColor = nil
-        navigationBarAppearance.tintColor = nil
-    }
-    
-    func adaptTabBarAppearance() {
-
-        UINavigationBar.appearance(whenContainedInInstancesOf: [UIDocumentBrowserViewController.self]).tintColor = nil // We cannot customize the background color of a UIDocumentBrowserViewController, so we set back the button color
-    }
-
-}
-
+import ObvUI
 
 // MARK: - Computing colors from identities
 

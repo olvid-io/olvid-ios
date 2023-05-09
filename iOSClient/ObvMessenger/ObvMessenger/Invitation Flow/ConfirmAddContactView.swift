@@ -20,6 +20,7 @@
 import SwiftUI
 import ObvTypes
 import ObvEngine
+import ObvUI
 
 struct ConfirmAddContactView: View {
     
@@ -71,7 +72,8 @@ struct ConfirmAddContactView: View {
                         OlvidButton(style: .blue, title: Text("ADD_TO_CONTACTS"), systemIcon: .personCropCircleBadgePlus, action: {
                             ObvMessengerInternalNotification.userWantsToStartTrustEstablishmentWithMutualScanProtocol(ownedCryptoId: ownedCryptoId, mutualScanUrl: mutualScanUrl)
                                 .postOnDispatchQueue()
-                            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .latestDiscussions)
+                            let deepLink = ObvDeepLink.latestDiscussions(ownedCryptoId: ownedCryptoId)
+                            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                                 .postOnDispatchQueue()
                         })
                     }

@@ -136,7 +136,7 @@ final class ProfilePictureManager {
         try PersistedObvContactIdentity.getAllCustomPhotoURLs(within: context)
     }
 
-    private func getAllCustomPhotoURLOnDisk() throws  -> Set<URL> {
+    private func getAllCustomPhotoURLOnDisk() throws -> Set<URL> {
         Set(try FileManager.default.contentsOfDirectory(at: self.customContactProfilePicturesDirectory, includingPropertiesForKeys: nil))
     }
 

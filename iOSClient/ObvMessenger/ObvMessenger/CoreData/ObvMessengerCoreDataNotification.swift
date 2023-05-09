@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import CoreData
 import ObvEngine
 import ObvCrypto
 import ObvTypes
+import ObvUI
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -37,7 +38,7 @@ enum ObvMessengerCoreDataNotification {
 	case newDraftToSend(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
 	case draftWasSent(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case persistedMessageHasNewMetadata(persistedMessageObjectID: NSManagedObjectID)
-	case newOrUpdatedPersistedInvitation(obvDialog: ObvDialog, persistedInvitationUUID: UUID)
+	case newOrUpdatedPersistedInvitation(concernedOwnedIdentityIsHidden: Bool, obvDialog: ObvDialog, persistedInvitationUUID: UUID)
 	case persistedContactWasInserted(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
 	case persistedContactWasDeleted(objectID: NSManagedObjectID, identity: Data)
 	case persistedContactHasNewCustomDisplayName(contactCryptoId: ObvCryptoId)
@@ -67,6 +68,10 @@ enum ObvMessengerCoreDataNotification {
 	case persistedGroupV2UpdateIsFinished(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case persistedGroupV2WasDeleted(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
+	case ownedCircledInitialsConfigurationDidChange(ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>, ownedCryptoId: ObvCryptoId, newOwnedCircledInitialsConfiguration: CircledInitialsConfiguration)
+	case persistedObvOwnedIdentityWasDeleted
+	case ownedIdentityHiddenStatusChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool)
+	case numberOfNewMessagesChangedForOwnedIdentity(ownedCryptoId: ObvCryptoId, numberOfNewMessages: Int)
 
 	private enum Name {
 		case newDraftToSend
@@ -102,6 +107,10 @@ enum ObvMessengerCoreDataNotification {
 		case persistedGroupV2UpdateIsFinished
 		case persistedGroupV2WasDeleted
 		case aPersistedGroupV2MemberChangedFromPendingToNonPending
+		case ownedCircledInitialsConfigurationDidChange
+		case persistedObvOwnedIdentityWasDeleted
+		case ownedIdentityHiddenStatusChanged
+		case numberOfNewMessagesChangedForOwnedIdentity
 
 		private var namePrefix: String { String(describing: ObvMessengerCoreDataNotification.self) }
 
@@ -147,6 +156,10 @@ enum ObvMessengerCoreDataNotification {
 			case .persistedGroupV2UpdateIsFinished: return Name.persistedGroupV2UpdateIsFinished.name
 			case .persistedGroupV2WasDeleted: return Name.persistedGroupV2WasDeleted.name
 			case .aPersistedGroupV2MemberChangedFromPendingToNonPending: return Name.aPersistedGroupV2MemberChangedFromPendingToNonPending.name
+			case .ownedCircledInitialsConfigurationDidChange: return Name.ownedCircledInitialsConfigurationDidChange.name
+			case .persistedObvOwnedIdentityWasDeleted: return Name.persistedObvOwnedIdentityWasDeleted.name
+			case .ownedIdentityHiddenStatusChanged: return Name.ownedIdentityHiddenStatusChanged.name
+			case .numberOfNewMessagesChangedForOwnedIdentity: return Name.numberOfNewMessagesChangedForOwnedIdentity.name
 			}
 		}
 	}
@@ -165,8 +178,9 @@ enum ObvMessengerCoreDataNotification {
 			info = [
 				"persistedMessageObjectID": persistedMessageObjectID,
 			]
-		case .newOrUpdatedPersistedInvitation(obvDialog: let obvDialog, persistedInvitationUUID: let persistedInvitationUUID):
+		case .newOrUpdatedPersistedInvitation(concernedOwnedIdentityIsHidden: let concernedOwnedIdentityIsHidden, obvDialog: let obvDialog, persistedInvitationUUID: let persistedInvitationUUID):
 			info = [
+				"concernedOwnedIdentityIsHidden": concernedOwnedIdentityIsHidden,
 				"obvDialog": obvDialog,
 				"persistedInvitationUUID": persistedInvitationUUID,
 			]
@@ -304,6 +318,24 @@ enum ObvMessengerCoreDataNotification {
 			info = [
 				"contactObjectID": contactObjectID,
 			]
+		case .ownedCircledInitialsConfigurationDidChange(ownedIdentityPermanentID: let ownedIdentityPermanentID, ownedCryptoId: let ownedCryptoId, newOwnedCircledInitialsConfiguration: let newOwnedCircledInitialsConfiguration):
+			info = [
+				"ownedIdentityPermanentID": ownedIdentityPermanentID,
+				"ownedCryptoId": ownedCryptoId,
+				"newOwnedCircledInitialsConfiguration": newOwnedCircledInitialsConfiguration,
+			]
+		case .persistedObvOwnedIdentityWasDeleted:
+			info = nil
+		case .ownedIdentityHiddenStatusChanged(ownedCryptoId: let ownedCryptoId, isHidden: let isHidden):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"isHidden": isHidden,
+			]
+		case .numberOfNewMessagesChangedForOwnedIdentity(ownedCryptoId: let ownedCryptoId, numberOfNewMessages: let numberOfNewMessages):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"numberOfNewMessages": numberOfNewMessages,
+			]
 		}
 		return info
 	}
@@ -357,12 +389,13 @@ enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	static func observeNewOrUpdatedPersistedInvitation(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvDialog, UUID) -> Void) -> NSObjectProtocol {
+	static func observeNewOrUpdatedPersistedInvitation(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Bool, ObvDialog, UUID) -> Void) -> NSObjectProtocol {
 		let name = Name.newOrUpdatedPersistedInvitation.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let concernedOwnedIdentityIsHidden = notification.userInfo!["concernedOwnedIdentityIsHidden"] as! Bool
 			let obvDialog = notification.userInfo!["obvDialog"] as! ObvDialog
 			let persistedInvitationUUID = notification.userInfo!["persistedInvitationUUID"] as! UUID
-			block(obvDialog, persistedInvitationUUID)
+			block(concernedOwnedIdentityIsHidden, obvDialog, persistedInvitationUUID)
 		}
 	}
 
@@ -613,6 +646,41 @@ enum ObvMessengerCoreDataNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let contactObjectID = notification.userInfo!["contactObjectID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
 			block(contactObjectID)
+		}
+	}
+
+	static func observeOwnedCircledInitialsConfigurationDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>, ObvCryptoId, CircledInitialsConfiguration) -> Void) -> NSObjectProtocol {
+		let name = Name.ownedCircledInitialsConfigurationDidChange.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedIdentityPermanentID = notification.userInfo!["ownedIdentityPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let newOwnedCircledInitialsConfiguration = notification.userInfo!["newOwnedCircledInitialsConfiguration"] as! CircledInitialsConfiguration
+			block(ownedIdentityPermanentID, ownedCryptoId, newOwnedCircledInitialsConfiguration)
+		}
+	}
+
+	static func observePersistedObvOwnedIdentityWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.persistedObvOwnedIdentityWasDeleted.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			block()
+		}
+	}
+
+	static func observeOwnedIdentityHiddenStatusChanged(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
+		let name = Name.ownedIdentityHiddenStatusChanged.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let isHidden = notification.userInfo!["isHidden"] as! Bool
+			block(ownedCryptoId, isHidden)
+		}
+	}
+
+	static func observeNumberOfNewMessagesChangedForOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Int) -> Void) -> NSObjectProtocol {
+		let name = Name.numberOfNewMessagesChangedForOwnedIdentity.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let numberOfNewMessages = notification.userInfo!["numberOfNewMessages"] as! Int
+			block(ownedCryptoId, numberOfNewMessages)
 		}
 	}
 

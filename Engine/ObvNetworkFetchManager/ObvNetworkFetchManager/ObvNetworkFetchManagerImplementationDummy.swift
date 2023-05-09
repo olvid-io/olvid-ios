@@ -63,9 +63,10 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("queryServerWellKnown does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
+    public func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
         os_log("verifyReceipt does nothing in this dummy implementation", log: log, type: .error)
     }
+
     public func queryFreeTrial(for identity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier) {
         os_log("queryFreeTrial does nothing in this dummy implementation", log: log, type: .error)
     }
@@ -82,8 +83,9 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("getTurnCredentials does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity, completionHander: @escaping (Result<(URLSessionTask.State, TimeInterval?), Error>) -> Void) {
+    public func getWebSocketState(ownedIdentity: ObvCrypto.ObvCryptoIdentity) async throws -> (URLSessionTask.State, TimeInterval?) {
         os_log("getWebSocketState does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getWebSocketState does nothing in this dummy implementation")
     }
 
     public func connectWebsockets(flowId: FlowIdentifier) {
@@ -194,6 +196,10 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
     
     public func postServerQuery(_: ServerQuery, within: ObvContext) {
         os_log("postServerQuery(_: ServerQuery, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
+    }
+    
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
     }
 
     // MARK: - Implementing ObvManager

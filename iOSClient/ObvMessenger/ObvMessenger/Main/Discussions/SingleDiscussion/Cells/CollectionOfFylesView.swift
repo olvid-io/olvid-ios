@@ -20,7 +20,7 @@
 import UIKit
 import MobileCoreServices
 import CoreData
-
+import ObvUI
 
 final class CollectionOfFylesView: ObvRoundedRectView {
 

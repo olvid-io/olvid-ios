@@ -292,8 +292,11 @@ extension PersistedInvitation {
             // We do *not* notify that the invitation has changed when the reason is that the invitation status changed from new or updated to old
             if !(changedKeys.contains(Predicate.Key.rawStatus.rawValue) && status == .old) {
                 guard let obvDialog = self.obvDialog else { assertionFailure(); return }
-                let notification = ObvMessengerCoreDataNotification.newOrUpdatedPersistedInvitation(obvDialog: obvDialog,
-                                                                                                    persistedInvitationUUID: uuid)
+                guard let concernedOwnedIdentityIsHidden = ownedIdentity?.isHidden else { assertionFailure(); return }
+                let notification = ObvMessengerCoreDataNotification.newOrUpdatedPersistedInvitation(
+                    concernedOwnedIdentityIsHidden: concernedOwnedIdentityIsHidden,
+                    obvDialog: obvDialog,
+                    persistedInvitationUUID: uuid)
                 notification.postOnDispatchQueue()
             }
         }

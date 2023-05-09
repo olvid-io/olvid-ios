@@ -23,6 +23,7 @@ import ObvEngine
 import Intents
 import OlvidUtils
 import ObvTypes
+import ObvUI
 
 
 final actor AppMainManager: ObvErrorMaker {
@@ -124,6 +125,9 @@ final actor AppMainManager: ObvErrorMaker {
             },
             ObvEngineNotificationNew.observeAPushTopicWasReceivedViaWebsocket(within: NotificationCenter.default) { pushTopic in
                 Task { [weak self] in try await self?.transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic) }
+            },
+            ObvMessengerCoreDataNotification.observeOwnedIdentityHiddenStatusChanged { _, _ in
+                Task { await LatestCurrentOwnedIdentityStorage.shared.removeLatestCurrentOWnedIdentityStored() }
             },
         ])
     }

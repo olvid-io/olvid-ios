@@ -61,7 +61,7 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             let encodedIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             self.identityCoreDetails = try ObvIdentityCoreDetails(encodedIdentityCoreDetails)
@@ -91,7 +91,7 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 2) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 2) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.keycloakServerURL = try encodedElements[1].obvDecode()
         }
@@ -118,11 +118,11 @@ extension KeycloakContactAdditionProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             let encodedIdentityCoreDetails: Data = try encodedElements[1].obvDecode()
             self.identityCoreDetails = try ObvIdentityCoreDetails(encodedIdentityCoreDetails)
-            guard let listOfEncodedDeviceUids = [ObvEncoded](encodedElements[2]) else { throw NSError() }
+            guard let listOfEncodedDeviceUids = [ObvEncoded](encodedElements[2]) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded device uids") }
             contactDeviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
             self.keycloakServerURL = try encodedElements[3].obvDecode()
         }

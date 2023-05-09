@@ -24,20 +24,22 @@ import ObvEngine
 
 final class InvitationsFlowViewController: UINavigationController, ObvFlowController {
     
-    let ownedCryptoId: ObvCryptoId
+    private(set) var currentOwnedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
 
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: InvitationsFlowViewController.self))
 
     var observationTokens = [NSObjectProtocol]()
     
+    static let errorDomain = "InvitationsFlowViewController"
+
     weak var flowDelegate: ObvFlowControllerDelegate?
     
     // MARK: - Factory
 
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         
-        self.ownedCryptoId = ownedCryptoId
+        self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
 
         let layout = UICollectionViewFlowLayout()
@@ -87,6 +89,20 @@ extension InvitationsFlowViewController {
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
 
+    }
+    
+}
+
+
+// MARK: - Switching current owned identity
+
+extension InvitationsFlowViewController {
+    
+    @MainActor
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        popToRootViewController(animated: false)
+        guard let invitationsCollectionViewController = viewControllers.first as? InvitationsCollectionViewController else { assertionFailure(); return }
+        await invitationsCollectionViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
     }
     
 }

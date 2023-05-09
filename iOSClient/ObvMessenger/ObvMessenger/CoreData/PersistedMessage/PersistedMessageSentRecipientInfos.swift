@@ -45,7 +45,6 @@ final class PersistedMessageSentRecipientInfos: NSManagedObject, ObvErrorMaker {
     @NSManaged private(set) var timestampRead: Date?
     /// Set when the server receives the message (but not the attachments). This timestamp is returned by the server.
     @NSManaged private(set) var timestampMessageSent: Date?
-    /// At creation, this contains a list of all the attachment numbers that remain to be sent. When the server confirms the reception of an attachment, we remove its number from this list. When this list is empty, we set the `timestampAllAttachmentsSent` to the device current date.
 
     // MARK: Relationships
     

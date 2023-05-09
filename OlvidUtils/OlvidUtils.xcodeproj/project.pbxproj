@@ -35,6 +35,7 @@
 		C4B8E98D26B066B5009F5823 /* AssertQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B8E98C26B066B5009F5823 /* AssertQueue.swift */; };
 		C4D8DD7E28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D8DD7D28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift */; };
 		C4F79CDB2760F145004AF9C0 /* OperationQueue+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */; };
+		F8B3C3A529356A4F005D7F42 /* Collection+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B3C3A429356A4F005D7F42 /* Collection+Extensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +70,7 @@
 		C4B8E98C26B066B5009F5823 /* AssertQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssertQueue.swift; sourceTree = "<group>"; };
 		C4D8DD7D28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyedEncodingContainer+Utils.swift"; sourceTree = "<group>"; };
 		C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OperationQueue+Utils.swift"; sourceTree = "<group>"; };
+		F8B3C3A429356A4F005D7F42 /* Collection+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Collection+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,16 +87,17 @@
 		C451DB3126774BC300461DF4 /* TypeExtensions */ = {
 			isa = PBXGroup;
 			children = (
-				C451DB3226774BD700461DF4 /* KbsFormatter.swift */,
-				C48EA1292703D88C006541D2 /* CGImage+Utils.swift */,
-				C46F4C4127086A0E0018C7C1 /* UIImage+Utils.swift */,
-				C46F4C4327086E850018C7C1 /* UIFont+Utils.swift */,
-				C48E1024274FC9FA0031A03B /* Date+Utils.swift */,
-				C47651E8275784D700D3AB20 /* TimeInterval+Utils.swift */,
-				C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */,
 				C475A9CF27C445AA00335FE7 /* AVAudioSession+Utils.swift */,
-				C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */,
+				C48EA1292703D88C006541D2 /* CGImage+Utils.swift */,
+				F8B3C3A429356A4F005D7F42 /* Collection+Extensions.swift */,
+				C48E1024274FC9FA0031A03B /* Date+Utils.swift */,
+				C451DB3226774BD700461DF4 /* KbsFormatter.swift */,
 				C4D8DD7D28A3FD1C0008F9E5 /* KeyedEncodingContainer+Utils.swift */,
+				C4F79CDA2760F145004AF9C0 /* OperationQueue+Utils.swift */,
+				C47651E8275784D700D3AB20 /* TimeInterval+Utils.swift */,
+				C46F4C4327086E850018C7C1 /* UIFont+Utils.swift */,
+				C46F4C4127086A0E0018C7C1 /* UIImage+Utils.swift */,
+				C4A355D12878A44F001EE2D9 /* URLSession+Async.swift */,
 			);
 			path = TypeExtensions;
 			sourceTree = "<group>";
@@ -282,6 +285,7 @@
 				C4B8E98D26B066B5009F5823 /* AssertQueue.swift in Sources */,
 				C48E1025274FC9FA0031A03B /* Date+Utils.swift in Sources */,
 				C42466A0264EA7D90017B10A /* NSPredicate+Initializers.swift in Sources */,
+				F8B3C3A529356A4F005D7F42 /* Collection+Extensions.swift in Sources */,
 				C4619F2E264A826600523B3A /* FlowIdentifier.swift in Sources */,
 				C4818F8B27033FDA00CEFA1D /* CompositionOfFiveContextualOperations.swift in Sources */,
 				C47651E9275784D700D3AB20 /* TimeInterval+Utils.swift in Sources */,

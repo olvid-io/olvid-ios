@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUI
 
 enum NewComposeMessageViewAction: Int {
     case oneTimeEphemeralMessage = 1
@@ -41,7 +42,7 @@ extension NewComposeMessageViewAction {
         .composeMessageSettings
     ]
 
-    var icon: ObvSystemIcon {
+    var icon: SystemIcon {
         switch self {
         case .oneTimeEphemeralMessage:
             return .flameFill

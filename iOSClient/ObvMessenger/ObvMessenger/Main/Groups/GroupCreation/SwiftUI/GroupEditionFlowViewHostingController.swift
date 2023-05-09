@@ -19,7 +19,7 @@
 
 import SwiftUI
 import ObvTypes
-
+import ObvUI
 
 
 final class GroupEditionFlowViewHostingController: UIHostingController<OwnedGroupEditionFlowView> {

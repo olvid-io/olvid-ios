@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
 
 fileprivate extension OlvidButton.Style {
@@ -73,7 +74,7 @@ struct OlvidButton: View {
     
     let style: Style
     let title: Text
-    let systemIcon: ObvSystemIcon?
+    let systemIcon: SystemIcon?
     let action: () -> Void
     let cornerRadius: CGFloat = 12.0
 
@@ -86,7 +87,7 @@ struct OlvidButton: View {
         self.action = olvidButtonAction.action
     }
     
-    init(style: Style, title: Text, systemIcon: ObvSystemIcon? = nil, action: @escaping () -> Void) {
+    init(style: Style, title: Text, systemIcon: SystemIcon? = nil, action: @escaping () -> Void) {
         self.style = style
         self.title = title
         self.systemIcon = systemIcon
@@ -138,10 +139,10 @@ struct OlvidButtonAction: Identifiable {
     let id = UUID()
     let action: () -> Void
     let title: Text
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     let style: OlvidButton.Style
     
-    init(action: @escaping () -> Void, title: Text, systemIcon: ObvSystemIcon, style: OlvidButton.Style = .blue) {
+    init(action: @escaping () -> Void, title: Text, systemIcon: SystemIcon, style: OlvidButton.Style = .blue) {
         self.action = action
         self.title = title
         self.systemIcon = systemIcon
@@ -153,7 +154,7 @@ struct OlvidButtonAction: Identifiable {
 struct OlvidButtonSquare: View {
 
     let style: OlvidButton.Style
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     let action: () -> Void
     @Environment(\.isEnabled) var isEnabled
     

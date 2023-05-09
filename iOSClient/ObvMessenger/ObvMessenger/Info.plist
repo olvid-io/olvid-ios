@@ -73,7 +73,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>602</string>
+	<string>611</string>
 	<key>HARDCODED_API_KEY</key>
 	<string>$(HARDCODED_API_KEY)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -104,6 +104,7 @@
 		<string>io.olvid.messenger.displayInvitations</string>
 		<string>io.olvid.messenger.displaySettings</string>
 		<string>io.olvid.messenger.displaySingleGroup</string>
+		<string>io.olvid.messenger.unknown</string>
 	</array>
 	<key>OBV_APP_GROUP_IDENTIFIER</key>
 	<string>$(OBV_APP_GROUP_IDENTIFIER)</string>

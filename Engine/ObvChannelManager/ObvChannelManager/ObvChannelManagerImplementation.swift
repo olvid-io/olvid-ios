@@ -267,18 +267,21 @@ extension ObvChannelManagerImplementation {
     // MARK: Oblivious Channels management
     
     public func deleteObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andTheRemoteDeviceWithUid remoteDeviceUid: UID, ofRemoteIdentity remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("🚗 deleteObliviousChannelBetweenTheCurrentDeviceOf", log: log, type: .info)
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         try delegateManager.obliviousChannelLifeDelegate.deleteObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andTheRemoteDeviceWithUid: remoteDeviceUid, ofRemoteIdentity: remoteIdentity, within: obvContext)
     }
 
     
     public func deleteObliviousChannelBetweenCurentDeviceWithUid(currentDeviceUid: UID, andTheRemoteDeviceWithUid remoteDeviceUid: UID, ofRemoteIdentity remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("🚗 deleteObliviousChannelBetweenCurentDeviceWithUid", log: log, type: .info)
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         try delegateManager.obliviousChannelLifeDelegate.deleteObliviousChannelBetweenCurentDeviceWithUid(currentDeviceUid: currentDeviceUid, andTheRemoteDeviceWithUid: remoteDeviceUid, ofRemoteIdentity: remoteIdentity, within: obvContext)
     }
     
     
     public func deleteAllObliviousChannelsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andTheDevicesOfContactIdentity contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        os_log("🚗 deleteAllObliviousChannelsBetweenTheCurrentDeviceOf", log: log, type: .info)
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         try delegateManager.obliviousChannelLifeDelegate.deleteAllObliviousChannelsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andTheDevicesOfContactIdentity: contactIdentity, within: obvContext)
     }
@@ -346,6 +349,12 @@ extension ObvChannelManagerImplementation {
     public func getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         return try ObvObliviousChannel.getAllKnownRemoteDeviceUids(within: obvContext)
+    }
+    
+    
+    public func deleteAllObliviousChannelsWithTheCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws {
+        try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
+        try ObvObliviousChannel.deleteAllObliviousChannelsForCurrentDeviceUid(currentDeviceUid, within: obvContext)
     }
     
 }

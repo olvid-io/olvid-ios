@@ -23,6 +23,7 @@ import os.log
 import ObvTypes
 import ObvEngine
 import Combine
+import ObvUI
 
 
 protocol KeycloakSearchViewControllerDelegate: AnyObject {

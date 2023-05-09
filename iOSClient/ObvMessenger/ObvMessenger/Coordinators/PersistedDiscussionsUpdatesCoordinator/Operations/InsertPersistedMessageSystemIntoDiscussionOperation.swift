@@ -83,11 +83,9 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: OperationWithSp
                 guard let contactIdentityObjectID = self.optionalContactIdentityObjectID else {
                     return cancel(withReason: .noContactIdentityObjectIDAlthoughItIsRequired(persistedMessageSystemCategory: persistedMessageSystemCategory))
                 }
-                let contactIdentity: PersistedObvContactIdentity
+                let contactIdentity: PersistedObvContactIdentity?
                 do {
-                    guard let _contactIdentity = try PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: context) else {
-                        return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
-                    }
+                    let _contactIdentity = try PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: context)
                     contactIdentity = _contactIdentity
                 } catch {
                     return cancel(withReason: .coreDataError(error: error))

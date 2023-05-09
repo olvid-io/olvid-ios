@@ -26,12 +26,12 @@ import ObvMetaManager
 import OlvidUtils
 
 @objc(ContactGroupJoined)
-final class ContactGroupJoined: ContactGroup {
+final class ContactGroupJoined: ContactGroup, ObvErrorMaker {
     
     // MARK: Internal constants
     
     private static let entityName = "ContactGroupJoined"
-    private static let errorDomain = String(describing: ContactGroupJoined.self)
+    static let errorDomain = String(describing: ContactGroupJoined.self)
     private static let groupOwnerKey = "groupOwner"
     private static let trustedDetailsKey = "trustedDetails"
     private static let groupOwnerCryptoIdentityKey = [groupOwnerKey, ContactIdentity.cryptoIdentityKey].joined(separator: ".")
@@ -72,14 +72,18 @@ final class ContactGroupJoined: ContactGroup {
             throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ContactGroupJoined.errorDomain)
         }
         
-        guard try ContactGroupJoined.get(groupUid: groupInformation.groupUid, groupOwnerCryptoIdentity: groupInformation.groupOwnerIdentity, ownedIdentity: groupOwner.ownedIdentity, delegateManager: delegateManager) == nil else {
+        guard let ownedIdentity = groupOwner.ownedIdentity else {
+            throw Self.makeError(message: "Could not find owned identity associated with the group owner")
+        }
+        
+        guard try ContactGroupJoined.get(groupUid: groupInformation.groupUid, groupOwnerCryptoIdentity: groupInformation.groupOwnerIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager) == nil else {
             throw ObvIdentityManagerError.tryingToCreateContactGroupThatAlreadyExists.error(withDomain: ContactGroupJoined.errorDomain)
         }
         
         let groupInformationWithPhoto = GroupInformationWithPhoto(groupInformation: groupInformation, photoURL: nil)
         // Note that this will include inactive contacts in the group members. There is not much we can do.
         try self.init(groupInformationWithPhoto: groupInformationWithPhoto,
-                      ownedIdentity: groupOwner.ownedIdentity,
+                      ownedIdentity: ownedIdentity,
                       groupMembers: Set<ObvCryptoIdentity>([groupOwner.cryptoIdentity]),
                       pendingGroupMembers: pendingGroupMembers,
                       delegateManager: delegateManager,
@@ -116,6 +120,14 @@ final class ContactGroupJoined: ContactGroup {
         if self.trustedDetails.version == version {
             try self.trustedDetails.setGroupPhoto(data: photoData, delegateManager: delegateManager)
         }
+    }
+    
+    
+    func delete(delegateManager: ObvIdentityDelegateManager) throws {
+        guard let obvContext else { throw Self.makeError(message: "Could not find context") }
+        try trustedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        try publishedDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        obvContext.delete(self)
     }
 
 }
@@ -187,6 +199,20 @@ extension ContactGroupJoined {
         try super.updatePendingMembersAndGroupMembers(newVersionOfGroupMembers: newVersionOfGroupMembers,
                                                       newVersionOfPendingMembers: newVersionOfPendingMembers,
                                                       groupMembersVersion: groupMembersVersion)
+        
+    }
+    
+    
+    /// When a contact deletes here owned identity, we call this method to remove her identity from pending and group members, without waiting for the group owner to update the group. For this reason, we do not check the `groupMembersVersion`.
+    func removeContactFromPendingAndGroupMembers(contactCryptoIdentity: ObvCryptoIdentity) throws {
+        
+        let newVersionOfGroupMembers: Set<ContactIdentity> = groupMembers.filter({ $0.cryptoIdentity != contactCryptoIdentity })
+        let newVersionOfPendingMembers: Set<PendingGroupMember> = pendingGroupMembers.filter({ $0.cryptoIdentity != contactCryptoIdentity })
+        
+        try updatePendingMembersAndGroupMembers(
+            newVersionOfGroupMembers: newVersionOfGroupMembers,
+            newVersionOfPendingMembers: newVersionOfPendingMembers,
+            groupMembersVersion: nil)
         
     }
     

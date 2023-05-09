@@ -18,9 +18,9 @@
  */
 
 import Foundation
-
+import ObvTypes
 import ObvEngine
 
 protocol OnboardingFlowViewControllerDelegate: AnyObject {
-    func onboardingIsFinished(olvidURLScannedDuringOnboarding: OlvidURL?)
+    func onboardingIsFinished(ownedCryptoIdGeneratedDuringOnboarding: ObvCryptoId?, olvidURLScannedDuringOnboarding: OlvidURL?) async
 }

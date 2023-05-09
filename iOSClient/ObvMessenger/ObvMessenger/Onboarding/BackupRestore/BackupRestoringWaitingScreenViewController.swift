@@ -17,13 +17,14 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
 import ObvEngine
+import ObvUI
+import SwiftUI
+
 
 protocol BackupRestoringWaitingScreenViewControllerDelegate: AnyObject {
-    func userWantsToStartOnboardingFromScratch()
-    func ownedIdentityRestoredFromBackupRestore()
-    func userWantsToEnableAutomaticBackup() async -> (title: String, message: String)?
+    func userWantsToStartOnboardingFromScratch() async
+    @MainActor func ownedIdentityRestoredFromBackupRestore() async
 }
 
 /// This view controller is shown right after the user entered her backup key. It shows a confirmation message if the backup was restored, or an error message if not.
@@ -40,9 +41,18 @@ final class BackupRestoringWaitingScreenHostingController: UIHostingController<B
             self.model.delegate = newValue
         }
     }
+    
+    var appBackupDelegate: AppBackupDelegate? {
+        get {
+            self.model.appBackupDelegate
+        }
+        set {
+            self.model.appBackupDelegate = newValue
+        }
+    }
 
-    init() {
-        self.model = BackupRestoringWaitingScreenModel()
+    init(backupRequestUuid: UUID, obvEngine: ObvEngine) {
+        self.model = BackupRestoringWaitingScreenModel(backupRequestUuid: backupRequestUuid, obvEngine: obvEngine)
         let view = BackupRestoringWaitingScreenView(model: self.model)
         super.init(rootView: view)
     }
@@ -52,21 +62,13 @@ final class BackupRestoringWaitingScreenHostingController: UIHostingController<B
     }
 
     override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
-
-    func setRestoreFailed() {
-        assert(Thread.isMainThread)
-        withAnimation {
-            model.restoreState = .restoreFailed
-        }
-    }
-
-    func setRestoreSucceeded() {
-        assert(Thread.isMainThread)
-        withAnimation {
-            model.restoreState = .restoreSucceeded
-        }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        Task { await model.restoreFullBackupNow() }
     }
 
 }
@@ -80,32 +82,88 @@ fileprivate enum RestoreState {
 
 fileprivate class BackupRestoringWaitingScreenModel: ObservableObject {
 
+    let obvEngine: ObvEngine
+    let backupRequestUuid: UUID
     weak var delegate: BackupRestoringWaitingScreenViewControllerDelegate?
-
+    weak var appBackupDelegate: AppBackupDelegate?
+    
+    init(backupRequestUuid: UUID, obvEngine: ObvEngine) {
+        self.backupRequestUuid = backupRequestUuid
+        self.obvEngine = obvEngine
+    }
+    
     @Published var restoreState: RestoreState = .restoreInProgress
 
     func userWantsToStartOnboardingFromScratch() {
-        delegate?.userWantsToStartOnboardingFromScratch()
+        Task { await delegate?.userWantsToStartOnboardingFromScratch() }
     }
 
     func ownedIdentityRestoredFromBackupRestore() {
-        delegate?.ownedIdentityRestoredFromBackupRestore()
+        Task { await delegate?.ownedIdentityRestoredFromBackupRestore() }
     }
 
+
+    @MainActor
+    fileprivate func restoreFullBackupNow() async {
+        do {
+            try await obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestUuid)
+            withAnimation {
+                restoreState = .restoreSucceeded
+            }
+        } catch {
+            withAnimation {
+                restoreState = .restoreFailed
+            }
+        }
+    }
+    
+
+    /// Activates automatic backups to iCloud.
+    /// - Returns: `nil`if this method succeeds, or an error title and message if it fails.
+    @MainActor
     func userWantsToEnableAutomaticBackup() async {
-        if let (title, message) = await delegate?.userWantsToEnableAutomaticBackup() {
-            DispatchQueue.main.async {
-                withAnimation {
-                    self.restoreState = .restoreSucceededButActivationOfAutomaticBackupsFailed(title: title, message: message)
-                }
+        if let errorTitleAndMessage = await userWantsToEnableAutomaticBackup() {
+            withAnimation {
+                self.restoreState = .restoreSucceededButActivationOfAutomaticBackupsFailed(title: errorTitleAndMessage.title, message: errorTitleAndMessage.message)
             }
         } else {
-            self.ownedIdentityRestoredFromBackupRestore()
+            ownedIdentityRestoredFromBackupRestore()
+        }
+    }
+    
+    
+    /// Activates automatic backups to iCloud.
+    /// - Returns: `nil`if this method succeeds, or an error title and message if it fails.
+    private func userWantsToEnableAutomaticBackup() async -> (title: String, message: String)? {
+
+        guard !ObvMessengerSettings.Backup.isAutomaticBackupEnabled else { return nil }
+        guard let appBackupDelegate else { assertionFailure(); return nil }
+        
+        // The user wants to activate automatic backup.
+        // We must check whether it's possible.
+        do {
+            let accountStatus = try await appBackupDelegate.getAccountStatus()
+            if case .available = accountStatus {
+                obvEngine.userJustActivatedAutomaticBackup()
+                ObvMessengerSettings.Backup.isAutomaticBackupEnabled = true
+                return nil
+            } else {
+                guard let titleAndMessage = AppBackupManager.CKAccountStatusMessage(accountStatus) else {
+                    assertionFailure()
+                    return AppBackupManager.CKAccountStatusMessage(.couldNotDetermine)
+                }
+                return titleAndMessage
+            }
+        } catch {
+            return AppBackupManager.CKAccountStatusMessage(.noAccount)
         }
     }
 
+    
 }
- struct BackupRestoringWaitingScreenView: View {
+
+
+struct BackupRestoringWaitingScreenView: View {
 
     @ObservedObject fileprivate var model: BackupRestoringWaitingScreenModel
 
@@ -172,13 +230,19 @@ fileprivate class BackupRestoringWaitingScreenModel: ObservableObject {
                 case .restoreInProgress:
                     EmptyView()
                 case .restoreSucceeded, .restoreSucceededButActivationOfAutomaticBackupsFailed:
-                    OlvidButton(style: .blue, title: Text("ENABLE_AUTOMATIC_BACKUP_AND_CONTINUE")) {
-                        Task {
-                            await model.userWantsToEnableAutomaticBackup()
+                    if model.appBackupDelegate != nil {
+                        OlvidButton(style: .blue, title: Text("ENABLE_AUTOMATIC_BACKUP_AND_CONTINUE")) {
+                            Task {
+                                await model.userWantsToEnableAutomaticBackup()
+                            }
                         }
-                    }
-                    OlvidButton(style: .standard, title: Text("Later")) {
-                        model.ownedIdentityRestoredFromBackupRestore()
+                        OlvidButton(style: .standard, title: Text("Later")) {
+                            model.ownedIdentityRestoredFromBackupRestore()
+                        }
+                    } else {
+                        OlvidButton(style: .standard, title: Text("Continue")) {
+                            model.ownedIdentityRestoredFromBackupRestore()
+                        }
                     }
                 case .restoreFailed:
                     OlvidButton(style: .standard, title: Text("Back")) {

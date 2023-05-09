@@ -157,6 +157,7 @@ final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableManagedOb
     
     func editTextBody(newTextBody: String?, requester: ObvCryptoId, messageUploadTimestampFromServer: Date) throws {
         guard self.contactIdentity?.cryptoId == requester else { throw Self.makeError(message: "The requester is not the contact who created the original message") }
+        guard self.textBody != newTextBody else { return }
         try super.editTextBody(newTextBody: newTextBody)
         try deleteMetadataOfKind(.edited)
         try addMetadata(kind: .edited, date: messageUploadTimestampFromServer)
@@ -749,18 +750,7 @@ extension PersistedMessageReceived {
         return message?.timestamp
     }
 
-    
-    static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
-        guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
-        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.isNew,
-            Predicate.isDisussionUnmuted,
-            Predicate.forOwnedIdentity(ownedIdentity)])
-        return try context.count(for: request)
-    }
 
-    
     static func countNew(within discussion: PersistedDiscussion) throws -> Int {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context") }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
@@ -1013,7 +1003,7 @@ extension PersistedMessageReceived {
     
     override func willSave() {
         super.willSave()
-        if isUpdated {
+        if !isInserted, !isDeleted, isUpdated {
             changedKeys = Set<String>(self.changedValues().keys)
         }
     }

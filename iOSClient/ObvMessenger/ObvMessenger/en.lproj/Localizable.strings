@@ -145,7 +145,7 @@ On My iPhone > Olvid";
 "Mutual trust confirmed!" = "Secure channel in progress";
 
 /* Title of the MyIdViewController */
-"My Id" = "My ID";
+"My Id" = "My profile";
 
 /* Notification body */
 "n more attachments" = "n more attachments";
@@ -547,7 +547,7 @@ Click to update your contact's informations with the new version.";
 "Invite another Olvid user" = "Choose how to add a contact";
 
 /* Table View section title */
-"My Olvid Card" = "My ID";
+"My Olvid Card" = "My profile";
 
 /* Advanced word, capitalized */
 "Advanced" = "Advanced";
@@ -1244,10 +1244,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "AND_%@_OTHERS" = "and %@ others";
 
-"WITH_ONE_PARTICIPANT" = "with one participant";
-
-"WITH_%@_PARTICIPANTS" = "with %@ participants";
-
 "Hangup" = "Hangup";
 
 "HOW_DO_YOU_WANT_TO_SHARE_ID" = "How do you want to share your ID?";
@@ -1544,6 +1540,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "THIRTY_SECONDS" = "30 seconds";
 
+"TWO_MINUTES" = "2 minutes";
+
 "THIRTY_MINUTES" = "30 minutes";
 
 "SIX_HOUR" = "6 hours";
@@ -1688,7 +1686,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "Edit" = "Edit";
 
-"CREATE_MY_ID" = "Create my ID";
+"CREATE_MY_ID" = "Create my profile";
 
 "TAKE_PICTURE" = "Take a photo";
 
@@ -2141,7 +2139,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "COMPOSE_MESSAGE_SETTINGS" = "Customize";
 
-"OPEN_SOURCE_LICENCES" = "Open Source Licences";
+"OPEN_SOURCE_LICENCES" = "Open Source Licenses";
 
 "HOW_TO_ADD_REACTION_TO_A_MESSAGE" = "You can double a tap a message to add a reaction.";
 
@@ -2619,3 +2617,114 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "If you activate this option, this discussion will be suggested when sharing from another app.";
 
 "DISCUSSIONS_FILTER_CELL_PICKER_TEXT" = "Filter discussions";
+
+"MY_OWN_IDS" = "My profiles";
+
+"CREATE_NEW_OWNED_IDENTITY" = "Create a new profile";
+
+"DELETE_THIS_IDENTITY_QUESTION_TITLE_%@" = "Delete the profile \"%@\"?";
+
+"DELETE_THIS_IDENTITY_QUESTION_MESSAGE" = "Deleting this profile will delete any information related to it from your device. This includes the contacts, groups, and the content of all your discussions (messages and attachments) for this profile. Your other profiles will not be affected by this operation.\nIf you have enabled backups in Olvid, your future backups will not contain any trace of this profile and you will not be able to restore it.";
+
+"DELETE_THIS_IDENTITY_BUTTON" = "Delete this profile";
+
+"CHOOSE_PASSWORD" = "Choose a password";
+
+"HIDE_PROFILE_EXPLANATION" = "Hidden profiles are protected by a password and do not appear in you profile list until you enter this password.\nAccessing a hidden profile requires a long press on the top left button shown on each tab.\nIf you forget this password, you will permanently lose access to this profile 😱!";
+
+"ENTER_PASSWORD" = "Enter a password";
+
+"CONFIRM_PASSWORD" = "Confirm password";
+
+"CREATE_PASSWORD" = "Create password";
+
+"EDIT_CURRENT_IDENTITY" = "Edit current profile";
+
+"HIDE_THIS_IDENTITY" = "Hide this profile";
+
+"UNHIDE_THIS_IDENTITY" = "Unhide this profile";
+
+"SHOW_OWNED_IDENTITY_DETAILS" = "Show profile informations";
+
+"FAILED_TO_HIDE_OWNED_ID_ALERT_TITLE" = "The profile could not be hidden";
+
+"FAILED_TO_HIDE_OWNED_ID_ALERT_MESSAGE" = "Please try again. When choosing the password, please make sure it is not a prefix of an existing hidden profile password.";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_TITLE" = "Unhide this profile?";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_MESSAGE" = "You are about to unhide a profile. If you do so, the profile will be systematically shown in the profile switcher, with no need for a specific password.";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_ACTION_STAY_HIDDEN" = "Do not unhide";
+
+"UNHIDE_OWNED_IDENTITY_ALERT_ACTION_UNHIDE" = "Unhide";
+
+"OPEN_HIDDEN_PROFILE_ALERT_TITLE" = "Open a hidden profile";
+
+"OPEN_HIDDEN_PROFILE_ALERT_MESSAGE" = "If you created a hidden profile, please enter its password to open it.";
+
+"AT_LEAST_ONE_UNHIDDEN_PROFILE_MUST_EXIST_TITLE" = "This profile cannot be hidden at the moment";
+
+"AT_LEAST_ONE_UNHIDDEN_PROFILE_MUST_EXIST_MESSAGE" = "You must have at least one visible profile. Since this profile is the only one you have, you cannot hide it. Nonetheless, you can create a new profile and try again.";
+
+"DELETE_THIS_LAST_UNHIDDEN_IDENTITY_QUESTION_TITLE" = "Delete this last profile?";
+
+"DELETE_THIS_LAST_UNHIDDEN_IDENTITY_QUESTION_MESSAGE" = "Deleting this profile will delete any information related to it from your device. This includes the contacts, groups, and the content of all your discussions (messages and attachments) for this profile.\n\nThis is your only visible profile and if you have any hidden profile, they will be deleted simultaneously.\nIf you have enabled backups in Olvid, your future backups will not contain any trace of this profile and you will not be able to restore it.";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_TITLE" = "Do you wish to notify your contacts?";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE" = "We recommend you do notify your contacts. By doing so:\n- your profile will be delete from your contact's devices,\n- the groups you created will be disbanded if your are the only administrator,\n- you will leave other groups.\n\nIf you do not notify, your contacts may still try sending you messages and might not realize these messages cannot be delivered.";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOTIFY_CONTACTS_ACTION" = "Notify my contacts (recommended)";
+
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOT_NOTIFY_CONTACTS_ACTION" = "Do not notify my contacts";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_TITLE_%@" = "Confirm the deletion of the profile \"%@\"";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_MESSAGE" = "To confirm the deletion of your profile, please type 'DELETE' to proceed.";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_DO_DELETE_ACTION" = "Delete my profile";
+
+"TYPE_DELETE_TO_PROCEED_WITH_OWNED_IDENTITY_DELETION_WORD_TO_TYPE" = "DELETE";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_TITLE" = "When to close an open hidden profile?";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_MESSAGE" = "Please choose when an open profile should be closed. By default, hidden profiles will be closed when manually switching to another profile.";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_SCREEN_LOCK" = "When Olvid lock screen activates";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_MANUAL_SWITCHING" = "When manually switching profile";
+
+"ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_BACKGROUND" = "When Olvid enters background";
+
+"CLOSE_OPEN_HIDDEN_PROFILE" = "Close open hidden profile";
+
+"HIDDEN_PROFILES" = "Hidden profiles";
+
+"AFTER_TEN_SECONDS" = "after 10 seconds";
+"AFTER_THIRTY_SECONDS" = "after 30 seconds";
+"AFTER_ONE_MINUTE" = "after 1 minute";
+"AFTER_TWO_MINUTE" = "after 2 minutes";
+"AFTER_FIVE_MINUTE" = "after 5 minutes";
+
+"TIME_INTERVAL_FOR_BG_HIDDEN_PROFILE_CLOSE_POLICY" = "Close hidden profile when Olvid enters background...";
+
+"ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_TITLE" = "Olvid lock screen not configured";
+"ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_MESSAGE" = "You chose to close any open hidden profile when the Olvid lock screen activate. However you have not configured any lock screen.\n\nIn the current setting, hidden profiles will only be closed when manually switching to another profile.\n\nPlease go to the privacy settings to configure a lock screen.";
+"ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_ACTION_GOTO_PRIVACY_SETTINGS" = "Go to privacy settings";
+
+"PLEASE_CHOOSE_PROFILE_TO_PROCESS_OLVID_URL" = "Please choose the profile you wish to use.";
+
+"EDIT_OWNED_IDENTITY_NICKNAME" = "Edit my nickname";
+
+"ALERT_FOR_EDITING_NICKNAME_TITLE" = "Edit my nickname";
+"ALERT_FOR_EDITING_NICKNAME_MESSAGE" = "Your nickname is for your eyes only and allows you to easily distinguish your profiles from each other.";
+
+"DISCUSSIONS_LIST_SELECTED_DISCUSSION_GROUP_SUBTITLE" = "Participants: %d";
+
+"SHARE_VIEW_PROFILE_SELECTION_BAR_TITLE" = "Profile";
+
+"PLEASE_WAIT_DURING_UPDATE" = "Update in progress. Please do not quit Olvid.";
+
+"Message" = "Message";
+
+"ANOTHER_PROFILE_HAS_VALID_API_KEY" = "This profile benefits from the license of another profile.";

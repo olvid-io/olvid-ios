@@ -103,9 +103,10 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
     
     /// This method deletes `self`.
-    func deleteThisOutboxMessage() throws {
+    func deleteThisOutboxMessage(delegateManager: ObvNetworkSendDelegateManager) throws {
         guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not delete OuboxMessage as its context is nil") }
         self.messageIdWhenDeleted = self.messageId
+        self.delegateManager = delegateManager
         context.delete(self)
     }
     
@@ -229,6 +230,10 @@ extension OutboxMessage {
             NSPredicate(Key.creationDate, earlierThan: date)
         }
         
+        static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
+        }
+        
     }
     
     
@@ -273,9 +278,9 @@ extension OutboxMessage {
     static func delete(messageId: MessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
-        guard let item = (try? obvContext.fetch(request))?.first else { throw NSError() }
+        guard let item = try obvContext.fetch(request).first else { return }
         item.delegateManager = delegateManager
-        try item.deleteThisOutboxMessage()
+        try item.deleteThisOutboxMessage(delegateManager: delegateManager)
     }
     
     static func pruneOldOutboxMessages(createdEarlierThan date: Date, delegateManager: ObvNetworkSendDelegateManager, log: OSLog, within obvContext: ObvContext) throws {
@@ -287,14 +292,24 @@ extension OutboxMessage {
             item.obvContext = obvContext
             item.delegateManager = delegateManager
             do {
-                try item.deleteThisOutboxMessage()
+                try item.deleteThisOutboxMessage(delegateManager: delegateManager)
             } catch {
                 os_log("Could not prune an old outbox message: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 // In production, continue anyway
             }
         }
-        
+    }
+    
+    static func deleteAllForOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = []
+        let messages = try obvContext.fetch(request)
+        try messages.forEach { message in
+            try message.deleteThisOutboxMessage(delegateManager: delegateManager)
+        }
     }
 }
 
@@ -306,6 +321,9 @@ extension OutboxMessage {
     override func prepareForDeletion() {
         super.prepareForDeletion()
         
+        guard let managedObjectContext else { assertionFailure(); return }
+        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
+
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: OutboxMessage.entityName)
             os_log("The Outbox Message Delegate is not set", log: log, type: .fault)

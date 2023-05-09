@@ -46,12 +46,7 @@ final class ScreenCaptureDetector {
     /// Publisher only set when the user is within a discussion
     private let persistedDiscussionPermanentIDsOfShownDiscussion: AnyPublisher<ObvManagedObjectPermanentID<PersistedDiscussion>?, Never> = ObvUserActivitySingleton.shared.$currentUserActivity
         .map { currentUserActivity in
-            switch currentUserActivity {
-            case .continueDiscussion(discussionPermanentID: let discussionPermanentID):
-                return discussionPermanentID
-            default:
-                return nil
-            }
+            return currentUserActivity.discussionPermanentID
         }
         .eraseToAnyPublisher()
     

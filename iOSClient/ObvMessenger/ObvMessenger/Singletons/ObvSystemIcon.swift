@@ -137,11 +137,14 @@ enum ObvSystemIcon: Hashable {
     case earBadgeCheckmark
     case ellipsisCircle
     case ellipsisCircleFill
+    case ellipsisRectangle
     case envelopeOpenFill
     case exclamationmarkCircle
     case exclamationmarkShieldFill
     case eyeFill
     case eyes
+    case eye
+    case eyeSlash
     case eyesInverse
     case figureStandLineDottedFigureStand
     case flameFill
@@ -462,6 +465,12 @@ enum ObvSystemIcon: Hashable {
             return "phone.fill"
         case .ellipsisCircleFill:
             return "ellipsis.circle.fill"
+        case .ellipsisRectangle:
+            if #available(iOS 14, *) {
+                return "ellipsis.rectangle"
+            } else {
+                return "rectangle"
+            }
         case .ellipsisCircle:
             return "ellipsis.circle"
         case .pencil(let option):
@@ -520,6 +529,10 @@ enum ObvSystemIcon: Hashable {
             } else {
                 return "eyeglasses"
             }
+        case .eye:
+            return "eye"
+        case .eyeSlash:
+            return "eye.slash"
         case .checkmarkSealFill:
             return "checkmark.seal.fill"
         case .arrowshapeTurnUpBackwardFill:

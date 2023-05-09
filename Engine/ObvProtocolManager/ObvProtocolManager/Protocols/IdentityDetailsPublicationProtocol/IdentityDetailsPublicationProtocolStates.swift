@@ -61,7 +61,7 @@ extension IdentityDetailsPublicationProtocol {
         }
         
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 1) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 1) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             let encodedOwnedIdentityDetailsElements: Data = try encodedElements[0].obvDecode()
             self.ownedIdentityDetailsElements = try IdentityDetailsElements(encodedOwnedIdentityDetailsElements)
         }

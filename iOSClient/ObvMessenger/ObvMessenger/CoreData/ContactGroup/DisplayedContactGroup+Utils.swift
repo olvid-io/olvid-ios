@@ -21,6 +21,7 @@
 import Foundation
 import CoreData
 import ObvTypes
+import ObvUI
 
 
 extension DisplayedContactGroup {

@@ -72,7 +72,9 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         delegateManager.wellKnownCacheDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
-        delegateManager.webSocketDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+        Task {
+            await delegateManager.webSocketDelegate.updateListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+        }
     }
     
     // MARK: - Session's Challenge/Response/Token related methods
@@ -212,8 +214,8 @@ extension NetworkFetchFlowCoordinator {
             }
             
             // We pass the token to the WebSocket coordinator
-            do {
-                delegateManager.webSocketDelegate.setServerSessionToken(to: token, for: identity)
+            Task {
+                await delegateManager.webSocketDelegate.setServerSessionToken(to: token, for: identity)
             }
         }
         
@@ -265,7 +267,7 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
+    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -282,7 +284,7 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         
-        verifyReceiptDelegate.verifyReceipt(ownedIdentity: ownedIdentity, receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
+        verifyReceiptDelegate.verifyReceipt(ownedCryptoIdentities: ownedCryptoIdentities, receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
         
     }
 
@@ -370,15 +372,15 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Downloading message and listing attachments
 
-    func downloadingMessagesAndListingAttachmentFailed(for identity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
-        let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadMessagesAndListAttachments(ownedIdentity: identity))
+    func downloadingMessagesAndListingAttachmentFailed(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
+        let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoIdentity))
         retryManager.executeWithDelay(delay) { [weak self] in
-            self?.delegateManager?.messagesDelegate.downloadMessagesAndListAttachments(for: identity, andDeviceUid: deviceUid, flowId: flowId)
+            self?.delegateManager?.messagesDelegate.downloadMessagesAndListAttachments(for: ownedCryptoIdentity, andDeviceUid: deviceUid, flowId: flowId)
         }
     }
     
     
-    func downloadingMessagesAndListingAttachmentWasNotNeeded(for identity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
+    func downloadingMessagesAndListingAttachmentWasNotNeeded(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -391,24 +393,24 @@ extension NetworkFetchFlowCoordinator {
         // Although we did not find any new message on the server, we might still have unprocessed messages to process.
 
         os_log("Downloading messages was not needed. We still try to process (old) unprocessed messages", log: log, type: .info)
-        processUnprocessedMessages(flowId: flowId)
+        processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
 
     }
     
     
-    func downloadingMessagesAndListingAttachmentWasPerformed(for identity: ObvCryptoIdentity, andDeviceUid uid: UID, flowId: FlowIdentifier) {
-        failedAttemptsCounterManager.reset(counter: .downloadMessagesAndListAttachments(ownedIdentity: identity))
-        processUnprocessedMessages(flowId: flowId)
-        pollingWorker.pollingIfRequired(for: identity, withDeviceUid: uid, flowId: flowId)
+    func downloadingMessagesAndListingAttachmentWasPerformed(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid uid: UID, flowId: FlowIdentifier) {
+        failedAttemptsCounterManager.reset(counter: .downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoIdentity))
+        processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
+        pollingWorker.pollingIfRequired(for: ownedCryptoIdentity, withDeviceUid: uid, flowId: flowId)
     }
     
     
-    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(flowId: FlowIdentifier) {
-        processUnprocessedMessages(flowId: flowId)
+    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+        processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
     }
     
     
-    func processUnprocessedMessages(flowId: FlowIdentifier) {
+    private func processUnprocessedMessages(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
         assert(!Thread.isMainThread)
         
@@ -450,7 +452,8 @@ extension NetworkFetchFlowCoordinator {
             assert(maxNumberOfOperations > 0, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
             
             os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (maxNumberOfOperations is %d)", log: log, type: .info, maxNumberOfOperations)
-            let op1 = ProcessBatchOfUnprocessedMessagesOperation(queueForPostingNotifications: queueForPostingNotifications,
+            let op1 = ProcessBatchOfUnprocessedMessagesOperation(ownedCryptoIdentity: ownedCryptoIdentity,
+                                                                 queueForPostingNotifications: queueForPostingNotifications,
                                                                  notificationDelegate: notificationDelegate,
                                                                  processDownloadedMessageDelegate: processDownloadedMessageDelegate,
                                                                  log: log)
@@ -706,7 +709,9 @@ extension NetworkFetchFlowCoordinator {
                 return
             }
             
-            delegateManager.webSocketDelegate.setServerSessionToken(to: serverSession, for: identity)
+            Task {
+                await delegateManager.webSocketDelegate.setServerSessionToken(to: serverSession, for: identity)
+            }
             
         }
     }
@@ -1031,9 +1036,11 @@ extension NetworkFetchFlowCoordinator {
     
     private func networkPathDidChange(nwPath: NWPath) {
         // The nwPath status changes very early during the network status change. This is the reason why we wait before trying to reconnect. This is not bullet proof though, as the `networkPathDidChange` method does not seem to be called at every network change... This is unfortunate. Last but not least, it is very hard to work with nwPath.status so we don't even look at it.
-        DispatchQueue(label: "Queue dispatching work on network change").async { [weak self] in
-            self?.delegateManager?.webSocketDelegate.reconnectAll()
-            self?.resetAllFailedFetchAttempsCountersAndRetryFetching()
+        Task {
+            let flowId = FlowIdentifier()
+            await delegateManager?.webSocketDelegate.disconnectAll(flowId: flowId)
+            await delegateManager?.webSocketDelegate.connectAll(flowId: flowId)
+            resetAllFailedFetchAttempsCountersAndRetryFetching()
         }
     }
 
@@ -1066,33 +1073,13 @@ extension NetworkFetchFlowCoordinator {
             return
         }
         
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            return
-        }
+        Task {
+            await delegateManager.webSocketDelegate.setWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
 
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
-            return
+            // On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed with Matthieu that this is better ;-)
+            ObvNetworkFetchNotificationNew.wellKnownHasBeenDownloaded(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
+                .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
         }
-
-        
-        var ownedIdentitiesOnServer = Set<ObvCryptoIdentity>()
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-            if let allOwnedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) {
-                ownedIdentitiesOnServer = allOwnedIdentities.filter({ $0.serverURL == server })
-            } else {
-                assertionFailure()
-            }
-        }
-
-        for ownedIdentity in ownedIdentitiesOnServer {
-            delegateManager.webSocketDelegate.setWebSocketServerURL(to: newWellKnownJSON.serverConfig.webSocketURL, for: ownedIdentity)
-        }
-
-        // On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed with Matthieu that this is better ;-)
-        ObvNetworkFetchNotificationNew.wellKnownHasBeenDownloaded(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
     
@@ -1115,11 +1102,11 @@ extension NetworkFetchFlowCoordinator {
             return
         }
 
-        delegateManager.webSocketDelegate.updateWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
-
-        ObvNetworkFetchNotificationNew.wellKnownHasBeenUpdated(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-
+        Task {
+            await delegateManager.webSocketDelegate.setWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
+            ObvNetworkFetchNotificationNew.wellKnownHasBeenUpdated(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
+                .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+        }
         
     }
     

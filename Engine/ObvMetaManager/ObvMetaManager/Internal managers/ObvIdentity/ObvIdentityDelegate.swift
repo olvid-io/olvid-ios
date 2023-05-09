@@ -51,9 +51,13 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     // Implemented within ObvIdentityDelegateExtension.swift
     func generateOwnedIdentity(withApiKey: UUID, onServerURL: URL, with: ObvIdentityDetails, keycloakState: ObvKeycloakState?, using: PRNGService, within: ObvContext) -> ObvCryptoIdentity?
     
+    func markOwnedIdentityForDeletion(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    
     func deleteOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws
 
     func getOwnedIdentities(within: ObvContext) throws -> Set<ObvCryptoIdentity>
+
+    func getOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID)]
 
     /// This method throws if the identity is not an owned identity. Otherwise it returns the display name of the owned identity.
     func getIdentityDetailsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails, isActive: Bool)
@@ -84,8 +88,6 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, within obvContext: ObvContext) throws
 
-    func deleteContactGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
-    
     func removeOtherMembersOrPendingMembersFromGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, identitiesToRemove: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws
 
     func freezeGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
@@ -100,7 +102,7 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func checkExistenceOfGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
     
-    func deleteGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    func deleteGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
     func updateGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, newBlobKeys: GroupV2.BlobKeys, consolidatedServerBlob: GroupV2.ServerBlob, groupUpdatedByOwnedIdentity: Bool, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
 
@@ -236,8 +238,11 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     /// This method returns an array of all the device uids known within the identity manager. This includes *both* owned device and contact devices.
     func getAllRemoteOwnedDevicesUidsAndContactDeviceUids(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
     
+    
     // MARK: - API related to contact groups
     
+    func removeContactFromPendingAndGroupMembersOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity, groupUid: UID, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+
     func createContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupInformationWithPhoto: GroupInformationWithPhoto, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, within obvContext: ObvContext) throws -> GroupInformationWithPhoto
     
     func createContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation, groupOwner: ObvCryptoIdentity, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, within obvContext: ObvContext) throws
@@ -282,9 +287,9 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> GroupInformationWithPhoto
 
-    func leaveContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    func deleteContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws
     
-    func deleteContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws
+    func deleteContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, deleteEvenIfGroupMembersStillExist: Bool, within obvContext: ObvContext) throws
 
     func contactIdentityBelongsToSomeContactGroup(_ contactIdentity: ObvCryptoIdentity, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
 

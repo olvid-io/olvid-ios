@@ -54,6 +54,6 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
 
     // Handling the completion handler received together with a remote push notification
     
-    func startBackgroundActivityForHandlingRemoteNotification(withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
+    func startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: Set<ObvCryptoIdentity>, withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
 
 }

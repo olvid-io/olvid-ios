@@ -69,9 +69,21 @@ final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperat
             let cryptoIdsToDelete = cryptoIdsWithinApp.subtracting(cryptoIdsWithinEngine)
             let cryptoIdsToUpdate = cryptoIdsWithinApp.subtracting(cryptoIdsToDelete)
 
-            os_log("Bootstrap: Number of missing owned identities to create: %d", log: log, type: .info, missingCryptoIds.count)
-            os_log("Bootstrap: Number of existing owned identities to delete (for now we do not delete them): %d", log: log, type: .info, cryptoIdsToDelete.count)
-            os_log("Bootstrap: Number of existing owned identities to refresh: %d", log: log, type: .info, cryptoIdsToUpdate.count)
+            os_log("Bootstrap: Number of missing owned identities to create   : %d", log: log, type: .info, missingCryptoIds.count)
+            os_log("Bootstrap: Number of existing owned identities to delete  : %d", log: log, type: .info, cryptoIdsToDelete.count)
+            os_log("Bootstrap: Number of existing owned identities to refresh : %d", log: log, type: .info, cryptoIdsToUpdate.count)
+            
+            // Delete the owned identity that exist at the app level but not at the engine level
+            
+            for ownedCryptoId in cryptoIdsToDelete {
+                do {
+                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else { continue }
+                    try persistedOwnedIdentity.delete()
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    // In production, continue anyway
+                }
+            }
 
             // Create the missing owned identities
             

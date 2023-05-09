@@ -23,6 +23,6 @@ import ObvTypes
 import OlvidUtils
 
 protocol VerifyReceiptDelegate: AnyObject {
-    func verifyReceipt(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
+    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
     func verifyReceiptsExpectingNewSesssion()
 }

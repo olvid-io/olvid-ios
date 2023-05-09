@@ -20,8 +20,14 @@
 
 import XCTest
 import OlvidUtils
+import ObvTypes
+import ObvEngine
 
 class ObvDeepLinkTests: XCTestCase {
+
+    private static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!
+
+    private static let cryptoId = ObvURLIdentity(urlRepresentation: identityAsURL)!.cryptoId
 
     func _testLink(link: ObvDeepLink) {
         let description = link.description
@@ -37,10 +43,11 @@ class ObvDeepLinkTests: XCTestCase {
         for host in ObvDeepLinkHost.allCases {
             switch host {
             case .latestDiscussions:
-                _testLink(link: ObvDeepLink.latestDiscussions)
+                _testLink(link: ObvDeepLink.latestDiscussions(ownedCryptoId: nil))
+                _testLink(link: ObvDeepLink.latestDiscussions(ownedCryptoId: Self.cryptoId))
             case .singleDiscussion:
                 let permanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(entityName: "PersistedDiscussion", uuid: UUID())
-                _testLink(link: ObvDeepLink.singleDiscussion(objectPermanentID: permanentID))
+                _testLink(link: ObvDeepLink.singleDiscussion(ownedCryptoId: Self.cryptoId, objectPermanentID: permanentID))
             case .invitations:
                 _testLink(link: ObvDeepLink.invitations)
             case .contactGroupDetails:

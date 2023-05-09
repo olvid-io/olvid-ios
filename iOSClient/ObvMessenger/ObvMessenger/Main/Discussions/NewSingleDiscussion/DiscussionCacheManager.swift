@@ -17,9 +17,10 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
-import QuickLook
+import ObvUI
 import os.log
+import QuickLook
+import UIKit
 
 
 @available(iOS 15.0, *)
@@ -427,17 +428,51 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             } else {
                 showThumbnail = !(replyTo.fyleMessageJoinWithStatus?.isEmpty ?? true)
             }
-            let configuration = ReplyToBubbleView.Configuration.loaded(
-                messageObjectID: replyTo.typedObjectID,
-                body: replyTo.textBody,
-                bodyColor: bodyColor,
-                name: name,
-                nameColor: nameColor,
-                lineColor: lineColor,
-                bubbleColor: bubbleColor,
-                showThumbnail: showThumbnail,
-                hardlink: nil,
-                thumbnail: nil)
+            
+            let configuration: ReplyToBubbleView.Configuration
+            
+            if replyTo.isRemoteWiped {
+                
+                var deleterName: String?
+                if let ownedCryptoId = replyTo.discussion.ownedIdentity?.cryptoId,
+                   let deleterCryptoId = replyTo.deleterCryptoId,
+                   let contact = try? PersistedObvContactIdentity.get(contactCryptoId: deleterCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
+                    deleterName = contact.customOrShortDisplayName
+                } else {
+                    deleterName = nil
+                }
+                
+                configuration = ReplyToBubbleView.Configuration.remotelyWiped(
+                    messageObjectID: replyTo.typedObjectID,
+                    deleterName: deleterName,
+                    bodyColor: bodyColor,
+                    name: name,
+                    nameColor: nameColor,
+                    lineColor: lineColor,
+                    bubbleColor: bubbleColor,
+                    showThumbnail: showThumbnail,
+                    hardlink: nil,
+                    thumbnail: nil)
+                
+            } else if replyTo.isLocallyWiped {
+                
+                return .messageWasDeleted
+
+            } else {
+                
+                configuration = ReplyToBubbleView.Configuration.loaded(
+                    messageObjectID: replyTo.typedObjectID,
+                    body: replyTo.textBody,
+                    bodyColor: bodyColor,
+                    name: name,
+                    nameColor: nameColor,
+                    lineColor: lineColor,
+                    bubbleColor: bubbleColor,
+                    showThumbnail: showThumbnail,
+                    hardlink: nil,
+                    thumbnail: nil)
+                
+            }
             
             // If there is a thumbnail to show, compute it asynchronously.
             

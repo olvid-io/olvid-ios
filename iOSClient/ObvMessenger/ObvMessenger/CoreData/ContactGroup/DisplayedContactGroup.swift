@@ -98,6 +98,12 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable,
     var objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup> {
         ObvManagedObjectPermanentID<DisplayedContactGroup>(uuid: self.permanentUUID)
     }
+    
+    var ownedCryptoId: ObvCryptoId? {
+        get throws {
+            return try groupV1?.ownedIdentity?.cryptoId ?? groupV2?.ownCryptoId
+        }
+    }
 
     // Initializer
     
@@ -452,3 +458,8 @@ final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable,
         
     }
 }
+
+
+// MARK: - DisplayedContactGroupPermanentID
+
+typealias DisplayedContactGroupPermanentID = ObvManagedObjectPermanentID<DisplayedContactGroup>

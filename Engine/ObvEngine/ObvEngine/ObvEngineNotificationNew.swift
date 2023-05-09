@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -89,6 +89,7 @@ public enum ObvEngineNotificationNew {
 	case groupV2WasDeleted(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
 	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
 	case aPushTopicWasReceivedViaWebsocket(pushTopic: String)
+	case ownedIdentityWasDeleted
 
 	private enum Name {
 		case newBackupKeyGenerated
@@ -147,6 +148,7 @@ public enum ObvEngineNotificationNew {
 		case groupV2WasDeleted
 		case groupV2UpdateDidFail
 		case aPushTopicWasReceivedViaWebsocket
+		case ownedIdentityWasDeleted
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -215,6 +217,7 @@ public enum ObvEngineNotificationNew {
 			case .groupV2WasDeleted: return Name.groupV2WasDeleted.name
 			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
 			case .aPushTopicWasReceivedViaWebsocket: return Name.aPushTopicWasReceivedViaWebsocket.name
+			case .ownedIdentityWasDeleted: return Name.ownedIdentityWasDeleted.name
 			}
 		}
 	}
@@ -485,6 +488,8 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"pushTopic": pushTopic,
 			]
+		case .ownedIdentityWasDeleted:
+			info = nil
 		}
 		return info
 	}
@@ -983,6 +988,13 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let pushTopic = notification.userInfo!["pushTopic"] as! String
 			block(pushTopic)
+		}
+	}
+
+	public static func observeOwnedIdentityWasDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.ownedIdentityWasDeleted.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			block()
 		}
 	}
 

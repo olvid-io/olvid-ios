@@ -17,12 +17,19 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import SwiftUI
+
+protocol OwnedIdentityGeneratedHostingControllerDelegate: AnyObject {
+    func userWantsToStartUsingOlvid() async
+}
 
 final class OwnedIdentityGeneratedHostingController: UIHostingController<OwnedIdentityGeneratedView> {
     
-    init(startUsingOlvidAction: @escaping () -> Void) {
-        let view = OwnedIdentityGeneratedView(startUsingOlvidAction: startUsingOlvidAction)
+    init(delegate: OwnedIdentityGeneratedHostingControllerDelegate) {
+        let view = OwnedIdentityGeneratedView(startUsingOlvidAction: { [weak delegate] in
+            Task { await delegate?.userWantsToStartUsingOlvid() }
+        })
         super.init(rootView: view)
     }
     
@@ -76,6 +83,8 @@ struct OwnedIdentityGeneratedView: View {
                 Spacer()
             }
         }
+        // Although the back button is hidden at the VC level, this is required
+        .navigationBarBackButtonHidden(true)
     }
 }
 

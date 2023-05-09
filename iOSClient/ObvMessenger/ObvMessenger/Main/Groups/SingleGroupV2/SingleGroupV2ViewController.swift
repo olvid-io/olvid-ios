@@ -18,12 +18,14 @@
  */
   
 
-import SwiftUI
+
 import os.log
-import ObvTypes
 import CoreData
 import OlvidUtils
 import ObvEngine
+import ObvTypes
+import ObvUI
+import SwiftUI
 
 
 protocol SingleGroupV2ViewControllerDelegate: AnyObject {
@@ -36,6 +38,8 @@ protocol SingleGroupV2ViewControllerDelegate: AnyObject {
 final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>, SingleGroupV2ViewDelegate, ObvErrorMaker {
     
     let persistedGroupV2ObjectID: TypeSafeManagedObjectID<PersistedGroupV2>
+    let currentOwnedCryptoId: ObvCryptoId
+    let displayedContactGroupPermanentID: DisplayedContactGroupPermanentID
     private let obvEngine: ObvEngine
     private var scratchGroup: PersistedGroupV2
     private var referenceGroup: PersistedGroupV2 // Allows to compute a diff with the scratchGroup when publishing group members updates
@@ -48,7 +52,14 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     private var tokens = [NSObjectProtocol]()
 
     init(group: PersistedGroupV2, obvEngine: ObvEngine, delegate: SingleGroupV2ViewControllerDelegate) throws {
-
+        guard let ownCryptoId = group.persistedOwnedIdentity?.cryptoId else {
+            throw Self.makeError(message: "Could not determine owned identity")
+        }
+        guard let displayedContactGroupPermanentID = group.displayedContactGroup?.objectPermanentID else {
+            throw Self.makeError(message: "Could not determine displayed contact group")
+        }
+        self.currentOwnedCryptoId = ownCryptoId
+        self.displayedContactGroupPermanentID = displayedContactGroupPermanentID
         self.persistedGroupV2ObjectID = group.typedObjectID
         self.obvEngine = obvEngine
         self.scratchViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
@@ -771,6 +782,15 @@ struct SingleGroupMemberView: View {
         }
     }
     
+    private var circledTextView: Text? {
+        let string = otherMember.displayedFirstName ?? otherMember.displayedCustomDisplayNameOrLastName
+        if let char = string?.first {
+            return Text(String(char))
+        } else {
+            return nil
+        }
+    }
+    
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
             OlvidButtonSquare(style: .redOnTransparentBackground, systemIcon: .trash, action: {
@@ -786,7 +806,7 @@ struct SingleGroupMemberView: View {
                                 subsubtitle: otherMember.displayedCompany,
                                 circleBackgroundColor: otherMember.contact?.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
                                 circleTextColor: otherMember.contact?.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared),
-                                circledTextView: nil,
+                                circledTextView: circledTextView,
                                 systemImage: .person,
                                 profilePicture: otherMember.displayedProfilePicture,
                                 showGreenShield: false,

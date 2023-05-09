@@ -18,10 +18,12 @@
  */
 
 import UIKit
+import ObvTypes
 
 
 protocol SomeSingleDiscussionViewController: UIViewController {
     
-    var discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion> { get }
+    var discussionPermanentID: DiscussionPermanentID { get }
+    var currentOwnedCryptoId: ObvCryptoId { get }
 
 }

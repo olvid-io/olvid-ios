@@ -237,7 +237,7 @@ extension ObvProtocolManager {
 
 extension ObvProtocolManager {
     
-    public func process(_ obvProtocolReceivedMessage: ObvProtocolReceivedMessage, within obvContext: ObvContext) throws {
+    public func processProtocolReceivedMessage(_ obvProtocolReceivedMessage: ObvProtocolReceivedMessage, within obvContext: ObvContext) throws {
         
         guard let genericReceivedMessage = GenericReceivedProtocolMessage(with: obvProtocolReceivedMessage) else {
             os_log("Could not parse the protocol received message", log: log, type: .error)
@@ -255,9 +255,9 @@ extension ObvProtocolManager {
             os_log("Could not parse the protocol received dialog response", log: log, type: .error)
             throw Self.makeError(message: "Could not parse the protocol received dialog response ")
         }
-
+        
         save(genericReceivedMessage, within: obvContext)
-
+        
     }
     
     
@@ -269,7 +269,7 @@ extension ObvProtocolManager {
         }
         
         save(genericReceivedMessage, within: obvContext)
-
+        
     }
     
     private func save(_ genericReceivedMessage: GenericReceivedProtocolMessage, within obvContext: ObvContext) {
@@ -315,7 +315,7 @@ extension ObvProtocolManager {
             assertionFailure()
             os_log("Could not send ProtocolMessageToProcess notification: %{public}@", log: log, type: .fault, error.localizedDescription)
         }
-                
+        
     }
     
     
@@ -331,7 +331,7 @@ extension ObvProtocolManager {
                                                                                                           withOwnedIdentityCoreDetails: ownedIdentityDetails,
                                                                                                           usingProtocolInstanceUid: protocolInstanceUid)
     }
-
+    
     
     public func abortProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity) throws {
         delegateManager.receivedMessageDelegate.abortProtocol(withProtocolInstanceUid: uid, forOwnedIdentity: identity)
@@ -360,13 +360,13 @@ extension ObvProtocolManager {
                                                                                                                  byOwnedIdentity: ownedIdentity,
                                                                                                                  usingProtocolInstanceUid: protocolInstanceUid)
     }
-
+    
     
     public func getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getOwnedGroupMembersChangedTriggerMessageForGroupManagementProtocol(groupUid: groupUid, ownedIdentity: ownedIdentity, within: obvContext)
     }
     
-
+    
     public func getAddGroupMembersMessageForAddingMembersToContactGroupOwned(groupUid: UID, ownedIdentity: ObvCryptoIdentity, newGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getAddGroupMembersMessageForAddingMembersToContactGroupOwnedUsingGroupManagementProtocol(groupUid: groupUid,
                                                                                                                                                     ownedIdentity: ownedIdentity,
@@ -381,7 +381,7 @@ extension ObvProtocolManager {
                                                                                                                   removedGroupMembers: removedGroupMembers,
                                                                                                                   within: obvContext)
     }
-
+    
     
     public func getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ownedIdentity,
@@ -389,12 +389,12 @@ extension ObvProtocolManager {
                                                                                                                 groupOwner: groupOwner,
                                                                                                                 within: obvContext)
     }
- 
+    
     
     public func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ownedIdentity, contactIdentityToDelete: contactIdentity)
     }
-
+    
     public func getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd contactIdentity: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ownedIdentity, contactIdentityToAdd: contactIdentity, signedContactDetails: signedContactDetails)
     }
@@ -402,26 +402,26 @@ extension ObvProtocolManager {
     public func getInitiateGroupMembersQueryMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateGroupMembersQueryMessageForGroupManagementProtocol(groupUid: groupUid, ownedIdentity: ownedIdentity, groupOwner: groupOwner, within: obvContext)
     }
-
+    
     
     public func getTriggerReinviteMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, memberIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getTriggerReinviteMessageForGroupManagementProtocol(groupUid: groupUid, ownedIdentity: ownedIdentity, memberIdentity: memberIdentity, within: obvContext)
     }
-
+    
     
     public func getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity)
     }
- 
+    
     
     public func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
         return try ChannelCreationWithContactDeviceProtocolInstance.getAll(within: obvContext)
     }
-
+    
     public func getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactIdentityDetailsElements: contactIdentityDetailsElements)
     }
-
+    
     public func getInitialMessageForDownloadGroupPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForDownloadGroupPhotoChildProtocol(ownedIdentity: ownedIdentity, groupInformation: groupInformation)
     }
@@ -441,7 +441,7 @@ extension ObvProtocolManager {
             ownedIdentity: ownedIdentity,
             contactIdentity: contactIdentity)
     }
-
+    
     public func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForDowngradingOneToOneContact(
             ownedIdentity: ownedIdentity,
@@ -459,7 +459,7 @@ extension ObvProtocolManager {
     public func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, changeset: changeset, flowId: flowId)
     }
-
+    
     public func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, flowId: flowId)
     }
@@ -471,11 +471,34 @@ extension ObvProtocolManager {
     public func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, flowId: flowId)
     }
-
+    
     /// When a channel is (re)created with a contact device, the engine will call this method so as to make sure our contact knows about the group informations we have about groups v2 that we have in common.
     public func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactDeviceUID: contactDeviceUID, flowId: flowId)
-
+        
     }
-
+    
+    // MARK: - Owned identities
+    
+    /// Called when an owned identity is about to be deleted.
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        
+        // Delete all received messages
+        
+        try ReceivedMessage.batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        
+        // Delete signatures, commitments,... received relating to this owned identity
+        
+        try ChannelCreationPingSignatureReceived.batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        try TrustEstablishmentCommitmentReceived.batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        try MutualScanSignatureReceived.batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        try GroupV2SignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+        try ContactOwnedIdentityDeletionSignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+        
+    }
+    
+    public func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ownedCryptoIdentityToDelete, notifyContacts: notifyContacts, flowId: flowId)
+    }
+    
 }

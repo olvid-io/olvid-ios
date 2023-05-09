@@ -24,9 +24,24 @@ import OlvidUtils
 public final class PBKDF: ObvErrorMaker {
 
     public static var errorDomain: String { "PBKDF" }
-
-    public static func pbkdf2sha256(password: String, salt: Data, rounds: UInt32, derivedKeyLength: Int) throws -> Data {
-        let hash = CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256)
+    
+    private enum HashFunction {
+        case sha1
+        case sha256
+        
+        var algorithm: CCPseudoRandomAlgorithm {
+            switch self {
+            case .sha1:
+                return CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1)
+            case .sha256:
+                return CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256)
+            }
+        }
+        
+    }
+    
+    private static func pbkdf2(hashFunction: HashFunction, password: String, salt: Data, rounds: UInt32, derivedKeyLength: Int) throws -> Data {
+        let hash = hashFunction.algorithm
         var derivedKey = [UInt8](repeating: 0, count: derivedKeyLength)
         let status: Int32 = salt.withUnsafeBytes { unsafeBytes in
             guard let saltBytes = unsafeBytes.bindMemory(to: UInt8.self).baseAddress else {
@@ -49,5 +64,14 @@ public final class PBKDF: ObvErrorMaker {
         return Data(derivedKey)
     }
 
+
+    public static func pbkdf2sha256(password: String, salt: Data, rounds: UInt32, derivedKeyLength: Int) throws -> Data {
+        return try pbkdf2(hashFunction: .sha256, password: password, salt: salt, rounds: rounds, derivedKeyLength: derivedKeyLength)
+    }
+
+    
+    public static func pbkdf2sha1(password: String, salt: Data, rounds: UInt32, derivedKeyLength: Int) throws -> Data {
+        return try pbkdf2(hashFunction: .sha1, password: password, salt: salt, rounds: rounds, derivedKeyLength: derivedKeyLength)
+    }
 
 }

@@ -133,6 +133,8 @@ extension PersistedOneToOneDiscussion {
         fileprivate let discussionStruct: PersistedDiscussion.AbstractStructure
         var title: String { discussionStruct.title }
         var localConfiguration: PersistedDiscussionLocalConfiguration.Structure { discussionStruct.localConfiguration }
+        var ownedCryptoId: ObvCryptoId { discussionStruct.ownedCryptoId }
+        var ownedIdentity: PersistedObvOwnedIdentity.Structure { discussionStruct.ownedIdentity }
     }
     
     func toStruct() throws -> Structure {

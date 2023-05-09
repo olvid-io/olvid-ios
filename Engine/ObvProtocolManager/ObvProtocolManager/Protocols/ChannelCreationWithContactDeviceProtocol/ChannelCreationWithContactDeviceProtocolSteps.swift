@@ -114,12 +114,13 @@ extension ChannelCreationWithContactDeviceProtocol {
             do {
                 if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
                     os_log("There exists a ChannelCreationWithContactDeviceProtocolInstance to clean", log: log, type: .debug)
-                    let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
-                    os_log("The ChannelCreationWithContactDeviceProtocolInstance to clean has uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
-                    let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
-                    os_log("Executing the block allowing to abort the protocol with instance uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
-                    abortProtocolBlock()
-                    os_log("The block allowing to clest the protocol with instance uid %{public}@ was executed", log: log, type: .debug, protocolInstanceUid.debugDescription)
+                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                        os_log("The ChannelCreationWithContactDeviceProtocolInstance to clean has uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
+                        let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
+                        os_log("Executing the block allowing to abort the protocol with instance uid %{public}@", log: log, type: .debug, protocolInstanceUid.debugDescription)
+                        abortProtocolBlock()
+                        os_log("The block allowing to clest the protocol with instance uid %{public}@ was executed", log: log, type: .debug, protocolInstanceUid.debugDescription)
+                    }
                 }
             } catch {
                 os_log("Could not check whether a previous instance of this protocol exists, or could not delete it", log: log, type: .error)
@@ -264,9 +265,10 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
-                    let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
-                    let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
-                    abortProtocolBlock()
+                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                        let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
+                        abortProtocolBlock()
+                    }
                 }
             } catch {
                 os_log("Could not check whether a previous instance of this protocol exists, or could not delete it", log: log, type: .error)
@@ -426,14 +428,31 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             // If we reach this point, we have a valid signature => the contact trusts our identity, and she does not have an Oblivious channel with us
 
+            // We make sure we are not facing a replay attack
+            
+            do {
+                guard !(try ChannelCreationPingSignatureReceived.exists(ownedCryptoIdentity: ownedIdentity,
+                                                                        signature: signature,
+                                                                        within: obvContext)) else {
+                    os_log("The signature received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
+                    assertionFailure()
+                    return CancelledState()
+                }
+            } catch {
+                os_log("We could not perform check whether the signature was already received: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return CancelledState()
+            }
+
             // Check whether there already is an instance of this protocol running. If this is the case, abort it, terminate this protocol, and restart it with a fresh ping.
             
             do {
                 if try ChannelCreationWithContactDeviceProtocolInstance.exists(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
                     os_log("A previous ChannelCreationWithContactDeviceProtocolInstance exists. We abort it", log: log, type: .info)
-                    let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
-                    let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
-                    abortProtocolBlock()
+                    if let protocolInstanceUid = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext) {
+                        let abortProtocolBlock = delegateManager.receivedMessageDelegate.createBlockForAbortingProtocol(withProtocolInstanceUid: protocolInstanceUid, forOwnedIdentity: ownedIdentity, within: obvContext)
+                        abortProtocolBlock()
+                    }
                     
                     let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactIdentity)
                     _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
@@ -542,21 +561,21 @@ extension ChannelCreationWithContactDeviceProtocol {
                 // Continue anyway
             }
             
-            let protocolInstanceUidForChildDeviceDiscoveryProtocol = UID.gen(with: prng)
-            let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                  cryptoProtocolId: .DeviceDiscoveryForContactIdentity,
-                                                  protocolInstanceUid: protocolInstanceUidForChildDeviceDiscoveryProtocol)
-            let concreteProtocolMessage = DeviceDiscoveryForContactIdentityProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
-            guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                os_log("Could not generate ObvChannelProtocolMessageToSend for an InitialMessage of a child DeviceDiscoveryForContactIdentityProtocol from within the ChannelCreationWithContactDeviceProtocol", log: log, type: .fault)
+            // At this point, if a channel exist (rare case), we cannot create a new one. If this occurs:
+            // - We destroy it (as we are in a situation where we know we should create a new one)
+            // - Since we want to restart this protocol, we clean the ChannelCreationWithContactDeviceProtocolInstance entry
+            // - We send a ping to restart the whole process of creating a channel
+            // - We finish this protocol instance
+
+            guard try !channelDelegate.anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: contactIdentity, withRemoteDeviceUid: contactDeviceUid, within: obvContext) else {
+                try channelDelegate.deleteObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity,
+                                                                                    andTheRemoteDeviceWithUid: contactDeviceUid,
+                                                                                    ofRemoteIdentity: contactIdentity,
+                                                                                    within: obvContext)
+                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
+                let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactIdentity)
+                _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
                 return CancelledState()
-            }
-            
-            do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-            } catch {
-                os_log("Could not post an initial message in order to trigger a (child) ChannelCreationWithContactDeviceProtocol", log: log, type: .error)
-                // Continue anyway
             }
 
             // Create the Oblivious Channel using the seed derived from k1 and k2
@@ -658,8 +677,26 @@ extension ChannelCreationWithContactDeviceProtocol {
                 return CancelledState()
             }
             
-            // Create the Oblivious Channel using the seed
+            // At this point, if a channel exist (rare case), we cannot create a new one. If this occurs:
+            // - We destroy it (as we are in a situation where we know we should create a new one)
+            // - Since we want to restart this protocol, we clean the ChannelCreationWithContactDeviceProtocolInstance entry
+            // - We send a ping to restart the whole process of creating a channel
+            // - We finish this protocol instance
+
+            guard try !channelDelegate.anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: contactIdentity, withRemoteDeviceUid: contactDeviceUid, within: obvContext) else {
+                try channelDelegate.deleteObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity,
+                                                                                    andTheRemoteDeviceWithUid: contactDeviceUid,
+                                                                                    ofRemoteIdentity: contactIdentity,
+                                                                                    within: obvContext)
+                _ = try ChannelCreationWithContactDeviceProtocolInstance.delete(contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, andOwnedIdentity: ownedIdentity, within: obvContext)
+                let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactIdentity)
+                _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
+                return CancelledState()
+            }
             
+            // If reach this point, there is no existing channel between our current device and the contact device.
+            // We create the Oblivious Channel using the seed.
+                        
             do {
                 let cryptoSuiteVersion = 0
                 try channelDelegate.createObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity,
@@ -758,7 +795,10 @@ extension ChannelCreationWithContactDeviceProtocol {
                         coreProtocolMessage: coreMessage,
                         contactIdentity: contactIdentity,
                         contactIdentityDetailsElements: contactIdentityDetailsElements)
-                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                     
                 }
@@ -912,7 +952,10 @@ extension ChannelCreationWithContactDeviceProtocol {
                         coreProtocolMessage: coreMessage,
                         contactIdentity: contactIdentity,
                         contactIdentityDetailsElements: contactIdentityDetailsElements)
-                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                     
                 }

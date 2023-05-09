@@ -84,6 +84,40 @@ extension MetaFlowController {
             static let negativeButtonTitle = NSLocalizedString("BUTTON_LABEL_REMIND_ME_LATER", comment: "")
         }
 
+        struct AlertChooseHiddenProfileClosePolicy {
+            static let title = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_TITLE", comment: "")
+            static let message = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_MESSAGE", comment: "")
+            static let actionScreenLock = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_SCREEN_LOCK", comment: "")
+            static let actionManualSwitching = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_MANUAL_SWITCHING", comment: "")
+            static let actionBackground = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_BACKGROUND", comment: "")
+        }
+        
+        struct AlertTimeIntervalForBackgroundHiddenProfileClosePolicy {
+            static let title = NSLocalizedString("TIME_INTERVAL_FOR_BG_HIDDEN_PROFILE_CLOSE_POLICY", comment: "")
+            static func actionTitle(for timeInterval: ObvMessengerSettings.Privacy.TimeIntervalForBackgroundHiddenProfileClosePolicy) -> String {
+                switch timeInterval {
+                case .immediately:
+                    return CommonString.Word.Immediately
+                case .tenSeconds:
+                    return NSLocalizedString("AFTER_TEN_SECONDS", comment: "")
+                case .thirtySeconds:
+                    return NSLocalizedString("AFTER_THIRTY_SECONDS", comment: "")
+                case .oneMinute:
+                    return NSLocalizedString("AFTER_ONE_MINUTE", comment: "")
+                case .twoMinutes:
+                    return NSLocalizedString("AFTER_TWO_MINUTE", comment: "")
+                case .fiveMinutes:
+                    return NSLocalizedString("AFTER_FIVE_MINUTE", comment: "")
+                }
+            }
+        }
+        
+        struct AlertShouldActivateScreenLockAfterCreatingHiddenProfile {
+            static let title = NSLocalizedString("ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_TITLE", comment: "")
+            static let message = NSLocalizedString("ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_MESSAGE", comment: "")
+            static let actionGotToPrivacySettings = NSLocalizedString("ALERT_SHOULD_ACTIVATE_SCREEN_LOCK_AFTER_CREATING_HIDDEN_PROFILE_ACTION_GOTO_PRIVACY_SETTINGS", comment: "")
+        }
+        
     }
     
 }

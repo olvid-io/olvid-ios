@@ -63,7 +63,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.contactIdentity = try message.encodedInputs[0].obvDecode()
             self.signature = try message.encodedInputs[1].obvDecode()
         }
@@ -103,7 +103,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 4 else { throw NSError() }
+            guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             aliceIdentity = try encodedElements[0].obvDecode()
             signature = try encodedElements[1].obvDecode()
             let encodedAliceCoreDetails: Data = try encodedElements[2].obvDecode()
@@ -141,7 +141,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.bobIdentity = try message.encodedInputs[0].obvDecode()
             self.signature = try message.encodedInputs[1].obvDecode()
         }
@@ -176,7 +176,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard message.encodedInputs.count == 2 else { throw NSError() }
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             let encodedBobCoreDetails: Data = try encodedElements[0].obvDecode()
             bobCoreDetails = try ObvIdentityCoreDetails(encodedBobCoreDetails)
             bobDeviceUids = try TrustEstablishmentWithSASProtocol.decodeEncodedListOfDeviceUids(encodedElements[1])
@@ -217,7 +217,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 4 else { throw NSError() }
+            guard encodedElements.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
             aliceIdentity = try encodedElements[0].obvDecode()
             signature = try encodedElements[1].obvDecode()
             let encodedAliceCoreDetails: Data = try encodedElements[2].obvDecode()
@@ -243,7 +243,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 extension TrustEstablishmentWithMutualScanProtocol {
     
     static func decodeEncodedListOfDeviceUids(_ obvEncoded: ObvEncoded) throws -> [UID] {
-        guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { throw NSError() }
+        guard let listOfEncodedUids = [ObvEncoded](obvEncoded) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
         return try listOfEncodedUids.map { try $0.obvDecode() }
     }
     

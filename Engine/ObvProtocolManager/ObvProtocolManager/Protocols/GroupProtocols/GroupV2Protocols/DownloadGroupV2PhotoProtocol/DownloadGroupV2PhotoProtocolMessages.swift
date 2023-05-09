@@ -111,6 +111,7 @@ extension DownloadGroupV2PhotoProtocol {
 
                 self.photoPathToDelete = photoPathToDelete
                 guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                    assertionFailure()
                     throw Self.makeError(message: "Could not get downloaded user data")
                 }
                 
@@ -133,6 +134,7 @@ extension DownloadGroupV2PhotoProtocol {
                 case .downloaded(let userDataPath):
                     self.photoPathToDelete = userDataPath
                     guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
+                        assertionFailure()
                         throw Self.makeError(message: "Could not get downloaded user data")
                     }
                     

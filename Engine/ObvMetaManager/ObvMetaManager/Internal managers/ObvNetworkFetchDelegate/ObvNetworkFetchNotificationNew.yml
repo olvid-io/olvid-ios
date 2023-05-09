@@ -49,6 +49,7 @@ notifications:
 - name: noInboxMessageToProcess
   params:
   - {name: flowId, type: FlowIdentifier}
+  - {name: ownedCryptoIdentity, type: ObvCryptoIdentity}
 - name: newInboxMessageToProcess
   params:
   - {name: messageId, type: MessageIdentifier}

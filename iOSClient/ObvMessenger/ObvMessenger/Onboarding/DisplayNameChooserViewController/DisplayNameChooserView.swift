@@ -20,6 +20,50 @@
 import SwiftUI
 import ObvTypes
 
+
+protocol DisplayNameChooserViewControllerDelegate: AnyObject {
+    func userDidSetUnmanagedDetails(ownedIdentityCoreDetails: ObvIdentityCoreDetails, photoURL: URL?) async
+    func userDidAcceptedKeycloakDetails(keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff), keycloakState: ObvKeycloakState, photoURL: URL?) async
+}
+
+
+final class DisplayNameChooserViewController: UIHostingController<DisplayNameChooserView> {
+
+    private let singleIdentity: SingleIdentity
+    
+    init(delegate: DisplayNameChooserViewControllerDelegate) {
+        self.singleIdentity = SingleIdentity(serverAndAPIKeyToShow: nil, identityDetails: nil)
+        let view = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: { [weak delegate] (coreDetails, photoURL) in
+            Task { await delegate?.userDidSetUnmanagedDetails(ownedIdentityCoreDetails: coreDetails, photoURL: photoURL) }
+        })
+        super.init(rootView: view)
+    }
+    
+    init(keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff), keycloakState: ObvKeycloakState, delegate: DisplayNameChooserViewControllerDelegate) {
+        self.singleIdentity = SingleIdentity(keycloakDetails: keycloakDetails)
+        let view = DisplayNameChooserView(singleIdentity: singleIdentity, completionHandlerOnSave: { [weak delegate] (coreDetails, photoURL) in
+            assert(try! keycloakDetails.keycloakUserDetailsAndStuff.getObvIdentityCoreDetails() == coreDetails)
+            Task { await delegate?.userDidAcceptedKeycloakDetails(keycloakDetails: keycloakDetails, keycloakState: keycloakState, photoURL: photoURL) }
+        })
+        super.init(rootView: view)
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = CommonString.Title.myId
+    }
+    
+    deinit {
+        debugPrint("DisplayNameChooserViewController deinit")
+    }
+    
+    @MainActor required dynamic init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+}
+
+
 struct DisplayNameChooserView: View {
 
     var singleIdentity: SingleIdentity

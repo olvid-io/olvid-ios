@@ -19,6 +19,7 @@
 
 import SwiftUI
 import ObvTypes
+import ObvUI
 
 
 struct SubscriptionStatusView: View {
@@ -42,7 +43,7 @@ struct SubscriptionStatusView: View {
         switch apiKeyStatus {
         case .expired, .unknown, .licensesExhausted, .awaitingPaymentOnHold, .freeTrialExpired:
             return false
-        case .free, .valid, .freeTrial, .awaitingPaymentGracePeriod:
+        case .free, .valid, .freeTrial, .awaitingPaymentGracePeriod, .anotherOwnedIdentityHasValidAPIKey:
             return true
         }
     }
@@ -127,7 +128,7 @@ struct FeatureListView: View {
     let features: [SubscriptionStatusView.Feature]
     let available: Bool
     
-    private var colorScheme: ObvSemanticColorScheme { AppTheme.shared.colorScheme }
+    private var colorScheme: AppThemeSemanticColorScheme { AppTheme.shared.colorScheme }
     private let colorWhenUnavailable = Color(AppTheme.shared.colorScheme.secondaryLabel)
     
     var body: some View {
@@ -280,6 +281,16 @@ struct SubscriptionStatusSummaryView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        case .anotherOwnedIdentityHasValidAPIKey:
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Valid license")
+                    .font(.headline)
+                Text("ANOTHER_PROFILE_HAS_VALID_API_KEY")
+                    .font(.footnote)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -328,6 +339,15 @@ struct FeatureListView_Previews: PreviewProvider {
     
     static var previews: some View {
         Group {
+            SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
+                                   apiKeyStatus: .anotherOwnedIdentityHasValidAPIKey,
+                                   apiKeyExpirationDate: Date(),
+                                   showSubscriptionPlansButton: false,
+                                   subscriptionPlanAction: {},
+                                   showRefreshStatusButton: false,
+                                   refreshStatusAction: {})
+                .padding()
+                .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .unknown,
                                    apiKeyExpirationDate: nil,

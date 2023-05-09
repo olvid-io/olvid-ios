@@ -19,6 +19,7 @@
 
 import UIKit
 import CoreData
+import ObvUI
 
 
 final class MessageReceivedCollectionViewCell: MessageCollectionViewCell, CellWithPersistedMessageReceived {

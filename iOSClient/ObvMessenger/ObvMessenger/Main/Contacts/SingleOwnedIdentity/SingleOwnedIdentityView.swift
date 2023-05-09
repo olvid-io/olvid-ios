@@ -21,7 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvEngine
 import CoreData
-
+import ObvUI
 
 
 final class APIKeyStatusAndExpiry: ObservableObject {
@@ -78,10 +78,7 @@ struct SingleOwnedIdentityView: View {
     let editOwnedIdentityAction: () -> Void
     let subscriptionPlanAction: () -> Void
     let refreshStatusAction: () -> Void
-    
-    @State private var showSubscriptionPlans: Bool = false
-    @State private var showingOwnedIdentityDetails: Bool = false
-    
+        
     private var apiKeyStatus: APIKeyStatus { apiKeyStatusAndExpiry.apiKeyStatus }
     private var apiKeyExpirationDate: Date? { apiKeyStatusAndExpiry.apiKeyExpirationDate }
 
@@ -90,55 +87,32 @@ struct SingleOwnedIdentityView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                
-                Color(AppTheme.shared.colorScheme.systemBackground)
-                    .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-                    .edgesIgnoringSafeArea(.all)
+        ZStack {
 
-                ScrollView {
-                    VStack {
-                        OwnedIdentityHeaderView(singleIdentity: singleIdentity)
-                            .padding(.top, 16)
-                        OwnedIdentityCardView(singleIdentity: singleIdentity,
-                                              editOwnedIdentityAction: editOwnedIdentityAction)
-                            .padding(.top, 40)
-                        SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
-                                               apiKeyStatus: apiKeyStatus,
-                                               apiKeyExpirationDate: apiKeyExpirationDate,
-                                               showSubscriptionPlansButton: showSubscriptionPlansButton,
-                                               subscriptionPlanAction: subscriptionPlanAction,
-                                               showRefreshStatusButton: true,
-                                               refreshStatusAction: refreshStatusAction)
-                            .padding(.top, 40)
-                        Spacer()
-                    }.padding(.horizontal, 16)
-                }
+            Color(AppTheme.shared.colorScheme.systemBackground)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .edgesIgnoringSafeArea(.all)
+            
+            ScrollView {
+                VStack {
+                    OwnedIdentityHeaderView(singleIdentity: singleIdentity)
+                        .padding(.top, 16)
+                    OwnedIdentityCardView(singleIdentity: singleIdentity,
+                                          editOwnedIdentityAction: editOwnedIdentityAction)
+                    .padding(.top, 40)
+                    SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
+                                           apiKeyStatus: apiKeyStatus,
+                                           apiKeyExpirationDate: apiKeyExpirationDate,
+                                           showSubscriptionPlansButton: showSubscriptionPlansButton,
+                                           subscriptionPlanAction: subscriptionPlanAction,
+                                           showRefreshStatusButton: true,
+                                           refreshStatusAction: refreshStatusAction)
+                    .padding(.top, 40)
+                    Spacer()
+                }.padding(.horizontal, 16)
             }
-            .navigationBarTitle(Text("My Id"), displayMode: .inline)
-            .navigationBarItems(leading: Button(action: dismissAction,
-                                                label: {
-                                                    Image(systemName: "xmark.circle.fill")
-                                                        .font(Font.system(size: 24, weight: .semibold, design: .default))
-                                                        .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
-                                                }),
-                                trailing: Button(action: { showingOwnedIdentityDetails.toggle() },
-                                                 label: {
-                Image.init(systemIcon: .questionmarkCircle)
-                                                        .font(Font.system(size: 24, weight: .semibold, design: .default))
-                                                        .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
-                                                 })
-            )
-            .sheet(isPresented: $showingOwnedIdentityDetails,
-                   onDismiss: nil) {
-                if let ownCryptoId = singleIdentity.ownCryptoId, let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownCryptoId, within: ObvStack.shared.viewContext) {
-                    OwnedIdentityDetailedInfosView(ownedIdentity: ownedIdentity)
-                } else {
-                    EmptyView()
-                }
-            }
-        }.navigationViewStyle(StackNavigationViewStyle())
+            
+        }
     }
 }
     

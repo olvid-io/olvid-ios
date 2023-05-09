@@ -92,7 +92,7 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
 
         obvContext.performAndWait {
 
-            var message: PersistedMessage?
+            let message: PersistedMessage?
 
             do {
                 
@@ -148,11 +148,13 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
                         contactIdentity: messageReference.senderIdentifier,
                         discussion: discussion) {
                         message = receivedMessage
+                    } else {
+                        message = nil
                     }
                     
                     // If a message was found, we can update its reactions. If not, we create a pending reaction if appropriate.
                     
-                    if let message = message {
+                    if let message {
                         try message.setReactionFromContact(persistedContactIdentity, withEmoji: emoji, reactionTimestamp: reactionTimestamp)
                     } else if addPendingReactionIfMessageCannotBeFound {
                         try PendingMessageReaction.createPendingMessageReactionIfAppropriate(
@@ -165,11 +167,13 @@ final class UpdateReactionsOfMessageOperation: ContextualOperationWithSpecificRe
                     }
                     
                 case .owned(emoji: let emoji, message: let messageObjectID):
-                    guard let message = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
+                    guard let _message = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
                         return cancel(withReason: .couldNotFindMessage)
                     }
                     
-                    try message.setReactionFromOwnedIdentity(withEmoji: emoji, reactionTimestamp: reactionTimestamp)
+                    try _message.setReactionFromOwnedIdentity(withEmoji: emoji, reactionTimestamp: reactionTimestamp)
+
+                    message = _message
                     
                 }
                 

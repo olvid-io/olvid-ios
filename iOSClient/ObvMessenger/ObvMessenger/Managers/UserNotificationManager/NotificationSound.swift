@@ -22,7 +22,9 @@ import Foundation
 import UIKit
 import AVFoundation
 import ObvCrypto
+import ObvUI
 import ObvTypes
+
 
 enum Note: Int, CaseIterable {
     case C = 0
@@ -100,7 +102,7 @@ enum NeutralToneCategory: String, CaseIterable {
         }
     }
 
-    var icon: ObvSystemIcon {
+    var icon: SystemIcon {
         switch self {
         case .neutral: return .musicNote
         case .alarm: return .alarm

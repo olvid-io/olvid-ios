@@ -87,6 +87,12 @@ extension GlobalSettingsBackupItem {
         if let value = self.hideNotificationContent {
             ObvMessengerSettings.Privacy.hideNotificationContent = value
         }
+        if let value = self.hiddenProfileClosePolicy {
+            ObvMessengerSettings.Privacy.hiddenProfileClosePolicy = value
+        }
+        if let value = self.timeIntervalForBackgroundHiddenProfileClosePolicy {
+            ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy = value
+        }
 
         // VoIP
 
@@ -107,6 +113,7 @@ extension GlobalSettingsBackupItem {
         }
 
         // Emoji
+        
         if let value = self.preferredEmojisList {
             ObvMessengerSettings.Emoji.preferredEmojisList = value
         }

@@ -48,8 +48,6 @@ final class BootstrapCoordinator {
 
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
-        // Bootstrap now
-        syncPersistedContactDevicesWithEngineObliviousChannelsOnOwnedIdentityChangedNotifications()
         if let userDefaults = self.userDefaults {
             userDefaults.resetObjectsModifiedByShareExtension()
         }
@@ -171,39 +169,7 @@ extension BootstrapCoordinator {
         }
     }
 
-    
 
-    
-    private func syncPersistedContactDevicesWithEngineObliviousChannelsOnOwnedIdentityChangedNotifications() {
-        let log = self.log
-        let token = ObvMessengerInternalNotification.observeCurrentOwnedCryptoIdChanged { [weak self] (newOwnedCryptoId, apiKey) in
-            self?.internalQueue.addOperation {
-                ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
-                    context.name = "Context created in MetaFlowController within syncContactDevices"
-                    guard let _self = self else { return }
-                    guard let contactIdentities = try? PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: newOwnedCryptoId, whereOneToOneStatusIs: .any, within: context) else { return }
-                    for contact in contactIdentities {
-                        guard let ownedIdentity = contact.ownedIdentity else {
-                            os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
-                            continue
-                        }
-                        guard let obvContactDevices = try? _self.obvEngine.getAllObliviousChannelsEstablishedWithContactIdentity(with: contact.cryptoId, ofOwnedIdentyWith: ownedIdentity.cryptoId) else { continue }
-                        do {
-                            try contact.set(obvContactDevices)
-                            try context.save(logOnFailure: _self.log)
-                        } catch {
-                            os_log("Could not sync contact devices with engine's oblivious channels", log: _self.log, type: .fault)
-                            continue
-                        }
-                    }
-                }
-            }
-        }
-        observationTokens.append(token)
-        
-    }
-    
-    
     private func processRequestSyncAppDatabasesWithEngine(completion: (Result<Void,Error>) -> Void) {
         assert(!Thread.isMainThread)
         let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)

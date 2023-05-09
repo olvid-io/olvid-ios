@@ -219,3 +219,4 @@ notifications:
 - name: aPushTopicWasReceivedViaWebsocket
   params:
   - {name: pushTopic, type: String}
+- name: ownedIdentityWasDeleted

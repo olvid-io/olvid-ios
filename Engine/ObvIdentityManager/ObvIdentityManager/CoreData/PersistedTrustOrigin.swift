@@ -72,10 +72,15 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         
+        guard let ownedIdentity = contact.ownedIdentity else {
+            assertionFailure("Could not find owned identity associated to the contact")
+            return nil
+        }
+        
         self.trustTypeRaw = trustOrigin.trustTypeRaw
         self.timestamp = trustOrigin.timestamp
         switch trustOrigin {
-        case .direct(timestamp: _):
+        case .direct:
             self.mediatorOrGroupOwnerCryptoIdentity = nil
             self.mediatorOrGroupOwnerTrustLevelMajor = nil
             self.identityServer = nil
@@ -83,7 +88,7 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         case .group(timestamp: _, groupOwner: let cryptoIdentity),
              .introduction(timestamp: _, mediator: let cryptoIdentity):
             guard let mediatorOrGroupOwner = try? ContactIdentity.get(contactIdentity: cryptoIdentity,
-                                                                      ownedIdentity: contact.ownedIdentity.cryptoIdentity,
+                                                                      ownedIdentity: ownedIdentity.cryptoIdentity,
                                                                       delegateManager: delegateManager,
                                                                       within: obvContext) else { return nil }
             self.mediatorOrGroupOwnerCryptoIdentity = cryptoIdentity

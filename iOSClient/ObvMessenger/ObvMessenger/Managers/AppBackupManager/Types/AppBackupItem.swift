@@ -21,6 +21,7 @@ import Foundation
 import ObvTypes
 import SwiftUI
 import ObvCrypto
+import ObvUI
 
 
 struct AppBackupItem: Codable, Hashable {
@@ -46,16 +47,22 @@ struct AppBackupItem: Codable, Hashable {
 struct PersistedObvOwnedIdentityBackupItem: Codable, Hashable {
     
     let identity: Data
+    let customDisplayName: String?
+    let hiddenProfileHash: Data?
+    let hiddenProfileSalt: Data?
     let contacts: [PersistedObvContactIdentityBackupItem]?
     let groupsV1: [PersistedContactGroupBackupItem]?
     let groupsV2: [PersistedGroupV2BackupItem]?
     
     var isEmpty: Bool {
-        return contacts == nil && groupsV1 == nil && groupsV2 == nil
+        return contacts == nil && groupsV1 == nil && groupsV2 == nil && customDisplayName == nil && hiddenProfileHash == nil && hiddenProfileSalt == nil
     }
 
     enum CodingKeys: String, CodingKey {
         case identity = "owned_identity"
+        case customDisplayName = "custom_name"
+        case hiddenProfileHash = "unlock_password"
+        case hiddenProfileSalt = "unlock_salt"
         case contacts = "contacts"
         case groupsV1 = "groups"
         case groupsV2 = "groups2"
@@ -390,6 +397,8 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
     // Privacy
     
     let hideNotificationContent: ObvMessengerSettings.Privacy.HideNotificationContentType?
+    let hiddenProfileClosePolicy: ObvMessengerSettings.Privacy.HiddenProfileClosePolicy?
+    let timeIntervalForBackgroundHiddenProfileClosePolicy: ObvMessengerSettings.Privacy.TimeIntervalForBackgroundHiddenProfileClosePolicy?
 
     // VoIP
     
@@ -433,6 +442,8 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         case autoAcceptGroupInviteFrom = "auto_join_groups"
         case preferredEmojisList = "preferred_reactions"
         case performInteractionDonation = "perform_interaction_donation"
+        case hiddenProfileClosePolicy = "hidden_profile_policy"
+        case timeIntervalForBackgroundHiddenProfileClosePolicy = "hidden_profile_background_grace"
     }
 
     private var hideNotificationContentAndroid: Bool? {
@@ -471,6 +482,8 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         self.isCallKitEnabled = ObvMessengerSettings.VoIP.isCallKitEnabled
         self.autoAcceptGroupInviteFrom = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom
         self.preferredEmojisList = ObvMessengerSettings.Emoji.preferredEmojisList
+        self.hiddenProfileClosePolicy = ObvMessengerSettings.Privacy.hiddenProfileClosePolicy
+        self.timeIntervalForBackgroundHiddenProfileClosePolicy = ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy
     }
     
     func encode(to encoder: Encoder) throws {
@@ -498,6 +511,8 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(autoAcceptGroupInviteFrom?.rawValue, forKey: .autoAcceptGroupInviteFrom)
         try container.encodeIfPresent(preferredEmojisList, forKey: .preferredEmojisList)
         try container.encodeIfPresent(performInteractionDonation, forKey: .performInteractionDonation)
+        try container.encodeIfPresent(hiddenProfileClosePolicy?.intValueForBackup, forKey: .hiddenProfileClosePolicy)
+        try container.encodeIfPresent(timeIntervalForBackgroundHiddenProfileClosePolicy?.rawValue, forKey: .timeIntervalForBackgroundHiddenProfileClosePolicy)
     }
 
     
@@ -559,6 +574,26 @@ struct GlobalSettingsBackupItem: Codable, Hashable {
         }
         self.preferredEmojisList = try values.decodeIfPresent([String].self, forKey: .preferredEmojisList)
         self.performInteractionDonation = try values.decodeIfPresent(Bool.self, forKey: .performInteractionDonation)
+        if let hiddenProfileClosePolicyBackupIntValue = try values.decodeIfPresent(Int.self, forKey: .hiddenProfileClosePolicy) {
+            if let hiddenProfileClosePolicy = ObvMessengerSettings.Privacy.HiddenProfileClosePolicy(fromBackupIntValue: hiddenProfileClosePolicyBackupIntValue) {
+                self.hiddenProfileClosePolicy = hiddenProfileClosePolicy
+            } else {
+                self.hiddenProfileClosePolicy = nil
+                assertionFailure()
+            }
+        } else {
+            self.hiddenProfileClosePolicy = nil
+        }
+        if let timeIntervalForBackgroundHiddenProfileClosePolicyIntValue = try values.decodeIfPresent(Int.self, forKey: .timeIntervalForBackgroundHiddenProfileClosePolicy) {
+            let timeIntervalForBackgroundHiddenProfileClosePolicyRawValue = TimeInterval(timeIntervalForBackgroundHiddenProfileClosePolicyIntValue)
+            if let timeIntervalForBackgroundHiddenProfileClosePolicy = ObvMessengerSettings.Privacy.TimeIntervalForBackgroundHiddenProfileClosePolicy(rawValue: timeIntervalForBackgroundHiddenProfileClosePolicyRawValue) {
+                self.timeIntervalForBackgroundHiddenProfileClosePolicy = timeIntervalForBackgroundHiddenProfileClosePolicy
+            } else {
+                self.timeIntervalForBackgroundHiddenProfileClosePolicy = nil
+            }
+        } else {
+            self.timeIntervalForBackgroundHiddenProfileClosePolicy = nil
+        }
     }
 }
 
@@ -575,4 +610,28 @@ fileprivate extension Data {
     var toUID: UID? {
         UID(uid: self)
     }
+}
+
+
+fileprivate extension ObvMessengerSettings.Privacy.HiddenProfileClosePolicy {
+    
+    var intValueForBackup: Int {
+        switch self {
+        case .manualSwitching: return 2
+        case .screenLock: return 1
+        case .background: return 3
+        }
+    }
+    
+    init?(fromBackupIntValue intValue: Int) {
+        switch intValue {
+        case 1: self = .screenLock
+        case 2: self = .manualSwitching
+        case 3: self = .background
+        default:
+            assertionFailure()
+            return nil
+        }
+    }
+    
 }

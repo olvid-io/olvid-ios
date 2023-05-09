@@ -264,7 +264,10 @@ extension IdentityDetailsPublicationProtocol {
                         coreProtocolMessage: coreMessage,
                         contactIdentity: contactIdentity,
                         contactIdentityDetailsElements: contactIdentityDetailsElements)
-                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 

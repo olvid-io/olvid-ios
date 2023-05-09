@@ -17,13 +17,14 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
 
 
 
 final class ObvIconHUD: ObvHUDView {
 
-    var icon: ObvSystemIcon? {
+    var icon: SystemIcon? {
         didSet {
             if let icon {
                 imageView.image = UIImage(systemName: icon.systemName)

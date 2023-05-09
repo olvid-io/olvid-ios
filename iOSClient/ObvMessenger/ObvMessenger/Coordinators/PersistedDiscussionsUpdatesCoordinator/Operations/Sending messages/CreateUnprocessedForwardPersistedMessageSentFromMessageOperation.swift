@@ -58,8 +58,20 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
                     return cancel(withReason: .couldNotFindMessageInDatabase)
                 }
 
+                let forwarded: Bool
+                switch messageToForward.kind {
+                case .received:
+                    forwarded = true
+                case .sent:
+                    // Do not mark the message as forwarded if the user forwards its own messages.
+                    forwarded = false
+                case .none, .system:
+                    forwarded = false
+                    assertionFailure("It is not possible to forward a system message and none kind should be overridden in subclasses.")
+                }
+
                 // Create message to send
-                let persistedMessageSent = try PersistedMessageSent(body: messageToForward.textBody, replyTo: nil, fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: true)
+                let persistedMessageSent = try PersistedMessageSent(body: messageToForward.textBody, replyTo: nil, fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: forwarded)
 
                 self.messageSentPermanentID = persistedMessageSent.objectPermanentID
 

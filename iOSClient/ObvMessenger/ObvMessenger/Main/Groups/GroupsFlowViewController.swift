@@ -21,16 +21,19 @@ import UIKit
 import os.log
 import ObvEngine
 import ObvTypes
+import ObvUI
 
 
 final class GroupsFlowViewController: UINavigationController, ObvFlowController {
     
     // Variables
     
-    let ownedCryptoId: ObvCryptoId
+    private(set) var currentOwnedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
 
     var observationTokens = [NSObjectProtocol]()
+
+    static let errorDomain = "GroupsFlowViewController"
 
     // Constants
     
@@ -44,7 +47,7 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         
-        self.ownedCryptoId = ownedCryptoId
+        self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         
         let allGroupsViewController = NewAllGroupsViewController(ownedCryptoId: ownedCryptoId)
@@ -111,6 +114,22 @@ extension GroupsFlowViewController {
 }
 
 
+// MARK: - Switching current owned identity
+
+extension GroupsFlowViewController {
+    
+    @MainActor
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        popToRootViewController(animated: false)
+        self.currentOwnedCryptoId = newOwnedCryptoId
+        guard let newAllGroupsViewController = viewControllers.first as? NewAllGroupsViewController else { assertionFailure(); return }
+        await newAllGroupsViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+    }
+    
+}
+
+
+
 // MARK: - NewAllGroupsViewControllerDelegate
 
 extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
@@ -128,11 +147,37 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
     
     func userWantsToAddContactGroup() {
         assert(Thread.isMainThread)
-        let ownedCryptoId = self.ownedCryptoId
+        let ownedCryptoId = self.currentOwnedCryptoId
         let obvEngine = self.obvEngine
-        // Starting with version 0.12.0, we only allow the creation of groups v2
-        let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
-        present(groupCreationFlowVC, animated: true)
+        
+        if ObvMessengerConstants.developmentMode {
+            
+            let alert = UIAlertController(title: NSLocalizedString("CHOOSE_GROUP_TYPE_TITLE", comment: ""),
+                                          message: NSLocalizedString("CHOOSE_GROUP_TYPE_MESSAGE", comment: ""),
+                                          preferredStyleForTraitCollection: self.traitCollection)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V1", comment: ""), style: .default, handler: { [weak self] (action) in
+                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV1, obvEngine: obvEngine)
+                self?.present(groupCreationFlowVC, animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
+                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
+                self?.present(groupCreationFlowVC, animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+            
+            if let presentedViewController = self.presentedViewController {
+                presentedViewController.present(alert, animated: true)
+            } else {
+                self.present(alert, animated: true)
+            }
+
+        } else {
+            
+            // Starting with version 0.12.0, we only allow the creation of groups v2
+            let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
+            present(groupCreationFlowVC, animated: true)
+            
+        }
     }
         
     

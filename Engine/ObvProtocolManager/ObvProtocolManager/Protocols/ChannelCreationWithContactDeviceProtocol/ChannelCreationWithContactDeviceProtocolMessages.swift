@@ -140,11 +140,15 @@ extension ChannelCreationWithContactDeviceProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 4 else { throw NSError() }
+            guard encodedElements.count == 4 else {
+                throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Expecting 4 encoded elements in AliceIdentityAndEphemeralKeyMessage, got \(encodedElements.count)")
+            }
             contactIdentity = try encodedElements[0].obvDecode()
             contactDeviceUid = try encodedElements[1].obvDecode()
             signature = try encodedElements[2].obvDecode()
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[3]) else { throw NSError() }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[3]) else {
+                throw Self.makeError(message: "Could not decode public key in AliceIdentityAndEphemeralKeyMessage")
+            }
             contactEphemeralPublicKey = pk
         }
         
@@ -179,8 +183,12 @@ extension ChannelCreationWithContactDeviceProtocol {
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
-            guard encodedElements.count == 2 else { throw NSError() }
-            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else { throw NSError() }
+            guard encodedElements.count == 2 else {
+                throw ChannelCreationWithContactDeviceProtocol.makeError(message: "Expecting 2 encoded elements in BobEphemeralKeyAndK1Message, got \(encodedElements.count)")
+            }
+            guard let pk = PublicKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[0]) else {
+                throw Self.makeError(message: "Could not decode public key in BobEphemeralKeyAndK1Message")
+            }
             contactEphemeralPublicKey = pk
             c1 = try encodedElements[1].obvDecode()
         }

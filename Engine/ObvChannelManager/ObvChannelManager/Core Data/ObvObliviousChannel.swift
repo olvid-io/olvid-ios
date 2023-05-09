@@ -190,14 +190,14 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
         self.timestampOfLastFullRatchetSentMessage = now
         
         // Using the seed, we derive the seedForNextSendKey and compute the first provision (which contains the seedForNextProvisionedReceiveKey).
-        guard let sendSeed = seed.diversify(with: currentDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { return nil }
+        guard let sendSeed = seed.diversify(with: currentDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { assertionFailure(); return nil }
         self.seedForNextSendKey = sendSeed
-        guard let recvSeed = seed.diversify(with: remoteDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { return nil }
+        guard let recvSeed = seed.diversify(with: remoteDeviceUid, withCryptoSuite: cryptoSuiteVersion) else { assertionFailure(); return nil }
         
         self.provisions = Set<Provision>()
         guard let provision = Provision(fullRatchetingCount: 0,
                                         obliviousChannel: self,
-                                        seedForNextProvisionedReceiveKey: recvSeed) else { return nil }
+                                        seedForNextProvisionedReceiveKey: recvSeed) else { assertionFailure(); return nil }
         self.provisions.insert(provision)
     }
     
@@ -460,11 +460,11 @@ extension ObvObliviousChannel {
                                         currentDeviceUidKey, currentDeviceUid,
                                         remoteDeviceUidKey, remoteDeviceUid,
                                         remoteCryptoIdentityKey, remoteIdentity)
-        guard let channel = try obvContext.fetch(request).first else {
-            return
+        let channels = try obvContext.fetch(request)
+        for channel in channels {
+            channel.obvContext = obvContext
+            obvContext.delete(channel)
         }
-        channel.obvContext = obvContext
-        obvContext.delete(channel)
     }
 
     
@@ -480,14 +480,26 @@ extension ObvObliviousChannel {
         return Set(identities)
     }
 
-    
+
     static func getAllKnownRemoteDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         let items = try obvContext.fetch(request)
         _ = items.map { $0.obvContext = obvContext }
         let values = Set(items.map { ObliviousChannelIdentifier(currentDeviceUid: $0.currentDeviceUid, remoteCryptoIdentity: $0.remoteCryptoIdentity, remoteDeviceUid: $0.remoteDeviceUid) })
         return values
-
+    }
+    
+    
+    static func deleteAllObliviousChannelsForCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
+        request.fetchBatchSize = 500
+        request.predicate = NSPredicate(format: "%K == %@", currentDeviceUidKey, currentDeviceUid)
+        request.propertiesToFetch = []
+        let channels = try obvContext.fetch(request)
+        for channel in channels {
+            channel.obvContext = obvContext
+            obvContext.delete(channel)
+        }
     }
 
 }

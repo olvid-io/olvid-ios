@@ -63,10 +63,10 @@ extension FullRatchetProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.contactDeviceUid = try encodedElements[1].obvDecode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { assertionFailure(); throw Self.makeError(message: "Could not decode private key") }
             self.ephemeralPrivateKey = ephemeralPrivateKey
             self.restartCounter = try encodedElements[3].obvDecode()
         }
@@ -96,10 +96,10 @@ extension FullRatchetProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 5) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 5) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.contactDeviceUid = try encodedElements[1].obvDecode()
-            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { throw NSError() }
+            guard let ephemeralPrivateKey = PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encodedElements[2]) else { assertionFailure(); throw Self.makeError(message: "Could not decode private key") }
             self.ephemeralPrivateKey = ephemeralPrivateKey
             self.restartCounter = try encodedElements[3].obvDecode()
             self.k1 = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[4])
@@ -130,7 +130,7 @@ extension FullRatchetProtocol {
         }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 4) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 4) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             self.contactIdentity = try encodedElements[0].obvDecode()
             self.contactDeviceUid = try encodedElements[1].obvDecode()
             self.seed = try encodedElements[2].obvDecode()

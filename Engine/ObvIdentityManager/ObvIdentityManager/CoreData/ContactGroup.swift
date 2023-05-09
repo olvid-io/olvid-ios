@@ -297,10 +297,15 @@ extension ContactGroup {
     }
     
     
-    // This method is called from both `ContactGroupJoined` and `ContactGroupOwned`
-    func updatePendingMembersAndGroupMembers(newVersionOfGroupMembers: Set<ContactIdentity>, newVersionOfPendingMembers: Set<PendingGroupMember>, groupMembersVersion: Int) throws {
+    /// Method called from both `ContactGroupJoined` and `ContactGroupOwned`.
+    ///
+    /// If `groupMembersVersion` is `nil`, the change is enforced without checking if the new group member version is strictly larger than the current one.
+    /// Setting this value to `nil` allows to remove a contact after she deleted her owned identiy, without waiting for the group owner to remove her from the group.
+    func updatePendingMembersAndGroupMembers(newVersionOfGroupMembers: Set<ContactIdentity>, newVersionOfPendingMembers: Set<PendingGroupMember>, groupMembersVersion: Int?) throws {
         
-        guard groupMembersVersion > self.groupMembersVersion else { return }
+        if let groupMembersVersion {
+            guard groupMembersVersion > self.groupMembersVersion else { return }
+        }
 
         guard let obvContext = self.obvContext else {
             throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroup.errorDomain)
@@ -321,7 +326,9 @@ extension ContactGroup {
 
         self.groupMembers = newVersionOfGroupMembers
         self.pendingGroupMembers = newVersionOfPendingMembers
-        self.groupMembersVersion = groupMembersVersion
+        if let groupMembersVersion {
+            self.groupMembersVersion = groupMembersVersion
+        }
 
         notificationRelatedChanges.insert(.pendingMembersAndGroupMembers)
 
@@ -340,7 +347,7 @@ extension ContactGroup {
     
     
     static func getAll(ownedIdentity: OwnedIdentity, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroup> {
-        guard let obvContext = ownedIdentity.obvContext else { throw NSError() }
+        guard let obvContext = ownedIdentity.obvContext else { throw Self.makeError(message: "Could not find context") }
         let request: NSFetchRequest<ContactGroup> = ContactGroup.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@", ContactGroup.ownedIdentityKey, ownedIdentity)
         let items = (try obvContext.fetch(request))
@@ -350,10 +357,11 @@ extension ContactGroup {
  
     
     static func getAllContactGroupWhereGroupMembersContainTheContact(_ contactIdentity: ContactIdentity, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroup> {
-        guard let obvContext = contactIdentity.obvContext else { throw NSError() }
+        guard let obvContext = contactIdentity.obvContext else { throw Self.makeError(message: "Could not find context") }
+        guard let ownedIdentity = contactIdentity.ownedIdentity else { throw Self.makeError(message: "Could not find owned identity associated to contact") }
         let request: NSFetchRequest<ContactGroup> = ContactGroup.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %@ IN %K",
-                                        ContactGroup.ownedIdentityKey, contactIdentity.ownedIdentity,
+                                        ContactGroup.ownedIdentityKey, ownedIdentity,
                                         contactIdentity, ContactGroup.groupMembersKey)
         let items = (try obvContext.fetch(request))
         items.forEach { $0.delegateManager = delegateManager }
@@ -410,56 +418,58 @@ extension ContactGroup {
                             NotificationType.Key.ownedIdentity: ownedIdentityCryptoIdentityOnDeletion!] as [String: Any]
             delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
             
-        }
-        
-        if notificationRelatedChanges.contains(.publishedDetails) {
+        } else {
             
-            if let groupOwned = self as? ContactGroupOwned {
+            if notificationRelatedChanges.contains(.publishedDetails) {
                 
-                let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPublishedDetails.self
-                let userInfo = [NotificationType.Key.groupUid: groupOwned.groupUid,
-                                NotificationType.Key.ownedIdentity: groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
-                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                
-            } else if let groupJoined = self as? ContactGroupJoined {
-                
-                let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPublishedDetails.self
-                let userInfo = [NotificationType.Key.groupUid: groupJoined.groupUid,
-                                NotificationType.Key.groupOwner: groupJoined.groupOwner.cryptoIdentity,
-                                NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
-                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                if let groupOwned = self as? ContactGroupOwned {
+                    
+                    let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPublishedDetails.self
+                    let userInfo = [NotificationType.Key.groupUid: groupOwned.groupUid,
+                                    NotificationType.Key.ownedIdentity: groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
+                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    
+                } else if let groupJoined = self as? ContactGroupJoined {
+                    
+                    let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPublishedDetails.self
+                    let userInfo = [NotificationType.Key.groupUid: groupJoined.groupUid,
+                                    NotificationType.Key.groupOwner: groupJoined.groupOwner.cryptoIdentity,
+                                    NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
+                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    
+                }
                 
             }
-
-        }
-
-        if notificationRelatedChanges.contains(.publishedDetails) || isDeleted {
-            if isDeleted { assert(ownedIdentityCryptoIdentityOnDeletion != nil) }
-            let ownedCryptoId = ownedIdentityCryptoIdentityOnDeletion ?? ownedIdentity.cryptoIdentity
-            if let labelToDelete = self.labelToDelete {
-                let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoId, label: labelToDelete)
-                notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            
+            if notificationRelatedChanges.contains(.publishedDetails) || isDeleted {
+                if isDeleted { assert(ownedIdentityCryptoIdentityOnDeletion != nil) }
+                let ownedCryptoId = ownedIdentityCryptoIdentityOnDeletion ?? ownedIdentity.cryptoIdentity
+                if let labelToDelete = self.labelToDelete {
+                    let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoId, label: labelToDelete)
+                    notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                }
             }
-        }
-
-        
-        if notificationRelatedChanges.contains(.pendingMembersAndGroupMembers) {
             
-            if let groupOwned = self as? ContactGroupOwned {
             
-                let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPendingMembersAndGroupMembers.self
-                let userInfo = [NotificationType.Key.groupUid: groupOwned.groupUid,
-                                NotificationType.Key.ownedIdentity: groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
-                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-
-            } else if let groupJoined = self as? ContactGroupJoined {
-
-                let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPendingMembersAndGroupMembers.self
-                let userInfo = [NotificationType.Key.groupUid: groupJoined.groupUid,
-                                NotificationType.Key.groupOwner: groupJoined.groupOwner.cryptoIdentity,
-                                NotificationType.Key.ownedIdentity: groupJoined.ownedIdentity.cryptoIdentity] as [String: Any]
-                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-
+            if notificationRelatedChanges.contains(.pendingMembersAndGroupMembers) {
+                
+                if let groupOwned = self as? ContactGroupOwned {
+                    
+                    let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedPendingMembersAndGroupMembers.self
+                    let userInfo = [NotificationType.Key.groupUid: groupOwned.groupUid,
+                                    NotificationType.Key.ownedIdentity: groupOwned.ownedIdentity.cryptoIdentity] as [String: Any]
+                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    
+                } else if let groupJoined = self as? ContactGroupJoined {
+                    
+                    let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedPendingMembersAndGroupMembers.self
+                    let userInfo = [NotificationType.Key.groupUid: groupJoined.groupUid,
+                                    NotificationType.Key.groupOwner: groupJoined.groupOwner.cryptoIdentity,
+                                    NotificationType.Key.ownedIdentity: groupJoined.ownedIdentity.cryptoIdentity] as [String: Any]
+                    delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                    
+                }
+                
             }
             
         }

@@ -75,7 +75,7 @@ final class ProofOfWorkEngineSyndromeBased: ProofOfWorkEngine {
     }
     
     private static func decode(_ challenge: ObvEncoded) -> (H: Matrix, S: Column)? {
-        guard let listOfEncodedElements = [ObvEncoded].init(challenge) else { return nil }
+        guard let listOfEncodedElements = [ObvEncoded](challenge) else { return nil }
         guard listOfEncodedElements.count == 2 else { return nil }
         // Decode H
         guard let seed = Seed(listOfEncodedElements[0]) else { return nil }

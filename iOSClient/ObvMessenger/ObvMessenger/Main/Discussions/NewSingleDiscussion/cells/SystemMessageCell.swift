@@ -17,9 +17,11 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
+
 import CoreData
 import os.log
+import ObvUI
+import UIKit
 
 
 @available(iOS 14.0, *)
@@ -215,7 +217,7 @@ extension SystemMessageCell {
 fileprivate struct SystemMessageCellCustomContentConfiguration: UIContentConfiguration, Hashable {
 
     var body: String?
-    var icon: ObvSystemIcon?
+    var icon: SystemIcon?
     var backgroundColor = UIColor.red
     var textColor = UIColor.white
     var date: Date?

@@ -883,19 +883,6 @@ extension PersistedMessageSystem {
     }
     
     
-    static func countNew(for ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
-        guard let context = ownedIdentity.managedObjectContext else { throw NSError() }
-        let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.isNew,
-            Predicate.withOwnedIdentity(for: ownedIdentity),
-            Predicate.isDisussionUnmuted,
-            Predicate.isRelevantForCountingUnread,
-        ])
-        return try context.count(for: request)
-    }
-
-    
     static func countNewForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> Int {
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [

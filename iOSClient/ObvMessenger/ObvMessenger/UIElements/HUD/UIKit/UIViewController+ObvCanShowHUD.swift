@@ -27,22 +27,33 @@ extension UIViewController: ObvCanShowHUD {
 
         hideHUD()
         
+        let feedbackOnDisplay: Bool
+        
         let hudView: ObvHUDView
         switch type {
         case .checkmark:
             hudView = ObvIconHUD()
             (hudView as? ObvIconHUD)?.icon = .checkmarkCircle
+            feedbackOnDisplay = true
         case .xmark:
             hudView = ObvIconHUD()
             (hudView as? ObvIconHUD)?.icon = .xmarkCircle
+            feedbackOnDisplay = true
         case .spinner:
             hudView = ObvLoadingHUD()
+            feedbackOnDisplay = false
         case .progress(progress: let progress):
             hudView = ObvLoadingHUD()
             (hudView as? ObvLoadingHUD)?.progress = progress
+            feedbackOnDisplay = false
         case .text(text: let text):
             hudView = ObvTextHUD()
             (hudView as? ObvTextHUD)?.text = text
+            feedbackOnDisplay = false
+        case .icon(systemIcon: let systemIcon, feedbackOnDisplay: let _feedbackOnDisplay):
+            hudView = ObvIconHUD()
+            (hudView as? ObvIconHUD)?.icon = systemIcon
+            feedbackOnDisplay = _feedbackOnDisplay
         }
 
         hudView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
@@ -67,13 +78,10 @@ extension UIViewController: ObvCanShowHUD {
         }
         
         animator.startAnimation()
-        
-        switch type {
-        case .checkmark:
+
+        if feedbackOnDisplay {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
-        default:
-            break
         }
         
     }

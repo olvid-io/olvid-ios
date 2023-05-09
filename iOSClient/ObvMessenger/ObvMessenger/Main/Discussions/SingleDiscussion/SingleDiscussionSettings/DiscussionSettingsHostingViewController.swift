@@ -17,10 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
+
 import CoreData
 import Combine
 import os.log
+import ObvUI
+import SwiftUI
+
 
 final class DiscussionSettingsHostingViewController: UIHostingController<DiscussionExpirationSettingsWrapperView>, DiscussionExpirationSettingsViewModelDelegate {
 
@@ -738,7 +741,7 @@ struct ObvLabel: View {
         self.systemImage = systemImage
     }
 
-    init(_ title: LocalizedStringKey, systemIcon: ObvSystemIcon) {
+    init(_ title: LocalizedStringKey, systemIcon: SystemIcon) {
         self.title = title
         self.systemImage = systemIcon.systemName
     }
@@ -763,7 +766,7 @@ struct ObvLabel: View {
 struct ObvLabelAlt: View {
     
     let title: String
-    let systemIcon: ObvSystemIcon
+    let systemIcon: SystemIcon
     
     var body: some View {
         if #available(iOS 14, *) {

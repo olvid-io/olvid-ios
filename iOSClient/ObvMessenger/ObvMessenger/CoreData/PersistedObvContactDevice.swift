@@ -36,6 +36,7 @@ final class PersistedObvContactDevice: NSManagedObject, Identifiable, ObvErrorMa
     
     @NSManaged private(set) var identifier: Data
     @NSManaged private var rawIdentityIdentity: Data // Required for core data constraints
+    @NSManaged private var rawOwnedIdentityIdentity: Data // Required for core data constraints
     
     // MARK: Relationships
     
@@ -66,17 +67,18 @@ final class PersistedObvContactDevice: NSManagedObject, Identifiable, ObvErrorMa
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactDevice.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         
-        let identity: PersistedObvContactIdentity
+        let persistedContact: PersistedObvContactIdentity
         if let _identity = try PersistedObvContactIdentity.get(persisted: device.contactIdentity, whereOneToOneStatusIs: .any, within: context) {
-            identity = _identity
+            persistedContact = _identity
         } else {
             let _identity = try PersistedObvContactIdentity(contactIdentity: device.contactIdentity, within: context)
-            identity = _identity
+            persistedContact = _identity
         }
         
         self.identifier = device.identifier
-        self.rawIdentityIdentity = identity.cryptoId.getIdentity()
-        self.identity = identity
+        self.rawIdentityIdentity = device.contactIdentity.cryptoId.getIdentity()
+        self.rawOwnedIdentityIdentity = device.contactIdentity.ownedIdentity.cryptoId.getIdentity()
+        self.identity = persistedContact
         
     }
 
@@ -96,10 +98,9 @@ extension PersistedObvContactDevice {
             // Properties
             case identifier = "identifier"
             case rawIdentityIdentity = "rawIdentityIdentity"
+            case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             // Relationships
             case rawIdentity = "rawIdentity"
-            // Others
-            static let ownedIdentityIdentity = [rawIdentity.rawValue, PersistedObvContactIdentity.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
         }
         static func withContactDeviceIdentifier(_ contactDeviceIdentifier: Data) -> NSPredicate {
             NSPredicate(Key.identifier, EqualToData: contactDeviceIdentifier)
@@ -108,7 +109,7 @@ extension PersistedObvContactDevice {
             NSPredicate(Key.rawIdentityIdentity, EqualToData: contactCryptoId.getIdentity())
         }
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
-            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
+            NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
     }
     

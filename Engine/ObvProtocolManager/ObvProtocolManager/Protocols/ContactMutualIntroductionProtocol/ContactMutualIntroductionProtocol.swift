@@ -24,10 +24,11 @@ import ObvCrypto
 import OlvidUtils
 
 
-public struct ContactMutualIntroductionProtocol: ConcreteCryptoProtocol {
+public struct ContactMutualIntroductionProtocol: ConcreteCryptoProtocol, ObvErrorMaker {
     
     static let logCategory = "ContactMutualIntroductionProtocol"
-    
+    public static let errorDomain = "ContactMutualIntroductionProtocol"
+
     static let id = CryptoProtocolId.ContactMutualIntroduction
     
     static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,

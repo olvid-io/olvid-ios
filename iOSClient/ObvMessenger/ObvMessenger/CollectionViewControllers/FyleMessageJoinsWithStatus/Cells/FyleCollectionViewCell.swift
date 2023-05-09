@@ -22,6 +22,7 @@ import CoreData
 import PDFKit
 import MobileCoreServices
 import AVKit
+import ObvUI
 
 class FyleCollectionViewCell: UICollectionViewCell {
 

@@ -17,8 +17,10 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
+
 import ObvEngine
+import ObvUI
+import SwiftUI
 
 
 struct TrustOriginsView: View {

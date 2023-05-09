@@ -305,6 +305,9 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeTooManyWrongPasscodeAttemptsCausedLockOut { [weak self] in
                 self?.processTooManyWrongPasscodeAttemptsCausedLockOut()
             },
+            ObvMessengerCoreDataNotification.observePersistedObvOwnedIdentityWasDeleted { [weak self] in
+                self?.processPersistedObvOwnedIdentityWasDeleted()
+            },
         ])
         
         // Internal VoIP notifications
@@ -1690,11 +1693,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 os_log("Could not process return receipt: %{public}@", log: log, type: .fault, error.localizedDescription)
             case .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase:
                 os_log("Could not find message corresponding to the return receipt. We delete the receipt.", log: log, type: .error)
-                obvEngine.deleteObvReturnReceipt(obvReturnReceipt)
+                Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
             }
         } else {
             // If we reach this point, the receipt has been successfully processed. We can delete it from the engine.
-            obvEngine.deleteObvReturnReceipt(obvReturnReceipt)
+            Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
         }
     }
 
@@ -2009,6 +2012,40 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
         internalQueue.addOperations([composedOp], waitUntilFinished: true)
         composedOp.logReasonIfCancelled(log: log)
+    }
+    
+    
+    private func processPersistedObvOwnedIdentityWasDeleted() {
+        
+        do {
+            let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            composedOp.logReasonIfCancelled(log: log)
+        }
+        do {
+            let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            composedOp.logReasonIfCancelled(log: log)
+        }
+        do {
+            let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+            internalQueue.addOperations([composedOp], waitUntilFinished: true)
+            composedOp.logReasonIfCancelled(log: log)
+        }
+
+        trashOrphanedFilesFoundInTheFylesDirectory()
+        deleteOrphanedExpirations()
+        deleteOldOrOrphanedRemoteDeleteAndEditRequests()
+        deleteOldOrOrphanedPendingReactions()
+        cleanExpiredMuteNotificationsSetting()
+        cleanOrphanedPersistedMessageTimestampedMetadata()
+        ObvMessengerInternalNotification.trashShouldBeEmptied
+            .postOnDispatchQueue()
+
+        
     }
 
 }
@@ -2364,11 +2401,11 @@ fileprivate struct MessageIdentifierFromEngineAndOwnedCryptoId: Hashable {
 
 private extension UserDefaults {
     @objc dynamic var objectsModifiedByShareExtension: String {
-        return ObvMessengerConstants.objectsModifiedByShareExtension
+        return ObvMessengerConstants.SharedUserDefaultsKey.objectsModifiedByShareExtension.rawValue
     }
 
     @objc dynamic var extensionFailedToWipeAllEphemeralMessagesBeforeDate: String {
-        return ObvMessengerConstants.extensionFailedToWipeAllEphemeralMessagesBeforeDate
+        return ObvMessengerConstants.SharedUserDefaultsKey.extensionFailedToWipeAllEphemeralMessagesBeforeDate.rawValue
     }
 }
 

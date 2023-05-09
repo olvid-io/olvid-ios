@@ -22,7 +22,7 @@ import Combine
 import os.log
 import ObvEngine
 import ObvTypes
-
+import ObvUI
 
 
 final class BackupKeyVerifierViewHostingController: UIHostingController<BackupKeyVerifierView> {
@@ -434,7 +434,7 @@ fileprivate struct KeyStatusReportView: View {
         case .backupKeyVerificationSucceded: return Text("The backup key is correct")
         case .backupKeyVerificationFailed: return Text("The backup key is incorrect")
         case .fullBackupCouldNotBeRecovered: return Text("The backup could not be recovered")
-        case .fullBackupRecovered(fullBackupDate: _): return Text("The backup key is correct")
+        case .fullBackupRecovered: return Text("The backup key is correct")
         case .couldNotReadBackupFileData: return Text("The backup file could not be read")
         }
     }
@@ -444,7 +444,7 @@ fileprivate struct KeyStatusReportView: View {
         case .backupKeyVerificationSucceded,
              .backupKeyVerificationFailed,
              .couldNotReadBackupFileData,
-             .fullBackupRecovered(fullBackupDate: _):
+             .fullBackupRecovered:
             return nil
         case .fullBackupCouldNotBeRecovered(error: let error):
             switch error {

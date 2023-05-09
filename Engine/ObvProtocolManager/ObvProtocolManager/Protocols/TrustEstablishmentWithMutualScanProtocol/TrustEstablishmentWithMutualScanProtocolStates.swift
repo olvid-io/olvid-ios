@@ -52,7 +52,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
         func obvEncode() -> ObvEncoded { [bobIdentity].obvEncode() }
 
         init(_ encoded: ObvEncoded) throws {
-            guard let encodedElements = [ObvEncoded].init(encoded, expectedCount: 1) else { throw NSError() }
+            guard let encodedElements = [ObvEncoded](encoded, expectedCount: 1) else { assertionFailure(); throw Self.makeError(message: "Could not obtain encoded elements") }
             self.bobIdentity = try encodedElements[0].obvDecode()
         }
 

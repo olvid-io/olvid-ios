@@ -139,6 +139,10 @@ extension PersistedEngineDialog {
     
     override func prepareForDeletion() {
         super.prepareForDeletion()
+        
+        guard let managedObjectContext else { assertionFailure(); return }
+        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
+
         if self.uuidOnDeletion == nil {
             self.uuidOnDeletion = self.uuid
         }

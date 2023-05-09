@@ -17,9 +17,12 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import SwiftUI
+
 import CloudKit
 import Combine
+import ObvUI
+import SwiftUI
+
 
 protocol ICloudBackupListViewControllerDelegate: AnyObject {
     func lastCloudBackupForCurrentDeviceWasDeleted()
@@ -384,7 +387,7 @@ struct ICloudBackupListView: View {
                                     Button(role: .destructive) {
                                         deleteAction(record: record)
                                     } label: {
-                                        Label(CommonString.Word.Delete, systemImage: ObvSystemIcon.trash.systemName)
+                                        Label(CommonString.Word.Delete, systemImage: SystemIcon.trash.systemName)
                                     }
                                 }
                         } else {

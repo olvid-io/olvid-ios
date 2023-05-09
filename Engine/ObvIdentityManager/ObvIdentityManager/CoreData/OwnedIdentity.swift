@@ -28,26 +28,12 @@ import OlvidUtils
 import JWS
 
 @objc(OwnedIdentity)
-final class OwnedIdentity: NSManagedObject, ObvManagedObject {
+final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: Internal constants
     
     private static let entityName = "OwnedIdentity"
-    private static let ownedCryptoIdentityKey = "ownedCryptoIdentity"
-    static let cryptoIdentityKey = "cryptoIdentity"
-    private static let contactIdentitiesKey = "contactIdentities"
-    private static let currentDeviceKey = "currentDevice"
-    private static let otherDevicesKey = "otherDevices"
-    private static let publishedIdentityDetailsKey = "publishedIdentityDetails"
-    private static let contactGroupsKey = "contactGroups"
-    private static let contactGroupsV2Key = "contactGroupsV2"
-    private static let isActiveKey = "isActive"
-    private static let keycloakServerKey = "keycloakServer"
-    
-    private static let errorDomain = String(describing: OwnedIdentity.self)
-
-    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { OwnedIdentity.makeError(message: message) }
+    static let errorDomain = String(describing: OwnedIdentity.self)
 
     // MARK: Attributes
     
@@ -55,13 +41,14 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
     // The following var is only used for filtering/searching purposes. It should *only* be set within the setter of `ownedCryptoIdentity`
     @NSManaged private(set) var cryptoIdentity: ObvCryptoIdentity // Unique (not enforced)
     @NSManaged private(set) var isActive: Bool
+    @NSManaged private(set) var isDeletionInProgress: Bool
     private(set) var ownedCryptoIdentity: ObvOwnedCryptoIdentity {
         get {
-            return kvoSafePrimitiveValue(forKey: OwnedIdentity.ownedCryptoIdentityKey) as! ObvOwnedCryptoIdentity
+            return kvoSafePrimitiveValue(forKey: Predicate.Key.ownedCryptoIdentity.rawValue) as! ObvOwnedCryptoIdentity
         }
         set {
             self.cryptoIdentity = newValue.getObvCryptoIdentity() // Set the cryptoIdentity
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.ownedCryptoIdentityKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.ownedCryptoIdentity.rawValue)
         }
     }
 
@@ -69,70 +56,70 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
     
     private(set) var keycloakServer: KeycloakServer? {
         get {
-            guard let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.keycloakServerKey) as? KeycloakServer else { return nil }
+            guard let res = kvoSafePrimitiveValue(forKey: Predicate.Key.keycloakServer.rawValue) as? KeycloakServer else { return nil }
             res.delegateManager = delegateManager
             res.obvContext = obvContext
             return res
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.keycloakServerKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.keycloakServer.rawValue)
         }
     }
     private(set) var contactGroups: Set<ContactGroup> {
         get {
-            let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.contactGroupsKey) as! Set<ContactGroup>
+            let res = kvoSafePrimitiveValue(forKey: Predicate.Key.contactGroups.rawValue) as! Set<ContactGroup>
             return Set(res.map { $0.delegateManager = delegateManager; $0.obvContext = self.obvContext; return $0 })
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.contactGroupsKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.contactGroups.rawValue)
         }
     }
     private(set) var contactGroupsV2: Set<ContactGroupV2> {
         get {
-            let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.contactGroupsV2Key) as! Set<ContactGroupV2>
+            let res = kvoSafePrimitiveValue(forKey: Predicate.Key.contactGroupsV2.rawValue) as! Set<ContactGroupV2>
             return Set(res.map { $0.obvContext = self.obvContext; return $0 })
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.contactGroupsV2Key)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.contactGroupsV2.rawValue)
         }
     }
     private(set) var contactIdentities: Set<ContactIdentity> {
         get {
-            let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.contactIdentitiesKey) as! Set<ContactIdentity>
+            let res = kvoSafePrimitiveValue(forKey: Predicate.Key.contactIdentities.rawValue) as! Set<ContactIdentity>
             return Set(res.map { $0.delegateManager = delegateManager; $0.obvContext = self.obvContext; return $0 })
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.contactIdentitiesKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.contactIdentities.rawValue)
         }
     }
     private(set) var currentDevice: OwnedDevice {
         get {
-            let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.currentDeviceKey) as! OwnedDevice
+            let res = kvoSafePrimitiveValue(forKey: Predicate.Key.currentDevice.rawValue) as! OwnedDevice
             res.delegateManager = delegateManager
             res.obvContext = self.obvContext
             return res
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.currentDeviceKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.currentDevice.rawValue)
         }
     }
     private(set) var otherDevices: Set<OwnedDevice> {
         get {
-            let res = kvoSafePrimitiveValue(forKey: OwnedIdentity.otherDevicesKey) as! Set<OwnedDevice>
+            let res = kvoSafePrimitiveValue(forKey: Predicate.Key.otherDevices.rawValue) as! Set<OwnedDevice>
             return Set(res.map { $0.delegateManager = delegateManager; $0.obvContext = self.obvContext; return $0 })
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.otherDevicesKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.otherDevices.rawValue)
         }
     }
     private(set) var publishedIdentityDetails: OwnedIdentityDetailsPublished {
         get {
-            let item = kvoSafePrimitiveValue(forKey: OwnedIdentity.publishedIdentityDetailsKey) as! OwnedIdentityDetailsPublished
+            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.publishedIdentityDetails.rawValue) as! OwnedIdentityDetailsPublished
             item.obvContext = self.obvContext
             return item
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OwnedIdentity.publishedIdentityDetailsKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.publishedIdentityDetails.rawValue)
         }
     }
 
@@ -157,6 +144,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         self.apiKey = apiKey
         // An owned identity is always active on creation. Several places within the engine assume this behaviour.
         self.isActive = true
+        self.isDeletionInProgress = false
         self.ownedCryptoIdentity = ObvOwnedCryptoIdentity.gen(withServerURL: serverURL,
                                                               forAuthenticationImplementationId: authEmplemByteId,
                                                               andPublicKeyEncryptionImplementationByteId: pkEncryptionImplemByteId,
@@ -198,6 +186,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         self.apiKey = backupItem.apiKey
         // We do *not* use the backupItem.isActive value. This information is used at the ObvIdentityManagerImplementation level, to decide whether to ask for reactivation of this owned identity or not.
         self.isActive = false
+        self.isDeletionInProgress = false
         self.cryptoIdentity = backupItem.cryptoIdentity
         guard let ownedCryptoIdentity = backupItem.ownedCryptoIdentity else {
             throw OwnedIdentity.makeError(message: "Could not recover owned crypto identity")
@@ -223,9 +212,19 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject {
         self.publishedIdentityDetails = publishedIdentityDetails
         self.keycloakServer = keycloakServer
     }
+    
+    
+    /// When the user requests the deletion of an owned identity, a cryptographic protocol starts. The first action is to mark the owned identity for deletion before evenutally deleting it.
+    ///
+    /// This makes is possible to have a very responsive UI.
+    func markForDeletion() {
+        guard !isDeletionInProgress else { return }
+        isDeletionInProgress = true
+    }
 
     
     func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+        guard isDeletionInProgress else { assertionFailure(); throw Self.makeError(message: "Request the deletion of an owned identity that was not marked for deletion") }
         try publishedIdentityDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         obvContext.delete(self)
     }
@@ -239,7 +238,7 @@ extension OwnedIdentity {
     func updatePublishedDetailsWithNewDetails(_ newIdentityDetails: ObvIdentityDetails, delegateManager: ObvIdentityDelegateManager) throws {
         guard let obvContext = self.obvContext else {
             assertionFailure()
-            throw makeError(message: "Could not find obv context")
+            throw Self.makeError(message: "Could not find obv context")
         }
         try self.publishedIdentityDetails.updateWithNewIdentityDetails(newIdentityDetails,
                                                                        delegateManager: delegateManager,
@@ -251,7 +250,7 @@ extension OwnedIdentity {
         if let currentKeycloakServerURL = keycloakServer?.serverURL {
             guard currentKeycloakServerURL == keycloakServerURL else {
                 assertionFailure()
-                throw makeError(message: "Error: trying to set an api key on a keycloak managed identity without specifying the keycloak server.")
+                throw Self.makeError(message: "Error: trying to set an api key on a keycloak managed identity without specifying the keycloak server.")
             }
         }
         self.apiKey = newApiKey
@@ -320,7 +319,7 @@ extension OwnedIdentity {
     
     
     func setOwnedIdentityKeycloakSignatureKey(_ keycloakServersignatureVerificationKey: ObvJWK?, delegateManager: ObvIdentityDelegateManager) throws {
-        guard isKeycloakManaged else { throw makeError(message: "Owned identity is not keycloak managed. Cannot set keycloak server signature key") }
+        guard isKeycloakManaged else { throw Self.makeError(message: "Owned identity is not keycloak managed. Cannot set keycloak server signature key") }
         keycloakServer?.setServerSignatureVerificationKey(keycloakServersignatureVerificationKey)
         refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: delegateManager)
     }
@@ -378,12 +377,12 @@ extension OwnedIdentity {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "OwnedIdentity")
             os_log("The delegate manager is not set (6)", log: log, type: .fault)
-            throw makeError(message: "The delegate manager is not set (6)")
+            throw Self.makeError(message: "The delegate manager is not set (6)")
         }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedIdentity")
         guard OwnedDevice(remoteDeviceUid: uid, ownedIdentity: self, delegateManager: delegateManager) != nil else {
             os_log("Could not add a remote device", log: log, type: .fault)
-            throw makeError(message: "Could not add a remote device")
+            throw Self.makeError(message: "Could not add a remote device")
         }
     }
     
@@ -418,7 +417,7 @@ extension OwnedIdentity {
     
     private func iOSSecItemAdd(ownedCryptoIdentity: ObvOwnedCryptoIdentity) throws {
         guard let delegateManager = self.delegateManager else {
-            throw makeError(message: "The delegate manager is not set")
+            throw Self.makeError(message: "The delegate manager is not set")
         }
         let identity = ownedCryptoIdentity.getObvCryptoIdentity().getIdentity()
         let encodedOwnedCryptoIdentity = ownedCryptoIdentity.obvEncode()
@@ -434,7 +433,7 @@ extension OwnedIdentity {
                 let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedIdentity")
                 os_log("Keychain error: %@", log: log, type: .fault, status.description)
             }
-            throw makeError(message: "Keychain error: \(status.description)")
+            throw Self.makeError(message: "Keychain error: \(status.description)")
         }
     }
     
@@ -453,7 +452,8 @@ extension OwnedIdentity {
                 let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedIdentity")
                 os_log("Keychain error: %@", log: log, type: .fault, status.description)
             }
-            throw NSError()
+            assertionFailure()
+            throw Self.makeError(message: "Keychain error")
         }
         
         guard let existingItem = item as? [String: Any],
@@ -464,7 +464,8 @@ extension OwnedIdentity {
                     let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedIdentity")
                     os_log("Could not extract owned identity from keychain item", log: log, type: .fault)
                 }
-                throw NSError()
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract owned identity from keychain item")
         }
 
         return ownedCryptoIdentity
@@ -479,7 +480,7 @@ extension OwnedIdentity {
     
     func setRawCapabilitiesOfOtherDeviceWithUID(_ deviceUID: UID, newRawCapabilities: Set<String>) throws {
         guard let device = self.otherDevices.first(where: { $0.uid == deviceUID }) else {
-            throw makeError(message: "Could not find contact device")
+            throw Self.makeError(message: "Could not find contact device")
         }
         device.setRawCapabilities(newRawCapabilities: newRawCapabilities)
     }
@@ -513,13 +514,37 @@ extension OwnedIdentity {
 
 extension OwnedIdentity {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case apiKey = "apiKey"
+            case cryptoIdentity = "cryptoIdentity"
+            case isActive = "isActive"
+            case isDeletionInProgress = "isDeletionInProgress"
+            case ownedCryptoIdentity = "ownedCryptoIdentity"
+            // Relationships
+            case contactGroups = "contactGroups"
+            case contactGroupsV2 = "contactGroupsV2"
+            case contactIdentities = "contactIdentities"
+            case currentDevice = "currentDevice"
+            case keycloakServer = "keycloakServer"
+            case maskingUID = "maskingUID"
+            case otherDevices = "otherDevices"
+            case publishedIdentityDetails = "publishedIdentityDetails"
+        }
+        static func withCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.cryptoIdentity.rawValue, ownedCryptoIdentity)
+        }
+    }
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<OwnedIdentity> {
         return NSFetchRequest<OwnedIdentity>(entityName: entityName)
     }
 
     static func get(_ identity: ObvCryptoIdentity, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedIdentity? {
         let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", OwnedIdentity.cryptoIdentityKey, identity)
+        request.predicate = Predicate.withCryptoIdentity(identity)
+        request.fetchLimit = 1
         let item = (try obvContext.fetch(request)).first
         item?.delegateManager = delegateManager
         return item
@@ -531,13 +556,14 @@ extension OwnedIdentity {
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
     
-    static func getApiKey(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID {
+    static func getApiKey(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID? {
         let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", OwnedIdentity.cryptoIdentityKey, identity)
+        request.predicate = Predicate.withCryptoIdentity(identity)
         request.fetchLimit = 1
-        guard let item = try obvContext.fetch(request).first else { throw NSError() }
-        return item.apiKey
+        let item = try obvContext.fetch(request).first
+        return item?.apiKey
     }
+    
 }
 
 
@@ -578,9 +604,11 @@ extension OwnedIdentity {
             os_log("A new owned identity was inserted", log: log, type: .debug)
         } else if isDeleted {
             os_log("An owned identity was deleted", log: log, type: .debug)
+            ObvIdentityNotificationNew.ownedIdentityWasDeleted
+                .postOnBackgroundQueue(within: notificationDelegate)
         }
         
-        if changedKeys.contains(OwnedIdentity.isActiveKey) {
+        if changedKeys.contains(Predicate.Key.isActive.rawValue) && !isDeleted {
             if self.isActive {
                 guard let flowId = obvContext?.flowId else { assertionFailure(); return }
                 let notification = ObvIdentityNotificationNew.ownedIdentityWasReactivated(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
@@ -592,7 +620,7 @@ extension OwnedIdentity {
             }
         }
         
-        if changedKeys.contains(OwnedIdentity.keycloakServerKey) {
+        if changedKeys.contains(Predicate.Key.keycloakServer.rawValue) && !isDeleted {
             guard let flowId = obvContext?.flowId else { assertionFailure(); return }
             ObvIdentityNotificationNew.ownedIdentityKeycloakServerChanged(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
                 .postOnBackgroundQueue(within: notificationDelegate)

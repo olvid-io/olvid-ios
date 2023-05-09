@@ -206,7 +206,10 @@ extension GroupManagementProtocol {
                                                                                          contactIdentity: contactIdentity,
                                                                                          groupInformation: updatedGroupInformationWithPhoto.groupInformation,
                                                                                          membersAndPendingGroupMembers: pendingGroupMembers)
-                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -379,7 +382,10 @@ extension GroupManagementProtocol {
                     let childProtocolInitialMessage = DownloadGroupPhotoChildProtocol.InitialMessage(
                         coreProtocolMessage: coreMessage,
                         groupInformation: newGroupInformation)
-                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                     
                 }
@@ -541,7 +547,10 @@ extension GroupManagementProtocol {
                                                                                          contactIdentity: contactIdentity,
                                                                                          groupInformation: groupInformation,
                                                                                          membersAndPendingGroupMembers: membersAndPendingGroupMembers)
-                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -709,10 +718,10 @@ extension GroupManagementProtocol {
                 return CancelledState()
             }
 
-            // Leave the group
+            // Delete the group
             
             do {
-                try identityDelegate.leaveContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, groupOwner: groupInformation.groupOwnerIdentity, within: obvContext)
+                try identityDelegate.deleteContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, groupOwner: groupInformation.groupOwnerIdentity, within: obvContext)
             } catch let error {
                 os_log("Could not leave group joined: %{public}@", log: log, type: .error, error.localizedDescription)
                 return CancelledState()
@@ -754,6 +763,7 @@ extension GroupManagementProtocol {
             
             guard protocolInstanceUid == groupInformation.associatedProtocolUid else {
                 os_log("The protocol instance uid does not correspond to the one associated with the group", log: log, type: .error)
+                assertionFailure()
                 return CancelledState()
             }
 
@@ -797,10 +807,10 @@ extension GroupManagementProtocol {
 
             }
 
-            // Use the identity manager to leave the group "locally"
+            // Delete the group within the identity manager
             
             do {
-                try identityDelegate.leaveContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, groupOwner: groupInformation.groupOwnerIdentity, within: obvContext)
+                try identityDelegate.deleteContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, groupOwner: groupInformation.groupOwnerIdentity, within: obvContext)
             } catch {
                 os_log("The call to leaveContactGroupJoined of the identity manager failed", log: log, type: .error)
                 return CancelledState()
@@ -1232,7 +1242,10 @@ extension GroupManagementProtocol {
                                                                                      contactIdentity: memberIdentity,
                                                                                      groupInformation: groupInformation,
                                                                                      membersAndPendingGroupMembers: membersAndPendingGroupMembers)
-            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+            guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
             do {
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {

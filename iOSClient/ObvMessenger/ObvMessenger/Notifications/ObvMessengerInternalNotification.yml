@@ -12,10 +12,6 @@ notifications:
 - name: userWantsToRefreshContactGroupJoined
   params:
   - {name: obvContactGroup, type: ObvContactGroup}
-- name: currentOwnedCryptoIdChanged
-  params:
-  - {name: newOwnedCryptoId, type: ObvCryptoId}
-  - {name: apiKey, type: UUID}
 - name: externalTransactionsWereMergedIntoViewContext
 - name: newMuteExpiration
   params:
@@ -27,6 +23,7 @@ notifications:
 - name: userWantsToCallAndIsAllowedTo
   params:
   - {name: contactIds, type: [OlvidUserId]}
+  - {name: ownedIdentityForRequestingTurnCredentials, type: ObvCryptoId}
   - {name: groupId, type: "GroupIdentifierBasedOnObjectID?"}
 - name: userWantsToSelectAndCallContacts
   params:
@@ -392,3 +389,36 @@ notifications:
 - name: backupForExportWasExported
 - name: backupForUploadWasUploaded
 - name: backupForUploadFailedToUpload
+- name: userWantsToCreateNewOwnedIdentity
+- name: userWantsToSwitchToOtherOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: userWantsToDeleteOwnedIdentityButHasNotConfirmedYet
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: userWantsToDeleteOwnedIdentityAndHasConfirmed
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: notifyContacts, type: Bool}
+- name: userWantsToHideOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: password, type: String}
+- name: failedToHideOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: userWantsToSwitchToOtherHiddenOwnedIdentity
+  params:
+  - {name: password, type: String}
+- name: userWantsToUnhideOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: metaFlowControllerDidSwitchToOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: recomputeNumberOfNewMessagesForAllOwnedIdentities
+- name: closeAnyOpenHiddenOwnedIdentity
+- name: userWantsToUpdateOwnedCustomDisplayName
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: newCustomDisplayName, type: "String?"}

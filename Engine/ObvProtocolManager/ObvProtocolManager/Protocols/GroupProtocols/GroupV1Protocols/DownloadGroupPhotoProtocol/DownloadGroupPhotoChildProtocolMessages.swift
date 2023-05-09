@@ -54,7 +54,7 @@ extension DownloadGroupPhotoChildProtocol {
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 1 else { throw NSError() }
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             self.groupInformation = try message.encodedInputs[0].obvDecode()
         }
 

@@ -20,6 +20,7 @@
 import Foundation
 import ObvTypes
 import ObvMetaManager
+import ObvCrypto
 
 enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     
@@ -28,7 +29,7 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     case deletionOfOutboxMessage(withId: MessageIdentifier)
     
     // For inbox messages
-    case uidsOfMessagesToProcess
+    case uidsOfMessagesToProcess(ownedCryptoIdentity: ObvCryptoIdentity)
     case networkReceivedMessageWasProcessed(messageId: MessageIdentifier)
     case applicationMessageDecrypted(messageId: MessageIdentifier)
     case extendedMessagePayloadWasDownloaded(messageId: MessageIdentifier)
@@ -91,10 +92,10 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             default:
                 return false
             }
-        case .uidsOfMessagesToProcess:
+        case .uidsOfMessagesToProcess(ownedCryptoIdentity: let a1):
             switch rhs {
-            case .uidsOfMessagesToProcess:
-                return true
+            case .uidsOfMessagesToProcess(ownedCryptoIdentity: let a2):
+                return a1 == a2
             default:
                 return false
             }
@@ -157,8 +158,8 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             return "protocolMessageToProcess"
         case .endOfProcessingOfProtocolMessage(withId: let uid):
             return "endOfProcessingOfProtocolMessage<\(uid.debugDescription)>"
-        case .uidsOfMessagesToProcess:
-            return "uidsOfMessagesToProcess"
+        case .uidsOfMessagesToProcess(let ownedCryptoIdentity):
+            return "uidsOfMessagesToProcess<\(ownedCryptoIdentity.debugDescription)>"
         case .applicationMessageDecrypted(messageId: let uid):
             return "applicationMessageDecrypted<\(uid.debugDescription)>"
         case .deletionOfInboxMessage(withId: let uid):

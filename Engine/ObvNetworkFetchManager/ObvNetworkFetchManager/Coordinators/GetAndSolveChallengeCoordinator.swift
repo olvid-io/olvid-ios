@@ -173,10 +173,7 @@ extension GetAndSolveChallengeCoordinator: GetAndSolveChallengeDelegate {
                     return
                 }
                 
-                let apiKey: UUID
-                do {
-                    apiKey = try solveChallengeDelegate.getApiKeyForOwnedIdentity(identity)
-                } catch {
+                guard let apiKey = try solveChallengeDelegate.getApiKeyForOwnedIdentity(identity, within: obvContext) else {
                     syncQueueOutput = .noApiKey
                     return
                 }

@@ -1,0 +1,12 @@
+/* 
+  Localizable.strings
+  ObvUI
+
+  Created by Stefan Schmitt on 25/11/2022.
+  
+*/
+
+
+"DISCUSSIONS_FILTER_CELL_PICKER_TEXT" = "Filtrer les discussions";
+
+"DISCUSSIONS_LIST_SELECTION_PLACEHOLDER_CELL" = "Sélectionnez une ou plusieurs discussions";

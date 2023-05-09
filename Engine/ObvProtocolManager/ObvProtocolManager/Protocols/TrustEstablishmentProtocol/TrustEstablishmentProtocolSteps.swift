@@ -144,7 +144,10 @@ extension TrustEstablishmentProtocol {
                                                                                                 decommitment: decommitment,
                                                                                                 seedForSas: seedForSas,
                                                                                                 dialogUuid: dialogUuid)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate invite to other devices.", log: log, type: .fault)
@@ -167,7 +170,10 @@ extension TrustEstablishmentProtocol {
                                                                           contactIdentity: ownedIdentity,
                                                                           contactDeviceUids: [UID](ownedDeviceUids),
                                                                           commitment: commitment)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -267,7 +273,10 @@ extension TrustEstablishmentProtocol {
             do {
                 let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = AliceSendsDecommitmentMessage(coreProtocolMessage: coreMessage, decommitment: decommitment)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -458,7 +467,10 @@ extension TrustEstablishmentProtocol {
                 do {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = BobPropagatesConfirmationToOtherDevicesMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
@@ -518,7 +530,10 @@ extension TrustEstablishmentProtocol {
                                                                   contactSeedForSas: seedForSas,
                                                                   contactIdentityCoreDetails: ownedIdentityCoreDetails,
                                                                   contactDeviceUids: [UID](ownedDeviceUids))
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -769,7 +784,10 @@ extension TrustEstablishmentProtocol {
                 do {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateEnteredSasToOtherDevicesMessage.init(coreProtocolMessage: coreMessage, sasEnteredByUser: sasEntered)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate sas to other devices.", log: log, type: .fault)

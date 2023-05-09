@@ -19,6 +19,7 @@
 
 import UIKit
 import OlvidUtils
+import ObvUI
 
 
 class SasView: UIView, ObvErrorMaker {

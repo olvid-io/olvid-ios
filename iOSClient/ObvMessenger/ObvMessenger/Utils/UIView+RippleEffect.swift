@@ -44,9 +44,7 @@ extension UIView {
         animator2.addCompletion { (_) in clipView.removeFromSuperview() }
         animator1.startAnimation()
         animator2.startAnimation(afterDelay: animationDuration/2)
-        
     }
-    
 }
 
 

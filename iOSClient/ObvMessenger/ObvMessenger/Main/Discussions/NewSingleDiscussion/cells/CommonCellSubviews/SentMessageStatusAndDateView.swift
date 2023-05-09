@@ -17,7 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUI
 import UIKit
+
 
 @available(iOS 14.0, *)
 final class SentMessageStatusAndDateView: ViewForOlvidStack {
@@ -37,7 +39,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         editedStatusImageView.showInStack = showEditedStatus        
     }
     
-    private static func symbolIconForStatus(_ status: PersistedMessageSent.MessageStatus) -> ObvSystemIcon {
+    private static func symbolIconForStatus(_ status: PersistedMessageSent.MessageStatus) -> SystemIcon {
         switch status {
         case .unprocessed: return .hourglass
         case .processing: return .hare

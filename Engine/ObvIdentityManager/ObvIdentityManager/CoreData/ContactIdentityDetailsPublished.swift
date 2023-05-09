@@ -116,12 +116,12 @@ extension ContactIdentityDetailsPublished {
         }
 
         
-        if !isDeleted {
+        if !isDeleted, let ownedIdentity = contactIdentity.ownedIdentity {
             
             if let publishedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
             let NotificationType = ObvIdentityNotification.NewPublishedContactIdentityDetails.self
             let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
-                            NotificationType.Key.ownedCryptoIdentity: self.contactIdentity.ownedIdentity.cryptoIdentity,
+                            NotificationType.Key.ownedCryptoIdentity: ownedIdentity.cryptoIdentity,
                             NotificationType.Key.publishedIdentityDetails: publishedIdentityDetails] as [String: Any]
             notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
             } else {

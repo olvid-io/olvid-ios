@@ -22,6 +22,7 @@ import UIKit
 import ObvEngine
 import AVFoundation
 import ObvTypes
+import ObvUI
 
 final class AddContactHostingViewController: UIHostingController<AddContactMainView>, AddContactHostingViewStoreDelegate, KeycloakSearchViewControllerDelegate {
     
@@ -86,7 +87,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
             OperationQueue.main.addOperation { [weak self] in
                 guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
                 guard contact.cryptoId == newContactCryptoId && contact.ownedIdentity?.cryptoId == ownedCryptoId else { return }
-                let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: contactPermanentID)
+                let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: contactPermanentID)
                 self?.showHUD(type: .checkmark) {
                     self?.dismiss(animated: true) {
                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
@@ -96,7 +97,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
             }
         })
         if let persistedContact = try? PersistedObvContactIdentity.get(contactCryptoId: newContactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
-            let deepLink = ObvDeepLink.contactIdentityDetails(objectPermanentID: persistedContact.objectPermanentID)
+            let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: persistedContact.objectPermanentID)
             self.showHUD(type: .checkmark) {
                 self.dismiss(animated: true) {
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
@@ -854,7 +855,7 @@ fileprivate struct Card: View {
     
     private let shadowColor = Color(.displayP3, white: 0.0, opacity: 0.1)
     
-    private var colorScheme: ObvSemanticColorScheme { AppTheme.shared.colorScheme }
+    private var colorScheme: AppThemeSemanticColorScheme { AppTheme.shared.colorScheme }
     
     var body: some View {
         HStackOrVStack(useHStack: useLandscapeMode) {

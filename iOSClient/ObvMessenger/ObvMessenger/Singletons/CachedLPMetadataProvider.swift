@@ -36,25 +36,62 @@ final class CachedLPMetadataProvider {
         return OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: self))
     }
 
-    private var completionsForURL = [URL: [(LPLinkMetadata?, Error?) -> Void]]()
+    private var completionsForURL = [URL: [() -> Void]]()
+
+    private var urlsForWhichSiteDoesNotProvideMetada = Set<URL>()
+    private var urlsForWhichFetchingOrCachingMetadataFailed = Set<URL>()
     
-    func getCachedOrStartFetchingMetadata(for URL: URL, cacheHit: (LPLinkMetadata) -> Void, completionHandler: @escaping (LPLinkMetadata?, Error?) -> Void) {
+    enum CachedMetada {
+        case siteDoesNotProvideMetada
+        case metadataCached(metadata: LPLinkMetadata)
+        case metadaNotCachedYet
+        case failureOccuredWhenFetchingOrCachingMetadata
+    }
+
+    
+    func getCachedMetada(for URL: URL) -> CachedMetada {
         
         assert(Thread.isMainThread)
         
         do {
             if let cachedLinkMetadata = try LPMetadataProvider.getCachedLinkMetadata(for: URL) {
-                cacheHit(cachedLinkMetadata)
-                return
+                return .metadataCached(metadata: cachedLinkMetadata)
             }
-        } catch let error {
+        } catch {
             os_log("Could not get cached link metadata: %{public}@", log: CachedLPMetadataProvider.log, type: .error, error.localizedDescription)
+            // Continue anyway
+        }
+
+        if urlsForWhichSiteDoesNotProvideMetada.contains(URL) {
+            return .siteDoesNotProvideMetada
+        } else if urlsForWhichFetchingOrCachingMetadataFailed.contains(URL) {
+            return .failureOccuredWhenFetchingOrCachingMetadata
+        } else {
+            return .metadaNotCachedYet
+        }
+        
+    }
+    
+    
+    func fetchAndCacheMetadata(for URL: URL, completionHandler: @escaping () -> Void) {
+        
+        assert(Thread.isMainThread)
+
+        // Make sure calling this method is pertinent
+        
+        switch getCachedMetada(for: URL) {
+        case .siteDoesNotProvideMetada, .metadataCached, .failureOccuredWhenFetchingOrCachingMetadata:
+            completionHandler()
+            return
+        case .metadaNotCachedYet:
+            break
         }
         
         // Make sure that the scheme is https
+        
         guard URL.scheme?.lowercased() == "https" else {
-            let error = makeError(message: "Unexpected scheme: \(String(describing: URL.scheme)). Expecting https.")
-            completionHandler(nil, error)
+            urlsForWhichFetchingOrCachingMetadataFailed.insert(URL)
+            completionHandler()
             return
         }
         
@@ -64,7 +101,7 @@ final class CachedLPMetadataProvider {
             completionsForURL[URL] = completions
             return
         }
-        
+
         // If we reach this point, the URL has not been request yet. So we request it now.
         
         completionsForURL[URL] = [completionHandler]
@@ -72,22 +109,38 @@ final class CachedLPMetadataProvider {
         let provider = LPMetadataProvider()
         provider.startFetchingMetadata(for: URL) { (metadata, error) in
             assert(!Thread.isMainThread)
-            if error == nil && metadata != nil {
+            let localError: Error?
+            if let metadata {
                 do {
-                    try LPMetadataProvider.storeLinkMetadata(metadata!, for: URL)
+                    try LPMetadataProvider.storeLinkMetadata(metadata, for: URL)
+                    localError = nil
                 } catch let error {
                     os_log("Could not store link metadata: %{public}@", log: CachedLPMetadataProvider.log, type: .error, error.localizedDescription)
+                    localError = error
+                    // Continue anyway
                 }
+            } else {
+                localError = error ?? Self.makeError(message: "Unexpected error")
             }
             DispatchQueue.main.async { [weak self] in
                 guard let _self = self else { return }
+                if localError != nil {
+                    _self.urlsForWhichFetchingOrCachingMetadataFailed.insert(URL)
+                }
                 guard let completions = _self.completionsForURL.removeValue(forKey: URL) else { assertionFailure(); return }
                 for completion in completions {
-                    completion(metadata, error)
+                    completion()
                 }
             }
         }
-        
+
+    }
+    
+    
+    func clearCache() {
+        assert(Thread.isMainThread)
+        urlsForWhichSiteDoesNotProvideMetada.removeAll()
+        urlsForWhichFetchingOrCachingMetadataFailed.removeAll()
     }
     
 }

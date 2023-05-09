@@ -21,7 +21,7 @@ import UIKit
 import ObvTypes
 
 protocol ObvSubTabBarControllerDelegate: AnyObject {
-    var ownedCryptoId: ObvCryptoId { get }
+    var currentOwnedCryptoId: ObvCryptoId { get }
     func middleButtonTapped(sourceView: UIView)
 }
 

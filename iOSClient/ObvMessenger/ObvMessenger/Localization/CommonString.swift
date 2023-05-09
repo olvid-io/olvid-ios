@@ -81,6 +81,7 @@ struct CommonString {
         static let Later = NSLocalizedString("Later", comment: "Later word, capitalized")
         static let Loading = NSLocalizedString("Loading", comment: "Loading word, capitalized")
         static let Medias = NSLocalizedString("Medias", comment: "Medias word, capitalized")
+        static let Message = NSLocalizedString("Message", comment: "Message word, capitalized")
         static let Metadata = NSLocalizedString("Metadata", comment: "Metadata word, capitalized")
         static let Mute = NSLocalizedString("Mute", comment: "Metadata word, capitalized")
         static let Never = NSLocalizedString("Never", comment: "Never word, capitalized")
@@ -163,6 +164,8 @@ struct CommonString {
         static let noNotificationSounds = NSLocalizedString("NO_SOUNDS", comment: "Title")
         static let systemSound = NSLocalizedString("SYSTEM_SOUND", comment: "Title")
         static let gracePeriod = NSLocalizedString("GRACE_PERIOD", comment: "")
+        static let closeOpenHiddenProfile = NSLocalizedString("CLOSE_OPEN_HIDDEN_PROFILE", comment: "")
+        static let timeIntervalForBackgroundHiddenProfileClosePolicy = NSLocalizedString("TIME_INTERVAL_FOR_BG_HIDDEN_PROFILE_CLOSE_POLICY", comment: "")
     }
     
     static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")

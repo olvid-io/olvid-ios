@@ -197,7 +197,7 @@ extension ReceivedMessageCoordinator {
                 
                 // Delete the received messages of this protocol instance
                 do {
-                    try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: uid, within: obvContext)
+                    try ReceivedMessage.deleteAllAssociatedWithProtocolInstance(withUid: uid, ownedIdentity: identity, within: obvContext)
                 } catch {
                     os_log("Could not delete all the received messages associated to the protocol instance to abort", log: log, type: .error)
                     return
@@ -357,10 +357,15 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
         }
         os_log("ProtocolOperation cancelled for reason %{public}@", log: log, type: .error, reasonForCancel.description)
         
-        // Whatever the reason for cancel, we notify that the received message has been processed
+        // Unless the context failed to save, we notify that the received message has been processed
         
-        ObvProtocolNotification.protocolMessageProcessed(protocolMessageId: operation.receivedMessageId, flowId: operation.flowId)
-            .postOnBackgroundQueue(within: notificationDelegate)
+        switch reasonForCancel {
+        case .couldNotSaveContext:
+            break
+        default:
+            ObvProtocolNotification.protocolMessageProcessed(protocolMessageId: operation.receivedMessageId, flowId: operation.flowId)
+                .postOnBackgroundQueue(within: notificationDelegate)
+        }
 
         // Deal with the reason for cancel
         
@@ -394,11 +399,19 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
             }
             return
             
+        case .couldNotSaveContext:
+            assertionFailure()
+            // We reprocess the message in 1 second
+            DispatchQueue(label: "Queue for reprocessing a protocol message after a context save failiure").asyncAfter(deadline: .now() + .seconds(1)) {
+                let receivedMessageId = operation.receivedMessageId
+                guard let delegateManager = operation.delegateManager else { assertionFailure(); return }
+                delegateManager.receivedMessageDelegate.processReceivedMessage(withId: receivedMessageId, flowId: operation.flowId)
+            }
+            
         case .couldNotConstructConcreteProtocolMessageForTheGivenCryptoProtocol,
              .theProtocolStepCancelled,
              .couldNotDetermineNewProtocolState,
              .couldNotUpdateProtocolState,
-             .couldNotSaveContext,
              .couldNotDetermineTheAssociatedOwnedIdentity,
              .couldNotReconstructConcreteCryptoProtocol:
             // Delete the received protocol message

@@ -398,20 +398,6 @@ extension PersistedObvContactIdentity {
         }
     }
     
-    func set(_ newContactDevices: Set<ObvContactDevice>) throws {
-        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
-        let currentDeviceIdentifiers: Set<Data> = Set(self.devices.compactMap { $0.identifier })
-        let newDeviceIdentifiers = Set(newContactDevices.map { $0.identifier })
-        let devicesToAdd = newContactDevices.filter { !currentDeviceIdentifiers.contains($0.identifier) }
-        let devicesToRemove = self.devices.filter { !newDeviceIdentifiers.contains($0.identifier) }
-        for device in devicesToAdd {
-            try insert(device)
-        }
-        for device in devicesToRemove {
-            context.delete(device)
-        }
-    }
-    
 }
 
 
@@ -576,6 +562,9 @@ extension PersistedObvContactIdentity {
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
         }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(withObjectID: objectID)
+        }
     }
     
     
@@ -660,7 +649,10 @@ extension PersistedObvContactIdentity {
 
     
     static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
-        return try context.existingObject(with: objectID) as? PersistedObvContactIdentity
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
     
 
@@ -749,21 +741,18 @@ extension PersistedObvContactIdentity {
     
     
     static func getFetchRequestForAllContactsOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, predicate: NSPredicate, and andPredicate: NSPredicate? = nil, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus) -> NSFetchRequest<PersistedObvContactIdentity> {
-        let _predicate: NSPredicate
-        if let andPredicate = andPredicate {
-            _predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                predicate,
-                andPredicate,
-                Predicate.forOneToOneStatus(oneToOneStatus),
-            ])
-        } else {
-            _predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                predicate,
-                Predicate.forOneToOneStatus(oneToOneStatus),
-            ])
+
+        var predicates = [
+            predicate,
+            Predicate.forOneToOneStatus(oneToOneStatus),
+            Predicate.ofOwnedIdentityWithCryptoId(ownedCryptoId),
+        ]
+        if let andPredicate {
+            predicates.append(andPredicate)
         }
+
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
-        request.predicate = _predicate
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
         request.fetchBatchSize = 1_000
         return request
@@ -920,3 +909,8 @@ extension PersistedObvContactIdentity {
     }
     
 }
+
+
+// MARK: - ContactPermanentID
+
+typealias ContactPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>

@@ -23,6 +23,8 @@ import CoreData
 import ObvTypes
 import ObvMetaManager
 import Combine
+import ObvUI
+
 
 class SingleIdentity: Identifiable, Hashable, ObservableObject {
     
@@ -153,7 +155,7 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
                   ownedIdentity: contactIdentity.ownedIdentity)
     }
     
-    /// This initializer is used during the standard onboarding procedure, when *no* identity server is used
+    /// This initializer is used during the onboarding procedure, when *no* identity server is used.
     convenience init(serverAndAPIKeyToShow: ServerAndAPIKey?, identityDetails: ObvIdentityCoreDetails?) {
         self.init(firstName: identityDetails?.firstName ?? "",
                   lastName: identityDetails?.lastName ?? "",
@@ -873,10 +875,10 @@ struct IdentityCardContentView: View {
     var editionMode: CircleAndTitlesEditionMode = .none
 
     var body: some View {
-        CircleAndTitlesView(titlePart1: model.firstName,
-                            titlePart2: model.lastName,
-                            subtitle: model.position,
-                            subsubtitle: model.company,
+        CircleAndTitlesView(titlePart1: model.firstName.trimmingWhitespacesAndNewlines(),
+                            titlePart2: model.lastName.trimmingWhitespacesAndNewlines(),
+                            subtitle: model.position.trimmingWhitespacesAndNewlines(),
+                            subsubtitle: model.company.trimmingWhitespacesAndNewlines(),
                             circleBackgroundColor: model.identityColors?.background,
                             circleTextColor: model.identityColors?.text,
                             circledTextView: model.circledTextView([model.firstName, model.lastName]),

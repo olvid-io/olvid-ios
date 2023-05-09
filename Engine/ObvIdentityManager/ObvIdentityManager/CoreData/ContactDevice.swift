@@ -142,7 +142,8 @@ extension ContactDevice {
         let items = try obvContext.fetch(request)
         let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
             guard let contactIdentity = $0.contactIdentity else { return nil }
-            return ObliviousChannelIdentifier(currentDeviceUid: contactIdentity.ownedIdentity.currentDeviceUid, remoteCryptoIdentity: contactIdentity.cryptoIdentity, remoteDeviceUid: $0.uid)
+            guard let ownedIdentity = contactIdentity.ownedIdentity else { return nil }
+            return ObliviousChannelIdentifier(currentDeviceUid: ownedIdentity.currentDeviceUid, remoteCryptoIdentity: contactIdentity.cryptoIdentity, remoteDeviceUid: $0.uid)
         })
         return values
     }
@@ -155,9 +156,9 @@ extension ContactDevice {
 
     override func prepareForDeletion() {
         super.prepareForDeletion()
-        if let contactIdentity = self.contactIdentity {
+        if let contactIdentity = self.contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity {
             self.contactCryptoIdentityOnDeletion = contactIdentity.cryptoIdentity
-            self.ownedCryptoIdentityOnDeletion = contactIdentity.ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
+            self.ownedCryptoIdentityOnDeletion = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
         }
     }
     
@@ -194,11 +195,11 @@ extension ContactDevice {
         
         if isInserted {
             
-            guard let contactIdentity = self.contactIdentity else {
+            guard let contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity else {
                 assertionFailure()
                 return
             }
-            ObvIdentityNotificationNew.newContactDevice(ownedIdentity: contactIdentity.ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
+            ObvIdentityNotificationNew.newContactDevice(ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
                                                         contactIdentity: contactIdentity.cryptoIdentity,
                                                         contactDeviceUid: uid,
                                                         flowId: flowId)
@@ -217,12 +218,12 @@ extension ContactDevice {
                                                                                flowId: flowId)
             notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             
-        } else {
+        } else if let ownedIdentity = contactIdentity?.ownedIdentity {
             
             guard let contactIdentity = self.contactIdentity else { assertionFailure(); return }
             if changedKeys.contains(Predicate.Key.rawCapabilities.rawValue) {
                 ObvIdentityNotificationNew.contactObvCapabilitiesWereUpdated(
-                    ownedIdentity: contactIdentity.ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
+                    ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
                     contactIdentity: contactIdentity.cryptoIdentity,
                     flowId: flowId)
                     .postOnBackgroundQueue(within: delegateManager.notificationDelegate)

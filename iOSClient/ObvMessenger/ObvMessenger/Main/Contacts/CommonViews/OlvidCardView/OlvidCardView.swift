@@ -21,6 +21,7 @@ import UIKit
 import ObvEngine
 import ObvTypes
 import ObvCrypto
+import ObvUI
 
 class OlvidCardView: UIView {
 

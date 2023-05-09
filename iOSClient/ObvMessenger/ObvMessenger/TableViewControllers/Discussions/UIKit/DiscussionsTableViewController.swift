@@ -20,9 +20,10 @@
 import UIKit
 import os.log
 import CoreData
+import ObvCrypto
 import ObvEngine
 import ObvTypes
-import ObvCrypto
+import ObvUI
 
 /// This view controller is replaced by DiscussionsViewController under iOS 16
 final class DiscussionsTableViewController: UITableViewController {
@@ -68,7 +69,6 @@ final class DiscussionsTableViewController: UITableViewController {
     
     private var spinner: UIRefreshControl?
     private let allowDeletion: Bool
-    private let ownedCryptoId: ObvCryptoId
     
     private var showSegmentedControl: Bool {
         return allFetchRequests.count > 1
@@ -120,8 +120,7 @@ final class DiscussionsTableViewController: UITableViewController {
     
     // MARK: - Initializer
     
-    init(ownedCryptoId: ObvCryptoId, allowDeletion: Bool, withRefreshControl: Bool) {
-        self.ownedCryptoId = ownedCryptoId
+    init(allowDeletion: Bool, withRefreshControl: Bool) {
         if withRefreshControl {
             spinner = UIRefreshControl()
         }
@@ -155,7 +154,6 @@ extension DiscussionsTableViewController {
         self.tableView?.rowHeight = UITableView.automaticDimension
         self.tableView?.estimatedRowHeight = UITableView.automaticDimension
 
-        // This does not work in landscape under iOS12. We decided not to fix this.
         self.tableView?.refreshControl = self.spinner
         self.tableView?.refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
         
@@ -217,6 +215,18 @@ extension DiscussionsTableViewController {
  
 }
 
+
+// MARK: - Switching current owned identity
+
+extension DiscussionsTableViewController {
+    
+    @MainActor
+    func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+        setFetchRequestsAndImages(DiscussionsFetchRequests(ownedCryptoId: newOwnedCryptoId).allRequestsAndImages)
+        tableView.reloadData()
+    }
+    
+}
 
 // MARK: - NSFetchedResultsControllerDelegate and helpers
 
@@ -333,10 +343,10 @@ extension DiscussionsTableViewController {
             cell.setDefaultSubtitleFont()
             if let message = try PersistedMessage.getAppropriateIllustrativeMessage(in: discussion) {
                 if message.isLocallyWiped {
-                    cell.subtitle = Strings.messageWasWiped
+                    cell.subtitle = PersistedMessage.Strings.messageWasWiped
                     cell.makeSubtitleItalic()
                 } else if message.isRemoteWiped {
-                    cell.subtitle = Strings.lastMessageWasRemotelyWiped
+                    cell.subtitle = PersistedMessage.Strings.lastMessageWasRemotelyWiped
                     cell.makeSubtitleItalic()
                 } else if message is PersistedMessageSystem {
                     cell.subtitle = message.textBody ?? ""
@@ -345,7 +355,7 @@ extension DiscussionsTableViewController {
                     cell.subtitle = message.textBody ?? ""
                     // If the subtitle is empty, there might be attachments
                     if let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {
-                        cell.subtitle = Strings.countAttachments(fyleMessageJoinWithStatus.count)
+                        cell.subtitle = PersistedMessage.Strings.countAttachments(fyleMessageJoinWithStatus.count)
                         cell.makeSubtitleItalic()
                     }
                 } else {
@@ -355,7 +365,7 @@ extension DiscussionsTableViewController {
                         cell.subtitle = sentMessage.textBody ?? ""
                         // If the subtitle is empty, there might be attachments
                         if let fyleMessageJoinWithStatus = sentMessage.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {
-                            cell.subtitle = Strings.countAttachments(fyleMessageJoinWithStatus.count)
+                            cell.subtitle = PersistedMessage.Strings.countAttachments(fyleMessageJoinWithStatus.count)
                             cell.makeSubtitleItalic()
                         }
                     } else if let receivedMessage = message as? PersistedMessageReceived {
@@ -363,14 +373,14 @@ extension DiscussionsTableViewController {
                             // Ephemeral received message with readOnce or limited visibility
                             switch receivedMessage.status {
                             case .new, .unread:
-                                cell.subtitle = Strings.unreadEphemeralMessage
+                                cell.subtitle = PersistedMessage.Strings.unreadEphemeralMessage
                                 cell.makeSubtitleItalic()
                             case .read:
                                 assert(!message.isWiped)
                                 cell.subtitle = message.textBody ?? ""
                                 // If the subtitle is empty, there might be attachments
                                 if let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {
-                                    cell.subtitle = Strings.countAttachments(fyleMessageJoinWithStatus.count)
+                                    cell.subtitle = PersistedMessage.Strings.countAttachments(fyleMessageJoinWithStatus.count)
                                     cell.makeSubtitleItalic()
                                 }
                             }
@@ -380,7 +390,7 @@ extension DiscussionsTableViewController {
                             cell.subtitle = message.textBody ?? ""
                             // If the subtitle is empty, there might be attachments
                             if let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatus, cell.subtitle.isEmpty, fyleMessageJoinWithStatus.count > 0 {
-                                cell.subtitle = Strings.countAttachments(fyleMessageJoinWithStatus.count)
+                                cell.subtitle = PersistedMessage.Strings.countAttachments(fyleMessageJoinWithStatus.count)
                                 cell.makeSubtitleItalic()
                             }
                         }
@@ -436,7 +446,7 @@ extension DiscussionsTableViewController {
             guard let discussion = self?.fetchedResultsController.object(at: frcIndexPath) else { return }
             self?.delegate?.userAskedToDeleteDiscussion(discussion, completionHandler: handler)
         }
-        let markAllAsNotNewAction = UIContextualAction(style: UIContextualAction.Style.normal, title: Strings.markAllAsRead) { [weak self] (action, view, handler) in
+        let markAllAsNotNewAction = UIContextualAction(style: UIContextualAction.Style.normal, title: PersistedMessage.Strings.markAllAsRead) { [weak self] (action, view, handler) in
             guard let frcIndexPath = self?.frcIndexPathFromTvIndexPath(tvIndexPath) else { return }
             guard let discussion = self?.fetchedResultsController.object(at: frcIndexPath) else { return }
             ObvMessengerInternalNotification.userWantsToMarkAllMessagesAsNotNewWithinDiscussion(persistedDiscussionObjectID: discussion.objectID, completionHandler: handler)
