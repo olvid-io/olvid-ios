@@ -89,6 +89,13 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
             return self.rawValue
         }
         
+        var intValue: Int? {
+            let digits = self.rawValue.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
+            let intValue = Int(digits)
+            assert(intValue != nil)
+            return intValue
+        }
+
         init(model: NSManagedObjectModel) throws {
             guard model.versionIdentifiers.count == 1 else {
                 assertionFailure()
@@ -213,6 +220,27 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
 
     }
     
+    
+    override func modelVersion(_ rawModelVersion: String, isMoreRecentThan otherRawModelVersion: String?) throws -> Bool {
+        guard let otherRawModelVersion else { return true }
+        guard let otherModelVersion = ObvEngineModelVersion(rawValue: otherRawModelVersion) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse other raw model version")
+        }
+        guard let modelVersion = ObvEngineModelVersion(rawValue: rawModelVersion) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse raw model version")
+        }
+        guard let otherModelVersionAsInt = otherModelVersion.intValue else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not determine int value from other model version")
+        }
+        guard let modelVersionAsInt = modelVersion.intValue else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not determine int value from model version")
+        }
+        return modelVersionAsInt > otherModelVersionAsInt
+    }
     
 }
 

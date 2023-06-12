@@ -303,7 +303,9 @@ extension KeycloakContactAdditionProtocol {
             else {
                 let coreMessage = self.getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: self.ownedIdentity))
                 let concreteProtocolMessage = ConfirmationMessage(coreProtocolMessage: coreMessage, accepted: false)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: self.prng, within: obvContext)
 
                 return FinishedState()
@@ -311,7 +313,9 @@ extension KeycloakContactAdditionProtocol {
 
             let coreMessage = self.getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
             let concreteProtocolMessage = CheckForRevocationServerQueryMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteProtocolMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: .checkKeycloakRevocation(keycloakServerUrl: keycloakServerURL, signedContactDetails: signedContactDetails)) else { throw NSError() }
+            guard let messageToSend = concreteProtocolMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: .checkKeycloakRevocation(keycloakServerUrl: keycloakServerURL, signedContactDetails: signedContactDetails)) else {
+                throw Self.makeError(message: "Could not generate ObvChannelServerQueryMessageToSend")
+            }
             _ = try channelDelegate.post(messageToSend, randomizedWith: self.prng, within: obvContext)
 
             return CheckingForRevocationState(contactIdentity: contactIdentity, identityCoreDetails: userCoreDetails, contactDeviceUids: contactDeviceUids, keycloakServerURL: keycloakServerURL)
@@ -346,7 +350,9 @@ extension KeycloakContactAdditionProtocol {
                 // User is revoked
                 let coreMessage = self.getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: self.ownedIdentity))
                 let concreteProtocolMessage = ConfirmationMessage(coreProtocolMessage: coreMessage, accepted: false)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: self.prng, within: obvContext)
 
                 return FinishedState()
@@ -369,7 +375,9 @@ extension KeycloakContactAdditionProtocol {
 
             let coreMessage = self.getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: self.ownedIdentity))
             let concreteProtocolMessage = ConfirmationMessage(coreProtocolMessage: coreMessage, accepted: true)
-            guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else { throw NSError() }
+            guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: self.prng) else {
+                throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+            }
             _ = try channelDelegate.post(messageToSend, randomizedWith: self.prng, within: obvContext)
 
             return FinishedState()

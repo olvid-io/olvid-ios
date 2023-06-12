@@ -130,7 +130,9 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
     
     static func deleteAllRelatedToProtocolInstance(_ protocolInstance: ProtocolInstance, delegateManager: ObvProtocolDelegateManager) throws {
         
-        guard let obvContext = protocolInstance.obvContext else { throw NSError() }
+        guard let obvContext = protocolInstance.obvContext else {
+            throw Self.makeError(message: "The protocol instance has no obvContext in deleteAllRelatedToProtocolInstance(...)")
+        }
         
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
         request.predicate = Predicate.withAssociatedProtocolInstance(protocolInstance)
@@ -144,7 +146,9 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
 
     static func deleteRelatedToProtocolInstance(_ protocolInstance: ProtocolInstance, contactCryptoIdentity: ObvCryptoIdentity, delegateManager: ObvProtocolDelegateManager) throws {
         
-        guard let obvContext = protocolInstance.obvContext else { throw NSError() }
+        guard let obvContext = protocolInstance.obvContext else {
+            throw Self.makeError(message: "The protocol instance has no obvContext in deleteRelatedToProtocolInstance(...)")
+        }
         
         let request: NSFetchRequest<ProtocolInstanceWaitingForContactUpgradeToOneToOne> = ProtocolInstanceWaitingForContactUpgradeToOneToOne.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [

@@ -255,6 +255,7 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
             guard Thread.isMainThread else { return }
             guard let context = notification.object as? NSManagedObjectContext else { assertionFailure(); return }
             guard context == ObvStack.shared.viewContext else { return }
+            guard self?.ownedIdentity?.managedObjectContext == context else { return }
             guard let ownedIdentity = self?.ownedIdentity else { assertionFailure(); return }
             self?.setPublishedVariables(with: ownedIdentity)
         })

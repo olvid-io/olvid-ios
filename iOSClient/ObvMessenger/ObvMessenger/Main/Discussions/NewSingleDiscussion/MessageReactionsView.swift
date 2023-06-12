@@ -148,7 +148,10 @@ fileprivate class MessageReaction: Identifiable, Hashable, Comparable {
     }
 
     init?(reaction: PersistedMessageReaction) {
-        self.emoji = reaction.emoji
+        guard let emoji = reaction.emoji else {
+            return nil
+        }
+        self.emoji = emoji
         self.date = reaction.timestamp
         guard let sender = reaction.sender else {
             return nil

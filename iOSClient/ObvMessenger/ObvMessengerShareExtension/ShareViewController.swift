@@ -215,6 +215,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
     }
 
     override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
         self.earlyAbortWipe()
     }
 
@@ -413,7 +414,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         }
 
         // Compute [LoadedItemProvider] from [NSItemProvider]
-        let op1 = LoadFileRepresentationsOperation(itemProviders: itemProviders, log: Self.log)
+        let op1 = LoadFileRepresentationsOperation(itemProviders: itemProviders)
         op1.completionBlock = {
             os_log("📤 Load File Representations Operation done.", log: Self.log, type: .info)
         }

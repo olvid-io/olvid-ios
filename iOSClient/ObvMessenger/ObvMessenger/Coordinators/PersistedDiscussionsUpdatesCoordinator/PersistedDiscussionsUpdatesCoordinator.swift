@@ -2416,12 +2416,10 @@ extension PersistedDiscussionsUpdatesCoordinator: ScreenCaptureDetectorDelegate 
     
     
     func screenCaptureOfSensitiveMessagesWasDetected(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
-        debugPrint("🔋 Screen capture of a discussion was detected")
         processDectection(discussionPermanentID: discussionPermanentID)
     }
     
     func screenshotOfSensitiveMessagesWasDetected(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
-        debugPrint("🔋 Screenshot of a discussion was detected")
         processDectection(discussionPermanentID: discussionPermanentID)
     }
     

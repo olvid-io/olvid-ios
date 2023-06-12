@@ -23,6 +23,7 @@ import ObvTypes
 import ObvEngine
 import StoreKit
 import os.log
+import CoreData
 
 protocol SingleOwnedIdentityFlowViewControllerDelegate: AnyObject {
     
@@ -452,6 +453,13 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
     @MainActor
     func userWantsToEditOwnedIdentity() async {
         assert(Thread.isMainThread)
+        // We are about to show a ViewController allowing to edit the owned identity.
+        // We load a new instance of the PersistedObvOwnedIdentity in a child view context: we want to prevent the view to be refreshed while the user is editing it.
+        // Not doing so would reset the edited text field if a message is received in the mean time (since this refreshes the view context).
+        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        childViewContext.parent = ObvStack.shared.viewContext
+        childViewContext.automaticallyMergesChangesFromParent = false
+        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity.cryptoId, within: childViewContext) else { assertionFailure(); return }
         editedOwnedIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
         let view = EditSingleOwnedIdentityNavigationView(editionType: .edition,
                                                          singleIdentity: editedOwnedIdentity!,

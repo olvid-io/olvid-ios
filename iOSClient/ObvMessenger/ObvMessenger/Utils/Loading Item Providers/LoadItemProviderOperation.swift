@@ -34,7 +34,7 @@ import OlvidUtils
 final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<LoadItemProviderOperationReasonForCancel> {
     
     private let preferredUTIs = [kUTTypeFileURL, kUTTypeJPEG, kUTTypePNG, kUTTypeMPEG4, kUTTypeMP3, kUTTypeQuickTimeMovie].map({ $0 as String })
-    private let ignoredUTIs = [UTI.Bitmoji.avatarID, UTI.Bitmoji.comicID, UTI.Bitmoji.packID]
+    private let ignoredUTIs = [UTI.Bitmoji.avatarID, UTI.Bitmoji.comicID, UTI.Bitmoji.packID, UTI.Apple.groupActivitiesActivity]
 
     private let itemProviderOrItemURL: ItemProviderOrItemURL
     
@@ -132,6 +132,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
         
         if utiToLoad.utiConformsTo(kUTTypeVCard) {
         
+            os_log("Type identifier to load conforms to kUTTypeVCard", log: log, type: .info)
+
             progress = itemProvider.loadDataRepresentation(forTypeIdentifier: String(kUTTypeVCard), completionHandler: { [weak self] (data, error) in
                 guard error == nil else {
                     if let progress = self?.operationProgress, progress.isCancelled {
@@ -169,6 +171,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             
         } else if utiToLoad.utiConformsTo(kUTTypeText) {
             
+            os_log("Type identifier to load conforms to kUTTypeText", log: log, type: .info)
+
             itemProvider.loadItem(forTypeIdentifier: String(kUTTypeText)) { [weak self] (item, error) in
                 guard error == nil else {
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
@@ -185,6 +189,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                    
         } else if utiToLoad.utiConformsTo(kUTTypeFileURL) {
             
+            os_log("Type identifier to load conforms to kUTTypeFileURL", log: log, type: .info)
+
             itemProvider.loadItem(forTypeIdentifier: String(kUTTypeFileURL)) { [weak self] (item, error) in
                 guard error == nil else {
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
@@ -211,6 +217,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             
         } else if utiToLoad.utiConformsTo(kUTTypeURL) {
             
+            os_log("Type identifier to load conforms to kUTTypeURL", log: log, type: .info)
+
             itemProvider.loadItem(forTypeIdentifier: String(kUTTypeURL)) { [weak self] (item, error) in
                 guard error == nil else {
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
@@ -226,6 +234,8 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             }
             
         } else if utiToLoad == String(kUTTypeImage) {
+
+            os_log("Type identifier to load is kUTTypeImage", log: log, type: .info)
 
             // Note that we do not check whether the uti "conforms" to kUTTypeImage. This would be the case of jpeg and png images, which we want to load "as is"
             
@@ -271,8 +281,12 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             
         } else {
             
+            os_log("Type identifier requires to load a file representation", log: log, type: .info)
+            let log = self.log
             progress = itemProvider.loadFileRepresentation(forTypeIdentifier: utiToLoad) { [weak self] (url, error) in
+                os_log("Within the completion handler of loadFileRepresentation", log: log, type: .info)
                 guard error == nil else {
+                    os_log("The loadFileRepresentation completion returned an error: %{public}@", log: log, type: .info, String(describing: error?.localizedDescription))
                     if let progress = self?.operationProgress, progress.isCancelled {
                         // The user cancelled the file loading, there is nothing left to do
                         self?._isFinished = true
@@ -377,6 +391,10 @@ fileprivate struct UTI {
         static let avatarID = "com.bitmoji.metadata.avatarID"
         static let packID = "com.bitmoji.metadata.packID"
         static let comicID = "com.bitmoji.metadata.comicID"
+    }
+    
+    struct Apple {
+        static let groupActivitiesActivity = "com.apple.group-activities.activity"
     }
     
 }

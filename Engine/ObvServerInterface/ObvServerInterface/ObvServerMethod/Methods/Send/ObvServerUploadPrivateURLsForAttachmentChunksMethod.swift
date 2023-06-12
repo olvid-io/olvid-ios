@@ -28,7 +28,10 @@ import OlvidUtils
 public final class ObvServerUploadPrivateURLsForAttachmentChunksMethod: ObvServerDataMethod {
     
     static let log = OSLog(subsystem: "io.olvid.server.interface.ObvServerUploadPrivateURLsForAttachmentChunksMethod", category: "ObvServerInterface")
-    
+    private static func makeError(message: String) -> Error {
+        NSError(domain: "ObvServerUploadPrivateURLsForAttachmentChunksMethod", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     public let pathComponent = "/uploadAttachment"
     public let ownedIdentity: ObvCryptoIdentity
     public let serverURL: URL
@@ -86,8 +89,14 @@ public final class ObvServerUploadPrivateURLsForAttachmentChunksMethod: ObvServe
             let chunkUploadPrivateUrls: [URL]
             do {
                 chunkUploadPrivateUrls = try encodedURLs.compactMap {
-                    guard let urlAsString = String($0) else { throw NSError() }
-                    guard !urlAsString.isEmpty else { throw NSError() }
+                    guard let urlAsString = String($0) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not turn encoded URL into a string")
+                    }
+                    guard !urlAsString.isEmpty else {
+                        assertionFailure()
+                        throw Self.makeError(message: "The string obtained from the URL is empty")
+                    }
                     return URL(string: urlAsString)
                 }
             } catch {

@@ -70,7 +70,7 @@ actor UserNotificationsBadgesManager {
     }
     
         
-    private func recomputeAllBadges(completion: (Bool) -> Void) {
+    private func recomputeAllBadges(completion: @escaping (Bool) -> Void) {
         guard let userDefaults else { completion(false); return }
         if let currentOwnedCryptoId = self.currentOwnedCryptoId {
             let refreshBadgeForNewMessagesOperation = RefreshBadgeForNewMessagesOperation(ownedCryptoId: currentOwnedCryptoId, userDefaults: userDefaults, log: Self.log)
@@ -80,8 +80,9 @@ actor UserNotificationsBadgesManager {
         }
         let refreshAppBadgeOperation = RefreshAppBadgeOperation(userDefaults: userDefaults, log: Self.log)
         queueForBadgesOperations.addOperation(refreshAppBadgeOperation)
-        queueForBadgesOperations.waitUntilAllOperationsAreFinished()
-        completion(true)
+        refreshAppBadgeOperation.completionBlock = {
+            completion(true)
+        }
     }
     
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.4 (621)] - 2023-01-19
+
+- Vous pouvez maintenant changer de profil en faisant glisser la photo de profil située en haut à gauche.
+- Améliore la robustesse de l'app, notamment au démarrage après une mise à jour.
+- Corrige un bug qui pouvait empêcher le partage vers Olvid depuis certaines Apps d'Apple (comme Music ou l'app Developer).
+- Corrige un bug qui empêchait parfois d'éditer son profil.
+- Corrige un crash sous iOS 15.7.x
+
 ## [0.12.3 (611)] - 2023-01-11
 
 - Vous l'attendiez tous... Vous pouvez maintenant créer autant de profils (indépendants) que vous voulez ! Par exemple, vous pouvez créer un profil pour la famille et les amis et un autre pour vos activités professionnelles.

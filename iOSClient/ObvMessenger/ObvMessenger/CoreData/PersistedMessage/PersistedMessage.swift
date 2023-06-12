@@ -616,10 +616,8 @@ extension PersistedMessage {
         
         if let contactReaction = reactionFromContact(with: contact.cryptoId) {
             try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
-        } else if let emoji = emoji {
-            _ = try PersistedMessageReactionReceived(emoji: emoji, timestamp: reactionTimestamp, message: self, contact: contact)
         } else {
-            // The new emoji is nil (meaning we should remove a previous reaction) and no previous reaction can be found. There is nothing to do.
+            _ = try PersistedMessageReactionReceived(emoji: emoji, timestamp: reactionTimestamp, message: self, contact: contact)
         }
     }
     

@@ -190,7 +190,7 @@ extension GroupManagementProtocol {
                 let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
                 let concreteProtocolMessage = PropagateGroupCreationMessage(coreProtocolMessage: coreMessage, groupInformation: updatedGroupInformationWithPhoto.groupInformation, pendingGroupMembers: pendingGroupMembers)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                    throw NSError()
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
@@ -497,7 +497,9 @@ extension GroupManagementProtocol {
                                                       cryptoProtocolId: .GroupManagement,
                                                       protocolInstanceUid: childProtocolInstanceUid)
                 let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
-                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else { throw NSError() }
+                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: localPrng, within: obvContext)
                 
             }
@@ -517,7 +519,9 @@ extension GroupManagementProtocol {
             
             let groupStructure: GroupStructure
             do {
-                guard let _groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, within: obvContext) else { throw NSError() }
+                guard let _groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, within: obvContext) else {
+                    throw Self.makeError(message: "Could not get group owned structure")
+                }
                 groupStructure = _groupStructure
             } catch {
                 os_log("Could not access the group in database", log: log, type: .error)
@@ -629,7 +633,9 @@ extension GroupManagementProtocol {
                                                       cryptoProtocolId: .GroupManagement,
                                                       protocolInstanceUid: childProtocolInstanceUid)
                 let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
-                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else { throw NSError() }
+                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: localPrng, within: obvContext)
                 
             }
@@ -897,7 +903,9 @@ extension GroupManagementProtocol {
                                                       cryptoProtocolId: .GroupManagement,
                                                       protocolInstanceUid: childProtocolInstanceUid)
                 let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
-                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else { throw NSError() }
+                guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: localPrng, within: obvContext)
                 
             }
@@ -1369,7 +1377,7 @@ extension GroupManagementProtocol {
                                                                     pendingMembers: pendingGroupMembers,
                                                                     groupMembersVersion: groupStructure.groupMembersVersion)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        throw NSError()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
@@ -1418,7 +1426,9 @@ extension ProtocolStep {
 
         let groupStructure: GroupStructure
         do {
-            guard let _groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: step.ownedIdentity, groupUid: groupInformation.groupUid, within: obvContext) else { throw NSError() }
+            guard let _groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: step.ownedIdentity, groupUid: groupInformation.groupUid, within: obvContext) else {
+                throw Self.makeError(message: "Could not get group owned structure")
+            }
             groupStructure = _groupStructure
         } catch {
             os_log("Could not access the group in database", log: log, type: .error)
@@ -1478,7 +1488,7 @@ extension ProtocolStep {
                     let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: groupStructure.groupMembers, fromOwnedIdentity: step.ownedIdentity))
                     let concreteProtocolMessage = GroupManagementProtocol.NewMembersMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation, groupMembers: groupMembersWithCoreDetails, pendingMembers: groupStructure.pendingGroupMembers, groupMembersVersion: groupStructure.groupMembersVersion)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: step.prng) else {
-                        throw NSError()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: step.prng, within: obvContext)
                 } catch {

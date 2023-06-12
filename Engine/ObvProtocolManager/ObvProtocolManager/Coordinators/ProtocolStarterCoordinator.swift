@@ -121,13 +121,15 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         guard let contextCreator = delegateManager.contextCreator else {
+            assertionFailure()
             os_log("The context creator is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The context creator is not set")
         }
         
         guard let channelDelegate = delegateManager.channelDelegate else {
+            assertionFailure()
             os_log("The channel delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The channel delegate is not set")
         }
         
         let protocolInstanceUid = UID.gen(with: prng)
@@ -135,8 +137,9 @@ extension ProtocolStarterCoordinator {
                                               cryptoProtocolId: .DeviceDiscoveryForContactIdentity,
                                               protocolInstanceUid: protocolInstanceUid)
         guard let messageToSend = DeviceDiscoveryForContactIdentityProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity).generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could create generic protocol message to send")
         }
 
         let prng = self.prng
@@ -171,8 +174,9 @@ extension ProtocolStarterCoordinator {
                                                                               contactIdentityFullDisplayName: contactFullDisplayName,
                                                                               ownIdentityCoreDetails: ownIdentityCoreDetails)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
         }
         return initialMessageToSend
         
@@ -192,8 +196,9 @@ extension ProtocolStarterCoordinator {
                                                                               contactIdentityB: identity2,
                                                                               contactIdentityCoreDetailsB: details2)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
         }
         return initialMessageToSend
 
@@ -207,18 +212,21 @@ extension ProtocolStarterCoordinator {
         os_log("Call to startChannelCreationWithContactDeviceProtocolBetweenTheCurrentDeviceOf", log: log, type: .debug)
         
         guard let contextCreator = delegateManager.contextCreator else {
+            assertionFailure()
             os_log("The context creator is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The context creator is not set")
         }
         
         guard let identityDelegate = delegateManager.identityDelegate else {
+            assertionFailure()
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
 
         guard let channelDelegate = delegateManager.channelDelegate else {
+            assertionFailure()
             os_log("The channel delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The channel delegate is not set")
         }
 
         var error: Error? = nil
@@ -274,8 +282,9 @@ extension ProtocolStarterCoordinator {
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ChannelCreationWithContactDeviceProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
         }
         return initialMessageToSend
     }
@@ -286,8 +295,9 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
+            assertionFailure()
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity,
@@ -301,8 +311,9 @@ extension ProtocolStarterCoordinator {
         let initialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage,
                                                                                        groupInformation: groupInformationWithPhoto.groupInformation)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
         }
         return initialMessageToSend
         
@@ -355,16 +366,17 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
 
         guard let identityDelegate = delegateManager.identityDelegate else {
+            assertionFailure()
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
 
         guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext) else {
-            throw NSError()
+            throw Self.makeError(message: "Could not get group owned structure")
         }
 
         guard groupStructure.groupType == .owned else {
-            throw NSError()
+            throw Self.makeError(message: "The group type is not owned")
         }
 
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
@@ -377,8 +389,9 @@ extension ProtocolStarterCoordinator {
                                                                             groupInformation: groupInformationWithPhoto.groupInformation,
                                                                             newGroupMembers: newGroupMembers)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
         
@@ -562,8 +575,9 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         guard let identityDelegate = delegateManager.identityDelegate else {
+            assertionFailure()
             os_log("The identity delegate is not set", log: log, type: .fault)
-            throw NSError()
+            throw Self.makeError(message: "The identity delegate is not set")
         }
         
         let groupInformationWithPhoto = try identityDelegate.getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, groupOwner: groupOwner, within: obvContext)

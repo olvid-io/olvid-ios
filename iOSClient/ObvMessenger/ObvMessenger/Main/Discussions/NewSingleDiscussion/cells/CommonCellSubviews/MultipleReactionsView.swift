@@ -34,17 +34,12 @@ struct ReactionAndCount: Equatable, Hashable, Comparable, Identifiable {
 
     static func of(reactions: [PersistedMessageReaction]?) -> [ReactionAndCount] {
         guard let reactions = reactions else { return [] }
-        var reactionsCount = [String: Int]()
-        for reaction in reactions {
-            let count = reactionsCount[reaction.emoji] ?? 0
-            reactionsCount[reaction.emoji] = count + 1
+        let emojis = reactions.compactMap({ $0.emoji })
+        let emojisCount: [String: Int] = emojis.reduce(into: [:]) { counts, emoji in
+            counts[emoji, default: 0] += 1
         }
-        var result = [ReactionAndCount]()
-        for (emoji, count) in reactionsCount {
-            result += [ReactionAndCount(emoji: emoji, count: count)]
-        }
-        result.sort()
-        return result
+        let reactionAndCount = emojisCount.map({ ReactionAndCount(emoji: $0.key, count: $0.value) }).sorted()
+        return reactionAndCount
     }
 }
 

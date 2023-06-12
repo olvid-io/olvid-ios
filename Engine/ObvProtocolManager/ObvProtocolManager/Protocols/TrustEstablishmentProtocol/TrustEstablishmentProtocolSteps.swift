@@ -183,7 +183,9 @@ extension TrustEstablishmentProtocol {
                 let contact = CryptoIdentityWithFullDisplayName(cryptoIdentity: contactIdentity, fullDisplayName: contactIdentityFullDisplayName)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .inviteSent(contact: contact)))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -226,7 +228,9 @@ extension TrustEstablishmentProtocol {
                 let contact = CryptoIdentityWithFullDisplayName(cryptoIdentity: contactIdentity, fullDisplayName: contactIdentityFullDisplayName)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .inviteSent(contact: contact)))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -292,7 +296,9 @@ extension TrustEstablishmentProtocol {
                 let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -340,7 +346,9 @@ extension TrustEstablishmentProtocol {
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
                 let concreteProtocolMessage = BobDialogInvitationConfirmationMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -404,7 +412,9 @@ extension TrustEstablishmentProtocol {
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
                 let concreteProtocolMessage = BobDialogInvitationConfirmationMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -488,7 +498,9 @@ extension TrustEstablishmentProtocol {
                     let dialogType = ObvChannelDialogToSendType.delete
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
 
@@ -504,7 +516,9 @@ extension TrustEstablishmentProtocol {
                 let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
@@ -512,7 +526,7 @@ extension TrustEstablishmentProtocol {
             
             let seedForSas: Seed
             do {
-                guard !commitment.isEmpty else { throw NSError() }
+                guard !commitment.isEmpty else { throw Self.makeError(message: "The commitment is empty") }
                 seedForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
             } catch {
                 os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
@@ -585,7 +599,9 @@ extension TrustEstablishmentProtocol {
                     let dialogType = ObvChannelDialogToSendType.delete
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
@@ -601,7 +617,10 @@ extension TrustEstablishmentProtocol {
                 let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -609,7 +628,7 @@ extension TrustEstablishmentProtocol {
             
             let seedForSas: Seed
             do {
-                guard !commitment.isEmpty else { throw NSError() }
+                guard !commitment.isEmpty else { throw Self.makeError(message: "The commitment is empty") }
                 seedForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
             } catch {
                 os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
@@ -684,7 +703,9 @@ extension TrustEstablishmentProtocol {
                 let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
@@ -757,7 +778,9 @@ extension TrustEstablishmentProtocol {
                         let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: newNumberOfBadEnteredSas)
                         let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                         let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
-                        guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                        guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                            throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                        }
                         _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                     }
 
@@ -891,7 +914,9 @@ extension TrustEstablishmentProtocol {
                         let dialogType = ObvChannelDialogToSendType.delete
                         let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                         let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                        guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { throw NSError() }
+                        guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                            throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                        }
                         _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                     }
                     return CancelledState()

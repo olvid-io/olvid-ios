@@ -39,13 +39,12 @@ final class LoadFileRepresentationsOperation: Operation, LoadedItemProviderProvi
 
 
     private let itemProviders: [NSItemProvider]
-    private let log: OSLog
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "LoadFileRepresentationsOperation")
 
     private(set) var loadedItemProviders: [LoadedItemProvider]?
 
-    init(itemProviders: [NSItemProvider], log: OSLog) {
+    init(itemProviders: [NSItemProvider]) {
         self.itemProviders = itemProviders
-        self.log = log
         super.init()
     }
 
@@ -57,12 +56,16 @@ final class LoadFileRepresentationsOperation: Operation, LoadedItemProviderProvi
             op.waitUntilFinished()
             assert(op.isFinished)
             guard !op.isCancelled else {
+                os_log("The operation cancelled for item provider %{public}@", log: log, type: .error, itemProvider.debugDescription)
                 op.logReasonIfCancelled(log: log)
-                return
+                continue
             }
+            os_log("The operation did not cancel for item provider %{public}@", log: log, type: .info, itemProvider.debugDescription)
             guard let loadedItemProvider = op.loadedItemProvider else {
-                return
+                os_log("The operation does not provide a loaded item provider for item provider %{public}@", log: log, type: .error, itemProvider.debugDescription)
+                continue
             }
+            os_log("Adding a loaded item provider to the list for item provider %{public}@", log: log, type: .info, itemProvider.debugDescription)
             loadedItemProviders += [loadedItemProvider]
         }
         self.loadedItemProviders = loadedItemProviders

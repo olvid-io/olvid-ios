@@ -114,7 +114,6 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                 try performMigration()
             } else {
                 migrationRunningLog.addEvent(message: "No migration needed")
-                cleanOldTemporaryMigrationFiles()
             }
         } catch {
             migrationRunningLog.addEvent(message: "The migration failed: \(error.localizedDescription). Domain: \((error as NSError).domain)")
@@ -124,6 +123,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         migrationRunningLog.addEvent(message: "Creating the core data stack")
 
         self._coreDataStack = CoreDataStack(modelName: modelName, transactionAuthor: transactionAuthor)
+        cleanOldTemporaryMigrationFiles()
     }
     
     private var _coreDataStack: CoreDataStack<PersistentContainerType>!
@@ -162,9 +162,12 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     }
     
     private func getSourceStoreMetadata(storeURL: URL) throws -> [String: Any] {
-        let dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(ofType: NSSQLiteStoreType,
-                                                                               at: storeURL,
-                                                                               options: nil)
+        let dict: [String: Any]
+        if #available(iOS 15, *) {
+            dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: storeURL)
+        } else {
+            dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(ofType: NSSQLiteStoreType, at: storeURL)
+        }
         return dict
     }
     
@@ -209,14 +212,61 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     
     private func getStoreManagedObjectModel(storeURL: URL) throws -> NSManagedObjectModel {
         let storeMetadata = try getSourceStoreMetadata(storeURL: storeURL)
+        
         let allModels = try getAllManagedObjectModels()
         for model in allModels {
             if model.isConfiguration(withName: nil, compatibleWithStoreMetadata: storeMetadata) {
                 return model
             }
         }
+        
+        // If we reach this point, we could not find a model compatible with the store metadata
+        // We log a few things to debug this situation
         migrationRunningLog.addEvent(message: "Could not determine the store managed object model on disk")
+        do {
+            logStoreMetadataTo(migrationRunningLog: migrationRunningLog, storeMetadata: storeMetadata)
+            if let storeModelVersionIdentifiers = (storeMetadata[NSStoreModelVersionIdentifiersKey] as? NSArray)?.firstObject as? String {
+                migrationRunningLog.addEvent(message: "The store model version identifier from the store metadadata found on disk is \(storeModelVersionIdentifiers)")
+                if let model = allModels.first(where: { $0.versionIdentifier == storeModelVersionIdentifiers }) {
+                    migrationRunningLog.addEvent(message: "We found a model having the version identifier \(storeModelVersionIdentifiers). Logging its details now.")
+                    logNSManagedObjectModelTo(migrationRunningLog: migrationRunningLog, model: model)
+                } else {
+                    migrationRunningLog.addEvent(message: "Among all the models, we could not find a model having an identifier equal to \(storeModelVersionIdentifiers)")
+                }
+            } else {
+                migrationRunningLog.addEvent(message: "Could not determine the store model version identifier from the store metadadata found on disk")
+            }
+        }
+        
         throw DataMigrationManager.makeError(message: "Could not determine the store managed object model on disk")
+    }
+    
+    
+    private func logStoreMetadataTo(migrationRunningLog: RunningLogError, storeMetadata: [String: Any]) {
+        migrationRunningLog.addEvent(message: "Content of Store Metadata on disk:")
+        for (key, value) in storeMetadata {
+            if key == "NSStoreModelVersionHashes", let modelVersionHashes = value as? [String: Data] {
+                migrationRunningLog.addEvent(message: "  \(key) :")
+                let sortedModelVersionHashes = modelVersionHashes.sorted { $0.key < $1.key }
+                for (key, value) in sortedModelVersionHashes {
+                    migrationRunningLog.addEvent(message: "    \(key) : \(value.hexString())")
+                }
+            } else {
+                migrationRunningLog.addEvent(message: "  \(key) : \(String(describing: value))")
+            }
+        }
+    }
+    
+    
+    private func logNSManagedObjectModelTo(migrationRunningLog: RunningLogError, model: NSManagedObjectModel) {
+        let entities = model.entities.sorted { ($0.name ?? "") < ($1.name ?? "") }
+        for entity in entities {
+            if let entityName = entity.name {
+                migrationRunningLog.addEvent(message: "  \(entityName) : \(entity.versionHash.hexString())")
+            } else {
+                migrationRunningLog.addEvent(message: "  Entity without name : \(entity.versionHash.hexString())")
+            }
+        }
     }
     
     
@@ -235,6 +285,64 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
             migrationRunningLog.addEvent(message: "Failed to get source store metadata: \(error.localizedDescription)")
             os_log("Failed to get source store metadata: %{public}@", log: log, type: .fault, error.localizedDescription)
             logDebugInformation()
+            assert(SQLITE_CORRUPT == 11)
+            let nsError = error as NSError
+            if (nsError.domain == NSSQLiteErrorDomain && nsError.code == SQLITE_CORRUPT) ||
+                (nsError.domain == NSCocoaErrorDomain && nsError.code == NSPersistentStoreInvalidTypeError) {
+                // If the database is corrupted, we know we won't be able to do anything with the file.
+                // Before giving up, we look for another (not corrupted) .sqlite file in the same directory.
+                // If non is found, we have no choice but to throw an error.
+                // If one or more are found, we keep the one with the latest version, use it to replace the corrupted .sqlite file, and try again.
+                migrationRunningLog.addEvent(message: "[RECOVERY] Since the database is corrupted, we try to recover")
+                if let urlOfLatestUsableSQLiteFile = getURLOfLatestUsableSQLiteFile(distinctFrom: storeURL) {
+                    
+                    migrationRunningLog.addEvent(message: "[RECOVERY] We found a candidate for the database replacement: \(urlOfLatestUsableSQLiteFile.lastPathComponent)")
+                    
+                    // Step 1: remove all files relating to the corrupted database (in that order shm file -> wal file -> sqlite file)
+                    let shmFile = self.storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
+                    let walFile = self.storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal")
+                    do {
+                        if FileManager.default.fileExists(atPath: shmFile.path) {
+                            migrationRunningLog.addEvent(message: "[RECOVERY] Deleting \(shmFile.lastPathComponent)")
+                            try FileManager.default.removeItem(at: shmFile)
+                        } else {
+                            migrationRunningLog.addEvent(message: "[RECOVERY] No \(shmFile.lastPathComponent) to delete")
+                        }
+                        if FileManager.default.fileExists(atPath: walFile.path) {
+                            migrationRunningLog.addEvent(message: "[RECOVERY] Deleting \(walFile.lastPathComponent)")
+                            try FileManager.default.removeItem(at: walFile)
+                        } else {
+                            migrationRunningLog.addEvent(message: "[RECOVERY] No \(walFile.lastPathComponent) to delete")
+                        }
+                        if FileManager.default.fileExists(atPath: storeURL.path) {
+                            migrationRunningLog.addEvent(message: "[RECOVERY] Deleting \(storeURL.lastPathComponent)")
+                            try FileManager.default.removeItem(at: storeURL)
+                        } else {
+                            migrationRunningLog.addEvent(message: "[RECOVERY] No \(storeURL.lastPathComponent) to delete")
+                        }
+                    }
+                    
+                    // Step 2: move the latest usable SQLite file (and its associated files, in that order: sqlite file -> wal file -> shm file)
+                    let shmFileSource = urlOfLatestUsableSQLiteFile.deletingPathExtension().appendingPathExtension("sqlite-shm")
+                    let walFileSource = urlOfLatestUsableSQLiteFile.deletingPathExtension().appendingPathExtension("sqlite-wal")
+                    try FileManager.default.moveItem(at: urlOfLatestUsableSQLiteFile, to: storeURL)
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Did move \(urlOfLatestUsableSQLiteFile.lastPathComponent) to \(storeURL.lastPathComponent)")
+                    if FileManager.default.fileExists(atPath: walFileSource.path) {
+                        try FileManager.default.moveItem(at: walFileSource, to: walFile)
+                        migrationRunningLog.addEvent(message: "[RECOVERY] Did move \(walFileSource.lastPathComponent) to \(walFile.lastPathComponent)")
+                    }
+                    if FileManager.default.fileExists(atPath: shmFileSource.path) {
+                        try FileManager.default.moveItem(at: shmFileSource, to: shmFile)
+                        migrationRunningLog.addEvent(message: "[RECOVERY] Did move \(shmFileSource.lastPathComponent) to \(shmFile.lastPathComponent)")
+                    }
+
+                    // We have replaced the corrupted database found by the best possible candidate. Now we try again.
+                    
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Done with recovery operations. We test again whether a migration is needed.")
+                    return try isMigrationNeeded()
+                }
+                migrationRunningLog.addEvent(message: "[RECOVERY] We could not recover as no temporary SQLite file could be found")
+            }
             throw error
         }
         
@@ -266,6 +374,48 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         df.timeStyle = .short
         return df
     }()
+    
+    
+    private func getURLOfLatestUsableSQLiteFile(distinctFrom urlToSkip: URL) -> URL? {
+        migrationRunningLog.addEvent(message: "[RECOVERY] Looking for the latest temporary SQLite file")
+        var urlOfLatestSQLiteFile: URL?
+        var modelVersionOfLatestSQLiteFile: String?
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: storeURL.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+            let storeDirectory = storeURL.deletingLastPathComponent()
+            migrationRunningLog.addEvent(message: "[RECOVERY] Looking for the latest temporary SQLite file in \(storeDirectory.path)")
+            if let directoryContents = try? FileManager.default.contentsOfDirectory(at: storeDirectory, includingPropertiesForKeys: nil) {
+                for file in directoryContents {
+                    guard file.pathExtension == "sqlite" && file != urlToSkip else { continue }
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Found an sqlite file: \(file.lastPathComponent)")
+                    guard let sourceStoreMetadata = try? getSourceStoreMetadata(storeURL: file) else {
+                        migrationRunningLog.addEvent(message: "[RECOVERY] Could not get metadata of file: \(file.lastPathComponent)")
+                        continue
+                    }
+                    guard let sourceVersionIdentifier = (sourceStoreMetadata[NSStoreModelVersionIdentifiersKey] as? [Any])?.first as? String else {
+                        assertionFailure()
+                        migrationRunningLog.addEvent(message: "[RECOVERY] Could not get version identifier from source store metadata of file: \(file.lastPathComponent)")
+                        continue
+                    }
+                    migrationRunningLog.addEvent(message: "[RECOVERY] The source version identifier of file \(file.lastPathComponent) is \(sourceVersionIdentifier)")
+                    guard (try? modelVersion(sourceVersionIdentifier, isMoreRecentThan: modelVersionOfLatestSQLiteFile)) == true else {
+                        migrationRunningLog.addEvent(message: "[RECOVERY] The file \(file.lastPathComponent) is not the latest")
+                        continue
+                    }
+                    // We found a new latest candidate
+                    migrationRunningLog.addEvent(message: "[RECOVERY] We found a new candidate for the latest temporary SQLite file: \(file.lastPathComponent)")
+                    urlOfLatestSQLiteFile = file
+                    modelVersionOfLatestSQLiteFile = sourceVersionIdentifier
+                }
+            }
+        }
+        if let urlOfLatestSQLiteFile {
+            migrationRunningLog.addEvent(message: "[RECOVERY] Returning \(urlOfLatestSQLiteFile.lastPathComponent) as the latest temporary sqlite file")
+        } else {
+            migrationRunningLog.addEvent(message: "[RECOVERY] We could not find any temporary sqlite file")
+        }
+        return urlOfLatestSQLiteFile
+    }
 
     
     /// As for now, this method is called when we fail to obtain (metada) information about the current version of the database and thus, fail to migrate to a new version.
@@ -632,6 +782,10 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         fatalError("Must be overwritten by subclass")
     }
 
+    
+    open func modelVersion(_ rawModelVersion: String, isMoreRecentThan otherRawModelVersion: String?) throws -> Bool {
+        fatalError("Must be overwritten by subclass")
+    }
     
 }
 

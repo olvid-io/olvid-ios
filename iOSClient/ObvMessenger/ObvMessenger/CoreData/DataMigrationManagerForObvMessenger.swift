@@ -90,13 +90,21 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case version58 = "ObvMessengerModel-v58"
         case version59 = "ObvMessengerModel-v59"
         case version60 = "ObvMessengerModel-v60"
+        case version61 = "ObvMessengerModel-v61"
 
         static var latest: ObvMessengerModelVersion {
-            return .version60
+            return .version61
         }
 
         var identifier: String {
             return self.rawValue
+        }
+        
+        var intValue: Int? {
+            let digits = self.rawValue.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
+            let intValue = Int(digits)
+            assert(intValue != nil)
+            return intValue
         }
 
         init(model: NSManagedObjectModel) throws {
@@ -130,6 +138,28 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
             throw Self.makeError(message: "After filtering all available models, \(model.count) appropriate models were found instead of 1")
         }
         return model.first!
+    }
+    
+    
+    override func modelVersion(_ rawModelVersion: String, isMoreRecentThan otherRawModelVersion: String?) throws -> Bool {
+        guard let otherRawModelVersion else { return true }
+        guard let otherModelVersion = ObvMessengerModelVersion(rawValue: otherRawModelVersion) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse other raw model version")
+        }
+        guard let modelVersion = ObvMessengerModelVersion(rawValue: rawModelVersion) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not parse raw model version")
+        }
+        guard let otherModelVersionAsInt = otherModelVersion.intValue else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not determine int value from other model version")
+        }
+        guard let modelVersionAsInt = modelVersion.intValue else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not determine int value from model version")
+        }
+        return modelVersionAsInt > otherModelVersionAsInt
     }
 
 
@@ -201,7 +231,8 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case .version57: migrationType = .lightweight; destinationVersion = .version58
         case .version58: migrationType = .heavyweight; destinationVersion = .version59
         case .version59: migrationType = .lightweight; destinationVersion = .version60
-        case .version60: migrationType = .heavyweight; destinationVersion = .version60
+        case .version60: migrationType = .lightweight; destinationVersion = .version61
+        case .version61: migrationType = .heavyweight; destinationVersion = .version61
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

@@ -32,7 +32,7 @@ class PersistedMessageReaction: NSManagedObject {
 
     // MARK: Attributes
 
-    @NSManaged private var rawEmoji: String
+    @NSManaged private var rawEmoji: String?
     @NSManaged private(set) var timestamp: Date
 
     // MARK: Relationships
@@ -41,13 +41,13 @@ class PersistedMessageReaction: NSManagedObject {
 
     // MARK: Other variables
     
-    var emoji: String {
+    var emoji: String? {
         return self.rawEmoji
     }
     
     // MARK: - Initializer
     
-    fileprivate convenience init(emoji: String, timestamp: Date, message: PersistedMessage, forEntityName entityName: String) throws {
+    fileprivate convenience init(emoji: String?, timestamp: Date, message: PersistedMessage, forEntityName entityName: String) throws {
 
         guard let context = message.managedObjectContext else { throw PersistedMessageReaction.makeError(message: "Could not find context in message") }
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
@@ -60,20 +60,17 @@ class PersistedMessageReaction: NSManagedObject {
     
     func updateEmoji(with newEmoji: String?, at newTimestamp: Date) throws {
         guard self.timestamp < newTimestamp else { return }
-        if let newEmoji = newEmoji {
-            try self.setEmoji(with: newEmoji, at: newTimestamp)
-        } else {
-            try self.delete()
-        }
+        try self.setEmoji(with: newEmoji, at: newTimestamp)
     }
     
     
-    private func setEmoji(with newEmoji: String, at reactionTimestamp: Date) throws {
-        guard newEmoji.count == 1 else { throw PersistedMessageReaction.makeError(message: "Invalid emoji: \(newEmoji)") }
+    private func setEmoji(with newEmoji: String?, at reactionTimestamp: Date) throws {
+        if let newEmoji {
+            guard newEmoji.count == 1 else { throw PersistedMessageReaction.makeError(message: "Invalid emoji: \(newEmoji)") }
+        }
         self.rawEmoji = newEmoji
         self.timestamp = reactionTimestamp
     }
-    
     
     func delete() throws {
         guard let context = self.managedObjectContext else { throw PersistedMessageReaction.makeError(message: "Cannot find context") }
@@ -137,7 +134,7 @@ final class PersistedMessageReactionReceived: PersistedMessageReaction {
 
     // MARK: - Initializer
 
-    convenience init(emoji: String, timestamp: Date, message: PersistedMessage, contact: PersistedObvContactIdentity) throws {
+    convenience init(emoji: String?, timestamp: Date, message: PersistedMessage, contact: PersistedObvContactIdentity) throws {
         guard message.managedObjectContext == contact.managedObjectContext else { throw PersistedMessageReactionReceived.makeError(message: "Incoherent contexts") }
         try self.init(emoji: emoji, timestamp: timestamp, message: message, forEntityName: Self.entityName)
         self.contact = contact

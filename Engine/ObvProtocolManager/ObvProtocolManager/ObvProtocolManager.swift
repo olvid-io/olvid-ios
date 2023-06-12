@@ -83,19 +83,29 @@ extension ObvProtocolManager {
     public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
         switch delegateType {
         case .ObvCreateContextDelegate:
-            guard let delegate = delegate as? ObvCreateContextDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvCreateContextDelegate else {
+                throw Self.makeError(message: "The ObvCreateContextDelegate is not set")
+            }
             delegateManager.contextCreator = delegate
         case .ObvChannelDelegate:
-            guard let delegate = delegate as? ObvChannelDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvChannelDelegate else {
+                throw Self.makeError(message: "The ObvChannelDelegate is not set")
+            }
             delegateManager.channelDelegate = delegate
         case .ObvIdentityDelegate:
-            guard let delegate = delegate as? ObvIdentityDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvIdentityDelegate else {
+                throw Self.makeError(message: "The ObvIdentityDelegate is not set")
+            }
             delegateManager.identityDelegate = delegate
         case .ObvNotificationDelegate:
-            guard let delegate = delegate as? ObvNotificationDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvNotificationDelegate else {
+                throw Self.makeError(message: "The ObvNotificationDelegate is not set")
+            }
             delegateManager.notificationDelegate = delegate
         case .ObvSolveChallengeDelegate:
-            guard let delegate = delegate as? ObvSolveChallengeDelegate else { throw NSError() }
+            guard let delegate = delegate as? ObvSolveChallengeDelegate else {
+                throw Self.makeError(message: "The ObvSolveChallengeDelegate is not set")
+            }
             delegateManager.solveChallengeDelegate = delegate
         default:
             throw Self.makeError(message: "Unexpected delegate type")

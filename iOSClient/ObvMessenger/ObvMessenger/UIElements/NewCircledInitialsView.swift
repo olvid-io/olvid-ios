@@ -33,7 +33,7 @@ final class NewCircledInitialsView: UIView {
     private let redShieldView = UIImageView()
     private let greenShieldView = UIImageView()
 
-    private var currentConfiguration: CircledInitialsConfiguration?
+    private(set) var currentConfiguration: CircledInitialsConfiguration?
 
     func configureWith(_ configuration: CircledInitialsConfiguration) {
         guard self.currentConfiguration != configuration else { return }

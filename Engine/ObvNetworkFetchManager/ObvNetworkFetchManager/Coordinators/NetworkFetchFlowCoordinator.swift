@@ -35,6 +35,7 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
     
     private let queueForPostingNotifications = DispatchQueue(label: "NetworkFetchFlowCoordinator queue for notifications")
     private let internalQueue = OperationQueue.createSerialQueue(name: "NetworkFetchFlowCoordinator internal operation queue")
+    private let syncQueue = DispatchQueue(label: "NetworkFetchFlowCoordinator internal queue")
 
     weak var delegateManager: ObvNetworkFetchDelegateManager? {
         didSet {
@@ -419,20 +420,14 @@ extension NetworkFetchFlowCoordinator {
             os_log("The Delegate Manager is not set", log: log, type: .fault)
             return
         }
-        
+
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        os_log("Processing unprocessed messages within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
-
-        if Thread.isMainThread {
-            os_log("processUnprocessedMessages is running on the main thread", log: log, type: .fault)
-        }
 
         guard let notificationDelegate = delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)
             return
         }
-
+        
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator is not set", log: log, type: .fault)
             return
@@ -442,38 +437,46 @@ extension NetworkFetchFlowCoordinator {
             os_log("The processDownloadedMessageDelegate is not set", log: log, type: .fault)
             return
         }
+
+        let queueForPostingNotifications = self.queueForPostingNotifications
+        let internalQueue = self.internalQueue
         
-        var moreUnprocessedMessagesRemain = true
-        var maxNumberOfOperations = 1_000
-        
-        while moreUnprocessedMessagesRemain && maxNumberOfOperations > 0 {
+        syncQueue.async {
+                                    
+            os_log("Processing unprocessed messages within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+                        
+            var moreUnprocessedMessagesRemain = true
+            var maxNumberOfOperations = 1_000
             
-            maxNumberOfOperations -= 1
-            assert(maxNumberOfOperations > 0, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
-            
-            os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (maxNumberOfOperations is %d)", log: log, type: .info, maxNumberOfOperations)
-            let op1 = ProcessBatchOfUnprocessedMessagesOperation(ownedCryptoIdentity: ownedCryptoIdentity,
-                                                                 queueForPostingNotifications: queueForPostingNotifications,
-                                                                 notificationDelegate: notificationDelegate,
-                                                                 processDownloadedMessageDelegate: processDownloadedMessageDelegate,
-                                                                 log: log)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
-            if composedOp.isCancelled {
-                os_log("The ProcessBatchOfUnprocessedMessagesOperation cancelled: %{public}@", log: log, type: .fault, composedOp.reasonForCancel?.localizedDescription ?? "No reason given")
-                assertionFailure(composedOp.reasonForCancel.debugDescription)
-                moreUnprocessedMessagesRemain = false
-            } else {
-                os_log("The ProcessBatchOfUnprocessedMessagesOperation succeeded", log: log, type: .info)
-                moreUnprocessedMessagesRemain = op1.moreUnprocessedMessagesRemain ?? false
-                if moreUnprocessedMessagesRemain {
-                    os_log("More unprocessed messages remain", log: log, type: .info)
+            while moreUnprocessedMessagesRemain && maxNumberOfOperations > 0 {
+                
+                maxNumberOfOperations -= 1
+                assert(maxNumberOfOperations > 0, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
+                
+                os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (maxNumberOfOperations is %d)", log: log, type: .info, maxNumberOfOperations)
+                let op1 = ProcessBatchOfUnprocessedMessagesOperation(ownedCryptoIdentity: ownedCryptoIdentity,
+                                                                     queueForPostingNotifications: queueForPostingNotifications,
+                                                                     notificationDelegate: notificationDelegate,
+                                                                     processDownloadedMessageDelegate: processDownloadedMessageDelegate,
+                                                                     log: log)
+                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+                internalQueue.addOperations([composedOp], waitUntilFinished: true)
+                composedOp.logReasonIfCancelled(log: log)
+                if composedOp.isCancelled {
+                    os_log("The ProcessBatchOfUnprocessedMessagesOperation cancelled: %{public}@", log: log, type: .fault, composedOp.reasonForCancel?.localizedDescription ?? "No reason given")
+                    assertionFailure(composedOp.reasonForCancel.debugDescription)
+                    moreUnprocessedMessagesRemain = false
+                } else {
+                    os_log("The ProcessBatchOfUnprocessedMessagesOperation succeeded", log: log, type: .info)
+                    moreUnprocessedMessagesRemain = op1.moreUnprocessedMessagesRemain ?? false
+                    if moreUnprocessedMessagesRemain {
+                        os_log("More unprocessed messages remain", log: log, type: .info)
+                    }
                 }
+                
             }
             
         }
-        
     }
     
 

@@ -2164,7 +2164,7 @@
 
 "NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_HEADER" = "Ordre préféré des boutons de composition de message";
 
-"NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER" = "Le premier bouton apparaitra juste à côté la zone de composition du message de vos messages. Nous vous recommandons de placer les boutons que vous utilisez le plus au sommet de la liste, de façon à les atteindre en une touche.";
+"NEW_COMPOSE_MESSAGE_VIEW_ACTION_ORDER_FOOTER" = "Le premier bouton apparaîtra juste à côté la zone de composition du message de vos messages. Nous vous recommandons de placer les boutons que vous utilisez le plus au sommet de la liste, de façon à les atteindre en une touche.";
 
 "COMPOSE_MESSAGE_SETTINGS" = "Personnaliser";
 
@@ -2645,7 +2645,7 @@
 
 "PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_LABEL" = "Suggérer cette discussion pendant un partage";
 
-"PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "Si vous activez cette option, cette discussion apparaitra directement lorsque vous partagerez du contenu depuis une autre app.";
+"PERFORM_INTERACTION_DONATION_FOR_THIS_DISCUSSION_FOOTER" = "Si vous activez cette option, cette discussion apparaîtra directement lorsque vous partagerez du contenu depuis une autre app.";
 
 "DISCUSSIONS_FILTER_CELL_PICKER_TEXT" = "Filtrer les discussions";
 
@@ -2703,7 +2703,7 @@
 
 "NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_TITLE" = "Voulez-vous prévenir vos contacts ?";
 
-"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE" = "Nous vous recommandons de prévenir vos contacts. De cette façon:\n- votre profil supprimé n'apparaitra plus dans le carnet d'adresses de vos contacts,\n- les groupes que vous gérez serons dissous si vous en êtes le seul administrateur,\n- vous quitterez les groupes dont vous êtes membre.\n\nSi vous ne prévenez pas, à moins d\'avoir transféré votre ID sur un autre appareil, vos contacts pourraient continuer à vous écrire sans réaliser que leurs messages ne peuvent vous être distribués.";
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE" = "Nous vous recommandons de prévenir vos contacts. De cette façon:\n- votre profil supprimé n'apparaîtra plus dans le carnet d'adresses de vos contacts,\n- les groupes que vous gérez serons dissous si vous en êtes le seul administrateur,\n- vous quitterez les groupes dont vous êtes membre.\n\nSi vous ne prévenez pas, à moins d\'avoir transféré votre ID sur un autre appareil, vos contacts pourraient continuer à vous écrire sans réaliser que leurs messages ne peuvent vous être distribués.";
 
 "NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOTIFY_CONTACTS_ACTION" = "Prévenir mes contacts (recommandé)";
 

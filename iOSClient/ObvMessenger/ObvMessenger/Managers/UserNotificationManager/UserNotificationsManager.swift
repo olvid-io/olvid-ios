@@ -327,20 +327,26 @@ extension UserNotificationsManager {
 
     /// When a received reaction message is deleted (for whatever reason), we remove any existing notification related to this reaction.
     private func observePersistedMessageReactionReceivedWasDeletedNotifications() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasDeletedOnSentMessage { (sentMessagePermanentID, contactPermanentID) in
-            let notificationCenter = UNUserNotificationCenter.current()
-            let notificationId = ObvUserNotificationIdentifier.newReaction(messagePermanentID: sentMessagePermanentID, contactPermanentId: contactPermanentID)
-
-            // Remove the notification if it was added by the app
-            ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the app) as its corresponding PersistedMessageReaction was deleted")
-            UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
-
-            // Remove the notification if it was added by the extension
-            Task {
-                ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the extension) as its corresponding PersistedMessageReaction was deleted")
-                await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
-            }
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReactionReceivedWasDeletedOnSentMessage { [weak self] (sentMessagePermanentID, contactPermanentID) in
+            self?.deleteNotificationsReaction(sentMessagePermanentID: sentMessagePermanentID,
+                                              contactPermanentID: contactPermanentID)
         })
+    }
+
+    private func deleteNotificationsReaction(sentMessagePermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) {
+        let notificationCenter = UNUserNotificationCenter.current()
+        let notificationId = ObvUserNotificationIdentifier.newReaction(messagePermanentID: sentMessagePermanentID, contactPermanentId: contactPermanentID)
+
+        // Remove the notification if it was added by the app
+        ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the app) as its corresponding PersistedMessageReaction was deleted")
+        UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
+
+        // Remove the notification if it was added by the extension
+        Task {
+            ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the extension) as its corresponding PersistedMessageReaction was deleted")
+            await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
+        }
+
     }
 
     
@@ -358,41 +364,44 @@ extension UserNotificationsManager {
                 guard let message = reactionReceived.message as? PersistedMessageSent else { return }
                 guard let contact = reactionReceived.contact else { return }
                 
-                do {
-                    let infos = UserNotificationCreator.ReactionNotificationInfos(
-                        messageSent: try message.toStruct(),
-                        contact: try contact.toStruct(),
-                        urlForStoringPNGThumbnail: nil)
-                    let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: reactionReceived.emoji, reactionTimestamp: reactionReceived.timestamp)
-                    
-                    let notificationCenter = UNUserNotificationCenter.current()
-                    let reactionsTimestamps = UserNotificationsScheduler.getAllReactionsTimestampAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
-                    let discussion = message.discussion
+                if let emoji = reactionReceived.emoji {
+                    do {
+                        let infos = UserNotificationCreator.ReactionNotificationInfos(
+                            messageSent: try message.toStruct(),
+                            contact: try contact.toStruct(),
+                            urlForStoringPNGThumbnail: nil)
+                        let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: emoji, reactionTimestamp: reactionReceived.timestamp)
 
-                    if reactionsTimestamps.count == 1,
-                       let timestamp = reactionsTimestamps.first,
-                       timestamp >= reactionReceived.timestamp {
+                        let notificationCenter = UNUserNotificationCenter.current()
+                        let reactionsTimestamps = UserNotificationsScheduler.getAllReactionsTimestampAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
+                        let discussion = message.discussion
 
-                        // If there is only one notifications in the center that is more recent that the given one, we let it.
-                        return
-                    } else {
-                        // We remove all the notification that comes from the extension.
-                        Task {
-                            ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the extension) as its corresponding PersistedMessageReaction was inserted or deleted")
-                            await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
+                        if reactionsTimestamps.count == 1,
+                           let timestamp = reactionsTimestamps.first,
+                           timestamp >= reactionReceived.timestamp {
+                            // There is only one notification in the notification center and it is more recent than the received one. We leave the existing notification as is.
+                            return
+                        } else {
+                            // We remove all the notifications that come from the extension.
+                            Task {
+                                ObvDisplayableLogs.shared.log("📣 Removing a user notification (added by the extension) as its corresponding PersistedMessageReaction was inserted or deleted")
+                                await UserNotificationsScheduler.removeReactionNotificationsAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
+                            }
+                            // And replace them with a notification that is not necessary the most recent (in the case where multiple reaction update messages have been received) and replace by a single notification with notificationID as request identifier.
+                            UserNotificationsScheduler.filteredScheduleNotification(
+                                discussionKind: try discussion.toStruct(),
+                                notificationId: notificationId,
+                                notificationContent: notificationContent,
+                                notificationCenter: notificationCenter)
                         }
-                        // And replace them with a notification that is not nececarry the more recent (in the case that multiple reaction update messages have been received) and replace by a single notification with notificationID as request identifier.
-                        UserNotificationsScheduler.filteredScheduleNotification(
-                            discussionKind: try discussion.toStruct(),
-                            notificationId: notificationId,
-                            notificationContent: notificationContent,
-                            notificationCenter: notificationCenter)
+                    } catch {
+                        os_log("Could not notifiy: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        return
                     }
-                } catch {
-                    os_log("Could not notifiy: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    return
+                } else {
+                    _self.deleteNotificationsReaction(sentMessagePermanentID: message.objectPermanentID,
+                                                      contactPermanentID: contact.objectPermanentID)
                 }
-                
             }
         })
     }

@@ -2672,7 +2672,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_TITLE" = "Do you wish to notify your contacts?";
 
-"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE" = "We recommend you do notify your contacts. By doing so:\n- your profile will be delete from your contact's devices,\n- the groups you created will be disbanded if your are the only administrator,\n- you will leave other groups.\n\nIf you do not notify, your contacts may still try sending you messages and might not realize these messages cannot be delivered.";
+"NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE" = "We recommend you do notify your contacts. By doing so:\n- your profile will be deleted from your contact's devices,\n- the groups you created will be disbanded if your are the only administrator,\n- you will leave other groups.\n\nIf you do not notify, your contacts may still try sending you messages and might not realize these messages cannot be delivered.";
 
 "NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOTIFY_CONTACTS_ACTION" = "Notify my contacts (recommended)";
 

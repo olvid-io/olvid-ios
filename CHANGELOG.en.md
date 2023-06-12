@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.4 (621)] - 2023-01-19
+
+- You can now change profile by swiping down the profile picture on the top left.
+- Improves the reliability of the startup procedure after installing a new Olvid version.
+- Fixes a bug where sharing with Olvid could fail from certain Apple's app (such as Music or the Developer app).
+- Fixes a bug that could sometimes prevent the profile edition.
+- Fixes a crash under iOS 15.7.x
+
 ## [0.12.3 (611)] - 2023-01-11
 
 - Introducing a long awaited feature! You can now create as many (independent) profiles as you want! For example, you can create one for family and friends and another for work.

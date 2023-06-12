@@ -466,6 +466,10 @@ extension PersistedObvOwnedIdentity {
     static func getAllNonHiddenOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedObvOwnedIdentity] {
         let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
         request.predicate = Predicate.isHidden(false)
+        request.sortDescriptors = [
+            NSSortDescriptor(key: Predicate.Key.customDisplayName.rawValue, ascending: true),
+            NSSortDescriptor(key: Predicate.Key.fullDisplayName.rawValue, ascending: true),
+        ]
         return try context.fetch(request)
     }
 

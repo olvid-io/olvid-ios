@@ -29,11 +29,15 @@ public protocol ObvS3UploadMethod: ObvS3Method {
 
 public extension ObvS3UploadMethod {
     
+    static func makeError(message: String) -> Error {
+        NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
+    }
+
     func uploadTask(within session: URLSession) throws -> URLSessionUploadTask {
         let request = try getURLRequest(httpMethod: "PUT", dataToSend: nil)
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             assertionFailure()
-            throw NSError()
+            throw Self.makeError(message: "Cannot perform upload task as the file could not be found at the indicated URL")
         }
         let task = session.uploadTask(with: request, fromFile: fileURL)
         task.countOfBytesClientExpectsToReceive = Int64(countOfBytesClientExpectsToReceive)
