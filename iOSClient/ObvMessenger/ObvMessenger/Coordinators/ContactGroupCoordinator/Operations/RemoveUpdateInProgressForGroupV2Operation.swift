@@ -21,6 +21,7 @@
 import Foundation
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 final class RemoveUpdateInProgressForGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     

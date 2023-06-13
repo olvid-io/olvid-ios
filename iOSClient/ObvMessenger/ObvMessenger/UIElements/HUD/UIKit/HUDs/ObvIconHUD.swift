@@ -19,7 +19,8 @@
 
 import ObvUI
 import UIKit
-
+import UI_SystemIcon
+import UI_SystemIcon_UIKit
 
 
 final class ObvIconHUD: ObvHUDView {

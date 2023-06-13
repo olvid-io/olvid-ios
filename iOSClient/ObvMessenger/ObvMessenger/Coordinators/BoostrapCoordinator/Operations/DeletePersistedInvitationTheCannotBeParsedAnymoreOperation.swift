@@ -20,6 +20,7 @@
 
 import Foundation
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation is used during bootstrap to delete any `PersistedInvitation` that cannot be properly parsed, i.e., that returns a `nil` ObvDialog.

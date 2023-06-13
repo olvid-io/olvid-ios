@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 
 /// This operation is typically used when the user decides to update the text body of one of here sent messages. This operation assumes that the persisted message sent body has already been updated within the given context (typically, using a `EditTextBodyOfSentMessageOperation`).
@@ -57,16 +58,22 @@ final class SendUpdateMessageJSONOperation: ContextualOperationWithSpecificReaso
             }
             
             let newTextBody: String?
+            let userMentions: [MessageJSON.UserMention]
             if let textBodyToSend = messageSent.textBodyToSend {
                 newTextBody = textBodyToSend.isEmpty ? nil : textBodyToSend
+                userMentions = messageSent
+                    .mentions
+                    .compactMap({ try? $0.userMention })
             } else {
                 newTextBody = nil
+                userMentions = []
             }
             
             let itemJSON: PersistedItemJSON
             do {
                 let updateMessageJSON = try UpdateMessageJSON(persistedMessageSentToEdit: messageSent,
-                                                              newTextBody: newTextBody)
+                                                              newTextBody: newTextBody,
+                                                              userMentions: userMentions)
                 itemJSON = PersistedItemJSON(updateMessageJSON: updateMessageJSON)
             } catch {
                 return cancel(withReason: .couldNotConstructUpdateMessageJSON)
@@ -92,29 +99,30 @@ final class SendUpdateMessageJSONOperation: ContextualOperationWithSpecificReaso
             } catch {
                 return cancel(withReason: .failedToEncodePersistedItemJSON)
             }
-            
-            let log = self.log
-            let obvEngine = self.obvEngine
-            do {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    do {
-                        _ = try obvEngine.post(messagePayload: payload,
-                                               extendedPayload: nil,
-                                               withUserContent: false,
-                                               isVoipMessageForStartingCall: false,
-                                               attachmentsToSend: [],
-                                               toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                               ofOwnedIdentityWithCryptoId: ownCryptoId)
-                    } catch {
-                        os_log("Could not post message within engine", type: .fault, log)
-                        assertionFailure()
-                    }
-                }
-            } catch {
-                return cancel(withReason: .couldNotAddContextDidSaveCompletionHandler)
-            }
 
+            if !contactCryptoIds.isEmpty {
+                let log = self.log
+                let obvEngine = self.obvEngine
+                do {
+                    try obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        do {
+                            _ = try obvEngine.post(messagePayload: payload,
+                                                   extendedPayload: nil,
+                                                   withUserContent: false,
+                                                   isVoipMessageForStartingCall: false,
+                                                   attachmentsToSend: [],
+                                                   toContactIdentitiesWithCryptoId: contactCryptoIds,
+                                                   ofOwnedIdentityWithCryptoId: ownCryptoId)
+                        } catch {
+                            os_log("Could not post message within engine", type: .fault, log)
+                            assertionFailure()
+                        }
+                    }
+                } catch {
+                    return cancel(withReason: .couldNotAddContextDidSaveCompletionHandler)
+                }
+            }
         }
         
     }

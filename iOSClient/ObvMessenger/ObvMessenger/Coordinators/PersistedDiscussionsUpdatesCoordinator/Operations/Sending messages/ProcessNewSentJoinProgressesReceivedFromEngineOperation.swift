@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 
 final class ProcessNewSentJoinProgressesReceivedFromEngineOperation: Operation {
@@ -44,8 +45,10 @@ final class ProcessNewSentJoinProgressesReceivedFromEngineOperation: Operation {
 
                 let persistedMessageSent: PersistedMessageSent
                 do {
-                    let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: progress.messageIdentifierFromEngine,
-                                                                                                                within: context)
+                    let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(
+                        messageIdentifierFromEngine: progress.messageIdentifierFromEngine,
+                        ownedCryptoId: progress.ownedCryptoId,
+                        within: context)
                     guard !infos.isEmpty else { return }
                     persistedMessageSent = infos.first!.messageSent
                 } catch {

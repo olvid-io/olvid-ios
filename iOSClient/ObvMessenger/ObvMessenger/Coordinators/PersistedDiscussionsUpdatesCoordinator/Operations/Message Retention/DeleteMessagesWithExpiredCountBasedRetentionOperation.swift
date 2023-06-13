@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation deletes enough messages (and their attachments) to make sure the discussion contains no more messages than its count based retention policy (if any).

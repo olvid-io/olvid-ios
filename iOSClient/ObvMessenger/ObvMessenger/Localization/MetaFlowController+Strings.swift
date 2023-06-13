@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUICoreData
 
 extension MetaFlowController {
     

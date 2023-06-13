@@ -24,6 +24,7 @@ import ObvCrypto
 import ObvEncoder
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 
 final class PersistedContactGroupToDisplayedContactGroupV49ToV50: NSEntityMigrationPolicy, ObvErrorMaker {
@@ -82,7 +83,7 @@ final class PersistedContactGroupToDisplayedContactGroupV49ToV50: NSEntityMigrat
         let rawCategory: Int
         let rawOwnedIdentityIdentity: Data
         let groupNameCustom: String? // Always nil for a group owned
-        let ownPermissionAdmin: Bool
+        public let ownPermissionAdmin: Bool
         let customPhotoFilename: String?
         let photoURL: URL?
         let rawStatus: Int
@@ -99,7 +100,7 @@ final class PersistedContactGroupToDisplayedContactGroupV49ToV50: NSEntityMigrat
 
         var customPhotoURL: URL? {
             guard let customPhotoFilename = customPhotoFilename else { return nil }
-            return ObvMessengerConstants.containerURL.forCustomGroupProfilePictures.appendingPathComponent(customPhotoFilename)
+            return ObvUICoreDataConstants.ContainerURL.forCustomGroupProfilePictures.appendingPathComponent(customPhotoFilename)
         }
 
         var displayPhotoURL: URL? {

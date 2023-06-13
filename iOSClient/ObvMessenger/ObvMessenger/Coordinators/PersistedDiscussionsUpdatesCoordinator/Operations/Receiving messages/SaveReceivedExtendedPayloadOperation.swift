@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import ObvEngine
 import ObvEncoder
+import ObvUICoreData
 
 
 final class SaveReceivedExtendedPayloadOperation: ContextualOperationWithSpecificReasonForCancel<SaveReceivedExtendedPayloadOperationReasonForCancel> {
@@ -52,6 +53,8 @@ final class SaveReceivedExtendedPayloadOperation: ContextualOperationWithSpecifi
                     return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
                 }
 
+                var permanentIDOfMessageToRefreshInViewContext: ObvManagedObjectPermanentID<PersistedMessageReceived>? = nil
+                
                 for attachementImage in attachementImages {
                     let attachmentNumber = attachementImage.attachmentNumber
                     guard attachmentNumber < message.fyleMessageJoinWithStatuses.count else {
@@ -64,8 +67,25 @@ final class SaveReceivedExtendedPayloadOperation: ContextualOperationWithSpecifi
 
                     let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatuses[attachmentNumber]
 
-                    fyleMessageJoinWithStatus.setDownsizedThumbnailIfRequired(data: data)
+                    if fyleMessageJoinWithStatus.setDownsizedThumbnailIfRequired(data: data) {
+                        // the setDownsizedThumbnailIfRequired returned true, meaning that the downsized thumbnail has been set. We will need to refresh the message in the view context.
+                        permanentIDOfMessageToRefreshInViewContext = message.objectPermanentID
+                    }
                 }
+                
+                if let permanentIDOfMessageToRefreshInViewContext {
+                    try? obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        ObvStack.shared.viewContext.perform {
+                            if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
+                                .filter({ !$0.isDeleted })
+                                .first(where: { ($0 as? PersistedMessageReceived)?.objectPermanentID == permanentIDOfMessageToRefreshInViewContext }) {
+                                ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: false)
+                            }
+                        }
+                    }
+                }
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

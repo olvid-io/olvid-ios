@@ -26,14 +26,13 @@ import ObvUI
 
 
 @available(iOS 16.0, *)
-final class DiscussionsListViewModel {
+final class NewDiscussionsListViewModel: NewDiscussionsSelectionViewControllerDelegate {
 
-    private var selectedDiscussionsListener: AnyCancellable?
-    var discussionsViewModel: DiscussionsViewModel
-    var ownedCryptoId: ObvCryptoId
+    let discussionsViewModel: DiscussionsViewModel
+    let ownedCryptoId: ObvCryptoId
     
     var selectedObjectIds: [ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>] {
-        return discussionsViewModel.selectedDiscussions.map({ ObvUICoreData.TypeSafeManagedObjectID(objectID: ($0.discussionUI as PersistedDiscussion).objectID) })
+        return discussionsViewModel.selectedDiscussions.map({ ObvUICoreData.TypeSafeManagedObjectID(objectID: $0.persistedDiscussion.objectID) })
     }
     
     init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
@@ -41,22 +40,40 @@ final class DiscussionsListViewModel {
         self.discussionsViewModel = discussionsViewModel
     }
     
-    func listenToSelectedDiscussions(on vc: DiscussionsListViewController<PersistedDiscussion>) {
-        selectedDiscussionsListener = vc.selectionViewController.$selectedDiscussions.map({ (val) -> [DiscussionViewModel] in
-            let discussionViewModels: [DiscussionViewModel] = val
-                .compactMap({ PersistedDiscussion.create(from: $0) as? PersistedDiscussionUI })
-                .map({ DiscussionViewModel(discussionUI: $0, selected: true) })
-            return discussionViewModels
-        }).sink(receiveValue: { [weak self] val in
-            self?.discussionsViewModel.discussions.forEach({ discussion in
-                discussion.selected = val.contains(where: { $0.discussionUI == discussion.discussionUI })
-            })
-        })
+    // MARK: - NewDiscussionsSelectionViewControllerDelegate
+    
+    func userAcceptedlistOfSelectedDiscussions(_ listOfSelectedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>], in newDiscussionsSelectionViewController: UIViewController) {
+        discussionsViewModel.discussions.forEach { discussion in
+            discussion.selected = listOfSelectedDiscussions.contains(where: { $0 == discussion.persistedDiscussion.typedObjectID })
+        }
+        newDiscussionsSelectionViewController.dismiss(animated: true)
     }
+    
 }
 
-private extension PersistedDiscussion {
-    static func create(from viewModel: DiscussionsListSelectionCellViewModel) -> PersistedDiscussion? {
-        return try? PersistedDiscussion.get(objectID: viewModel.objectId, within: ObvStack.shared.viewContext)
+
+
+@available(iOS 15.0, *)
+final class DiscussionsListViewModel: DiscussionsSelectionViewControllerDelegate {
+        
+    let discussionsViewModel: DiscussionsViewModel
+    let ownedCryptoId: ObvCryptoId
+
+    init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
+        self.ownedCryptoId = ownedCryptoId
+        self.discussionsViewModel = discussionsViewModel
+    }
+
+    var preselectedDiscussions: Set<ObvManagedObjectPermanentID<PersistedDiscussion>> {
+        return Set(discussionsViewModel.selectedDiscussions.map({ $0.persistedDiscussion.discussionPermanentID }))
+    }
+    
+    // MARK: - DiscussionsSelectionViewControllerDelegate
+    
+    func userAcceptedlistOfSelectedDiscussions(_ listOfSelectedDiscussions: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>, in discussionsSelectionViewController: UIViewController) {
+        discussionsViewModel.discussions.forEach { discussion in
+            discussion.selected = listOfSelectedDiscussions.contains(where: { $0 == discussion.persistedDiscussion.discussionPermanentID })
+        }
+        discussionsSelectionViewController.dismiss(animated: true)
     }
 }

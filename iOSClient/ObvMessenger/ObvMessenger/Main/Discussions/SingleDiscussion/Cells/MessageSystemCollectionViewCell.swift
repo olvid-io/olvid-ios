@@ -21,6 +21,7 @@
 import CoreData
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 class MessageSystemCollectionViewCell: UICollectionViewCell {
     
@@ -299,7 +300,7 @@ extension MessageSystemCollectionViewCell: CellWithMessage {
     
     var persistedMessage: PersistedMessage? { messageSystem }
     
-    var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? {
+    public var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? {
         persistedMessage?.typedObjectID
     }
     

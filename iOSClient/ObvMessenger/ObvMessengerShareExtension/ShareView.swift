@@ -20,6 +20,7 @@
 
 import ObvUI
 import SwiftUI
+import ObvUICoreData
 
 
 private enum ActiveSheet: Identifiable {
@@ -180,7 +181,9 @@ struct ShareView: View {
                 Text(LocalizedStringKey("SHARE_VIEW_PROFILE_SELECTION_BAR_TITLE"))
                     .foregroundColor(Color(AppTheme.shared.colorScheme.label))
                 Spacer()
-                CircledInitialsView(configuration: model.selectedOwnedIdentity.circledInitialsConfiguration, size: .small)
+                CircledInitialsView(configuration: model.selectedOwnedIdentity.circledInitialsConfiguration,
+                                    size: .small,
+                                    style: ObvMessengerSettings.Interface.identityColorStyle)
                 Image(systemIcon: .chevronRight)
                     .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
             }
@@ -237,7 +240,7 @@ struct ShareView: View {
             .navigationBarItems(trailing: Button(action: {
                 activeSheet = nil
             }, label: {
-                Text(CommonString.Word.Ok)
+                Text(CommonString.Word.Cancel)
             }))
         }
     }

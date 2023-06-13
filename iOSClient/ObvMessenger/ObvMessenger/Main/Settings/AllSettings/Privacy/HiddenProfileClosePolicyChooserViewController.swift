@@ -19,6 +19,7 @@
   
 
 import UIKit
+import ObvUICoreData
 
 class HiddenProfileClosePolicyChooserViewController: UITableViewController {
 

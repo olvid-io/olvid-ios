@@ -20,18 +20,13 @@
 import Foundation
 import OlvidUtils
 import os.log
+import ObvUICoreData
+
 
 final class SynchronizeOneToOneDiscussionTitlesWithContactNameOperation: ContextualOperationWithSpecificReasonForCancel<SynchronizeOneToOneDiscussionTitlesWithContactNameOperationReasonForCancel> {
     
-    private let ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>
-    
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SynchronizeOneToOneDiscussionTitlesWithContactNameOperation.self))
 
-    init(ownedIdentityObjectID: TypeSafeManagedObjectID<PersistedObvOwnedIdentity>) {
-        self.ownedIdentityObjectID = ownedIdentityObjectID
-        super.init()
-    }
-    
     override func main() {
         
         guard let obvContext = self.obvContext else {
@@ -39,16 +34,17 @@ final class SynchronizeOneToOneDiscussionTitlesWithContactNameOperation: Context
         }
         
         obvContext.performAndWait {
-
             do {
-                guard let ownedIdentity = try PersistedObvOwnedIdentity.get(objectID: ownedIdentityObjectID, within: obvContext.context) else { assertionFailure(); return }
-                ownedIdentity.contacts.forEach { contact in
-                    do {
-                        try contact.resetOneToOneDiscussionTitle()
-                    } catch {
-                        os_log("One of the one2one discussion title could not be reset", log: log, type: .fault)
-                        assertionFailure()
-                        // Continue anyway
+                let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+                for ownedIdentity in ownedIdentities {
+                    ownedIdentity.contacts.forEach { contact in
+                        do {
+                            try contact.resetOneToOneDiscussionTitle()
+                        } catch {
+                            os_log("One of the one2one discussion title could not be reset", log: log, type: .fault)
+                            assertionFailure()
+                            // Continue anyway
+                        }
                     }
                 }
             } catch {

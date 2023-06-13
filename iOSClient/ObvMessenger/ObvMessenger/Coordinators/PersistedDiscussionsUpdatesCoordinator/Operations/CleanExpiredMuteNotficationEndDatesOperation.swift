@@ -21,6 +21,8 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
+
 
 final class CleanExpiredMuteNotficationEndDatesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 
@@ -32,14 +34,7 @@ final class CleanExpiredMuteNotficationEndDatesOperation: ContextualOperationWit
 
         obvContext.performAndWait {
             do {
-                let objectIDsOfUpdatedPersistedDiscussionLocalConfigurations = try PersistedDiscussionLocalConfiguration.deleteAllExpiredMuteNotifications(within: obvContext)
-                try? obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    for objectID in objectIDsOfUpdatedPersistedDiscussionLocalConfigurations {
-                        ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: .muteNotificationsDuration(.none), localConfigurationObjectID: objectID)
-                            .postOnDispatchQueue()
-                    }
-                }
+                try PersistedDiscussionLocalConfiguration.deleteAllExpiredMuteNotifications(within: obvContext)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

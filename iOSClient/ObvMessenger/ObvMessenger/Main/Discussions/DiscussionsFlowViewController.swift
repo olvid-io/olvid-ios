@@ -21,6 +21,8 @@ import UIKit
 import os.log
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
+
 
 final class DiscussionsFlowViewController: UINavigationController, ObvFlowController {
 
@@ -46,6 +48,10 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
 
     }
     
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     override var delegate: UINavigationControllerDelegate? {
         get {
             super.delegate
@@ -83,7 +89,7 @@ extension DiscussionsFlowViewController {
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
      
-        observePersistedGroupV2WasDeletedNotifications()
+        observeNotificationsImpactingTheNavigationStack()
 
     }
     

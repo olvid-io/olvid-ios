@@ -26,15 +26,11 @@ import ObvTypes
 import os.log
 import QuickLook
 import UIKit
+import ObvUICoreData
+import UI_SystemIcon
 
 
-protocol DiscussionViewController: UIViewController {
-    var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { get }
-    func addAttachmentFromAirDropFile(at url: URL)
-    func scrollTo(message: PersistedMessage)
-}
-
-final class SingleDiscussionViewController: UICollectionViewController, DiscussionViewController, SomeSingleDiscussionViewController, ObvErrorMaker {
+final class SingleDiscussionViewController: UICollectionViewController, SomeSingleDiscussionViewController, ObvErrorMaker {
     
     let currentOwnedCryptoId: ObvCryptoId
     var discussion: PersistedDiscussion!
@@ -99,8 +95,7 @@ final class SingleDiscussionViewController: UICollectionViewController, Discussi
         case .groupV1(withContactGroup: let contactGroup):
             return contactGroup?.hasAtLeastOneRemoteContactDevice() ?? false
         case .groupV2(withGroup: let group):
-            guard let group = group else { return false }
-            return !group.otherMembers.isEmpty
+            return group != nil
         case .none:
             assertionFailure()
             return false
@@ -333,7 +328,7 @@ extension SingleDiscussionViewController {
                     actions: [UIAction(title:
                                         NSLocalizedString("UNMUTE_NOTIFICATIONS", comment: "")
                     ) { _ in
-                        ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(nil), localConfigurationObjectID: self.discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+                        ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsEndDate(nil), localConfigurationObjectID: self.discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
                     }])
                 items += [unmuteButton]
             }
@@ -1541,7 +1536,7 @@ extension SingleDiscussionViewController: UIDocumentPickerDelegate {
     
     private func deleteTempFilesToDeleteOnUIDocumentPickerViewControllerDismissal() {
         while let tempURL = urlsOfTempFilesToDeleteOnUIDocumentPickerViewControllerDismissal.popLast() {
-            let container = ObvMessengerConstants.containerURL.forTempFiles
+            let container = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
             guard tempURL.absoluteString.starts(with: container.absoluteString) else {
                 return
             }
@@ -1831,12 +1826,13 @@ extension SingleDiscussionViewController {
     }
 
     private func observeDiscussionLocalConfigurationHasBeenUpdatedNotifications() {
-        let token = ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
-            guard let _self = self else { return }
-            guard case .muteNotificationsDuration = value else { return }
-            guard _self.discussion.localConfiguration.typedObjectID == objectId else { return }
-
-            _self.configureNavigationBarTitle()
+        let token = ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
+            DispatchQueue.main.async {
+                guard let _self = self else { return }
+                guard case .muteNotificationsEndDate = value else { return }
+                guard _self.discussion.localConfiguration.typedObjectID == objectId else { return }
+                _self.configureNavigationBarTitle()
+            }
         }
         observationTokens.append(token)
     }
@@ -1872,10 +1868,13 @@ extension SingleDiscussionViewController {
             alert = UIAlertController(title: Strings.Alerts.WaitingForChannel.title,
                                       message: Strings.Alerts.WaitingForChannel.message,
                                       preferredStyle: .alert)
-        case .groupV1, .groupV2:
+        case .groupV1:
             alert = UIAlertController(title: Strings.Alerts.WaitingForFirstGroupMember.title,
                                       message: Strings.Alerts.WaitingForFirstGroupMember.message,
                                       preferredStyle: .alert)
+        case .groupV2:
+            // We do not show an alert for group v2 (since we sometimes want to write a message to self in an empty group v2)
+            return
         case .none:
             assertionFailure()
             return
@@ -1887,6 +1886,9 @@ extension SingleDiscussionViewController {
     
     
     private var discussionHasNoRemoteContactDevice: Bool {
+        guard !discussion.isDeleted else {
+            return true
+        }
         switch try? discussion.kind {
         case .oneToOne(withContactIdentity: let contactIdentity):
             guard let contactIdentity = contactIdentity else { assertionFailure(); return true }
@@ -2011,7 +2013,7 @@ extension SingleDiscussionViewController {
     /// system message indicating the number of new messages. If this is the case, we must update (potentially delete)
     /// the system message.
     private func observeCertainMessageDeletionToUpdateNumberOfNewMessagesSystemMessage() {
-        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, sortIndex, _) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasDeleted(queue: OperationQueue.main) { [weak self] (objectID, _, _, sortIndex, _) in
             guard let _self = self else { return }
             guard let numberOfNewMessagesSystemMessage = try? PersistedMessageSystem.getNumberOfNewMessagesSystemMessage(in: _self.discussion) else { return }
             guard _self.objectIDsOfNewMessages.contains(objectID) else { return }

@@ -5,6 +5,7 @@ import:
   - ObvEngine
   - OlvidUtils
   - ObvCrypto
+  - ObvUICoreData
 notifications:
 - name: userWantsToKickParticipant
   params:

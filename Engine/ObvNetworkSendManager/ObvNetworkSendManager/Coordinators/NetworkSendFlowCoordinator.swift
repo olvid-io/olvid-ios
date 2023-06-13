@@ -37,7 +37,6 @@ final class NetworkSendFlowCoordinator: ObvErrorMaker {
 
     private var failedFetchAttemptsCounterManager = FailedFetchAttemptsCounterManager()
     private var retryManager = SendRetryManager()
-    private var notificationTokens = [NSObjectProtocol]()
     private let outbox: URL
     
     private let queueForPostingNotifications = DispatchQueue(label: "Queue for posting certain notifications from the NetworkSendFlowCoordinator")
@@ -143,6 +142,17 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     
     func failedUploadAndGetUidOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+        
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            return
+        }
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        os_log("We failed to upload and get uid for message %{public}@ within flow %{public}@", log: log, type: .error, messageId.debugDescription, flowId.debugDescription)
+        
         let delay = failedFetchAttemptsCounterManager.incrementAndGetDelay(.uploadMessage(messageId: messageId))
         retryManager.executeWithDelay(delay) { [weak self] in
             self?.delegateManager?.uploadMessageAndGetUidsDelegate.getIdFromServerUploadMessage(messageId: messageId, flowId: flowId)

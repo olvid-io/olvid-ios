@@ -23,6 +23,8 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
+
 
 final class FyleJoinImpl: FyleJoin {
 
@@ -76,7 +78,7 @@ final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: Contextual
                     return cancel(withReason: .couldNotFindDiscussion)
                 }
 
-                let persistedMessageSent = try PersistedMessageSent(body: body, replyTo: nil, fyleJoins: fyleJoins, discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false)
+                let persistedMessageSent = try PersistedMessageSent(body: body, replyTo: nil, fyleJoins: fyleJoins, discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false, mentions: [])
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

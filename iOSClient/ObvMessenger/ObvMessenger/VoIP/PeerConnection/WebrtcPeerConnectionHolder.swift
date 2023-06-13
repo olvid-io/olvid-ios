@@ -22,7 +22,7 @@ import Foundation
 import WebRTC
 import OlvidUtils
 import os.log
-
+import ObvUICoreData
 
 
 final actor WebrtcPeerConnectionHolder: ObvPeerConnectionDelegate, CallDataChannelWorkerDelegate, ObvErrorMaker {

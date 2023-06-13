@@ -20,6 +20,8 @@
 import Foundation
 import OlvidUtils
 import os.log
+import ObvUICoreData
+
 
 final class CreateRandomDraftDebugOperation: ContextualOperationWithSpecificReasonForCancel<CreateRandomDraftDebugOperationReasonForCancel> {
     
@@ -47,7 +49,7 @@ final class CreateRandomDraftDebugOperation: ContextualOperationWithSpecificReas
                 
                 let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
                 let randomBody = CreateRandomDraftDebugOperation.randomString(length: randomBodySize)
-                discussion.draft.setContent(with: randomBody)
+                discussion.draft.replaceContentWith(newBody: randomBody, newMentions: Set<MessageJSON.UserMention>())
                 
             } catch {
                 return cancel(withReason: .coreDataError(error: error))

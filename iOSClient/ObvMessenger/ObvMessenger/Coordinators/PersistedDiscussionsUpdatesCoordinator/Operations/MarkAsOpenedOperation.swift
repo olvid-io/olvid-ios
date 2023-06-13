@@ -24,6 +24,7 @@ import os.log
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvUICoreData
 
 
 final class MarkAsOpenedOperation: ContextualOperationWithSpecificReasonForCancel<MarkAsOpenedOperationReasonForCancel> {

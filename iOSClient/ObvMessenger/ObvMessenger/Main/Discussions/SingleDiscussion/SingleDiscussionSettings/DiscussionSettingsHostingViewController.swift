@@ -23,6 +23,9 @@ import Combine
 import os.log
 import ObvUI
 import SwiftUI
+import ObvUICoreData
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 final class DiscussionSettingsHostingViewController: UIHostingController<DiscussionExpirationSettingsWrapperView>, DiscussionExpirationSettingsViewModelDelegate {
@@ -96,7 +99,7 @@ final class DiscussionExpirationSettingsViewModel: ObservableObject {
     }
 
     func updateSharedConfiguration(with value: PersistedDiscussionSharedConfigurationValue) {
-        guard (try? value.update(for: sharedConfigurationInScratchViewContext, initiator: ownedIdentityInViewContext.cryptoId)) == true else { return }
+        try? value.updatePersistedDiscussionSharedConfigurationValue(with: sharedConfigurationInScratchViewContext, initiatorAsOwnedCryptoId: ownedIdentityInViewContext.cryptoId)
         withAnimation {
             self.changed.toggle()
         }
@@ -288,6 +291,10 @@ struct DiscussionExpirationSettingsWrapperView: View {
             doSendReadReceipt: ValueWithBinding(localConfiguration, \._doSendReadReceipt) {
                 PersistedDiscussionLocalConfigurationValue.doSendReadReceipt($0.value).sendUpdateRequestNotifications(with: $1)
             },
+            mentionNotificationMode: ValueWithBinding(localConfiguration, \.mentionNotificationMode) {
+                PersistedDiscussionLocalConfigurationValue.mentionNotificationMode($0)
+                    .sendUpdateRequestNotifications(with: $1)
+            },
             doFetchContentRichURLsMetadata: ValueWithBinding(localConfiguration, \._doFetchContentRichURLsMetadata) {
                 PersistedDiscussionLocalConfigurationValue.doFetchContentRichURLsMetadata($0.value).sendUpdateRequestNotifications(with: $1) },
             showConfirmationMessageBeforeSavingSharedConfig: $model.showConfirmationMessageBeforeSavingSharedConfig,
@@ -305,7 +312,8 @@ struct DiscussionExpirationSettingsWrapperView: View {
             muteNotificationsDuration:
                 ValueWithBinding(
                     localConfiguration, \._muteNotificationsDuration) {
-                        PersistedDiscussionLocalConfigurationValue.muteNotificationsDuration($0).sendUpdateRequestNotifications(with: $1) },
+                        let endDateFromNow = $0?.endDateFromNow
+                        PersistedDiscussionLocalConfigurationValue.muteNotificationsEndDate(endDateFromNow).sendUpdateRequestNotifications(with: $1) },
             defaultEmoji: ValueWithBinding(
                 localConfiguration, \.defaultEmoji) {
                     PersistedDiscussionLocalConfigurationValue.defaultEmoji($0).sendUpdateRequestNotifications(with: $1) },
@@ -331,6 +339,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let existenceDurationOption: ValueWithBinding<PersistedDiscussionSharedConfiguration, DurationOption>
     let retainWipedOutboundMessages: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
     let doSendReadReceipt: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
+    let mentionNotificationMode: ValueWithBinding<PersistedDiscussionLocalConfiguration, DiscussionMentionNotificationMode>
     let doFetchContentRichURLsMetadata: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalFetchContentRichURLsMetadataChoice>
     @Binding var showConfirmationMessageBeforeSavingSharedConfig: Bool
     let countBasedRetentionIsActive: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
@@ -396,6 +405,18 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                             ObvLabel("MUTE_NOTIFICATIONS", systemImage: ObvMessengerConstants.muteIcon.systemName)
                         }
                     }
+
+                    Section(footer: Text("discussion-expiration-settings-view.body.section.mention-notification-mode.picker.footer.title")) {
+                        Picker(selection: mentionNotificationMode.binding,
+                               label: ObvLabel("discussion-expiration-settings-view.body.section.mention-notification-mode.picker.title", systemIcon: .bell(.fill))) {
+
+                            ForEach(DiscussionMentionNotificationMode.allCases) { value in
+                                Text(value.displayTitle(globalOptions: ObvMessengerSettings.Discussions.notificationOptions))
+                                    .tag(value)
+                            }
+                        }
+                    }
+
                     Section(footer: Text("SEND_READ_RECEIPT_SECTION_FOOTER")) {
                         Picker(selection: doSendReadReceipt.binding, label: ObvLabel("SEND_READ_RECEIPTS_LABEL", systemImage: "eye.fill")) {
                             ForEach(OptionalBoolType.allCases) { optionalBool in
@@ -694,6 +715,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 existenceDurationOption: ValueWithBinding(constant: .ninetyDays),
                 retainWipedOutboundMessages: ValueWithBinding(constant: .falseValue),
                 doSendReadReceipt: ValueWithBinding(constant: .none),
+                mentionNotificationMode: ValueWithBinding(constant: .globalDefault),
                 doFetchContentRichURLsMetadata: ValueWithBinding(constant: .none),
                 showConfirmationMessageBeforeSavingSharedConfig: .constant(false),
                 countBasedRetentionIsActive: ValueWithBinding(constant: .none),
@@ -714,6 +736,7 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 existenceDurationOption: ValueWithBinding(constant: .none),
                 retainWipedOutboundMessages: ValueWithBinding(constant: .trueValue),
                 doSendReadReceipt: ValueWithBinding(constant: .trueValue),
+                mentionNotificationMode: ValueWithBinding(constant: .alwaysNotifyWhenMentionned),
                 doFetchContentRichURLsMetadata: ValueWithBinding(constant: .withinSentMessagesOnly),
                 showConfirmationMessageBeforeSavingSharedConfig: .constant(false),
                 countBasedRetentionIsActive: ValueWithBinding(constant: .none),

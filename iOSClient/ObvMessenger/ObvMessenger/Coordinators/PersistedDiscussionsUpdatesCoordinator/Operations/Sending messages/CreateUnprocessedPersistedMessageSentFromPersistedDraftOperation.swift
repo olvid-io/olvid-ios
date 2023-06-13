@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
@@ -89,7 +90,7 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
                 self.messageSentPermanentID = persistedMessageSent.objectPermanentID
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { assertionFailure(); return }
-                    ObvMessengerCoreDataNotification.draftToSendWasReset(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
+                    ObvMessengerInternalNotification.draftToSendWasReset(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
                         .postOnDispatchQueue()
                 }
             } catch {

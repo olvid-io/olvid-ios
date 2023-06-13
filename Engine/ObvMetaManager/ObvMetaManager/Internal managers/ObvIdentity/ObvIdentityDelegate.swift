@@ -84,6 +84,8 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     // MARK: - API related to contact groups V2
 
+    func getGroupV2PhotoURLAndServerPhotoInfofOwnedIdentityIsUploader(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, within obvContext: ObvContext) throws -> (photoURL: URL, serverPhotoInfo: GroupV2.ServerPhotoInfo)?
+
     func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?)
     
     func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, within obvContext: ObvContext) throws
@@ -129,17 +131,25 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     func getAllGroupsV2IdentifierVersionAndKeysForContact(_ contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [GroupV2.IdentifierVersionAndKeys]
 
     func getAllNonPendingAdministratorsIdentitiesOfGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
-
     
+    
+    // MARK: - Keycloak pushed groups
+
+    func updateKeycloakGroups(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, within obvContext: ObvContext) throws -> [KeycloakGroupV2UpdateOutput]
+
+    func getIdentifiersOfAllKeycloakGroups(ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<GroupV2.Identifier>
+    
+    func getIdentifiersOfAllKeycloakGroupsWhereContactIsPending(ownedCryptoId: ObvCryptoIdentity, contactCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<GroupV2.Identifier>
+        
     // MARK: - API related to keycloak management
 
     func isOwnedIdentityKeycloakManaged(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
 
     func isContactCertifiedByOwnKeycloak(contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
 
-    func getSignedContactDetails(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> SignedUserDetails?
+    func getSignedContactDetails(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> SignedObvKeycloakUserDetails?
 
-    func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedUserDetails?)
+    func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedObvKeycloakUserDetails?)
 
     func saveKeycloakAuthState(ownedIdentity: ObvCryptoIdentity, rawAuthState: Data, within obvContext: ObvContext) throws
 
@@ -198,7 +208,7 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     func addContactIdentity(_: ObvCryptoIdentity, with: ObvIdentityCoreDetails, andTrustOrigin: TrustOrigin, forOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
 
-    func addTrustOrigin(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
+    func addTrustOriginIfTrustWouldBeIncreased(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
     
     func getTrustOrigins(forContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> [TrustOrigin]
     

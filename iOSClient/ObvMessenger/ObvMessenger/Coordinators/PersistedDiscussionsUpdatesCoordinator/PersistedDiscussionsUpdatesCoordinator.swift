@@ -25,15 +25,17 @@ import CoreDataStack
 import ObvCrypto
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
+
 
 final class PersistedDiscussionsUpdatesCoordinator {
     
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedDiscussionsUpdatesCoordinator.self))
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedDiscussionsUpdatesCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
     private var kvoTokens = [NSKeyValueObservation]()
-    private let internalQueue: OperationQueue
+    private let coordinatorsQueue: OperationQueue
+    private let queueForComposedOperations: OperationQueue
     private let queueForDispatchingOffTheMainThread = DispatchQueue(label: "PersistedDiscussionsUpdatesCoordinator internal queue for dispatching off the main thread")
     private let internalQueueForAttachmentsProgresses = OperationQueue.createSerialQueue(name: "Internal queue for progresses", qualityOfService: .default)
     private let queueForLongRunningConcurrentOperations: OperationQueue = {
@@ -46,9 +48,10 @@ final class PersistedDiscussionsUpdatesCoordinator {
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
     private var screenCaptureDetector: ScreenCaptureDetector?
 
-    init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
         self.obvEngine = obvEngine
-        self.internalQueue = operationQueue
+        self.coordinatorsQueue = coordinatorsQueue
+        self.queueForComposedOperations = queueForComposedOperations
         listenToNotifications()
         Task {
             screenCaptureDetector = await ScreenCaptureDetector()
@@ -57,6 +60,11 @@ final class PersistedDiscussionsUpdatesCoordinator {
         }
     }
     
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
 
@@ -94,12 +102,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
     private static let errorDomain = "PersistedDiscussionsUpdatesCoordinator"
     private static func makeError(message: String) -> Error { NSError(domain: PersistedDiscussionsUpdatesCoordinator.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { PersistedDiscussionsUpdatesCoordinator.makeError(message: message) }
-    
-    /// This array stores a completion handler associated to a sent message.
-    /// This completion handler is called when the engine reports that the message has been sent (i.e., received by the server).
-    /// This is essentially used for WebRTC messages.
-    @Atomic() private var completionWhenMessageIsSent = [Data: () -> Void]()
-    
+        
     // Variables used to refresh the attachment downloads progresses
     private var timerForRefreshingAttachmentDownloadProgresses: Timer?
     private static let timeIntervalForRefreshingAttachmentDownloadProgresses: TimeInterval = 0.3
@@ -150,7 +153,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 let op = ProcessNewReceivedJoinProgressesReceivedFromEngineOperation(progresses: progresses)
                 internalQueueForAttachmentsProgresses.addOperation(op)
             } catch {
-                os_log("Could not obtain download progresses from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not obtain download progresses from engine: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             }
         }
         
@@ -162,7 +165,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 let op = ProcessNewSentJoinProgressesReceivedFromEngineOperation(progresses: progresses)
                 internalQueueForAttachmentsProgresses.addOperation(op)
             } catch {
-                os_log("Could not obtain download progresses from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not obtain download progresses from engine: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             }
 
         }
@@ -173,7 +176,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
     private func listenToNotifications() {
         
         defer {
-            os_log("☎️ PersistedDiscussionsUpdatesCoordinator is listening to notifications", log: log, type: .info)
+            os_log("☎️ PersistedDiscussionsUpdatesCoordinator is listening to notifications", log: Self.log, type: .info)
         }
         
         // Internal notifications
@@ -189,7 +192,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities() { [weak self] (persistedContactGroupObjectID, insertedContacts, removedContacts) in
                 self?.processPersistedContactGroupHasUpdatedContactIdentitiesNotification(persistedContactGroupObjectID: persistedContactGroupObjectID, insertedContacts: insertedContacts, removedContacts: removedContacts)
             },
-            PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted() { [weak self] (_, messageIdentifierFromEngine, ownedCryptoId, _, _) in
+            ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasDeleted() { [weak self] (_, messageIdentifierFromEngine, ownedCryptoId, _, _) in
                 self?.processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
             },
             ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedMessage() { [weak self] (ownedCryptoId, persistedMessageObjectID, deletionType) in
@@ -224,10 +227,10 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToReadReceivedMessagesThatRequiresUserAction { [weak self] (persistedMessageObjectIDs) in
                 self?.processUserWantsToReadReceivedMessagesThatRequiresUserActionNotification(persistedMessageObjectIDs: persistedMessageObjectIDs)
             },
-            PersistedMessageReceivedNotification.observePersistedMessageReceivedWasRead { (persistedMessageReceivedObjectID) in
+            ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasRead { (persistedMessageReceivedObjectID) in
                 Task { [weak self] in await self?.processPersistedMessageReceivedWasReadNotification(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID) }
             },
-            ReceivedFyleMessageJoinWithStatusNotifications.observeReceivedFyleJoinHasBeenMarkAsOpened { (receivedFyleJoinID) in
+            ObvMessengerCoreDataNotification.observeReceivedFyleJoinHasBeenMarkAsOpened { (receivedFyleJoinID) in
                 Task { [weak self] in await self?.processReceivedFyleJoinHasBeenMarkAsOpenedNotification(receivedFyleJoinID: receivedFyleJoinID) }
             },
             ObvMessengerCoreDataNotification.observeAReadOncePersistedMessageSentWasSent { [weak self] (persistedMessageSentPermanentID, persistedDiscussionPermanentID) in
@@ -239,7 +242,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvMessengerCoreDataNotification.observeAnOldDiscussionSharedConfigurationWasReceived { [weak self] (persistedDiscussionObjectID) in
                 self?.processAnOldDiscussionSharedConfigurationWasReceivedNotification(persistedDiscussionObjectID: persistedDiscussionObjectID)
             },
-            ObvMessengerCoreDataNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
+            ObvMessengerInternalNotification.observeUserWantsToUpdateDiscussionLocalConfiguration { [weak self] (value, localConfigurationObjectID) in
                 self?.processUserWantsToUpdateDiscussionLocalConfigurationNotification(with: value, localConfigurationObjectID: localConfigurationObjectID)
             },
             ObvMessengerInternalNotification.observeUserWantsToUpdateLocalConfigurationOfDiscussion { [weak self] (value, discussionPermanentID, completionHandler) in
@@ -296,10 +299,10 @@ final class PersistedDiscussionsUpdatesCoordinator {
             NewSingleDiscussionNotification.observeUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus { [weak self] joinObjectID in
                 self?.processUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: joinObjectID)
             },
-            ReceivedFyleMessageJoinWithStatusNotifications.observeADeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus { [weak self] (returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine, attachmentNumber) in
+            ObvMessengerCoreDataNotification.observeADeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus { [weak self] (returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine, attachmentNumber) in
                 self?.processADeliveredReturnReceiptShouldBeSent(returnReceipt: returnReceipt, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
             },
-            PersistedMessageReceivedNotification.observeADeliveredReturnReceiptShouldBeSentForPersistedMessageReceived { [weak self] returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine in
+            ObvMessengerCoreDataNotification.observeADeliveredReturnReceiptShouldBeSentForPersistedMessageReceived { [weak self] returnReceipt, contactCryptoId, ownedCryptoId, messageIdentifierFromEngine in
                 self?.processADeliveredReturnReceiptShouldBeSent(returnReceipt: returnReceipt, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: nil)
             },
             ObvMessengerInternalNotification.observeTooManyWrongPasscodeAttemptsCausedLockOut { [weak self] in
@@ -307,6 +310,21 @@ final class PersistedDiscussionsUpdatesCoordinator {
             },
             ObvMessengerCoreDataNotification.observePersistedObvOwnedIdentityWasDeleted { [weak self] in
                 self?.processPersistedObvOwnedIdentityWasDeleted()
+            },
+            ObvMessengerInternalNotification.observeUserWantsToReorderDiscussions { [weak self] (discussionObjectIds, ownedIdentity, completionHandler) in
+                self?.processUserWantsToReorderDiscussions(discussionObjectIds: discussionObjectIds, ownedIdentity: ownedIdentity, completionHandler: completionHandler)
+            },
+            ObvMessengerInternalNotification.observeBetaUserWantsToDebugCoordinatorsQueue { [weak self] in
+                self?.processBetaUserWantsToDebugCoordinatorsQueue()
+            },
+            ObvMessengerInternalNotification.observeUserWantsToArchiveDiscussion { [weak self] discussionPermanentID, completionHandler in
+                self?.processUserWantsToArchiveDiscussion(discussionPermanentID: discussionPermanentID, completionHandler: completionHandler)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUnarchiveDiscussion { [weak self] discussionPermanentID, updateTimestampOfLastMessage, completionHandler in
+                self?.processUserWantsToUnarchiveDiscussion(discussionPermanentID: discussionPermanentID, updateTimestampOfLastMessage: updateTimestampOfLastMessage, completionHandler: completionHandler)
+            },
+            ObvMessengerInternalNotification.observeUpdateNormalizedSearchKeyOnPersistedDiscussions { [weak self] ownedIdentity, completionHandler in
+                self?.processUpdateNormalizedSearchKeyOnPersistedDiscussions(ownedIdentity: ownedIdentity, completionHandler: completionHandler)
             },
         ])
         
@@ -339,8 +357,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             NewSingleDiscussionNotification.observeUserWantsToDeleteAllAttachmentsToDraft { [weak self] draftObjectID in
                 self?.processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: draftObjectID)
             },
-            NewSingleDiscussionNotification.observeUserWantsToSendDraft { [weak self] draftPermanentID, textBody in
-                self?.processUserWantsToSendDraft(draftPermanentID: draftPermanentID, textBody: textBody)
+            NewSingleDiscussionNotification.observeUserWantsToSendDraft { [weak self] draftPermanentID, textBody, mentions in
+                self?.processUserWantsToSendDraft(draftPermanentID: draftPermanentID, textBody: textBody, mentions: mentions)
             },
             NewSingleDiscussionNotification.observeUserWantsToSendDraftWithOneAttachment { [weak self] draftPermanentID, attachmentURL in
                 self?.processUserWantsToSendDraftWithAttachments(draftPermanentID: draftPermanentID, attachmentsURL: [attachmentURL])
@@ -348,8 +366,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             NewSingleDiscussionNotification.observeUserWantsToUpdateDraftExpiration { [weak self] draftObjectID, value in
                 self?.processUserWantsToUpdateDraftExpiration(draftObjectID: draftObjectID, value: value)
             },
-            NewSingleDiscussionNotification.observeUserWantsToUpdateDraftBody { [weak self] draftObjectID, value in
-                self?.processUserWantsToUpdateDraftBody(draftObjectID: draftObjectID, value: value)
+            NewSingleDiscussionNotification.observeUserWantsToUpdateDraftBodyAndMentions { [weak self] draftObjectID, draftBody, mentions in
+                self?.processUserWantsToUpdateDraftBodyAndMentions(draftObjectID: draftObjectID, draftBody: draftBody, mentions: mentions)
             },
         ])
         
@@ -362,8 +380,8 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvEngineNotificationNew.observeMessageWasAcknowledged(within: NotificationCenter.default) { [weak self] (ownedIdentity, messageIdentifierFromEngine, timestampFromServer, isAppMessageWithUserContent, isVoipMessage) in
                 self?.processMessageWasAcknowledgedNotification(ownedIdentity: ownedIdentity, messageIdentifierFromEngine: messageIdentifierFromEngine, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage)
             },
-            ObvEngineNotificationNew.observeAttachmentWasAcknowledgedByServer(within: NotificationCenter.default) { [weak self] (messageIdentifierFromEngine, attachmentNumber) in
-                self?.processAttachmentWasAcknowledgedByServerNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
+            ObvEngineNotificationNew.observeAttachmentWasAcknowledgedByServer(within: NotificationCenter.default) { [weak self] (ownedCryptoId, messageIdentifierFromEngine, attachmentNumber) in
+                self?.processAttachmentWasAcknowledgedByServerNotification(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
             },
             ObvEngineNotificationNew.observeAttachmentDownloadCancelledByServer(within: NotificationCenter.default) { [weak self] (obvAttachment) in
                 self?.processAttachmentDownloadCancelledByServerNotification(obvAttachment: obvAttachment)
@@ -383,7 +401,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
             ObvEngineNotificationNew.observeNewObvReturnReceiptToProcess(within: NotificationCenter.default) { [weak self] (obvReturnReceipt) in
                 self?.processNewObvReturnReceiptToProcessNotification(obvReturnReceipt: obvReturnReceipt)
             },
-            ObvEngineNotificationNew.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: NotificationCenter.default) { [weak self] (messageIdsAndTimestampsFromServer) in
+            ObvEngineNotificationNew.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: NotificationCenter.default) { [weak self] messageIdsAndTimestampsFromServer in
                 self?.processOutboxMessagesAndAllTheirAttachmentsWereAcknowledgedNotification(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer)
             },
             ObvEngineNotificationNew.observeOutboxMessageCouldNotBeSentToServer(within: NotificationCenter.default) { [weak self] (messageIdentifierFromEngine, ownedCryptoId) in
@@ -419,10 +437,6 @@ final class PersistedDiscussionsUpdatesCoordinator {
         observeExtensionFailedToWipeAllEphemeralMessagesBeforeDate()
     }
  
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-
 }
 
 
@@ -449,28 +463,25 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     private func observeNewSentMessagesAddedByExtension() {
         guard let userDefaults = self.userDefaults else {
-            os_log("The user defaults database is not set", log: log, type: .fault)
+            os_log("The user defaults database is not set", log: Self.log, type: .fault)
             return
         }
-        let token = userDefaults.observe(\.objectsModifiedByShareExtension) { (userDefaults, change) in
-            DispatchQueue.init(label: "Queue for observing objectsModifiedByShareExtension").async {
-                guard !userDefaults.objectsModifiedByShareExtensionURLAndEntityName.isEmpty else { return }
-                os_log("📤 Observe %{public}@ object(s) modified by share extension to refresh into the view context.", log: self.log, type: .info, String(userDefaults.objectsModifiedByShareExtensionURLAndEntityName.count))
-                for (url, entityName) in userDefaults.objectsModifiedByShareExtensionURLAndEntityName {
-                    let op = RefreshUpdatedObjectsModifiedByShareExtensionOperation(objectURL: url, entityName: entityName)
-                    self.internalQueue.addOperations([op], waitUntilFinished: true)
-                    op.logReasonIfCancelled(log: self.log)
-                }
+        kvoTokens.append(userDefaults.observe(\.objectsModifiedByShareExtension) { [weak self] (userDefaults, _) in
+            self?.queueForDispatchingOffTheMainThread.async {
+                let objectsModifiedByShareExtensionURLAndEntityName = userDefaults.objectsModifiedByShareExtensionURLAndEntityName
+                guard !objectsModifiedByShareExtensionURLAndEntityName.isEmpty else { return }
                 userDefaults.resetObjectsModifiedByShareExtension()
+                objectsModifiedByShareExtensionURLAndEntityName.forEach { (objectURI, entityName) in
+                    ObvStack.shared.viewContext.deepRefresh(objectURI: objectURI, entityName: entityName)
+                }
             }
-        }
-        kvoTokens.append(token)
+        })
     }
-
+    
     
     private func observeExtensionFailedToWipeAllEphemeralMessagesBeforeDate() {
         guard let userDefaults = self.userDefaults else {
-            os_log("The user defaults database is not set", log: log, type: .fault)
+            os_log("The user defaults database is not set", log: Self.log, type: .fault)
             return
         }
         let token = userDefaults.observe(\.extensionFailedToWipeAllEphemeralMessagesBeforeDate) { [weak self] (userDefaults, change) in
@@ -482,32 +493,30 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     private func deleteOldOrOrphanedRemoteDeleteAndEditRequests() {
         let op1 = DeleteOldOrOrphanedRemoteDeleteAndEditRequestsOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
 
     private func deleteOldOrOrphanedPendingReactions() {
-        let op = DeleteOldOrOrphanedPendingReactionsOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = DeleteOldOrOrphanedPendingReactionsOperation()
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
 
     private func deleteOrphanedExpirations() {
         let op = DeleteOrphanedExpirationsOperation()
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
     
     
     private func cleanJsonMessagesSavedByNotificationExtension() {
         assert(!Thread.isMainThread)
         let op = DeleteAllJsonMessagesSavedByNotificationExtension()
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
     
     
@@ -518,22 +527,22 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// Note that if a message with the same uid from server already exists, we do *not* modify it using the content of the json.
     private func bootstrapMessagesDecryptedWithinNotificationExtension() {
         
-        assert(OperationQueue.current != internalQueue)
+        assert(OperationQueue.current != coordinatorsQueue)
         
-        guard let urls = try? FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forMessagesDecryptedWithinNotificationExtension, includingPropertiesForKeys: nil) else {
-            os_log("📮 We could not list the serialized json files saved by the notification extension", log: log, type: .error)
+        guard let urls = try? FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.forMessagesDecryptedWithinNotificationExtension.url, includingPropertiesForKeys: nil) else {
+            os_log("📮 We could not list the serialized json files saved by the notification extension", log: Self.log, type: .error)
             return
         }
 
-        os_log("📮 Find %{public}@ message%{public}@ saved by the notification extension.", log: log, type: .info, String(urls.count), urls.count == 1 ? "" : "s")
+        os_log("📮 Find %{public}@ message%{public}@ saved by the notification extension.", log: Self.log, type: .info, String(urls.count), urls.count == 1 ? "" : "s")
 
         let obvMessages: [ObvMessage] = urls.compactMap { url in
             guard let serializedObvMessage = try? Data(contentsOf: url) else {
-                os_log("📮 Could not read the content of %{public}@. This file will be deleted.", log: log, type: .error)
+                os_log("📮 Could not read the content of %{public}@. This file will be deleted.", log: Self.log, type: .error)
                 return nil
             }
             guard let obvMessage = try? ObvMessage.decodeFromJson(data: serializedObvMessage) else {
-                os_log("📮 Could not decode the content of %{public}@. This file will be deleted.", log: log, type: .error)
+                os_log("📮 Could not decode the content of %{public}@. This file will be deleted.", log: Self.log, type: .error)
                 return nil
             }
             return obvMessage
@@ -543,7 +552,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                os_log("📮 Failed to delete a notification content: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("📮 Failed to delete a notification content: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
             }
         }
@@ -557,98 +566,77 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     private func wipeReadOnceAndLimitedVisibilityMessagesThatTheShareExtensionDidNotHaveTimeToWipe() {
         guard let userDefaults = userDefaults else { return }
-        let op = WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation(userDefaults: userDefaults,
-                                                                                  appType: .mainApp,
-                                                                                  wipeType: .finishIfRequiredWipeStartedByAnExtension)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: self.log, flowId: FlowIdentifier())
-        self.internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: self.log)
+        let op1 = WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation(userDefaults: userDefaults,
+                                                                                   appType: .mainApp,
+                                                                                   wipeType: .finishIfRequiredWipeStartedByAnExtension)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
 
     private func bootstrapMessagesToBeWiped(preserveReceivedMessages: Bool) {
         do {
             let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: preserveReceivedMessages, restrictToDiscussionWithPermanentID: nil)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            self.coordinatorsQueue.addOperation(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            self.coordinatorsQueue.addOperation(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            self.coordinatorsQueue.addOperation(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        self.coordinatorsQueue.addOperation {
+            ObvMessengerInternalNotification.trashShouldBeEmptied
+                .postOnDispatchQueue()
+        }
     }
 
     
     private func bootstrapWipeAllMessagesThatExpiredEarlierThanNow() {
         let op1 = WipeExpiredMessagesOperation(launchedByBackgroundTask: false)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     private func cleanExpiredMuteNotificationsSetting() {
         let op1 = CleanExpiredMuteNotficationEndDatesOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
         
     private func cleanOrphanedPersistedMessageTimestampedMetadata() {
         let op1 = CleanOrphanedPersistedMessageTimestampedMetadataOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func synchronizeAllOneToOneDiscussionTitlesWithContactNameOperation() {
-        let log = self.log
-        ObvStack.shared.performBackgroundTask { [weak self] context in
-            let ownedIdentities: [PersistedObvOwnedIdentity]
-            do {
-                ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: context)
-            } catch {
-                os_log("Could not get all owned identities: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return
-            }
-            let flowId = FlowIdentifier()
-            let ops = ownedIdentities.map({ SynchronizeOneToOneDiscussionTitlesWithContactNameOperation(ownedIdentityObjectID: $0.typedObjectID) })
-            let composedOps = ops.map({ CompositionOfOneContextualOperation(op1: $0, contextCreator: ObvStack.shared, log: log, flowId: flowId) })
-            self?.internalQueue.addOperations(composedOps, waitUntilFinished: true)
-            composedOps.forEach { composedOp in
-                composedOp.logReasonIfCancelled(log: log)
-            }
-        }
+        let op1 = SynchronizeOneToOneDiscussionTitlesWithContactNameOperation()
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func synchronizeDiscussionsIllustrativeMessageAndRefreshNumberOfNewMessages() {
         let op1 = SynchronizeDiscussionsIllustrativeMessageOperation()
         let op2 = RefreshNumberOfNewMessagesForAllDiscussionsOperation()
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func deleteEmptyLockedDiscussion() {
-        assert(OperationQueue.current != internalQueue)
+        assert(OperationQueue.current != coordinatorsQueue)
         let op1 = DeleteAllEmptyLockedDiscussionsOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     
@@ -658,16 +646,14 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// the list of candidates to an appropriate operations that will perform checks and trash the files if appropriate, in a synchronous way.
     private func trashOrphanedFilesFoundInTheFylesDirectory() {
 
-        let log = self.log
-
         ObvStack.shared.performBackgroundTask { [weak self] (context) in
             
             let namesOfFilesOnDisk: Set<String>
             do {
-                let allFilesInFyle = try Set(FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forFyles, includingPropertiesForKeys: nil))
+                let allFilesInFyle = try Set(FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.forFyles.url, includingPropertiesForKeys: nil))
                 namesOfFilesOnDisk = Set(allFilesInFyle.map({ $0.lastPathComponent }))
             } catch {
-                os_log("Could not list the files of the Fyles directory: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not list the files of the Fyles directory: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
@@ -676,7 +662,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             do {
                 namesOfFilesToKeep = Set(try Fyle.getAllFilenames(within: context))
             } catch {
-                os_log("Could not get all Fyle's filenames: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not get all Fyle's filenames: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
@@ -689,11 +675,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
 
             let op = TrashFilesThatHaveNoAssociatedFyleOperation(urlsCandidatesForTrash: urlsOfFilesCandidatesForTrash)
-            self?.internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-
-            ObvMessengerInternalNotification.trashShouldBeEmptied
-                .postOnDispatchQueue()
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            self?.coordinatorsQueue.addOperation(op)
+            self?.coordinatorsQueue.addOperation({
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            })
 
         }
         
@@ -709,8 +696,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     private func deleteRecipientInfosThatHaveNoMsgIdentifierFromEngineAndAssociatedToDeletedContact() {
         let op = DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFromEngineAndAssociatedToDeletedContactIdentityOperation()
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        self.coordinatorsQueue.addOperation(op)
     }
 }
 
@@ -722,78 +709,81 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// When receiving a `NewDraftToSend` notification, we turn the draft into a `PersistedMessageSent`, reset the draft, and save the context.
     /// If this succeeds, we send the new (unprocessed)  `PersistedMessageSent`.
     private func processNewDraftToSendNotification(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
-        assert(OperationQueue.current != internalQueue)
+        assert(OperationQueue.current != coordinatorsQueue)
         assert(!Thread.isMainThread)
         let op1 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftPermanentID: draftPermanentID)
         let op2 = ComputeExtendedPayloadOperation(provider: op1)
         let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: op2, obvEngine: obvEngine)
         let op4 = MarkAllMessagesAsNotNewWithinDiscussionOperation(draftPermanentID: draftPermanentID)
-        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        guard !composedOp.isCancelled else {
-            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
-                .postOnDispatchQueue()
-            assertionFailure()
-            return
+        let composedOp = createCompositionOfFourContextualOperation(op1: op1, op2: op2, op3: op3, op4: op4)
+        coordinatorsQueue.addOperation(composedOp)
+        coordinatorsQueue.addOperation {
+            guard !composedOp.isCancelled else {
+                NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
+                    .postOnDispatchQueue()
+                assertionFailure()
+                return
+            }
         }
     }
     
     
     private func processInsertDebugMessagesInAllExistingDiscussions() {
-        #if DEBUG
-        assert(OperationQueue.current != internalQueue)
+#if DEBUG
+        assert(OperationQueue.current != coordinatorsQueue)
         var objectIDs = [(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)]()
-        ObvStack.shared.performBackgroundTaskAndWait { context in
+        ObvStack.shared.performBackgroundTask { [weak self] context in
+            guard let _self = self else { return }
             guard let discussions = try? PersistedDiscussion.getAllSortedByTimestampOfLastMessageForAllOwnedIdentities(within: context) else { assertionFailure(); return }
             objectIDs = discussions.map({ ($0.typedObjectID, $0.draft.objectPermanentID) })
-        }
-        let numberOfMessagesToInsert = 100
-        for objectID in objectIDs {
-            for messageNumber in 0..<numberOfMessagesToInsert {
-                debugPrint("Message \(messageNumber) out of \(numberOfMessagesToInsert)")
-                if Bool.random() {
-                    let op1 = CreateRandomDraftDebugOperation(discussionObjectID: objectID.discussionObjectID)
-                    let op2 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftPermanentID: objectID.draftPermanentID)
-                    let op3 = MarkSentMessageAsDeliveredDebugOperation()
-                    op3.addDependency(op2)
-                    let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-                    internalQueue.addOperations([composedOp], waitUntilFinished: true)
-                    composedOp.logReasonIfCancelled(log: log)
-                    guard !composedOp.isCancelled else { assertionFailure(); return }
-                } else {
-                    let op1 = CreateRandomMessageReceivedDebugOperation(discussionObjectID: objectID.discussionObjectID)
-                    let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-                    internalQueue.addOperations([composedOp], waitUntilFinished: true)
-                    composedOp.logReasonIfCancelled(log: log)
-                    guard !composedOp.isCancelled else { assertionFailure(); return }
+            let numberOfMessagesToInsert = 100
+            for objectID in objectIDs {
+                for messageNumber in 0..<numberOfMessagesToInsert {
+                    debugPrint("Message \(messageNumber) out of \(numberOfMessagesToInsert)")
+                    if Bool.random() {
+                        let op1 = CreateRandomDraftDebugOperation(discussionObjectID: objectID.discussionObjectID)
+                        let op2 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftPermanentID: objectID.draftPermanentID)
+                        let op3 = MarkSentMessageAsDeliveredDebugOperation()
+                        op3.addDependency(op2)
+                        let composedOp = _self.createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+                        self?.coordinatorsQueue.addOperation(composedOp)
+                        self?.coordinatorsQueue.addOperation({ guard !composedOp.isCancelled else { assertionFailure(); return } })
+                    } else {
+                        let op1 = CreateRandomMessageReceivedDebugOperation(discussionObjectID: objectID.discussionObjectID)
+                        let composedOp = _self.createCompositionOfOneContextualOperation(op1: op1)
+                        self?.coordinatorsQueue.addOperation(composedOp)
+                        self?.coordinatorsQueue.addOperation({ guard !composedOp.isCancelled else { assertionFailure(); return } })
+                    }
                 }
             }
         }
-        #endif
+#endif
     }
-
+    
     /// When receiving a NewPersistedObvContactDevice, we check whether there exists "related" unsent message. If this is the case, we can now post them.
     private func processUnprocessedRecipientInfosThatCanNowBeProcessed() {
-        
-        let op = FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentByEngineOperation()
-        op.queuePriority = .low
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        guard !op.isCancelled else {
-            assertionFailure()
-            return
-        }
-        for messageSentPermanentID in op.messageSentPermanentIDs {
-            let op1 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, extendedPayloadProvider: nil, obvEngine: obvEngine)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            composedOp.queuePriority = .low
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            if composedOp.isCancelled {
+        let obvEngine = self.obvEngine
+        let op1 = FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentByEngineOperation()
+        let op2 = BlockOperation()
+        op2.completionBlock = { [weak self] in
+            guard let _self = self else { return }
+            guard !op1.isCancelled else {
                 assertionFailure()
-                // In production, continue anyway
+                return
+            }
+            assert(op1.isFinished)
+            for messageSentPermanentID in op1.messageSentPermanentIDs {
+                let op1 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, extendedPayloadProvider: nil, obvEngine: obvEngine)
+                let composedOp = _self.createCompositionOfOneContextualOperation(op1: op1)
+                composedOp.queuePriority = .low
+                self?.coordinatorsQueue.addOperation(composedOp)
             }
         }
-
+        op2.addDependency(op1)
+        op1.queuePriority = .low
+        op2.queuePriority = .low
+        coordinatorsQueue.addOperation(op1)
+        coordinatorsQueue.addOperation(op2)
     }
     
     
@@ -802,138 +792,165 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// We also send the shared configuration of the one-to-one discussion we have with this contact.
     /// This method is also used when a contact that was a pending group v2 member accepts the invitation.
     private func sendAppropriateDiscussionSharedConfigurationsToContact(input: FindAdministratedGroupV2DiscussionsAndOneToOneDiscussionWithContactOperation.Input, sendSharedConfigOfOneToOneDiscussion: Bool) {
-        
+        let obvEngine = self.obvEngine
         let op1 = FindAdministratedGroupV2DiscussionsAndOneToOneDiscussionWithContactOperation(input: input, includeOneToOneDiscussionInResult: sendSharedConfigOfOneToOneDiscussion)
-        let op = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        op.queuePriority = .low
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        guard !op.isCancelled else {
-            assertionFailure()
-            return
-        }
-        
-        for persistedDiscussionObjectID in op1.persistedDiscussionObjectIDs {
-            let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID.objectID, obvEngine: obvEngine)
-            op.queuePriority = .low
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            if op.isCancelled {
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        let op2 = BlockOperation()
+        op2.completionBlock = { [weak self] in
+            guard !composedOp.isCancelled else {
                 assertionFailure()
-                // In production, continue anyway
+                return
             }
+            assert(op1.isFinished)
+            for persistedDiscussionObjectID in op1.persistedDiscussionObjectIDs {
+                let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID.objectID, obvEngine: obvEngine)
+                op.queuePriority = .low
+                op.completionBlock = { if op.isCancelled { assertionFailure() } }
+                self?.coordinatorsQueue.addOperation(op)
+            }
+        }
+        op2.addDependency(composedOp)
+        composedOp.queuePriority = .low
+        op2.queuePriority = .low
+        coordinatorsQueue.addOperation(composedOp)
+        coordinatorsQueue.addOperation(op2)
+    }
+    
+    
+    /// When receiving a `PersistedContactGroupHasUpdatedContactIdentities` notification from the App, we check whether there exists unprocessed (unsent) messages within the corresponding group discussion.
+    /// If this is the case, we can now post them.
+    /// We also insert the the system messages of category `.contactJoinedGroup` and `.contactLeftGroup` as appropriate.
+    private func processPersistedContactGroupHasUpdatedContactIdentitiesNotification(persistedContactGroupObjectID: NSManagedObjectID, insertedContacts: Set<PersistedObvContactIdentity>, removedContacts: Set<PersistedObvContactIdentity>) {
+                
+        let obvEngine = self.obvEngine
+        
+        ObvStack.shared.performBackgroundTask { [weak self] context in
+        
+            guard let _self = self else { return }
+            
+            // Task 1: Recover the persistedDiscussionObjectID and send unprocessed messages within this group
+
+            guard let contactGroup = try? context.existingObject(with: persistedContactGroupObjectID) as? PersistedContactGroup else { return }
+            let contactGroupIsOwned = contactGroup.category == .owned
+            let groupDiscussion = contactGroup.discussion
+            let discussionObjectID = groupDiscussion.objectID
+            let contactGroupHasAtLeastOneRemoteContactDevice = contactGroup.hasAtLeastOneRemoteContactDevice()
+
+            var operationsToQueue = [Operation]()
+            
+            if contactGroupHasAtLeastOneRemoteContactDevice {
+                let sentMessages = groupDiscussion.messages.compactMap { $0 as? PersistedMessageSent }
+                let objectIDOfUnprocessedMessages = sentMessages.filter({ $0.status == .unprocessed || $0.status == .processing }).map({ $0.objectPermanentID })
+                let ops: [(ComputeExtendedPayloadOperation, SendUnprocessedPersistedMessageSentOperation)] = objectIDOfUnprocessedMessages.map({
+                    let op1 = ComputeExtendedPayloadOperation(messageSentPermanentID: $0)
+                    let op2 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: $0, extendedPayloadProvider: op1, obvEngine: obvEngine)
+                        return (op1, op2)
+                    })
+                let composedOps = ops.map { _self.createCompositionOfTwoContextualOperation(op1: $0.0, op2: $0.1) }
+                operationsToQueue.append(contentsOf: composedOps)
+            }
+            
+            // Task 2: Insert a system message of category "contactJoinedGroup"
+            
+            do {
+                let ops: [CompositionOfOneContextualOperation] = insertedContacts.map {
+                    let op1 = InsertPersistedMessageSystemIntoDiscussionOperation(
+                        persistedMessageSystemCategory: .contactJoinedGroup,
+                        persistedDiscussionObjectID: discussionObjectID,
+                        optionalContactIdentityObjectID: $0.objectID,
+                        optionalCallLogItemObjectID: nil)
+                    let composedOp = _self.createCompositionOfOneContextualOperation(op1: op1)
+                    return composedOp
+                }
+                operationsToQueue.append(contentsOf: ops)
+            }
+
+            // Task 3: Insert a system message of category "contactLeftGroup"
+            
+            do {
+                let ops: [CompositionOfOneContextualOperation] = removedContacts.map {
+                    let op1 = InsertPersistedMessageSystemIntoDiscussionOperation(
+                        persistedMessageSystemCategory: .contactLeftGroup,
+                        persistedDiscussionObjectID: discussionObjectID,
+                        optionalContactIdentityObjectID: $0.objectID,
+                        optionalCallLogItemObjectID: nil)
+                    let composedOp = _self.createCompositionOfOneContextualOperation(op1: op1)
+                    return composedOp
+                }
+                operationsToQueue.append(contentsOf: ops)
+            }
+
+            // Task 4: In case the group is owned, send the shared configuration of the group discussion to all group members
+            
+            if contactGroupIsOwned && contactGroupHasAtLeastOneRemoteContactDevice {
+                let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: discussionObjectID, obvEngine: obvEngine)
+                op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+                operationsToQueue.append(op)
+            }
+
+            // Actually queue the operations
+            
+            guard !operationsToQueue.isEmpty else { return }
+            operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+            self?.coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+            
         }
         
     }
-
     
-    /// When receiving a `PersistedContactGroupHasUpdatedContactIdentities` notification, we check whether there exists unprocessed (unsent) messages within the corresponding group discussion. If this is the case, we can now post them.
-    /// We also insert the all the system messages of category `.contactJoinedGroup` and `.contactLeftGroup` as appropriate.
-    private func processPersistedContactGroupHasUpdatedContactIdentitiesNotification(persistedContactGroupObjectID: NSManagedObjectID, insertedContacts: Set<PersistedObvContactIdentity>, removedContacts: Set<PersistedObvContactIdentity>) {
-        // Task 1: Send unprocessed messages within this group and recover the persistedDiscussionObjectID
-        var persistedDiscussionObjectID: NSManagedObjectID?
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            guard let contactGroup = try? context.existingObject(with: persistedContactGroupObjectID) as? PersistedContactGroup else {
-                persistedDiscussionObjectID = nil
-                return
-            }
-            let groupDiscussion = contactGroup.discussion
-            persistedDiscussionObjectID = groupDiscussion.objectID
-            guard contactGroup.hasAtLeastOneRemoteContactDevice() else {
-                return
-            }
-            sendUnprocessedMessages(within: groupDiscussion)
-        }
-        guard let discussionObjectID = persistedDiscussionObjectID else { return }
-        // Task 2: Insert a system message of category "contactJoinedGroup"
-        do {
-            let ops = insertedContacts.map({ InsertPersistedMessageSystemIntoDiscussionOperation(
-                                            persistedMessageSystemCategory: .contactJoinedGroup,
-                                            persistedDiscussionObjectID: discussionObjectID,
-                                            optionalContactIdentityObjectID: $0.objectID,
-                                            optionalCallLogItemObjectID: nil) })
-            internalQueue.addOperations(ops, waitUntilFinished: true)
-            for op in ops { op.logReasonIfCancelled(log: log) }
-        }
-        // Task 3: Insert a system message of category "contactLeftGroup"
-        do {
-            let ops = removedContacts.map({ InsertPersistedMessageSystemIntoDiscussionOperation(
-                                            persistedMessageSystemCategory: .contactLeftGroup,
-                                            persistedDiscussionObjectID: discussionObjectID,
-                                            optionalContactIdentityObjectID: $0.objectID,
-                                            optionalCallLogItemObjectID: nil) })
-            internalQueue.addOperations(ops, waitUntilFinished: true)
-            for op in ops { op.logReasonIfCancelled(log: log) }
-        }
-        // Task 4: In case the group is owned, send the shared configuration of the group discussion to all group members
-        do {
-            ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                do {
-                    guard try PersistedContactGroupOwned.get(objectID: persistedContactGroupObjectID, within: context) as? PersistedContactGroupOwned != nil else { return }
-                } catch {
-                    os_log("Could not get PersistedContactGroupOwned: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    return
-                }
-                let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: discussionObjectID, obvEngine: obvEngine)
-                internalQueue.addOperations([op], waitUntilFinished: true)
-                op.logReasonIfCancelled(log: log)
-            }
-        }
-    }
-
     
     /// When notified that a `PersistedMessageReceived` has been deleted, we cancel any potential download within the engine
     private func processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId) {
         do {
             try obvEngine.cancelDownloadOfMessage(withIdentifier: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
         } catch {
-            os_log("Could not cancel the download of a message that we just deleted from the app", log: log, type: .fault)
+            os_log("Could not cancel the download of a message that we just deleted from the app", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
     }
-
     
+
     private func processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ObvCryptoId, persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType) {
+        
+        var operationsToQueue = [Operation]()
         
         switch deletionType {
         case .local:
             break // We will do the work below
         case .global:
             let op = SendGlobalDeleteMessagesJSONOperation(persistedMessageObjectIDs: [persistedMessageObjectID], obvEngine: obvEngine)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
         
         do {
-            let op = CancelUploadOrDownloadOfPersistedMessageOperation(persistedMessageObjectID: persistedMessageObjectID, obvEngine: obvEngine)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-        }
-        do {
+            let op1 = CancelUploadOrDownloadOfPersistedMessagesOperation(persistedMessageObjectIDs: [persistedMessageObjectID], obvEngine: obvEngine)
             let requester = RequesterOfMessageDeletion.ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .local)
-            let op1 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: Set([persistedMessageObjectID]), requester: requester)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let op2 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: Set([persistedMessageObjectID]), requester: requester)
+            let op3 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
+            let op4 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
+            let composedOp = createCompositionOfFourContextualOperation(op1: op1, op2: op2, op3: op3, op4: op4)
+            operationsToQueue.append(composedOp)
         }
+        
         do {
-            let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
         }
-        do {
-            let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
-        }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+        
     }
-
-
+    
+    
     private func processUserRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, completionHandler: @escaping (Bool) -> Void) {
-
+        
         ObvStack.shared.performBackgroundTask { [weak self] context in
             guard let discussion = try? PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
                 return
@@ -944,15 +961,15 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: deletionType),
                 completionHandler: completionHandler)
         }
-
+        
     }
     
     
     /// This methods properly deletes a discussion. It is typically called when the user requests the deletion of all messages within a discussion. But it is also called when a contact performs a global delete of a discussion, in which case `requestedBy` is non `nil`.
     private func deletePersistedDiscussion(withObjectID persistedDiscussionObjectID: NSManagedObjectID, requester: RequesterOfMessageDeletion, completionHandler: @escaping (Bool) -> Void) {
         
-        assert(OperationQueue.current != internalQueue)
-
+        assert(OperationQueue.current != coordinatorsQueue)
+        
         /*
          * If Alice sends us a message, then deletes the discussion, the following occurs:
          * 1. A user notification is received (and displayed), and a serialized version is saved, ready to be processed next time Olvid is launched
@@ -962,6 +979,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
          * since there is no reason to have a serialized notification present after the app is launched.
          */
         cleanJsonMessagesSavedByNotificationExtension()
+        
+        var operationsToQueue = [Operation]()
         
         switch requester {
         case .contact:
@@ -973,422 +992,394 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 break // We will do the work below
             case .global:
                 let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
-                internalQueue.addOperations([op], waitUntilFinished: true)
-                op.logReasonIfCancelled(log: log)
+                op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+                operationsToQueue.append(op)
             }
         }
         
-        // We first cancel the upload of all unprocessed messages
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            do {
-                let allProcessingMessageSent = try PersistedMessageSent.getAllProcessingWithinDiscussion(persistedDiscussionObjectID: persistedDiscussionObjectID, within: context)
-                let ops = allProcessingMessageSent.map({ CancelUploadOrDownloadOfPersistedMessageOperation(persistedMessageObjectID: $0.objectID, obvEngine: obvEngine) })
-                internalQueue.addOperations(ops, waitUntilFinished: true)
-                logReasonOfCancelledOperations(ops)
-            } catch {
-                os_log("Could not cancel current uploads/downloads during the deletion of the persisted discussion: %{public}@", log: log, type: .error, error.localizedDescription)
-            }
-        }
-        
-        let newDiscussionObjectID: NSManagedObjectID?
-        let atLeastOneMessageWasDeleted: Bool
         do {
-            let op1 = DeleteAllPersistedMessagesWithinDiscussionOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, requester: requester)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
-            DispatchQueue.main.async {
-                completionHandler(!composedOp.isCancelled)
-            }
-            guard !composedOp.isCancelled else {
-                os_log("DeleteAllPersistedMessagesWithinDiscussionOperation cancelled: %{public}@", log: log, type: .error, composedOp.reasonForCancel?.localizedDescription ?? "")
-                return
-            }
-            newDiscussionObjectID = op1.newDiscussionObjectID
-            atLeastOneMessageWasDeleted = op1.atLeastOneMessageWasDeleted
+            let op1 = CancelUploadOrDownloadOfPersistedMessagesOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
+        
+        let deleteAllPersistedMessagesWithinDiscussionOperation: DeleteAllPersistedMessagesWithinDiscussionOperation
+        do {
+            deleteAllPersistedMessagesWithinDiscussionOperation = DeleteAllPersistedMessagesWithinDiscussionOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, requester: requester)
+            let composedOp = createCompositionOfOneContextualOperation(op1: deleteAllPersistedMessagesWithinDiscussionOperation)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = {
+                currentCompletion?()
+                composedOp.logReasonIfCancelled(log: Self.log)
+                DispatchQueue.main.async {
+                    completionHandler(!composedOp.isCancelled)
+                }
+            }
+            operationsToQueue.append(composedOp)
+        }
+        
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
+        
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        
+        // If the requester is a contact (meaning she requested to globally delete the discussion), we insert a discussionWasRemotelyWiped system message in the new discussion, but only if at least one message was deleted.
 
         switch requester {
         case .ownedIdentity:
             break
-        case .contact(let ownedCryptoId, let contactCryptoId, let messageUploadTimestampFromServer):
-            // This happens when this discussion was globally deleted by a contact.
-            // In that case, we expect the newDiscussionObjectID to be non nil
-            assert(newDiscussionObjectID != nil)
-            if let objectID = newDiscussionObjectID, atLeastOneMessageWasDeleted {
-                var contactIdentityObjectID: NSManagedObjectID? = nil
-                ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                    if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: context) {
-                        contactIdentityObjectID = contact.objectID
-                    }
-                }
+        case .contact(_, _, let messageUploadTimestampFromServer):
+            let op = BlockOperation()
+            op.completionBlock = { [weak self] in
+                guard let _self = self else { return }
+                assert(deleteAllPersistedMessagesWithinDiscussionOperation.isFinished)
+                guard !deleteAllPersistedMessagesWithinDiscussionOperation.isCancelled else { return }
+                let newDiscussionObjectID = deleteAllPersistedMessagesWithinDiscussionOperation.newDiscussionObjectID
+                let atLeastOneIllustrativeMessageWasDeleted = deleteAllPersistedMessagesWithinDiscussionOperation.atLeastOneIllustrativeMessageWasDeleted
+                let contactIdentityObjectID = deleteAllPersistedMessagesWithinDiscussionOperation.contactRequesterIdentityObjectID
+                assert(newDiscussionObjectID != nil)
                 assert(contactIdentityObjectID != nil)
-                let op = InsertPersistedMessageSystemIntoDiscussionOperation(
-                    persistedMessageSystemCategory: .discussionWasRemotelyWiped,
-                    persistedDiscussionObjectID: objectID,
-                    optionalContactIdentityObjectID: contactIdentityObjectID, optionalCallLogItemObjectID: nil,
-                    messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                internalQueue.addOperations([op], waitUntilFinished: true)
-                op.logReasonIfCancelled(log: log)
+                if let newDiscussionObjectID, let contactIdentityObjectID, atLeastOneIllustrativeMessageWasDeleted {
+                    let op1 = InsertPersistedMessageSystemIntoDiscussionOperation(
+                        persistedMessageSystemCategory: .discussionWasRemotelyWiped,
+                        persistedDiscussionObjectID: newDiscussionObjectID,
+                        optionalContactIdentityObjectID: contactIdentityObjectID, optionalCallLogItemObjectID: nil,
+                        messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                    let composedOp = _self.createCompositionOfOneContextualOperation(op1: op1)
+                    self?.coordinatorsQueue.addOperation(composedOp)
+                }
             }
+            operationsToQueue.append(op)
         }
-        
-    }
 
+        // We can now queue all operations
+            
+        guard !operationsToQueue.isEmpty else { return }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+
+    }
+    
     
     private func processMessagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>) {
-        assert(OperationQueue.current != internalQueue)
-        let op = ProcessPersistedMessagesAsTheyTurnsNotNewOperation(persistedMessageObjectIDs: persistedMessageObjectIDs)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        assert(OperationQueue.current != coordinatorsQueue)
+        let op1 = ProcessPersistedMessagesAsTheyTurnsNotNewOperation(persistedMessageObjectIDs: persistedMessageObjectIDs)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
-
+    
     
     private func processNewObvMessageWasReceivedViaPushKitNotification(obvMessage: ObvMessage) {
         processReceivedObvMessage(obvMessage, overridePreviousPersistedMessage: false, completionHandler: nil)
     }
-
+    
     
     private func processNewWebRTCMessageToSendNotification(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool) {
-        os_log("☎️ We received an observeNewWebRTCMessageToSend notification", log: log, type: .info)
-        do {
-            let messageToSend = PersistedItemJSON(webrtcMessage: webrtcMessage)
-            let messagePayload = try messageToSend.jsonEncode()
-            try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { [weak self] (context) in
-                guard let _self = self else { return }
-                guard let contact = try PersistedObvContactIdentity.get(objectID: contactID, within: context) else { throw _self.makeError(message: "Could not find PersistedObvContactIdentity") }
-                let contactCryptoId = contact.cryptoId
-                guard let ownedCryptoId = contact.ownedIdentity?.cryptoId else { return }
-                let messageIdentifierForContactToWhichTheMessageWasSent =
-                    try _self.obvEngine.post(messagePayload: messagePayload,
-                                             extendedPayload: nil,
-                                             withUserContent: false,
-                                             isVoipMessageForStartingCall: forStartingCall, // True only for starting a call
-                        attachmentsToSend: [],
-                        toContactIdentitiesWithCryptoId: [contactCryptoId],
-                        ofOwnedIdentityWithCryptoId: ownedCryptoId,
-                        completionHandler: nil)
-                if messageIdentifierForContactToWhichTheMessageWasSent[contactCryptoId] != nil {
-                    os_log("☎️ We posted a new %{public}s WebRTCMessage for call %{public}s", log: log, type: .info, String(describing: webrtcMessage.messageType), String(webrtcMessage.callIdentifier))
-                } else {
-                    os_log("☎️ We failed to post a %{public}s WebRTCMessage", log: log, type: .fault, String(describing: webrtcMessage.messageType))
-                    assertionFailure()
-                }
-            }
-        } catch {
-            os_log("☎️ Could not post %{public}s webRTCMessageJSON", log: log, type: .fault, String(describing: webrtcMessage.messageType))
-            assertionFailure()
-            return
-        }
+        os_log("☎️ We received an observeNewWebRTCMessageToSend notification", log: Self.log, type: .info)
+        let op1 = SendWebRTCMessageOperation(webrtcMessage: webrtcMessage, contactID: contactID, forStartingCall: forStartingCall, obvEngine: obvEngine, log: Self.log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
+    
 
     private func processNewCallLogItemNotification(objectID: TypeSafeManagedObjectID<PersistedCallLogItem>) {
-        os_log("☎️ We received an NewReportCallItem notification", log: log, type: .info)
+        os_log("☎️ We received an NewReportCallItem notification", log: Self.log, type: .info)
         do {
-            try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { [weak self] (context) in
-                guard let _self = self else { return }
-
-                guard let item = try PersistedCallLogItem.get(objectID: objectID, within: context) else {
-                    throw _self.makeError(message: "Could not find PersistedCallLogItem")
-                }
-
-                let discussion: PersistedDiscussion
-                if let groupId = try item.getGroupIdentifier() {
-                    switch groupId {
-                    case .groupV1(let objectID):
-                        guard let contactGroup = try PersistedContactGroup.get(objectID: objectID.objectID, within: context) else {
-                            throw _self.makeError(message: "Could not find PersistedContactGroup")
-                        }
-                        discussion = contactGroup.discussion
-                    case .groupV2(let objectID):
-                        guard let group = try PersistedGroupV2.get(objectID: objectID, within: context) else {
-                            throw _self.makeError(message: "Could not find PersistedGroupV2")
-                        }
-                        guard let _discussion = group.discussion else {
-                            throw _self.makeError(message: "Could not find PersistedGroupV2Discussion")
-                        }
-                        discussion = _discussion
-                    }
-                } else {
-                    if item.isIncoming {
-                        guard let caller = item.logContacts.first(where: {$0.isCaller}),
-                              let callerIdentity = caller.contactIdentity else {
-                            throw _self.makeError(message: "Could not find caller for incoming call")
-                        }
-                        if let oneToOneDiscussion = callerIdentity.oneToOneDiscussion {
-                            discussion = oneToOneDiscussion
-                        } else {
-                            // Do not report this call.
-                            return
-                        }
-                    } else if item.logContacts.count == 1,
-                              let contact = item.logContacts.first,
-                              let contactIdentity = contact.contactIdentity,
-                              let oneToOneDiscussion = contactIdentity.oneToOneDiscussion {
-                        discussion = oneToOneDiscussion
-                    } else {
-                        // Do not report this call.
-                        return
-                    }
-                }
-
-                let op = InsertPersistedMessageSystemIntoDiscussionOperation(persistedMessageSystemCategory: .callLogItem, persistedDiscussionObjectID: discussion.objectID, optionalContactIdentityObjectID: nil, optionalCallLogItemObjectID: objectID)
-                internalQueue.addOperations([op], waitUntilFinished: true)
-                op.logReasonIfCancelled(log: log)
-            }
-        } catch(let error) {
-            os_log("☎️ Failed NewReportCall notification: %@", log: log, type: .error, error.localizedDescription)
-            assertionFailure()
-            return
+            let op1 = DetermineDiscussionForReportingCallOperation(persistedCallLogItemObjectID: objectID)
+            let op2 = InsertPersistedMessageSystemIntoDiscussionOperation(
+                persistedMessageSystemCategory: .callLogItem,
+                operationProvidingPersistedDiscussion: op1,
+                optionalContactIdentityObjectID: nil,
+                optionalCallLogItemObjectID: objectID)
+            let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+            coordinatorsQueue.addOperations([composedOp], waitUntilFinished: false)
         }
     }
-
+    
+    
     private func processPersistedContactWasDeletedNotification() {
-        os_log("☎️ We received an PersistedContactWasDeleted notification", log: log, type: .info)
-
+        os_log("☎️ We received an PersistedContactWasDeleted notification", log: Self.log, type: .info)
         let op = CleanCallLogContactsOperation()
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
-
-
-    private func processWipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void) {
+    
+    
+    private func processWipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: @escaping (Bool) -> Void) {
         let op1 = WipeExpiredMessagesOperation(launchedByBackgroundTask: launchedByBackgroundTask)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        let success = !composedOp.isCancelled
-        completionHandler(success)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        let currentCompletion = composedOp.completionBlock
+        composedOp.completionBlock = {
+            currentCompletion?()
+            composedOp.logReasonIfCancelled(log: Self.log)
+            let success = !composedOp.isCancelled
+            completionHandler(success)
+        }
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func userLeftDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+        var operationsToQueue = [Operation]()
         do {
             let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: false, restrictToDiscussionWithPermanentID: discussionPermanentID)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op = DeleteMessagesWithExpiredTimeBasedRetentionOperation(restrictToDiscussionWithPermanentID: discussionPermanentID)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
         do {
             let op = DeleteMessagesWithExpiredCountBasedRetentionOperation(restrictToDiscussionWithPermanentID: discussionPermanentID)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
     
     
     private func userEnteredDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         let op = AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation(discussionPermanentID: discussionPermanentID)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
-
+    
     
     private func processUserWantsToReadReceivedMessagesThatRequiresUserActionNotification(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>) {
         let op = AllowReadingOfMessagesReceivedThatRequireUserActionOperation(persistedMessageReceivedObjectIDs: persistedMessageObjectIDs)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
-
+    
     
     private func processPersistedMessageReceivedWasReadNotification(persistedMessageReceivedObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>) async {
-        let log = self.log
         // We do not need to sync the sending of a read receipt on the operation queue
         do {
             try await postMessageReadReceiptIfRequired(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID)
         } catch {
-            os_log("The Return Receipt could not be posted", log: log, type: .fault)
+            os_log("The Return Receipt could not be posted", log: Self.log, type: .fault)
             assertionFailure()
         }
     }
-
+    
     private func processReceivedFyleJoinHasBeenMarkAsOpenedNotification(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async {
-        let log = self.log
         // We do not need to sync the sending of a read receipt on the operation queue
         do {
             try await postAttachementReadReceiptIfRequired(receivedFyleJoinID: receivedFyleJoinID)
         } catch {
-            os_log("The Return Receipt could not be posted", log: log, type: .fault)
+            os_log("The Return Receipt could not be posted", log: Self.log, type: .fault)
             assertionFailure()
         }
     }
-
+    
     
     private func processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         // When a readOnce sent message status becomes "sent", we check whether the user is still within the discussion corresponding to this message.
         // If this is the case, we do nothing. Otherwise, we should delete or wipe the message as it is readOnce, has already been seen, and was properly sent.
         guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID != persistedDiscussionPermanentID else {
-            os_log("A readOnce outbound message was sent but the user is still within the discussion, so we do *not* delete the message immediately", log: log, type: .info)
+            os_log("A readOnce outbound message was sent but the user is still within the discussion, so we do *not* delete the message immediately", log: Self.log, type: .info)
             return
         }
-        os_log("A readOnce outbound message was sent after the user left the discussion. We delete/wipe the message now", log: log, type: .info)
+        os_log("A readOnce outbound message was sent after the user left the discussion. We delete/wipe the message now", log: Self.log, type: .info)
+        var operationsToQueue = [Operation]()
         do {
             let op1 = WipeOrDeleteReadOnceMessagesOperation(preserveReceivedMessages: false, restrictToDiscussionWithPermanentID: persistedDiscussionPermanentID)
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
     
     
     private func processUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoId: ObvCryptoId) {
+        var operationsToQueue = [Operation]()
         do {
-            let op = ReplaceDiscussionSharedExpirationConfigurationOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, expirationJSON: expirationJSON, initiator: ownedCryptoId)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-            guard !op.isCancelled else { return }
-        }
-        do {
-            let op = InsertCurrentDiscussionSharedConfigurationSystemMessageOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, messageUploadTimestampFromServer: nil, fromContactIdentity: nil)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            let op = ReplaceDiscussionSharedExpirationConfigurationOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, expirationJSON: expirationJSON, ownedCryptoIdAsInitiator: ownedCryptoId)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
         do {
             let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
     
-    
-    private func processApplyAllRetentionPoliciesNowNotification(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void) {
-        var success = true
+
+    private func processApplyAllRetentionPoliciesNowNotification(launchedByBackgroundTask: Bool, completionHandler: @escaping (Bool) -> Void) {
+        var operationsToQueue = [Operation]()
         do {
             let op = DeleteMessagesWithExpiredTimeBasedRetentionOperation(restrictToDiscussionWithPermanentID: nil)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
             if launchedByBackgroundTask {
-                ObvDisplayableLogs.shared.log("DeleteMessagesWithExpiredTimeBasedRetentionOperation deleted \(op.numberOfDeletedMessages) messages")
+                let logOp = BlockOperation()
+                op.completionBlock = {
+                    ObvDisplayableLogs.shared.log("DeleteMessagesWithExpiredTimeBasedRetentionOperation deleted \(op.numberOfDeletedMessages) messages")
+                }
+                operationsToQueue.append(logOp)
             }
-            success = success && !op.isCancelled
         }
         do {
             let op = DeleteMessagesWithExpiredCountBasedRetentionOperation(restrictToDiscussionWithPermanentID: nil)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-            success = success && !op.isCancelled
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
-        completionHandler(success)
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+                let oneOperationCancelled = operationsToQueue.reduce(false) { $0 || $1.isCancelled }
+                let success = !oneOperationCancelled
+                completionHandler(success)
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
-
+    
     
     private func processAnOldDiscussionSharedConfigurationWasReceivedNotification(persistedDiscussionObjectID: NSManagedObjectID) {
         let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(persistedDiscussionObjectID: persistedDiscussionObjectID, obvEngine: obvEngine)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
-
+    
     
     private func processUserWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: NSManagedObjectID, newTextBody: String) {
-        let textBody = newTextBody.isEmpty ? nil : newTextBody
-        let op1 = EditTextBodyOfSentMessageOperation(persistedSentMessageObjectID: sentMessageObjectID, newTextBody: textBody)
+        let op1 = EditTextBodyOfSentMessageOperation(persistedSentMessageObjectID: sentMessageObjectID, newTextBody: newTextBody)
         let op2 = SendUpdateMessageJSONOperation(persistedSentMessageObjectID: sentMessageObjectID, obvEngine: obvEngine)
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        guard !composedOp.isCancelled else { assertionFailure(); return }
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        coordinatorsQueue.addOperation(composedOp)
     }
-
+    
+    
     private func processUserWantsToUpdateReaction(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, emoji: String?) {
         let op1 = UpdateReactionsOfMessageOperation(emoji: emoji, messageObjectID: messageObjectID)
         let op2 = SendReactionJSONOperation(messageObjectID: messageObjectID, obvEngine: obvEngine, emoji: emoji)
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        guard !composedOp.isCancelled else { assertionFailure(); return }
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        coordinatorsQueue.addOperation(composedOp)
     }
+    
     
     private func processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification(persistedDiscussionObjectID: NSManagedObjectID, completionHandler: @escaping (Bool) -> Void) {
-        os_log("Call to processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification for discussion %{public}@", log: log, type: .debug, persistedDiscussionObjectID.debugDescription)
-        os_log("Creating a MarkAllMessagesAsNotNewWithinDiscussionOperation for discussion %{public}@", log: log, type: .debug, persistedDiscussionObjectID.debugDescription)
-        let op1 = MarkAllMessagesAsNotNewWithinDiscussionOperation(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>(objectID: persistedDiscussionObjectID) )
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        guard !composedOp.isCancelled else { assertionFailure(); completionHandler(false); return }
-        DispatchQueue.main.async { completionHandler(true) }
+        os_log("Call to processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification for discussion %{public}@", log: Self.log, type: .debug, persistedDiscussionObjectID.debugDescription)
+        var operationsToQueue = [Operation]()
+        do {
+            os_log("Creating a MarkAllMessagesAsNotNewWithinDiscussionOperation for discussion %{public}@", log: Self.log, type: .debug, persistedDiscussionObjectID.debugDescription)
+            let op1 = MarkAllMessagesAsNotNewWithinDiscussionOperation(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>(objectID: persistedDiscussionObjectID) )
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
+        }
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                DispatchQueue.main.async { completionHandler(true) }
+            }
+            operationsToQueue.append(op)
+        }
+        // Since the operation were user initiated, we increase their priority and quality of service
+        operationsToQueue.forEach { $0.queuePriority = .veryHigh }
+        operationsToQueue.forEach { $0.qualityOfService = .userInteractive }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
-
+    
     
     private func processUserWantsToRemoveDraftFyleJoinNotification(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>) {
+        var operationsToQueue = [Operation]()
         do {
             let op = DeleteDraftFyleJoinOperation(draftFyleJoinObjectID: draftFyleJoinObjectID)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(op)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
-
+    
     
 }
 
@@ -1398,38 +1389,44 @@ extension PersistedDiscussionsUpdatesCoordinator {
 extension PersistedDiscussionsUpdatesCoordinator {
     
     private func processUserWantsToReplyToMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
-        let op = AddReplyToOnDraftOperation(messageObjectID: messageObjectID, draftObjectID: draftObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = AddReplyToOnDraftOperation(messageObjectID: messageObjectID, draftObjectID: draftObjectID)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     private func processUserWantsToRemoveReplyToMessage(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
-        let op = RemoveReplyToOnDraftOperation(draftObjectID: draftObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = RemoveReplyToOnDraftOperation(draftObjectID: draftObjectID)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
+
     private func processUserWantsToAddAttachmentsToDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider], completionHandler: @escaping (Bool) -> Void) {
-        assert(OperationQueue.current != internalQueue)
-        
+        assert(OperationQueue.current != coordinatorsQueue)
+                
         let loadItemProviderOperations = itemProviders.map {
             LoadItemProviderOperation(itemProvider: $0, progressAvailable: { [weak self] progress in
                 // Called only if a progress is made available during the operation execution
                 self?.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
             })
         }
-        queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: true)
-        logReasonOfCancelledOperations(loadItemProviderOperations)
-
-        let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
-
-        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, completionHandler: completionHandler, log: log)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        op1.logReasonIfCancelled(log: log)
         
+        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(
+            draftPermanentID: draftPermanentID,
+            operationsProvidingLoadedItemProvider: loadItemProviderOperations,
+            completionHandler: completionHandler,
+            log: Self.log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        
+        // Since we want to wait until all `LoadItemProviderOperation` are finished to execute the `NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation`, we create a dependency
+        loadItemProviderOperations.forEach { loadItemProviderOperation in
+            composedOp.addDependency(loadItemProviderOperation)
+        }
+
+        // Queue all the operations
+        
+        queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: false)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
@@ -1441,7 +1438,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
 
     private func processUserWantsToAddAttachmentsToDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL], completionHandler: @escaping (Bool) -> Void) {
-        assert(OperationQueue.current != internalQueue)
+        assert(OperationQueue.current != coordinatorsQueue)
         
         let loadItemProviderOperations = urls.map {
             LoadItemProviderOperation(itemURL: $0, progressAvailable: { [weak self] progress in
@@ -1449,51 +1446,80 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 self?.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
             })
         }
-        queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: true)
-        logReasonOfCancelledOperations(loadItemProviderOperations)
 
-        let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
+        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(
+            draftPermanentID: draftPermanentID,
+            operationsProvidingLoadedItemProvider: loadItemProviderOperations,
+            completionHandler: completionHandler,
+            log: Self.log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        
+        // Since we want to wait until all `LoadItemProviderOperation` are finished to execute the `NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation`, we create a dependency
+        loadItemProviderOperations.forEach { loadItemProviderOperation in
+            composedOp.addDependency(loadItemProviderOperation)
+        }
 
-        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, completionHandler: completionHandler, log: log)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        op1.logReasonIfCancelled(log: log)
+        // Queue all the operations
+        
+        queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: false)
+        coordinatorsQueue.addOperation(composedOp)
         
     }
 
     private func processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
         
+        var operationsToQueue = [Operation]()
         do {
-            let op = DeleteAllDraftFyleJoinOfDraftOperation(draftObjectID: draftObjectID)
-            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let op1 = DeleteAllDraftFyleJoinOfDraftOperation(draftObjectID: draftObjectID)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         
         do {
-            let op = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
 
     }
     
     
-    private func processUserWantsToSendDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String) {
-        let op1 = SaveBodyTextOfPersistedDraftOperation(draftPermanentID: draftPermanentID, bodyText: textBody)
-        let op2 = RequestedSendingOfDraftOperation(draftPermanentID: draftPermanentID)
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        guard !composedOp.isCancelled else {
-            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
-                .postOnDispatchQueue()
-            return
+    private func processUserWantsToSendDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) {
+        var operationsToQueue = [Operation]()
+        let composedOp: CompositionOfTwoContextualOperations<SaveBodyTextOfPersistedDraftOperationReasonForCancel, RequestedSendingOfDraftOperationReasonForCancel>
+        do {
+            let op1 = SaveBodyTextAndMentionsOfPersistedDraftOperation(draftPermanentID: draftPermanentID, bodyText: textBody, mentions: mentions)
+            let op2 = RequestedSendingOfDraftOperation(draftPermanentID: draftPermanentID)
+            composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+            operationsToQueue.append(composedOp)
         }
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                assert(composedOp.isFinished)
+                if composedOp.isCancelled {
+                    NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
+                        .postOnDispatchQueue()
+                }
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
+    
 
     private func processUserWantsToSendDraftWithAttachments(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, attachmentsURL: [URL]) {
         
@@ -1503,56 +1529,63 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 self?.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
             })
         }
-        queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations, waitUntilFinished: true)
-        logReasonOfCancelledOperations(loadItemProviderOperations)
 
-        let loadedItemProviders = loadItemProviderOperations.compactMap({ $0.loadedItemProvider })
-
-        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(draftPermanentID: draftPermanentID, loadedItemProviders: loadedItemProviders, completionHandler: nil, log: log)
+        let op1 = NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation(
+            draftPermanentID: draftPermanentID,
+            operationsProvidingLoadedItemProvider: loadItemProviderOperations,
+            completionHandler: nil,
+            log: Self.log)
         let op2 = RequestedSendingOfDraftOperation(draftPermanentID: draftPermanentID)
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        guard !composedOp.isCancelled else {
-            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
-                .postOnDispatchQueue()
-            return
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        
+        let op = BlockOperation()
+        op.completionBlock = {
+            if composedOp.isCancelled {
+                NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
+                    .postOnDispatchQueue()
+            }
         }
+        
+        // Since we want to wait until all `LoadItemProviderOperation` are finished to execute the `NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation`, we create a dependency
+        loadItemProviderOperations.forEach { loadItemProviderOperation in
+            composedOp.addDependency(loadItemProviderOperation)
+        }
+        op.addDependency(composedOp)
+
+        // Queue all the operations
+        
+        queueForLongRunningConcurrentOperations.addOperations(loadItemProviderOperations + [op], waitUntilFinished: false)
+        coordinatorsQueue.addOperation(composedOp)
 
     }
 
     private func processUserWantsToUpdateDraftExpiration(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) {
         let op1 = UpdateDraftConfigurationOperation(value: value, draftObjectID: draftObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
-    private func processUserWantsToUpdateDraftBody(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: String) {
-        let op = UpdateDraftBodyOperation(value: value, draftObjectID: draftObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+    private func processUserWantsToUpdateDraftBodyAndMentions(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftBody: String, mentions: Set<MessageJSON.UserMention>) {
+        let op1 = UpdateDraftBodyAndMentionsOperation(draftObjectID: draftObjectID, draftBody: draftBody, mentions: mentions)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     private func processUserWantsToUpdateDiscussionLocalConfigurationNotification(with value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>) {
-        let op = UpdateDiscussionLocalConfigurationOperation(value: value, localConfigurationObjectID: localConfigurationObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = UpdateDiscussionLocalConfigurationOperation(value: value, localConfigurationObjectID: localConfigurationObjectID)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     private func processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with value: PersistedDiscussionLocalConfigurationValue, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, completionHandler: @escaping () -> Void) {
-        let op = UpdateDiscussionLocalConfigurationOperation(value: value, discussionPermanentID: discussionPermanentID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        op.completionBlock = {
+        let op1 = UpdateDiscussionLocalConfigurationOperation(value: value, discussionPermanentID: discussionPermanentID)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        op1.completionBlock = {
             DispatchQueue.main.async {
                 completionHandler()
             }
         }
-
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
 }
@@ -1563,7 +1596,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 extension PersistedDiscussionsUpdatesCoordinator {
     
     private func processNewMessageReceivedNotification(obvMessage: ObvMessage, completionHandler: @escaping (Set<ObvAttachment>) -> Void) {
-        os_log("🧦 We received a NewMessageReceived notification", log: log, type: .debug)
+        os_log("🧦 We received a NewMessageReceived notification", log: Self.log, type: .debug)
 
         let attachmentsToDownloadAsap = Set(obvMessage.attachments.filter {
             // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
@@ -1577,56 +1610,76 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
     }
 
-    
+
     private func processMessageWasAcknowledgedNotification(ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool) {
-        defer {
-            let completion = completionWhenMessageIsSent.removeValue(forKey: messageIdentifierFromEngine)
-            completion?()
-        }
+        
+        var operationsToQueue = [Operation]()
 
         if isAppMessageWithUserContent {
-
-            let op = SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, timestampFromServer: timestampFromServer)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-            
-            obvEngine.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages([(messageIdentifierFromEngine, ownedIdentity)])
-
+            let op1 = SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation(
+                ownedCryptoId: ownedIdentity,
+                messageIdentifierFromEngineAndTimestampFromServer: [(messageIdentifierFromEngine, timestampFromServer)])
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
+        
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                Task { [weak self] in
+                    await self?.obvEngine.deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(
+                        messageIdentifierFromEngine:messageIdentifierFromEngine,
+                        ownedIdentity:ownedIdentity)
+                }
+            }
+            operationsToQueue.append(op)
+        }
+        
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)        
     }
 
     
-    private func processAttachmentWasAcknowledgedByServerNotification(messageIdentifierFromEngine: Data, attachmentNumber: Int) {
-        let op1 = MarkSentFyleMessageJoinWithStatusAsCompleteOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
-        let op2 = SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation(messageIdentifierFromEngine: messageIdentifierFromEngine)
-        op2.addDependency(op1)
-        let ops: [OperationThatCanLogReasonForCancel] = [op1, op2]
-        internalQueue.addOperations(ops, waitUntilFinished: true)
-        logReasonOfCancelledOperations(ops)
+    private func processAttachmentWasAcknowledgedByServerNotification(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int) {
+        let op1 = MarkSentFyleMessageJoinWithStatusAsCompleteOperation(
+            ownedCryptoId: ownedCryptoId,
+            messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo: [(messageIdentifierFromEngine, restrictToAttachmentNumbers: [attachmentNumber])])
+        let op2 = SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation(
+            ownedCryptoId: ownedCryptoId,
+            messageIdentifiersFromEngine: [messageIdentifierFromEngine])
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processAttachmentDownloadCancelledByServerNotification(obvAttachment: ObvAttachment) {
-        
-        os_log("We received an AttachmentDownloadCancelledByServer notification", log: log, type: .debug)
-        
-        let op = ProcessFyleWithinDownloadingAttachmentOperation(obvAttachment: obvAttachment, newProgress: nil, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        
-        guard !composedOp.isCancelled else { return }
-        
-        // If we reach this point, we have successfully processed the fyle within the attachment. We can ask the engine to delete the attachment
-        
+        os_log("We received an AttachmentDownloadCancelledByServer notification", log: Self.log, type: .debug)
+        let obvEngine = self.obvEngine
+        var operationsToQueue = [Operation]()
+        let composedOp: CompositionOfOneContextualOperation<ProcessFyleWithinDownloadingAttachmentOperationReasonForCancel>
         do {
-            try obvEngine.deleteObvAttachment(attachmentNumber: obvAttachment.number,
-                                              ofMessageWithIdentifier: obvAttachment.messageIdentifier,
-                                              ownedCryptoId: obvAttachment.ownedCryptoId)
-        } catch {
-            os_log("The engine failed to delete the attachment", log: log, type: .fault)
+            let op1 = ProcessFyleWithinDownloadingAttachmentOperation(obvAttachment: obvAttachment, newProgress: nil, obvEngine: obvEngine)
+            composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                assert(composedOp.isFinished)
+                guard !composedOp.isCancelled else { return }
+                // If we reach this point, we have successfully processed the fyle within the attachment. We can ask the engine to delete the attachment
+                do {
+                    try obvEngine.deleteObvAttachment(attachmentNumber: obvAttachment.number,
+                                                      ofMessageWithIdentifier: obvAttachment.messageIdentifier,
+                                                      ownedCryptoId: obvAttachment.ownedCryptoId)
+                } catch {
+                    os_log("The engine failed to delete the attachment", log: Self.log, type: .fault)
+                }
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
 
     
@@ -1634,133 +1687,173 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// Typical if the message/attachments were deleted by the sender before they were completely sent.
     private func processCannotReturnAnyProgressForMessageAttachmentsNotification(messageIdentifierFromEngine: Data) {
         let op = MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer(messageIdentifierFromEngine: messageIdentifierFromEngine)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
 
     
     private func processAttachmentDownloadedNotification(obvAttachment: ObvAttachment) {
-        
-        let op = ProcessFyleWithinDownloadingAttachmentOperation(obvAttachment: obvAttachment, newProgress: nil, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        
-        guard !composedOp.isCancelled else { return }
-        
-        // If we reach this point, we have successfully processed the fyle within the attachment. We can ask the engine to delete the attachment
-        
+        let obvEngine = self.obvEngine
+        var operationsToQueue = [Operation]()
+        let composedOp: CompositionOfOneContextualOperation<ProcessFyleWithinDownloadingAttachmentOperationReasonForCancel>
         do {
-            try obvEngine.deleteObvAttachment(attachmentNumber: obvAttachment.number,
-                                              ofMessageWithIdentifier: obvAttachment.messageIdentifier,
-                                              ownedCryptoId: obvAttachment.ownedCryptoId)
-        } catch {
-            os_log("The engine failed to delete the attachment we just persisted", log: log, type: .fault)
-            assertionFailure()
+            let op1 = ProcessFyleWithinDownloadingAttachmentOperation(obvAttachment: obvAttachment, newProgress: nil, obvEngine: obvEngine)
+            composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                assert(composedOp.isFinished)
+                guard !composedOp.isCancelled else { return }
+                // If we reach this point, we have successfully processed the fyle within the attachment. We can ask the engine to delete the attachment
+                do {
+                    try obvEngine.deleteObvAttachment(attachmentNumber: obvAttachment.number,
+                                                      ofMessageWithIdentifier: obvAttachment.messageIdentifier,
+                                                      ownedCryptoId: obvAttachment.ownedCryptoId)
+                } catch {
+                    os_log("The engine failed to delete the attachment we just persisted", log: Self.log, type: .fault)
+                    assertionFailure()
+                }
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
 
     
     private func processAttachmentDownloadWasResumed(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int) {
-        let op = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .resume)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .resume)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processAttachmentDownloadWasPaused(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int) {
-        let op = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .pause)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = MarkReceivedJoinAsResumedOrPausedOperation(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber, resumeOrPause: .pause)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     
-    private func processNewObvReturnReceiptToProcessNotification(obvReturnReceipt: ObvReturnReceipt) {
+    private func processNewObvReturnReceiptToProcessNotification(obvReturnReceipt: ObvReturnReceipt, retryNumber: Int = 0) {
         
-        let op = ProcessObvReturnReceiptOperation(obvReturnReceipt: obvReturnReceipt, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-
-        if let reasonForCancel = op.reasonForCancel {
-            switch reasonForCancel {
-            case .contextIsNil:
-                os_log("Could not process return receipt: %{public}@", log: log, type: .fault, reasonForCancel.localizedDescription)
-            case .coreDataError(error: let error):
-                os_log("Could not process return receipt: %{public}@", log: log, type: .fault, error.localizedDescription)
-            case .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase:
-                os_log("Could not find message corresponding to the return receipt. We delete the receipt.", log: log, type: .error)
+        guard retryNumber < 10 else {
+            assertionFailure()
+            return
+        }
+        
+        let obvEngine = self.obvEngine
+        
+        var operationsToQueue = [Operation]()
+        
+        let op1 = ProcessObvReturnReceiptOperation(obvReturnReceipt: obvReturnReceipt, obvEngine: obvEngine)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.assertionFailureInCaseOfFault = false // This operation often fails in the simulator, when switch from the share extension back to the app. We have a retry feature just for that reason.
+        operationsToQueue.append(composedOp)
+        
+        let op = BlockOperation()
+        op.completionBlock = { [weak self] in
+            assert(op1.isFinished)
+            assert(composedOp.isFinished)
+            if let reasonForCancel = composedOp.reasonForCancel {
+                switch reasonForCancel {
+                case .coreDataError(error: let error):
+                    os_log("Could not process return receipt due to a Core Data error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                case .op1Cancelled(reason: let op1ReasonForCancel):
+                    switch op1ReasonForCancel {
+                    case .contextIsNil:
+                        os_log("Could not process return receipt: %{public}@", log: Self.log, type: .fault, reasonForCancel.localizedDescription)
+                    case .coreDataError(error: let error):
+                        os_log("Could not process return receipt: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                    case .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase:
+                        os_log("Could not find message corresponding to the return receipt. We delete the receipt.", log: Self.log, type: .error)
+                        Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
+                        return
+                    }
+                case .unknownReason:
+                    assertionFailure()
+                    os_log("Could not process return receipt for an unknwoen reason", log: Self.log, type: .fault)
+                }
+                self?.processNewObvReturnReceiptToProcessNotification(obvReturnReceipt: obvReturnReceipt, retryNumber: retryNumber + 1)
+            } else {
+                // If we reach this point, the receipt has been successfully processed. We can delete it from the engine.
                 Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
             }
-        } else {
-            // If we reach this point, the receipt has been successfully processed. We can delete it from the engine.
-            Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
         }
+        operationsToQueue.append(op)
+
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+
     }
 
     
-    /// The OutboxMessagesAndAllTheirAttachmentsWereAcknowledged notification is typically sent when the messages/attachments were deleted from their outbox, meaning that they all have been fully sent to the server
-    /// (unless they were cancelled by the user by deleting the message). This is also sent during the boostraping of the engine, when replaying the transaction history, so as to make sure the app didn't miss any important notification.
-    /// This means that most of the time, we already know about the information provided within the notification.
+    /// The OutboxMessagesAndAllTheirAttachmentsWereAcknowledged notification is sent during the bootstrap of the engine, when replaying the transaction history, so as to make sure the app didn't miss any important notification.
+    /// It is sent for each deleted outbox message, that exist when the message has been fully sent to the server (unless they were cancelled by the user by deleting the message).
     private func processOutboxMessagesAndAllTheirAttachmentsWereAcknowledgedNotification(messageIdsAndTimestampsFromServer: [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)]) {
 
-        var operationsToQueue = [OperationThatCanLogReasonForCancel]()
+        // We need to deal with the case where we receive a huge list of messageIds. To do so, we proceed by batches.
 
-        // Task #1: Set the sent timestamp of the PersistedMessageSentRecipientInfos
+        let allSortedIdsAndTimestamps = messageIdsAndTimestampsFromServer.sorted { $0.timestampFromServer < $1.timestampFromServer }
+        let batchSize = 50
         
-        for (messageIdentifierFromEngine, _, timestampFromServer) in messageIdsAndTimestampsFromServer {
-            let op = SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, timestampFromServer: timestampFromServer)
-            operationsToQueue.append(op)
-        }
-        
-        // Task #2: Acknowledge all sent attachments
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            for (messageIdentifierFromEngine, ownedCryptoId, _) in messageIdsAndTimestampsFromServer {
-                let infos: [PersistedMessageSentRecipientInfos]
-                do {
-                    infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine,
-                                                                                                            ownedCryptoId: ownedCryptoId,
-                                                                                                            within: context)
-                    guard let persistedMessageSent = infos.first?.messageSent else { continue }
-                    guard !persistedMessageSent.fyleMessageJoinWithStatuses.isEmpty else { continue }
-                    for attachmentNumber in 0..<persistedMessageSent.fyleMessageJoinWithStatuses.count {
-                        let op1 = MarkSentFyleMessageJoinWithStatusAsCompleteOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
-                        let op2 = SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation(messageIdentifierFromEngine: messageIdentifierFromEngine)
-                        op2.addDependency(op1)
-                        operationsToQueue.append(contentsOf: [op1, op2])
-                    }
-                } catch {
-                    os_log("PersistedMessageSent fetch failed: %{public}@", log: log, type: .fault)
-                    continue
-                }
+        for index in stride(from: 0, to: allSortedIdsAndTimestamps.count, by: batchSize) {
+
+            let batch = allSortedIdsAndTimestamps[index..<min(allSortedIdsAndTimestamps.count, index+batchSize)]
+
+            var operationsToQueue = [Operation]()
+            
+            // Each batch is treated on a per owned identity basis
+            
+            let batchPerOwnedIdentity = Dictionary(grouping: batch, by: { $0.ownedCryptoId })
+
+            for (ownedCryptoId, idsAndTimestamps) in batchPerOwnedIdentity {
+                
+                let op1 = SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation(
+                    ownedCryptoId: ownedCryptoId,
+                    messageIdentifierFromEngineAndTimestampFromServer: idsAndTimestamps.map { ($0.messageIdentifierFromEngine, $0.timestampFromServer) })
+                let op2 = MarkSentFyleMessageJoinWithStatusAsCompleteOperation(
+                    ownedCryptoId: ownedCryptoId,
+                    messageIdentifiersFromEngine: idsAndTimestamps.map({ $0.messageIdentifierFromEngine }))
+                let op3 = SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipientInfosOperation(
+                    ownedCryptoId: ownedCryptoId,
+                    messageIdentifiersFromEngine: idsAndTimestamps.map({ $0.messageIdentifierFromEngine }))
+                let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+                
+                operationsToQueue.append(composedOp)
+                
             }
+
+            // If the batch is properly processed, we notify the engine (even if the composed operation cancelled)
+            
+            do {
+                let op = BlockOperation()
+                op.completionBlock = {
+                    guard let maxTimestampFromServer = batch.last?.timestampFromServer else { assertionFailure(); return }
+                    Task { [weak self] in await self?.obvEngine.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo: maxTimestampFromServer) }
+                }
+                operationsToQueue.append(op)
+            }
+
+            // Queue the operations for this batch
+            
+            operationsToQueue.forEach { $0.queuePriority = .low }
+            operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+            coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+
         }
-        
-        // Now we can execute all the operations
-        
-        guard !operationsToQueue.isEmpty else { return }
-        internalQueue.addOperations(operationsToQueue, waitUntilFinished: true)
-        logReasonOfCancelledOperations(operationsToQueue)
-        
-        // We ask the engine to delete the history (we probably should filter those ids depending on the success of the operations...)
-        
-        let messageIds = messageIdsAndTimestampsFromServer.map { ($0.messageIdentifierFromEngine, $0.ownedCryptoId) }
-        obvEngine.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIds)
         
     }
 
     
     /// If the network manager fails to send a message during 30 days, it deletes the outbos message and sends a notification that we catch here.
     private func processOutboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId) {
-        let op = MarkSentMessageAsCouldNotBeSentToServerOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        let op1 = MarkSentMessageAsCouldNotBeSentToServerOperation(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         composedOp.queuePriority = .low
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     /// When a contact is deleted, we look for all associated `PersistedMessageSentRecipientInfos` instance with no message identifier from engine and delete these instances.
@@ -1773,8 +1866,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// statues allow to prevent this bad user experience. Moreover, the message would never be sent anyway.
     private func processContactWasDeletedNotification(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
         let op = DeletePersistedMessageSentRecipientInfosWithoutMessageIdentifierFromEngineAndAssociatedToContactIdentityOperation(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-        internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        coordinatorsQueue.addOperation(op)
     }
 
     
@@ -1782,59 +1875,56 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processMessageExtendedPayloadAvailable(obvMessage: ObvMessage) {
         let op1 = ExtractReceivedExtendedPayloadOperation(obvMessage: obvMessage)
         let op2 = SaveReceivedExtendedPayloadOperation(extractReceivedExtendedPayloadOp: op1)
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processContactWasRevokedAsCompromisedWithinEngine(obvContactIdentity: ObvContactIdentity) {
-        // When the engine informs us that a contact has been revoked as compromised, we insert
-        let log = self.log
+        // When the engine informs us that a contact has been revoked as compromised, we insert the appropriate system message within the discussion
         ObvStack.shared.performBackgroundTask { [weak self] context in
+            guard let _self = self else { return }
             let contact: PersistedObvContactIdentity
             do {
                 guard let _contact = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, whereOneToOneStatusIs: .any, within: context) else { assertionFailure(); return }
                 contact = _contact
             } catch {
-                os_log("Could not get contact: %{public}", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not get contact: %{public}", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
             if let oneToOneDiscussionObjectID = contact.oneToOneDiscussion?.objectID {
-                let op = InsertPersistedMessageSystemIntoDiscussionOperation(
+                let op1 = InsertPersistedMessageSystemIntoDiscussionOperation(
                     persistedMessageSystemCategory: .contactRevokedByIdentityProvider,
                     persistedDiscussionObjectID: oneToOneDiscussionObjectID,
                     optionalContactIdentityObjectID: contact.objectID,
                     optionalCallLogItemObjectID: nil,
                     messageUploadTimestampFromServer: nil)
-                self?.internalQueue.addOperations([op], waitUntilFinished: true)
-                op.logReasonIfCancelled(log: log)
+                let composedOp = _self.createCompositionOfOneContextualOperation(op1: op1)
+                self?.coordinatorsQueue.addOperations([composedOp], waitUntilFinished: false)
             }
         }
     }
 
     
     private func processNewUserDialogToPresent(obvDialog: ObvDialog) {
-        assert(OperationQueue.current != internalQueue)
+        assert(OperationQueue.current != coordinatorsQueue)
         let op1 = ProcessObvDialogOperation(obvDialog: obvDialog, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processAPersistedDialogWasDeleted(uuid: UUID, ownedCryptoId: ObvCryptoId) {
-        assert(OperationQueue.current != internalQueue)
-        let log = self.log
-        internalQueue.addOperation {
+        assert(OperationQueue.current != coordinatorsQueue)
+        coordinatorsQueue.addOperation {
             ObvStack.shared.performBackgroundTaskAndWait { (context) in
                 do {
                     guard let persistedInvitation = try PersistedInvitation.getPersistedInvitation(uuid: uuid, ownedCryptoId: ownedCryptoId, within: context) else { return }
                     try persistedInvitation.delete()
-                    try context.save(logOnFailure: log)
+                    try context.save(logOnFailure: Self.log)
                 } catch let error {
-                    os_log("Could not delete PersistedInvitation: %@", log: log, type: .error, error.localizedDescription)
+                    os_log("Could not delete PersistedInvitation: %@", log: Self.log, type: .error, error.localizedDescription)
                     assertionFailure()
                 }
             }
@@ -1849,16 +1939,22 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let op1 = CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody)
         let op2 = MarkAsReadReceivedMessageOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine)
         let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: nil, obvEngine: obvEngine) {
-            DispatchQueue.main.async { completionHandler() }
+            DispatchQueue.main.async {
+                completionHandler()
+            }
         }
-        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-
-        guard [op1, op2, op3].allSatisfy({ !$0.isCancelled }) else {
-            DispatchQueue.main.async { completionHandler() }
-            return
+        let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+        let currentCompletion = composedOp.completionBlock
+        composedOp.completionBlock = {
+            currentCompletion?()
+            if composedOp.isCancelled {
+                // One of op1, op2 or op3 cancelled. We call the completion handler
+                DispatchQueue.main.async {
+                    completionHandler()
+                }
+            }
         }
+        coordinatorsQueue.addOperation(composedOp)
     }
 
 
@@ -1866,35 +1962,37 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         let op1 = CreateUnprocessedPersistedMessageSentFromBodyOperation(discussionPermanentID: discussionPermanentID, textBody: textBody)
         let op2 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: nil, obvEngine: obvEngine) {
-            DispatchQueue.main.async { completionHandler() }
+            DispatchQueue.main.async {
+                completionHandler()
+            }
         }
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-
-        guard !op1.isCancelled else {
-            DispatchQueue.main.async { completionHandler() }
-            return
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        let currentCompletion = composedOp.completionBlock
+        composedOp.completionBlock = {
+            currentCompletion?()
+            if composedOp.isCancelled {
+                DispatchQueue.main.async {
+                    completionHandler()
+                }
+            }
         }
-        guard !op2.isCancelled else {
-            DispatchQueue.main.async { completionHandler() }
-            return
-        }
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processUserWantsToMarkAsReadMessageWithinTheNotificationExtensionNotification(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data, completionHandler: @escaping () -> Void) async {
-        
-        let log = self.log
         
         // The following method call adds the received message decrypted by the notification extension into the database.
         // This allows to be sure that we will be able to mark it as read.
         bootstrapMessagesDecryptedWithinNotificationExtension()
 
         let op1 = MarkAsReadReceivedMessageOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        let currentCompletion = composedOp.completionBlock
         
         composedOp.completionBlock = {
+            
+            currentCompletion?()
             
             Task { [weak self] in
                 
@@ -1913,7 +2011,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     do {
                         try await self?.postMessageReadReceiptIfRequired(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID)
                     } catch {
-                        os_log("Could not post read receipt", log: log, type: .fault)
+                        os_log("Could not post read receipt", log: Self.log, type: .fault)
                         assertionFailure()
                         // Continue anyway
                     }
@@ -1930,61 +2028,65 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
         
-        internalQueue.addOperation(composedOp)
+        coordinatorsQueue.addOperation(composedOp)
         
     }
     
     
     private func processUserWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ObvCryptoId, objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) {
+        var operationsToQueue = [Operation]()
         do {
             let requester = RequesterOfMessageDeletion.ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .local)
             let op1 = WipeFyleMessageJoinsWithStatusOperation(joinObjectIDs: objectIDs, requester: requester)
             let op2 = DeletePersistedMessagesOperation(operationProvidingPersistedMessageObjectIDsToDelete: op1)
-            let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-        ObvMessengerInternalNotification.trashShouldBeEmptied
-            .postOnDispatchQueue()
+        do {
+            let op = BlockOperation()
+            op.completionBlock = {
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
     }
+    
 
     private func processUserWantsToForwardMessage(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>) {
         for discussionPermanentID in discussionPermanentIDs {
             let op1 = CreateUnprocessedForwardPersistedMessageSentFromMessageOperation(messagePermanentID: messagePermanentID, discussionPermanentID: discussionPermanentID)
             let op2 = ComputeExtendedPayloadOperation(provider: op1)
             let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, extendedPayloadProvider: op2, obvEngine: obvEngine)
-            let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+            coordinatorsQueue.addOperation(composedOp)
         }
     }
 
     private func processUserHasOpenedAReceivedAttachment(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
-        let op = MarkAsOpenedOperation(receivedFyleMessageJoinWithStatusID: receivedFyleJoinID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let op1 = MarkAsOpenedOperation(receivedFyleMessageJoinWithStatusID: receivedFyleJoinID)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     private func processUserWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
         let op1 = ResumeOrPauseAttachmentDownloadOperation(receivedJoinObjectID: receivedJoinObjectID, resumeOrPause: .resume, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processUserWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
         let op1 = ResumeOrPauseAttachmentDownloadOperation(receivedJoinObjectID: receivedJoinObjectID, resumeOrPause: .pause, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     /// Call when a return receipt shall be sent. When `attachmentNumber` is nil, the return receipt concerns a `PersistedMessageReceived`, otherwise, it concerns a `ReceivedFyleMessageJoinWithStatus`.
@@ -1998,7 +2100,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                                                         messageIdentifierFromEngine: messageIdentifierFromEngine,
                                                         attachmentNumber: attachmentNumber)
         } catch {
-            os_log("🧾 Failed to post return receipt", log: log, type: .fault)
+            os_log("🧾 Failed to post return receipt", log: Self.log, type: .fault)
         }
         
     }
@@ -2009,45 +2111,88 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let op1 = WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation(userDefaults: userDefaults,
                                                                                    appType: .mainApp,
                                                                                    wipeType: .startWipeFromAppOrShareExtension)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processPersistedObvOwnedIdentityWasDeleted() {
-        
+        var operationsToQueue = [Operation]()
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
         do {
             let op1 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
         }
-
-        trashOrphanedFilesFoundInTheFylesDirectory()
-        deleteOrphanedExpirations()
-        deleteOldOrOrphanedRemoteDeleteAndEditRequests()
-        deleteOldOrOrphanedPendingReactions()
-        cleanExpiredMuteNotificationsSetting()
-        cleanOrphanedPersistedMessageTimestampedMetadata()
-        ObvMessengerInternalNotification.trashShouldBeEmptied
+        do {
+            let op = BlockOperation()
+            op.completionBlock = { [weak self] in
+                self?.trashOrphanedFilesFoundInTheFylesDirectory()
+                self?.deleteOrphanedExpirations()
+                self?.deleteOldOrOrphanedRemoteDeleteAndEditRequests()
+                self?.deleteOldOrOrphanedPendingReactions()
+                self?.cleanExpiredMuteNotificationsSetting()
+                self?.cleanOrphanedPersistedMessageTimestampedMetadata()
+                ObvMessengerInternalNotification.trashShouldBeEmptied
+                    .postOnDispatchQueue()
+            }
+            operationsToQueue.append(op)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+    }
+    
+    
+    private func processBetaUserWantsToDebugCoordinatorsQueue() {
+        guard let logString = (coordinatorsQueue as? LoggedOperationQueue)?.logOperations(ops: []) else { return }
+        ObvMessengerInternalNotification.betaUserWantsToSeeLogString(logString: logString)
             .postOnDispatchQueue()
-
-        
+    }
+    
+    private func processUserWantsToArchiveDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, completionHandler: ((Bool) -> Void)?) {
+        let op1 = ArchiveDiscussionOperation(discussionPermanentID: discussionPermanentID, action: .archive)
+        op1.completionBlock = {
+            completionHandler?(!op1.isCancelled)
+        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
+    private func processUserWantsToUnarchiveDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, updateTimestampOfLastMessage: Bool, completionHandler: ((Bool) -> Void)?) {
+        let op1 = ArchiveDiscussionOperation(discussionPermanentID: discussionPermanentID, action: .unarchive(updateTimestampOfLastMessage: updateTimestampOfLastMessage))
+        op1.completionBlock = {
+            completionHandler?(!op1.isCancelled)
+        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+
+    private func processUpdateNormalizedSearchKeyOnPersistedDiscussions(ownedIdentity: ObvCryptoId, completionHandler: (() -> Void)?) {
+        let op1 = UpdateNormalizedSearchKeyOnPersistedDiscussionsOperation(ownedIdentity: ownedIdentity)
+        op1.completionBlock = {
+            completionHandler?()
+        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+
+    private func processUserWantsToReorderDiscussions(discussionObjectIds: [NSManagedObjectID], ownedIdentity: ObvCryptoId, completionHandler: ((Bool) -> Void)?) {
+        let op1 = ReorderDiscussionsOperation(discussionObjectIDs: discussionObjectIds, ownedIdentity: ownedIdentity)
+        op1.completionBlock = {
+            completionHandler?(!op1.isCancelled)
+        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
 }
 
 
@@ -2111,7 +2256,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         guard let returnReceiptJSON = messageReceived.returnReceipt else { return }
         guard let contactCryptoId = messageReceived.contactIdentity?.cryptoId else { return }
         guard let ownedCryptoId = messageReceived.contactIdentity?.ownedIdentity?.cryptoId else { return }
-        os_log("🧾 Calling postReturnReceiptWithElements with nonce %{public}@ and attachmentNumber: %{public}@ from postAttachementReadReceiptIfRequired", log: log, type: .info, returnReceiptJSON.elements.nonce.hexString(), String(describing: receivedFyleJoin.index))
+        os_log("🧾 Calling postReturnReceiptWithElements with nonce %{public}@ and attachmentNumber: %{public}@ from postAttachementReadReceiptIfRequired", log: Self.log, type: .info, returnReceiptJSON.elements.nonce.hexString(), String(describing: receivedFyleJoin.index))
         try obvEngine.postReturnReceiptWithElements(returnReceiptJSON.elements,
                                                     andStatus: ReturnReceiptJSON.Status.read.rawValue,
                                                     forContactCryptoId: contactCryptoId,
@@ -2123,47 +2268,46 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     private func processReceivedObvMessage(_ obvMessage: ObvMessage, overridePreviousPersistedMessage: Bool, completionHandler: (() -> Void)?) {
 
-        assert(OperationQueue.current != internalQueue)
+        assert(OperationQueue.current != coordinatorsQueue)
 
-        os_log("Call to processReceivedObvMessage", log: log, type: .debug)
+        os_log("Call to processReceivedObvMessage", log: Self.log, type: .debug)
         
         let persistedItemJSON: PersistedItemJSON
         do {
             persistedItemJSON = try PersistedItemJSON.jsonDecode(obvMessage.messagePayload)
         } catch {
-            os_log("Could not decode the message payload", log: log, type: .error)
+            os_log("Could not decode the message payload", log: Self.log, type: .error)
             completionHandler?()
             assertionFailure()
             return
         }
+        
+        let completionHandlerManager = ManagerOfCompletionHandlerFromEngineOnMessageReception(completionHandler: completionHandler)
 
         // Case #1: The ObvMessage contains a WebRTC signaling message
         
         if let webrtcMessage = persistedItemJSON.webrtcMessage {
             
-            os_log("☎️ The message is a WebRTC signaling message", log: log, type: .debug)
+            os_log("☎️ The message is a WebRTC signaling message", log: Self.log, type: .debug)
             
-            var contactId: OlvidUserId?
-            ObvStack.shared.performBackgroundTaskAndWait { (context) in
+            completionHandlerManager.addExpectation(.webRTCSignalingMessage)
+            
+            ObvStack.shared.performBackgroundTask { (context) in
                 guard let persistedContactIdentity = try? PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: context) else {
-                    os_log("☎️ Could not find persisted contact associated with received webrtc message", log: log, type: .fault)
-                    assertionFailure()
+                    os_log("☎️ Could not find persisted contact associated with received webrtc message", log: Self.log, type: .fault)
+                    completionHandlerManager.removeExpectation(.webRTCSignalingMessage, processingWasASuccess: false)
                     return
                 }
-                contactId = .known(contactObjectID: persistedContactIdentity.typedObjectID,
-                                   ownCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
-                                   remoteCryptoId: obvMessage.fromContactIdentity.cryptoId,
-                                   displayName: persistedContactIdentity.fullDisplayName)
-            }
-            if let contactId = contactId {
+                let contactId = OlvidUserId.known(contactObjectID: persistedContactIdentity.typedObjectID,
+                                                  ownCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
+                                                  remoteCryptoId: obvMessage.fromContactIdentity.cryptoId,
+                                                  displayName: persistedContactIdentity.fullDisplayName)
                 ObvMessengerInternalNotification.newWebRTCMessageWasReceived(webrtcMessage: webrtcMessage,
                                                                              contactId: contactId,
                                                                              messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
                                                                              messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine)
                     .postOnDispatchQueue()
-            } else {
-                completionHandler?()
-                return
+                completionHandlerManager.removeExpectation(.webRTCSignalingMessage, processingWasASuccess: true)
             }
         }
         
@@ -2171,16 +2315,18 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let messageJSON = persistedItemJSON.message {
             
-            os_log("The message is an ObvMessage", log: log, type: .debug)
+            os_log("The message is an ObvMessage", log: Self.log, type: .debug)
+
+            completionHandlerManager.addExpectation(.standardMessage)
 
             let returnReceiptJSON = persistedItemJSON.returnReceipt
 
-            do {
-                try createPersistedMessageReceivedFromReceivedObvMessage(obvMessage, messageJSON: messageJSON, overridePreviousPersistedMessage: overridePreviousPersistedMessage, returnReceiptJSON: returnReceiptJSON)
-            } catch let error {
-                os_log("Could not create persisted message received from received message: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return
-            }
+            createPersistedMessageReceivedFromReceivedObvMessage(
+                obvMessage,
+                messageJSON: messageJSON,
+                overridePreviousPersistedMessage: overridePreviousPersistedMessage,
+                returnReceiptJSON: returnReceiptJSON,
+                completionHandlerManager: completionHandlerManager)
             
         }
         
@@ -2188,147 +2334,180 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         if let discussionSharedConfiguration = persistedItemJSON.discussionSharedConfiguration {
             
-            os_log("The message is shared discussion configuration", log: log, type: .debug)
+            os_log("The message is shared discussion configuration", log: Self.log, type: .debug)
 
-            updateSharedConfigurationOfPersistedDiscussion(using: discussionSharedConfiguration,
-                                                           fromContactIdentity: obvMessage.fromContactIdentity,
-                                                           messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
+            completionHandlerManager.addExpectation(.sharedConfigurationForDiscussion)
+
+            updateSharedConfigurationOfPersistedDiscussion(
+                using: discussionSharedConfiguration,
+                fromContactIdentity: obvMessage.fromContactIdentity,
+                messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                completionHandlerManager: completionHandlerManager)
             
         }
 
         // Case #4: The ObvMessage contains a JSON message indicating that some messages should be globally deleted in a discussion
         
         if let deleteMessagesJSON = persistedItemJSON.deleteMessagesJSON {
-            os_log("The message is a delete message JSON", log: log, type: .debug)
-            let op = WipeMessagesOperation(messagesToDelete: deleteMessagesJSON.messagesToDelete,
-                                           groupIdentifier: deleteMessagesJSON.groupIdentifier,
-                                           requester: obvMessage.fromContactIdentity,
-                                           messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                                           saveRequestIfMessageCannotBeFound: true)
-            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            os_log("The message is a delete message JSON", log: Self.log, type: .debug)
+            completionHandlerManager.addExpectation(.globalMessageDeletion)
+            let op1 = WipeMessagesOperation(messagesToDelete: deleteMessagesJSON.messagesToDelete,
+                                            groupIdentifier: deleteMessagesJSON.groupIdentifier,
+                                            requester: obvMessage.fromContactIdentity,
+                                            messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                            saveRequestIfMessageCannotBeFound: true)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = {
+                currentCompletion?()
+                completionHandlerManager.removeExpectation(.globalMessageDeletion, processingWasASuccess: !composedOp.isCancelled)
+            }
+            coordinatorsQueue.addOperation(composedOp)
         }
         
         // Case #5: The ObvMessage contains a JSON message indicating that a discussion should be globally deleted
-        
+
         if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
-            os_log("The message is a delete discussion JSON", log: log, type: .debug)
-            let op = GetAppropriateActiveDiscussionOperation(contact: obvMessage.fromContactIdentity,
-                                                             groupIdentifier: deleteDiscussionJSON.groupIdentifier)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-            assert(op.discussionObjectID != nil || op.isCancelled)
-            guard let discussionObjectID = op.discussionObjectID else { return }
-            // An appropriate discussion to delete was found, we can delete it
-            let requester = RequesterOfMessageDeletion.contact(ownedCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
-                                                               contactCryptoId: obvMessage.fromContactIdentity.cryptoId,
-                                                               messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
-            deletePersistedDiscussion(withObjectID: discussionObjectID,
-                                      requester: requester,
-                                      completionHandler: { _ in })
+            os_log("The message is a delete discussion JSON", log: Self.log, type: .debug)
+            completionHandlerManager.addExpectation(.globalDiscussionDeletion)
+            let op1 = GetAppropriateActiveDiscussionOperation(contact: obvMessage.fromContactIdentity, groupIdentifier: deleteDiscussionJSON.groupIdentifier)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = { [weak self] in
+                currentCompletion?()
+                assert(op1.isFinished)
+                assert(op1.persistedDiscussionObjectID != nil || op1.isCancelled)
+                guard let persistedDiscussionObjectID = op1.persistedDiscussionObjectID else { return }
+                // An appropriate discussion to delete was found, we can delete it
+                let requester = RequesterOfMessageDeletion.contact(ownedCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
+                                                                   contactCryptoId: obvMessage.fromContactIdentity.cryptoId,
+                                                                   messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer)
+                self?.deletePersistedDiscussion(withObjectID: persistedDiscussionObjectID.objectID,
+                                                requester: requester,
+                                                completionHandler: { success in
+                    completionHandlerManager.removeExpectation(.globalDiscussionDeletion, processingWasASuccess: success)
+                })
+            }
+            coordinatorsQueue.addOperation(composedOp)
         }
         
         // Case #6: The ObvMessage contains a JSON message indicating that a received message has been edited by the original sender
 
         if let updateMessageJSON = persistedItemJSON.updateMessageJSON {
-            os_log("The message is an update message JSON", log: log, type: .debug)
-            let op = EditTextBodyOfReceivedMessageOperation(newTextBody: updateMessageJSON.newTextBody,
-                                                            requester: obvMessage.fromContactIdentity,
-                                                            groupIdentifier: updateMessageJSON.groupIdentifier,
-                                                            receivedMessageToEdit: updateMessageJSON.messageToEdit,
-                                                            messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
-                                                            saveRequestIfMessageCannotBeFound: true)
-            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            os_log("The message is an update message JSON", log: Self.log, type: .debug)
+            completionHandlerManager.addExpectation(.messageEdition)
+            let op1 = EditTextBodyOfReceivedMessageOperation(newTextBody: updateMessageJSON.newTextBody,
+                                                             requester: obvMessage.fromContactIdentity,
+                                                             groupIdentifier: updateMessageJSON.groupIdentifier,
+                                                             receivedMessageToEdit: updateMessageJSON.messageToEdit,
+                                                             messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
+                                                             saveRequestIfMessageCannotBeFound: true,
+                                                             newMentions: updateMessageJSON.userMentions)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = {
+                currentCompletion?()
+                completionHandlerManager.removeExpectation(.messageEdition, processingWasASuccess: !composedOp.isCancelled)
+            }
+            coordinatorsQueue.addOperation(composedOp)
         }
 
         // Case #7: The ObvMessage contains a JSON message indicating that a reaction has been add by a contact
 
         if let reactionJSON = persistedItemJSON.reactionJSON {
-                let op = UpdateReactionsOfMessageOperation(contactIdentity: obvMessage.fromContactIdentity,
-                                                           reactionJSON: reactionJSON,
-                                                           reactionTimestamp: obvMessage.messageUploadTimestampFromServer,
-                                                           addPendingReactionIfMessageCannotBeFound: true)
-                let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-                internalQueue.addOperations([composedOp], waitUntilFinished: true)
-                composedOp.logReasonIfCancelled(log: log)
+            completionHandlerManager.addExpectation(.newReaction)
+            let op1 = UpdateReactionsOfMessageOperation(contactIdentity: obvMessage.fromContactIdentity,
+                                                        reactionJSON: reactionJSON,
+                                                        reactionTimestamp: obvMessage.messageUploadTimestampFromServer,
+                                                        addPendingReactionIfMessageCannotBeFound: true)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = {
+                currentCompletion?()
+                completionHandlerManager.removeExpectation(.newReaction, processingWasASuccess: !composedOp.isCancelled)
+            }
+            coordinatorsQueue.addOperation(composedOp)
         }
         
         // Case #8: The ObvMessage contains a JSON message containing a request for a group v2 discussion shared settings
         
         if let querySharedSettingsJSON = persistedItemJSON.querySharedSettingsJSON {
-            let op = RespondToQuerySharedSettingsOperation(fromContactIdentity: obvMessage.fromContactIdentity,
-                                                           querySharedSettingsJSON: querySharedSettingsJSON)
-            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperations([composedOp], waitUntilFinished: true)
-            composedOp.logReasonIfCancelled(log: log)
+            completionHandlerManager.addExpectation(.groupv2DiscussionSharedSettings)
+            let op1 = RespondToQuerySharedSettingsOperation(fromContactIdentity: obvMessage.fromContactIdentity,
+                                                            querySharedSettingsJSON: querySharedSettingsJSON)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = {
+                currentCompletion?()
+                completionHandlerManager.removeExpectation(.groupv2DiscussionSharedSettings, processingWasASuccess: !composedOp.isCancelled)
+            }
+            coordinatorsQueue.addOperation(composedOp)
         }
         
         // Case #9: The ObvMessage contains a JSON message indicating that a contact did take a screen capture of sensitive content
         
         if let screenCaptureDetectionJSON = persistedItemJSON.screenCaptureDetectionJSON {
-            let op = ProcessDetectionThatSensitiveMessagesWereCapturedByContactOperation(contactIdentity: obvMessage.fromContactIdentity,
-                                                                                         screenCaptureDetectionJSON: screenCaptureDetectionJSON)
-            let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-            internalQueue.addOperation(composedOp)
+            completionHandlerManager.addExpectation(.screenCapture)
+            let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedByContactOperation(contactIdentity: obvMessage.fromContactIdentity,
+                                                                                          screenCaptureDetectionJSON: screenCaptureDetectionJSON)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            let currentCompletion = composedOp.completionBlock
+            composedOp.completionBlock = {
+                currentCompletion?()
+                completionHandlerManager.removeExpectation(.screenCapture, processingWasASuccess: !composedOp.isCancelled)
+            }
+            coordinatorsQueue.addOperation(composedOp)
         }
         
         // The inbox message has been processed, we can call the completion handler.
         // This completion handler is typically used to mark the message from deletion within the FetchManager in the engine.
         
-        os_log("Calling the completion handler", log: log, type: .debug)
-        completionHandler?()
-
+        completionHandlerManager.callCompletionHandlerAsap()
+        
     }
     
     
-    /// This method is called when receiving a message from the engine that contains a shared configuration for a persisted discussion (typically, either one2one, or a group discussion owned by the send of this message).
+    /// This method is called when receiving a message from the engine that contains a shared configuration for a persisted discussion (typically, either one2one, or a group discussion owned by the sender of this message).
     /// We use this new configuration to update ours.
-    private func updateSharedConfigurationOfPersistedDiscussion(using discussionSharedConfiguration: DiscussionSharedConfigurationJSON, fromContactIdentity: ObvContactIdentity, messageUploadTimestampFromServer: Date) {
-        let updatedDiscussionObjectID: NSManagedObjectID?
-        do {
-            let op = MergeDiscussionSharedExpirationConfigurationOperation(discussionSharedConfiguration: discussionSharedConfiguration, fromContactIdentity: fromContactIdentity)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-            updatedDiscussionObjectID = op.updatedDiscussionObjectID
+    private func updateSharedConfigurationOfPersistedDiscussion(using discussionSharedConfiguration: DiscussionSharedConfigurationJSON, fromContactIdentity: ObvContactIdentity, messageUploadTimestampFromServer: Date, completionHandlerManager: ManagerOfCompletionHandlerFromEngineOnMessageReception) {
+        let op1 = MergeDiscussionSharedExpirationConfigurationOperation(
+            discussionSharedConfiguration: discussionSharedConfiguration,
+            fromContactIdentity: fromContactIdentity,
+            messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        let currentCompletion = composedOp.completionBlock
+        composedOp.completionBlock = {
+            currentCompletion?()
+            completionHandlerManager.removeExpectation(.sharedConfigurationForDiscussion, processingWasASuccess: !composedOp.isCancelled )
         }
-        guard let persistedDiscussionObjectID = updatedDiscussionObjectID else { return }
-        do {
-            let op = InsertCurrentDiscussionSharedConfigurationSystemMessageOperation(
-                persistedDiscussionObjectID: persistedDiscussionObjectID,
-                messageUploadTimestampFromServer: messageUploadTimestampFromServer,
-                fromContactIdentity: fromContactIdentity)
-            internalQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: log)
-        }
+        coordinatorsQueue.addOperation(composedOp)
     }
 
+    
     private func processReportCallEvent(callUUID: UUID, callReport: CallReport, groupIdentifier: GroupIdentifierBasedOnObjectID?, ownedCryptoId: ObvCryptoId) {
         let op = ReportCallEventOperation(callUUID: callUUID,
                                           callReport: callReport,
                                           groupIdentifier: groupIdentifier,
                                           ownedCryptoId: ownedCryptoId)
-        self.internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: self.log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        self.coordinatorsQueue.addOperation(op)
     }
 
+    
     private func processCallHasBeenUpdated(callUUID: UUID, updateKind: CallUpdateKind) {
         guard case .state(let newState) = updateKind else { return }
         guard newState.isFinalState else { return }
         let op = ReportEndCallOperation(callUUID: callUUID)
-        self.internalQueue.addOperations([op], waitUntilFinished: true)
-        op.logReasonIfCancelled(log: self.log)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        self.coordinatorsQueue.addOperation(op)
     }
     
     
     private func processInsertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) {
-        assert(OperationQueue.current != internalQueue)
-        let op = InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperation(discussionObjectID: discussionObjectID, markAsRead: markAsRead)
-        let composedOp = CompositionOfOneContextualOperation(op1: op, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        assert(OperationQueue.current != coordinatorsQueue)
+        let op1 = InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperation(discussionObjectID: discussionObjectID, markAsRead: markAsRead)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
     }
 
     
@@ -2339,11 +2518,14 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// In the first case, this method is called using `overridePreviousPersistedMessage` set to `false`: we check whether the message already exists in database (using the message uid from server) and, if this is the
     /// case, we do nothing. If the message does not exist, we create it. In the second case, `overridePreviousPersistedMessage` set to `true` and we override any existing persisted message. In other words, messages
     /// comming from the engine always superseed messages comming from  the notification extension.
-    private func createPersistedMessageReceivedFromReceivedObvMessage(_ obvMessage: ObvMessage, messageJSON: MessageJSON, overridePreviousPersistedMessage: Bool, returnReceiptJSON: ReturnReceiptJSON?) throws {
+    private func createPersistedMessageReceivedFromReceivedObvMessage(_ obvMessage: ObvMessage, messageJSON: MessageJSON, overridePreviousPersistedMessage: Bool, returnReceiptJSON: ReturnReceiptJSON?, completionHandlerManager: ManagerOfCompletionHandlerFromEngineOnMessageReception) {
 
-        assert(OperationQueue.current != internalQueue)
+        ObvDisplayableLogs.shared.log("🍤 Starting createPersistedMessageReceivedFromReceivedObvMessage")
+        defer { ObvDisplayableLogs.shared.log("🍤 Ending createPersistedMessageReceivedFromReceivedObvMessage") }
 
-        os_log("Call to createPersistedMessageReceivedFromReceivedObvMessage for obvMessage %{public}@", log: log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
+        assert(OperationQueue.current != coordinatorsQueue)
+
+        os_log("Call to createPersistedMessageReceivedFromReceivedObvMessage for obvMessage %{public}@", log: Self.log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
 
         // Create a persisted message received
         let op1 = CreatePersistedMessageReceivedFromReceivedObvMessageOperation(obvMessage: obvMessage,
@@ -2356,10 +2538,14 @@ extension PersistedDiscussionsUpdatesCoordinator {
         // Look for a previously received reaction for that message. If found, apply it.
         let op3 = ApplyPendingReactionsOperation(obvMessage: obvMessage, messageJSON: messageJSON)
 
-        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+        let currentCompletion = composedOp.completionBlock
 
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        composedOp.completionBlock = {
+            currentCompletion?()
+            completionHandlerManager.removeExpectation(.standardMessage, processingWasASuccess: !composedOp.isCancelled )
+        }
+        self.coordinatorsQueue.addOperation(composedOp)
 
     }
 
@@ -2367,26 +2553,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func logReasonOfCancelledOperations(_ operations: [OperationThatCanLogReasonForCancel]) {
         let cancelledOps = operations.filter({ $0.isCancelled })
         for op in cancelledOps {
-            op.logReasonIfCancelled(log: log)
+            op.logReasonIfCancelled(log: Self.log)
         }
     }
-    
-    /// This method allows to post messages that were still `unprocessed` within a discussion. This typically happens when the user posts a message within a discussion
-    /// before the channel with the contact is established (i.e., before a contact device is added), or when the user posts a message in an empty group and adds a member
-    /// afterwards.
-    private func sendUnprocessedMessages(within discussion: PersistedDiscussion) {
-        assert(OperationQueue.current != internalQueue)
-        let sentMessages = discussion.messages.compactMap { $0 as? PersistedMessageSent }
-        let objectIDOfUnprocessedMessages = sentMessages.filter({ $0.status == .unprocessed || $0.status == .processing }).map({ $0.objectPermanentID })
-        let ops: [(ComputeExtendedPayloadOperation, SendUnprocessedPersistedMessageSentOperation)] = objectIDOfUnprocessedMessages.map({
-            let op1 = ComputeExtendedPayloadOperation(messageSentPermanentID: $0)
-            let op2 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: $0, extendedPayloadProvider: op1, obvEngine: obvEngine)
-                return (op1, op2)
-            })
-        let composedOps = ops.map({ CompositionOfTwoContextualOperations(op1: $0.0, op2: $0.1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier()) })
-        internalQueue.addOperations(composedOps, waitUntilFinished: true)
-    }
-    
+
 }
 
 
@@ -2396,19 +2566,6 @@ fileprivate struct MessageIdentifierFromEngineAndOwnedCryptoId: Hashable {
     let ownedCryptoId: ObvCryptoId
     
 }
-
-// This extension makes it possible to use kvo on the user defaults dictionary used by the share extension
-
-private extension UserDefaults {
-    @objc dynamic var objectsModifiedByShareExtension: String {
-        return ObvMessengerConstants.SharedUserDefaultsKey.objectsModifiedByShareExtension.rawValue
-    }
-
-    @objc dynamic var extensionFailedToWipeAllEphemeralMessagesBeforeDate: String {
-        return ObvMessengerConstants.SharedUserDefaultsKey.extensionFailedToWipeAllEphemeralMessagesBeforeDate.rawValue
-    }
-}
-
 
 // MARK: - ScreenCaptureDetectorDelegate
 
@@ -2427,8 +2584,166 @@ extension PersistedDiscussionsUpdatesCoordinator: ScreenCaptureDetectorDelegate 
     private func processDectection(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         let op1 = ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOperation(discussionPermanentID: discussionPermanentID,
                                                                                             obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperation(composedOp)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
+    }
+    
+}
+
+
+
+// MARK: - Internal utils
+
+extension [Operation] {
+    
+    /// Calls `self[n+1].addDependency(self[n])` for all operations in `self`. The first operation is not made dependent of any operation.
+    func makeEachOperationDependentOnThePreceedingOne() {
+        guard self.count > 0 else { assertionFailure(); return }
+        guard self.count > 1 else { return } // Only one operation, no need to create a dependency
+        for opIndex in 0..<self.count-1 {
+            self[opIndex+1].addDependency(self[opIndex])
+        }
+    }
+    
+}
+
+
+
+// MARK: - ManagerOfCompletionHandlerFromEngineOnMessageReception
+
+/// This actor allows to manage completion handlers received from the engine when receiving a message.
+/// It makes it possible to call the completion handler only when all operations processing the message are finished.
+///
+/// Each expectation corresponds to a kind of internal JSON we can find in a received `ObvMessage`.
+private final class ManagerOfCompletionHandlerFromEngineOnMessageReception {
+    
+    enum Expectation {
+        case webRTCSignalingMessage
+        case standardMessage
+        case sharedConfigurationForDiscussion
+        case globalMessageDeletion
+        case globalDiscussionDeletion
+        case messageEdition
+        case newReaction
+        case groupv2DiscussionSharedSettings
+        case screenCapture
+    }
+    
+    // Queue shared among `ManagerOfCompletionHandlerFromEngineOnMessageReception` instances
+    private static let internalQueue = OperationQueue.createSerialQueue(name: "ManagerOfCompletionHandlerFromEngineOnMessageReception internal queue", qualityOfService: .default)
+    
+    private let completionHandler: (() -> Void)?
+    private var expectations = Set<Expectation>()
+    private var callCompletionHandlerIfExpectationsIsEmpty = false
+    
+    init(completionHandler: (() -> Void)?) {
+        self.completionHandler = completionHandler
+    }
+    
+    deinit {
+        debugPrint("ManagerOfCompletionHandlerFromEngineOnMessageReception deinit")
+    }
+        
+    func addExpectation(_ expectation: Expectation) {
+        Self.internalQueue.addOperation { [weak self] in
+            self?.expectations.insert(expectation)
+        }
+    }
+    
+    func removeExpectation(_ expectation: Expectation, processingWasASuccess: Bool) {
+        // We keep a local strong reference to self
+        // This allows to make sure self is not deallocated during the execution of the operation
+        let _self = self
+        Self.internalQueue.addOperation {
+            assert(processingWasASuccess == true)
+            _self.expectations.remove(expectation)
+            if _self.callCompletionHandlerIfExpectationsIsEmpty == true && _self.expectations.isEmpty == true, let completionHandler = _self.completionHandler {
+                Task { completionHandler() }
+            }
+        }
+    }
+    
+    func callCompletionHandlerAsap() {
+        let _self = self
+        // We keep a local strong reference to self
+        // This allows to make sure self is not deallocated during the execution of the operation
+        Self.internalQueue.addOperation {
+            assert(_self.callCompletionHandlerIfExpectationsIsEmpty == false)
+            _self.callCompletionHandlerIfExpectationsIsEmpty = true
+            if _self.expectations.isEmpty == true, let completionHandler = _self.completionHandler {
+                Task { completionHandler() }
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - Helpers
+
+extension PersistedDiscussionsUpdatesCoordinator {
+    
+    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+    
+    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+
+    private func createCompositionOfThreeContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>) -> CompositionOfThreeContextualOperations<T1, T2, T3> {
+        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+
+    private func createCompositionOfFourContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType, T4: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>, op4: ContextualOperationWithSpecificReasonForCancel<T4>) -> CompositionOfFourContextualOperations<T1, T2, T3, T4> {
+        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+
+}
+
+
+// MARK: - NSManagedObjectContext utils
+
+fileprivate extension NSManagedObjectContext {
+    
+    
+    func deepRefresh(objectURI: URL, entityName: String) {
+        guard let objectID = ObvStack.shared.managedObjectID(forURIRepresentation: objectURI) else { return }
+        deepRefresh(objectID: objectID, entityName: entityName)
+    }
+    
+    
+    func deepRefresh(objectID: NSManagedObjectID, entityName: String) {
+        assert(self.concurrencyType == .mainQueueConcurrencyType, "This method was implemented to refresh the view context")
+        self.perform {
+            let request: NSFetchRequest<NSManagedObject> = NSFetchRequest(entityName: entityName)
+            request.predicate = NSPredicate(withObjectID: objectID)
+            request.fetchLimit = 1
+            request.returnsObjectsAsFaults = false
+            if let object = try? self.fetch(request).first {
+                ObvStack.shared.viewContext.refresh(object, mergeChanges: true)
+            }
+        }
     }
     
 }

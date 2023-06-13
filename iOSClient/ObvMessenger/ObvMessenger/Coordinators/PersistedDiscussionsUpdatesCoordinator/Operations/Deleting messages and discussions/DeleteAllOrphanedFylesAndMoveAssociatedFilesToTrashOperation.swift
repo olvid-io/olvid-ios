@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation deletes all `Fyle` instances that have no associated `FyleMessageJoinWithStatus` instance.

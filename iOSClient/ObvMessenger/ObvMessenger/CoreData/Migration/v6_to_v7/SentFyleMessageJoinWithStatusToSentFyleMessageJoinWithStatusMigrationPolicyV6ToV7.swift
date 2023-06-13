@@ -20,6 +20,8 @@
 import Foundation
 import CoreData
 import MobileCoreServices
+import ObvUICoreData
+
 
 fileprivate let errorDomain = "MessengerMigrationV6ToV7"
 fileprivate let debugPrintPrefix = "[\(errorDomain)][SentFyleMessageJoinWithStatusToSentFyleMessageJoinWithStatusMigrationPolicyV6ToV7]"

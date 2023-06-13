@@ -20,6 +20,8 @@
 import UIKit
 import ObvEngine
 import ObvUI
+import ObvUICoreData
+
 
 class SingleContactDetailedInfosViewController: UIViewController {
 

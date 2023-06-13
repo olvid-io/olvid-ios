@@ -22,7 +22,7 @@ import Foundation
 import ObvEncoder
 
 
-/// This type is used for a specific type of response of a server query, namely for the `getUserData` response.
+/// This type is used for a specific type of response of a server query, namely for the `getUserData` and the `getKeycloakData` responses.
 public enum GetUserDataResult: ObvCodable {
     
     case deletedFromServer

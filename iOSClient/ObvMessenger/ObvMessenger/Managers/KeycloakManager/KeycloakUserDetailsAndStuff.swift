@@ -25,14 +25,14 @@ import JWS
 
 public struct KeycloakUserDetailsAndStuff {
     
-    public let signedUserDetails: SignedUserDetails
+    public let signedUserDetails: SignedObvKeycloakUserDetails
     public let server: URL
     public let apiKey: UUID?
     public let pushTopics: Set<String>
     public let selfRevocationTestNonce: String?
     public let serverSignatureVerificationKey: ObvJWK
 
-    public init(signedUserDetails: SignedUserDetails, serverSignatureVerificationKey: ObvJWK, server: URL, apiKey: UUID?, pushTopics: Set<String>, selfRevocationTestNonce: String?) {
+    public init(signedUserDetails: SignedObvKeycloakUserDetails, serverSignatureVerificationKey: ObvJWK, server: URL, apiKey: UUID?, pushTopics: Set<String>, selfRevocationTestNonce: String?) {
         self.signedUserDetails = signedUserDetails
         self.server = server
         self.apiKey = apiKey

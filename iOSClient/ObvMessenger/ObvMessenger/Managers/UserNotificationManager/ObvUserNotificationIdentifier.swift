@@ -21,6 +21,7 @@ import Foundation
 import UserNotifications
 import ObvEngine
 import os.log
+import ObvUICoreData
 
 // Defining an enum of all the possible user notifications
 

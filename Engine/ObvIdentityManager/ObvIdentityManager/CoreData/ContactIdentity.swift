@@ -46,7 +46,6 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     private static let publishedIdentityDetailsKey = "publishedIdentityDetails"
     private static let trustedIdentityDetailsKey = "trustedIdentityDetails"
     private static let errorDomain = "ContactIdentity"
-    private static let isCertifiedByOwnKeycloak = "isCertifiedByOwnKeycloak"
     private static let isRevokedAsCompromisedKey = "isRevokedAsCompromised"
     private static let isForcefullyTrustedByUserKey = "isForcefullyTrustedByUser"
     
@@ -297,7 +296,13 @@ extension ContactIdentity {
     /// this method only sets the `isCertifiedByOwnKeycloak` flag to `false`.
     func refreshCertifiedByOwnKeycloakAndTrustedDetails(delegateManager: ObvIdentityDelegateManager) throws {
 
-        isCertifiedByOwnKeycloak = false
+        var newIsCertifiedByOwnKeycloak = false
+        defer {
+            if self.isCertifiedByOwnKeycloak != newIsCertifiedByOwnKeycloak {
+                self.isCertifiedByOwnKeycloak = newIsCertifiedByOwnKeycloak
+                isCertifiedByOwnKeycloakWasUpdated(delegateManager: delegateManager)
+            }
+        }
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactIdentity.entityName)
 
@@ -336,25 +341,25 @@ extension ContactIdentity {
         do {
             let revocationsCompromised = revocations.filter({ (try? $0.revocationType) == .compromised })
             guard revocationsCompromised.isEmpty else {
-                assert(isCertifiedByOwnKeycloak == false)
+                assert(newIsCertifiedByOwnKeycloak == false)
                 revokeAsCompromised(delegateManager: delegateManager) // This deletes the devices of the contact
                 return
             }
         }
         
-        let signedContactUserDetails: SignedUserDetails
+        let signedContactUserDetails: SignedObvKeycloakUserDetails
         do {
-            signedContactUserDetails = try SignedUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
+            signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
         } catch {
             os_log("The signature on the contact signed details is not valid (this also happens if the server signing key changes). We consider this contact as not managed by our own keycloak,", log: log, type: .info)
-            assert(isCertifiedByOwnKeycloak == false)
+            assert(newIsCertifiedByOwnKeycloak == false)
             return
         }
         if let timestampOfSignedContactUserDetails = signedContactUserDetails.timestamp {
             let revocationsLeftCompany = revocations.filter({ (try? $0.revocationType) == .leftCompany && $0.revocationTimestamp > timestampOfSignedContactUserDetails })
             guard revocationsLeftCompany.isEmpty else {
                 // The user left the company after the signature of his details --> unmark as certified
-                assert(isCertifiedByOwnKeycloak == false)
+                assert(newIsCertifiedByOwnKeycloak == false)
                 return
             }
         }
@@ -381,12 +386,45 @@ extension ContactIdentity {
         try trustedIdentityDetails.update(with: signedContactUserDetails, delegateManager: delegateManager)
 
         // If we reach this point, the contact is indeed certified by our own keycloak
+        // Note that the local self.isCertifiedByOwnKeycloak variable is potentially modified in the `defer` statement.
         
-        isCertifiedByOwnKeycloak = true
+        newIsCertifiedByOwnKeycloak = true
     }
     
     
-    func getSignedUserDetails(identityPhotosDirectory: URL) throws -> SignedUserDetails? {
+    /// Called each time the
+    private func isCertifiedByOwnKeycloakWasUpdated(delegateManager: ObvIdentityDelegateManager) {
+
+        if isCertifiedByOwnKeycloak {
+            
+            // The contact just became certified by the same keycloak than the one certifying our own identity
+            // We should send a ping to that contact. A notification will be sent in the didSave method for that purpose.
+            
+        } else {
+            
+            // The contact is not certified anymore. If our own identity is still certified, we must demote this contact from all keycloak groups (move her from members back to pending members)
+            
+            guard ownedIdentity?.isKeycloakManaged == true else {
+                // Since our owned identity is not keycloak certified, there is nothing to do concerning keycloak groups. They will be deleted anyway.
+                return
+            }
+            
+            self.groupMemberships
+                .compactMap({ $0.contactGroup })
+                .filter({ $0.groupIdentifier?.category == .keycloak })
+                .forEach { keycloakGroup in
+                    do {
+                        try keycloakGroup.moveOtherMemberToPendingMembersOfKeycloakGroup(otherMemberCryptoIdentity: self.cryptoIdentity, delegateManager: delegateManager)
+                    } catch {
+                        assertionFailure(error.localizedDescription)
+                    }
+                }
+        }
+        
+    }
+    
+    
+    func getSignedUserDetails(identityPhotosDirectory: URL) throws -> SignedObvKeycloakUserDetails? {
         let details = publishedIdentityDetails ?? trustedIdentityDetails
         guard let identityDetails = details.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory) else {
             throw Self.makeError(message: "Failed to get signed details as we could not get the contact identity details")
@@ -400,7 +438,7 @@ extension ContactIdentity {
         guard let ownKeycloakServer = ownedIdentity.keycloakServer else {
             return nil
         }
-        let signedContactUserDetails = try SignedUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
+        let signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(signedUserDetails, with: ownKeycloakServer.jwks).signedUserDetails
         return signedContactUserDetails
     }
     
@@ -558,10 +596,11 @@ extension ContactIdentity {
         return TrustLevel(rawValue: self.trustLevelRaw)!
     }
     
-    func addTrustOrigin(_ trustOrigin: TrustOrigin) throws {
-        guard let delegateManager = self.delegateManager else {
-            assertionFailure()
-            throw Self.makeError(message: "The delegate manager is not set")
+    func addTrustOriginIfTrustWouldBeIncreased(_ trustOrigin: TrustOrigin, delegateManager: ObvIdentityDelegateManager) throws {
+        let existingTrustOrigins = self.trustOrigins
+        guard trustOrigin.addsTrustWhenAddedToAll(otherTrustOrigins: existingTrustOrigins) else {
+            // Since the new trust origin does not increase trust, we do no add it (it would certainly duplicate one that already exists)
+            return
         }
         guard let persistedTrustOrigin = PersistedTrustOrigin(trustOrigin: trustOrigin, contact: self, delegateManager: delegateManager) else {
             assertionFailure()
@@ -664,6 +703,7 @@ extension ContactIdentity {
     
     struct Predicate {
         enum Key: String {
+            case isCertifiedByOwnKeycloak = "isCertifiedByOwnKeycloak"
             case isOneToOne = "isOneToOne"
             case cryptoIdentity = "cryptoIdentity"
         }
@@ -702,7 +742,9 @@ extension ContactIdentity {
     
     override func prepareForDeletion() {
         super.prepareForDeletion()
-        // In case we are actually deleting an owned identity, `ownedIdentity` is nil at this point.
+        // In case we are actually deleting an owned identity, `ownedIdentity` may be nil at this point.
+        guard let managedObjectContext else { assertionFailure(); return }
+        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
         if let ownedIdentity {
             ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
         }
@@ -801,6 +843,16 @@ extension ContactIdentity {
                     contactIdentity: cryptoIdentity,
                     flowId: flowId)
                     .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+
+            }
+            
+            if changedKeys.contains(Predicate.Key.isCertifiedByOwnKeycloak.rawValue) {
+                
+                ObvIdentityNotificationNew.contactIsCertifiedByOwnKeycloakStatusChanged(
+                    ownedIdentity: ownedIdentity.cryptoIdentity,
+                    contactIdentity: cryptoIdentity,
+                    newIsCertifiedByOwnKeycloak: isCertifiedByOwnKeycloak)
+                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
 
             }
             

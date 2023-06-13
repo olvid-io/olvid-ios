@@ -1,0 +1,37 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2023 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import Foundation
+import ObvCrypto
+
+public struct KeycloakGroupV2UpdateOutput {
+    
+    public let groupIdentifier: GroupV2.Identifier
+    public let ownGroupInvitationNonce: Data
+    public let serverPhotoInfoIfPhotoNeedsToBeDownloaded: GroupV2.ServerPhotoInfo?
+    public let insertedOrUpdatedIdentities: Set<ObvCryptoIdentity>
+    
+    public init(groupIdentifier: GroupV2.Identifier, ownGroupInvitationNonce: Data, serverPhotoInfoIfPhotoNeedsToBeDownloaded: GroupV2.ServerPhotoInfo?, insertedOrUpdatedIdentities: Set<ObvCryptoIdentity>) {
+        self.groupIdentifier = groupIdentifier
+        self.ownGroupInvitationNonce = ownGroupInvitationNonce
+        self.serverPhotoInfoIfPhotoNeedsToBeDownloaded = serverPhotoInfoIfPhotoNeedsToBeDownloaded
+        self.insertedOrUpdatedIdentities = insertedOrUpdatedIdentities
+    }
+    
+}

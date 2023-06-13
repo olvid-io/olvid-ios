@@ -20,6 +20,7 @@
 import UIKit
 import CoreData
 import ObvUI
+import ObvUICoreData
 
 
 final class MessageReceivedCollectionViewCell: MessageCollectionViewCell, CellWithPersistedMessageReceived {
@@ -114,7 +115,7 @@ final class MessageReceivedCollectionViewCell: MessageCollectionViewCell, CellWi
             authorNameLabelPaddingView.isHidden = false
             if let messageContactIdentity = message.contactIdentity {
                 authorNameLabel.text = messageContactIdentity.customDisplayName ?? messageContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? messageContactIdentity.fullDisplayName
-                authorNameLabel.textColor = messageContactIdentity.cryptoId.textColor
+                authorNameLabel.textColor = messageContactIdentity.cryptoId.colors.text
             } else {
                 authorNameLabel.text = CommonString.deletedContact
                 authorNameLabel.textColor = appTheme.colorScheme.secondaryLabel
@@ -222,7 +223,7 @@ extension MessageReceivedCollectionViewCell: CellWithMessage {
     
     var persistedMessage: PersistedMessage? { message }
     
-    var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? {
+    public var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? {
         message?.typedObjectID
     }
     

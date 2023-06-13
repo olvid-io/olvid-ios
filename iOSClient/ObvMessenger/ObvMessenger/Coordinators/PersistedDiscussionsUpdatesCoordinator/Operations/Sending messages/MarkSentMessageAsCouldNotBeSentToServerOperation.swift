@@ -21,6 +21,7 @@
 import Foundation
 import ObvTypes
 import OlvidUtils
+import ObvUICoreData
 
 
 final class MarkSentMessageAsCouldNotBeSentToServerOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

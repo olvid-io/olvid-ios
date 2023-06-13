@@ -259,14 +259,6 @@ extension OutboxMessage {
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
     
-    static func getAllNotUploaded(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) -> [OutboxMessage]? {
-        let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
-        request.fetchBatchSize = 500
-        request.predicate = Predicate.uploaded(is: false)
-        let items = try? obvContext.fetch(request)
-        return items?.map { $0.delegateManager = delegateManager; return $0 }
-    }
-
     static func getAllUploaded(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.fetchBatchSize = 500

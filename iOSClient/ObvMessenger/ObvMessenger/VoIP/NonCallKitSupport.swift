@@ -270,8 +270,6 @@ class NCXObvProvider: ObvProvider, ObvErrorMaker {
 
     var isCallKit: Bool { false }
 
-    private var notificationTokens = [NSObjectProtocol]()
-
     private let internalQueue: OperationQueue = {
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1

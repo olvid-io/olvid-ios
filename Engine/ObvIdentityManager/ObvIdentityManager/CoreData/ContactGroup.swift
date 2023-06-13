@@ -384,6 +384,9 @@ extension ContactGroup {
     
     override func prepareForDeletion() {
         super.prepareForDeletion()
+        // This code shall *not* be move into the willSave() method, as, on deletion, self.ownedIdentity does not seem to be always available there.
+        guard let managedObjectContext else { assertionFailure(); return }
+        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
         ownedIdentityCryptoIdentityOnDeletion = ownedIdentity.cryptoIdentity
         if let groupJoined = self as? ContactGroupJoined {
             groupOwnerCryptoIdentityOnDeletion = groupJoined.groupOwner.cryptoIdentity

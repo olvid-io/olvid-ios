@@ -21,6 +21,7 @@ import Foundation
 import SwiftUI
 import CoreData
 import ObvTypes
+import ObvUICoreData
 
 
 
@@ -92,11 +93,9 @@ fileprivate final class SentMessageInfosViewStore: ObservableObject {
     
     
     deinit {
-        notificationTokens.forEach { token in
-            NotificationCenter.default.removeObserver(token)
-        }
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
-    
+
     
     private static func computeRecipientAndInfos(from unsortedInfos: Set<PersistedMessageSentRecipientInfos>) -> [RecipientAndInfos] {
         let readInfos = unsortedInfos

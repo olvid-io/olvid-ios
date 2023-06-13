@@ -65,6 +65,7 @@ public enum ObvNetworkFetchNotificationNew {
 	case downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier)
 	case downloadingMessageExtendedPayloadFailed(messageId: MessageIdentifier, flowId: FlowIdentifier)
 	case pushTopicReceivedViaWebsocket(pushTopic: String)
+	case keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
 
 	private enum Name {
 		case serverReportedThatAnotherDeviceIsAlreadyRegistered
@@ -99,6 +100,7 @@ public enum ObvNetworkFetchNotificationNew {
 		case downloadingMessageExtendedPayloadWasPerformed
 		case downloadingMessageExtendedPayloadFailed
 		case pushTopicReceivedViaWebsocket
+		case keycloakTargetedPushNotificationReceivedViaWebsocket
 
 		private var namePrefix: String { String(describing: ObvNetworkFetchNotificationNew.self) }
 
@@ -143,6 +145,7 @@ public enum ObvNetworkFetchNotificationNew {
 			case .downloadingMessageExtendedPayloadWasPerformed: return Name.downloadingMessageExtendedPayloadWasPerformed.name
 			case .downloadingMessageExtendedPayloadFailed: return Name.downloadingMessageExtendedPayloadFailed.name
 			case .pushTopicReceivedViaWebsocket: return Name.pushTopicReceivedViaWebsocket.name
+			case .keycloakTargetedPushNotificationReceivedViaWebsocket: return Name.keycloakTargetedPushNotificationReceivedViaWebsocket.name
 			}
 		}
 	}
@@ -327,6 +330,10 @@ public enum ObvNetworkFetchNotificationNew {
 		case .pushTopicReceivedViaWebsocket(pushTopic: let pushTopic):
 			info = [
 				"pushTopic": pushTopic,
+			]
+		case .keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: let ownedIdentity):
+			info = [
+				"ownedIdentity": ownedIdentity,
 			]
 		}
 		return info
@@ -647,6 +654,14 @@ public enum ObvNetworkFetchNotificationNew {
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let pushTopic = notification.userInfo!["pushTopic"] as! String
 			block(pushTopic)
+		}
+	}
+
+	public static func observeKeycloakTargetedPushNotificationReceivedViaWebsocket(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.keycloakTargetedPushNotificationReceivedViaWebsocket.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			block(ownedIdentity)
 		}
 	}
 

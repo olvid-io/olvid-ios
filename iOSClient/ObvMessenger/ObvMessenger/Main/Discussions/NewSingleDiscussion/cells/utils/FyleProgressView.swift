@@ -19,6 +19,7 @@
 
 import UIKit
 import CoreData
+import ObvUICoreData
 
 
 final class FyleProgressView: UIView, UIViewWithTappableStuff {

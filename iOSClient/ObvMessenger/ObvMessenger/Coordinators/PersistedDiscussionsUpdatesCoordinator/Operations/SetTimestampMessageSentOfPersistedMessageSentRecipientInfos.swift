@@ -21,46 +21,47 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvTypes
+import ObvUICoreData
 
 
-final class SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation: OperationWithSpecificReasonForCancel<SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperationReasonForCancel> {
+final class SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
  
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation.self))
 
-    private let messageIdentifierFromEngine: Data
-    private let timestampFromServer: Date
+    private let ownedCryptoId: ObvCryptoId
+    private let messageIdentifierFromEngineAndTimestampFromServer: [(messageIdentifierFromEngine: Data, timestampFromServer: Date)]
     
-    init(messageIdentifierFromEngine: Data, timestampFromServer: Date) {
-        self.messageIdentifierFromEngine = messageIdentifierFromEngine
-        self.timestampFromServer = timestampFromServer
+    init(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngineAndTimestampFromServer: [(messageIdentifierFromEngine: Data, timestampFromServer: Date)]) {
+        self.ownedCryptoId = ownedCryptoId
+        self.messageIdentifierFromEngineAndTimestampFromServer = messageIdentifierFromEngineAndTimestampFromServer
         super.init()
     }
     
     override func main() {
         
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
+        guard let obvContext else {
+            return cancel(withReason: .contextIsNil)
+        }
+        
+        obvContext.performAndWait {
             
-            let infos: [PersistedMessageSentRecipientInfos]
             do {
-                infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, within: context)
-                guard !infos.isEmpty else {
-                    return cancel(withReason: .couldNotFindPersistedMessageSentRecipientInfos)
+                
+                for (messageIdentifierFromEngine, timestampFromServer) in messageIdentifierFromEngineAndTimestampFromServer {
+                    
+                    let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfosWithoutTimestampDeliveredAndMatching(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
+                    
+                    // Note that the infos list may be empty for that messageIdentifierFromEngine and owned identity.
+                    // Since we now (2022-02-24) also filter out infos that already have a timestampMessageSent, this is not an issue.
+                    
+                    infos.forEach {
+                        $0.setTimestampMessageSent(to: timestampFromServer)
+                    }
+
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            var contextRequiresSaving = false
-            for info in infos {
-                guard info.timestampMessageSent == nil else { continue }
-                info.setTimestampMessageSent(to: timestampFromServer)
-                contextRequiresSaving = true
-            }
-            
-            guard contextRequiresSaving else { return }
+                
 
-            do {
-                try context.save(logOnFailure: log)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
@@ -69,31 +70,4 @@ final class SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation
 
     }
 
-}
-
-
-
-enum SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperationReasonForCancel: LocalizedErrorWithLogType {
-    
-    case couldNotFindPersistedMessageSentRecipientInfos
-    case coreDataError(error: Error)
-    
-    var logType: OSLogType {
-        switch self {
-        case .couldNotFindPersistedMessageSentRecipientInfos:
-            return .error
-        case .coreDataError:
-            return .fault
-        }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .couldNotFindPersistedMessageSentRecipientInfos:
-            return "Could not find persisted message sent recipient infos for given message identifier from engine"
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        }
-    }
-    
 }

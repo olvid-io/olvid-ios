@@ -22,6 +22,7 @@ import MobileCoreServices
 import CoreGraphics
 import AVKit
 import PDFKit
+import ObvUICoreData
 
 
 final class ThumbnailWorker: NSObject {
@@ -52,9 +53,8 @@ final class ThumbnailWorker: NSObject {
         }
     }
     
-    
     private func createThumbnailDirectory() throws -> URL {
-        let thumbnailsDirectory = ObvMessengerConstants.containerURL.forThumbnails(within: .mainApp) // Should work even if called from the share extension
+        let thumbnailsDirectory = ObvUICoreDataConstants.ContainerURL.forThumbnailsWithinMainApp.url // Should work even if called from the share extension
         let thumbnailDirectory = thumbnailsDirectory.appendingPathComponent(fyleElement.sha256.hexString())
         if !FileManager.default.fileExists(atPath: thumbnailDirectory.path) {
             try FileManager.default.createDirectory(at: thumbnailDirectory, withIntermediateDirectories: true, attributes: nil)

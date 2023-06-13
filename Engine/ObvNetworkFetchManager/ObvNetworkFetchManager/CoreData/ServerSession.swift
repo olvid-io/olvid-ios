@@ -140,4 +140,15 @@ extension ServerSession {
             obvContext.delete(item)
         }
     }
+    
+    static func getAllTokens(within obvContext: ObvContext) throws -> [(ownedCryptoId: ObvCryptoIdentity, token: Data)] {
+        let request: NSFetchRequest<ServerSession> = ServerSession.fetchRequest()
+        request.fetchBatchSize = 100
+        let items = try obvContext.fetch(request)
+        return items.compactMap { item in
+            guard let token = item.token else { return nil }
+            return (item.cryptoIdentity, token)
+        }
+    }
+
 }

@@ -39,4 +39,5 @@ public struct UserData: Hashable {
 public enum UserDataKind: Hashable {
     case identity
     case group(groupUid: UID)
+    case groupV2(groupIdentifier: GroupV2.Identifier)
 }

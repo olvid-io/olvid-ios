@@ -26,6 +26,7 @@ import ObvEngine
 import ObvTypes
 import ObvUI
 import SwiftUI
+import ObvUICoreData
 
 
 protocol SingleGroupV2ViewControllerDelegate: AnyObject {
@@ -80,6 +81,11 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
         observeNotifications()
         
     }
+    
+    deinit {
+        tokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -289,9 +295,7 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     func userWantsToReplaceTrustedDetailsByPublishedDetails() {
         do {
-            let ownCryptoId = try scratchGroup.ownCryptoId
-            ObvMessengerGroupV2Notifications.groupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ownCryptoId, groupIdentifier: scratchGroup.groupIdentifier)
-                .postOnDispatchQueue()
+            try scratchGroup.trustedDetailsShouldBeReplacedByPublishedDetails()
         } catch {
             assertionFailure()
         }
@@ -301,18 +305,24 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     func userWantsToPerformReDownloadOfGroupV2() {
         let obvEngine = self.obvEngine
         let ownedCryptoId: ObvCryptoId
+        let keycloakManaged: Bool
         do {
             ownedCryptoId = try scratchGroup.ownCryptoId
+            keycloakManaged = scratchGroup.keycloakManaged
         } catch {
             os_log("Failed to perform manual resync of group: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             return
         }
         let groupIdentifier = scratchGroup.groupIdentifier
-        DispatchQueue(label: "Background queue for performing a manual resync of a group").async {
-            do {
-                try obvEngine.performReDownloadOfGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
-            } catch {
-                assertionFailure(error.localizedDescription)
+        if keycloakManaged {
+            Task { try? await KeycloakManagerSingleton.shared.syncAllManagedIdentities() }
+        } else {
+            DispatchQueue(label: "Background queue for performing a manual resync of a group").async {
+                do {
+                    try obvEngine.performReDownloadOfGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                }
             }
         }
     }
@@ -415,14 +425,15 @@ struct SingleGroupV2View: View {
     @ObservedObject var group: PersistedGroupV2
     let delegate: SingleGroupV2ViewDelegate?
     
-    @State private var presentedAlertType = AlertType.cannotLeaveGroup
+    @State private var presentedAlertType = AlertType.cannotLeaveGroupAsWeAreTheOnlyAdmin
     @State private var isAlertPresented = false
 
     @State private var presentedSheetType = SheetType.confirmLeaveGroup
     @State private var isSheetPresented = false
 
     enum AlertType {
-        case cannotLeaveGroup
+        case cannotLeaveGroupAsWeAreTheOnlyAdmin
+        case cannotLeaveGroupAsThisIsKeycloakGroup
     }
     
     enum SheetType {
@@ -451,7 +462,7 @@ struct SingleGroupV2View: View {
                                         systemImage: .person3Fill,
                                         profilePicture: group.circledInitialsConfiguration.photo,
                                         alignment: .top,
-                                        showGreenShield: false,
+                                        showGreenShield: group.keycloakManaged,
                                         showRedShield: false,
                                         editionMode: .none,
                                         displayMode: .header)
@@ -513,7 +524,7 @@ struct SingleGroupV2View: View {
                                                         circledTextView: nil,
                                                         systemImage: .person3Fill,
                                                         profilePicture: group.circledInitialsConfigurationPublished.photo,
-                                                        showGreenShield: false,
+                                                        showGreenShield: group.keycloakManaged,
                                                         showRedShield: false,
                                                         editionMode: .none,
                                                         displayMode: .normal)
@@ -548,7 +559,7 @@ struct SingleGroupV2View: View {
                                                     circledTextView: nil,
                                                     systemImage: .person3Fill,
                                                     profilePicture: group.circledInitialsConfiguration.photo,
-                                                    showGreenShield: false,
+                                                    showGreenShield: group.keycloakManaged,
                                                     showRedShield: false,
                                                     editionMode: .none,
                                                     displayMode: .normal)
@@ -585,11 +596,15 @@ struct SingleGroupV2View: View {
                         // Button for leaving the group
                         
                         OlvidButton(style: .red, title: Text("LEAVE_GROUP"), systemIcon: .xmarkOctagon) {
-                            if group.ownedIdentityCanLeaveGroup {
+                            switch group.ownedIdentityCanLeaveGroup {
+                            case .canLeaveGroup:
                                 presentedSheetType = .confirmLeaveGroup
                                 isSheetPresented = true
-                            } else {
-                                presentedAlertType = .cannotLeaveGroup
+                            case .cannotLeaveGroupAsWeAreTheOnlyAdmin:
+                                presentedAlertType = .cannotLeaveGroupAsWeAreTheOnlyAdmin
+                                isAlertPresented = true
+                            case .cannotLeaveGroupAsThisIsKeycloakGroup:
+                                presentedAlertType = .cannotLeaveGroupAsThisIsKeycloakGroup
                                 isAlertPresented = true
                             }
                         }
@@ -612,9 +627,14 @@ struct SingleGroupV2View: View {
         }
         .alert(isPresented: $isAlertPresented) {
             switch presentedAlertType {
-            case .cannotLeaveGroup:
+            case .cannotLeaveGroupAsWeAreTheOnlyAdmin:
                 return Alert(title: Text("SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_TITLE"),
                              message: Text("SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_MESSAGE"),
+                             dismissButton: Alert.Button.default(Text("Ok"))
+                )
+            case .cannotLeaveGroupAsThisIsKeycloakGroup:
+                return Alert(title: Text("SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_TITLE"),
+                             message: Text("SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_MESSAGE"),
                              dismissButton: Alert.Button.default(Text("Ok"))
                 )
             }
@@ -720,11 +740,27 @@ fileprivate struct GroupMembersView: View {
                     
                 }
                 
-                if otherMembers.isEmpty && ownedIdentityIsAdmin {
+                if otherMembers.isEmpty {
                     
-                    Text("ADD_MEMBER_BY_TAPPING_EDIT_GROUP_MEMBERS_BUTTON")
-                        .font(.callout)
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    if ownedIdentityIsAdmin {
+                        
+                        HStack {
+                            Text("ADD_MEMBER_BY_TAPPING_EDIT_GROUP_MEMBERS_BUTTON")
+                                .font(.callout)
+                                .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                            Spacer()
+                        }
+                        
+                    } else {
+                        
+                        HStack {
+                            Text("NO_OTHER_MEMBER_FOR_NOW")
+                                .font(.callout)
+                                .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                            Spacer()
+                        }
+                        
+                    }
 
                 } else {
                     
@@ -809,7 +845,7 @@ struct SingleGroupMemberView: View {
                                 circledTextView: circledTextView,
                                 systemImage: .person,
                                 profilePicture: otherMember.displayedProfilePicture,
-                                showGreenShield: false,
+                                showGreenShield: otherMember.isKeycloakManaged,
                                 showRedShield: false,
                                 editionMode: .none,
                                 displayMode: .normal)
@@ -837,60 +873,4 @@ struct SingleGroupMemberView: View {
         .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
     }
     
-}
-
-
-
-
-struct SingleGroupV2InnerView_Previews: PreviewProvider {
-
-    fileprivate static let group: PersistedGroupV2 = {
-        let groupIdentifier = Data(repeating: 0, count: 16)
-        let ownedIdentity = Data(repeating: 1, count: 16)
-        return PersistedGroupV2.mocObject(
-            customName: "Group name3",
-            groupIdentifier: groupIdentifier,
-            keycloakManaged: false,
-            ownPermissionAdmin: true,
-            rawOwnedIdentityIdentity: Data(repeating: 1, count: 16),
-            updateInProgress: false,
-            otherMembers: Set<PersistedGroupV2Member>([
-                PersistedGroupV2Member.mocObject(
-                    company: "Apple",
-                    firstName: "Alice",
-                    groupIdentifier: groupIdentifier,
-                    identity: Data(repeating: 2, count: 16),
-                    isPending: false,
-                    lastName: "Work",
-                    permissionAdmin: false,
-                    position: "Manager",
-                    rawOwnedIdentityIdentity: ownedIdentity),
-                PersistedGroupV2Member.mocObject(
-                    company: "Olvid",
-                    firstName: "Bob",
-                    groupIdentifier: groupIdentifier,
-                    identity: Data(repeating: 2, count: 16),
-                    isPending: false,
-                    lastName: "Home",
-                    permissionAdmin: false,
-                    position: "Happiness Officer",
-                    rawOwnedIdentityIdentity: ownedIdentity),
-                PersistedGroupV2Member.mocObject(
-                    company: "Some company",
-                    firstName: "Charlize",
-                    groupIdentifier: groupIdentifier,
-                    identity: Data(repeating: 2, count: 16),
-                    isPending: false,
-                    lastName: "Laptop",
-                    permissionAdmin: true,
-                    position: "CEO",
-                    rawOwnedIdentityIdentity: ownedIdentity),
-            ])
-        )
-    }()
-    
-    static var previews: some View {
-        SingleGroupV2View(group: Self.group, delegate: nil)
-    }
-
 }

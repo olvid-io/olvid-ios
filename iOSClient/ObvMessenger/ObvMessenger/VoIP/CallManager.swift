@@ -27,6 +27,7 @@ import AVKit
 import WebRTC
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
 
 
 final actor CallManager: ObvErrorMaker {
@@ -46,13 +47,15 @@ final actor CallManager: ObvErrorMaker {
 
     private var receivedIceCandidates = [UUID: [(IceCandidateJSON, OlvidUserId)]]()
 
+    /// This array allows to make sure we do not process the same `StartCallMessageJSON` twice. This is required as this message may be received twice.
+    private var messageIdentifierFromEngineFromProcessingStartCallMessage = Set<Data>()
+    
     /// When receiving a pushkit notification, we do not immediately create a call like we used to do in previous versions of this framework.
     /// Instead, we add an element to this dictionary, indexed by message Ids from the engine. The values are UUID to use with CallKit and when creating the (incoming) call instance
     private var receivedCallKitVoIPNotifications = [Data: UUID]()
 
     private let obvEngine: ObvEngine
     private var notificationTokens = [NSObjectProtocol]()
-    private var notificationForVoIPRegister: NSObjectProtocol?
 
     private let cxProvider: CXObvProvider
     private let ncxProvider: NCXObvProvider
@@ -72,6 +75,10 @@ final actor CallManager: ObvErrorMaker {
         ncxProvider.setConfiguration(CallManager.providerConfiguration)
         cxProvider.setDelegate(self, queue: nil)
         ncxProvider.setDelegate(self, queue: nil)
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     private let queueForPostingNotifications = DispatchQueue(label: "Call queue for posting notifications")
@@ -437,14 +444,16 @@ extension CallManager {
         guard !remotelyHangedUpCalls.contains(uuidForWebRTC) else {
             return
         }
+        
+        // If the StartCallMessageJSON was already received (i.e., we are processing it already), we do nothing. This can happen when decrypting the VoIP notification first (when using CallKit), then receiving the start call message via the network. In that case, we can receive the start call message twice. We only consider the first occurence.
 
-        // If the call already exists in the current calls, we do nothing. This can happen when decrypting the VoIP notification first (when using CallKit), then receiving the start call message via the network In that case, we can receive the start call message twice. We only consider the first occurence
-
-        guard currentIncomingCalls.first(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine }) == nil else {
-            os_log("We already received this start call message (which can occur when using CallKit). We discard this one.", log: Self.log, type: .info)
+        guard !messageIdentifierFromEngineFromProcessingStartCallMessage.contains(messageIdentifierFromEngine) && currentIncomingCalls.first(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine }) == nil else {
+            os_log("☎️ We already received this start call message (which can occur when using CallKit). We discard this one.", log: Self.log, type: .info)
             return
         }
 
+        messageIdentifierFromEngineFromProcessingStartCallMessage.insert(messageIdentifierFromEngine)
+        
         // We check that the `StartCallMessageJSON` is not too old. If this is the case, we ignore it
 
         let timeInterval = Date().timeIntervalSince(messageUploadTimestampFromServer) // In seconds
@@ -476,8 +485,13 @@ extension CallManager {
                                                          useCallKit: useCallKit,
                                                          queueForPostingNotifications: queueForPostingNotifications)
 
+        // After the following line, currentIncomingCalls.first(where: { $0.messageIdentifierFromEngine == messageIdentifierFromEngine }) will be not nil.
+        // This is important for the test made at the beginning of this method.
+        // Consequently, we can remove the corresponding entry from the messageIdentifierFromEngineFromProcessingStartCallMessage array.
         try await addCallToCurrentCalls(call: incomingCall)
 
+        messageIdentifierFromEngineFromProcessingStartCallMessage.remove(messageIdentifierFromEngine)
+        
         assert(incomingCall.direction == .incoming)
 
         // Now that we know for sure that the incoming call is part of the current calls, we can process the
@@ -542,7 +556,7 @@ extension CallManager {
     /// is materialized by the insertion of a new element in the `receivedCallKitVoIPNotifications` dictionary, and the "start call message"
     /// processing method waits until this event occurs.
     /// This method (using a patern based on async/await continuations) allows to do just that. To make it work, we must resume the continuation
-    /// stored in the `continuationsWaitingForCallKitVoIPNotification` array at the time we add an element in the  insert the `receivedCallKitVoIPNotifications array.
+    /// stored in the `continuationsWaitingForCallKitVoIPNotification` array at the time we add an element in the `receivedCallKitVoIPNotifications` array.
     private func waitUntilCallKitVoIPIsReceived(messageIdentifierFromEngine: Data) async -> UUID {
         if let uuidForCallKit = receivedCallKitVoIPNotifications[messageIdentifierFromEngine] {
             return uuidForCallKit
@@ -716,8 +730,6 @@ extension CallManager {
 
     private func processUserWantsToCallNotification(contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifierBasedOnObjectID?) async {
 
-        debugPrint("Call to processUserWantsToCallNotification")
-        
         // 2022-06-20 We used to wait until the app is initialized and active. Still needed?
         // 2022-06-27 We comment the following line, it shouldn't be necessary now.
         // _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()

@@ -20,6 +20,7 @@
 import Foundation
 import os.log
 import ObvEngine
+import ObvUICoreData
 
 actor ObvPushNotificationManager {
     
@@ -68,7 +69,10 @@ actor ObvPushNotificationManager {
     private var notificationTokens = [NSObjectProtocol]()
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ObvPushNotificationManager.self))
 
-    
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private func observeNotifications() {
         let log = self.log
         notificationTokens.append(contentsOf: [
@@ -96,7 +100,7 @@ actor ObvPushNotificationManager {
     
     private func tryToRegisterToPushNotifications(obvEngine: ObvEngine) {
         let tokens: (pushToken: Data, voipToken: Data?)?
-        if ObvMessengerConstants.isRunningOnRealDevice {
+        if ObvMessengerConstants.areRemoteNotificationsAvailable {
             if let _currentDeviceToken = currentDeviceToken {
                 let voipToken = ObvMessengerSettings.VoIP.isCallKitEnabled ? currentVoipToken : nil
                 tokens = (_currentDeviceToken, voipToken)

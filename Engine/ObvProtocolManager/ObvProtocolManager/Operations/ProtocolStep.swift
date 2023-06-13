@@ -151,6 +151,13 @@ class ProtocolStep {
                                    protocolInstanceUid: otherProtocolInstanceUid)
     }
     
+    func getCoreMessageForSameProtocolButOtherProtocolInstanceUid(for channelType: ObvChannelSendChannelType, otherProtocolInstanceUid: UID) -> CoreProtocolMessage {
+        return CoreProtocolMessage(channelType: channelType,
+                                   cryptoProtocolId: type(of: concreteCryptoProtocol).id,
+                                   protocolInstanceUid: otherProtocolInstanceUid,
+                                   partOfFullRatchetProtocolOfTheSendSeed: false)
+    }
+    
     func getCoreMessageForOtherProtocol(for channelType: ObvChannelSendChannelType, otherCryptoProtocolId: CryptoProtocolId, otherProtocolInstanceUid: UID) -> CoreProtocolMessage {
         return CoreProtocolMessage(channelType: channelType,
                                    cryptoProtocolId: otherCryptoProtocolId,

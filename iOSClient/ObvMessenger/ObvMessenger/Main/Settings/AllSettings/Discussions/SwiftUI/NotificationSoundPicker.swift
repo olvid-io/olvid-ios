@@ -20,7 +20,10 @@
 
 import AudioToolbox
 import ObvUI
+import ObvUICoreData
 import SwiftUI
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 struct NotificationSoundPicker<Content: View>: View {
@@ -44,7 +47,7 @@ struct NotificationSoundPicker<Content: View>: View {
 }
 
 
-extension NeutralToneCategory {
+extension NotificationSound.Category {
     var iconColor: Color {
         switch self {
         case .neutral: return .gray
@@ -63,7 +66,7 @@ struct NotificationSoundList<Content: View>: View {
 
     @State private var isCollapsed = false
 
-    func sectionForNeutral(with category: NeutralToneCategory) -> some View {
+    func sectionForNeutral(with category: NotificationSound.Category) -> some View {
         var sounds: [OptionalNotificationSound] = []
         sounds += NotificationSound.allCases.compactMap({ sound in
             guard sound != .none else { return nil }

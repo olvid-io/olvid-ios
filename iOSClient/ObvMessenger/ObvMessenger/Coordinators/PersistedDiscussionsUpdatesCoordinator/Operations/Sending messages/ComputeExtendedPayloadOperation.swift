@@ -25,6 +25,8 @@ import UIKit
 import MobileCoreServices
 import ObvEncoder
 import ObvMetaManager
+import ObvUICoreData
+
 
 private enum ComputeExtendedPayloadOperationInput {
     case message(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>)

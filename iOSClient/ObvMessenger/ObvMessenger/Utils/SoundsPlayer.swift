@@ -22,12 +22,8 @@ import Foundation
 import AVFoundation
 import os.log
 import UIKit
+import ObvUICoreData
 
-protocol Sound: Hashable {
-    var filename: String? { get }
-    var loops: Bool { get }
-    var feedback: UINotificationFeedbackGenerator.FeedbackType? { get }
-}
 
 extension Sound {
     var isPlayable: Bool { filename != nil }

@@ -23,6 +23,7 @@ import LinkPresentation
 import OlvidUtils
 import os.log
 import ObvUI
+import ObvUICoreData
 
 
 @MainActor
@@ -162,7 +163,9 @@ final class AdvancedSettingsViewController: UITableViewController {
     }
     
     private enum LogsItem: CaseIterable {
-        case logs
+        case enableLogs
+        case logsList
+        case betaButtonForShowingCoordinatorsQueue
         static var shown: [LogsItem] {
             return ObvMessengerConstants.showExperimentalFeature ? self.allCases : []
         }
@@ -172,7 +175,9 @@ final class AdvancedSettingsViewController: UITableViewController {
         }
         var cellIdentifier: String {
             switch self {
-            case .logs: return "DisplayableLogs"
+            case .logsList: return "DisplayableLogsList"
+            case .enableLogs: return "EnableLogs"
+            case .betaButtonForShowingCoordinatorsQueue: return "betaButtonForShowingCoordinatorsQueue"
             }
         }
     }
@@ -318,10 +323,27 @@ extension AdvancedSettingsViewController {
         case .logs:
             guard let item = LogsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
             switch item {
-            case .logs:
+            case .logsList:
                 let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
-                cell.textLabel?.text = "Logs"
+                cell.textLabel?.text = Strings.inAppLogs
                 cell.accessoryType = .disclosureIndicator
+                return cell
+            case .enableLogs:
+                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.selectionStyle = .none
+                cell.title = Strings.enableRunningLogs
+                cell.switchIsOn = ObvMessengerSettings.Advanced.enableRunningLogs
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Advanced.enableRunningLogs = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
+            case .betaButtonForShowingCoordinatorsQueue:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = Strings.showCoordinatorsQueue
+                cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 return cell
             }
             
@@ -392,22 +414,32 @@ extension AdvancedSettingsViewController {
                 tableView.deselectRow(at: indexPath, animated: true)
             }
         case .logs:
-            let vc = DisplayableLogsHostingViewController()
-            present(vc, animated: true) {
+            guard let item = LogsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch (item) {
+            case .logsList:
+                let vc = DisplayableLogsHostingViewController()
+                present(vc, animated: true) {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                }
+            case .enableLogs:
+                return
+            case .betaButtonForShowingCoordinatorsQueue:
+                ObvMessengerInternalNotification.betaUserWantsToDebugCoordinatorsQueue
+                    .postOnDispatchQueue()
                 tableView.deselectRow(at: indexPath, animated: true)
             }
         case .exportsDatabasesAndCopyURLs:
             guard let item = ExportsDatabasesAndCopyURLsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch item {
             case .copyDocumentsURL:
-                UIPasteboard.general.string = ObvMessengerConstants.containerURL.forDocuments.path
+                UIPasteboard.general.string = ObvUICoreDataConstants.ContainerURL.forDocuments.path
                 tableView.deselectRow(at: indexPath, animated: true)
             case .copyDatabaseURL:
-                UIPasteboard.general.string = ObvMessengerConstants.containerURL.forDatabase.path
+                UIPasteboard.general.string = ObvUICoreDataConstants.ContainerURL.forDatabase.path
                 tableView.deselectRow(at: indexPath, animated: true)
             case .exportAppDatabase:
                 guard let cell = tableView.cellForRow(at: indexPath) else { return }
-                let appDatabaseURL = ObvMessengerConstants.containerURL.forDatabase
+                let appDatabaseURL = ObvUICoreDataConstants.ContainerURL.forDatabase.url
                 guard FileManager.default.fileExists(atPath: appDatabaseURL.path) else { return }
                 let ativityController = UIActivityViewController(activityItems: [appDatabaseURL], applicationActivities: nil)
                 ativityController.popoverPresentationController?.sourceView = cell
@@ -416,7 +448,7 @@ extension AdvancedSettingsViewController {
                 }
             case .exportEngineDatabase:
                 guard let cell = tableView.cellForRow(at: indexPath) else { return }
-                let appDatabaseURL = ObvMessengerConstants.containerURL.mainEngineContainer.appendingPathComponent("database")
+                let appDatabaseURL = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.appendingPathComponent("database")
                 guard FileManager.default.fileExists(atPath: appDatabaseURL.path) else { return }
                 let ativityController = UIActivityViewController(activityItems: [appDatabaseURL], applicationActivities: nil)
                 ativityController.popoverPresentationController?.sourceView = cell
@@ -425,7 +457,7 @@ extension AdvancedSettingsViewController {
                 }
             case .exportTmpDirectory:
                 guard let cell = tableView.cellForRow(at: indexPath) else { return }
-                let tmpURL = ObvMessengerConstants.containerURL.forTempFiles
+                let tmpURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
                 guard FileManager.default.fileExists(atPath: tmpURL.path) else { return }
                 let ativityController = UIActivityViewController(activityItems: [tmpURL], applicationActivities: nil)
                 ativityController.popoverPresentationController?.sourceView = cell
@@ -445,8 +477,8 @@ extension AdvancedSettingsViewController {
         case .clearCache: return Strings.cacheManagement
         case .customKeyboards: return Strings.customKeyboardsManagement
         case .websockedStatus: return Strings.webSocketStatus
+        case .logs: return Strings.inAppLogs
         case .diskUsage: return nil
-        case .logs: return nil
         case .exportsDatabasesAndCopyURLs: return nil
         }
     }
@@ -484,6 +516,9 @@ extension AdvancedSettingsViewController {
         static let allowAPIKeyActivationWithBadKeyStatusTitle = NSLocalizedString("Allow all api key activations", comment: "")
         static let webSocketStatus = NSLocalizedString("Websocket status", comment: "")
         static let diskUsageTitle = NSLocalizedString("DISK_USAGE", comment: "")
+        static let enableRunningLogs = NSLocalizedString("ENABLE_RUNNING_LOGS", comment: "")
+        static let inAppLogs = NSLocalizedString("IN_APP_LOGS", comment: "")
+        static let showCoordinatorsQueue = NSLocalizedString("SHOW_CURRENT_COORDINATORS_OPS", comment: "")
     }
     
 }

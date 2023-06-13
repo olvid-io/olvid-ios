@@ -29,7 +29,7 @@ struct ReceivedMessage {
     let encodedElements: ObvEncoded
     let extendedMessagePayloadKey: AuthenticatedEncryptionKey?
     let channelType: ObvProtocolReceptionChannelInfo
-    let extendedMessagePayload: Data?
+    let extendedMessagePayload: Data? // Available only when the message was received in a notification. Not available during a "normal" reception as the extended payload is downloaded asynchronously
     private let message: ObvNetworkReceivedMessageEncrypted
 
     var messageId: MessageIdentifier { return message.messageId }
@@ -44,20 +44,20 @@ struct ReceivedMessage {
         self.encodedElements = encodedElements
         self.message = message
         self.channelType = channelType
-        if let encryptedExtendedContent = message.availableEncryptedExtendedContent {
-            if let seed = Seed(withKeys: [messageKey]) {
-                let prng = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seed)
-                let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-                let extendedMessagePayloadKey = authEnc.generateKey(with: prng)
-                self.extendedMessagePayloadKey = extendedMessagePayloadKey
-                self.extendedMessagePayload = Self.decryptToData(encryptedExtendedContent, with: extendedMessagePayloadKey)
-            } else {
-                assertionFailure()
-                self.extendedMessagePayloadKey = nil
-                self.extendedMessagePayload = nil
-            }
+        // Set the extendedMessagePayloadKey, in case there is one now (or in the future)
+        let extendedMessagePayloadKey: AuthenticatedEncryptionKey?
+        if let seed = Seed(withKeys: [messageKey]) {
+            let prng = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seed)
+            let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
+            extendedMessagePayloadKey = authEnc.generateKey(with: prng)
         } else {
-            self.extendedMessagePayloadKey = nil
+            extendedMessagePayloadKey = nil
+        }
+        self.extendedMessagePayloadKey = extendedMessagePayloadKey
+        // If the extended message payload is available (which only happens when the message was received in a notification, otherwise it is downloaded asynchronously), decrypt it now
+        if let encryptedExtendedContent = message.availableEncryptedExtendedContent, let extendedMessagePayloadKey {
+            self.extendedMessagePayload = Self.decryptToData(encryptedExtendedContent, with: extendedMessagePayloadKey)
+        } else {
             self.extendedMessagePayload = nil
         }
     }

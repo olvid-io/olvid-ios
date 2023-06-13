@@ -20,6 +20,8 @@
 import Foundation
 import SwiftUI
 import CoreData
+import ObvUICoreData
+
 
 @available(iOS 15, *)
 extension DraftSettingsHostingViewController: UISheetPresentationControllerDelegate {

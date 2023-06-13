@@ -69,9 +69,11 @@ public struct APIPermissions: OptionSet {
     public let rawValue: Int
     
     public static let canCall = APIPermissions(rawValue: 1 << 0)
-    
+    public static let androidWebClient = APIPermissions(rawValue: 1 << 1)
+    public static let multidevice = APIPermissions(rawValue: 1 << 2)
+
     public init(rawValue: Int) {
-        assert(rawValue < 4)
+        assert(rawValue < 8)
         self.rawValue = rawValue
     }
 }

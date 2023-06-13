@@ -96,13 +96,14 @@ final class ObvAudioPlayer: NSObject, AVAudioPlayerDelegate {
         self.timer?.invalidate()
         self.timer = nil
         self.delegate?.audioPlayerDidStopPlaying()
+        self.clearNowPlaying()
     }
 
     func pause() {
         guard let audioPlayer = audioPlayer else { return }
         os_log("🎵 Pause %{public}@", log: self.log, type: .info, audioPlayer.url?.lastPathComponent ?? "nil")
         audioPlayer.pause()
-        self.setupNowPlaying()
+        self.clearNowPlaying()
     }
 
     func resume(enableSpeaker speaker: Bool, at time: TimeInterval? = 0) {

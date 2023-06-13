@@ -21,7 +21,7 @@
 import Foundation
 import ObvTypes
 import WebRTC
-
+import ObvUICoreData
 
 
 // MARK: - CallParticipantDelegate

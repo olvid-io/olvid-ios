@@ -22,6 +22,7 @@ import AVKit
 import ObvTypes
 import CoreData
 import os.log
+import ObvUICoreData
 
 
 @MainActor
@@ -113,11 +114,15 @@ final class ObservableCallWrapper: ObservableObject {
             },
         ])
         Task { [weak self] in
-            await updateCallParticipants()
+            await self?.updateCallParticipants()
             await self?.update()
         }
     }
     
+    deinit {
+        tokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     
     private func processCallHasBeenUpdated(callUUID: UUID, updateKind: CallUpdateKind) async {
         assert(Thread.isMainThread)

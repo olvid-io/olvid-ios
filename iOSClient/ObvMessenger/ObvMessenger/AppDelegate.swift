@@ -17,7 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import UIKit
+@_exported import UIKit // this is to fix the need to import `UIKit` for several key parts of the app, introduced by tuist
 import CoreData
 import os.log
 import Intents
@@ -25,6 +25,11 @@ import ObvEngine
 import CoreDataStack
 import AppAuth
 import OlvidUtils
+import ObvUICoreData
+
+#if OLVID_SHOULD_ENABLE_ATLANTIS_PROXY
+import Atlantis
+#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
@@ -50,6 +55,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
     }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        #if OLVID_SHOULD_ENABLE_ATLANTIS_PROXY
+        Atlantis.start()
+        #endif
 
         os_log("🧦 Application did finish launching with options", log: log, type: .info)
 
@@ -73,13 +81,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
 
         // Register for remote (push) notifications
         registerForRemoteNotificationsOnRealDeviceAndFailOnSimulator(application)
-        
+
         return true
     }
     
     
     private func registerForRemoteNotificationsOnRealDeviceAndFailOnSimulator(_ application: UIApplication) {
-        if ObvMessengerConstants.isRunningOnRealDevice {
+        if ObvMessengerConstants.areRemoteNotificationsAvailable {
             application.registerForRemoteNotifications()
         } else {
             let error = Self.makeError(message: "Cannot register to remote notifications as we are not running on a real device")
@@ -91,7 +99,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
     
     
     func application(_ application: UIApplication, shouldAllowExtensionPointIdentifier extensionPointIdentifier: UIApplication.ExtensionPointIdentifier) -> Bool {
-        os_log("Application shouldAllowExtensionPointIdentifier", log: log, type: .debug)
+        // os_log("Application shouldAllowExtensionPointIdentifier", log: log, type: .debug)
         switch extensionPointIdentifier {
         case .keyboard:
             return ObvMessengerSettings.Advanced.allowCustomKeyboards

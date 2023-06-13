@@ -19,7 +19,8 @@
 
 import ObvUI
 import UIKit
-
+import ObvUICoreData
+import UI_SystemIcon
 
 enum OlvidSnackBarCategory: CaseIterable {
     
@@ -31,7 +32,6 @@ enum OlvidSnackBarCategory: CaseIterable {
     case upgradeIOS
     case newerAppVersionAvailable
     case lastUploadBackupHasFailed
-    case announceGroupsV2
 
     static func removeAllLastDisplayDate() {
         for category in OlvidSnackBarCategory.allCases {
@@ -76,8 +76,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE", comment: "")
         case .lastUploadBackupHasFailed:
             return NSLocalizedString("SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
-        case .announceGroupsV2:
-            return NSLocalizedString("SNACK_BAR_BODY_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
     
@@ -105,8 +103,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_BUTTON_TITLE_NEW_APP_VERSION_AVAILABLE", comment: "")
         case .lastUploadBackupHasFailed:
             return NSLocalizedString("SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
-        case .announceGroupsV2:
-            return NSLocalizedString("SNACK_BAR_TITLE_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
 
@@ -128,8 +124,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return "io.olvid.snackBarCoordinator.lastDisplayDate.newerAppVersionAvailable"
         case .lastUploadBackupHasFailed:
             return "io.olvid.snackBarCoordinator.lastDisplayDate.lastUploadBackupHasFailed"
-        case .announceGroupsV2:
-            return "io.olvid.snackBarCoordinator.lastDisplayDate.announceGroupsV2"
         }
     }
 
@@ -145,8 +139,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return .forwardFill
         case .lastUploadBackupHasFailed:
             return .icloud()
-        case .announceGroupsV2:
-            return .person3Fill
         }
     }
     
@@ -174,8 +166,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE", comment: "")
         case .lastUploadBackupHasFailed:
             return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
-        case .announceGroupsV2:
-            return NSLocalizedString("SNACK_BAR_DETAILS_TITLE_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
     
@@ -203,8 +193,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE", comment: "")
         case .lastUploadBackupHasFailed:
             return NSLocalizedString("SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED", comment: "")
-        case .announceGroupsV2:
-            return NSLocalizedString("SNACK_BAR_DETAILS_BODY_ANNOUNCE_GROUPS_V2", comment: "")
         }
     }
     
@@ -226,8 +214,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("GO_TO_APP_STORE_BUTTON_TITLE", comment: "")
         case .lastUploadBackupHasFailed:
             return NSLocalizedString("CONFIGURE_BACKUPS_BUTTON_TITLE", comment: "")
-        case .announceGroupsV2:
-            return NSLocalizedString("ANNOUNCE_GROUPS_V2_BUTTON_TITLE", comment: "")
         }
     }
 
@@ -249,8 +235,6 @@ enum OlvidSnackBarCategory: CaseIterable {
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
         case .lastUploadBackupHasFailed:
             return NSLocalizedString("REMIND_ME_LATER", comment: "")
-        case .announceGroupsV2:
-            return NSLocalizedString("Ok", comment: "")
         }
     }
 

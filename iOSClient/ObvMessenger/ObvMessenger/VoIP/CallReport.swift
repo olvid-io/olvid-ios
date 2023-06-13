@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvEngine
+import ObvUICoreData
 
 enum CallReport {
     case missedIncomingCall(caller: ParticipantInfo?,  participantCount: Int?)

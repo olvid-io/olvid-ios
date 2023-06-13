@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvEngine
+import ObvUICoreData
 
 
 /// This operation gets executed when the user decides to resume or to pause the download of a received attachment.

@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import ObvUICoreData
 
 final class DownloadsSettingsTableViewController: UITableViewController {
 

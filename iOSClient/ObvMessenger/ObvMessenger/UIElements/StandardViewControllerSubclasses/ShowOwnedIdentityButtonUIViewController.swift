@@ -24,6 +24,9 @@ import ObvTypes
 import Combine
 import OlvidUtils
 import ObvUI
+import ObvUICoreData
+import UI_CircledInitialsView_CircledInitialsConfiguration
+
 
 class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityChooserViewControllerDelegate {
     
@@ -44,7 +47,10 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
         super.init(nibName: nil, bundle: nil)
     }
     
-    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -126,7 +132,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
     
     private func continuouslyUpdateTheRedDotOnTheProfilePictureView() {
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeNumberOfNewMessagesChangedForOwnedIdentity { [weak self] concernedOwnedIdentity, _ in
+            ObvMessengerCoreDataNotification.observeBadgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity { [weak self] concernedOwnedIdentity in
                 // If the number of new messages changed for the current owned identity, no need to updae the red dot
                 guard self?.currentOwnedCryptoId != concernedOwnedIdentity else { return }
                 self?.updateTheRedDotOnTheProfilePictureView()
@@ -144,11 +150,10 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
         let currentOwnedCryptoId = self.currentOwnedCryptoId
         ObvStack.shared.performBackgroundTask { [weak self] context in
             do {
-                let sum = try PersistedObvOwnedIdentity.countSumOfNewMessagesForUnhiddenOwnedIdentites(excludedOwnedCryptoId: currentOwnedCryptoId, within: context)
-                let redDotIsHidden = (sum == 0)
+                let redDotShouldShow = try PersistedObvOwnedIdentity.shouldShowRedDotOnTheProfilePictureView(of: currentOwnedCryptoId, within: context)
                 DispatchQueue.main.async {
                     guard let profilePictureBarButtonItem = self?.navigationItem.leftBarButtonItem as? ProfilePictureBarButtonItem else { return }
-                    profilePictureBarButtonItem.configureRedDot(isHidden: redDotIsHidden)
+                    profilePictureBarButtonItem.configureRedDot(isHidden: !redDotShouldShow)
                 }
             } catch {
                 assertionFailure(error.localizedDescription)
@@ -190,7 +195,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
                 popover.barButtonItem = profilePictureBarButtonItem
             }
         }
-        ObvMessengerInternalNotification.recomputeNumberOfNewMessagesForAllOwnedIdentities
+        ObvMessengerInternalNotification.recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities
             .postOnDispatchQueue()
         present(ownedIdentityChooserVC, animated: true)
     }
@@ -385,7 +390,7 @@ fileprivate class ProfilePictureBarButtonItem: UIBarButtonItem {
             redDotView.topAnchor.constraint(equalTo: buttonView.topAnchor, constant: 4),
         ])
         
-        profilePictureView.configureWith(initialConfiguration)
+        profilePictureView.configure(with: initialConfiguration)
         let buttonItem = ProfilePictureBarButtonItem(customView: buttonView)
         buttonItem.profilePictureView = profilePictureView
         buttonItem.buttonView = buttonView
@@ -402,13 +407,13 @@ fileprivate class ProfilePictureBarButtonItem: UIBarButtonItem {
             // We create a temporary NewCircledInitialsView for the animation (we will slide it down)
             let tempProfilePictureView = NewCircledInitialsView()
             tempProfilePictureView.isUserInteractionEnabled = false
-            tempProfilePictureView.configureWith(currentConfiguration)
+            tempProfilePictureView.configure(with: currentConfiguration)
             superview.addSubview(tempProfilePictureView)
             tempProfilePictureView.frame = profilePictureView.frame
             
             // Now that the temporary NewCircledInitialsView hides the profilePictureView, we can scale it down and configure it with the new received configuration
             profilePictureView.transform = .init(scaleX: 0, y: 0)
-            profilePictureView.configureWith(configuration)
+            profilePictureView.configure(with: configuration)
             
             // We launch two animations in parallel:
             // - the first slides the temporary NewCircledInitialsView and removes it at the end
@@ -424,7 +429,7 @@ fileprivate class ProfilePictureBarButtonItem: UIBarButtonItem {
                 self?.generator.notificationOccurred(.success)
             })
         } else {
-            profilePictureView.configureWith(configuration)
+            profilePictureView.configure(with: configuration)
         }
     }
     

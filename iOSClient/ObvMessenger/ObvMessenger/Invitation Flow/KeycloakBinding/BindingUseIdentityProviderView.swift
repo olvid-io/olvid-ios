@@ -69,7 +69,8 @@ final class KeycloakBindingStore {
             jwks: jwks,
             rawAuthState: rawAuthState,
             signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
-            latestLocalRevocationListTimestamp: nil)
+            latestLocalRevocationListTimestamp: nil,
+            latestGroupUpdateTimestamp: nil)
 
         return (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, obvKeycloakState)
         

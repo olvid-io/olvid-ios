@@ -1,5 +1,6 @@
 import:
   - Foundation
+  - ObvUICoreData
 notifications:
 - name: requestHardLinkToFyle
   params:

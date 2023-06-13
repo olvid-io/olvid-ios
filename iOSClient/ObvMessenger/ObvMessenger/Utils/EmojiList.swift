@@ -23,7 +23,9 @@ import Foundation
 extension EmojiList {
 
     static var allEmojis: [String] {
-        if #available(iOS 15.4, *) {
+        if #available(iOS 16.4, *) {
+            return allEmojis15_0
+        } else if #available(iOS 15.4, *) {
             return allEmojis14_0
         } else {
             return allEmojis13_1
@@ -31,7 +33,9 @@ extension EmojiList {
     }
 
     static var variants: [String: [String]] {
-        if #available(iOS 15.4, *) {
+        if #available(iOS 16.4, *) {
+            return variants15_0
+        } else if #available(iOS 15.4, *) {
             return variants14_0
         } else {
             return variants13_1
@@ -43,7 +47,9 @@ extension EmojiList {
 extension EmojiGroup {
 
     var firstEmoji: String {
-        if #available(iOS 15.4, *) {
+        if #available(iOS 16.4, *) {
+            return firstEmoji15_0
+        } else if #available(iOS 15.4, *) {
             return firstEmoji14_0
         } else {
             return firstEmoji13_1
@@ -51,7 +57,9 @@ extension EmojiGroup {
     }
 
     static func group(of position: Int) -> EmojiGroup? {
-        if #available(iOS 15.4, *) {
+        if #available(iOS 16.4, *) {
+            return group15_0(of: position)
+        } else if #available(iOS 15.4, *) {
             return group14_0(of: position)
         } else {
             return group13_1(of: position)

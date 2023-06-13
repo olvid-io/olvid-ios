@@ -20,6 +20,7 @@
 
 import UIKit
 import CoreData
+import ObvUICoreData
 
 enum TappedStuffForCell {
     case hardlink(hardLink: HardLinkToFyle)

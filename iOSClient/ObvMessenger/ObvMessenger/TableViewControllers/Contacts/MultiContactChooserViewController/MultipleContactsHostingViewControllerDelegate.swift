@@ -18,7 +18,7 @@
  */
 
 import Foundation
-
+import ObvUICoreData
 
 
 protocol MultipleContactsHostingViewControllerDelegate: AnyObject {

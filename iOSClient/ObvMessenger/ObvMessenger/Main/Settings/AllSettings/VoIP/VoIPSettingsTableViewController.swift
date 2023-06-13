@@ -19,6 +19,7 @@
 
 import UIKit
 import OlvidUtils
+import ObvUICoreData
 
 class VoIPSettingsTableViewController: UITableViewController {
 

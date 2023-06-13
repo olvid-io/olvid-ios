@@ -21,6 +21,7 @@ import Foundation
 import OlvidUtils
 import os
 import Darwin
+import ObvUICoreData
 
 
 final class CleanOrphanedPersistedMessageTimestampedMetadataOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import ObvEngine
 import OlvidUtils
+import ObvUICoreData
+
 
 final class EditTextBodyOfSentMessageOperation: ContextualOperationWithSpecificReasonForCancel<EditTextBodyOfSentMessageOperationReasonForCancel> {
 
@@ -32,7 +34,11 @@ final class EditTextBodyOfSentMessageOperation: ContextualOperationWithSpecificR
 
     init(persistedSentMessageObjectID: NSManagedObjectID, newTextBody: String?) {
         self.persistedSentMessageObjectID = persistedSentMessageObjectID
-        self.newTextBody = newTextBody
+        if let newTextBody {
+            self.newTextBody = newTextBody.isEmpty ? nil : newTextBody
+        } else {
+            self.newTextBody = nil
+        }
         super.init()
     }
 
@@ -55,9 +61,9 @@ final class EditTextBodyOfSentMessageOperation: ContextualOperationWithSpecificR
             }
             
             // If we reach this point, we can edit the text body
-            
+            // Note that, for now, we do not handle the update of mentions when the users edits the content of a message. We simply remove them.
             do {
-                try messageSent.editTextBody(newTextBody: newTextBody)
+                try messageSent.replaceContentWith(newBody: newTextBody, newMentions: Set<MessageJSON.UserMention>())
             } catch {
                 return cancel(withReason: .failedToEditTextBody(error: error))
             }

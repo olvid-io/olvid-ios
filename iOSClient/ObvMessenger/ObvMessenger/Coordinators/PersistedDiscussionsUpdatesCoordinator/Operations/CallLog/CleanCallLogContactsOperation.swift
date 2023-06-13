@@ -22,6 +22,7 @@ import os.log
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvUICoreData
 
 final class CleanCallLogContactsOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 

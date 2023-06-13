@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvTypes
+import ObvUICoreData
 
 enum ObvDeepLinkHost: CaseIterable {
     case latestDiscussions

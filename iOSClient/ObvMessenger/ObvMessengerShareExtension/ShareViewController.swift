@@ -27,6 +27,7 @@ import ObvTypes
 import OlvidUtils
 import os.log
 import SwiftUI
+import ObvUICoreData
 
 
 
@@ -61,6 +62,10 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private func observeNotifications() {
         observationTokens.append(contentsOf: [
             NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] (notification) in
@@ -77,7 +82,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         super.viewDidLoad()
         do {
             // Initialize the CoreData Stack
-            try ObvStack.initSharedInstance(transactionAuthor: ObvMessengerConstants.AppType.shareExtension.transactionAuthor, runningLog: runningLog, enableMigrations: false)
+            try ObvStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppType.shareExtension.transactionAuthor, runningLog: runningLog, enableMigrations: false)
 
             // Initialize the Oblivious Engine
             try initializeObliviousEngine(runningLog: runningLog)
@@ -189,7 +194,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
 
     private func initializeObliviousEngine(runningLog: RunningLogError) throws {
         do {
-            let mainEngineContainer = ObvMessengerConstants.containerURL.mainEngineContainer
+            let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
             ObvEngine.mainContainerURL = mainEngineContainer
             obvEngine = try ObvEngine.startLimitedToSending(logPrefix: "LimitedEngine",
                                                             sharedContainerIdentifier: ObvMessengerConstants.appGroupIdentifier,
@@ -348,7 +353,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         self.model.delegate = self
 
         // Initialize the coordinators that allow to compute thumbnails
-        self.hardLinksToFylesManager = HardLinksToFylesManager(appType: .shareExtension)
+        self.hardLinksToFylesManager = HardLinksToFylesManager.makeHardLinksToFylesManagerForShareExtension()
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -402,7 +407,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         }
     }
 
-    /// This method queue operations that can be done to prepare message sending independently of selected discussion, the result of these operations will be used by operations latter queued in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
+    /// This method queue operations that can be done to prepare message sending independently of selected discussion, the result of these operations will be used by operations later queued in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
     /// The last operation RequestHardLinksToFylesOperation is not required to send messages, but it used to show previews of attachments in ShareView.
     private func initializeOperations() {
 

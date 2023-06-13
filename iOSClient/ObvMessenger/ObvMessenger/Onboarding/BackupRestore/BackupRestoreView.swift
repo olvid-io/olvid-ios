@@ -22,6 +22,7 @@ import SwiftUI
 import CloudKit
 import os.log
 import MobileCoreServices
+import ObvUICoreData
 
 
 protocol BackupRestoreViewHostingControllerDelegate: AnyObject {
@@ -188,7 +189,7 @@ final class BackupRestoreViewHostingController: UIHostingController<BackupRestor
 
                 // We can copy the backup file at an appropriate location
 
-                let tempDir = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent("BackupFilesToRestore", isDirectory: true)
+                let tempDir = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent("BackupFilesToRestore", isDirectory: true)
                 do {
                     if FileManager.default.fileExists(atPath: tempDir.path) {
                         try FileManager.default.removeItem(at: tempDir) // Clean the directory

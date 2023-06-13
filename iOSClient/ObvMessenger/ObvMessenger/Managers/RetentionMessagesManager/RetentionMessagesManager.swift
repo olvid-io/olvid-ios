@@ -29,6 +29,10 @@ final class RetentionMessagesManager {
         observeApplyRetentionPoliciesBackgroundTaskWasLaunchedNotifications()
     }
     
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private var observationTokens = [NSObjectProtocol]()
 
     private func observeApplyRetentionPoliciesBackgroundTaskWasLaunchedNotifications() {

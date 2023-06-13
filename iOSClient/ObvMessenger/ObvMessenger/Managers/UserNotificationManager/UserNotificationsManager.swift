@@ -24,6 +24,7 @@ import ObvEngine
 import ObvTypes
 import CoreData
 import AVFAudio
+import ObvUICoreData
 
 final class UserNotificationsManager: NSObject {
     
@@ -63,7 +64,6 @@ final class UserNotificationsManager: NSObject {
         // Observe notifications
         
         observeNewPersistedInvitationNotifications()
-        observeRequestIdentifiersOfSilentNotificationsAddedByExtension()
         observeTheBodyOfPersistedMessageReceivedDidChangeNotifications()
         observePersistedMessageReceivedWasDeletedNotifications()
         /* observeUserRequestedDeletionOfPersistedDiscussionNotifications() */
@@ -101,7 +101,7 @@ extension UserNotificationsManager {
         // Compute the set of attachments within the notifications
         let identifiersOnDisk: Set<String>
         do {
-            let urls = Set(try FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forNotificationAttachments, includingPropertiesForKeys: nil))
+            let urls = Set(try FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.forNotificationAttachments.url, includingPropertiesForKeys: nil))
             identifiersOnDisk = Set(urls.map({ $0.lastPathComponent }))
         } catch {
             os_log("Cannot clean notification attachements: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -112,7 +112,7 @@ extension UserNotificationsManager {
         let identifiersToDeleteFromDisk = identifiersOnDisk.subtracting(identifiersInNotificationCenter)
         var count = 0
         for identifier in identifiersToDeleteFromDisk {
-            let url = ObvMessengerConstants.containerURL.forNotificationAttachments.appendingPathComponent(identifier)
+            let url = ObvUICoreDataConstants.ContainerURL.forNotificationAttachments.appendingPathComponent(identifier)
             do {
                 try FileManager.default.removeItem(at: url)
                 count += 1
@@ -162,7 +162,7 @@ extension UserNotificationsManager {
                     }
 
                     do {
-                        let discussionKind = try discussion.toStruct()
+                        let discussionKind = try discussion.toStructKind()
                         let infos = UserNotificationCreator.MissedCallNotificationInfos(
                             contact: try contactIdentity.toStruct(),
                             discussionKind: discussionKind,
@@ -172,7 +172,10 @@ extension UserNotificationsManager {
                             discussionKind: discussionKind,
                             notificationId: notificationId,
                             notificationContent: notificationContent,
-                            notificationCenter: notificationCenter)
+                            notificationCenter: notificationCenter,
+                            mentions: [], //we don't have any mentions here since it's a call
+                            messageRepliedToStructure: nil,
+                            immediately: false)
                     } catch {
                         assertionFailure()
                         return
@@ -182,11 +185,11 @@ extension UserNotificationsManager {
                     case .undetermined:
                         let notificationCenter = UNUserNotificationCenter.current()
                         let (notificationId, notificationContent) = UserNotificationCreator.createRequestRecordPermissionNotification()
-                        UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+                        UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter, immediately: false)
                     case .denied:
                         let notificationCenter = UNUserNotificationCenter.current()
                         let (notificationId, notificationContent) = UserNotificationCreator.createDeniedRecordPermissionNotification()
-                        UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+                        UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter, immediately: false)
                     case .granted:
                         break
                     @unknown default:
@@ -218,7 +221,7 @@ extension UserNotificationsManager {
     /// When a received message is deleted (for whatever reason), we want to remove any existing notification related
     /// to this message
     private func observePersistedMessageReceivedWasDeletedNotifications() {
-        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted { (_, messageIdentifierFromEngine, _, _, _) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasDeleted { (_, messageIdentifierFromEngine, _, _, _) in
             let notificationCenter = UNUserNotificationCenter.current()
             let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageIdentifierFromEngine)
             ObvDisplayableLogs.shared.log("📣 Removing a user notification as its corresponding PersistedMessageReceived was deleted")
@@ -227,26 +230,36 @@ extension UserNotificationsManager {
     }
 
     private func observeTheBodyOfPersistedMessageReceivedDidChangeNotifications() {
-        observationTokens.append(PersistedMessageReceivedNotification.observeTheBodyOfPersistedMessageReceivedDidChange { (persistedMessageReceivedObjectID) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeTheBodyOfPersistedMessageReceivedDidChange { (persistedMessageReceivedObjectID) in
             ObvStack.shared.performBackgroundTask { (context) in
                 let notificationCenter = UNUserNotificationCenter.current()
                 guard let messageReceived = try? PersistedMessageReceived.get(with: persistedMessageReceivedObjectID, within: context) as? PersistedMessageReceived else { assertionFailure(); return }
                 let discussion = messageReceived.discussion
                 do {
+                    let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine)
+
                     if messageReceived.textBody == nil {
                         assert(messageReceived.isWiped)
                         // The message should be wiped, we remove associated notifications to not expose previous body.
-                        let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine)
                         ObvDisplayableLogs.shared.log("📣 Removing a user notification as its corresponding PersistedMessageReceived was wiped")
                         UserNotificationsScheduler.removeAllNotificationWithIdentifier(notificationId, notificationCenter: notificationCenter)
                     } else {
+                        let messageReceivedStruct = try messageReceived.toStruct()
+                        let messageRepliedToStructure = try messageReceived.messageRepliedTo?.toAbstractStructure()
                         let infos = UserNotificationCreator.NewMessageNotificationInfos(
-                            messageReceived: try messageReceived.toStruct(),
+                            messageReceived: messageReceivedStruct,
                             attachmentLocation: .notificationID,
                             urlForStoringPNGThumbnail: nil)
-                        let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
-                        let discussionKind = try discussion.toStruct()
-                        UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+                        let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil, addNotificationSilently: true)
+                        let discussionKind = try discussion.toStructKind()
+                        UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind,
+                                                                                notificationId: notificationId,
+                                                                                notificationContent: notificationContent,
+                                                                                notificationCenter: notificationCenter,
+                                                                                mentions: messageReceivedStruct.mentions,
+                                                                                messageRepliedToStructure: messageRepliedToStructure,
+                                                                                immediately: true) // we can't edit the contents of a previously delivered notification; the system will automagically remove the previously delivered notification and push a new one
+
                     }
                 } catch {
                     assertionFailure()
@@ -256,74 +269,6 @@ extension UserNotificationsManager {
         })
     }
     
-
-    // Each time the notification extension adds a notification with minimal content (e.g., when it fails to decrypt the notification), we execute the following block.
-    // This block first removes all "minimal" notifications and search for unread messages which do not have a corresponding user notifications. The missing notifications are then added.
-    private func observeRequestIdentifiersOfSilentNotificationsAddedByExtension() {
-        guard let userDefaults = self.userDefaults else {
-            os_log("The user defaults database is not set", log: log, type: .fault)
-            return
-        }
-        let token = userDefaults.observe(\.requestIdentifiersOfSilentNotificationsAddedByExtension) { [weak self] (userDefaults, change) in
-            guard let _self = self else { return }
-            _self.removeAllSilentNotificationsAddedByExtension()
-            _self.addMissingNewMessageNotifications()
-        }
-        kvoTokens.append(token)
-    }
-    
-    
-    private func removeAllSilentNotificationsAddedByExtension() {
-        guard let userDefaults = self.userDefaults else {
-            os_log("The user defaults database is not set", log: log, type: .fault)
-            return
-        }
-        guard let requestIdentifiersWithDatesOfSilentNotificationsAddedByExtension = userDefaults.notificationRequestIdentifiersWithDates(forKey: ObvMessengerConstants.requestIdentifiersOfSilentNotificationsAddedByExtension) else {
-            os_log("Could not get the request identifiers of minimal notifications added by the extension", log: log, type: .error)
-            return
-        }
-        let requestIdentifiersOfSilentNotificationsAddedByExtension = requestIdentifiersWithDatesOfSilentNotificationsAddedByExtension.map { $0.requestIdentifier }
-        let notificationCenter = UNUserNotificationCenter.current()
-        ObvDisplayableLogs.shared.log("📣 Removing all silent notifications added by the share extension")
-        notificationCenter.removeDeliveredNotifications(withIdentifiers: requestIdentifiersOfSilentNotificationsAddedByExtension)
-    }
-    
-    
-    private func addMissingNewMessageNotifications() {
-        let notificationCenter = UNUserNotificationCenter.current()
-        notificationCenter.getDeliveredNotifications { [weak self] (deliveredNotifications) in
-            guard let _self = self else { return }
-            let log = _self.log
-            let messageIdentifiersOfDeliveredNotifications = Set(deliveredNotifications.compactMap { $0.request.content.userInfo["messageIdentifierForNotification"] as? String })
-            ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                let newMessagesAndNotificationIdentifiers: [(message: PersistedMessageReceived, notificationIdentifier: String)]
-                do {
-                    let newMessages = try PersistedMessageReceived.getAllNew(with: context)
-                    newMessagesAndNotificationIdentifiers = newMessages.compactMap {
-                        ($0, ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: $0.messageIdentifierFromEngine).getIdentifier())
-                    }
-                } catch {
-                    os_log("Could not get new messages", log: log, type: .fault)
-                    return
-                }
-                let messageIdentifiersOfNewMessages = Set(newMessagesAndNotificationIdentifiers.map { $0.notificationIdentifier })
-                guard !messageIdentifiersOfNewMessages.isEmpty else { return }
-                let messageIdentifiersOfMissingNotifications = messageIdentifiersOfNewMessages.subtracting(messageIdentifiersOfDeliveredNotifications)
-                guard !messageIdentifiersOfMissingNotifications.isEmpty else { return }
-                for (newMessage, identifierForNotification) in newMessagesAndNotificationIdentifiers {
-                    guard messageIdentifiersOfMissingNotifications.contains(identifierForNotification) else { continue }
-                    guard let newMessageStruct = try? newMessage.toStruct() else { assertionFailure(); continue }
-                    guard let discussionKind = try? newMessage.discussion.toStruct() else { assertionFailure(); continue }
-                    let infos = UserNotificationCreator.NewMessageNotificationInfos(
-                        messageReceived: newMessageStruct,
-                        attachmentLocation: .notificationID,
-                        urlForStoringPNGThumbnail: nil)
-                    let (notificationId, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: nil)
-                    UserNotificationsScheduler.filteredScheduleNotification(discussionKind: discussionKind, notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
-                }
-            }
-        }
-    }
 
     /// When a received reaction message is deleted (for whatever reason), we remove any existing notification related to this reaction.
     private func observePersistedMessageReactionReceivedWasDeletedNotifications() {
@@ -366,15 +311,17 @@ extension UserNotificationsManager {
                 
                 if let emoji = reactionReceived.emoji {
                     do {
+                        let messageStruct = try message.toStruct()
+                        let messageRepliedToStructure = try message.messageRepliedTo?.toAbstractStructure()
                         let infos = UserNotificationCreator.ReactionNotificationInfos(
-                            messageSent: try message.toStruct(),
+                            messageSent: messageStruct,
                             contact: try contact.toStruct(),
                             urlForStoringPNGThumbnail: nil)
                         let (notificationId, notificationContent) = UserNotificationCreator.createReactionNotification(infos: infos, emoji: emoji, reactionTimestamp: reactionReceived.timestamp)
 
                         let notificationCenter = UNUserNotificationCenter.current()
                         let reactionsTimestamps = UserNotificationsScheduler.getAllReactionsTimestampAddedByExtension(with: notificationId, notificationCenter: notificationCenter)
-                        let discussion = message.discussion
+                        let discussionKind = messageStruct.discussionKind
 
                         if reactionsTimestamps.count == 1,
                            let timestamp = reactionsTimestamps.first,
@@ -389,10 +336,13 @@ extension UserNotificationsManager {
                             }
                             // And replace them with a notification that is not necessary the most recent (in the case where multiple reaction update messages have been received) and replace by a single notification with notificationID as request identifier.
                             UserNotificationsScheduler.filteredScheduleNotification(
-                                discussionKind: try discussion.toStruct(),
+                                discussionKind: discussionKind,
                                 notificationId: notificationId,
                                 notificationContent: notificationContent,
-                                notificationCenter: notificationCenter)
+                                notificationCenter: notificationCenter,
+                                mentions: messageStruct.mentions,
+                                messageRepliedToStructure: messageRepliedToStructure,
+                                immediately: false)
                         }
                     } catch {
                         os_log("Could not notifiy: %{public}@", log: log, type: .fault, error.localizedDescription)
@@ -432,17 +382,9 @@ extension UserNotificationsManager {
                 // Do not schedule notifications if not authorized.
                 guard settings.authorizationStatus == .authorized && settings.alertSetting == .enabled else { return }
                 guard let (notificationId, notificationContent) = UserNotificationCreator.createInvitationNotification(obvDialog: obvDialog, persistedInvitationUUID: persistedInvitationUUID) else { return }
-                UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+                UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter, immediately: false)
             }
         }
         observationTokens.append(token)
-    }
-}
-
-// This extension makes it possible to use kvo on the user defaults dictionary used by the notification extension
-
-private extension UserDefaults {
-    @objc dynamic var requestIdentifiersOfSilentNotificationsAddedByExtension: String {
-        return ObvMessengerConstants.requestIdentifiersOfSilentNotificationsAddedByExtension
     }
 }

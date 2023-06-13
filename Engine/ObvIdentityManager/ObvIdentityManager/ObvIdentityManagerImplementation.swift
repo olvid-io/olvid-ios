@@ -41,6 +41,7 @@ public final class ObvIdentityManagerImplementation {
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         guard forTheFirstTime else { return }
+        createMissingGroupV2ServerUserData(flowId: flowId)
         deleteUnusedIdentityPhotos(flowId: flowId)
         pruneOldKeycloakRevokedIdentityAndUncertifyExpiredSignedContactDetails(flowId: flowId)
         deleteOrphanedContactGroupV2Details(flowId: flowId)
@@ -422,6 +423,24 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
 
     
     // MARK: - API related to contact groups V2
+        
+    public func getGroupV2PhotoURLAndServerPhotoInfofOwnedIdentityIsUploader(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, within obvContext: ObvContext) throws -> (photoURL: URL, serverPhotoInfo: GroupV2.ServerPhotoInfo)? {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        guard let group = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, delegateManager: delegateManager) else { return nil }
+                
+        guard let photoURLAndServerPhotoInfo = try group.trustedDetails?.getPhotoURLAndServerPhotoInfo(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else { return nil }
+        
+        // Check that the owned identity is the uploader
+        guard photoURLAndServerPhotoInfo.serverPhotoInfo.identity == ownedIdentity else { return nil }
+        
+        return photoURLAndServerPhotoInfo
+
+    }
+
     
     public func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?) {
 
@@ -675,6 +694,39 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return allIdentifierVersionAndKeys
     }
     
+    
+    // MARK: - Keycloak pushed groups
+
+    public func updateKeycloakGroups(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, within obvContext: ObvContext) throws -> [KeycloakGroupV2UpdateOutput] {
+        
+        guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound.error(withDomain: ObvIdentityManagerImplementation.errorDomain)
+        }
+
+        let keycloakGroupV2UpdateOutputs = try ownedIdentityObject.updateKeycloakGroups(signedGroupBlobs: signedGroupBlobs,
+                                                                                        signedGroupDeletions: signedGroupDeletions,
+                                                                                        signedGroupKicks: signedGroupKicks,
+                                                                                        keycloakCurrentTimestamp: keycloakCurrentTimestamp,
+                                                                                        delegateManager: delegateManager,
+                                                                                        within: obvContext)
+        
+        return keycloakGroupV2UpdateOutputs
+        
+    }
+    
+    
+    public func getIdentifiersOfAllKeycloakGroups(ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<GroupV2.Identifier> {
+        let groupIdentifiers = try ContactGroupV2.getAllIdentifiersOfKeycloakGroups(of: ownedCryptoId, within: obvContext)
+        return groupIdentifiers
+    }
+    
+    
+    public func getIdentifiersOfAllKeycloakGroupsWhereContactIsPending(ownedCryptoId: ObvCryptoIdentity, contactCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<GroupV2.Identifier> {
+        let groupIdentifiers = try ContactGroupV2.getIdentifiersOfAllKeycloakGroupsWhereContactIsPending(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId, within: obvContext)
+        return groupIdentifiers
+    }
+
+    
     // MARK: - API related to keycloak management
 
     public func isOwnedIdentityKeycloakManaged(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
@@ -692,7 +744,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func getSignedContactDetails(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> SignedUserDetails? {
+    public func getSignedContactDetails(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> SignedObvKeycloakUserDetails? {
         guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw makeError(message: "Could not find contact")
         }
@@ -700,7 +752,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
 
 
-    public func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedUserDetails?) {
+    public func getOwnedIdentityKeycloakState(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedObvKeycloakUserDetails?) {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw makeError(message: "Could not find Owned Identity in database")
         }
@@ -711,7 +763,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         guard let signatureVerificationKey = obvKeycloakState.signatureVerificationKey, let signedDetails = coreDetails.signedUserDetails else {
             return (obvKeycloakState, nil)
         }
-        let signedOwnedDetails = try? SignedUserDetails.verifySignedUserDetails(signedDetails, with: signatureVerificationKey)
+        let signedOwnedDetails = try? SignedObvKeycloakUserDetails.verifySignedUserDetails(signedDetails, with: signatureVerificationKey)
         assert(signedOwnedDetails != nil, "An invalid signature should not have been stored in the first place")
         return (obvKeycloakState, signedOwnedDetails)
     }
@@ -839,19 +891,20 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
+    /// Returns the registered push topics for both the keycloak server and the keycloak managed groups
     public func getKeycloakPushTopics(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<String> {
         guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw makeError(message: "Could not find Owned Identity in database")
         }
-        return ownedIdentity.keycloakServer?.pushTopics ?? Set<String>()
+        return try ownedIdentity.getPushTopicsForKeycloakServerAndForKeycloakManagedGroups()
     }
 
     
     public func getCryptoIdentitiesOfManagedOwnedIdentitiesAssociatedWithThePushTopic(_ pushTopic: String, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
         let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
-        let appropriateOwnedIdentities = ownedIdentities
+        let appropriateOwnedIdentities = try ownedIdentities
             .filter({ $0.isKeycloakManaged })
-            .filter({ $0.keycloakServer?.pushTopics.contains(pushTopic) == true })
+            .filter({ try $0.getPushTopicsForKeycloakServerAndForKeycloakManagedGroups().contains(pushTopic) == true })
         return Set(appropriateOwnedIdentities.map { $0.cryptoIdentity })
     }
     
@@ -932,12 +985,12 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         }
     }
 
-    public func addTrustOrigin(_ trustOrigin: TrustOrigin, toContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within obvContext: ObvContext) throws {
+    public func addTrustOriginIfTrustWouldBeIncreased(_ trustOrigin: TrustOrigin, toContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within obvContext: ObvContext) throws {
         guard let contactObj = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             assertionFailure()
             throw Self.makeError(message: "Could not find ContactIdentity")
         }
-        try contactObj.addTrustOrigin(trustOrigin)
+        try contactObj.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, delegateManager: delegateManager)
         contactObj.setIsOneToOne(to: newOneToOneValue)
     }
     
@@ -1643,7 +1696,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
 
         for ownedIdentity in ownedIdentities {
             let labelsToKeep = try getLabelsOfServerUserDataToKeepOnServer(ownedIdentity: ownedIdentity)
-            let serverUserDatas = try IdentityServerUserData.getAllServerUserDatas(for: ownedIdentity.cryptoIdentity, within: obvContext)
+            let serverUserDatas = try ServerUserData.getAllServerUserDatas(for: ownedIdentity.cryptoIdentity, within: obvContext)
             let toKeepForOwnedIdentity = Set(serverUserDatas.filter({
                 guard let label = $0.label else { assertionFailure(); return false }
                 return labelsToKeep.contains(label)
@@ -1663,13 +1716,15 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     /// It comprises:
     /// - The labels corresponding to owned identity profile pictures
     /// - The labels corresponding to owned groups published profile pictures
+    /// - The labels corresponding to group v2 for which we are an administrator, and for which we were the one administrator to upload a profile picture.
     private func getLabelsOfServerUserDataToKeepOnServer(ownedIdentity: OwnedIdentity) throws -> Set<UID> {
         let ownedIdentityPhotoServerLabels = try OwnedIdentityDetailsPublished.getAllPhotoServerLabels(ownedIdentity: ownedIdentity)
         let ownedGroupPhotoServerLabels = try ContactGroupOwned.getAllContactGroupOwned(ownedIdentity: ownedIdentity, delegateManager: delegateManager)
             .map({ $0.publishedDetails })
             .compactMap({ $0.photoServerKeyAndLabel })
             .map({ $0.label })
-        let labelsToKeep = ownedIdentityPhotoServerLabels.union(Set(ownedGroupPhotoServerLabels))
+        let administedGroupV2ServerLabels = try ContactGroupV2.getAllGroupIdsAndOwnedPhotoLabelsOfAdministratedGroups(ownedIdentity: ownedIdentity).map({ $0.label })
+        let labelsToKeep = ownedIdentityPhotoServerLabels.union(Set(ownedGroupPhotoServerLabels)).union(administedGroupV2ServerLabels)
         return labelsToKeep
     }
     
@@ -2014,7 +2069,9 @@ extension ObvIdentityManagerImplementation {
                     ownedIdentity.pruneOldKeycloakRevokedContacts(delegateManager: _self.delegateManager)
                     ownedIdentity.uncertifyExpiredSignedContactDetails(delegateManager: _self.delegateManager)
                 }
-                try obvContext.save(logOnFailure: log)
+                if obvContext.context.hasChanges {
+                    try obvContext.save(logOnFailure: log)
+                }
             } catch {
                 os_log("Core Data error during the bootstrap of the identity manager: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -2043,6 +2100,56 @@ extension ObvIdentityManagerImplementation {
             
         }
 
+    }
+    
+    
+    /// Early implementations of group v2 did not create ServerUserData for uploaded groupV2 profile picture. This was a bug. This method, launched during bootstrap, create those missing ServerUserData.
+    private func createMissingGroupV2ServerUserData(flowId: FlowIdentifier) {
+        
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); return }
+        let delegateManager = self.delegateManager
+        let log = self.log
+
+        contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            
+            do {
+                
+                let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                
+                for ownedIdentity in ownedIdentities {
+                    
+                    // Get all group ids and associated photo server labels such that
+                    // - we are an admin of the group
+                    // - we are the profile picture uploader
+                    
+                    let groupIdsAndPhotoServerLabels = try ContactGroupV2.getAllGroupIdsAndOwnedPhotoLabelsOfAdministratedGroups(ownedIdentity: ownedIdentity)
+                    
+                    // For all these groupIds/labels, make sure
+                    
+                    for (groupIdentifier, label) in groupIdsAndPhotoServerLabels {
+                        
+                        _ = try GroupV2ServerUserData.getOrCreateIfRequiredForAdministratedGroupV2Details(
+                            ownedIdentity: ownedIdentity.cryptoIdentity,
+                            label: label,
+                            groupIdentifier: groupIdentifier,
+                            nextRefreshTimestampOnCreation: Date.distantPast, // Force a refresh as soon as possible
+                            within: obvContext)
+                        
+                    }
+
+                    guard obvContext.context.hasChanges else { return }
+                    try obvContext.save(logOnFailure: log)
+
+                }
+                
+                
+            } catch {
+                os_log("Could not create missing GroupV2ServerUserData: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+            
+        }
+        
     }
     
 }

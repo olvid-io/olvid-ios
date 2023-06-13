@@ -20,10 +20,11 @@
 import SwiftUI
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 struct ConfirmAddingKeycloakContactView: View {
     
-    let contactUserDetails: UserDetails
+    let contactUserDetails: ObvKeycloakUserDetails
     let contactIdentity: PersistedObvContactIdentity? /// Only set if the contact is already known
     @Binding var addingKeycloakContactFailedAlertIsPresented: Bool
     let confirmAddingKeycloakContactViewAction: () -> Void

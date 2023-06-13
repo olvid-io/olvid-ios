@@ -21,6 +21,8 @@ import Foundation
 import UIKit
 import os.log
 import OlvidUtils
+import ObvUICoreData
+
 
 final class ExpirationMessagesManager {
 
@@ -43,6 +45,11 @@ final class ExpirationMessagesManager {
         observeCleanExpiredMessagesBackgroundTaskWasLaunched()
     }
     
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         guard forTheFirstTime else { return }
@@ -102,7 +109,7 @@ extension ExpirationMessagesManager: ScheduleNextTimerOperationDelegate {
             ObvMessengerInternalNotification.wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: false, completionHandler: completion)
                 .postOnDispatchQueue()
             let op = ScheduleNextTimerOperation(now: now, currentTimer: _self.nextTimer, log: log, delegate: _self)
-            internalQueue.addOperation(op)
+            _self.internalQueue.addOperation(op)
         }
     }
     
@@ -130,6 +137,18 @@ fileprivate final class ScheduleNextTimerOperation: Operation {
             
             let expirationDate: Date
             do {
+                // An expiration can be inserted after its expiration date. This can occur when:
+                // - The message is decrypted by the notification extension while the app is in the inactive. The app is later launched and processes the message after the expiration.
+                // - The device is in flight mode and receives the message later.
+                // Thus, we try to wipe expired messages here.
+
+                let completion: (Bool) -> Void = { success in
+                    os_log("Expired message (found before scheduling next timer) with success: %{public}@", log: self.log, type: .info, success.description)
+                }
+                ObvMessengerInternalNotification
+                    .wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: false,
+                                                              completionHandler: completion).postOnDispatchQueue()
+
                 guard let expiration = try PersistedMessageExpiration.getEarliestExpiration(laterThan: now, within: context) else {
                     os_log("No planned message expiration", log: log, type: .info)
                     return
@@ -159,7 +178,9 @@ fileprivate final class ScheduleNextTimerOperation: Operation {
              * since self is deallocated as soon as the operation finishes.
              */
             weak var delegate = self.delegate
-            let newTimer = Timer(fire: expirationDate, interval: 0, repeats: false, block: { timer in delegate?.timerFired(timer: timer) })
+            let newTimer = Timer(fire: expirationDate, interval: 0, repeats: false) { timer in
+                delegate?.timerFired(timer: timer)
+            }
             delegate?.replaceCurrentTimerWith(newTimer: newTimer)
             
         }

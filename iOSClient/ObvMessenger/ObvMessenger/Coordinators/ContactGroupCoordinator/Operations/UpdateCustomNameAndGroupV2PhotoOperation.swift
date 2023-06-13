@@ -21,6 +21,7 @@
 import Foundation
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 final class UpdateCustomNameAndGroupV2PhotoOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     

@@ -19,6 +19,7 @@
 
 import Foundation
 import SwiftUI
+import ObvUICoreData
 
 
 struct ValueWithBinding<Root: TypeWithObjectID, Value> {

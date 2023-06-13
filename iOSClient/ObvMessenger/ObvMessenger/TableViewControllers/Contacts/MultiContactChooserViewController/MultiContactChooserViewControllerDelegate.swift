@@ -18,6 +18,8 @@
  */
 
 import Foundation
+import ObvUICoreData
+
 
 protocol MultiContactChooserViewControllerDelegate: AnyObject {
     

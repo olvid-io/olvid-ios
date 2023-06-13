@@ -5,6 +5,7 @@ import:
   - ObvEngine
   - OlvidUtils
   - ObvCrypto
+  - ObvUICoreData
 notifications:
 - name: messagesAreNotNewAnymore
   params:
@@ -19,7 +20,7 @@ notifications:
 - name: wipeAllMessagesThatExpiredEarlierThanNow
   params:
   - {name: launchedByBackgroundTask, type: Bool}
-  - {name: completionHandler, type: (Bool) -> Void}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
 - name: userWantsToCallAndIsAllowedTo
   params:
   - {name: contactIds, type: [OlvidUserId]}
@@ -132,7 +133,7 @@ notifications:
 - name: applyAllRetentionPoliciesNow
   params:
   - {name: launchedByBackgroundTask, type: Bool}
-  - {name: completionHandler, type: (Bool) -> Void}
+  - {name: completionHandler, type: (Bool) -> Void, escaping: true}
 - name: userWantsToSendEditedVersionOfSentMessage
   params:
   - {name: sentMessageObjectID, type: NSManagedObjectID}
@@ -219,10 +220,6 @@ notifications:
   - {name: value, type: PersistedDiscussionLocalConfigurationValue}
   - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
   - {name: completionHandler, type: () -> Void, escaping: true}
-- name: discussionLocalConfigurationHasBeenUpdated
-  params:
-  - {name: newValue, type: PersistedDiscussionLocalConfigurationValue}
-  - {name: localConfigurationObjectID, type: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>}
 - name: audioInputHasBeenActivated
   params:
   - {name: label, type: String}
@@ -298,14 +295,14 @@ notifications:
   params:
   - {name: ownedIdentityCryptoId, type: ObvCryptoId}
   - {name: contactCryptoId, type: ObvCryptoId}
-  - {name: completion, type: "(SignedUserDetails?) -> Void", escaping: true}
+  - {name: completion, type: "(SignedObvKeycloakUserDetails?) -> Void", escaping: true}
 - name: requestSyncAppDatabasesWithEngine
   params:
   - {name: completion, type: "(Result<Void,Error>) -> Void", escaping: true}
 - name: uiRequiresSignedOwnedDetails
   params:
   - {name: ownedIdentityCryptoId, type: ObvCryptoId}
-  - {name: completion, type: "(SignedUserDetails?) -> Void", escaping: true}
+  - {name: completion, type: "(SignedObvKeycloakUserDetails?) -> Void", escaping: true}
 - name: listMessagesOnServerBackgroundTaskWasLaunched
   params:
   - {name: completionHandler, type: (Bool) -> Void, escaping: true}
@@ -416,9 +413,52 @@ notifications:
 - name: metaFlowControllerDidSwitchToOwnedIdentity
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
-- name: recomputeNumberOfNewMessagesForAllOwnedIdentities
+- name: recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities
 - name: closeAnyOpenHiddenOwnedIdentity
 - name: userWantsToUpdateOwnedCustomDisplayName
   params:
   - {name: ownedCryptoId, type: ObvCryptoId}
   - {name: newCustomDisplayName, type: "String?"}
+- name: userWantsToReorderDiscussions
+  params:
+  - {name: discussionObjectIds, type: [NSManagedObjectID]}
+  - {name: ownedIdentity, type: ObvCryptoId}
+  - {name: completionHandler, type: "((Bool) -> Void)?"}
+- name: betaUserWantsToDebugCoordinatorsQueue
+- name: betaUserWantsToSeeLogString
+  params:
+  - {name: logString, type: String}
+- name: draftFyleJoinWasDeleted
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
+  - {name: draftFyleJoinPermanentID, type: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>}
+- name: draftToSendWasReset
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
+- name: fyleMessageJoinWasWiped
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentID, type: ObvManagedObjectPermanentID<PersistedMessage>}
+  - {name: fyleMessageJoinPermanentID, type: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>}
+- name: userWantsToUpdateDiscussionLocalConfiguration
+  params:
+  - {name: value, type: PersistedDiscussionLocalConfigurationValue}
+  - {name: localConfigurationObjectID, type: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>}
+- name: userWantsToArchiveDiscussion
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: completionHandler, type: "((Bool) -> Void)?"}
+- name: userWantsToUnarchiveDiscussion
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: updateTimestampOfLastMessage, type: Bool}
+  - {name: completionHandler, type: "((Bool) -> Void)?"}
+- name: userWantsToRefreshDiscussions
+  params:
+  - {name: completionHandler, type: "(() -> Void)", escaping: true}
+- name: updateNormalizedSearchKeyOnPersistedDiscussions
+  params:
+  - {name: ownedIdentity, type: ObvCryptoId}
+  - {name: completionHandler, type: "(() -> Void)?"}

@@ -20,6 +20,7 @@
 import Foundation
 import OlvidUtils
 import ObvEngine
+import ObvUICoreData
 import os.log
 
 

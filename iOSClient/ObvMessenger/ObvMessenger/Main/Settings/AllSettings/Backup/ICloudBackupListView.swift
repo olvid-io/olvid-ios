@@ -22,6 +22,9 @@ import CloudKit
 import Combine
 import ObvUI
 import SwiftUI
+import ObvUICoreData
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 protocol ICloudBackupListViewControllerDelegate: AnyObject {
@@ -120,6 +123,10 @@ fileprivate final class ICloudBackupListViewModel: ObservableObject {
             // Load results from iterator and remove current records
             self.loadMoreRecords(appendResult: false)
         })
+    }
+    
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     var isFetching: Bool {

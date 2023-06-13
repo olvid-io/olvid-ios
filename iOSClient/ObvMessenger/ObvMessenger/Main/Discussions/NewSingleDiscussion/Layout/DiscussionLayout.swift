@@ -54,9 +54,7 @@ final class DiscussionLayout: UICollectionViewLayout {
 
     var interItemSpacing: CGFloat = 10
     var interSectionSpacing: CGFloat = 10
-    
-    var currentlyScrollingManually = false
-    
+        
     private let debugSpace = String(repeating: " ", count: 5)
         
     func getCurrentLayoutInfosOfItem(at indexPath: IndexPath) -> (frame: CGRect, usesPreferredAttributes: Bool)? {

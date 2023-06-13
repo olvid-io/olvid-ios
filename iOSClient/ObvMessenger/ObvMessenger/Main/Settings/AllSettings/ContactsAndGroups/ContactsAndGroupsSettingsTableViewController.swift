@@ -21,6 +21,7 @@
 import UIKit
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
 
 
 final class ContactsAndGroupsSettingsTableViewController: UITableViewController {

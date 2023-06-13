@@ -52,11 +52,7 @@ final class ProtocolStarterCoordinator: ProtocolStarterDelegate {
     }
     
     deinit {
-        if let notificationDelegate = delegateManager?.notificationDelegate {
-            notificationCenterTokens.forEach {
-                notificationDelegate.removeObserver($0)
-            }
-        }
+        notificationCenterTokens.forEach { delegateManager?.notificationDelegate?.removeObserver($0) }
     }
 
     
@@ -924,7 +920,55 @@ extension ProtocolStarterCoordinator {
         return initialMessageToSend
 
     }
+    
 
+    // MARK: - Keycloak pushed groups
+
+    func getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        // Even if we are dealing with a step of the GroupV2 protocol, we do not need a specific protocol instance UID (since this would make no sense in that specific case)
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .GroupV2,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = GroupV2Protocol.InitiateUpdateKeycloakGroupsMessage(coreProtocolMessage: coreMessage,
+                                                                                 signedGroupBlobs: signedGroupBlobs,
+                                                                                 signedGroupDeletions: signedGroupDeletions,
+                                                                                 signedGroupKicks: signedGroupKicks,
+                                                                                 keycloakCurrentTimestamp: keycloakCurrentTimestamp)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+
+    
+    func getInitiateTargetedPingMessageForKeycloakGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, pendingMemberIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .GroupV2,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = GroupV2Protocol.InitiateTargetedPingMessage(
+            coreProtocolMessage: coreMessage,
+            groupIdentifier: groupIdentifier,
+            pendingMemberIdentity: pendingMemberIdentity)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+    
+    // MARK: - OwnedIdentity Deletion Protocol
     
     func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
@@ -943,4 +987,5 @@ extension ProtocolStarterCoordinator {
 
     }
     
+        
 }

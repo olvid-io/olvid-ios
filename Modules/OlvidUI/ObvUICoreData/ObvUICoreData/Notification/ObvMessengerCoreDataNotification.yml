@@ -1,0 +1,182 @@
+import:
+  - Foundation
+  - CoreData
+  - ObvEngine
+  - ObvCrypto
+  - ObvTypes
+  - UI_CircledInitialsView_CircledInitialsConfiguration
+options:
+  - {key: visibility, value: public}
+notifications:
+- name: newDraftToSend
+  params:
+  - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
+- name: draftWasSent
+  params:
+  - {name: persistedDraftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
+- name: persistedMessageHasNewMetadata
+  params:
+  - {name: persistedMessageObjectID, type: NSManagedObjectID}
+- name: newOrUpdatedPersistedInvitation
+  params:
+  - {name: concernedOwnedIdentityIsHidden, type: Bool}
+  - {name: obvDialog, type: ObvDialog}
+  - {name: persistedInvitationUUID, type: UUID}
+- name: persistedContactWasInserted
+  params:
+  - {name: contactPermanentID, type: ObvManagedObjectPermanentID<PersistedObvContactIdentity>}
+- name: persistedContactWasDeleted
+  params:
+  - {name: objectID, type: NSManagedObjectID}
+  - {name: identity, type: Data}
+- name: persistedContactHasNewCustomDisplayName
+  params:
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: persistedContactHasNewStatus
+  params:
+  - {name: contactCryptoId, type: ObvCryptoId}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: persistedContactIsActiveChanged
+  params:
+  - {name: contactID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
+- name: newMessageExpiration
+  params:
+  - {name: expirationDate, type: Date}
+- name: persistedMessageReactionReceivedWasDeletedOnSentMessage
+  params:
+  - {name: messagePermanentID, type: ObvManagedObjectPermanentID<PersistedMessageSent>}
+  - {name: contactPermanentID, type: ObvManagedObjectPermanentID<PersistedObvContactIdentity>}
+- name: persistedMessageReactionReceivedWasInsertedOrUpdated
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedMessageReactionReceived>}
+- name: persistedContactGroupHasUpdatedContactIdentities
+  params:
+  - {name: persistedContactGroupObjectID, type: NSManagedObjectID}
+  - {name: insertedContacts, type: Set<PersistedObvContactIdentity>}
+  - {name: removedContacts, type: Set<PersistedObvContactIdentity>}
+- name: aReadOncePersistedMessageSentWasSent
+  params:
+  - {name: persistedMessageSentPermanentID, type: ObvManagedObjectPermanentID<PersistedMessageSent>}
+  - {name: persistedDiscussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+- name: newPersistedObvContactDevice
+  params:
+  - {name: contactDeviceObjectID, type: NSManagedObjectID}
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: deletedPersistedObvContactDevice
+  params:
+  - {name: contactCryptoId, type: ObvCryptoId}
+- name: persistedDiscussionHasNewTitle
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+  - {name: title, type: String}
+- name: persistedDiscussionWasDeleted
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: objectIDOfDeletedDiscussion, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: persistedDiscussionWasInserted
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: newPersistedObvOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: isActive, type: Bool}
+- name: ownedIdentityWasReactivated
+  params:
+  - {name: ownedIdentityObjectID, type: NSManagedObjectID}
+- name: ownedIdentityWasDeactivated
+  params:
+  - {name: ownedIdentityObjectID, type: NSManagedObjectID}
+- name: anOldDiscussionSharedConfigurationWasReceived
+  params:
+  - {name: persistedDiscussionObjectID, type: NSManagedObjectID}
+- name: persistedMessageSystemWasDeleted
+  params:
+  - {name: objectID, type: NSManagedObjectID}
+  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: persistedMessagesWereDeleted
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentIDs, type: Set<ObvManagedObjectPermanentID<PersistedMessage>>}
+- name: persistedMessagesWereWiped
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: messagePermanentIDs, type: Set<ObvManagedObjectPermanentID<PersistedMessage>>}
+- name: persistedDiscussionStatusChanged
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+  - {name: newStatus, type: PersistedDiscussion.Status}
+- name: persistedGroupV2UpdateIsFinished
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+- name: persistedGroupV2WasDeleted
+  params:
+  - {name: objectID, type: TypeSafeManagedObjectID<PersistedGroupV2>}
+- name: aPersistedGroupV2MemberChangedFromPendingToNonPending
+  params:
+  - {name: contactObjectID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
+- name: ownedCircledInitialsConfigurationDidChange
+  params:
+  - {name: ownedIdentityPermanentID, type: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: newOwnedCircledInitialsConfiguration, type: CircledInitialsConfiguration}
+- name: persistedObvOwnedIdentityWasDeleted
+- name: ownedIdentityHiddenStatusChanged
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: isHidden, type: Bool}
+- name: badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoId}
+- name: displayedContactGroupWasJustCreated
+  params:
+  - {name: permanentID, type: ObvManagedObjectPermanentID<DisplayedContactGroup>}
+- name: groupV2TrustedDetailsShouldBeReplacedByPublishedDetails
+  params:
+  - {name: ownCryptoId, type: ObvCryptoId}
+  - {name: groupIdentifier, type: Data}
+- name: receivedFyleJoinHasBeenMarkAsOpened
+  params:
+  - {name: receivedFyleJoinID, type: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>}
+- name: aDeliveredReturnReceiptShouldBeSentForAReceivedFyleMessageJoinWithStatus
+  params:
+  - {name: returnReceipt, type: ReturnReceiptJSON}
+  - {name: contactCryptoId, type: ObvCryptoId}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: messageIdentifierFromEngine, type: Data}
+  - {name: attachmentNumber, type: Int}
+- name: persistedMessageReceivedWasDeleted
+  params:
+  - {name: objectID, type: NSManagedObjectID}
+  - {name: messageIdentifierFromEngine, type: Data}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: sortIndex, type: Double}
+  - {name: discussionObjectID, type: TypeSafeManagedObjectID<PersistedDiscussion>}
+- name: persistedMessageReceivedWasRead
+  params:
+  - {name: persistedMessageReceivedObjectID, type: TypeSafeManagedObjectID<PersistedMessageReceived>}
+- name: aDeliveredReturnReceiptShouldBeSentForPersistedMessageReceived
+  params:
+  - {name: returnReceipt, type: ReturnReceiptJSON}
+  - {name: contactCryptoId, type: ObvCryptoId}
+  - {name: ownedCryptoId, type: ObvCryptoId}
+  - {name: messageIdentifierFromEngine, type: Data}
+- name: theBodyOfPersistedMessageReceivedDidChange
+  params:
+  - {name: persistedMessageReceivedObjectID, type: NSManagedObjectID}
+- name: persistedDiscussionWasArchived
+  params:
+  - {name: discussionPermanentID, type: ObvManagedObjectPermanentID<PersistedDiscussion>}
+- name: persistedContactWasUpdated
+  params:
+  - {name: contactObjectID, type: TypeSafeManagedObjectID<PersistedObvContactIdentity>}
+- name: fyleMessageJoinWithStatusWasInserted
+  params:
+  - {name: fyleMessageJoinObjectID, type: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>}
+- name: fyleMessageJoinWithStatusWasUpdated
+  params:
+  - {name: fyleMessageJoinObjectID, type: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>}
+- name: discussionLocalConfigurationHasBeenUpdated
+  params:
+  - {name: newValue, type: PersistedDiscussionLocalConfigurationValue}
+  - {name: localConfigurationObjectID, type: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>}

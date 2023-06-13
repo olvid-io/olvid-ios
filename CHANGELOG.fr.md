@@ -1,5 +1,81 @@
 # Changelog
 
+## [0.12.9 (661)] - 2023-05-22
+
+- Améliore le protocole concernant les nouveaux groupes afin de limiter les situations où des membres en attente de deviennent jamais membre à part entière. Bref, ça marche encore mieux qu'avant.
+- Hotfix
+
+## [0.12.8 (659)] - 2023-05-10
+
+- Vous l'attendiez tous... Vous pouvez maintenant mentionner explicitement un contact ! Appuyer sur la touche '@' pendant la composition d'un nouveau message, choisissez le contact à mentionner, et c'est tout !
+- Cette fonctionnalité modifie le comportement des notifications pour les discussions pour lesquelles vous avez désactivé les notifications : si vous recevez un message qui vous mentionne, ou qui répond à un message qui vous mentionne, ou qui répond à un message que vous avez envoyé, vous serez systématiquement notifié.
+- Ce comportement par défaut peut être modifié globalement (pour toutes les discussions) ou par discussion.
+- Dans la liste des discussions récentes, vous verrez un signe '@' à côté des discussions qui comportent un nouveau message qui vous mentionne.
+- Il est maintenant possible de « déposer » une pièce jointe directement dans une discussion. Super pratique pour nos utilisateurs sous iPad en mode multitâche !
+- Après être remonté dans une discussion, il est maintenant facile de redescendre immédiatement tout en bas.
+- Les différents badges affichant des compteurs sont maintenant systématiquement cohérents.
+- Les discussions verrouillées n'apparaissaient pas dans les résultats d'une recherche, c'est corrigé.
+- Corrige un bug en lien avec la sauvegarde et la restauration des paramètres de rétention.
+- La réception d'un message modifié ne génère plus de nouvelle notification. La notification précédente est mise à jour silencieusement.
+- Permute l'ordre des boutons « supprimer » et « archiver » pour une discussion.
+- Corrections mineures de design.
+- Corrige un bug entraînant régulièrement une double notification pour un seul message.
+
+## [0.12.7 (652)] - 2023-04-19
+
+- Il est maintenant possible de chercher une discussion particulière, directement depuis la liste des discussions récentes.
+- Les résultats de la recherche incluent les discussions archivées, de manière à pouvoir les désarchiver facilement.
+- La recherche est faite sur le titre des discussions ainsi que sur les noms, postes et sociétés des participants.
+- Pour les utilisateurs entreprise, cette version introduit la compatibilité avec les groupes keycloak.
+- Nouveaux emojis !
+- Corrige un bug qui pouvait empêcher la réception d'un appel entrant.
+- Le compte de nouveaux messages affiché sur la barre d'onglets en bas prenait en compte les nouveaux messages issus de discussions silencieuses. C'est corrigé.
+- Corrige un bug qui pouvait entraîner un crash de l'app.
+- Les discussions en sourdine (dont les notifications ont été désactivées) n'apparaissaient pas toujours comme telles dans la liste des discussions récentes. Ce problème a été corrigé.
+
+## [0.12.6 (645)] - 2023-03-30
+
+- Nouvelle fonctionnalité ! Vous pouvez maintenant épingler vos discussions préférées, de manière à ce qu'elles restent toujours accessibles au sommet de la liste des discussions récentes.
+- Les discussions épinglées peuvent être réordonnées manuellement.
+- La liste des discussions affiche uniquement les discussions récentes, ainsi que les discussions épinglées.
+- Il est maintenant possible d'archiver une discussion.
+- Archiver une discussion ne la supprime pas, tous les messages sont donc conservés.
+- Si un message est reçu (ou envoyé) dans une discussion archivée, elle est automatiquement désarchivée.
+- Si brouillon est modifié dans une discussion archivée, elle est automatiquement désarchivée.
+- Pour accéder à une discussion avec un contact si elle est archivée, il suffit de naviguer jusqu'à l'écran du contact et de toucher le bouton « Discuter ».
+- Pour accéder à une discussion de groupe si elle est archivée, il suffit de naviguer jusqu'à l'écran du groupe et de toucher le bouton « Discuter »
+- Suite à l'ajout de la possibilité d'archiver une discussion, les cellules de discussions récentes peuvent maintenant être glissées vers la droite et vers la gauche, afin de pouvoir accéder rapidement à toutes les actions possibles.
+- Améliore la navigation sur iPad.
+- Améliore l'expérience utilisateur lors de la présentation d'un contact à un autre.
+- Corrige un bug provoquant un crash de l'app au moment de l'affichage d'un gif animé sur iOS 16.4.
+- Corrige un potentiel crash sur iOS13 et iOS14.
+- Les pré-visualisations d'images fonctionnent à nouveau.
+- Des notifications concernant un profil caché pouvaient apparaître. C'est corrigé. De la même façon, le badge de l'app pouvait prendre en compte les messages non lus d'un profil caché. C'est corrigé.
+- Corrige des bugs occasionnels concernant l'expérience de messages éphémères.
+- Corrige des bugs occasionnels sur iPad concernant le changement de profil.
+- Corrige un bug mineur du lecteur audio.
+
+## [0.12.5 (639)] - 2023-02-26
+
+- Il est maintenant possible d'écrire un message dans un groupe sans autre membre. Pratique pour s'écrire à soi-même ;-)
+- Lorsque plusieurs profils sont disponibles, l'extension de partage montre par défaut le dernier profil utilisé dans l'app.
+- Les appels sortants non aboutis n'étaient indiqués dans aucune discussion. C'est corrigé.
+- L'ancien style de liste de discussion n'est plus accessible depuis iOS 16.
+- Corrige un bug entraînant un potentiel mauvais rafraîchissement des discussions récentes au moment d'un changement de profil.
+- Le badge indiquant le nombre de nouveaux messages sur l'onglet de discussion est maintenant systématiquement correct.
+- Corrige un bug visuel survenant lorsqu'une discussion est supprimée à distance, alors que l'utilisateur affiche la discussion.
+- Corrige un bug entraînant la disparition des photos de profil d'un groupe (V2) au bout de 3 mois.
+- Corrige une erreur empêchant parfois des messages expirés d'être supprimés au bon moment.
+- Corrige un crash arrivant parfois au moment du lancement de l'app.
+- Cette version apporte des améliorations majeures en termes de stabilité.
+- Réduit le temps de démarrage de l'app pour les utilisateurs Keycloak.
+- Corrige un bug entraînant une erreur de rafraîchissement à l'occasion d'un changement de profil sur iOS 16 quand l'ancien style de discussions récentes est utilisé.
+- Améliore l'animation de sortie d'une discussion (iOS).
+- Les actions Siri "Envoyer un message" avec Olvid ne fonctionnaient pas correctement. C'est corrigé.
+- À l'occasion d'un partage, Olvid ne prévenait pas correctement Siri qu'un message était envoyé. C'est corrigé.
+- Corrige des typos.
+- La vue de composition de message était parfois plus grande que le texte qu'elle contenait. C'est corrigé.
+
 ## [0.12.4 (621)] - 2023-01-19
 
 - Vous pouvez maintenant changer de profil en faisant glisser la photo de profil située en haut à gauche.

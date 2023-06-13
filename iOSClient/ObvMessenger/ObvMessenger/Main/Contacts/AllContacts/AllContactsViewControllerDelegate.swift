@@ -19,6 +19,7 @@
 
 import UIKit
 import ObvEngine
+import ObvUICoreData
 
 protocol AllContactsViewControllerDelegate: AnyObject {
     

@@ -25,6 +25,8 @@ import Intents
 import os.log
 import MobileCoreServices
 import ObvTypes
+import ObvUICoreData
+
 
 struct UserNotificationKeys {
     static let id = "id"
@@ -186,7 +188,7 @@ struct UserNotificationCreator {
         let contactCustomOrFullDisplayName: String
         let groupDiscussionTitle: String?
         let discussionNotificationSound: NotificationSound?
-        let isEphemeralMessageWithUserAction: Bool
+        public let isEphemeralMessageWithUserAction: Bool
         let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
         let attachmentLocation: NotificationAttachmentLocation
         let attachmentsCount: Int
@@ -260,14 +262,20 @@ struct UserNotificationCreator {
 
     /// This static method creates a new message notification.
     static func createNewMessageNotification(infos: NewMessageNotificationInfos,
-                                             badge: NSNumber? = nil) ->
+                                             badge: NSNumber? = nil,
+                                             addNotificationSilently: Bool) ->
     (notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent) {
                 
         let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
 
         // Configure the minimal notification content
         var (notificationId, notificationContent) = createMinimalNotification(badge: badge)
-        
+
+        if addNotificationSilently,
+           #available(iOS 15, *) {
+            notificationContent.interruptionLevel = .passive
+        }
+
         var incomingMessageIntent: INSendMessageIntent?
 
         switch hideNotificationContent {
@@ -641,7 +649,6 @@ struct UserNotificationCreator {
             return (notificationId, notificationContent)
         }
     }
-
     
     private static func setThreadAndCategory(notificationId: ObvUserNotificationIdentifier, notificationContent: UNMutableNotificationContent) {
         let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
@@ -723,7 +730,7 @@ struct UserNotificationCreator {
 
     
     private static func getNotificationAttachmentURL(location: String, quality: String, attachmentNumber: Int) -> URL {
-        var url = ObvMessengerConstants.containerURL.forNotificationAttachments
+        var url = ObvUICoreDataConstants.ContainerURL.forNotificationAttachments.url
         url.appendPathComponent(location)
         url.appendPathComponent(quality)
         url.appendPathComponent(String(attachmentNumber))
@@ -733,67 +740,6 @@ struct UserNotificationCreator {
             url.appendPathExtension("jpeg")
         }
         return url
-    }
-
-}
-
-enum NotificationAttachmentImage {
-    case cgImage(attachmentNumber: Int, _: CGImage)
-    case data(attachmentNumber: Int, _: Data)
-    case url(attachmentNumber: Int, _: URL)
-
-    var attachmentNumber: Int {
-        switch self {
-        case .cgImage(let attachmentNumber, _),
-                .data(let attachmentNumber, _),
-                .url(let attachmentNumber, _):
-            return attachmentNumber
-        }
-    }
-
-    enum DataOrURL {
-        case data(_: Data)
-        case url(_: URL)
-    }
-
-    var dataOrURL: DataOrURL? {
-        switch self {
-        case .cgImage(_, let cgImage):
-            let image = UIImage(cgImage: cgImage)
-            guard let jpegData = image.jpegData(compressionQuality: 1.0) else {
-                assertionFailure(); return nil
-            }
-            return .data(jpegData)
-        case .data(_, let data):
-            return .data(data)
-        case .url(_, let url):
-            return .url(url)
-        }
-    }
-
-    var quality: String {
-        switch self {
-        case .cgImage, .data:
-            return "small"
-        case .url:
-            return "large"
-        }
-
-    }
-}
-
-extension ReceivedFyleMessageJoinWithStatus {
-
-    var attachementImage: NotificationAttachmentImage? {
-        guard !receivedMessage.readingRequiresUserAction else { return nil }
-        if let fyleElement = fyleElementOfReceivedJoin, fyleElement.fullFileIsAvailable {
-            guard ObvUTIUtils.uti(fyleElement.uti, conformsTo: kUTTypeJPEG) else { return nil }
-            return .url(attachmentNumber: index, fyleElement.fyleURL)
-        } else if let data = downsizedThumbnail {
-            return .data(attachmentNumber: index, data)
-        } else {
-            return nil
-        }
     }
 
 }

@@ -21,11 +21,12 @@ import Foundation
 import OlvidUtils
 import os.log
 import CoreData
+import ObvUICoreData
 
 
 final class AddReplyToOnDraftOperation: ContextualOperationWithSpecificReasonForCancel<AddReplyToOnDraftOperationReasonForCancel> {
     
-    let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
+    public let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
     let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
     
     init(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {

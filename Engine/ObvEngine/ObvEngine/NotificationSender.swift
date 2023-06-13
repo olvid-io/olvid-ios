@@ -38,7 +38,7 @@ extension ObvEngine {
             ObvNetworkPostNotification.observeOutboxMessageWasUploaded(within: notificationDelegate, queue: nil) { [weak self] (messageId, timestampFromServer, isAppMessageWithUserContent, isVoipMessage, flowId) in
                 self?.processOutboxMessageWasUploadedNotification(messageId: messageId, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage, flowId: flowId)
             },
-            ObvNetworkPostNotification.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: notificationDelegate, queue: nil) { [weak self] (messageIdsAndTimestampsFromServer, flowId) in
+            ObvNetworkPostNotification.observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within: notificationDelegate) { [weak self] (messageIdsAndTimestampsFromServer, flowId) in
                 self?.processOutboxMessagesAndAllTheirAttachmentsWereAcknowledgedNotifications(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer, flowId: flowId)
             },
             ObvNetworkPostNotification.observeOutboxMessageCouldNotBeSentToServer(within: notificationDelegate) { [weak self] (messageId, flowId) in
@@ -398,6 +398,9 @@ extension ObvEngine {
             ObvNetworkFetchNotificationNew.observePushTopicReceivedViaWebsocket(within: notificationDelegate) { [weak self] pushTopic in
                 self?.processPushTopicReceivedViaWebsocket(pushTopic: pushTopic)
             },
+            ObvNetworkFetchNotificationNew.observeKeycloakTargetedPushNotificationReceivedViaWebsocket(within: notificationDelegate) { [weak self] ownedIdentity in
+                self?.processKeycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ownedIdentity)
+            },
         ])
     }
     
@@ -543,6 +546,9 @@ extension ObvEngine {
             return
         }
         
+        let appNotificationCenter = self.appNotificationCenter
+        let queueForPostingNotificationsToTheApp = self.queueForPostingNotificationsToTheApp
+        
         let randomFlowId = FlowIdentifier()
         createContextDelegate.performBackgroundTask(flowId: randomFlowId) { [weak self] (obvContext) in
             
@@ -568,10 +574,8 @@ extension ObvEngine {
                 
                 os_log("The deleted channel was one we had with a contact device", log: _self.log, type: .info)
                 
-                let NotificationType = ObvEngineNotification.DeletedObliviousChannelWithContactDevice.self
-                let userInfo = [NotificationType.Key.obvContactDevice: contactDevice]
-                let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-                _self.appNotificationCenter.post(notification)
+                ObvEngineNotificationNew.DeletedObliviousChannelWithContactDevice(obvContactDevice: contactDevice)
+                    .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
                 
             } else {
                 
@@ -583,10 +587,8 @@ extension ObvEngine {
                     
                     os_log("The deleted channel was one we had with a contact device", log: _self.log, type: .info)
                     
-                    let NotificationType = ObvEngineNotification.DeletedObliviousChannelWithContactDevice.self
-                    let userInfo = [NotificationType.Key.obvContactDevice: contactDevice]
-                    let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-                    _self.appNotificationCenter.post(notification)
+                    ObvEngineNotificationNew.DeletedObliviousChannelWithContactDevice(obvContactDevice: contactDevice)
+                        .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
 
                 }
             }
@@ -942,7 +944,7 @@ extension ObvEngine {
         
         os_log("We received an AttachmentWasAcknowledged notification within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
         
-        ObvEngineNotificationNew.attachmentWasAcknowledgedByServer(messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
+        ObvEngineNotificationNew.attachmentWasAcknowledgedByServer(ownedCryptoId: ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity), messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
             .postOnBackgroundQueue(within: appNotificationCenter)
 
     }
@@ -991,10 +993,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.NewContactGroup.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.newContactGroup(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+            
         }
         
     }
@@ -1026,10 +1027,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.NewContactGroup.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.newContactGroup(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
     }
@@ -1061,10 +1061,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPendingMembersAndGroupMembers.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupHasUpdatedPendingMembersAndGroupMembers(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
     }
@@ -1096,10 +1095,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPendingMembersAndGroupMembers.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupHasUpdatedPendingMembersAndGroupMembers(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
     }
@@ -1131,10 +1129,9 @@ extension ObvEngine {
                 return
             }
 
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPublishedDetails.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupHasUpdatedPublishedDetails(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
     }
     
@@ -1165,10 +1162,8 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPublishedDetails.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupHasUpdatedPublishedDetails(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
         }
     }
 
@@ -1214,16 +1209,16 @@ extension ObvEngine {
     private func processPublishedPhotoOfOwnedIdentityHasBeenUpdated(ownedIdentity: ObvCryptoIdentity) {
         guard let createContextDelegate = self.createContextDelegate else { assertionFailure(); return }
         guard let identityDelegate = self.identityDelegate else { assertionFailure(); return }
-        let appNotificationCenter = self.appNotificationCenter
         let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
+        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { [weak self] (obvContext) in
+            guard let _self = self else { return }
             guard let obvOwnedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedIdentity,
                                                           identityDelegate: identityDelegate, within: obvContext) else {
-                os_log("Could not create an ObvOwnedIdentity structure", log: self.log, type: .fault)
+                os_log("Could not create an ObvOwnedIdentity structure", log: _self.log, type: .fault)
                 return
             }
             ObvEngineNotificationNew.publishedPhotoOfOwnedIdentityHasBeenUpdated(ownedIdentity: obvOwnedIdentity)
-                .postOnBackgroundQueue(within: appNotificationCenter)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
         }
     }
 
@@ -1329,12 +1324,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupDeleted.self
-            let userInfo = [NotificationType.Key.groupUid: groupUid,
-                            NotificationType.Key.groupOwner: ObvCryptoId(cryptoIdentity: groupOwner),
-                            NotificationType.Key.ownedIdentity: obvOwnedIdentity] as [String: Any]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupDeleted(ownedIdentity: obvOwnedIdentity, groupOwner: ObvCryptoId(cryptoIdentity: groupOwner), groupUid: groupUid)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
     }
@@ -1365,10 +1357,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupOwnedHasUpdatedLatestDetails.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupOwnedHasUpdatedLatestDetails(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
 
     }
@@ -1400,10 +1391,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupOwnedDiscardedLatestDetails.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupOwnedDiscardedLatestDetails(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
     }
@@ -1435,10 +1425,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.ContactGroupJoinedHasUpdatedTrustedDetails.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.contactGroupJoinedHasUpdatedTrustedDetails(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
     }
@@ -1470,10 +1459,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.NewPendingGroupMemberDeclinedStatus.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.newPendingGroupMemberDeclinedStatus(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
 
         
@@ -1506,10 +1494,9 @@ extension ObvEngine {
                 return
             }
             
-            let NotificationType = ObvEngineNotification.NewPendingGroupMemberDeclinedStatus.self
-            let userInfo = [NotificationType.Key.obvContactGroup: obvContactGroup]
-            let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-            self?.appNotificationCenter.post(notification)
+            ObvEngineNotificationNew.newPendingGroupMemberDeclinedStatus(obvContactGroup: obvContactGroup)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
+
         }
         
         
@@ -1665,7 +1652,7 @@ extension ObvEngine {
     }
     
     
-    func processInboxAttachmentDownloadWasResumed(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    private func processInboxAttachmentDownloadWasResumed(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         os_log("We received an InboxAttachmentDownloadWasResumed notification from the network fetch manager for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
         let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
         ObvEngineNotificationNew.attachmentDownloadWasResumed(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
@@ -1673,7 +1660,7 @@ extension ObvEngine {
     }
 
     
-    func processInboxAttachmentDownloadWasPaused(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    private func processInboxAttachmentDownloadWasPaused(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
         os_log("We received an InboxAttachmentDownloadWasPaused notification from the network fetch manager for the attachment %{public}@", log: log, type: .debug, attachmentId.debugDescription)
         let ownCryptoId = ObvCryptoId(cryptoIdentity: attachmentId.messageId.ownedCryptoIdentity)
         ObvEngineNotificationNew.attachmentDownloadWasPaused(ownCryptoId: ownCryptoId, messageIdentifierFromEngine: attachmentId.messageId.uid.raw, attachmentNumber: attachmentId.attachmentNumber)
@@ -1681,9 +1668,17 @@ extension ObvEngine {
     }
 
     
-    func processPushTopicReceivedViaWebsocket(pushTopic: String) {
+    private func processPushTopicReceivedViaWebsocket(pushTopic: String) {
         os_log("We received a PushTopicReceivedViaWebsocket notification from the network fetch manager. Push topic is %{public}@", log: log, type: .debug, pushTopic)
         ObvEngineNotificationNew.aPushTopicWasReceivedViaWebsocket(pushTopic: pushTopic)
+            .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
+    }
+
+    
+    private func processKeycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity) {
+        os_log("We received a KeycloakTargetedPushNotificationReceivedViaWebsocket notification from the network fetch manager. Owned identity is %{public}@", log: log, type: .debug, ownedIdentity.debugDescription)
+        let ownCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
+        ObvEngineNotificationNew.aKeycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ownCryptoId)
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }
 
@@ -1756,12 +1751,8 @@ extension ObvEngine {
                 return
             }
             
-            DispatchQueue(label: "Queue for posting NewTrustedContactIdentity notifications").async {
-                let NotificationType = ObvEngineNotification.NewTrustedContactIdentity.self
-                let userInfo = [NotificationType.Key.contactIdentity: contactIdentity]
-                let notification = Notification(name: NotificationType.name, userInfo: userInfo)
-                _self.appNotificationCenter.post(notification)
-            }
+            ObvEngineNotificationNew.newTrustedContactIdentity(obvContactIdentity: contactIdentity)
+                .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
             
         }
     }

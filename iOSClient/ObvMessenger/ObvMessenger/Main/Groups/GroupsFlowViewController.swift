@@ -22,6 +22,7 @@ import os.log
 import ObvEngine
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 
 final class GroupsFlowViewController: UINavigationController, ObvFlowController {
@@ -57,6 +58,10 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
 
     }
     
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     override var delegate: UINavigationControllerDelegate? {
         get {
             super.delegate
@@ -71,17 +76,6 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
-    private func observeContactGroupDeletedNotifications() {
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupDeleted.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: OperationQueue.main) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let (_, _, groupUid) = NotificationType.parse(notification) else { return }
-                _self.removeGroupViewController(groupUid: groupUid)
-            }
-            observationTokens.append(token)
-        }
-    }
 }
 
 
@@ -106,8 +100,7 @@ extension GroupsFlowViewController {
 
         self.view.backgroundColor = AppTheme.shared.colorScheme.systemBackground
         
-        observeContactGroupDeletedNotifications()
-        observePersistedGroupV2WasDeletedNotifications()
+        observeNotificationsImpactingTheNavigationStack()
         
     }
     

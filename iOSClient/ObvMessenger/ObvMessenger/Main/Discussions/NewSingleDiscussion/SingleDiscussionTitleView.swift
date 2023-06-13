@@ -20,6 +20,8 @@
 import UIKit
 import QuickLookThumbnailing
 import ObvTypes
+import ObvUICoreData
+import ObvUI
 
 
 final class SingleDiscussionTitleView: UIView {
@@ -37,7 +39,7 @@ final class SingleDiscussionTitleView: UIView {
         self.subtitle = subtitle
         super.init(frame: .zero)
         setupInternalViews()
-        circledInitialsView.configureWith(.icon(.lockFill))
+        circledInitialsView.configure(with: .icon(.lockFill))
     }
 
     
@@ -46,12 +48,12 @@ final class SingleDiscussionTitleView: UIView {
         guard let contact = try? PersistedObvContactIdentity.get(objectID: objectID, within: ObvStack.shared.viewContext) else {
             assertionFailure()
             self.init(title: "", subtitle: "")
-            circledInitialsView.configureWith(.icon(.person))
+            circledInitialsView.configure(with: .icon(.person))
             return
         }
         self.init(title: contact.customOrNormalDisplayName,
                   subtitle: contact.identityCoreDetails?.positionAtCompany() ?? "")
-        circledInitialsView.configureWith(contact.circledInitialsConfiguration)
+        circledInitialsView.configure(with: contact.circledInitialsConfiguration)
     }
     
     convenience init(objectID: TypeSafeManagedObjectID<PersistedContactGroup>) {
@@ -59,7 +61,7 @@ final class SingleDiscussionTitleView: UIView {
         guard let group = try? PersistedContactGroup.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext) else {
             assertionFailure()
             self.init(title: "", subtitle: "")
-            circledInitialsView.configureWith(.icon(.person3Fill))
+            circledInitialsView.configure(with: .icon(.person3Fill))
             return
         }
         let title = group.discussion.title
@@ -76,7 +78,7 @@ final class SingleDiscussionTitleView: UIView {
 
         self.init(title: title,
                   subtitle: subtitle)
-        circledInitialsView.configureWith(group.circledInitialsConfiguration)
+        circledInitialsView.configure(with: group.circledInitialsConfiguration)
     }
     
     convenience init(objectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
@@ -84,14 +86,14 @@ final class SingleDiscussionTitleView: UIView {
         guard let group = try? PersistedGroupV2.get(objectID: objectID, within: ObvStack.shared.viewContext) else {
             assertionFailure()
             self.init(title: "", subtitle: "")
-            circledInitialsView.configureWith(.icon(.person3Fill))
+            circledInitialsView.configure(with: .icon(.person3Fill))
             return
         }
         let title = group.displayName
         let subtitle = group.otherMembersSorted.compactMap({ $0.displayedCustomDisplayNameOrFirstNameOrLastName }).joined(separator: ", ")
         self.init(title: title,
                   subtitle: subtitle)
-        circledInitialsView.configureWith(group.circledInitialsConfiguration)
+        circledInitialsView.configure(with: group.circledInitialsConfiguration)
     }
 
     

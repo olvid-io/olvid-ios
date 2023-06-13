@@ -25,6 +25,8 @@ import ObvTypes
 import SwiftUI
 import ObvMetaManager
 import ObvUI
+import ObvUICoreData
+
 
 class SingleGroupViewController: UIViewController {
 
@@ -482,9 +484,11 @@ extension SingleGroupViewController {
 extension SingleGroupViewController {
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.configureViewsBasedOnPersistedContactGroup()
-            self?.configureTheOlvidCards(animated: false)
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange {
+            DispatchQueue.main.async { [weak self] in
+                self?.configureViewsBasedOnPersistedContactGroup()
+                self?.configureTheOlvidCards(animated: false)
+            }
         }
         self.notificationTokens.append(token)
     }
@@ -516,88 +520,63 @@ extension SingleGroupViewController {
 
     
     private func observeEngineNotifications() {
-        notificationTokens.append(ObvEngineNotificationNew.observePublishedPhotoOfContactGroupJoinedHasBeenUpdated(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] obvContactGroup in
-            guard let _self = self else { return }
-            guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
-            guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
-            self?.obvContactGroup = obvContactGroup
-            self?.configureTheOlvidCards(animated: true)
-        })
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupOwnedDiscardedLatestDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
+        notificationTokens.append(contentsOf: [
+            ObvEngineNotificationNew.observePublishedPhotoOfContactGroupJoinedHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactGroup in
                 DispatchQueue.main.async {
+                    guard let _self = self else { return }
                     guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
                     guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
                     self?.obvContactGroup = obvContactGroup
                     self?.configureTheOlvidCards(animated: true)
                 }
-            }
-            notificationTokens.append(token)
-        }
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupOwnedHasUpdatedLatestDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
+            },
+            ObvEngineNotificationNew.observeContactGroupOwnedDiscardedLatestDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
                 DispatchQueue.main.async {
+                    guard let _self = self else { return }
                     guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
                     guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
                     self?.obvContactGroup = obvContactGroup
                     self?.configureTheOlvidCards(animated: true)
                 }
-            }
-            notificationTokens.append(token)
-        }
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPublishedDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
+            },
+            ObvEngineNotificationNew.observeContactGroupOwnedHasUpdatedLatestDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
                 DispatchQueue.main.async {
+                    guard let _self = self else { return }
                     guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
                     guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
                     self?.obvContactGroup = obvContactGroup
                     self?.configureTheOlvidCards(animated: true)
                 }
-            }
-            notificationTokens.append(token)
-        }
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupJoinedHasUpdatedTrustedDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
+            },
+            ObvEngineNotificationNew.observeContactGroupHasUpdatedPublishedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
                 DispatchQueue.main.async {
+                    guard let _self = self else { return }
                     guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
                     guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
                     self?.obvContactGroup = obvContactGroup
                     self?.configureTheOlvidCards(animated: true)
                 }
-            }
-            notificationTokens.append(token)
-        }
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPendingMembersAndGroupMembers.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
+            },
+            ObvEngineNotificationNew.observeContactGroupJoinedHasUpdatedTrustedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
                 DispatchQueue.main.async {
+                    guard let _self = self else { return }
+                    guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
+                    guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
+                    self?.obvContactGroup = obvContactGroup
+                    self?.configureTheOlvidCards(animated: true)
+                }
+            },
+            ObvEngineNotificationNew.observeContactGroupHasUpdatedPendingMembersAndGroupMembers(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                DispatchQueue.main.async {
+                    guard let _self = self else { return }
                     guard _self.obvContactGroup.ownedIdentity == obvContactGroup.ownedIdentity else { return }
                     guard _self.obvContactGroup.groupUid == obvContactGroup.groupUid else { return }
                     self?.obvContactGroup = obvContactGroup
                 }
-            }
-            notificationTokens.append(token)
-        }
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupDeleted.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-                guard let _self = self else { return }
-                guard let (obvOwnedIdentity, _, groupUid) = NotificationType.parse(notification) else { return }
+            },
+            ObvEngineNotificationNew.observeContactGroupDeleted(within: NotificationCenter.default) { [weak self] obvOwnedIdentity, groupOwner, groupUid in
                 DispatchQueue.main.async {
+                    guard let _self = self else { return }
                     guard _self.obvContactGroup.ownedIdentity == obvOwnedIdentity else { return }
                     guard _self.obvContactGroup.groupUid == groupUid else { return }
                     if _self.navigationController?.presentingViewController != nil {
@@ -606,10 +585,8 @@ extension SingleGroupViewController {
                         _self.navigationController?.popViewController(animated: true)
                     }
                 }
-            }
-            notificationTokens.append(token)
-        }
-
+            },
+        ])
     }
 
 }

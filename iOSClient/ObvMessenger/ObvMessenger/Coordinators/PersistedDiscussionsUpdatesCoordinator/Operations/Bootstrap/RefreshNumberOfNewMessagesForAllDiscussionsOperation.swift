@@ -22,6 +22,8 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
+
 
 final class RefreshNumberOfNewMessagesForAllDiscussionsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 

@@ -18,8 +18,9 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import SwiftUI
-
+import UI_SystemIcon
 
 struct SentMessageStatusView: View {
     
@@ -40,6 +41,8 @@ struct SentMessageStatusView: View {
             return .eyeFill
         case .couldNotBeSentToOneOrMoreRecipients:
             return .exclamationmarkCircle
+        case .hasNoRecipient:
+            return .iphoneGen3CircleFill
         }
     }
     
@@ -51,6 +54,7 @@ struct SentMessageStatusView: View {
         case .delivered: return CommonString.Word.Delivered
         case .read: return CommonString.Word.Read
         case .couldNotBeSentToOneOrMoreRecipients: return NSLocalizedString("FAILED", comment: "")
+        case .hasNoRecipient: return CommonString.Word.Stored
         }
     }
     

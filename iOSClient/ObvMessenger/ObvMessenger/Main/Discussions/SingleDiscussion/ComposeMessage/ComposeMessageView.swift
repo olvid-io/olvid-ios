@@ -124,11 +124,11 @@ extension ComposeMessageView {
 
     
     private func configureViews() {
-        
+        tintColor = AppTheme.shared.colorScheme.olvidLight
+
         visualEffectView.effect = UIBlurEffect(style: .regular)
         
         plusButton.isHidden = true
-        plusButton.tintColor = AppTheme.shared.colorScheme.obvYellow
         plusButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         
         textViewContainerView.backgroundColor = .clear
@@ -157,6 +157,11 @@ extension ComposeMessageView {
         let configuration = UIImage.SymbolConfiguration(scale: .large)
         let image = UIImage(systemName: "paperplane.fill", withConfiguration: configuration)
         sendButton.setImage(image, for: .normal)
+        sendButton.tintColor = nil //reset it to inherit our `tintColor` defined on `self`
+
+        RunLoop.main.perform { // for some reason, the `tintColor` gets reset to the old yellow value after initialization
+            self.sendButton.tintColor = nil
+        }
         
         replyToStackView.isHidden = true
 

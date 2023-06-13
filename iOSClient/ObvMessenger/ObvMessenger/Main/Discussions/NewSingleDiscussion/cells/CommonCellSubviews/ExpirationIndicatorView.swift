@@ -19,7 +19,7 @@
 
 import ObvUI
 import UIKit
-
+import UI_SystemIcon
 
 final class ExpirationIndicatorView: UIView {
     

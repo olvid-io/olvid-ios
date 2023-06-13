@@ -21,6 +21,8 @@
 import Foundation
 import OlvidUtils
 import CoreData
+import ObvUICoreData
+
 
 /// Given a contact device object ID (or a contact), this operation finds the corresponding contact. It then looks for all the group v2 discussions where the contact is a member and administrated by the corresponding owned identity. It also look for the appropriate oneToOneDiscussion.
 final class FindAdministratedGroupV2DiscussionsAndOneToOneDiscussionWithContactOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

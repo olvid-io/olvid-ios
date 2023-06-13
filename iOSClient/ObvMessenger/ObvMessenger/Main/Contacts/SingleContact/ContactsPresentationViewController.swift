@@ -19,6 +19,7 @@
 
 import UIKit
 import ObvTypes
+import ObvUICoreData
 
 
 final class ContactsPresentationViewController: UIViewController {
@@ -39,6 +40,7 @@ final class ContactsPresentationViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
 
+    @available(*, unavailable)
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -49,7 +51,7 @@ final class ContactsPresentationViewController: UIViewController {
 
         let multipleContactsVC = MultipleContactsViewController(ownedCryptoId: ownedCryptoId,
                                                                 mode: mode,
-                                                                button: .done(),
+                                                                button: .floating(title: Strings.performContactIntroduction, systemIcon: .personLineDottedPersonFill),
                                                                 disableContactsWithoutDevice: true,
                                                                 allowMultipleSelection: true,
                                                                 showExplanation: false,
@@ -78,4 +80,13 @@ final class ContactsPresentationViewController: UIViewController {
         }
     }
 
+}
+
+
+extension ContactsPresentationViewController {
+    
+    struct Strings {
+        static let performContactIntroduction = NSLocalizedString("PERFORM_CONTACT_INTRODUCTION", comment: "")
+    }
+    
 }

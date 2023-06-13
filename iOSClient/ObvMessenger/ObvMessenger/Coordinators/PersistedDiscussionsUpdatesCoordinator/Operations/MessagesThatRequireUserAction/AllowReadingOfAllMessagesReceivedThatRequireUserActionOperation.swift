@@ -21,6 +21,8 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
+
 
 /// This operation allows reading of all ephemeral received messages that requires user action (e.g. tap) before displaying its content, within the given discussion, but only if appropriate.
 ///
@@ -41,7 +43,7 @@ final class AllowReadingOfAllMessagesReceivedThatRequireUserActionOperation: Ope
 
     override func main() {
 
-        guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { assertionFailure(); return }
+        guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { return }
         
         ObvStack.shared.performBackgroundTaskAndWait { context in
 

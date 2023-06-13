@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvUI
+import UI_SystemIcon
 
 enum ObvHUDType {
     case checkmark

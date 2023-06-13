@@ -58,6 +58,7 @@ extension ObvChannelServerResponseMessageToSend {
         case putGroupLog
         case requestGroupBlobLock(result: RequestGroupBlobLockResult)
         case updateGroupBlob(uploadResult: UploadResult)
+        case getKeycloakData(result: GetUserDataResult)
 
 
         public func getEncodedInputs() -> [ObvEncoded] {
@@ -83,6 +84,8 @@ extension ObvChannelServerResponseMessageToSend {
                 return [result.obvEncode()]
             case .updateGroupBlob(uploadResult: let uploadResult):
                 return [uploadResult.obvEncode()]
+            case .getKeycloakData(result: let result):
+                return [result.obvEncode()]
             }
         }
     }

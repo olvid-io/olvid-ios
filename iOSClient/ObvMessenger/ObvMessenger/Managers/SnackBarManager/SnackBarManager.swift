@@ -23,6 +23,7 @@ import os.log
 import UIKit
 import AVFAudio
 import ObvEngine
+import ObvUICoreData
 
 
 actor SnackBarManager {
@@ -50,6 +51,10 @@ actor SnackBarManager {
         self.obvEngine = obvEngine
     }
     
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     func performPostInitialization() async {
         await listenToNotifications()
     }
@@ -300,18 +305,6 @@ actor SnackBarManager {
             assertionFailure()
         }
         
-        // If the user did not see the annoucement about groups v2, show them
-        
-        if !ObvMessengerSettings.Alert.AnnouncingGroupsV2.wasShownAndPermanentlyDismissedByUser {
-            let lastDisplayDate = OlvidSnackBarCategory.announceGroupsV2.lastDisplayDate ?? Date.distantPast
-            let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 1)
-            guard didDismissSnackBarRecently else {
-                ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.announceGroupsV2)
-                    .postOnDispatchQueue()
-                return
-            }
-        }
-                
         do {
             os_log("⏲ The SnackBarManager will request information about the current backup", log: Self.log, type: .info)
             let backupKeyInformation = try await obvEngine.getCurrentBackupKeyInformation()

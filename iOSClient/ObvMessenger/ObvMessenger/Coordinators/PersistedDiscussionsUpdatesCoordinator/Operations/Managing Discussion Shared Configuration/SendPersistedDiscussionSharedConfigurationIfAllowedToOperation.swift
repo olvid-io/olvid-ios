@@ -23,6 +23,8 @@ import os.log
 import ObvEngine
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
+
 
 final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: OperationWithSpecificReasonForCancel<SendPersistedDiscussionSharedConfigurationIfAllowedToOperationReasonForCancel> {
     
@@ -38,6 +40,12 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
     }
 
     override func main() {
+        
+        // If this operation is dependent on an operation that cancelled, return now
+        for dependency in dependencies {
+            assert(dependency.isFinished)
+            guard !dependency.isCancelled else { return }
+        }
         
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             
@@ -95,7 +103,7 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
                         // If we are not allowed to change settings, we do not send the configuration
                         return
                     }
-                    contactCryptoIds = Set(group.otherMembers.compactMap({ $0.cryptoId }))
+                    contactCryptoIds = Set(group.otherMembers.filter({ !$0.isPending }).compactMap({ $0.cryptoId }))
                     guard let _ownCryptoId = discussion.ownedIdentity?.cryptoId else {
                         return cancel(withReason: .couldNotDetermineOwnedCryptoId)
                     }
@@ -107,7 +115,7 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
 
             let sharedConfigJSON: DiscussionSharedConfigurationJSON
             do {
-                sharedConfigJSON = try sharedConfig.toJSON()
+                sharedConfigJSON = try sharedConfig.toDiscussionSharedConfigurationJSON()
             } catch {
                 return cancel(withReason: .couldNotComputeJSON)
             }

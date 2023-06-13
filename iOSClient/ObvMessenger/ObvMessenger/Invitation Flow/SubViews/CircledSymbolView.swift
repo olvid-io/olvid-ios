@@ -19,7 +19,8 @@
 
 import ObvUI
 import SwiftUI
-
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 struct CircledSymbolView: View {
 

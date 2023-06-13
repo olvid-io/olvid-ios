@@ -67,6 +67,10 @@ final class ServerQueryCoordinator: NSObject {
         self.downloadedUserData = downloadedUserData
         super.init()
     }
+    
+    deinit {
+        notificationCenterTokens.forEach { delegateManager?.notificationDelegate?.removeObserver($0) }
+    }
 
     func finalizeInitialization() {
         notificationCenterTokens.append(contentsOf: [
@@ -244,6 +248,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     do {
                         task = try method.dataTask(within: self.session)
                     } catch let error {
+                        assertionFailure(error.localizedDescription)
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerDeviceDiscoveryMethod", error: error)
                         return
                     }
@@ -485,6 +490,25 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
                     syncQueueOutput = .newTaskToRun(task: task)
                     return
+                    
+                case .getKeycloakData(serverURL: let serverURL, serverLabel: let serverLabel):
+                    
+                    let method = GetKeycloakDataServerMethod(ownedIdentity: ownedIdentity, serverURL: serverURL, serverLabel: serverLabel, flowId: flowId)
+                    method.identityDelegate = delegateManager.identityDelegate
+
+                    let task: URLSessionDataTask
+                    do {
+                        task = try method.dataTask(within: self.session)
+                    } catch let error {
+                        syncQueueOutput = .failedToCreateTask(methodName: "GetKeycloakDataServerMethod", error: error)
+                        return
+                    }
+
+                    insert(task, forObjectId: objectId, flowId: flowId)
+
+                    syncQueueOutput = .newTaskToRun(task: task)
+                    return
+
                 }
 
             }
@@ -1128,6 +1152,62 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     return
 
                 }
+
+            case .getKeycloakData(serverURL: _, serverLabel: let serverLabel):
+                
+                guard let (status, userDataPath) = GetKeycloakDataServerMethod.parseObvServerResponse(responseData: responseData, using: log, downloadedUserData: downloadedUserData, serverLabel: serverLabel) else {
+                    assertionFailure()
+                    os_log("Could not parse the server response for the GetKeycloakDataServerMethod task of pending server query %{public}@", log: log, type: .fault, objectId.debugDescription)
+                    _ = removeInfoFor(task)
+                    queueForCallingDelegate.async {
+                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                }
+
+                switch status {
+                    
+                case .generalError:
+                    _ = removeInfoFor(task)
+                    os_log("Server reported general error during the GetKeycloakDataServerMethod task for pending server query %@", log: log, type: .fault, objectId.debugDescription)
+                    return
+                    
+                case .ok:
+                    os_log("The GetKeycloakDataServerMethod returned .ok", log: log, type: .debug)
+                    guard let userDataPath = userDataPath else { assertionFailure(); return }
+
+                    let serverResponseType = ServerResponse.ResponseType.getKeycloakData(result: .downloaded(userDataPath: userDataPath))
+                    serverQuery.responseType = serverResponseType
+                    // Continues after the end of the status block
+
+                case .deletedFromServer:
+                    
+                    os_log("Server reported deleted form server data during the ObvServerGetUserDataMethod task for pending server query %@", log: log, type: .info, objectId.debugDescription)
+                    
+                    let serverResponseType = ServerResponse.ResponseType.getKeycloakData(result: .deletedFromServer)
+                    serverQuery.responseType = serverResponseType
+                    // Continues after the end of the status block
+
+                }
+                
+                // Common to the ok and deletedFromServer cases
+                
+                do {
+                    try obvContext.save(logOnFailure: log)
+                } catch {
+                    os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    _ = removeInfoFor(task)
+                    queueForCallingDelegate.async {
+                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                }
+
+                _ = removeInfoFor(task)
+                queueForCallingDelegate.async {
+                    delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
+                }
+                return
 
             }
 

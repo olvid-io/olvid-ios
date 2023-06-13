@@ -20,6 +20,7 @@
 import UIKit
 import os.log
 import CoreData
+import ObvUICoreData
 import OlvidUtils
 
 
@@ -55,7 +56,7 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
 
     }
     
-    var draft: Draft {
+    var draft: PersistedDraft {
         return persistedDraft
     }
     
@@ -100,7 +101,7 @@ final class ComposeMessageDataSourceWithDraft: NSObject, ComposeMessageDataSourc
         ObvStack.shared.performBackgroundTask { (context) in
             do {
                 guard let writableDraft = try PersistedDraft.get(objectID: draftObjectID, within: context) else { throw Self.makeError(message: "Could not find persisted draft") }
-                writableDraft.setContent(with: body)
+                writableDraft.replaceContentWith(newBody: body, newMentions: Set<MessageJSON.UserMention>())
                 try context.save(logOnFailure: log)
             } catch {
                 os_log("Could not save draft", log: log, type: .error)

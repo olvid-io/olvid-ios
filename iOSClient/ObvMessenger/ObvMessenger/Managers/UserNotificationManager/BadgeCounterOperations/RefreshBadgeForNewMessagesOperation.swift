@@ -18,20 +18,18 @@
  */
 
 import Foundation
-import CoreData
-import ObvTypes
+import ObvUICoreData
+
 
 final class RefreshBadgeForNewMessagesOperation: BadgeCounterOperation {
     
     override func main() {
         guard !isCancelled else { return }
-        
         ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
             guard let _self = self else { return }
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { _self.cancel();  return }
-            let newCount = persistedObvOwnedIdentity.numberOfNewMessages
+            guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { _self.cancel();  return }
             guard !_self.isCancelled else { return }
-            _self.setCurrentCountForNewMessagesBadge(to: newCount)
+            _self.setCurrentCountForNewMessagesBadge(to: persistedOwnedIdentity.badgeCountForDiscussionsTab )
         }
         
     }

@@ -22,6 +22,7 @@ import os.log
 import ObvUI
 import ObvTypes
 import UIKit
+import ObvUICoreData
 
 
 final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, OlvidMenuProvider, ViewControllerWithEllipsisCircleRightBarButtonItem {
@@ -55,6 +56,9 @@ final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, 
         fatalError("init(coder:) has not been implemented")
     }
     
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
     
     // MARK: - Switching current owned identity
 

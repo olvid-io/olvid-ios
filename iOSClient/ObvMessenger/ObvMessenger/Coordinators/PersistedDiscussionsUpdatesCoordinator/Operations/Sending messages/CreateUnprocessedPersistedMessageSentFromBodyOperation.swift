@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
 
 
 final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromBodyOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
@@ -53,7 +54,7 @@ final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOp
                     return cancel(withReason: .couldNotFindDiscussionInDatabase)
                 }
 
-                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: nil, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false)
+                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: nil, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false, mentions: [])
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

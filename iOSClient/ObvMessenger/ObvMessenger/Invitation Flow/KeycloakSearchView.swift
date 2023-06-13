@@ -23,12 +23,13 @@ import os.log
 import ObvTypes
 import ObvEngine
 import Combine
+import ObvUICoreData
 import ObvUI
 
 
 protocol KeycloakSearchViewControllerDelegate: AnyObject {
     func showMyIdButtonTappedAction()
-    func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: UserDetails)
+    func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails)
 }
 
 final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView>, KeycloakSearchViewDelegate {
@@ -88,7 +89,7 @@ final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView
         self.dismiss(animated: true)
     }
 
-    func userSelectedContact(ownedCryptoId: ObvCryptoId, userDetails: UserDetails) {
+    func userSelectedContact(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails) {
         assert(Thread.isMainThread)
         delegate?.userSelectedContactOnKeycloakSearchView(ownedCryptoId: ownedCryptoId, userDetails: userDetails)
     }
@@ -101,7 +102,7 @@ final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView
 
 
 protocol KeycloakSearchViewDelegate: UIViewController {
-    func userSelectedContact(ownedCryptoId: ObvCryptoId, userDetails: UserDetails)
+    func userSelectedContact(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails)
     func showMyIdButtonTappedAction()
     func startSpinner()
     func stopSpinner()
@@ -112,7 +113,7 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "KeycloakSearchViewStore")
 
-    @Published var searchResult: [UserDetails]?
+    @Published var searchResult: [ObvKeycloakUserDetails]?
     @Published var numberOfMissingResults: Int = 0
     @Published var searchEncounteredAnError: Bool = false
 
@@ -130,7 +131,7 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
         continuouslyProcessSearchedText()
     }
     
-    func userSelectedContact(userDetails: UserDetails) {
+    func userSelectedContact(userDetails: ObvKeycloakUserDetails) {
         delegate?.userSelectedContact(ownedCryptoId: ownedCryptoId, userDetails: userDetails)
     }
     
@@ -179,7 +180,7 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
     }
     
     
-    private func mergeReceivedSearchResults(_ newSearchResults: [UserDetails], numberOfMissingResults: Int) {
+    private func mergeReceivedSearchResults(_ newSearchResults: [ObvKeycloakUserDetails], numberOfMissingResults: Int) {
         assert(Thread.isMainThread)
         let sortedSearchResult = newSearchResults.filter({ $0.identity != ownedCryptoId.getIdentity() }).sorted()
         withAnimation {
@@ -218,9 +219,9 @@ struct KeycloakSearchView: View {
 
 struct KeycloakSearchViewInner: View {
 
-    var searchResults: [UserDetails]?
+    var searchResults: [ObvKeycloakUserDetails]?
     var numberOfMissingResults: Int
-    var userSelectedContact: (UserDetails) -> Void
+    var userSelectedContact: (ObvKeycloakUserDetails) -> Void
     @Binding var searchEncounteredAnError: Bool
 
     @State private var showAddContactAlert = false

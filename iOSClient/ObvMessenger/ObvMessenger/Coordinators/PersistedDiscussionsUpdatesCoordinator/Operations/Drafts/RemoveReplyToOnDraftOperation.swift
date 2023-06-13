@@ -21,6 +21,7 @@ import Foundation
 import OlvidUtils
 import os.log
 import CoreData
+import ObvUICoreData
 
 
 final class RemoveReplyToOnDraftOperation: ContextualOperationWithSpecificReasonForCancel<RemoveReplyToOnDraftOperationReasonForCancel> {

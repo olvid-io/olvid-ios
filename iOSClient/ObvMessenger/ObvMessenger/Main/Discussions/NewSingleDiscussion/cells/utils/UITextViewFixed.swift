@@ -24,8 +24,21 @@ class UITextViewFixed: UITextView {
     private var defaultTintColor: UIColor?
     private var defaultTextColor: UIColor?
 
+    private(set) var isActuallyEditable = true
+
     init() {
-        super.init(frame: .zero, textContainer: nil)
+        let textStorage = NSTextStorage()
+
+        let layoutManager = NSLayoutManager()
+
+        textStorage.addLayoutManager(layoutManager)
+
+        let textContainer = NSTextContainer()
+
+        layoutManager.addTextContainer(textContainer)
+
+        super.init(frame: .zero, textContainer: textContainer)
+
         defaultTintColor = self.tintColor
         defaultTextColor = self.textColor
         setup()
@@ -54,6 +67,8 @@ class UITextViewFixed: UITextView {
 extension UITextViewFixed {
     
     func lookLikeNotEditable() {
+        isActuallyEditable = false
+
         self.textColor = .secondaryLabel
         self.tintColor = .clear
     }
@@ -61,6 +76,8 @@ extension UITextViewFixed {
     func lookLikeEditable() {
         self.textColor = .label // It is the defaultTextColor
         self.tintColor = defaultTintColor
+
+        isActuallyEditable = true
     }
     
 }

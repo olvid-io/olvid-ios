@@ -18,6 +18,7 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import SwiftUI
 
 

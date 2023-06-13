@@ -27,7 +27,7 @@ import OlvidUtils
 enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
     
     case DeviceDiscoveryForContactIdentity = 0
-    case TrustEstablishment = 1 // 2019-10-24 Legacy protocol that shall be removed in the following weeks. (2020-03-02 will indeed be removed in the following weeks)
+    // 2023-01-28 We remove the legacy TrustEstablishment protocol
     case ChannelCreationWithContactDevice = 2
     case DeviceDiscoveryForRemoteIdentity = 3
     case ContactMutualIntroduction = 4
@@ -56,8 +56,6 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
         switch self {
         case .DeviceDiscoveryForContactIdentity:
             return DeviceDiscoveryForContactIdentityProtocol.self
-        case .TrustEstablishment:
-            return TrustEstablishmentProtocol.self
         case .ChannelCreationWithContactDevice:
             return ChannelCreationWithContactDeviceProtocol.self
         case .DeviceDiscoveryForRemoteIdentity:
@@ -118,7 +116,6 @@ extension CryptoProtocolId {
     var debugDescription: String {
         switch self {
         case .DeviceDiscoveryForContactIdentity: return "DeviceDiscoveryForContactIdentity"
-        case .TrustEstablishment: return "TrustEstablishment"
         case .ChannelCreationWithContactDevice: return "ChannelCreationWithContactDevice"
         case .DeviceDiscoveryForRemoteIdentity: return "DeviceDiscoveryForRemoteIdentity"
         case .ContactMutualIntroduction: return "ContactMutualIntroduction"

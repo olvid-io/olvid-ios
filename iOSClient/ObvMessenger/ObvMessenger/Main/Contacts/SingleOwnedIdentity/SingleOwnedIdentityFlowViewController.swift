@@ -24,11 +24,11 @@ import ObvEngine
 import StoreKit
 import os.log
 import CoreData
+import ObvUICoreData
+
 
 protocol SingleOwnedIdentityFlowViewControllerDelegate: AnyObject {
-    
-    func userWantsToDismissSingleOwnedIdentityFlowViewController()
-    
+    func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController)
 }
 
 
@@ -431,7 +431,22 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
                 DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
             }
         }
+    }
+    
+    
+    @MainActor
+    private func userWantsToUnbindFromKeycloakServer(ownedCryptoId: ObvCryptoId) async {
+        assert(Thread.isMainThread)
+        showHUD(type: .spinner)
+        dismissPresentedViewController()
+        self.editedOwnedIdentity = nil
 
+        ObvMessengerInternalNotification.userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ownedCryptoId) { success in
+            DispatchQueue.main.async { [weak self] in
+                self?.showHUD(type: success ? .checkmark : .text(text: "Failed"))
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
+            }
+        }.postOnDispatchQueue()
     }
     
     
@@ -446,7 +461,7 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
     
     @MainActor
     func dismiss() async {
-        delegate?.userWantsToDismissSingleOwnedIdentityFlowViewController()
+        delegate?.userWantsToDismissSingleOwnedIdentityFlowViewController(self)
     }
     
     
@@ -461,12 +476,18 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
         childViewContext.automaticallyMergesChangesFromParent = false
         guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity.cryptoId, within: childViewContext) else { assertionFailure(); return }
         editedOwnedIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
-        let view = EditSingleOwnedIdentityNavigationView(editionType: .edition,
-                                                         singleIdentity: editedOwnedIdentity!,
-                                                         userConfirmedPublishAction: { [weak self] in Task { await self?.userWantsToPublishEditedOwnedIdentity() } },
-                                                         dismissAction: { [weak self] in
-            Task { await self?.userWantsToDismissEditSingleIdentityView() }
-        })
+        let view = EditSingleOwnedIdentityNavigationView(
+            editionType: .edition,
+            singleIdentity: editedOwnedIdentity!,
+            userConfirmedPublishAction: { [weak self] in
+                Task { await self?.userWantsToPublishEditedOwnedIdentity() }
+            },
+            userWantsToUnbindFromKeycloakServer: { [weak self] ownedCryptoId in
+                Task { await self?.userWantsToUnbindFromKeycloakServer(ownedCryptoId: ownedCryptoId) }
+            },
+            dismissAction: { [weak self] in
+                Task { await self?.userWantsToDismissEditSingleIdentityView() }
+            })
         let vc = UIHostingController(rootView: view)
         present(vc, animated: true)
     }

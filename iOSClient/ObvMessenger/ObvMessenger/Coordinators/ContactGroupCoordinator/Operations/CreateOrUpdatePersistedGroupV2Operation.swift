@@ -22,6 +22,8 @@ import Foundation
 import OlvidUtils
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
+
 
 final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     

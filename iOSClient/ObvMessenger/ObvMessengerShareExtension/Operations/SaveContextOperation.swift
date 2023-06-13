@@ -34,18 +34,19 @@ final class SaveContextOperation: ContextualOperationWithSpecificReasonForCancel
     }
 
     override func main() {
+        
         guard let obvContext = self.obvContext else {
             return cancel(withReason: .contextIsNil)
         }
 
-        var modifiesObjects = Set<NSManagedObject>()
-
+        var modifiedObjects = Set<NSManagedObject>()
+        
         do {
             try obvContext.performAndWaitOrThrow {
-                modifiesObjects.formUnion(obvContext.context.insertedObjects)
-                modifiesObjects.formUnion(obvContext.context.updatedObjects)
-                modifiesObjects.formUnion(obvContext.context.deletedObjects)
-                modifiesObjects.formUnion(obvContext.context.registeredObjects)
+                
+                modifiedObjects = obvContext.context.insertedObjects
+                    .union(obvContext.context.updatedObjects)
+                    .union(obvContext.context.deletedObjects)
 
                 try obvContext.save(logOnFailure: Self.log)
                 os_log("📤 Saving Context done.", log: Self.log, type: .info)
@@ -54,15 +55,17 @@ final class SaveContextOperation: ContextualOperationWithSpecificReasonForCancel
             return cancel(withReason: .coreDataError(error: error))
         }
 
-        if let userDefaults = self.userDefaults {
-            let updatedObjectURLAndEntityName: [(URL, String)] = modifiesObjects.compactMap {
+        // If we reach this point, the context was saved without error
+        
+        if let userDefaults = self.userDefaults, !modifiedObjects.isEmpty {
+            let updatedObjectURLAndEntityName: [(URL, String)] = modifiedObjects.compactMap {
                 guard let entityName = $0.entity.name else { assertionFailure(); return nil }
                 return ($0.objectID.uriRepresentation(), entityName)
             }
             os_log("📤 Write information about %{public}@ modified object(s) for the app.", log: Self.log, type: .info, String(updatedObjectURLAndEntityName.count))
             userDefaults.addObjectsModifiedByShareExtension(updatedObjectURLAndEntityName)
         }
-
+        
     }
 
 }

@@ -19,6 +19,7 @@
 
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 final class AboutSettingsTableViewController: UITableViewController {
 

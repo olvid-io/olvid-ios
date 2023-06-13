@@ -19,7 +19,10 @@
   
 
 import ObvUI
+import ObvUICoreData
 import SwiftUI
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 struct AllReceivedFyleMessageJoinWithStatusView: View {

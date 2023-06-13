@@ -23,6 +23,7 @@ import CoreData
 import os.log
 import OlvidUtils
 import UserNotifications
+import ObvUICoreData
 
 
 /// After too many wrong passcode attempts, we wipe all read once and limited visibility messages until now, if the user decided to choose this option. This wipe is performed by this operation.
@@ -40,7 +41,7 @@ final class WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation: Co
     }
     
     private let userDefaults: UserDefaults?
-    private let appType: ObvMessengerConstants.AppType
+    private let appType: ObvUICoreDataConstants.AppType
     private let wipeType: WipeType
     
     @Atomic() var earlyAbortWipe: Bool = false {
@@ -49,10 +50,11 @@ final class WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation: Co
         }
     }
     
-    init(userDefaults: UserDefaults?, appType: ObvMessengerConstants.AppType, wipeType: WipeType) {
+    init(userDefaults: UserDefaults?, appType: ObvUICoreDataConstants.AppType, wipeType: WipeType) {
         self.userDefaults = userDefaults
         self.appType = appType
         self.wipeType = wipeType
+        super.init()
     }
     
     override func main() {
@@ -184,7 +186,7 @@ final class WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation: Co
     
 }
 
-fileprivate extension ObvMessengerConstants.AppType {
+fileprivate extension ObvUICoreDataConstants.AppType {
     var wipeCanBeAborted: Bool {
         switch self {
         case .mainApp:

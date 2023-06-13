@@ -18,7 +18,9 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import UIKit
+import UI_CircledInitialsView_CircledInitialsConfiguration
 
 class ObvSubtitleTableViewCell: UITableViewCell, ObvTableViewCellWithActivityIndicator {
 
@@ -99,7 +101,7 @@ extension ObvSubtitleTableViewCell {
     
     private func refreshCircledInitials() {
         guard let circledInitialsConfiguration = circledInitialsConfiguration else { return }
-        circledInitials.configureWith(circledInitialsConfiguration)
+        circledInitials.configure(with: circledInitialsConfiguration)
     }
 
     private func setSubtitle() {

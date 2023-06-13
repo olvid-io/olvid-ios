@@ -20,6 +20,7 @@
 import LinkPresentation
 import CryptoKit
 import os.log
+import ObvUICoreData
 
 
 extension LPMetadataProvider {
@@ -32,7 +33,7 @@ extension LPMetadataProvider {
     }
 
     private static var tempDir: URL {
-        return ObvMessengerConstants.containerURL.forCache.appendingPathComponent("ArchivedLPMetadata")
+        return ObvUICoreDataConstants.ContainerURL.forCache.appendingPathComponent("ArchivedLPMetadata")
     }
     
     private static var log: OSLog {

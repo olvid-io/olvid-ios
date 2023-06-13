@@ -20,6 +20,7 @@
 import Foundation
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 final class FileSystemService {
     
@@ -31,6 +32,10 @@ final class FileSystemService {
         listenToNotifications()
     }
     
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private func listenToNotifications() {
         notificationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeTrashShouldBeEmptied(queue: internalQueue) { [weak self] in
@@ -45,29 +50,28 @@ final class FileSystemService {
 extension FileSystemService {
     
     func createAllDirectoriesIfRequired() {
-        let mirroredContainerURL = Mirror(reflecting: ObvMessengerConstants.containerURL)
-        for (_, element) in mirroredContainerURL.children.enumerated() {
-            if let url = element.value as? URL {
-                
-                // Creating the directory if required
-                if FileManager.default.fileExists(atPath: url.path) {
-                    os_log("Path %{public}@ exists for ContainerURL %{public}@", log: log, type: .debug, url.path, element.label ?? "None")
-                } else {
-                    os_log("Path %{public}@ does not exist for ContainerURL %{public}@", log: log, type: .debug, url.path, element.label ?? "None")
-                    try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-                    os_log("Path %{public}@ was created for ContainerURL %{public}@", log: log, type: .debug, url.path, element.label ?? "None")
-                }
-                
-                // Preventing iCloud backup
-                do {
-                    var mutableURL = url
-                    var resourceValues = URLResourceValues()
-                    resourceValues.isExcludedFromBackup = true
-                    try mutableURL.setResourceValues(resourceValues)
-                } catch let error as NSError {
-                    fatalError("Error excluding \(url.deletingLastPathComponent()) from backup \(error.localizedDescription)")
-                }
-
+        for containerURL in ObvUICoreDataConstants.ContainerURL.allCases {
+            let url = containerURL.url
+            var title = containerURL.title
+            if let subtitle = containerURL.subtitle {
+                title += " (" + subtitle + ")"
+            }
+            // Creating the directory if required
+            if FileManager.default.fileExists(atPath: url.path) {
+                os_log("Path %{public}@ exists for ContainerURL: %{public}@", log: log, type: .debug, url.path, title)
+            } else {
+                os_log("Path %{public}@ does not exist for ContainerURL: %{public}@", log: log, type: .debug, url.path, title)
+                try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                os_log("Path %{public}@ was created for ContainerURL: %{public}@", log: log, type: .debug, url.path, title)
+            }
+            // Preventing iCloud backup
+            do {
+                var mutableURL = url
+                var resourceValues = URLResourceValues()
+                resourceValues.isExcludedFromBackup = true
+                try mutableURL.setResourceValues(resourceValues)
+            } catch let error as NSError {
+                fatalError("Error excluding \(url.deletingLastPathComponent()) from backup \(error.localizedDescription)")
             }
         }
     }
@@ -79,7 +83,7 @@ extension FileSystemService {
         
         let urls: [URL]
         do {
-            urls = try FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forTrash, includingPropertiesForKeys: nil)
+            urls = try FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.forTrash.url, includingPropertiesForKeys: nil)
         } catch {
             os_log("Could not get content of trash directory: %{public}@", log: log, type: .fault, error.localizedDescription)
             assertionFailure()

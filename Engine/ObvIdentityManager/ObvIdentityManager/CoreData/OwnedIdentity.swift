@@ -225,7 +225,8 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         guard isDeletionInProgress else { assertionFailure(); throw Self.makeError(message: "Request the deletion of an owned identity that was not marked for deletion") }
-        try publishedIdentityDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
+        try publishedIdentityDetails.delete(delegateManager: delegateManager, within: obvContext)
+        self.delegateManager = delegateManager
         obvContext.delete(self)
     }
 }
@@ -275,7 +276,9 @@ extension OwnedIdentity {
     }
     
     func reactivate() {
-        isActive = true
+        if !isActive {
+            isActive = true
+        }
     }
 
 }
@@ -290,12 +293,17 @@ extension OwnedIdentity {
         self.keycloakServer != nil
     }
     
+    
     func unbindFromKeycloak(delegateManager: ObvIdentityDelegateManager) throws {
         keycloakServer?.obvContext = obvContext
         try keycloakServer?.delete()
-        keycloakServer = nil
+        if keycloakServer != nil {
+            keycloakServer = nil
+        }
         refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: delegateManager)
+        try deleteAllKeycloakGroups(delegateManager: delegateManager)
     }
+    
     
     func bindToKeycloak(keycloakState: ObvKeycloakState, delegateManager: ObvIdentityDelegateManager) throws {
         // If there is a previous keycloak server, we unbind from this old server before setting the new one
@@ -306,6 +314,7 @@ extension OwnedIdentity {
         refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: delegateManager)
     }
     
+    
     private func refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: ObvIdentityDelegateManager) {
         for contact in contactIdentities {
             do {
@@ -315,6 +324,23 @@ extension OwnedIdentity {
                 assertionFailure()
             }
         }
+    }
+    
+    
+    /// When unbinding from a keycloak server, we delete all keycloak groups
+    private func deleteAllKeycloakGroups(delegateManager: ObvIdentityDelegateManager) throws {
+        guard !isKeycloakManaged else { assertionFailure("We expect this method to be called when leaving a keycloak server in which case isKeycloakManaged should be false"); return }
+        try contactGroupsV2
+            .filter({ $0.groupIdentifier?.category == .keycloak })
+            .forEach { keycloakGroup in
+                keycloakGroup.delegateManager = delegateManager
+                do {
+                    try keycloakGroup.delete()
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    throw error
+                }
+            }
     }
     
     
@@ -367,7 +393,55 @@ extension OwnedIdentity {
         return storedPushTopicsUpdated
     }
     
+    
+    
+    func getPushTopicsForKeycloakServer() -> Set<String> {
+        keycloakServer?.pushTopicsForKeycloakServer ?? Set()
+    }
+    
+    
+    func getPushTopicsForKeycloakManagedGroups() throws -> Set<String> {
+        return try ContactGroupV2.getAllPushTopicsOfKeycloakManagedGroups(ownedIdentity: self)
+    }
+    
+    
+    func getPushTopicsForKeycloakServerAndForKeycloakManagedGroups() throws -> Set<String> {
+        let pushTopicsForKeycloakServer = getPushTopicsForKeycloakServer()
+        let pushTopicsForKeycloakManagedGroups = try getPushTopicsForKeycloakManagedGroups()
+        return pushTopicsForKeycloakServer.union(pushTopicsForKeycloakManagedGroups)
+    }
+    
 }
+
+
+// MARK: - Keycloak pushed groups
+
+extension OwnedIdentity {
+    
+    /// Updates the
+    func updateKeycloakGroups(signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> [KeycloakGroupV2UpdateOutput] {
+
+        guard isKeycloakManaged else {
+            throw Self.makeError(message: "The owned identity is not keycloak managed, cannot update keycloak groups")
+        }
+
+        guard let keycloakServer = self.keycloakServer else {
+            throw Self.makeError(message: "Could not find keycloak server of the keycloak managed identity. Unexpected.")
+        }
+
+        let keycloakGroupV2UpdateOutputs = try keycloakServer.processSignedKeycloakGroups(signedGroupBlobs: signedGroupBlobs,
+                                                                                          signedGroupDeletions: signedGroupDeletions,
+                                                                                          signedGroupKicks: signedGroupKicks,
+                                                                                          keycloakCurrentTimestamp: keycloakCurrentTimestamp,
+                                                                                          delegateManager: delegateManager,
+                                                                                          within: obvContext)
+
+        return keycloakGroupV2UpdateOutputs
+        
+    }
+    
+}
+
 
 // MARK: - OwnedDevice management
 
@@ -398,7 +472,7 @@ extension OwnedIdentity {
     func addContactOrTrustOrigin(cryptoIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, trustOrigin: TrustOrigin, isOneToOne: Bool, delegateManager: ObvIdentityDelegateManager) throws -> ContactIdentity {
         guard let obvContext = self.obvContext else { assertionFailure(); throw Self.makeError(message: "Could not find ObvContext") }
         if let contact = try ContactIdentity.get(contactIdentity: cryptoIdentity, ownedIdentity: self.cryptoIdentity, delegateManager: delegateManager, within: obvContext) {
-            try contact.addTrustOrigin(trustOrigin)
+            try contact.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, delegateManager: delegateManager)
             return contact
         } else {
             guard let contact = ContactIdentity(cryptoIdentity: cryptoIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: self, isOneToOne: isOneToOne, delegateManager: delegateManager) else {
@@ -822,6 +896,20 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
                                                                groupUid: ownedGroup.groupUid,
                                                                within: obvContext)
         }
+        
+        // We scan each group V2 for which we are an administrator. If we are in charge of the profile picture (i.e., we are the uploader of the profile picture), we create a GroupV2ServerUserData entry
+        
+        for group in contactGroupsV2 {
+            guard let serverPhotoInfo = group.trustedDetails?.serverPhotoInfo, let groupIdentifier = group.groupIdentifier else { continue }
+            if serverPhotoInfo.identity == ownedIdentity.cryptoIdentity {
+                _ = try? GroupV2ServerUserData.getOrCreateIfRequiredForAdministratedGroupV2Details(
+                    ownedIdentity: ownedIdentity.cryptoIdentity,
+                    label: serverPhotoInfo.photoServerKeyAndLabel.label,
+                    groupIdentifier: groupIdentifier,
+                    within: obvContext)
+            }
+        }
+        
     }
 
 }

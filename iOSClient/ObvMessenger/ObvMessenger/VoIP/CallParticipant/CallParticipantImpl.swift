@@ -23,6 +23,7 @@ import os.log
 import ObvTypes
 import OlvidUtils
 import WebRTC
+import ObvUICoreData
 
 
 // MARK: - CallParticipantImpl

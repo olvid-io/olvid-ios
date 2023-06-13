@@ -47,10 +47,10 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(ownedIdentity: ObvCryptoIdentity, token: Data, deviceUid: UID, remoteNotificationByteIdentifierForServer: Data, toIdentity: ObvCryptoIdentity, deviceTokensAndmaskingUID: (pushToken: Data, voipToken: Data?, maskingUID: UID)?, parameters: ObvPushNotificationParameters, keycloakPushTopics: Set<String>, flowId: FlowIdentifier) {
+    public init(ownedIdentity: ObvCryptoIdentity, token: Data, deviceUid: UID, remoteNotificationByteIdentifierForServer: Data, deviceTokensAndmaskingUID: (pushToken: Data, voipToken: Data?, maskingUID: UID)?, parameters: ObvPushNotificationParameters, keycloakPushTopics: Set<String>, flowId: FlowIdentifier) {
         self.flowId = flowId
         self.ownedIdentity = ownedIdentity
-        self.toIdentity = toIdentity
+        self.toIdentity = ownedIdentity
         self.token = token
         self.deviceUid = deviceUid
         self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer

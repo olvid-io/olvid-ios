@@ -20,6 +20,7 @@
 import UIKit
 import CoreData
 import ObvUI
+import ObvUICoreData
 
 
 final class MessageSentCollectionViewCell: MessageCollectionViewCell, CellWithPersistedMessageSent {
@@ -132,6 +133,8 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell, CellWithPe
             return "read"
         case .couldNotBeSentToOneOrMoreRecipients:
             return "!"
+        case .hasNoRecipient:
+            return "✓"
         }
     }
     
@@ -150,7 +153,9 @@ final class MessageSentCollectionViewCell: MessageCollectionViewCell, CellWithPe
         case .read:
             return UIImage(systemName: "eye.fill", withConfiguration: configuration)!
         case .couldNotBeSentToOneOrMoreRecipients:
-            return  UIImage(systemIcon: .exclamationmarkCircle)!
+            return UIImage(systemIcon: .exclamationmarkCircle)!
+        case .hasNoRecipient:
+            return UIImage(systemIcon: .iphoneGen3CircleFill, withConfiguration: configuration)!
         }
     }
 }
@@ -221,7 +226,7 @@ extension MessageSentCollectionViewCell: CellWithMessage {
     
     var persistedMessage: PersistedMessage? { message }
 
-    var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? {
+    public var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? {
         message?.typedObjectID
     }
     

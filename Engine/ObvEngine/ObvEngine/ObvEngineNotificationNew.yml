@@ -11,6 +11,38 @@ options:
   - {key: objectInObserve, value: false}
   - {key: nilObjectInPost, value: true}
 notifications:
+- name: contactGroupHasUpdatedPendingMembersAndGroupMembers
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: newContactGroup
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: newPendingGroupMemberDeclinedStatus
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: contactGroupDeleted
+  params:
+      - {name: ownedIdentity, type: ObvOwnedIdentity}
+      - {name: groupOwner, type: ObvCryptoId}
+      - {name: groupUid, type: UID}
+- name: contactGroupHasUpdatedPublishedDetails
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: contactGroupJoinedHasUpdatedTrustedDetails
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: contactGroupOwnedDiscardedLatestDetails
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: contactGroupOwnedHasUpdatedLatestDetails
+  params:
+      - {name: obvContactGroup, type: ObvContactGroup}
+- name: DeletedObliviousChannelWithContactDevice
+  params:
+      - {name: obvContactDevice, type: ObvContactDevice}
+- name: newTrustedContactIdentity
+  params:
+      - {name: obvContactIdentity, type: ObvContactIdentity}
 - name: newBackupKeyGenerated
   params:
       - {name: backupKeyString, type: String}
@@ -64,6 +96,7 @@ notifications:
       - {name: completionHandler, type: "(Set<ObvAttachment>) -> Void", escaping: true}
 - name: attachmentWasAcknowledgedByServer
   params:
+      - {name: ownedCryptoId, type: ObvCryptoId}
       - {name: messageIdentifierFromEngine, type: Data}
       - {name: attachmentNumber, type: Int}
 - name: attachmentDownloadCancelledByServer
@@ -220,3 +253,6 @@ notifications:
   params:
   - {name: pushTopic, type: String}
 - name: ownedIdentityWasDeleted
+- name: aKeycloakTargetedPushNotificationReceivedViaWebsocket
+  params:
+  - {name: ownedIdentity, type: ObvCryptoId}

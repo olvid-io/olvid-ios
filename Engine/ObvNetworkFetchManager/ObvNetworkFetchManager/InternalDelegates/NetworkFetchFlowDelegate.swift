@@ -78,9 +78,6 @@ protocol NetworkFetchFlowDelegate {
     
     // MARK: - Push notification's related methods
     
-    func newRegisteredPushNotificationToProcess(for: ObvCryptoIdentity, withDeviceUid: UID, flowId: FlowIdentifier) throws
-    func failedToProcessRegisteredPushNotification(for: ObvCryptoIdentity, withDeviceUid: UID, flowId: FlowIdentifier)
-    func pollingRequested(for: ObvCryptoIdentity, withDeviceUid: UID, andPollingIdentifier: UUID, flowId: FlowIdentifier)
     func serverReportedThatAnotherDeviceIsAlreadyRegistered(forOwnedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func serverReportedThatThisDeviceWasSuccessfullyRegistered(forOwnedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func serverReportedThatThisDeviceIsNotRegistered(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)

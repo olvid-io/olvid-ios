@@ -19,6 +19,7 @@
   
 
 import UIKit
+import ObvUICoreData
 
 
 /// This actor is used within the discussion screen to track the sensitive (read-once or limited visibility) messages shown to the user.

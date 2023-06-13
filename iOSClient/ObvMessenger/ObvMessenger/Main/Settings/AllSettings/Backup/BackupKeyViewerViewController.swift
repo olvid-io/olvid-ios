@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import ObvUI
 
 protocol BackupKeyViewerViewControllerDelegate: AnyObject {
     func backupKeyViewerViewControllerDidDisappear()

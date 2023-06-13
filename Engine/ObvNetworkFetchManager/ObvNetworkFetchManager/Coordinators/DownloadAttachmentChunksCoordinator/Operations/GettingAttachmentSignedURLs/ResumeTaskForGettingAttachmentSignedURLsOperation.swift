@@ -113,7 +113,8 @@ final class ResumeTaskForGettingAttachmentSignedURLsOperation: Operation {
 
             // If we reach this point, we can download the URLs
 
-            let identity = attachment.messageId.ownedCryptoIdentity
+            guard let messageId = attachment.messageId else { assertionFailure(); return }
+            let identity = messageId.ownedCryptoIdentity
 
             let sessionDelegate = GetSignedURLsSessionDelegate(attachmentId: attachmentId,
                                                                obvContext: obvContext,

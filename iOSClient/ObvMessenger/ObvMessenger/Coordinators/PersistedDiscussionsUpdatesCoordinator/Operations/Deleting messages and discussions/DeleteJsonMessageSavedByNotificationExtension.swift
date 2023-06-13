@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvEngine
 import OlvidUtils
+import ObvUICoreData
 
 
 final class DeleteAllJsonMessagesSavedByNotificationExtension: OperationWithSpecificReasonForCancel<DeleteAllJsonMessagesSavedByNotificationExtensionReasonForCancel> {
@@ -30,7 +31,7 @@ final class DeleteAllJsonMessagesSavedByNotificationExtension: OperationWithSpec
 
     override func main() {
         
-        guard let urls = try? FileManager.default.contentsOfDirectory(at: ObvMessengerConstants.containerURL.forMessagesDecryptedWithinNotificationExtension, includingPropertiesForKeys: nil) else {
+        guard let urls = try? FileManager.default.contentsOfDirectory(at: ObvUICoreDataConstants.ContainerURL.forMessagesDecryptedWithinNotificationExtension.url, includingPropertiesForKeys: nil) else {
             os_log("We could not list the serialized json files saved by the notification extension", log: log, type: .error)
             return cancel(withReason: .couldNotListContentsOfDirectory)
         }

@@ -27,21 +27,27 @@ import Combine
 import ObvTypes
 import OlvidUtils
 import ObvUI
+import Platform_Base
+import ObvUICoreData
+import Components_TextInputShortcutsResultView
+import _Discussions_Mentions_Builders_Shared
+import Discussions_ScrollToBottomButton
+import Discussions_AttachmentsDropView
+import UniformTypeIdentifiers
 
 @available(iOS 15.0, *)
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, DiscussionViewController, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, TextBubbleDelegate, ObvErrorMaker {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource {
     
     static let errorDomain = "NewSingleDiscussionViewController"
     let currentOwnedCryptoId: ObvCryptoId
     static let sectionHeaderElementKind = UICollectionView.elementKindSectionHeader
+    private let discussion: PersistedDiscussion
     private var collectionView: DiscussionCollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, NSManagedObjectID>!
     private var frc: NSFetchedResultsController<PersistedMessage>!
     private var currentContentHeight = CGFloat(0)
     private var viewDidAppearWasCalled = false
-    private var viewDidLoadWasCalled = false
-    private var hideHeaderRequestId = UUID()
-    private var composeMessageView: NewComposeMessageView?
+    private var composeMessageView: NewComposeMessageView!
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
     let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
@@ -59,12 +65,19 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var messagesToMarkAsNotNewWhenScrollingEnds = Set<TypeSafeManagedObjectID<PersistedMessage>>()
     private var atLeastOneSnapshotWasApplied = false
     private var isRegisteredToKeyboardNotifications = false
-    private var backgroundEffectViewForComposeView: UIVisualEffectView!
     private var visibilityTrackerForSensitiveMessages: VisibilityTrackerForSensitiveMessages
+    private lazy var scrollToBottomButton = ScrollToBottomButton(observing: collectionView, initialVerticalVisibilityThreshold: 0)
+    private let viewDidLayoutSubviewsSubject = PassthroughSubject<Void, Never>()
 
+    /// We must adapt the collection view's insets when the frame of the main content view of the composition view changes, when the keyboard shows/hides, but only when we are not scrolling.
+    /// To do so, we three values representing those states, and adapt the insets when appropriate. We use the ``NewComposeMessageView`` published main content view frame, the published ``currentScrolling`` value, and the following ``toggledWhenKeyboardDidHideOrShow`` variable, toggled whenever the keyboard changes state.
+    // Adapting the scroll view's insets depending on the height of the composition view, the virtual keyboard status, and the scrolling status
+    @Published private var toggledWhenKeyboardDidHideOrShow = false
+        
     @Published private var messagesToReconfigure = Set<TypeSafeManagedObjectID<PersistedMessage>>()
+
     private var cancellables = [AnyCancellable]()
-    
+
     // Single and double tap gesture recognizers on cells
     private var singleTapOnCell: UITapGestureRecognizer!
     private var doubleTapOnCell: UITapGestureRecognizer!
@@ -81,7 +94,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var lastReceivedMessageObjectId: TypeSafeManagedObjectID<PersistedMessageReceived>?
     private var lastSentMessageObjectId: TypeSafeManagedObjectID<PersistedMessageSent>?
     private var lastSystemMessageObjectId: TypeSafeManagedObjectID<PersistedMessageSystem>?
-    private var currentScrolling = ScrollingType.none
+    @Published private var currentScrolling = ScrollingType.none
 
     private let defaultAnimationValues: (duration: Double, options: UIView.AnimationOptions) = (0.25, UIView.AnimationOptions([.curveEaseInOut]))
     
@@ -90,6 +103,16 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var timerForRefreshingCellCountdowns: Timer?
 
     private var filesViewer: FilesViewer?
+
+    private lazy var attachmentsDropView = AttachmentsDropView(
+        allowedTypes: [.image, .movie, .pdf, .data, .item],
+        directoryForTemporaryFiles: ObvUICoreDataConstants.ContainerURL.forTemporaryDroppedItems.url
+    )..{
+        $0.delegate = self
+    }
+
+    /// Allows to keep track of the message the user wants to forward until she chose the appropriate discussions.
+    private var messageToForward: PersistedMessage?
 
     /// The counter in the system message showing the number of new messages corresponds to the number of elements in this set.
     /// When instanciating this view controller, we query the database to get the objectIDs of all new received and system messages, and we
@@ -106,7 +129,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var objectIDsOfMessagesToConsiderInNewMessagesCell = Set<TypeSafeManagedObjectID<PersistedMessage>>()
         
     weak var delegate: SingleDiscussionViewControllerDelegate?
-    
+
     private let dateFormaterForHeaders: DateFormatter = {
         let df = DateFormatter()
         df.locale = Locale.current
@@ -163,6 +186,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         guard let ownCryptoId = discussion.ownedIdentity?.cryptoId else {
             throw Self.makeError(message: "Could not determine owned identity")
         }
+        self.discussion = discussion
         self.currentOwnedCryptoId = ownCryptoId
         self.draftObjectID = discussion.draft.typedObjectID
         self.discussionObjectID = discussion.typedObjectID
@@ -174,7 +198,10 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             draft: discussion.draft,
             viewShowingHardLinksDelegate: self,
             cacheDelegate: cacheDelegate,
-            delegate: self)
+            delegate: self,
+            datasource: self
+        )
+
         self.delegate = delegate
         
         do {
@@ -195,9 +222,8 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         
     override func viewDidLoad() {
         super.viewDidLoad()
-        viewDidLoadWasCalled = true
         view.backgroundColor = .systemBackground
-        self.composeMessageView?.delegateViewController = self
+        self.composeMessageView.delegateViewController = self
         configureNavigationTitle()
 
         insertOrUpdateSystemMessageCountingNewMessages(removeExisting: true)
@@ -221,9 +247,45 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         observeDeletedFyleMessageJoinNotifications()
         
         observeTapsOnCollectionView()
+
+        observeNicknameChanges()
+        configureScrollToBottomButton()
+        
+        observeKeyboardAndCompositionViewChangesToAdaptCollectionViewsInsets()
     }
     
     
+    private func configureScrollToBottomButton() {
+        let verticalVisibilityPublisher = Publishers.CombineLatest(
+            viewDidLayoutSubviewsSubject,
+            collectionView.publisher(for: \.contentSize,
+                                     options: [.initial, .new]))
+        .map(\.1)
+        .compactMap { [weak collectionView] contentSize -> CGFloat? in
+            guard let collectionView else {
+                return nil
+            }
+
+            let contentHeight = contentSize.height
+
+            let pageHeight = collectionView.frame.height
+
+            return contentHeight - (pageHeight * 2) - collectionView.adjustedContentInset.top
+        }
+
+        verticalVisibilityPublisher
+            .assign(to: &scrollToBottomButton.$verticalVisibilityThreshold)
+    }
+    
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        // When the subiews are laid out, we use this published to update the scrollToBottomButton.
+        viewDidLayoutSubviewsSubject
+            .send()
+    }
+
     private func configureTimerForRefreshingCellCountdowns() {
         guard timerForRefreshingCellCountdowns == nil else { return }
         timerForRefreshingCellCountdowns = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(refreshCellCountdowns), userInfo: nil, repeats: true)
@@ -248,9 +310,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         // This constraint was *not* set in viewDidLoad. We want to reset it every time the main view will appear
         // Otherwise, it seems that the constraint "disappears" each time another VC is presented over this one.
         if #available(iOS 15.5, *) {
-            view.keyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView!.bottomAnchor).isActive = true
+            view.keyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView.mainContentView.bottomAnchor).isActive = true
         } else {
-            myKeyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView!.bottomAnchor).isActive = true
+            myKeyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView.mainContentView.bottomAnchor).isActive = true
         }
 
         configureNewComposeMessageViewVisibility(animate: false)
@@ -259,20 +321,20 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         viewDidAppearWasCalled = true
-        composeMessageView?.discussionViewDidAppear()
+        composeMessageView.discussionViewDidAppear()
         configureTimerForRefreshingCellCountdowns()
                 
-        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from viewDidAppear")
+        // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from viewDidAppear")
         markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
         insertSystemMessageIfCurrentDiscussionIsEmpty()
         
         performInitialScrollIfAppropriateAndRemoveHidingView()
         
         // This hack re-enables the compose message view in case it was prevented from editing
-        if composeMessageView?.preventTextViewFromEditing == true {
+        if composeMessageView.preventTextViewFromEditing {
             DispatchQueue.main.async { [weak self] in
-                self?.composeMessageView?.endEditing(false)
-                self?.composeMessageView?.preventTextViewFromEditing = false
+                self?.composeMessageView.endEditing(false)
+                self?.composeMessageView.preventTextViewFromEditing = false
             }
         }
     }
@@ -281,26 +343,27 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private func performInitialScrollIfAppropriateAndRemoveHidingView() {
         assert(Thread.isMainThread)
         guard viewDidAppearWasCalled else {
-            ObvDisplayableLogs.shared.log("[Discussion] Since viewDidAppearWasCalled is false, we do not scroll yet")
+            // ObvDisplayableLogs.shared.log("[Discussion] Since viewDidAppearWasCalled is false, we do not scroll yet")
             return
         }
         guard atLeastOneSnapshotWasApplied else {
-            ObvDisplayableLogs.shared.log("[Discussion] Since atLeastOneSnapshotWasApplied is false, we do not scroll yet")
+            // ObvDisplayableLogs.shared.log("[Discussion] Since atLeastOneSnapshotWasApplied is false, we do not scroll yet")
             return
         }
         guard !initialScrollWasPerformed else {
-            ObvDisplayableLogs.shared.log("[Discussion] Since initialScrollWasPerformed was already performed, we do not scroll")
+            // ObvDisplayableLogs.shared.log("[Discussion] Since initialScrollWasPerformed was already performed, we do not scroll")
             return
         }
         initialScrollWasPerformed = true
         let completion = { [weak self] in
             self?.scrollViewDidEndAutomaticScroll()
-            ObvDisplayableLogs.shared.log("[Discussion] Removing hiding view")
+            // ObvDisplayableLogs.shared.log("[Discussion] Removing hiding view")
             UIView.animate(withDuration: 0.3) {
                 self?.hidingView.alpha = 0
             } completion: { _ in
                 self?.hidingView.isHidden = true
-                ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from performInitialScrollIfAppropriateAndRemoveHidingView")
+                self?.scrollToBottomButton.isTrackingEnabled = true
+                // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Will call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew from performInitialScrollIfAppropriateAndRemoveHidingView")
                 self?.markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew()
             }
         }
@@ -325,16 +388,15 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        composeMessageView?.discussionViewWillDisappear()
+        composeMessageView.discussionViewWillDisappear()
         invalidateTimerForRefreshingCellCountdowns()
         processReceivedMessagesThatBecameNotNewDuringScrolling()
         if self.filesViewer == nil {
             // If the user is swiping to dismiss while the text view is editing, this code dismisses the keyboard and prevents it re-appearing if the user changes its mind and swipe back. The text view is reactivated in viewWillAppear.
-            composeMessageView?.animatedEndEditing(completion: { _ in })
-            composeMessageView?.preventTextViewFromEditing = true
+            composeMessageView.animatedEndEditing(completion: { _ in })
+            composeMessageView.preventTextViewFromEditing = true
         }
     }
-    
 
     private func registerForNotification() {
         guard !isRegisteredToNotifications else { return }
@@ -345,9 +407,9 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         let discussionObjectID = self.discussionObjectID
         let discussionPermanentID = self.discussionPermanentID
         observationTokens.append(contentsOf: [
-            ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
+            ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
                 OperationQueue.main.addOperation {
-                    guard case .muteNotificationsDuration = value else { return }
+                    guard case .muteNotificationsEndDate = value else { return }
                     guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
                     guard discussion.localConfiguration.typedObjectID == objectId else { return }
                     self?.configureNavigationTitle()
@@ -401,7 +463,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     
     
     func addAttachmentFromAirDropFile(at fileURL: URL) {
-        self.composeMessageView?.addAttachmentFromAirDropFile(at: fileURL)
+        self.composeMessageView.addAttachmentFromAirDropFile(at: fileURL)
     }
 }
 
@@ -487,7 +549,7 @@ extension NewSingleDiscussionViewController {
                 let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
                 let unmuteImage = UIImage(systemIcon: .moonZzzFill, withConfiguration: symbolConfiguration)
                 let unmuteAction = UIAction.init(title: Strings.unmuteNotifications, image: UIImage(systemIcon: .moonZzzFill)) { _ in
-                    ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsDuration(nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+                    ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsEndDate(nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
                 }
                 let menuElements: [UIMenuElement] = [unmuteAction]
                 let menu = UIMenu(title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted), children: menuElements)
@@ -512,7 +574,8 @@ extension NewSingleDiscussionViewController {
         delegate?.userTappedTitleOfDiscussion(discussion)
     }
     
-    func configureHierarchy() {
+    
+    private func configureHierarchy() {
         
         collectionView = DiscussionCollectionView(frame: view.bounds, collectionViewLayout: createLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -523,18 +586,16 @@ extension NewSingleDiscussionViewController {
         collectionView.alwaysBounceVertical = true
         collectionView.scrollsToTop = false
         collectionView.contentInsetAdjustmentBehavior = .automatic
-        
+
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
         ])
         
         collectionView.prefetchDataSource = self
-        
-        configureComposeMessageViewHierarchy()
-        
+
         view.addSubview(hidingView)
         hidingView.translatesAutoresizingMaskIntoConstraints = false
         view.pinAllSidesToSides(of: hidingView)
@@ -548,6 +609,35 @@ extension NewSingleDiscussionViewController {
             spinner.centerYAnchor.constraint(equalTo: hidingView.centerYAnchor),
         ])
         spinner.startAnimating()
+
+        view.addSubview(scrollToBottomButton)
+        view.addSubview(attachmentsDropView)
+
+        let attachmentsDropViewLayoutGuide = UILayoutGuide()
+
+        view.addLayoutGuide(attachmentsDropViewLayoutGuide)
+
+        configureComposeMessageViewHierarchy()
+
+        NSLayoutConstraint.activate([
+            scrollToBottomButton.bottomAnchor.constraint(equalTo: composeMessageView!.topAnchor, constant: -24),
+            scrollToBottomButton.trailingAnchor.constraint(equalTo: collectionView.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+
+            attachmentsDropViewLayoutGuide.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
+            attachmentsDropViewLayoutGuide.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
+
+            attachmentsDropViewLayoutGuide.topAnchor.constraint(equalTo: view.layoutMarginsGuide.topAnchor),
+            composeMessageView!.topAnchor.constraint(equalToSystemSpacingBelow: attachmentsDropViewLayoutGuide.bottomAnchor, multiplier: 1),
+        ])
+
+        NSLayoutConstraint.activate([
+            attachmentsDropView.topAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.topAnchor),
+            attachmentsDropView.trailingAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.trailingAnchor),
+            attachmentsDropView.bottomAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.bottomAnchor),
+            attachmentsDropView.leadingAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.leadingAnchor),
+        ])
+
+        view.addInteraction(UIDropInteraction(attachmentsDropView))
     }
 
     
@@ -566,35 +656,18 @@ extension NewSingleDiscussionViewController {
 
         }
 
-        backgroundEffectViewForComposeView = UIVisualEffectView()
-        view.addSubview(backgroundEffectViewForComposeView)
-        backgroundEffectViewForComposeView.translatesAutoresizingMaskIntoConstraints = false
-        backgroundEffectViewForComposeView.effect = UIBlurEffect(style: .regular)
-
         view.addSubview(composeMessageView!)
-        composeMessageView?.translatesAutoresizingMaskIntoConstraints = false
+        composeMessageView.translatesAutoresizingMaskIntoConstraints = false
+
+        composeMessageView!.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+
 
         // The bottomAnchor of the composeMessageView is pinned to the view's keyboardLayoutGuide in viewWillAppear.
         // In practice, this allows to reset this constraint after a new VC was presented or pushed over this one.
-        if #available(iOS 15.5, *) {
-            NSLayoutConstraint.activate([
-                composeMessageView!.widthAnchor.constraint(equalTo: view.widthAnchor),
-                backgroundEffectViewForComposeView.topAnchor.constraint(equalTo: composeMessageView!.topAnchor),
-                backgroundEffectViewForComposeView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                backgroundEffectViewForComposeView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-                backgroundEffectViewForComposeView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            ])
-        } else {
-            NSLayoutConstraint.activate([
-                composeMessageView!.widthAnchor.constraint(equalTo: view.widthAnchor),
-                composeMessageView!.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                backgroundEffectViewForComposeView.topAnchor.constraint(equalTo: composeMessageView!.topAnchor),
-                backgroundEffectViewForComposeView.trailingAnchor.constraint(equalTo: composeMessageView!.trailingAnchor),
-                backgroundEffectViewForComposeView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-                backgroundEffectViewForComposeView.leadingAnchor.constraint(equalTo: composeMessageView!.leadingAnchor),
-            ])
-        }
-                
+        NSLayoutConstraint.activate([
+            composeMessageView!.widthAnchor.constraint(equalTo: view.widthAnchor),
+            composeMessageView!.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        ])
     }
     
     private func createLayout() -> UICollectionViewLayout {
@@ -1019,7 +1092,7 @@ extension NewSingleDiscussionViewController {
     
     private func insertOrUpdateSystemMessageCountingNewMessages(removeExisting: Bool) {
         do {
-            guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+            guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             if removeExisting || objectIDsOfMessagesToConsiderInNewMessagesCell.isEmpty {
                 unreadMessagesSystemMessage = nil
                 try PersistedMessageSystem.removeAnyNewMessagesSystemMessages(withinDiscussion: discussion)
@@ -1132,7 +1205,7 @@ extension NewSingleDiscussionViewController {
 
     /// We observe deletion of received messages so as to update the system message cell counting new messages.
     private func updateNewMessageCellOnDeletionOfReceivedMessages() {
-        observationTokens.append(PersistedMessageReceivedNotification.observePersistedMessageReceivedWasDeleted { [weak self] (objectID, _, _, _, discussionObjectID) in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasDeleted { [weak self] (objectID, _, _, _, discussionObjectID) in
             OperationQueue.main.addOperation {
                 guard let _self = self else { return }
                 guard discussionObjectID == _self.discussionObjectID else { return }
@@ -1180,7 +1253,7 @@ extension NewSingleDiscussionViewController {
                 // We want to perform the same scroll than the initial scroll in order to show this sytem message the next time the user enters the discussion. Note that this is only required to handle the case where the user puts Olvid into the background while being in this discussion, or while navigation from this discussion to another one.
                 if unreadMessagesSystemMessage != nil {
                     initialScrollWasPerformed = false
-                    ObvDisplayableLogs.shared.log("[Discussion] Showing hiding view again as the user left the discussion")
+                    // ObvDisplayableLogs.shared.log("[Discussion] Showing hiding view again as the user left the discussion")
                     hidingView.alpha = 1
                     hidingView.isHidden = false
                 }
@@ -1216,11 +1289,11 @@ extension NewSingleDiscussionViewController {
         // If we are currently scrolling, we do *not* notify that a message has been read.
         // This would introduce animation glitches. Instead, we postpone the notification
         if currentScrolling == .none {
-            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markAsNotNewTheMessageInCell for \([messageObjectId].count) messages")
+            // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markAsNotNewTheMessageInCell for \([messageObjectId].count) messages")
             ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageObjectId])
                 .postOnDispatchQueue()
         } else {
-            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] As currentScrolling is \(currentScrolling.debugDescription), we do not post messagesAreNotNewAnymore notification for \([messageObjectId].count) messages")
+            // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] As currentScrolling is \(currentScrolling.debugDescription), we do not post messagesAreNotNewAnymore notification for \([messageObjectId].count) messages")
             messagesToMarkAsNotNewWhenScrollingEnds.insert(messageObjectId)
         }
     }
@@ -1229,17 +1302,17 @@ extension NewSingleDiscussionViewController {
     /// Marks all new received and relevant system messages that are visible as "not new"
     private func markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew() {
 
-        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew")
+        // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Call to markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew")
         
         // If the scene is not foreground active, we do not mark visible messages as not new.
         // When going back to the `active` state, a call to `markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew(..)` will be made.
         // This will allow to mark visible messages as not new.
         guard windowSceneActivationState == .foregroundActive else {
-            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Not performing markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew as we are not foregroundActive")
+            // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Not performing markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew as we are not foregroundActive")
             return
         }
 
-        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Performing markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew")
+        // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Performing markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew")
         
         let visibleReceivedCells = collectionView.visibleCells.compactMap({ $0 as? ReceivedMessageCell })
         let visibleSystemCells = collectionView.visibleCells.compactMap({ $0 as? SystemMessageCell })
@@ -1253,7 +1326,7 @@ extension NewSingleDiscussionViewController {
         let objectIDsOfNewVisibleMessages = objectIDsOfNewVisibleReceivedMessages.union(objectIDsOfNewVisibleSystemMessages)
 
         if !objectIDsOfNewVisibleMessages.isEmpty {
-            ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew for \(objectIDsOfNewVisibleMessages.count) messages")
+            // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew for \(objectIDsOfNewVisibleMessages.count) messages")
             ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: objectIDsOfNewVisibleMessages)
                 .postOnDispatchQueue(internalQueue)
         }
@@ -1309,16 +1382,17 @@ extension NewSingleDiscussionViewController {
     
     private func evaluateScrollDependencies() {
         debugPrint("🐸 \(currentScrolling.debugDescription)")
+
         switch currentScrolling {
         case .none:
             evaluateIfScrollOnNewIncomingMessageShouldBeActive()
             processReceivedMessagesThatBecameNotNewDuringScrolling()
-            (collectionView.collectionViewLayout as? DiscussionLayout)?.currentlyScrollingManually = false
+
         case .automatically:
-            (collectionView.collectionViewLayout as? DiscussionLayout)?.currentlyScrollingManually = false
+            break
+
         case .manually:
             self.lastScrollWasManual = true
-            (collectionView.collectionViewLayout as? DiscussionLayout)?.currentlyScrollingManually = true
         }
     }
     
@@ -1338,7 +1412,7 @@ extension NewSingleDiscussionViewController {
         // No need to check whether the window is foreground active
         guard !messagesToMarkAsNotNewWhenScrollingEnds.isEmpty else { return }
         guard currentScrolling == .none else { return }
-        ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in processReceivedMessagesThatBecameNotNewDuringScrolling for \(messagesToMarkAsNotNewWhenScrollingEnds.count) messages")
+        // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in processReceivedMessagesThatBecameNotNewDuringScrolling for \(messagesToMarkAsNotNewWhenScrollingEnds.count) messages")
         ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: messagesToMarkAsNotNewWhenScrollingEnds)
             .postOnDispatchQueue(internalQueue)
         messagesToMarkAsNotNewWhenScrollingEnds.removeAll()
@@ -1495,22 +1569,29 @@ extension NewSingleDiscussionViewController {
             if persistedMessage.forwardActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Forward) { [weak self] (_) in
                     guard let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId else { return }
-                    let vc = DiscussionsSelectionViewController(ownedCryptoId: ownedCryptoId) { discussionPermanentIDs in
-                        guard !discussionPermanentIDs.isEmpty else { return }
-                        // Forward the message to all the discussions
-                        ObvMessengerInternalNotification.userWantsToForwardMessage(messagePermanentID: persistedMessage.messagePermanentID, discussionPermanentIDs: discussionPermanentIDs)
-                            .postOnDispatchQueue()
-                        // In case the message was forwarded to exactly one discussion, we want to push this discussion onto the navigation stack
-                        if discussionPermanentIDs.count == 1,
-                           let discussionPermanentID = discussionPermanentIDs.first,
-                           discussionPermanentID != persistedMessage.discussion.discussionPermanentID,
-                           let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId {
-                            // We assume the discussion belongs the current owned identity
-                            let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
-                            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-                                .postOnDispatchQueue()
-                        }
+                    let vc: UIViewController
+                    if #available(iOS 16, *) {
+                        let viewModel = NewDiscussionsSelectionViewController.ViewModel(
+                            viewContext: ObvStack.shared.viewContext,
+                            preselectedDiscussions: [],
+                            ownedCryptoId: ownedCryptoId,
+                            attachSearchControllerToParent: false,
+                            buttonTitle: CommonString.Word.Forward,
+                            buttonSystemIcon: .arrowshapeTurnUpForwardFill)
+                        vc = NewDiscussionsSelectionViewController(viewModel: viewModel, delegate: self)
+                    } else {
+                        vc = DiscussionsSelectionViewController(ownedCryptoId: ownedCryptoId,
+                                                                within: ObvStack.shared.viewContext,
+                                                                preselectedDiscussions: Set(),
+                                                                delegate: self,
+                                                                acceptButtonTitle: CommonString.Word.Forward)
                     }
+                    self?.messageToForward = persistedMessage
+                    let cancelAction = UIAction { [weak self] _ in
+                        self?.messageToForward = nil
+                        self?.presentedViewController?.dismiss(animated: true)
+                    }
+                    vc.navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .cancel, primaryAction: cancelAction)
                     let nav = ObvNavigationController(rootViewController: vc)
                     self?.present(nav, animated: true)
                     return
@@ -1568,6 +1649,22 @@ extension NewSingleDiscussionViewController {
             return UIMenu(title: "", image: nil, identifier: nil, options: .displayInline, children: children)
         }
     }
+    
+    
+    /// Helper method called after the user decided to forward a message from this discussion to another. In case the message was forwarded to exactly one discussion, we navigate to that discussion.
+    private func navigateIfAppropriateToDiscussionWhereMessageWasForwarded(discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>, persistedMessage: PersistedMessage) {
+        if discussionPermanentIDs.count == 1,
+           let discussionPermanentID = discussionPermanentIDs.first,
+           discussionPermanentID != persistedMessage.discussion.discussionPermanentID,
+           let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId {
+            // We assume the discussion belongs the current owned identity
+            let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                .postOnDispatchQueue()
+        }
+    }
+    
+    
 
     private func postUserHasOpenedAReceivedAttachmentNotification(for message: PersistedMessage) {
         guard let receivedMessage = message as? PersistedMessageReceived else { return }
@@ -1727,32 +1824,68 @@ extension NewSingleDiscussionViewController {
 }
 
 
-
-// MARK: - NewComposeMessageViewDelegate for handling the scroll
+// MARK: - Adapting the collection view's insets
 
 @available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
-    func newComposeMessageView(_ newComposeMessageView: NewComposeMessageView, newFrame frame: CGRect) {
+    /// Called in ``func viewDidLoad()``, this method observe significan layput changes in order to update the collection view's insets.
+    ///
+    /// We combines the latest values of the following three variables:
+    /// - The published values of the compostion view ``mainContentViewFrame``.
+    /// - The published values of ``toggledWhenKeyboardDidHideOrShow``, which is toggled each time the keyboard hides or shows.
+    /// - The published values of the ``currentScrolling`` variable, since we want to prevent the modification of the collection view's insets while scrolling, and postpone these modifications to the time the scrolling is finished. In practice, it is also ok to update the insets when ``isTrackin`` is `false`.
+    private func observeKeyboardAndCompositionViewChangesToAdaptCollectionViewsInsets() {
+        cancellables.append(Publishers.CombineLatest3(composeMessageView.$mainContentViewFrame, $toggledWhenKeyboardDidHideOrShow, $currentScrolling)
+            .sink(receiveValue: { [weak self] (currentComposeViewMainContentViewFrame, toggledWhenKeyboardDidHideOrShow, currentScrolling) in
+                self?.adaptCollectionViewInsetsToComposeMessageView(mainContentViewFrame: currentComposeViewMainContentViewFrame)
+            })
+        )
+    }
 
-        guard viewDidLoadWasCalled else { return }
-        guard !newComposeMessageView.preventTextViewFromEditing else { return }
-        
+    
+    private func adaptCollectionViewInsetsToComposeMessageView(mainContentViewFrame: CGRect) {
+
+        guard let composeMessageView, let collectionView else { return }
+        guard !composeMessageView.preventTextViewFromEditing else { return }
+        guard currentScrolling != .manually || !collectionView.isTracking else { return }
+
         let bottom: CGFloat
-        if newComposeMessageView.isHidden {
+        if composeMessageView.isHidden {
             bottom = view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
         } else {
             if #available(iOS 15.5, *) {
-                bottom = frame.height + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
+                bottom = mainContentViewFrame.height + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
             } else {
-                bottom = frame.height + myKeyboardLayoutGuideHeightConstraint!.constant - view.safeAreaInsets.bottom
+                bottom = mainContentViewFrame.height + myKeyboardLayoutGuideHeightConstraint!.constant - view.safeAreaInsets.bottom
             }
         }
         guard collectionView.contentInset.bottom != bottom else { return }
         
         let currentHeightBelowContent = max(0, collectionView.bounds.height - collectionView.adjustedContentInset.bottom - collectionView.adjustedContentInset.top - collectionView.contentSize.height)
         let amountToScroll = max(0, bottom - collectionView.contentInset.bottom - currentHeightBelowContent)
+        
+        if bottom > collectionView.contentInset.bottom {
+            // Virtual keyboard is going up, we don't explicitely animate
+            setCollectionViewContentInsetBottom(to: bottom)
+        } else {
+            // Virtual keyboard is dismissing, we do animate
+            UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.2, delay: 0) { [weak self] in
+                self?.setCollectionViewContentInsetBottom(to: bottom)
+            }
+        }
+        
+        // Scroll if required
+        
+        collectionView.contentOffset = CGPoint(x: collectionView.contentOffset.x, y: collectionView.contentOffset.y + amountToScroll)
+        
+        scrollViewDidEndAutomaticScroll()
 
+    }
+
+    
+    /// Method called from ``func adaptCollectionViewInsetsToComposeMessageView(mainContentViewFrame: CGRect)``.
+    private func setCollectionViewContentInsetBottom(to bottom: CGFloat) {
         collectionView.contentInset = UIEdgeInsets(
             top: collectionView.contentInset.top,
             left: collectionView.contentInset.left,
@@ -1763,15 +1896,28 @@ extension NewSingleDiscussionViewController {
             left: collectionView.verticalScrollIndicatorInsets.left,
             bottom: bottom,
             right: collectionView.verticalScrollIndicatorInsets.left)
-
-        // Scroll if required
-        
-        collectionView.contentOffset = CGPoint(x: collectionView.contentOffset.x, y: collectionView.contentOffset.y + amountToScroll)
-        scrollViewDidEndAutomaticScroll()
-
     }
-    
-    
+
+}
+
+
+// MARK: - NewComposeMessageViewDelegate for handling the scroll
+
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController {
+        
+    func newComposeMessageViewShortcutPickerAboveSiblingView(_ newComposeMessageView: NewComposeMessageView) -> UIView {
+        return scrollToBottomButton
+    }
+
+    func newComposeMessageViewShortcutPickerSuperview(_ newComposeMessageView: NewComposeMessageView) -> UIView {
+        return view
+    }
+
+    func newComposeMessageViewShortcutPickerGeometryPlacementSiblingView(_ newComposeMessageView: NewComposeMessageView) -> UIView {
+        return composeMessageView!
+    }
+
     private func registerForKeyboardNotifications() {
         guard !isRegisteredToKeyboardNotifications else { return }
         defer { isRegisteredToKeyboardNotifications = true }
@@ -1786,10 +1932,11 @@ extension NewSingleDiscussionViewController {
 
     
     @objc private func keyboardDidHideOrShow(_ notification: Notification) {
-        guard composeMessageView?.preventTextViewFromEditing == false else { return }
-        composeMessageView?.setNeedsLayout()
+        toggledWhenKeyboardDidHideOrShow.toggle()
+        guard composeMessageView.preventTextViewFromEditing == false else { return }
+        composeMessageView.setNeedsLayout()
         UIView.animate(withDuration: 0.3) { [weak self] in
-            self?.composeMessageView?.layoutIfNeeded()
+            self?.composeMessageView.layoutIfNeeded()
         }
     }
 
@@ -1824,15 +1971,13 @@ extension NewSingleDiscussionViewController {
     private func configureNewComposeMessageViewVisibility(animate: Bool) {
         assert(Thread.isMainThread)
         guard let composeMessageView = self.composeMessageView else { assertionFailure(); return }
-        guard let backgroundEffectViewForComposeView = self.backgroundEffectViewForComposeView else { assertionFailure(); return }
         let shouldHideNewComposeMessageView = self.shouldHideNewComposeMessageView
-        guard composeMessageView.isHidden != shouldHideNewComposeMessageView || backgroundEffectViewForComposeView.isHidden != shouldHideNewComposeMessageView else { return }
+        guard composeMessageView.isHidden != shouldHideNewComposeMessageView else { return }
         composeMessageView.setNeedsLayout()
         UIView.animate(withDuration: animate ? 0.3 : 0.0) { [weak self] in
-            self?.composeMessageView?.isHidden = shouldHideNewComposeMessageView
-            backgroundEffectViewForComposeView.isHidden = shouldHideNewComposeMessageView
+            self?.composeMessageView.isHidden = shouldHideNewComposeMessageView
         } completion: { [weak self] _ in
-            self?.composeMessageView?.layoutIfNeeded()
+            self?.composeMessageView.layoutIfNeeded()
         }
     }
  
@@ -1863,14 +2008,9 @@ extension NewSingleDiscussionViewController {
                     return true
                 }
             case .groupV2(withGroup: let group):
-                // We do no not show the compose view if we have no one to write to in a group discussion
+                // We allow the owned identity to write in a group v2 even if there is noone to write to.
                 guard let group = group else { assertionFailure(); return true }
-                if group.otherMembers.isEmpty {
-                    return true
-                }
-                if !group.ownedIdentityIsAllowedToSendMessage {
-                    return true
-                }
+                guard group.ownedIdentityIsAllowedToSendMessage else { return true }
             case .none:
                 assertionFailure()
             }
@@ -2041,7 +2181,7 @@ extension NewSingleDiscussionViewController {
             return
         }
         filesViewer = FilesViewer(frc: frc, qlPreviewControllerDelegate: self)
-        composeMessageView?.animatedEndEditing { [weak self] _ in
+        composeMessageView.animatedEndEditing { [weak self] _ in
             guard let _self = self else { return }
             do {
                 try _self.filesViewer?.tryToShowFyleMessageJoinWithStatus(join, within: _self)
@@ -2129,9 +2269,9 @@ extension NewSingleDiscussionViewController {
 extension NewSingleDiscussionViewController {
     
     func userDidTapOnDraftFyleJoinWithHardLink(at indexPath: IndexPath) {
-        guard let frc = composeMessageView?.attachmentsCollectionViewController.frc else { assertionFailure(); return }
+        guard let frc = composeMessageView.attachmentsCollectionViewController.frc else { assertionFailure(); return }
         filesViewer = FilesViewer(frc: frc, qlPreviewControllerDelegate: self)
-        composeMessageView?.animatedEndEditing { [weak self] _ in
+        composeMessageView.animatedEndEditing { [weak self] _ in
             assert(Thread.isMainThread)
             guard let _self = self else { return }
             self?.filesViewer?.tryToShowFile(atIndexPath: indexPath, within: _self)
@@ -2164,7 +2304,7 @@ extension NewSingleDiscussionViewController {
         case .persistedDraftFyleJoin:
             let attachmentIndex = controller.currentPreviewItemIndex
             let indexPath = IndexPath(item: attachmentIndex, section: 0)
-            return composeMessageView?.attachmentsCollectionViewController.getView(at: indexPath)
+            return composeMessageView.attachmentsCollectionViewController.getView(at: indexPath)
         }
     }
 
@@ -2259,4 +2399,191 @@ extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
         guard let receivedJoin = join as? ReceivedFyleMessageJoinWithStatus else { return }
         ObvMessengerInternalNotification.userHasOpenedAReceivedAttachment(receivedFyleJoinID: receivedJoin.typedObjectID).postOnDispatchQueue()
     }
+}
+
+
+// MARK: - TextBubbleDelegate
+
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController: TextBubbleDelegate {
+    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: any MentionableIdentity) {
+        delegate?.singleDiscussionViewController(self, userDidTapOn: mentionableIdentity)
+    }
+}
+
+
+// MARK: - Mentions Reconfigure Mention Cells
+
+@available(iOS 15.0, *)
+private extension NewSingleDiscussionViewController {
+    func observeNicknameChanges() {
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactHasNewCustomDisplayName { [weak self] _ in
+            guard let self = self else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.reloadDiscussionCellsAfterNicknameChange()
+            }
+        })
+    }
+
+    /// Method to be called whenever a nickname gets changed
+    private func reloadDiscussionCellsAfterNicknameChange() {
+        self.collectionView.reloadData()
+    }
+}
+
+// MARK: - NewComposeMessageViewDatasource
+
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController {
+    
+    func newComposeMessageView(_ newComposeMessageView: NewComposeMessageView, itemsForTextShortcut shortcut: NewComposeMessageViewTypes.TextShortcut, text: String) -> [NewComposeMessageViewTypes.TextShortcutItem] {
+        
+        switch shortcut {
+        case .mention:
+
+            guard let discussionKind = try? discussion.kind else {
+                assertionFailure("failed to retrieve discussion kind")
+
+                return []
+            }
+
+            guard let ownedIdentity = discussion.ownedIdentity else {
+                assertionFailure("our owned identity does not exist, can't mention")
+                return []
+            }
+
+            let mentionableIdentities: [MentionableIdentity]
+
+            switch discussionKind {
+            case .oneToOne(withContactIdentity: let otherContactIdentity):
+                guard let otherContactIdentity else {
+                    return []
+                }
+
+                mentionableIdentities = [otherContactIdentity,
+                                         ownedIdentity]
+
+            case .groupV1(withContactGroup: let contactGroup):
+                guard let contactGroup else {
+                    return []
+                }
+
+                mentionableIdentities = (contactGroup.sortedContactIdentities as [MentionableIdentity])..{
+                    $0.append(ownedIdentity)
+
+                    $0.sort(by: \.mentionDisplayName)
+                }
+
+            case .groupV2(withGroup: let group):
+                guard let group else {
+                    return []
+                }
+
+                mentionableIdentities = (group.otherMembersSorted as [MentionableIdentity])..{
+                    $0.append(ownedIdentity)
+
+                    $0.sort(by: \.mentionDisplayName)
+                }
+            }
+
+            let baseResults = mentionableIdentities
+                .map(NewComposeMessageViewTypes.TextShortcutItem.init)
+
+            let searchQuery = String(text.dropFirst(MentionsConstants.mentionPrefix.count))
+
+            guard searchQuery.isEmpty == false else {
+                return baseResults
+            }
+
+            let predicate = NSPredicate(format: "self CONTAINS[cd] %@", searchQuery)
+
+            return baseResults
+                .filter { item in
+                    return predicate.evaluate(with: item.searchMatcher)
+                }
+        }
+    }
+}
+
+@available(iOS 14.0, *)
+private extension NewComposeMessageViewTypes.TextShortcutItem {
+    init(_ member: MentionableIdentity) {
+        let attributes = [NSAttributedString.Key: Any].compositionMentionAttributes(member)
+
+        self.init(searchMatcher: member.mentionSearchMatcher,
+                  title: MentionsConstants.mentionPrefix + member.mentionPickerTitle,
+                  subtitle: member.mentionPickerSubtitle,
+                  accessory: .circledInitialsView(configuration: member.circledInitialsConfiguration),
+                  value: .init(string: MentionsConstants.mentionPrefix + member.mentionPersistedName,
+                               attributes: attributes))
+    }
+}
+
+
+// MARK: - NewDiscussionsSelectionViewControllerDelegate
+
+@available(iOS 16.0, *)
+extension NewSingleDiscussionViewController: NewDiscussionsSelectionViewControllerDelegate {
+    
+    func userAcceptedlistOfSelectedDiscussions(_ listOfSelectedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>], in newDiscussionsSelectionViewController: UIViewController) {
+        newDiscussionsSelectionViewController.dismiss(animated: true) { [weak self] in
+            guard let messageToForward = self?.messageToForward else { assertionFailure(); return }
+            self?.messageToForward = nil
+            guard !listOfSelectedDiscussions.isEmpty else { return }
+            let discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>> = Set(listOfSelectedDiscussions.compactMap { discussionID in
+                guard let discussion = try? PersistedDiscussion.get(objectID: discussionID.objectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return nil }
+                return discussion.discussionPermanentID
+            })
+            ObvMessengerInternalNotification.userWantsToForwardMessage(messagePermanentID: messageToForward.messagePermanentID, discussionPermanentIDs: discussionPermanentIDs)
+                .postOnDispatchQueue()
+            self?.navigateIfAppropriateToDiscussionWhereMessageWasForwarded(discussionPermanentIDs: discussionPermanentIDs, persistedMessage: messageToForward)
+        }
+    }
+
+}
+
+
+// MARK: - DiscussionsSelectionViewControllerDelegate
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController: DiscussionsSelectionViewControllerDelegate {
+    
+    func userAcceptedlistOfSelectedDiscussions(_ listOfSelectedDiscussions: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>, in discussionsSelectionViewController: UIViewController) {
+        discussionsSelectionViewController.dismiss(animated: true) { [weak self] in
+            guard let messageToForward = self?.messageToForward else { assertionFailure(); return }
+            self?.messageToForward = nil
+            guard !listOfSelectedDiscussions.isEmpty else { return }
+            let discussionPermanentIDs = listOfSelectedDiscussions
+            ObvMessengerInternalNotification.userWantsToForwardMessage(messagePermanentID: messageToForward.messagePermanentID, discussionPermanentIDs: discussionPermanentIDs)
+                .postOnDispatchQueue()
+            self?.navigateIfAppropriateToDiscussionWhereMessageWasForwarded(discussionPermanentIDs: discussionPermanentIDs, persistedMessage: messageToForward)
+        }
+    }
+
+}
+
+@available(iOS 15.0, *)
+extension NewSingleDiscussionViewController: AttachmentsDropViewDelegate {
+    func attachmentsDropViewShouldBegingDropSession(_ view: AttachmentsDropView) -> Bool {
+        assert(Thread.isMainThread)
+
+        guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return false }
+
+        switch discussion.status {
+        case .preDiscussion,
+                .locked:
+            return false
+
+        case .active:
+            return true
+        }
+    }
+    
+    func attachmentsDropView(_ view: AttachmentsDropView, didDrop items: [NSItemProvider]) {
+        assert(Thread.isMainThread)
+        composeMessageView.addAttachments(from: items)
+    }
+    
 }

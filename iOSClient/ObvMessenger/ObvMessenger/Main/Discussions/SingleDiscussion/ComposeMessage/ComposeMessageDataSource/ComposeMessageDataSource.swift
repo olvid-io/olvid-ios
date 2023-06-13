@@ -17,6 +17,7 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUICoreData
 import UIKit
 
 
@@ -31,7 +32,7 @@ protocol ComposeMessageDataSource: AnyObject {
 
     var collectionView: UICollectionView? { get set }
     
-    var draft: Draft { get } // The current draft value
+    var draft: PersistedDraft { get } // The current draft value
     
     var collectionViewIsEmpty: Bool { get }
 

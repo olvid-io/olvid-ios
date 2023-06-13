@@ -89,6 +89,10 @@ public struct ObvIdentityCoreDetails: Equatable {
         }
     }
 
+    /// Returns an instance of `PersonNameComponents` with **only** the `firstName` and `lastName`
+    /// See:
+    ///   - ``firstName``
+    ///   - ``lastName``
     public var personNameComponents: PersonNameComponents {
         var pnc = PersonNameComponents()
         pnc.familyName = lastName

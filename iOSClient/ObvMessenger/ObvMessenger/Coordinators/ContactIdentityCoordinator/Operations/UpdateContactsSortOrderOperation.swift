@@ -21,30 +21,33 @@ import Foundation
 import os.log
 import ObvTypes
 import OlvidUtils
+import ObvUICoreData
 
 
-final class UpdateContactsSortOrderOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
+final class UpdateContactsSortOrderOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     let ownedCryptoId: ObvCryptoId
     let newSortOrder: ContactsSortOrder
-    let log: OSLog
     
-    init(ownedCryptoId: ObvCryptoId, newSortOrder: ContactsSortOrder, log: OSLog) {
+    init(ownedCryptoId: ObvCryptoId, newSortOrder: ContactsSortOrder) {
         self.ownedCryptoId = ownedCryptoId
         self.newSortOrder = newSortOrder
-        self.log = log
         super.init()
     }
     
     override func main() {
         
-        ObvStack.shared.performBackgroundTaskAndWait { context in
+        guard let obvContext = self.obvContext else {
+            return cancel(withReason: .contextIsNil)
+        }
+        
+        obvContext.performAndWait {
 
             do {
             
                 // Update the sort order of PersistedObvContactIdentity instances
                 
-                let persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: context)
+                let persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
                 
                 for persistedObvContactIdentity in persistedObvContactIdentites {
                     persistedObvContactIdentity.updateSortOrder(with: newSortOrder)
@@ -52,16 +55,12 @@ final class UpdateContactsSortOrderOperation: OperationWithSpecificReasonForCanc
                 
                 // Update the sort order of PersistedGroupV2Member instances (some where already updated thanks to the update made to the PersistedObvContactIdentity instances, but not all)
                 
-                let persistedGroupV2Members = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(with: ownedCryptoId, within: context)
+                let persistedGroupV2Members = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(with: ownedCryptoId, within: obvContext.context)
                 
                 for persistedGroupV2Member in persistedGroupV2Members {
                     persistedGroupV2Member.updateNormalizedSortAndSearchKeys(with: newSortOrder)
                 }
-                
-                // Save the context
-                
-                try context.save(logOnFailure: log)
-                
+                                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

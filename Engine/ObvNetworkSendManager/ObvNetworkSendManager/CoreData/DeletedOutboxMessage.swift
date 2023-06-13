@@ -37,6 +37,7 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
 
     // MARK: Attributes
 
+    @NSManaged private(set) var insertionDate: Date? // Local date when this DeletedOutboxMessage was inserted in database, expected to be non nil
     @NSManaged private var rawMessageIdOwnedIdentity: Data
     @NSManaged private var rawMessageIdUid: Data
     @NSManaged private(set) var timestampFromServer: Date
@@ -57,6 +58,7 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
         self.messageId = messageId
         self.timestampFromServer = timestampFromServer
         self.delegateManager = delegateManager
+        self.insertionDate = Date()
     }
     
     static func getOrCreate(messageId: MessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage {
@@ -77,6 +79,7 @@ extension DeletedOutboxMessage {
     struct Predicate {
         
         enum Key: String {
+            case insertionDate = "insertionDate"
             case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
             case rawMessageIdUid = "rawMessageIdUid"
             case timestampFromServer = "timestampFromServer"
@@ -88,7 +91,11 @@ extension DeletedOutboxMessage {
                 NSPredicate(Key.rawMessageIdUid, EqualToData: messageId.uid.raw),
             ])
         }
-
+        
+        static func withTimestampFromServer(earlierOrEqualTo date: Date) -> NSPredicate {
+            NSPredicate(Key.timestampFromServer, earlierOrEqualTo: date)
+        }
+        
     }
     
     @nonobjc static func fetchRequest() -> NSFetchRequest<DeletedOutboxMessage> {
@@ -97,6 +104,11 @@ extension DeletedOutboxMessage {
 
     static func getAll(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [DeletedOutboxMessage] {
         let request: NSFetchRequest<DeletedOutboxMessage> = DeletedOutboxMessage.fetchRequest()
+        request.propertiesToFetch = [
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
+            Predicate.Key.rawMessageIdUid.rawValue,
+            Predicate.Key.timestampFromServer.rawValue,
+        ]
         let items = try obvContext.fetch(request)
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
@@ -111,21 +123,21 @@ extension DeletedOutboxMessage {
         return item
     }
     
-    static func batchDelete(messageIds: [MessageIdentifier], within obvContext: ObvContext) throws {
+    static func batchDelete(messageId: MessageIdentifier, within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
-        var predicates = [NSPredicate]()
-        for ownedIdentity in Set(messageIds.map({$0.ownedCryptoIdentity})) {
-            let messageIdsOfOwnedIdentity = Set(messageIds.filter({ $0.ownedCryptoIdentity == ownedIdentity }).map({ $0.uid.raw as NSData }))
-            let predicate = NSPredicate(format: "%K IN %@ AND %K == %@",
-                                        Predicate.Key.rawMessageIdUid.rawValue, messageIdsOfOwnedIdentity as NSSet,
-                                        Predicate.Key.rawMessageIdOwnedIdentity.rawValue, ownedIdentity.getIdentity() as NSData)
-            predicates.append(predicate)
-        }
-        fetchRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
-        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        _ = try obvContext.execute(request)
+        fetchRequest.predicate = Predicate.withMessageId(messageId)
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        _ = try obvContext.execute(deleteRequest)
     }
+
     
+    static func batchDelete(withTimestampFromServerEarlierOrEqualTo date: Date, within obvContext: ObvContext) throws {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
+        request.predicate = Predicate.withTimestampFromServer(earlierOrEqualTo: date)
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+        _ = try obvContext.execute(deleteRequest)
+    }
+
     
     static func batchDelete(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)

@@ -22,19 +22,20 @@ import CoreData
 import os.log
 import ObvTypes
 import OlvidUtils
+import ObvUICoreData
 
 final class ReplaceDiscussionSharedExpirationConfigurationOperation: OperationWithSpecificReasonForCancel<UpdateDiscussionSharedExpirationConfigurationOperationReasonForCancel> {
     
     let persistedDiscussionObjectID: NSManagedObjectID
     let expirationJSON: ExpirationJSON
-    let initiator: ObvCryptoId
+    let ownedCryptoIdAsInitiator: ObvCryptoId
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ReplaceDiscussionSharedExpirationConfigurationOperation.self))
 
-    init(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, initiator: ObvCryptoId) {
+    init(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoIdAsInitiator: ObvCryptoId) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID
         self.expirationJSON = expirationJSON
-        self.initiator = initiator
+        self.ownedCryptoIdAsInitiator = ownedCryptoIdAsInitiator
         super.init()
     }
     
@@ -53,15 +54,13 @@ final class ReplaceDiscussionSharedExpirationConfigurationOperation: OperationWi
             }
             
             do {
-                guard try discussion.sharedConfiguration.replace(with: expirationJSON, initiator: initiator) else {
-                    // There was nothing to do
-                    return
-                }
+                try discussion.sharedConfiguration.replacePersistedDiscussionSharedConfiguration(with: expirationJSON, initiator: .ownedIdentity(ownedCryptoId: ownedCryptoIdAsInitiator))
             } catch {
                 return cancel(withReason: .failedToReplaceSharedConfiguration(error: error))
             }
             
             do {
+                guard context.hasChanges else { return }
                 try context.save(logOnFailure: log)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))

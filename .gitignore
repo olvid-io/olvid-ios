@@ -4,3 +4,29 @@ tmp/
 xcuserdata/
 .idea/
 swiftpm/
+.env
+
+### Xcode Patch ###
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcworkspace/contents.xcworkspacedata
+/*.gcno
+
+### Projects ###
+*.xcodeproj
+*.xcworkspace
+
+### Tuist derived files ###
+graph.dot
+Derived/
+
+### Tuist managed dependencies ###
+tuist/Dependencies/*
+!tuist/Dependencies/Lockfiles/
+
+# ignore locally generated build files
+Engine/BigInt/gmp/*
+
+# Ignore DWARF files
+DWARF

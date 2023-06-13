@@ -23,6 +23,8 @@ import OlvidUtils
 import os.log
 import ObvEngine
 import ObvEncoder
+import CoreGraphics
+import ObvUICoreData
 
 
 // Not using context, but contextual to be composed with other contextual operations

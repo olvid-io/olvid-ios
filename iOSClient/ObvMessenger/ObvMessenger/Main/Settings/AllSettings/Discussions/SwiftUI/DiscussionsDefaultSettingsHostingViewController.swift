@@ -21,6 +21,8 @@ import Foundation
 import SwiftUI
 import Combine
 import ObvUI
+import ObvUICoreData
+import UI_SystemIcon
 
 
 final class DiscussionsDefaultSettingsHostingViewController: UIHostingController<DiscussionsDefaultSettingsWrapperView> {
@@ -51,6 +53,7 @@ final class DiscussionsDefaultSettingsHostingViewController: UIHostingController
 final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
 
     var doSendReadReceipt: Binding<Bool>!
+    var alwaysShowNotificationsWhenMentioned: Binding<Bool>!
     var doFetchContentRichURLsMetadata: Binding<ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice>!
     var readOnce: Binding<Bool>!
     var visibilityDuration: Binding<DurationOption>!
@@ -68,6 +71,19 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     init() {
         self.changed = false
         self.doSendReadReceipt = Binding<Bool>(get: getDoSendReadReceipt, set: setDoSendReadReceipt)
+        alwaysShowNotificationsWhenMentioned = Binding<Bool> {
+            return ObvMessengerSettings.Discussions.notificationOptions.contains(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion)
+        } set: { newValue in
+            if newValue {
+                ObvMessengerSettings.Discussions.notificationOptions.insert(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion)
+            } else {
+                ObvMessengerSettings.Discussions.notificationOptions.remove(.alwaysNotifyWhenMentionnedEvenInMutedDiscussion)
+            }
+
+            withAnimation {
+                self.changed.toggle()
+            }
+        }
         self.doFetchContentRichURLsMetadata = Binding<ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice>(get: getDoFetchContentRichURLsMetadata, set: setDoFetchContentRichURLsMetadata)
         self.readOnce = Binding<Bool>(get: getReadOnce, set: setReadOnce)
         self.visibilityDuration = Binding<DurationOption>(get: getVisibilityDuration, set: setVisibilityDuration)
@@ -225,6 +241,7 @@ struct DiscussionsDefaultSettingsWrapperView: View {
 
     var body: some View {
         DiscussionsDefaultSettingsView(doSendReadReceipt: model.doSendReadReceipt,
+                                       alwaysShowNotificationsWhenMentioned: model.alwaysShowNotificationsWhenMentioned,
                                        doFetchContentRichURLsMetadata: model.doFetchContentRichURLsMetadata,
                                        readOnce: model.readOnce,
                                        visibilityDuration: model.visibilityDuration,
@@ -244,6 +261,7 @@ struct DiscussionsDefaultSettingsWrapperView: View {
 fileprivate struct DiscussionsDefaultSettingsView: View {
     
     @Binding var doSendReadReceipt: Bool
+    @Binding var alwaysShowNotificationsWhenMentioned: Bool
     @Binding var doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice
     @Binding var readOnce: Bool
     @Binding var visibilityDuration: DurationOption
@@ -276,6 +294,18 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
             Section(footer: sendReadReceiptSectionFooter) {
                 Toggle(isOn: $doSendReadReceipt) {
                     ObvLabel("SEND_READ_RECEIPTS_LABEL", systemImage: "eye.fill")
+                }
+            }
+            Section(footer: Text("discussion-default-settings-view.mention-notification-mode.picker.footer.title")) {
+                Picker(selection: $alwaysShowNotificationsWhenMentioned,
+                       label: ObvLabel("discussion-default-settings-view.mention-notification-mode.picker.title", systemIcon: .bell(.fill))) {
+                    Text(NSLocalizedString("discussion-default-settings-view.mention-notification-mode.picker.mode.always",
+                                           comment: "Display title for the `always` value for mention notification mode"))
+                        .tag(true)
+
+                    Text(NSLocalizedString("discussion-default-settings-view.mention-notification-mode.picker.mode.never",
+                                           comment: "Display title for the `never` value for mention notification mode"))
+                        .tag(false)
                 }
             }
             Section {
@@ -409,6 +439,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(false),
+                                           alwaysShowNotificationsWhenMentioned: .constant(true),
                                            doFetchContentRichURLsMetadata: .constant(.never),
                                            readOnce: .constant(false),
                                            visibilityDuration: .constant(.none),
@@ -422,6 +453,7 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            performInteractionDonation: .constant(true),
                                            changed: .constant(false))
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(true),
+                                           alwaysShowNotificationsWhenMentioned: .constant(false),
                                            doFetchContentRichURLsMetadata: .constant(.always),
                                            readOnce: .constant(false),
                                            visibilityDuration: .constant(.oneHour),

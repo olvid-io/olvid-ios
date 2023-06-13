@@ -34,14 +34,23 @@ final class PendingDeleteFromServer: NSManagedObject, ObvManagedObject {
 
     // MARK: Attributes
     
-    @NSManaged private var rawMessageIdOwnedIdentity: Data
-    @NSManaged private var rawMessageIdUid: Data
+    @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
+    @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
 
     // MARK: Other variables
     
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
-        set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
+    /// This identifier is expected to be non nil, unless this `PendingDeleteFromServer` was deleted on another thread.
+    private(set) var messageId: MessageIdentifier? {
+        get {
+            guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
+            guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
+            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+        }
+        set {
+            guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
+            self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity()
+            self.rawMessageIdUid = newValue.uid.raw
+        }
     }
 
     var obvContext: ObvContext?

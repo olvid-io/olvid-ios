@@ -19,6 +19,8 @@
 
 import UIKit
 import ObvTypes
+import ObvUICoreData
+
 
 final class ObvUserActivitySingleton: NSObject, UINavigationControllerDelegate {
     
@@ -85,7 +87,26 @@ extension ObvUserActivitySingleton {
     /// controllers is updated (which happens, e.g., when the user pushes a new discussion on screen, or pops one). Each time this happens, we get a change to update
     /// the current user activity.
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
-        
+        guard navigationController.viewControllers.isEmpty == false else { // this sanity check is done when we're removing all of the view controllers (`navigationController.viewControllers = []`). there is no visible view controller, thus this method fails in swift
+            switch currentUserActivity {
+            case .watchLatestDiscussions,
+                    .displaySingleContact,
+                    .displayContacts,
+                    .displayGroups,
+                    .displaySingleGroup,
+                    .displayInvitations,
+                    .displaySettings,
+                    .other,
+                    .unknown:
+                break
+
+            case .continueDiscussion(ownedCryptoId: let value, discussionPermanentID: _):
+                currentUserActivity = .watchLatestDiscussions(ownedCryptoId: value) // reset the current user activity when we delete a conversation
+            }
+
+            return
+        }
+
         let newUserActivity: ObvUserActivityType
 
         switch viewController {
@@ -125,12 +146,16 @@ extension ObvUserActivitySingleton {
         case let vc as InvitationsCollectionViewController:
             let ownedCryptoId = vc.currentOwnedCryptoId
             newUserActivity = .displayInvitations(ownedCryptoId: ownedCryptoId)
+            
+        case is OlvidPlaceholderViewController:
+            // We keep the existing user activity
+            return
 
         default:
             if let ownedCryptoId = currentUserActivity.ownedCryptoId {
                 newUserActivity = .other(ownedCryptoId: ownedCryptoId)
             } else {
-                assertionFailure("The unknown type is expect to bet set as an initial value only")
+                assertionFailure("The unknown type is expect to bet set as an initial value only. VC is \(viewController.debugDescription)")
                 newUserActivity = .unknown
             }
         }

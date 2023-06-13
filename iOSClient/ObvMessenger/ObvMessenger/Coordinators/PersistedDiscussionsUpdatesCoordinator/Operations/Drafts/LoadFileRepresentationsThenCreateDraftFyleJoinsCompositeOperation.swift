@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import CoreData
 import ObvCrypto
+import ObvUICoreData
 
 
 /// This is a legacy operation, use `NewLoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation` instead

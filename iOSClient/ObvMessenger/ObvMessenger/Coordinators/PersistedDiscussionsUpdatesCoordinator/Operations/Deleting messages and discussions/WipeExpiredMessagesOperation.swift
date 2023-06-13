@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -87,16 +88,18 @@ final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonF
             // Notify on context save
             
             do {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    // We wiped/deleted some persisted messages. We notify about that.
-
-                    InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
-
-                    // Refresh objects in the view context
-                    
-                    if let viewContext = self.viewContext {
-                        InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
+                if !infos.isEmpty {
+                    try obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        // We wiped/deleted some persisted messages. We notify about that.
+                        
+                        InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
+                        
+                        // Refresh objects in the view context
+                        
+                        if let viewContext = self.viewContext {
+                            InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
+                        }
                     }
                 }
             } catch {

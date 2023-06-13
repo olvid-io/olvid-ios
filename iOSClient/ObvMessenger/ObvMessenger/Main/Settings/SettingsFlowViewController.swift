@@ -20,6 +20,7 @@
 import UIKit
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
 
 
 final class SettingsFlowViewController: UINavigationController {

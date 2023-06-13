@@ -21,7 +21,6 @@
 import Foundation
 import ObvEngine
 
-
 final class AppCoordinatorsHolder {
     
     private let persistedDiscussionsUpdatesCoordinator: PersistedDiscussionsUpdatesCoordinator
@@ -33,13 +32,21 @@ final class AppCoordinatorsHolder {
     
     init(obvEngine: ObvEngine) {
 
-        let queueSharedAmongCoordinators = OperationQueue.createSerialQueue(name: "Queue shared among coordinators", qualityOfService: .default)
+        ObvDisplayableLogs.shared.log("🧨🧨🧨🧨🧨🧨🧨🧨🧨🧨🧨🧨🧨🧨 Creeating the coordonators serial queue")
         
-        self.persistedDiscussionsUpdatesCoordinator = PersistedDiscussionsUpdatesCoordinator(obvEngine: obvEngine, operationQueue: queueSharedAmongCoordinators)
-        self.bootstrapCoordinator = BootstrapCoordinator(obvEngine: obvEngine, operationQueue: queueSharedAmongCoordinators)
-        self.obvOwnedIdentityCoordinator = ObvOwnedIdentityCoordinator(obvEngine: obvEngine, operationQueue: queueSharedAmongCoordinators)
-        self.contactIdentityCoordinator = ContactIdentityCoordinator(obvEngine: obvEngine, operationQueue: queueSharedAmongCoordinators)
-        self.contactGroupCoordinator = ContactGroupCoordinator(obvEngine: obvEngine, operationQueue: queueSharedAmongCoordinators)
+        let queueSharedAmongCoordinators = LoggedOperationQueue.createSerialQueue(name: "Queue shared among coordinators", qualityOfService: .userInteractive)
+        let queueForComposedOperations = {
+            let queue = OperationQueue()
+            queue.name = "Queue for composed operations"
+            queue.qualityOfService = .userInteractive
+            return queue
+        }()
+        
+        self.persistedDiscussionsUpdatesCoordinator = PersistedDiscussionsUpdatesCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
+        self.bootstrapCoordinator = BootstrapCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
+        self.obvOwnedIdentityCoordinator = ObvOwnedIdentityCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
+        self.contactIdentityCoordinator = ContactIdentityCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
+        self.contactGroupCoordinator = ContactGroupCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
         
     }
     
@@ -52,4 +59,62 @@ final class AppCoordinatorsHolder {
         await self.contactGroupCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
     }
 
+}
+
+
+
+final class LoggedOperationQueue: OperationQueue {
+    
+    override func addOperations(_ ops: [Operation], waitUntilFinished wait: Bool) {
+        ops.forEach { op in
+            op.printObvDisplayableLogsWhenFinished()
+        }
+        _ = logOperations(ops: ops)
+        super.addOperations(ops, waitUntilFinished: wait)
+    }
+    
+    
+    override func addOperation(_ op: Operation) {
+        op.printObvDisplayableLogsWhenFinished()
+        _ = logOperations(ops: [op])
+        super.addOperation(op)
+    }
+    
+    
+    func logOperations(ops: [Operation]) -> String {
+        let queuedOperations = ops.map({ $0.debugDescription })
+        let currentOperations = self.operations
+        if !currentOperations.isEmpty {
+            let currentNotExecutingOperations = currentOperations.filter({ !$0.isExecuting })
+            let currentExecutingOperations = currentOperations.filter({ $0.isExecuting })
+            let currentNotExecutingOperationsAsString = currentNotExecutingOperations.map({ $0.debugDescription }).joined(separator: ", ")
+            let currentExecutingOperationsAsString = currentExecutingOperations.map({ $0.debugDescription }).joined(separator: ", ")
+            let stringToLog = "🍒⚠️ Queuing operation \(queuedOperations) but the queue (isSuspended=\(self.isSuspended)) is already executing the following \(currentExecutingOperations.count) operations: \(currentExecutingOperationsAsString). The following \(currentNotExecutingOperations.count) operations still need to be executed: \(currentNotExecutingOperationsAsString)"
+            ObvDisplayableLogs.shared.log(stringToLog)
+            return stringToLog
+        } else {
+            let stringToLog = "🍒✅ Queuing operation \(queuedOperations)"
+            ObvDisplayableLogs.shared.log(stringToLog)
+            return stringToLog
+        }
+    }
+        
+}
+
+
+private extension Operation {
+    
+    func printObvDisplayableLogsWhenFinished() {
+        if let completion = self.completionBlock {
+            self.completionBlock = {
+                completion()
+                ObvDisplayableLogs.shared.log("🐷 \(self.debugDescription) is finished")
+            }
+        } else {
+            self.completionBlock = {
+                ObvDisplayableLogs.shared.log("🐷 \(self.debugDescription) is finished")
+            }
+        }
+    }
+    
 }

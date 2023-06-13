@@ -23,6 +23,8 @@ import ObvTypes
 import ObvEngine
 import OlvidUtils
 import ObvCrypto
+import ObvUI
+import ObvUICoreData
 
 
 final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

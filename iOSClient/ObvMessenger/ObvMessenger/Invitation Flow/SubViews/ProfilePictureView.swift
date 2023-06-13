@@ -19,7 +19,8 @@
   
 import ObvUI
 import SwiftUI
-
+import ObvUICoreData
+import UI_CircledInitialsView_CircledInitialsConfiguration
 
 struct ProfilePictureView: View {
 

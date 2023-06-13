@@ -94,7 +94,8 @@ extension ReceivedMessageCoordinator {
         }
 
         let op1 = DeleteProtocolInstancesInAFinalStateOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+        let queueForComposedOperations = OperationQueue.createSerialQueue()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
         
     }
@@ -112,7 +113,8 @@ extension ReceivedMessageCoordinator {
         }
 
         let op1 = DeleteObsoleteReceivedMessagesOperation(delegateManager: delegateManager)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+        let queueForComposedOperations = OperationQueue.createSerialQueue()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
 
     }
@@ -399,10 +401,10 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
             }
             return
             
-        case .couldNotSaveContext:
+        case .couldNotSaveContext, .couldNotDeleteReceivedMessage:
             assertionFailure()
             // We reprocess the message in 1 second
-            DispatchQueue(label: "Queue for reprocessing a protocol message after a context save failiure").asyncAfter(deadline: .now() + .seconds(1)) {
+            DispatchQueue(label: "Queue for reprocessing a protocol message after a context save failure").asyncAfter(deadline: .now() + .seconds(1)) {
                 let receivedMessageId = operation.receivedMessageId
                 guard let delegateManager = operation.delegateManager else { assertionFailure(); return }
                 delegateManager.receivedMessageDelegate.processReceivedMessage(withId: receivedMessageId, flowId: operation.flowId)

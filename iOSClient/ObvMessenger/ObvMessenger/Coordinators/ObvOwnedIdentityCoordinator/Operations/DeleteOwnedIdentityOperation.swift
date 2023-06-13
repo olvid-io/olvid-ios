@@ -23,6 +23,7 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
 
 
 protocol DeleteOwnedIdentityOperationDelegate: AnyObject {

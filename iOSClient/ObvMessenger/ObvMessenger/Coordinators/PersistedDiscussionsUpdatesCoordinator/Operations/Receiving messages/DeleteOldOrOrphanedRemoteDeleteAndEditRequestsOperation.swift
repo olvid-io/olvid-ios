@@ -19,6 +19,7 @@
 
 import Foundation
 import OlvidUtils
+import ObvUICoreData
 
 
 final class DeleteOldOrOrphanedRemoteDeleteAndEditRequestsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

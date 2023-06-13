@@ -31,6 +31,10 @@ public struct ObvJWKSet {
     public func jsonData() -> Data? {
         return jWKSet.jsonData()
     }
+    
+    public init(fromSingleObvJWK obvJWK: ObvJWK) {
+        self.jWKSet = JWKSet(keys: [obvJWK.jwk])
+    }
 }
 
 
@@ -130,14 +134,14 @@ public final class JWSUtil {
         case .RSA:
             let rsaPublicKey = try RSAPublicKey(data: jwkData)
             let rsaSecKey = try rsaPublicKey.converted(to: SecKey.self)
-            verifier = Verifier(verifyingAlgorithm: signatureAlgorithm, publicKey: rsaSecKey)
+            verifier = Verifier(verifyingAlgorithm: signatureAlgorithm, key: rsaSecKey)
         case .OCT:
             // We do not support symmetric keys
             throw JWSUtil.makeError(message: "Unsuported key type")
         case .EC:
             let ecPublicKey = try ECPublicKey(data: jwkData)
             let ecSecKey = try ecPublicKey.converted(to: SecKey.self)
-            verifier = Verifier(verifyingAlgorithm: signatureAlgorithm, publicKey: ecSecKey)
+            verifier = Verifier(verifyingAlgorithm: signatureAlgorithm, key: ecSecKey)
         }
 
         // Check signature
@@ -148,6 +152,12 @@ public final class JWSUtil {
             throw makeError(message: "Unable to build Verifier")
         }
 
+    }
+    
+    
+    public static func getUnverifiedPayloadOfJWT(signature: String) throws -> Data {
+        let jws = try JWS(compactSerialization: signature)
+        return jws.payload.data()
     }
 
 }

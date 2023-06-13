@@ -26,6 +26,8 @@ import ObvCrypto
 import AppAuth
 import JWS
 import OlvidUtils
+import ObvUICoreData
+
 
 @MainActor
 final class KeycloakManagerSingleton: ObvErrorMaker {
@@ -132,7 +134,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
 
     
     /// If the manager is not set, this function throws an `Error`. If any other error occurs, it can be casted to a `KeycloakManager.SearchError`.
-    func search(ownedCryptoId: ObvCryptoId, searchQuery: String?) async throws -> (userDetails: [UserDetails], numberOfMissingResults: Int) {
+    func search(ownedCryptoId: ObvCryptoId, searchQuery: String?) async throws -> (userDetails: [ObvKeycloakUserDetails], numberOfMissingResults: Int) {
         assert(Thread.isMainThread)
         guard let manager else {
             assertionFailure()
@@ -141,6 +143,15 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
         return try await manager.search(ownedCryptoId: ownedCryptoId, searchQuery: searchQuery)
     }
     
+    
+    func syncAllManagedIdentities() async throws {
+        assert(Thread.isMainThread)
+        guard let manager else {
+            assertionFailure()
+            throw Self.makeError(message: "The internal manager is not set")
+        }
+        return try await manager.syncAllManagedIdentities(ignoreSynchronizationInterval: true)
+    }
 }
 
 
@@ -170,6 +181,7 @@ actor KeycloakManager: NSObject {
     private static var getKeyPath = "olvid-rest/getKey"
     private static var searchPath = "olvid-rest/search"
     private static var revocationTestPath = "olvid-rest/revocationTest"
+    private static var groupsPath = "olvid-rest/groups"
 
     private static let errorDomain = "KeycloakManager"
     private static var log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "KeycloakManager")
@@ -195,6 +207,9 @@ actor KeycloakManager: NSObject {
         }
     }
 
+    private let revocationListLatestTimestampOverlap = TimeInterval(hours: 1)
+    private let getGroupTimestampOverlap = TimeInterval(hours: 1)
+    
     private var currentlySyncingOwnedIdentities = Set<ObvCryptoId>()
 
     private var ownedCryptoIdForOIDAuthState = [OIDAuthState: ObvCryptoId]()
@@ -253,7 +268,7 @@ actor KeycloakManager: NSObject {
     }
 
     
-    private func syncAllManagedIdentities(failedAttempts: Int = 0, ignoreSynchronizationInterval: Bool) async throws {
+    func syncAllManagedIdentities(failedAttempts: Int = 0, ignoreSynchronizationInterval: Bool) async throws {
         os_log("🧥 Call to syncAllManagedIdentities", log: KeycloakManager.log, type: .info)
         do {
             let ownedIdentities = (try obvEngine.getOwnedIdentities()).filter({ $0.isKeycloakManaged })
@@ -329,7 +344,7 @@ actor KeycloakManager: NSObject {
 
 
     /// Throws a SearchError
-    fileprivate func search(ownedCryptoId: ObvCryptoId, searchQuery: String?) async throws -> (userDetails: [UserDetails], numberOfMissingResults: Int) {
+    fileprivate func search(ownedCryptoId: ObvCryptoId, searchQuery: String?) async throws -> (userDetails: [ObvKeycloakUserDetails], numberOfMissingResults: Int) {
         os_log("🧥 Call to search", log: KeycloakManager.log, type: .info)
         
         let iks: InternalKeycloakState
@@ -418,7 +433,7 @@ actor KeycloakManager: NSObject {
             throw AddContactError.unkownError(error)
         }
                 
-        let signedUserDetails: SignedUserDetails
+        let signedUserDetails: SignedObvKeycloakUserDetails
         do {
             guard let signatureVerificationKey = iks.signatureVerificationKey else {
                 // We did not save the signature key used to sign our own details, se we cannot make sure the details of our future contact are signed with the appropriate key.
@@ -432,7 +447,7 @@ actor KeycloakManager: NSObject {
             }
             // The signature key used to sign our own details is available, we use it to check the details of our future contact
             do {
-                signedUserDetails = try SignedUserDetails.verifySignedUserDetails(result.signature, with: signatureVerificationKey)
+                signedUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(result.signature, with: signatureVerificationKey)
             } catch {
                 // The signature verification failed when using the key used to signed our own details. We check if the signature is valid using the key sent by the server
                 do {
@@ -607,9 +622,9 @@ actor KeycloakManager: NSObject {
         os_log("🧥 The call to the /me entry point succeeded", log: KeycloakManager.log, type: .info)
 
         let keycloakServerSignatureVerificationKey: ObvJWK
-        let signedUserDetails: SignedUserDetails
+        let signedUserDetails: SignedObvKeycloakUserDetails
         do {
-            (signedUserDetails, keycloakServerSignatureVerificationKey) = try SignedUserDetails.verifySignedUserDetails(apiResult.signature, with: jwks)
+            (signedUserDetails, keycloakServerSignatureVerificationKey) = try SignedObvKeycloakUserDetails.verifySignedUserDetails(apiResult.signature, with: jwks)
         } catch {
             os_log("🧥 The server signature is invalid", log: KeycloakManager.log, type: .error)
             throw GetOwnDetailsError.invalidSignature(error)
@@ -632,6 +647,55 @@ actor KeycloakManager: NSObject {
         
         return (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff)
                 
+    }
+    
+    
+    /// When an error is thrown, it is a GetGroupsError.
+    private func getGroups(keycloakServer: URL, authState: OIDAuthState, clientSecret: String?, latestGetGroupsTimestamp: Date?) async throws -> KeycloakManager.ApiResultForGroupsPath {
+     
+        os_log("🧥 Call to getGroups", log: KeycloakManager.log, type: .info)
+
+        guard let (accessToken, _) = try? await authState.performAction(), let accessToken = accessToken else {
+            os_log("🧥 Authentication required in getGroups", log: KeycloakManager.log, type: .info)
+            throw GetGroupsError.authenticationRequired
+        }
+
+        let dataToSend: Data?
+        if let latestGetGroupsTimestamp = latestGetGroupsTimestamp {
+            let query = APIQueryForGroupsPath(latestGetGroupsTimestamp: latestGetGroupsTimestamp)
+            do {
+                dataToSend = try query.jsonEncode()
+            } catch {
+                os_log("Could not encode APIQueryForGroupsPath: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                dataToSend = nil
+            }
+        } else {
+            dataToSend = nil
+        }
+        
+        let apiResult: KeycloakManager.ApiResultForGroupsPath
+        do {
+            apiResult = try await keycloakApiRequest(serverURL: keycloakServer, path: KeycloakManager.groupsPath, accessToken: accessToken, dataToSend: dataToSend)
+        } catch let error as KeycloakApiRequestError {
+            switch error {
+            case .permissionDenied:
+                os_log("🧥 The keycloak server returned a permission denied error", log: KeycloakManager.log, type: .error)
+                throw GetGroupsError.authenticationRequired
+            case .internalError, .invalidRequest, .identityAlreadyUploaded, .badResponse, .decodingFailed:
+                os_log("🧥 The keycloak server returned an error", log: KeycloakManager.log, type: .error)
+                throw GetGroupsError.serverError
+            case .ownedIdentityWasRevoked:
+                os_log("🧥 The keycloak server indicates that the owned identity was revoked", log: KeycloakManager.log, type: .error)
+                throw GetGroupsError.ownedIdentityWasRevoked
+            }
+        } catch {
+            assertionFailure("Unexpected error")
+            throw GetGroupsError.unkownError(error)
+        }
+
+        return apiResult
+        
     }
 
 
@@ -722,7 +786,12 @@ actor KeycloakManager: NSObject {
         
         // If we reach this point, we should synchronize the owned identity with the keycloak server
         
-        let latestLocalRevocationListTimestamp = iks.latestRevocationListTimestamp ?? Date.distantPast
+        let latestLocalRevocationListTimestamp: Date
+        if let timestamp = iks.latestRevocationListTimestamp {
+            latestLocalRevocationListTimestamp = max(Date.distantPast, timestamp.addingTimeInterval(-revocationListLatestTimestampOverlap))
+        } else {
+            latestLocalRevocationListTimestamp = Date.distantPast
+        }
         
         let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff): (KeycloakUserDetailsAndStuff, KeycloakServerRevocationsAndStuff)
         do {
@@ -1030,7 +1099,7 @@ actor KeycloakManager: NSObject {
         // Update revocation list and latest revocation list timestamp iff the server returned signed revocations (an empty list is ok) and a current server timestamp
         
         if let signedRevocations = keycloakServerRevocationsAndStuff.signedRevocations, let currentServerTimestamp = keycloakServerRevocationsAndStuff.currentServerTimestamp {
-            os_log("🧥 The server returned %d signed revocations, we update the engine now", log: KeycloakManager.log, type: .fault, signedRevocations.count)
+            os_log("🧥 The server returned %d signed revocations, we update the engine now", log: KeycloakManager.log, type: .info, signedRevocations.count)
             do {
                 try obvEngine.updateKeycloakRevocationList(ownedCryptoId: ownedCryptoId,
                                                            latestRevocationListTimestamp: currentServerTimestamp,
@@ -1039,17 +1108,75 @@ actor KeycloakManager: NSObject {
                 os_log("🧥 Could not update the keycloak revocation list: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
                 return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
             }
-            os_log("🧥 The engine was updated using the the revocations returned by the server", log: KeycloakManager.log, type: .fault)
+            os_log("🧥 The engine was updated using the the revocations returned by the server", log: KeycloakManager.log, type: .info)
         }
-
+        
+        // Request keycloak groups
+        
+        os_log("🧥 About to synchronize keycloak groups", log: KeycloakManager.log, type: .info)
+        
+        let apiResultForGroupsPath: KeycloakManager.ApiResultForGroupsPath
+        do {
+            let latestGetGroupsTimestamp: Date
+            if let timestamp = iks.latestGroupUpdateTimestamp {
+                latestGetGroupsTimestamp = max(Date.distantPast, timestamp.addingTimeInterval(-getGroupTimestampOverlap))
+            } else {
+                latestGetGroupsTimestamp = Date.distantPast
+            }
+            apiResultForGroupsPath = try await getGroups(keycloakServer: iks.keycloakServer, authState: iks.authState, clientSecret: iks.clientSecret, latestGetGroupsTimestamp: latestGetGroupsTimestamp)
+        } catch let error as GetGroupsError {
+            switch error {
+            case .authenticationRequired:
+                do {
+                    try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
+                    return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
+                } catch let error as KeycloakDialogError {
+                    switch error {
+                    case .userHasCancelled:
+                        return // Do nothing
+                    case .keycloakManagerError(let error):
+                        assertionFailure(error.localizedDescription)
+                        return
+                    }
+                } catch {
+                    assertionFailure("Unknown error")
+                    return
+                }
+            case .serverError, .unkownError:
+                return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
+            case .ownedIdentityWasRevoked:
+                ObvMessengerInternalNotification.userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ownedCryptoId)
+                    .postOnDispatchQueue()
+                return
+            }
+        } catch {
+            assertionFailure("Unknown error")
+            return
+        }
+                
+        // Transfer keycloak groups to the engine
+        
+        do {
+            try obvEngine.updateKeycloakGroups(ownedCryptoId: ownedCryptoId,
+                                               signedGroupBlobs: apiResultForGroupsPath.signedGroupBlobs,
+                                               signedGroupDeletions: apiResultForGroupsPath.signedGroupDeletions,
+                                               signedGroupKicks: apiResultForGroupsPath.signedGroupKicks,
+                                               keycloakCurrentTimestamp: apiResultForGroupsPath.currentServerTimestamp)
+        } catch {
+            os_log("🧥 Could not update keycloak groups: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
+        }
+                
         // We are done with the sync !!! We can update the sync timestamp
         
         os_log("🧥 Keycloak server synchronization succeeded!", log: KeycloakManager.log, type: .info)
         setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: Date())
         
         Task { [weak self] in
+            guard let _self = self else { return }
             do {
-                try await Task.sleep(seconds: synchronizationInterval + 10)
+                try await Task.sleep(seconds: _self.synchronizationInterval + 10)
             } catch {
                 assertionFailure("Unexpected error")
                 return
@@ -1117,7 +1244,7 @@ actor KeycloakManager: NSObject {
     private func getInternalKeycloakState(for ownedCryptoId: ObvCryptoId, failedAttempts: Int = 0) async throws -> InternalKeycloakState {
 
         let obvKeycloakState: ObvKeycloakState
-        let signedOwnedDetails: SignedUserDetails?
+        let signedOwnedDetails: SignedObvKeycloakUserDetails?
         do {
             let (_obvKeycloakState, _signedOwnedDetails) = try obvEngine.getOwnedIdentityKeycloakState(with: ownedCryptoId)
             guard let _obvKeycloakState = _obvKeycloakState else {
@@ -1170,6 +1297,7 @@ actor KeycloakManager: NSObject {
                                                           authState: authState,
                                                           signatureVerificationKey: obvKeycloakState.signatureVerificationKey,
                                                           accessToken: accessToken,
+                                                          latestGroupUpdateTimestamp: obvKeycloakState.latestGroupUpdateTimestamp,
                                                           latestRevocationListTimestamp: obvKeycloakState.latestLocalRevocationListTimestamp,
                                                           signedOwnedDetails: signedOwnedDetails)
 
@@ -1256,6 +1384,14 @@ actor KeycloakManager: NSObject {
         case badResponse
         case ownedIdentityWasRevoked
         case invalidSignature(_: Error)
+        case unkownError(_: Error)
+    }
+    
+    
+    enum GetGroupsError: Error {
+        case authenticationRequired
+        case serverError
+        case ownedIdentityWasRevoked
         case unkownError(_: Error)
     }
 
@@ -1441,7 +1577,7 @@ extension OIDAuthState {
 
 }
 
-extension UserDetails {
+extension ObvKeycloakUserDetails {
 
     var firstNameAndLastName: String {
         guard let coreDetails = try? ObvIdentityCoreDetails(firstName: firstName, lastName: lastName, company: company, position: position, signedUserDetails: nil) else { return "" }
@@ -1451,7 +1587,7 @@ extension UserDetails {
 
 extension SingleIdentity {
 
-    convenience init(userDetails: UserDetails) {
+    convenience init(userDetails: ObvKeycloakUserDetails) {
         self.init(firstName: userDetails.firstName,
                   lastName: userDetails.lastName,
                   position: userDetails.position,
@@ -1697,7 +1833,11 @@ extension KeycloakManager {
             menu.addAction(revokeAction)
             menu.addAction(cancelAction)
             
-            viewController.present(menu, animated: true, completion: nil)
+            if let presentedViewController = viewController.presentedViewController {
+                presentedViewController.present(menu, animated: true)
+            } else {
+                viewController.present(menu, animated: true, completion: nil)
+            }
 
         }
             
@@ -1724,7 +1864,7 @@ extension KeycloakManager {
 
     /// Throws a KeycloakDialogError
     @MainActor
-    func openAddContact(userDetail: UserDetails, ownedCryptoId: ObvCryptoId) async throws {
+    func openAddContact(userDetail: ObvKeycloakUserDetails, ownedCryptoId: ObvCryptoId) async throws {
         os_log("🧥 Call to openAddContact", log: KeycloakManager.log, type: .info)
 
         assert(Thread.isMainThread)
@@ -1857,8 +1997,9 @@ fileprivate struct InternalKeycloakState {
     let authState: OIDAuthState
     let signatureVerificationKey: ObvJWK?
     let accessToken: String
+    let latestGroupUpdateTimestamp: Date?
     let latestRevocationListTimestamp: Date?
-    let signedOwnedDetails: SignedUserDetails? // Our owned details, signed by the keycloak server, as we know them locally in the identity manager
+    let signedOwnedDetails: SignedObvKeycloakUserDetails? // Our owned details, signed by the keycloak server, as we know them locally in the identity manager
 }
 
 

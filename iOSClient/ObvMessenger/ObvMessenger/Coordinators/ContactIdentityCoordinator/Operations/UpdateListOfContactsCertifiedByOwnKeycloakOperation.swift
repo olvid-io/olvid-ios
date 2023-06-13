@@ -21,10 +21,12 @@ import Foundation
 import OlvidUtils
 import ObvTypes
 import os.log
+import ObvUICoreData
+
 
 /// This operation is typically called when binding an owned identity to a keycloak server. In that case, the engine will return a list of all the contacts that are bound to the same keycloak server.
 /// This is the list that is passed to this operation, where we synchronize this list with the corresponding `PersistedObvContactIdentity` instances.
-final class UpdateListOfContactsCertifiedByOwnKeycloakOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
+final class UpdateListOfContactsCertifiedByOwnKeycloakOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     let ownedIdentity: ObvCryptoId
     let contactsCertifiedByOwnKeycloak: Set<ObvCryptoId>
@@ -39,41 +41,30 @@ final class UpdateListOfContactsCertifiedByOwnKeycloakOperation: OperationWithSp
 
     override func main() {
         
-        ObvStack.shared.performBackgroundTaskAndWait { context in
+        guard let obvContext = self.obvContext else {
+            return cancel(withReason: .contextIsNil)
+        }
+
+        obvContext.performAndWait {
             
             // We first mark *all* the contacts of the owned identity as *not* keycloak managed
             
             do {
-                try PersistedObvContactIdentity.markAllContactOfOwnedIdentityAsNotCertifiedBySameKeycloak(ownedCryptoId: ownedIdentity, within: context)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            // We then fetch all the contacts corresponding to the contact Id's received in the new list and mark the corresponding
-            // `PersistedObvContactIdentity` instances as certified by the same keycloak
-            
-            var oneOfTheContactsCouldNotBeUpdated = false
-            for contactCryptoId in contactsCertifiedByOwnKeycloak {
-                do {
-                    let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedIdentity, whereOneToOneStatusIs: .any, within: context)
+                try PersistedObvContactIdentity.markAllContactOfOwnedIdentityAsNotCertifiedBySameKeycloak(ownedCryptoId: ownedIdentity, within: obvContext.context)
+                
+                // We then fetch all the contacts corresponding to the contact Id's received in the new list and mark the corresponding
+                // `PersistedObvContactIdentity` instances as certified by the same keycloak
+                
+                for contactCryptoId in contactsCertifiedByOwnKeycloak {
+                    let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedIdentity, whereOneToOneStatusIs: .any, within: obvContext.context)
                     contact?.markAsCertifiedByOwnKeycloak()
-                } catch {
-                    oneOfTheContactsCouldNotBeUpdated = true
                 }
-            }
-            
-            // Once we reached this point, we can save the context
-            
-            do {
-                try context.save(logOnFailure: log)
+                                
             } catch {
+                assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))
             }
-            
-            if oneOfTheContactsCouldNotBeUpdated {
-                os_log("One of the contacts could not be marked as certified by own keycloak", log: log, type: .fault)
-                assertionFailure()
-            }
+
             
         }
         

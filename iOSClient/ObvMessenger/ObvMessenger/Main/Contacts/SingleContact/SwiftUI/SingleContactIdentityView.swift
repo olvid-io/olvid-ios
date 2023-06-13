@@ -21,6 +21,7 @@ import CoreData
 import ObvTypes
 import ObvEngine
 import ObvUI
+import ObvUICoreData
 import SwiftUI
 
 
@@ -237,7 +238,7 @@ private struct GroupCellView: View {
                                 circledTextView: nil,
                                 systemImage: .person3Fill,
                                 profilePicture: group.displayedImage,
-                                showGreenShield: false,
+                                showGreenShield: group.isKeycloakManaged,
                                 showRedShield: false,
                                 editionMode: .none,
                                 displayMode: .normal)

@@ -24,6 +24,7 @@ import CoreData
 import OlvidUtils
 import ObvEngine
 import ObvTypes
+import ObvUICoreData
 
 
 final class ProcessNewReceivedJoinProgressesReceivedFromEngineOperation: Operation {

@@ -39,6 +39,10 @@ final class ContactTrustLevelWatcher {
         self.prng = prng
     }
     
+    deinit {
+        notificationTokens.forEach { delegateManager.notificationDelegate?.removeObserver($0) }
+    }
+    
     func finalizeInitialization() {
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {

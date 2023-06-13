@@ -55,6 +55,7 @@ public struct ObvConstants {
     
     // Backup related constants
     public static let maxTimeUntilBackupIsRequired: TimeInterval = 24 * 60 * 60 // In seconds, 24h
+    public static let compressBackupedData = true // We will set this to false in a later release
     
     // Keycloak revocation related constants
     public static let keycloakSignatureValidity: TimeInterval = 5_184_000 // In seconds, 60 days

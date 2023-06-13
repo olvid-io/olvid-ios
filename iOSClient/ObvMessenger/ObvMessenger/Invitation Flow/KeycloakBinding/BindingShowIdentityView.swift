@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvEngine
 import ObvUI
+import ObvUICoreData
 
 
 struct BindingShowIdentityView: View {

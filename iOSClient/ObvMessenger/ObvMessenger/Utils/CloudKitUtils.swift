@@ -34,7 +34,7 @@ final class CloudKitBackupRecordIterator: AsyncIteratorProtocol {
     /// Returns:
     /// - ``nil`` if `next()` was never called, we don't know yet if there is result or not
     /// - ``true`` if there is more results to load, call ``next()`` to get a batch of ``resultsLimit`` records
-    /// - ``false`` if there is no more result, or if iCloud does not send more result for the moment. It may have more results latter.
+    /// - ``false`` if there is no more result, or if iCloud does not send more result for the moment. It may have more results later.
     private(set) var hasNext: Bool? = nil
 
     /// - Parameter identifierForVendor: if set, the iterator will restrict to records with the given identifierForVendor.

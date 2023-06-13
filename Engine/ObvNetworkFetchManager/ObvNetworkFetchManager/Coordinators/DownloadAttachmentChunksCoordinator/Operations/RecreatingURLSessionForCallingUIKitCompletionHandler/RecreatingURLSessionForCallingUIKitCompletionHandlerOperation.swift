@@ -99,7 +99,7 @@ final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Opera
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
 
-            let attachmentId = attachment.attachmentId
+            guard let attachmentId = attachment.attachmentId else { assertionFailure(); return }
 
             let sessionDelegate = DownloadAttachmentChunksSessionDelegate(attachmentId: attachmentId,
                                                                           obvContext: obvContext,

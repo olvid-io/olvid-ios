@@ -19,6 +19,7 @@
   
 
 import UIKit
+import ObvUICoreData
 
 @available(iOS 14.0, *)
 final class ForwardView: ViewForOlvidStack {

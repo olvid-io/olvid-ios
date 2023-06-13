@@ -27,6 +27,7 @@ import AVFoundation
 import VisionKit
 import PhotosUI
 import OlvidUtils
+import ObvUICoreData
 
 
 final class ComposeMessageViewDocumentPickerAdapterWithDraft: NSObject {
@@ -73,7 +74,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft {
         let fileName = url.lastPathComponent
 
         // Save the file to a temp location
-        let tempURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(fileName)
+        let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(fileName)
         do {
             _ = url.startAccessingSecurityScopedResource()
             try FileManager.default.copyItem(at: url, to: tempURL)
@@ -331,7 +332,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: UIImagePickerControl
                 // Copy the file to a temporary location. This does not seems to be required the pickerURL comes from an info[.imageURL], but this seems to be required when it comes from a info[.mediaURL]. Nevertheless, we do it for both, since the filename provided by the picker is terrible in both cases.
                 let fileExtension = url.pathExtension.lowercased()
                 let filename = ["Media @ \(dateFormatter.string(from: Date()))", fileExtension].joined(separator: ".")
-                let localURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(filename)
+                let localURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(filename)
                 do {
                     try FileManager.default.copyItem(at: url, to: localURL)
                 } catch {
@@ -348,7 +349,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: UIImagePickerControl
                 guard let fileExtention = ObvUTIUtils.preferredTagWithClass(inUTI: uti, inTagClass: .FilenameExtension) else { return }
                 let name = "Photo @ \(dateFormatter.string(from: Date()))"
                 let tempFileName = [name, fileExtention].joined(separator: ".")
-                let url = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(tempFileName)
+                let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
                 guard let pickedImageJpegData = originalImage.jpegData(compressionQuality: 1.0) else { return }
                 do {
                     try pickedImageJpegData.write(to: url)
@@ -398,7 +399,7 @@ extension ComposeMessageViewDocumentPickerAdapterWithDraft: VNDocumentCameraView
             // Write the pdf to a temporary location
             let name = "Scan @ \(dateFormatter.string(from: Date()))"
             let tempFileName = [name, String(kUTTypePDF)].joined(separator: ".")
-            let url = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(tempFileName)
+            let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
             guard pdfDocument.write(to: url) else { return }
 
             DispatchQueue.main.async { [weak self] in

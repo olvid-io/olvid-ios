@@ -18,8 +18,9 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import UIKit
-
+import UI_SystemIcon
 
 @available(iOS 14.0, *)
 final class SentMessageStatusAndDateView: ViewForOlvidStack {
@@ -31,12 +32,20 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
     }
     
     func setStatus(to status: PersistedMessageSent.MessageStatus, showEditedStatus: Bool) {
+        hideStatus()
+        statusImages[status]?.showInStack = true
+        // Special case, we do not want to show any status image when the status is "hasNoRecipient"
+        if status == .hasNoRecipient {
+            statusImages[status]?.showInStack = false
+        }
+        editedStatusImageView.showInStack = showEditedStatus        
+    }
+    
+    private func hideStatus() {
         for imageView in statusImages.values {
             imageView.showInStack = false
         }
-        statusImages[status]?.showInStack = true
-        
-        editedStatusImageView.showInStack = showEditedStatus        
+        editedStatusImageView.showInStack = false
     }
     
     private static func symbolIconForStatus(_ status: PersistedMessageSent.MessageStatus) -> SystemIcon {
@@ -47,6 +56,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         case .delivered: return .checkmarkCircleFill
         case .read: return .eyeFill
         case .couldNotBeSentToOneOrMoreRecipients: return .exclamationmarkCircle
+        case .hasNoRecipient: return .iphoneGen3CircleFill
         }
     }
     

@@ -22,6 +22,8 @@ import JWS
 import ObvUI
 import ObvTypes
 import SwiftUI
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 protocol IdentityProviderValidationHostingViewControllerDelegate: AnyObject {
@@ -223,7 +225,8 @@ final class IdentityProviderValidationHostingViewStore: ObservableObject {
             jwks: keycloakServerKeyAndConfig.jwks,
             rawAuthState: rawAuthState,
             signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
-            latestLocalRevocationListTimestamp: nil)
+            latestLocalRevocationListTimestamp: nil,
+            latestGroupUpdateTimestamp: nil)
         Task { await delegate?.newKeycloakUserDetailsAndStuff(keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: keycloakServerRevocationsAndStuff, keycloakState: keycloakState) }
     }
 

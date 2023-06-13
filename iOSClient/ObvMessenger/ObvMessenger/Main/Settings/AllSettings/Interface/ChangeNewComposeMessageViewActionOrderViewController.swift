@@ -18,6 +18,7 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import UIKit
 
 
@@ -38,6 +39,10 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
 
         observePreferredComposeMessageViewActionsDidChangeNotifications()
         observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
+    }
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     private func observePreferredComposeMessageViewActionsDidChangeNotifications() {
@@ -65,11 +70,13 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
     }
 
     private func observeDiscussionLocalConfigurationHasBeenUpdatedNotifications() {
-        let token = ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
-            guard let _self = self else { return }
-            guard case .defaultEmoji = value else { return }
-            guard let sectionToReload = _self.shownSections.firstIndex(of: .defaultEmojiAtDiscussionLevel) else { return }
-            _self.tableView.reloadSections([sectionToReload], with: .none)
+        let token = ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
+            DispatchQueue.main.async {
+                guard let _self = self else { return }
+                guard case .defaultEmoji = value else { return }
+                guard let sectionToReload = _self.shownSections.firstIndex(of: .defaultEmojiAtDiscussionLevel) else { return }
+                _self.tableView.reloadSections([sectionToReload], with: .none)
+            }
         }
         self.notificationTokens.append(token)
     }
@@ -395,7 +402,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
             case .changeDefaultEmoji:
                 let model = EmojiPickerViewModel(selectedEmoji: configuration.defaultEmoji) { emoji in
                     let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(emoji)
-                    ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
+                    ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
                         .postOnDispatchQueue()
                 }
                 let vc = EmojiPickerHostingViewController(model: model)
@@ -409,7 +416,7 @@ final class ComposeMessageViewSettingsViewController: UITableViewController {
                 }
             case .resetDefaultEmoji:
                 let value: PersistedDiscussionLocalConfigurationValue = .defaultEmoji(nil)
-                ObvMessengerCoreDataNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
+                ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: value, localConfigurationObjectID: configuration.typedObjectID)
                     .postOnDispatchQueue()
             }
         }

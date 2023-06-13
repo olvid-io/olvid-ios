@@ -20,6 +20,7 @@
 
 import Foundation
 
+@_exported import UIKit
 
 /// This protocol is implemented by the classes that allow to start/end a background task. This is the case
 /// of UIApplication and of BackgroundActivityEmulator.

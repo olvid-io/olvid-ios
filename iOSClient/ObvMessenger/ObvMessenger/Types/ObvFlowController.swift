@@ -24,9 +24,10 @@ import os.log
 import CoreData
 import ObvCrypto
 import OlvidUtils
+import ObvUICoreData
 
 
-protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, ObvErrorMaker {
+protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, SingleOwnedIdentityFlowViewControllerDelegate, ObvErrorMaker {
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
@@ -92,6 +93,25 @@ extension ObvFlowController {
 }
 
 
+// MARK: Centralised stack management
+
+extension ObvFlowController {
+    
+    /// This method should be called from the `viewDidLoad` method of all view controllers (conforming to this protocol)
+    func observeNotificationsImpactingTheNavigationStack() {
+        observationTokens.append(contentsOf: [
+            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted { [weak self] persistedGroupV2ObjectID in
+                Task { [weak self] in await self?.removeGroupViewController(persistedGroupV2ObjectId: persistedGroupV2ObjectID) }
+            },
+            ObvEngineNotificationNew.observeContactGroupDeleted(within: NotificationCenter.default) { _, _, groupUid in
+                Task { [weak self] in await self?.removeGroupViewController(groupUid: groupUid) }
+            },
+        ])
+    }
+
+}
+
+
 // MARK: - Implementations of protocol methods
 
 extension ObvFlowController {
@@ -147,32 +167,6 @@ extension ObvFlowController {
         }
     }
 
-    private func buildSingleDiscussionVC(discussion: PersistedDiscussion, messageToShow: PersistedMessage?) throws -> DiscussionViewController {
-        if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
-            let initialScroll: NewSingleDiscussionViewController.InitialScroll
-            if let messageToShow = messageToShow {
-                initialScroll = .specificMessage(messageToShow)
-            } else {
-                initialScroll = .newMessageSystemOrLastMessage
-            }
-            let singleDiscussionVC = try NewSingleDiscussionViewController(discussion: discussion, delegate: self, initialScroll: initialScroll)
-            singleDiscussionVC.hidesBottomBarWhenPushed = true
-            return singleDiscussionVC
-        } else {
-            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
-                throw Self.makeError(message: "Could not determine owned identity")
-            }
-            let singleDiscussionVC = SingleDiscussionViewController(ownedCryptoId: ownedCryptoId, collectionViewLayout: UICollectionViewLayout())
-            singleDiscussionVC.discussion = discussion
-            singleDiscussionVC.composeMessageViewDataSource = ComposeMessageDataSourceWithDraft(draft: discussion.draft)
-            singleDiscussionVC.composeMessageViewDocumentPickerDelegate = ComposeMessageViewDocumentPickerAdapterWithDraft(draft: discussion.draft)
-            singleDiscussionVC.strongComposeMessageViewSendMessageDelegate = ComposeMessageViewSendMessageAdapterWithDraft(draft: discussion.draft)
-            singleDiscussionVC.uiApplication = UIApplication.shared
-            singleDiscussionVC.delegate = self
-            singleDiscussionVC.hidesBottomBarWhenPushed = true
-            return singleDiscussionVC
-        }
-    }
     
     private func popOrPushDiscussionViewController(for discussion: PersistedDiscussion, messageToShow: PersistedMessage?) {
         
@@ -181,7 +175,7 @@ extension ObvFlowController {
 
         // Look for an existing SingleDiscussionViewController and pop to it if found
         for vc in children {
-            guard let discussionVC = vc as? DiscussionViewController else { continue }
+            guard let discussionVC = vc as? SomeSingleDiscussionViewController else { continue }
             guard discussionVC.discussionObjectID == discussion.typedObjectID else { continue }
             // If we reach this point, there exists an appropriate SingleDiscussionViewController within the navigation stack, so we pop to this VC and return
             popToViewController(discussionVC, animated: true)
@@ -195,7 +189,7 @@ extension ObvFlowController {
         
         // If we reach this point, we need to push a new SingleDiscussionViewController.
 
-        let discussionVC: DiscussionViewController
+        let discussionVC: SomeSingleDiscussionViewController
         do {
             discussionVC = try buildSingleDiscussionVC(discussion: discussion, messageToShow: messageToShow)
         } catch {
@@ -214,7 +208,9 @@ extension ObvFlowController {
     }
 
 
-    func removeGroupViewController(groupUid: UID) {
+    @MainActor
+    func removeGroupViewController(groupUid: UID) async {
+        assert(Thread.isMainThread)
         var newViewController = [UIViewController]()
         for vc in viewControllers {
             guard let groupVC = vc as? SingleGroupViewController, groupVC.obvContactGroup.groupUid == groupUid else {
@@ -228,7 +224,8 @@ extension ObvFlowController {
 
 
     /// If a a PersistedGroupV2 gets deleted (e.g., because we were kicked from the group), we want to dismiss any pushed `SingleGroupV2ViewController`.
-    private func removeGroupViewController(persistedGroupV2ObjectId: TypeSafeManagedObjectID<PersistedGroupV2>) {
+    @MainActor
+    private func removeGroupViewController(persistedGroupV2ObjectId: TypeSafeManagedObjectID<PersistedGroupV2>) async {
         var newViewController = [UIViewController]()
         for vc in viewControllers {
             guard let groupVC = vc as? SingleGroupV2ViewController, groupVC.persistedGroupV2ObjectID == persistedGroupV2ObjectId else {
@@ -240,19 +237,83 @@ extension ObvFlowController {
         setViewControllers(newViewController, animated: true)
     }
 
-    
-    /// This method should be called from the `viewDidLoad` method of all view controllers (conforming to this protocol) if they are susceptible to push a `SingleGroupV2ViewController` on their navigation stack.
-    /// It allows to oberve `PersistedGroupV2WasDeleted` notifications and to update the stack accordingly.
-    func observePersistedGroupV2WasDeletedNotifications() {
-        observationTokens.append(
-            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted(queue: OperationQueue.main) { [weak self] persistedGroupV2ObjectID in
-                self?.removeGroupViewController(persistedGroupV2ObjectId: persistedGroupV2ObjectID)
-            }
-        )
-    }
-
 }
 
+
+// MARK: - Helping the MainFlowViewController when a discussion gets deleted
+
+extension ObvFlowController {
+    
+    @MainActor
+    func removeAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
+        let newStack = self.viewControllers.compactMap { viewController in
+            guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
+            return (someSingleDiscussionVC.discussionPermanentID == discussionPermanentID) ? nil : someSingleDiscussionVC
+        }
+        self.setViewControllers(newStack, animated: true)
+    }
+    
+
+    @MainActor
+    func refreshAllSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async throws {
+        let newStack = try self.viewControllers.compactMap { viewController in
+            guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
+            if someSingleDiscussionVC.discussionPermanentID != discussion.discussionPermanentID {
+                return someSingleDiscussionVC
+            } else {
+                if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
+                    return try getNewSingleDiscussionViewController(for:discussion, initialScroll: .newMessageSystemOrLastMessage)
+                } else {
+                    return try getSingleDiscussionViewController(for: discussion)
+                }
+            }
+        }
+        self.setViewControllers(newStack, animated: false)
+    }
+    
+    
+    func buildSingleDiscussionVC(discussion: PersistedDiscussion, messageToShow: PersistedMessage?) throws -> SomeSingleDiscussionViewController {
+        if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
+            let initialScroll: NewSingleDiscussionViewController.InitialScroll
+            if let messageToShow = messageToShow {
+                initialScroll = .specificMessage(messageToShow)
+            } else {
+                initialScroll = .newMessageSystemOrLastMessage
+            }
+            let singleDiscussionVC = try getNewSingleDiscussionViewController(for: discussion, initialScroll: initialScroll)
+            return singleDiscussionVC
+        } else {
+            let singleDiscussionVC = try getSingleDiscussionViewController(for: discussion)
+            return singleDiscussionVC
+        }
+    }
+
+    
+    @available(iOS 15.0, *)
+    func getNewSingleDiscussionViewController(for discussion: PersistedDiscussion, initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> NewSingleDiscussionViewController {
+        assert(Thread.isMainThread)
+        let singleDiscussionVC = try NewSingleDiscussionViewController(discussion: discussion, delegate: self, initialScroll: initialScroll)
+        singleDiscussionVC.hidesBottomBarWhenPushed = true
+        return singleDiscussionVC
+    }
+    
+    
+    func getSingleDiscussionViewController(for discussion: PersistedDiscussion) throws -> SingleDiscussionViewController {
+        guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
+            throw Self.makeError(message: "Could not determine owned identity")
+        }
+        let singleDiscussionVC = SingleDiscussionViewController(ownedCryptoId: ownedCryptoId, collectionViewLayout: UICollectionViewLayout())
+        singleDiscussionVC.discussion = discussion
+        singleDiscussionVC.composeMessageViewDataSource = ComposeMessageDataSourceWithDraft(draft: discussion.draft)
+        singleDiscussionVC.composeMessageViewDocumentPickerDelegate = ComposeMessageViewDocumentPickerAdapterWithDraft(draft: discussion.draft)
+        singleDiscussionVC.strongComposeMessageViewSendMessageDelegate = ComposeMessageViewSendMessageAdapterWithDraft(draft: discussion.draft)
+        singleDiscussionVC.uiApplication = UIApplication.shared
+        singleDiscussionVC.delegate = self
+        singleDiscussionVC.hidesBottomBarWhenPushed = true
+        return singleDiscussionVC
+    }
+    
+}
 
 // MARK: - SingleDiscussionViewControllerDelegate
 
@@ -342,6 +403,76 @@ extension ObvFlowController {
         flowDelegate?.userSelectedURL(url, within: vc)
     }
 
+
+    func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: MentionableIdentity) {
+        let viewControllerToPresent: UIViewController
+
+        func _createContactIdentityViewController(_ identity: PersistedObvContactIdentity) -> UIViewController? {
+            let vcToPresent: SingleContactIdentityViewHostingController
+
+            do {
+                vcToPresent = try SingleContactIdentityViewHostingController(contact: identity, obvEngine: obvEngine)
+            } catch {
+                assertionFailure(error.localizedDescription)
+
+                return nil
+            }
+
+            vcToPresent.delegate = self
+
+            return vcToPresent
+        }
+
+        switch mentionableIdentity.innerIdentity {
+        case .owned(let identityObjectID):
+            guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(objectID: identityObjectID, within: ObvStack.shared.viewContext) else {
+                os_log("Could not find owned identity. This is ok if it has just been deleted.", log: log, type: .error)
+                assertionFailure()
+                return
+            }
+
+            let vcToPresent = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine)
+
+            vcToPresent.delegate = self
+
+            viewControllerToPresent = vcToPresent
+
+        case .contact(let identityObjectID):
+            guard let contactIdentity = try? PersistedObvContactIdentity.get(objectID: identityObjectID, within: ObvStack.shared.viewContext) else {
+                os_log("Could not find contact identity. This is ok if it has just been deleted.", log: log, type: .error)
+                assertionFailure()
+                return
+            }
+
+            guard let _viewController = _createContactIdentityViewController(contactIdentity) else {
+                return
+            }
+
+            viewControllerToPresent = _viewController
+
+        case .groupV2Member(let groupMemberObjectID):
+            guard let groupMember = try? ObvStack.shared.viewContext.existingObject(with: groupMemberObjectID) else {
+                os_log("Could not find member. This is ok if it has just been deleted.", log: log, type: .error)
+                assertionFailure()
+                return
+            }
+
+            if let contactIdentity = groupMember.contact {
+                guard let _viewController = _createContactIdentityViewController(contactIdentity) else {
+                    assertionFailure("failed to create contact VC")
+                    return
+                }
+
+                viewControllerToPresent = _viewController
+            } else {
+                return
+            }
+        }
+
+        let closeButton = BlockBarButtonItem.forClosing { [weak self] in self?.presentedViewController?.dismiss(animated: true) }
+        viewControllerToPresent.navigationItem.setLeftBarButton(closeButton, animated: false)
+        present(UINavigationController(rootViewController: viewControllerToPresent), animated: true)
+    }
 }
 
 // MARK: - SingleContactViewControllerDelegate
@@ -616,9 +747,8 @@ extension ObvFlowController {
                 
         let initialPhotoURL: URL?
         if let originalPhotoURL = originalPhotoURL {
-            // ObvMessengerConstants.containerURL.forProfilePicturesCache.path
             let randomFilename = UUID().uuidString
-            let randomFileURL = ObvMessengerConstants.containerURL.forProfilePicturesCache.appendingPathComponent(randomFilename, isDirectory: false)
+            let randomFileURL = ObvUICoreDataConstants.ContainerURL.forProfilePicturesCache.appendingPathComponent(randomFilename, isDirectory: false)
             do {
                 try FileManager.default.copyItem(at: originalPhotoURL, to: randomFileURL)
                 initialPhotoURL = randomFileURL
@@ -666,6 +796,12 @@ extension ObvFlowController {
 
 }
 
+// MARK: - SingleOwnedIdentityFlowViewControllerDelegate 
+extension ObvFlowController {
+    func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController) {
+        viewController.dismiss(animated: true)
+    }
+}
 
 // MARK: - ObvFlowControllerDelegate
 

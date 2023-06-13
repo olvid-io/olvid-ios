@@ -242,6 +242,16 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         throw Self.makeError(message: "prepareForOwnedIdentityDeletion does nothing in this dummy implementation")
     }
     
+    public func getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol does nothing in this dummy implementation")
+    }
+
+    public func getInitiateTargetedPingMessageForKeycloakGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, pendingMemberIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        os_log("getInitiateTargetedPingMessageForKeycloakGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getInitiateTargetedPingMessageForKeycloakGroupV2Protocol does nothing in this dummy implementation")
+    }
+
     // MARK: - Implementing ObvManager
     
     public let requiredDelegates = [ObvEngineDelegateType]()

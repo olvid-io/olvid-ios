@@ -22,6 +22,7 @@ import UIKit
 import SwiftUI
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
 
 protocol HiddenProfilePasswordChooserViewControllerDelegate: AnyObject {
     func userCancelledHiddenProfilePasswordChooserViewController() async

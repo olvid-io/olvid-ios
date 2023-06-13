@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation deletes all `FyleMessageJoinWithStatus` that have no associated `PersistedMessage` (or no draft)

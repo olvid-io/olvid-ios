@@ -22,6 +22,7 @@ import BackgroundTasks
 import os.log
 import CoreData
 import ObvEngine
+import ObvUICoreData
 
 
 final class BackgroundTasksManager {
@@ -133,6 +134,11 @@ final class BackgroundTasksManager {
             },
         ])
 
+    }
+
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
 

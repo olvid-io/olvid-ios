@@ -18,6 +18,7 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import os.log
 import QuickLook
 import UIKit
@@ -490,11 +491,12 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                     replyToCacheCompletions[messageObjectID] = [completionWhenCellNeedsUpdateConfiguration]
                     
                     Task { [weak self] in
-                        let hardlink = try await getAppropriateHardlinkForJoinsOfReplyTo(replyTo)
+                        guard let _self = self else { return }
+                        let hardlink = try await _self.getAppropriateHardlinkForJoinsOfReplyTo(replyTo)
                         var augmentedConfig = configuration.replaceHardLink(with: hardlink)
                         do {
                             let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
-                            let thumbnail = try await requestImageForHardlink(hardlink: hardlink, size: size)
+                            let thumbnail = try await _self.requestImageForHardlink(hardlink: hardlink, size: size)
                             augmentedConfig = augmentedConfig.replaceThumbnail(with: thumbnail)
                         } catch {
                             // We could not get an image corresponding to the hardlink. We return the current config.

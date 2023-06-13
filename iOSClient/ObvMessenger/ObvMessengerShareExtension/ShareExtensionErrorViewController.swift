@@ -19,6 +19,7 @@
 
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 
 protocol ShareExtensionErrorViewControllerDelegate: AnyObject {

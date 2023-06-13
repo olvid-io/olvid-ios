@@ -26,6 +26,8 @@ import QuickLook
 import CoreData
 import OlvidUtils
 import ObvUI
+import ObvUICoreData
+
 
 protocol CustomQLPreviewControllerDelegate: QLPreviewControllerDelegate {
     func previewController(hasDisplayed joinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
@@ -140,8 +142,6 @@ final class FilesViewer: NSObject, NSFetchedResultsControllerDelegate, ObvErrorM
     
     private let queueForRequestingHardlinks = DispatchQueue(label: "FilesViewer internal queue for requesting hardlinks")
     
-    private var observationTokens = [NSObjectProtocol]()
-
     private var reloadDataOnNextControllerDidChangeContent = false
     
     init(frc: NSFetchedResultsController<FyleMessageJoinWithStatus>, qlPreviewControllerDelegate: CustomQLPreviewControllerDelegate) {

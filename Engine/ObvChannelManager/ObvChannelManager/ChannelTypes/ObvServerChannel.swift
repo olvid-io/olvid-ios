@@ -89,6 +89,8 @@ extension ObvServerChannel {
                 serverQueryType = .requestGroupBlobLock(groupIdentifier: groupIdentifier, lockNonce: lockNonce, signature: signature)
             case .updateGroupBlob(groupIdentifier: let groupIdentifier, encodedServerAdminPublicKey: let encodedServerAdminPublicKey, encryptedBlob: let encryptedBlob, lockNonce: let lockNonce, signature: let signature):
                 serverQueryType = .updateGroupBlob(groupIdentifier: groupIdentifier, encodedServerAdminPublicKey: encodedServerAdminPublicKey, encryptedBlob: encryptedBlob, lockNonce: lockNonce, signature: signature)
+            case .getKeycloakData(serverURL: let serverURL, serverLabel: let serverLabel):
+                serverQueryType = .getKeycloakData(serverURL: serverURL, serverLabel: serverLabel)
             }
             
             let serverQuery = ServerQuery(ownedIdentity: ownedIdentity, queryType: serverQueryType, encodedElements: message.encodedElements)

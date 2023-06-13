@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import OlvidUtils
 import UIKit
+import ObvUICoreData
 
 final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<UpdateDiscussionLocalConfigurationOperationReasonForCancel> {
 
@@ -73,12 +74,11 @@ final class UpdateDiscussionLocalConfigurationOperation: ContextualOperationWith
                 let value = self.value
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
-
-                    ObvMessengerInternalNotification.discussionLocalConfigurationHasBeenUpdated(newValue: value, localConfigurationObjectID: localConfiguration.typedObjectID).postOnDispatchQueue()
-
-                    if case .muteNotificationsDuration = value,
+                    if case .muteNotificationsEndDate = value,
                        let expiration = localConfiguration.currentMuteNotificationsEndDate {
-                        ObvMessengerInternalNotification.newMuteExpiration(expirationDate: expiration).postOnDispatchQueue()
+                        // This is catched by the MuteDiscussionManager in order to schedule a BG operation allowing to remove the mute
+                        ObvMessengerInternalNotification.newMuteExpiration(expirationDate: expiration)
+                            .postOnDispatchQueue()
                     }
                 }
 

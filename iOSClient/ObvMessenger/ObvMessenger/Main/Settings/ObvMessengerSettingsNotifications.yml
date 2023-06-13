@@ -1,9 +1,0 @@
-import:
-  - Foundation
-notifications:
-- name: identityColorStyleDidChange
-- name: contactsSortOrderDidChange
-- name: preferredComposeMessageViewActionsDidChange
-- name: isCallKitEnabledSettingDidChange
-- name: isIncludesCallsInRecentsEnabledSettingDidChange
-- name: performInteractionDonationSettingDidChange

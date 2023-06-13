@@ -91,15 +91,20 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case version59 = "ObvMessengerModel-v59"
         case version60 = "ObvMessengerModel-v60"
         case version61 = "ObvMessengerModel-v61"
+        case version62 = "ObvMessengerModel-v62"
+        case version63 = "ObvMessengerModel-v63"
+        case version64 = "ObvMessengerModel-v64"
+        case version65 = "ObvMessengerModel-v65"
+        case version66 = "ObvMessengerModel-v66"
 
         static var latest: ObvMessengerModelVersion {
-            return .version61
+            return .version66
         }
 
         var identifier: String {
             return self.rawValue
         }
-        
+
         var intValue: Int? {
             let digits = self.rawValue.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
             let intValue = Int(digits)
@@ -232,7 +237,12 @@ final class DataMigrationManagerForObvMessenger: DataMigrationManager<ObvMesseng
         case .version58: migrationType = .heavyweight; destinationVersion = .version59
         case .version59: migrationType = .lightweight; destinationVersion = .version60
         case .version60: migrationType = .lightweight; destinationVersion = .version61
-        case .version61: migrationType = .heavyweight; destinationVersion = .version61
+        case .version61: migrationType = .lightweight; destinationVersion = .version62
+        case .version62: migrationType = .heavyweight; destinationVersion = .version63
+        case .version63: migrationType = .lightweight; destinationVersion = .version64
+        case .version64: migrationType = .lightweight; destinationVersion = .version65
+        case .version65: migrationType = .lightweight; destinationVersion = .version66
+        case .version66: migrationType = .heavyweight; destinationVersion = .version66
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

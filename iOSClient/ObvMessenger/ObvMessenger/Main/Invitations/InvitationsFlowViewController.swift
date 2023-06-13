@@ -21,6 +21,7 @@ import UIKit
 import os.log
 import ObvTypes
 import ObvEngine
+import ObvUICoreData
 
 final class InvitationsFlowViewController: UINavigationController, ObvFlowController {
     

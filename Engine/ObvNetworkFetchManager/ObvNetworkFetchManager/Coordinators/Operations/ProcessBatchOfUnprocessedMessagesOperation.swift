@@ -89,15 +89,17 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                 // We notify about this.
 
                 for message in messages {
-                    ObvNetworkFetchNotificationNew.newInboxMessageToProcess(messageId: message.messageId, attachmentIds: message.attachmentIds, flowId: obvContext.flowId)
+                    guard let inboxMessageId = message.messageId else { assertionFailure(); continue }
+                    ObvNetworkFetchNotificationNew.newInboxMessageToProcess(messageId: inboxMessageId, attachmentIds: message.attachmentIds, flowId: obvContext.flowId)
                         .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
                 }
                 
                 // We then create the appropriate struct that is appropriate to pass each message to our delegate (i.e., the channel manager).
                 
-                let networkReceivedEncryptedMessages = Set(messages.map {
-                    ObvNetworkReceivedMessageEncrypted(
-                        messageId: $0.messageId,
+                let networkReceivedEncryptedMessages: [ObvNetworkReceivedMessageEncrypted] = messages.compactMap {
+                    guard let inboxMessageId = $0.messageId else { assertionFailure(); return nil }
+                    return ObvNetworkReceivedMessageEncrypted(
+                        messageId: inboxMessageId,
                         messageUploadTimestampFromServer: $0.messageUploadTimestampFromServer,
                         downloadTimestampFromServer: $0.downloadTimestampFromServer,
                         localDownloadTimestamp: $0.localDownloadTimestamp,
@@ -105,11 +107,11 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                         wrappedKey: $0.wrappedKey,
                         knownAttachmentCount: $0.attachments.count,
                         availableEncryptedExtendedContent: nil) // The encrypted extended content is not available yet
-                })
+                }
                 
                 // We ask our delegate to process these messages
 
-                processDownloadedMessageDelegate.processNetworkReceivedEncryptedMessages(networkReceivedEncryptedMessages, within: obvContext)
+                processDownloadedMessageDelegate.processNetworkReceivedEncryptedMessages(Set(networkReceivedEncryptedMessages), within: obvContext)
 
             }
             

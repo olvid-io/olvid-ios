@@ -19,6 +19,7 @@
 
 import ObvUI
 import SwiftUI
+import ObvTypes
 
 
 struct EditSingleOwnedIdentityNavigationView: View {
@@ -26,6 +27,7 @@ struct EditSingleOwnedIdentityNavigationView: View {
     let editionType: EditSingleOwnedIdentityView.EditionType
     @ObservedObject var singleIdentity: SingleIdentity
     let userConfirmedPublishAction: () -> Void
+    let userWantsToUnbindFromKeycloakServer: (ObvCryptoId) -> Void
     let dismissAction: () -> Void
 
     private func navigationBarTitle() -> Text {
@@ -37,7 +39,7 @@ struct EditSingleOwnedIdentityNavigationView: View {
 
     var body: some View {
         NavigationView {
-            EditSingleOwnedIdentityView(editionType: editionType, singleIdentity: singleIdentity, userConfirmedPublishAction: userConfirmedPublishAction)
+            EditSingleOwnedIdentityView(editionType: editionType, singleIdentity: singleIdentity, userConfirmedPublishAction: userConfirmedPublishAction, userWantsToUnbindFromKeycloakServer: userWantsToUnbindFromKeycloakServer)
                 .navigationBarTitle(navigationBarTitle(), displayMode: .inline)
                 .navigationBarItems(leading:
                                         OptionalView(predicate: { editionType == .edition }) {
@@ -62,33 +64,39 @@ struct EditSingleOwnedIdentityNavigationView_Previews: PreviewProvider {
                 EditSingleOwnedIdentityNavigationView(editionType: .edition,
                                                       singleIdentity: $0,
                                                       userConfirmedPublishAction: {},
+                                                      userWantsToUnbindFromKeycloakServer: { _ in },
                                                       dismissAction: {})
                 EditSingleOwnedIdentityNavigationView(editionType: .creation,
                                                       singleIdentity: $0,
                                                       userConfirmedPublishAction: {},
+                                                      userWantsToUnbindFromKeycloakServer: { _ in },
                                                       dismissAction: {})
             }
             ForEach(EditSingleOwnedIdentityView_Previews.testData) {
                 EditSingleOwnedIdentityNavigationView(editionType: .edition,
                                                       singleIdentity: $0,
                                                       userConfirmedPublishAction: {},
+                                                      userWantsToUnbindFromKeycloakServer: { _ in },
                                                       dismissAction: {})
                     .environment(\.colorScheme, .dark)
                 EditSingleOwnedIdentityNavigationView(editionType: .creation,
                                                       singleIdentity: $0,
                                                       userConfirmedPublishAction: {},
+                                                      userWantsToUnbindFromKeycloakServer: { _ in },
                                                       dismissAction: {})
                     .environment(\.colorScheme, .dark)
             }
             EditSingleOwnedIdentityNavigationView(editionType: .edition,
                                                   singleIdentity: EditSingleOwnedIdentityView_Previews.testData[1],
                                                   userConfirmedPublishAction: {},
+                                                  userWantsToUnbindFromKeycloakServer: { _ in },
                                                   dismissAction: {})
                 .environment(\.colorScheme, .dark)
                 .previewDevice(PreviewDevice(rawValue: "iPhone XS"))
             EditSingleOwnedIdentityNavigationView(editionType: .creation,
                                                   singleIdentity: EditSingleOwnedIdentityView_Previews.testData[1],
                                                   userConfirmedPublishAction: {},
+                                                  userWantsToUnbindFromKeycloakServer: { _ in },
                                                   dismissAction: {})
                 .environment(\.colorScheme, .dark)
                 .previewDevice(PreviewDevice(rawValue: "iPhone XS"))

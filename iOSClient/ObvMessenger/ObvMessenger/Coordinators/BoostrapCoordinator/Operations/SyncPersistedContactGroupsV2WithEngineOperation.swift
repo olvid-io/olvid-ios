@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvEngine
 import os.log
 import ObvTypes
+import ObvUICoreData
 
 
 final class SyncPersistedContactGroupsV2WithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

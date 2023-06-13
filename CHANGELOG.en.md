@@ -1,5 +1,84 @@
 # Changelog
 
+## [0.12.9 (661)] - 2023-05-22
+
+- Improves the new group protocol to prevent situations were group pending members would never become full members. Basically, Olvid works even better than before.
+- Hotfix.
+
+## [0.12.8 (659)] - 2023-05-10
+
+- Long awaited feature ! You can now explicitly mention a contact in a discussion. Tap the '@' symbol in the composition field, choose who you want to mention, and you are good to go.
+- This feature changes the notification behavior for a "muted" discussion : if you receive a message that mentions you, or one that replies to a message that mentions you, or one that replies to one of your messages, you will always be notified.
+- This new notification behavior can be modified for all discussions at once, or for one discussion in particular.
+- In the list of recent discussions, you will see an '@' symbol on all discussions that have a new message that mentions you.
+- It is now possible to drop an attachment directly in a discussion. Super handy in multitasking mode for our iPad users !
+- After scrolling up in a discussion, it is now easy to go right back down..
+- The different badges displaying counters are now always consistent.
+- Locked discussions would not appear in search results. This is fixed.
+- Fixes a bug related to saving and restoring retention settings.
+- Receipt of an edited message no longer generates a new notification. The previous notification is updated silently.
+- Switches the order of the "delete" and "archive" buttons for a discussion.
+- Minor design fixes.
+- Fixes a bug that caused a double notification for a single message.
+- Small modification of the date format in the list of recent discussions.
+- When sharing, the "Ok" button displayed on the discussion selection screen has been renamed "Cancel" to clarify its purpose.
+
+## [0.12.7 (652)] - 2023-04-19
+
+- It is now possible to search for a discussion, right from the list of recent discussions.
+- During the search, archived discussions are also shown, making it possible to easily unarchive a discussion.
+- Searching is done against the discussions title and the name, position, and company of the participants.
+- For enterprise users, we added support for keycloak managed groups.
+- New emojis!
+- Fixes a bug that could prevent the establishment of an incoming call.
+- The tab bar badge counting the number of new messages was taking muted discussions into account. This is fixed.
+- Fixes a bug that could crash the app.
+- Muted discussions would not always appear as such in the list of recent discussions. This is fixed.
+
+## [0.12.6 (645)] - 2023-03-30
+
+- Introducing pinned discussions! You can now decide which discussions should always appear at the top of the list of recent discussions.
+- Pinned discussions can be reordered as you like.
+- Removes the selector allowing to switch between recent discussions, one-to-one discussions, and group discussions. Now, the latest discussions screen shows the latest discussions and the pinned discussions ;-)
+- Discussions can now be archived.
+- Archiving a discussion does not delete it, it only removes it from the list of recent discussions.
+- If a message is received (or sent) in an archived discussion, it is automatically unarchived.
+- Typing a draft in an archived discussion also unarchives it automatically.
+- To access an archived one-to-one discussion, navigate to the corresponding contact screen and tap the "Chat" button.
+- To access an archived group discussion, navigate to the corresponding group screen and tap the "Chat" button.
+- Following the possibility to archive a discussion, the cell showing a recent discussion can now be swiped both to the left and to the right so that all possible options easily accessible.
+- Improved navigation on iPad.
+- Improved flow when introducing a contact to another.
+- Fixes a crash when displaying an animated gif on iOS 16.4.
+- Fixes a potential crash on iOS13 and iOS14.
+- Images previews are back.
+- User notifications could show for hidden profiles. Similarly, the app badge could count unread messages for a hidden profile. This is fixed.
+- Fixes occasional issues with the expiration of ephemeral sent messages.
+- Fixes occasional issues on iPad occurring when changing profile.
+- Fixes a minor issue with the audio player.
+
+## [0.12.5 (639)] - 2023-02-26
+
+- It is now possible to send a message in a group with no other member. Handy to write messages to yourself ;-)
+- When more than one profile is available, the share extension shows by default the last (not hidden) one used within the App.
+- Uncompleted outgoing secure calls did not appear in any discussion. This is fixed.
+- The old discussions list style is no longer available on iOS 16.
+- Fixes a bug related to the refresh of the list of recent discussions when using the old style under iOS 16, when switching profile.
+- The badge indicating the number of new messages on the tab bar is now always correct.
+- Fixes a visual bug occurring when a discussion is remotely deleted while the user is in the discussion.
+- Fixes an issue causing group (v2) profile pictures to disappear after 3 months.
+- Fixes an issue preventing certain expired messages to be deleted at the appropriate time.
+- Fixes a crash sometimes occurring at launch time.
+- Improves the app responsiveness after a cold boot.
+- Stability improvements.
+- Reduces the startup time for Keycloak users.
+- Fixes a bug preventing the list of recent discussions to be properly updated when switching profile.
+- Improves the animation when dismissing a discussion (iOS only).
+- Tapping a "Send message" Olvid action would not work (e.g. with the Shortcuts App). This is fixed.
+- When sharing, Olvid was not properly notifying Siri that we were sending a message. This is fixed.
+- Fixes a few typos in French.
+- The composition view could end up being larger than the text it contains. This is fixed.
+
 ## [0.12.4 (621)] - 2023-01-19
 
 - You can now change profile by swiping down the profile picture on the top left.

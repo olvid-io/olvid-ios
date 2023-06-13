@@ -41,6 +41,7 @@ public extension ObvServerMethod {
 
     func getURLRequest(dataToSend: Data?) throws -> URLRequest {
         guard let identityDelegate = self.identityDelegate else {
+            assertionFailure()
             throw ObvServerMethodError.ownedIdentityIsActiveCheckerDelegateIsNotSet
         }
         if isActiveOwnedIdentityRequired {

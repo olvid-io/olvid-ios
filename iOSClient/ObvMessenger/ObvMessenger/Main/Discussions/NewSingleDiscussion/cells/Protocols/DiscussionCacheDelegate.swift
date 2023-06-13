@@ -17,7 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUICoreData
 import UIKit
+
 
 @available(iOS 14, *)
 protocol DiscussionCacheDelegate: AnyObject {

@@ -58,8 +58,10 @@ extension GroupV2Protocol {
         case initiateBatchKeysResend = 26
         case blobKeysBatchAfterChannelCreation = 27
         case blobKeysAfterChannelCreation = 28
+        case initiateTargetedPing = 30
         case dialogInformative = 50
         case dialogFreezeGroupV2Invitation = 200
+        case initiateUpdateKeycloakGroups = 300
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
@@ -93,7 +95,9 @@ extension GroupV2Protocol {
             case .initiateBatchKeysResend             : return InitiateBatchKeysResendMessage.self
             case .blobKeysBatchAfterChannelCreation   : return BlobKeysBatchAfterChannelCreationMessage.self
             case .blobKeysAfterChannelCreation        : return BlobKeysAfterChannelCreationMessage.self
+            case .initiateTargetedPing                : return InitiateTargetedPingMessage.self
             case .dialogFreezeGroupV2Invitation       : return DialogFreezeGroupV2InvitationMessage.self
+            case .initiateUpdateKeycloakGroups        : return InitiateUpdateKeycloakGroupsMessage.self
             }
         }
     }
@@ -1198,4 +1202,102 @@ extension GroupV2Protocol {
         
     }
 
+    
+    // MARK: - InitiateUpdateKeycloakGroupsMessage
+    
+    struct InitiateUpdateKeycloakGroupsMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.initiateUpdateKeycloakGroups
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        // Properties specific to this concrete protocol message
+
+        let signedGroupBlobs: Set<String>
+        let signedGroupDeletions: Set<String>
+        let signedGroupKicks: Set<String>
+        let keycloakCurrentTimestamp: Date
+        
+        // Init when sending this message
+
+        init(coreProtocolMessage: CoreProtocolMessage, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.signedGroupBlobs = signedGroupBlobs
+            self.signedGroupDeletions = signedGroupDeletions
+            self.signedGroupKicks = signedGroupKicks
+            self.keycloakCurrentTimestamp = keycloakCurrentTimestamp
+        }
+
+        var encodedInputs: [ObvEncoded] {
+            let encodedSignedGroupBlobs = (signedGroupBlobs.map { $0.obvEncode() }).obvEncode()
+            let encodedSignedGroupDeletions = (signedGroupDeletions.map { $0.obvEncode() }).obvEncode()
+            let encodedSignedGroupKicks = (signedGroupKicks.map { $0.obvEncode() }).obvEncode()
+            let encodedKeycloakCurrentTimestamp = keycloakCurrentTimestamp.obvEncode()
+            return [encodedSignedGroupBlobs, encodedSignedGroupDeletions, encodedSignedGroupKicks, encodedKeycloakCurrentTimestamp]
+        }
+        
+        // Init when receiving this message
+
+        init(with message: ReceivedMessage) throws {
+            do {
+                self.coreProtocolMessage = CoreProtocolMessage(with: message)
+                guard message.encodedInputs.count == 4 else { throw Self.makeError(message: "Unexpected number of encoded inputs in InitiateUpdateKeycloakGroupsMessage") }
+                let encodedSignedGroupBlobs = message.encodedInputs[0]
+                let encodedSignedGroupDeletions = message.encodedInputs[1]
+                let encodedSignedGroupKicks = message.encodedInputs[2]
+                let encodedKeycloakCurrentTimestamp = message.encodedInputs[3]
+                guard let listOfEncodedSignedGroupBlobs = [ObvEncoded](encodedSignedGroupBlobs) else { throw Self.makeError(message: "Could not decode list of signed blobs") }
+                guard let listOfEncodedSignedGroupDeletions = [ObvEncoded](encodedSignedGroupDeletions) else { throw Self.makeError(message: "Could not decode list of signed group deletions") }
+                guard let listOfEncodedSignedGroupKicks = [ObvEncoded](encodedSignedGroupKicks) else { throw Self.makeError(message: "Could not decode list of kicks") }
+                self.signedGroupBlobs = try Set(listOfEncodedSignedGroupBlobs.map { try $0.obvDecode() })
+                self.signedGroupDeletions = try Set(listOfEncodedSignedGroupDeletions.map { try $0.obvDecode() })
+                self.signedGroupKicks = try Set(listOfEncodedSignedGroupKicks.map { try $0.obvDecode() })
+                self.keycloakCurrentTimestamp = try encodedKeycloakCurrentTimestamp.obvDecode()
+            } catch {
+                assertionFailure()
+                throw error
+            }
+        }
+        
+    }
+
+    
+    // MARK: - InitiateTargetedPingMessage
+    
+    struct InitiateTargetedPingMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.initiateTargetedPing
+        let coreProtocolMessage: CoreProtocolMessage
+
+        // Properties specific to this concrete protocol message
+
+        let groupIdentifier: GroupV2.Identifier
+        let pendingMemberIdentity: ObvCryptoIdentity
+        
+        init(coreProtocolMessage: CoreProtocolMessage, groupIdentifier: GroupV2.Identifier, pendingMemberIdentity: ObvCryptoIdentity) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.groupIdentifier = groupIdentifier
+            self.pendingMemberIdentity = pendingMemberIdentity
+        }
+
+        var encodedInputs: [ObvEncoded] {
+            return [groupIdentifier.obvEncode(), pendingMemberIdentity.obvEncode()]
+        }
+
+        // Init when receiving this message
+
+        init(with message: ReceivedMessage) throws {
+            do {
+                self.coreProtocolMessage = CoreProtocolMessage(with: message)
+                guard message.encodedInputs.count == 2 else { throw Self.makeError(message: "Unexpected number of encoded inputs in InitiateTargetedPingMessage") }
+                let encodedGroupIdentifier = message.encodedInputs[0]
+                let encodedPendingMemberIdentity = message.encodedInputs[1]
+                self.groupIdentifier = try encodedGroupIdentifier.obvDecode()
+                self.pendingMemberIdentity = try encodedPendingMemberIdentity.obvDecode()
+            } catch {
+                assertionFailure()
+                throw error
+            }
+        }
+
+    }
 }

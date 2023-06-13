@@ -124,6 +124,8 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
             return
         }
         
+        os_log("Will try to get Id from server for message %{public}@ within flow %{public}@", log: log, type: .fault, messageId.debugDescription, flowId.debugDescription)
+        
         var syncQueueOutput: SyncQueueOutput? // The state after the localQueue.sync is executed
         
         localQueue.sync {

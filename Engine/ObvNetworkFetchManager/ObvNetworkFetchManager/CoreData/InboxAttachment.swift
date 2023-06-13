@@ -111,8 +111,8 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     @NSManaged private(set) var expectedChunkLength: Int
     @NSManaged private(set) var initialByteCountToDownload: Int // The number of (encrypted) bytes we need to receive to eventually obtain the full file
     @NSManaged private(set) var metadata: Data?
-    @NSManaged private var rawMessageIdOwnedIdentity: Data
-    @NSManaged private var rawMessageIdUid: Data
+    @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
+    @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged private var rawStatus: Int
 
     // MARK: Relationships
@@ -190,18 +190,29 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
         return key != nil && metadata != nil && fromCryptoIdentity != nil
     }
     
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
-        set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
+    /// This identifier is expected to be non nil, unless the associated `InboxMessage` was deleted on another thread.
+    private(set) var messageId: MessageIdentifier? {
+        get {
+            guard let rawMessageIdOwnedIdentity else { return nil }
+            guard let rawMessageIdUid else { return nil }
+            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+        }
+        set {
+            guard let newValue else { assertionFailure(); return }
+            self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity()
+            self.rawMessageIdUid = newValue.uid.raw
+        }
     }
 
-    var attachmentId: AttachmentIdentifier {
+    /// This identifier is expected to be non nil, unless the associated `InboxMessage` was deleted on another thread.
+    var attachmentId: AttachmentIdentifier? {
+        guard let messageId else { return nil }
         return AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
     }
 
     func getURL(withinInbox inbox: URL) -> URL? {
         let attachmentFileName = "\(attachmentNumber)"
-        let url = message?.getAttachmentDirectory(withinInbox: inbox).appendingPathComponent(attachmentFileName)
+        let url = message?.getAttachmentDirectory(withinInbox: inbox)?.appendingPathComponent(attachmentFileName)
         return url
     }
     
@@ -220,7 +231,12 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     
     convenience init?(message: InboxMessage, attachmentNumber: Int, byteCountToDownload: Int, expectedChunkLength: Int, within obvContext: ObvContext) throws {
 
-        let attachmentId = AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
+        guard let inboxMessageId = message.messageId else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not determine the InboxMessage identifier")
+        }
+        
+        let attachmentId = AttachmentIdentifier(messageId: inboxMessageId, attachmentNumber: attachmentNumber)
         
         guard try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) == nil else { return nil }
 

@@ -19,6 +19,7 @@
   
 
 import Foundation
+import ObvUICoreData
 
 
 protocol ShareViewModelDelegate: AnyObject {

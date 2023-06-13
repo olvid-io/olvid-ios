@@ -19,6 +19,9 @@
 
 import ObvUI
 import SwiftUI
+import UI_SystemIcon
+import UI_SystemIcon_UIKit
+import UI_SystemIcon_SwiftUI
 
 
 class FloatingButtonModel: ObservableObject {

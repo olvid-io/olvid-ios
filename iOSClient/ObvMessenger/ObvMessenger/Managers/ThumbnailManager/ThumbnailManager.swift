@@ -21,6 +21,7 @@ import UIKit
 import os.log
 import QuickLookThumbnailing
 import MobileCoreServices
+import ObvUICoreData
 
 
 enum ThumbnailType {
@@ -52,12 +53,15 @@ final class ThumbnailManager {
     
     private var thumbnails = Set<Thumbnail>()
 
-    private var appType: ObvMessengerConstants.AppType
-    
-    init(appType: ObvMessengerConstants.AppType) {
+    private var appType: ObvUICoreDataConstants.AppType
+
+    static func makeThumbnailManagerForMainApp() -> Self {
+        let url = ObvUICoreDataConstants.ContainerURL.forThumbnailsWithinMainApp.url
+        return Self(appType: .mainApp, url: url)
+    }
+
+    private init(appType: ObvUICoreDataConstants.AppType, url: URL) {
         self.appType = appType
-        let url = ObvMessengerConstants.containerURL.forThumbnails(within: appType)
-        try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         self.previousDirectories = try! FileManager.default.contentsOfDirectory(atPath: url.path).map { url.appendingPathComponent($0) }
         self.currentDirectory = url.appendingPathComponent(UUID().description)
         try! FileManager.default.createDirectory(at: self.currentDirectory, withIntermediateDirectories: true, attributes: nil)
@@ -68,6 +72,7 @@ final class ThumbnailManager {
     
     
     deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
         self.deleteCurrentDirectory()
     }
     

@@ -19,6 +19,8 @@
 
 
 import Foundation
+import ObvUICoreData
+
 
 protocol FyleJoinsProvider: Operation {
     var fyleJoins: [FyleJoin]? { get }

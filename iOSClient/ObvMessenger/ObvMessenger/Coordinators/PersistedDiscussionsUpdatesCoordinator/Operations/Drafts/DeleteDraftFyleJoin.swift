@@ -21,6 +21,8 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
+
 
 final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<DeleteDraftFyleJoinOperationReasonForCancel> {
 
@@ -49,7 +51,7 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
             }
 
             if let draft {
-                ObvMessengerCoreDataNotification.draftFyleJoinWasDeleted(discussionPermanentID: draft.discussion.discussionPermanentID,
+                ObvMessengerInternalNotification.draftFyleJoinWasDeleted(discussionPermanentID: draft.discussion.discussionPermanentID,
                                                                          draftPermanentID: draft.objectPermanentID,
                                                                          draftFyleJoinPermanentID: draftFyleJoinPermanentID)
                 .postOnDispatchQueue()

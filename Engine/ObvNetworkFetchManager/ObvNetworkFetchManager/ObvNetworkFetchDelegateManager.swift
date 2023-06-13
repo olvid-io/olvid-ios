@@ -45,7 +45,7 @@ final class ObvNetworkFetchDelegateManager {
     let messagesDelegate: MessagesDelegate
     let downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate
     let deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate
-    let processRegisteredPushNotificationsDelegate: ProcessRegisteredPushNotificationsDelegate
+    let serverPushNotificationsDelegate: ServerPushNotificationsDelegate
     let webSocketDelegate: WebSocketDelegate
     let getTurnCredentialsDelegate: GetTurnCredentialsDelegate?
     let queryApiKeyStatusDelegate: QueryApiKeyStatusDelegate?
@@ -67,7 +67,7 @@ final class ObvNetworkFetchDelegateManager {
 
     // MARK: Initialiazer
     
-    init(inbox: URL, sharedContainerIdentifier: String, supportBackgroundFetch: Bool, networkFetchFlowDelegate: NetworkFetchFlowDelegate, getAndSolveChallengeDelegate: GetAndSolveChallengeDelegate, getTokenDelegate: GetTokenDelegate, downloadMessagesAndListAttachmentsDelegate: MessagesDelegate, downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate, deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate, processRegisteredPushNotificationsDelegate: ProcessRegisteredPushNotificationsDelegate, webSocketDelegate: WebSocketDelegate, getTurnCredentialsDelegate: GetTurnCredentialsDelegate?, queryApiKeyStatusDelegate: QueryApiKeyStatusDelegate, freeTrialQueryDelegate: FreeTrialQueryDelegate, verifyReceiptDelegate: VerifyReceiptDelegate, serverQueryDelegate: ServerQueryDelegate, serverUserDataDelegate: ServerUserDataDelegate, wellKnownCacheDelegate: WellKnownCacheDelegate) {
+    init(inbox: URL, sharedContainerIdentifier: String, supportBackgroundFetch: Bool, networkFetchFlowDelegate: NetworkFetchFlowDelegate, getAndSolveChallengeDelegate: GetAndSolveChallengeDelegate, getTokenDelegate: GetTokenDelegate, downloadMessagesAndListAttachmentsDelegate: MessagesDelegate, downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate, deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate, serverPushNotificationsDelegate: ServerPushNotificationsDelegate, webSocketDelegate: WebSocketDelegate, getTurnCredentialsDelegate: GetTurnCredentialsDelegate?, queryApiKeyStatusDelegate: QueryApiKeyStatusDelegate, freeTrialQueryDelegate: FreeTrialQueryDelegate, verifyReceiptDelegate: VerifyReceiptDelegate, serverQueryDelegate: ServerQueryDelegate, serverUserDataDelegate: ServerUserDataDelegate, wellKnownCacheDelegate: WellKnownCacheDelegate) {
 
         self.inbox = inbox
         self.sharedContainerIdentifier = sharedContainerIdentifier
@@ -79,7 +79,7 @@ final class ObvNetworkFetchDelegateManager {
         self.messagesDelegate = downloadMessagesAndListAttachmentsDelegate
         self.downloadAttachmentChunksDelegate = downloadAttachmentChunksDelegate
         self.deleteMessageAndAttachmentsFromServerDelegate = deleteMessageAndAttachmentsFromServerDelegate
-        self.processRegisteredPushNotificationsDelegate = processRegisteredPushNotificationsDelegate
+        self.serverPushNotificationsDelegate = serverPushNotificationsDelegate
         self.webSocketDelegate = webSocketDelegate
         self.getTurnCredentialsDelegate = getTurnCredentialsDelegate
         self.queryApiKeyStatusDelegate = queryApiKeyStatusDelegate

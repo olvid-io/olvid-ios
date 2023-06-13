@@ -77,7 +77,7 @@ extension PhotoServerKeyAndLabel: Codable {
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let rawEncodedKey = try values.decode(Data.self, forKey: .key)
-        guard let encodedKey = ObvEncoded(withRawData: rawEncodedKey) else { throw PhotoServerKeyAndLabel.makeError(message: "Could not parse raw encoded key") }
+        guard let encodedKey = ObvEncoded(withRawData: rawEncodedKey) else { assertionFailure(); throw PhotoServerKeyAndLabel.makeError(message: "Could not parse raw encoded key") }
         let key = try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
         // We make the decoder as resilient as possible
         let label: UID

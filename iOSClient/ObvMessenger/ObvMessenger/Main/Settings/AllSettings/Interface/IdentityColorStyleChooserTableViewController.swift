@@ -19,6 +19,7 @@
 
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 class IdentityColorStyleChooserTableViewController: UITableViewController {
 
@@ -43,12 +44,12 @@ class IdentityColorStyleChooserTableViewController: UITableViewController {
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return AppTheme.IdentityColorStyle.allCases.count
+        return IdentityColorStyle.allCases.count
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let style = AppTheme.IdentityColorStyle.allCases[indexPath.row]
+        let style = IdentityColorStyle.allCases[indexPath.row]
         
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = style.description
@@ -64,7 +65,7 @@ class IdentityColorStyleChooserTableViewController: UITableViewController {
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
-        let selectedStyle = AppTheme.IdentityColorStyle.allCases[indexPath.row]
+        let selectedStyle = IdentityColorStyle.allCases[indexPath.row]
         
         ObvMessengerSettings.Interface.identityColorStyle = selectedStyle
         

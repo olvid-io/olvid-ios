@@ -21,6 +21,7 @@
 import Foundation
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 final class MarkPublishedDetailsOfGroupV2AsSeenOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     

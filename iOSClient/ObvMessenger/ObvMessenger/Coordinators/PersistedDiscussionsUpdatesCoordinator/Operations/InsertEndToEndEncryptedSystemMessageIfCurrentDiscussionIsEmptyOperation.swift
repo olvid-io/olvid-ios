@@ -20,6 +20,7 @@
 import Foundation
 import OlvidUtils
 import os.log
+import ObvUICoreData
 
 final class InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperation: ContextualOperationWithSpecificReasonForCancel<InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperationReasonForCancel> {
     
@@ -44,7 +45,7 @@ final class InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperat
                 guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindDiscussion)
                 }
-                try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: markAsRead)
+                try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: markAsRead, messageTimestamp: Date())
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

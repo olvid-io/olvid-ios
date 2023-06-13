@@ -37,15 +37,11 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
     private let internalQueue = OperationQueue.createSerialQueue(name: "NetworkFetchFlowCoordinator internal operation queue")
     private let syncQueue = DispatchQueue(label: "NetworkFetchFlowCoordinator internal queue")
 
-    weak var delegateManager: ObvNetworkFetchDelegateManager? {
-        didSet {
-            pollingWorker.delegateManager = delegateManager
-        }
-    }
+    weak var delegateManager: ObvNetworkFetchDelegateManager?
     
     static let errorDomain = "NetworkFetchFlowCoordinator"
 
-    let pollingWorker = PollingWorker()
+    // let pollingWorker = PollingWorker()
     
     // The `downloadAttachment` counter is used in `DownloadAttachmentChunksCoordinator`
     private var failedAttemptsCounterManager = FailedAttemptsCounterManager()
@@ -57,7 +53,7 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
         monitorNetworkChanges()
     }
     
-    private var nwPathMonitor: AnyObject? // Actually an NWPathMonitor, but this is only available since iOS 12 and since we support iOS 11, we cannot specify the type
+    private var nwPathMonitor: NWPathMonitor?
 }
 
 
@@ -202,15 +198,15 @@ extension NetworkFetchFlowCoordinator {
             }
             
             // We re-subscribe to push notifications
-            do {
-                let pushNotifications = RegisteredPushNotification.getAllSortedByCreationDate(for: identity, delegateManager: delegateManager, within: obvContext)
-                pushNotifications?.forEach { (pushNotification) in
-                    do {
-                        try delegateManager.processRegisteredPushNotificationsDelegate.process(forIdentity: pushNotification.cryptoIdentity, withDeviceUid: pushNotification.deviceUid, flowId: flowId)
-                    } catch {
-                        os_log("Call to processRegisteredPushNotificationsDelegate.process did fail", log: log, type: .fault)
-                        assertionFailure()
-                    }
+            for pushNotificationType in ObvPushNotificationType.ByteId.allCases {
+                do {
+                    try delegateManager.serverPushNotificationsDelegate.processServerPushNotificationsToRegister(
+                        ownedCryptoId: identity,
+                        pushNotificationType: pushNotificationType,
+                        flowId: flowId)
+                } catch {
+                    assertionFailure()
+                    os_log("Could not call processServerPushNotificationsToRegister", log: log, type: .fault)
                 }
             }
             
@@ -402,7 +398,6 @@ extension NetworkFetchFlowCoordinator {
     func downloadingMessagesAndListingAttachmentWasPerformed(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid uid: UID, flowId: FlowIdentifier) {
         failedAttemptsCounterManager.reset(counter: .downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoIdentity))
         processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
-        pollingWorker.pollingIfRequired(for: ownedCryptoIdentity, withDeviceUid: uid, flowId: flowId)
     }
     
     
@@ -459,7 +454,8 @@ extension NetworkFetchFlowCoordinator {
                                                                      notificationDelegate: notificationDelegate,
                                                                      processDownloadedMessageDelegate: processDownloadedMessageDelegate,
                                                                      log: log)
-                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, log: log, flowId: flowId)
+                let queueForComposedOperations = OperationQueue.createSerialQueue()
+                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
                 internalQueue.addOperations([composedOp], waitUntilFinished: true)
                 composedOp.logReasonIfCancelled(log: log)
                 if composedOp.isCancelled {
@@ -687,76 +683,6 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Push notification's related methods
 
-    func newRegisteredPushNotificationToProcess(for identity: ObvCryptoIdentity, withDeviceUid uid: UID, flowId: FlowIdentifier) throws {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        failedAttemptsCounterManager.reset(counter: .registerPushNotification(ownedIdentity: identity))
-        try delegateManager.processRegisteredPushNotificationsDelegate.process(forIdentity: identity, withDeviceUid: uid, flowId: flowId)
-                
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
-            assert(false)
-            return
-        }
-        
-        contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-
-            guard let serverSession = try? ServerSession.getToken(within: obvContext, forIdentity: identity) else {
-                os_log("Could not set the WebSocket server session since none can be found in DB for the given identity.", log: log, type: .error)
-                return
-            }
-            
-            Task {
-                await delegateManager.webSocketDelegate.setServerSessionToken(to: serverSession, for: identity)
-            }
-            
-        }
-    }
-
-
-    func failedToProcessRegisteredPushNotification(for identity: ObvCryptoIdentity, withDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
-
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-
-        let delay = failedAttemptsCounterManager.incrementAndGetDelay(.registerPushNotification(ownedIdentity: identity))
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        retryManager.executeWithDelay(delay) { [weak self] in
-            do {
-                try self?.delegateManager?.processRegisteredPushNotificationsDelegate.process(forIdentity: identity, withDeviceUid: deviceUid, flowId: flowId)
-            } catch {
-                os_log("Failed to process registered push notification", log: log, type: .fault)
-                assertionFailure()
-            }
-        }
-    }
-
-    
-    func pollingRequested(for identity: ObvCryptoIdentity, withDeviceUid deviceUid: UID, andPollingIdentifier pollingIdentifier: UUID, flowId: FlowIdentifier) {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        os_log("Polling requested for identity %{public}@", log: log, type: .debug, identity.debugDescription)
-        pollingWorker.pollingRequested(for: identity, withPollingIdentifier: pollingIdentifier)
-        pollingWorker.pollingIfRequired(for: identity, withDeviceUid: deviceUid, flowId: flowId)
-        // When polling is requested, we immediately download messages and list attachments. We do this once.
-        os_log("Since polling was requested, we perform an initial downloadMessagesAndListAttachmentsDelegate for identity %{public}@", log: log, type: .debug, identity.debugDescription)
-        delegateManager.messagesDelegate.downloadMessagesAndListAttachments(for: identity, andDeviceUid: deviceUid, flowId: flowId)
-    }
-
-
     func serverReportedThatAnotherDeviceIsAlreadyRegistered(forOwnedIdentity ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
         let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -973,6 +899,8 @@ extension NetworkFetchFlowCoordinator {
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.requestGroupBlobLock(result: result)
             case .updateGroupBlob(uploadResult: let uploadResult):
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.updateGroupBlob(uploadResult: uploadResult)
+            case .getKeycloakData(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.getKeycloakData(result: result)
             }
 
             let aResponseMessageShouldBePosted: Bool
@@ -1032,8 +960,8 @@ extension NetworkFetchFlowCoordinator {
     
     private func monitorNetworkChanges() {
         nwPathMonitor = NWPathMonitor()
-        (nwPathMonitor as? NWPathMonitor)?.start(queue: DispatchQueue(label: "NetworkFetchMonitor"))
-        (nwPathMonitor as? NWPathMonitor)?.pathUpdateHandler = self.networkPathDidChange
+        nwPathMonitor?.start(queue: DispatchQueue(label: "NetworkFetchMonitor"))
+        nwPathMonitor?.pathUpdateHandler = self.networkPathDidChange
     }
 
     

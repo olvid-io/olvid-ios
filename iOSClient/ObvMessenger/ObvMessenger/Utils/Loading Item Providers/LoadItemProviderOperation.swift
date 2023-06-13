@@ -23,6 +23,8 @@ import os.log
 import UIKit
 import Contacts
 import OlvidUtils
+import ObvUI
+import ObvUICoreData
 
 
 /// This operation takes an `itemProvider` and loads it.
@@ -31,7 +33,7 @@ import OlvidUtils
 /// - It first choose the most appropriate UTI to load. In the "worst" case, we choose the first UTI returned by `registeredTypeIdentifiers`
 /// - Then it loads a file representation and copy this file to a temporary location `tempURL`
 /// - It keeps track of the UTI and of the file name so as to return an appropriate `loadedFileRepresentation`.
-final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<LoadItemProviderOperationReasonForCancel> {
+final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<LoadItemProviderOperationReasonForCancel>, OperationProvidingLoadedItemProvider {
     
     private let preferredUTIs = [kUTTypeFileURL, kUTTypeJPEG, kUTTypePNG, kUTTypeMPEG4, kUTTypeMP3, kUTTypeQuickTimeMovie].map({ $0 as String })
     private let ignoredUTIs = [UTI.Bitmoji.avatarID, UTI.Bitmoji.comicID, UTI.Bitmoji.packID, UTI.Apple.groupActivitiesActivity]
@@ -156,7 +158,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                 }
                 let contactName = [contact.givenName, contact.familyName].joined(separator: "-")
                 let filename = [contactName, "vcf"].joined(separator: ".")
-                let tempURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(filename)
+                let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(filename)
                 do {
                     let contactData = try CNContactVCardSerialization.data(with: [contact])
                     try contactData.write(to: tempURL)
@@ -178,13 +180,26 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
                     return
                 }
-                guard let text = item as? String else {
+                if let text = item as? String {
+                    self?.loadedItemProvider = .text(content: text)
+                    self?._isFinished = true
+                    return
+                } else if let url = item as? URL {
+                    let filename = url.lastPathComponent
+                    let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
+                    do {
+                        try FileManager.default.copyItem(at: url, to: tempURL)
+                    } catch {
+                        self?.cancel(withReason: .couldNotCopyItem(error: error))
+                        return
+                    }
+                    self?.loadedItemProvider = .file(tempURL: tempURL, uti: String(kUTTypeText), filename: filename)
+                    self?._isFinished = true
+                    return
+                } else {
                     self?.cancel(withReason: .couldNotLoadString)
                     return
                 }
-                self?.loadedItemProvider = .text(content: text)
-                self?._isFinished = true
-                return
             }
                    
         } else if utiToLoad.utiConformsTo(kUTTypeFileURL) {
@@ -201,7 +216,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     return
                 }
                 let filename = pickerURL.lastPathComponent
-                let tempURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
+                let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
                 do {
                     try FileManager.default.copyItem(at: pickerURL, to: tempURL)
                 } catch {
@@ -264,7 +279,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .noneOfTheItemTypeIdentifiersCouldBeLoaded(itemTypeIdentifiers: availableTypeIdentifiers))
                     return
                 }
-                let tempURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
+                let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
 
                 // If we reach this point, we were able to load png or jpeg data
                 do {
@@ -301,7 +316,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     return
                 }
                 let filename = pickerURL.lastPathComponent
-                let tempURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
+                let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
                 do {
                     try FileManager.default.copyItem(at: pickerURL, to: tempURL)
                 } catch {

@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>You are about to introduce X to Y and count other contacts.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Vous allez présenter %2$@ à %3$@.</string>
+			<key>one</key>
+			<string>Vous allez présenter %2$@ à %3$@ et un autre contact.</string>
+			<key>other</key>
+			<string>Vous allez présenter %2$@ à %3$@ et %1$d autres contacts.</string>
+		</dict>
+	</dict>
+	<key>You successfully introduced X to Y and count other contacts.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Vous avez présenté %2$@ à %3$@.</string>
+			<key>one</key>
+			<string>Vous avez présenté %2$@ à %3$@ et un autre contact.</string>
+			<key>other</key>
+			<string>Vous avez présenté %2$@ à %3$@ et %1$d autres contacts.</string>
+		</dict>
+	</dict>
+	<key>see count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>→ Voir la pièce jointe</string>
+			<key>other</key>
+			<string>→ Voir les %u pièces jointes</string>
+			<key>zero</key>
+			<string>Aucune pièce jointe</string>
+		</dict>
+	</dict>
+	<key>count new messages</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@VARIABLE@</string>
+		<key>VARIABLE</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>1 nouveau message</string>
+			<key>other</key>
+			<string>%u nouveaux messages</string>
+			<key>zero</key>
+			<string>Aucun nouveau message</string>
+		</dict>
+	</dict>
+	<key>count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Une pièce jointe</string>
+			<key>other</key>
+			<string>%u pièces jointes</string>
+			<key>zero</key>
+			<string>Aucune pièce jointe</string>
+		</dict>
+	</dict>
+	<key>share count photos</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Partager la photo</string>
+			<key>other</key>
+			<string>Partager les %u photos</string>
+			<key>zero</key>
+			<string>Aucune photo à partager</string>
+		</dict>
+	</dict>
+	<key>share count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Aucune pièce jointe</string>
+			<key>one</key>
+			<string>Partager la pièce jointe</string>
+			<key>other</key>
+			<string>Partager les %u pièces jointes</string>
+		</dict>
+	</dict>
+	<key>You are about to delete a message together with its count attachments</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Vous vous apprêtez à supprimer un message.</string>
+			<key>one</key>
+			<string>Vous vous apprêtez à supprimer un message et sa pièce jointe.</string>
+			<key>other</key>
+			<string>Vous vous apprêtez à supprimer un message et ses %d pièces jointes.</string>
+		</dict>
+	</dict>
+	<key>recent backups count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Aucune sauvegarde</string>
+			<key>one</key>
+			<string>Une sauvegarde</string>
+			<key>other</key>
+			<string>%u sauvegardes les plus récentes</string>
+		</dict>
+	</dict>
+	<key>backups count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Aucune sauvegarde</string>
+			<key>one</key>
+			<string>Une sauvegarde</string>
+			<key>other</key>
+			<string>%u sauvegardes</string>
+		</dict>
+	</dict>
+	<key>missed messages count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>1 message manquant</string>
+			<key>other</key>
+			<string>%u messages manquants</string>
+		</dict>
+	</dict>
+	<key>clean in progress count</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Pas de sauvegardes supprimées</string>
+			<key>one</key>
+			<string>Une sauvegarde supprimée</string>
+			<key>other</key>
+			<string>%u sauvegardes supprimées</string>
+		</dict>
+	</dict>
+	<key>KEYCLOAK_MISSING_SEARCH_RESULT</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Un résultat supplémentaire est disponible. Veuillez affiner votre recherche.</string>
+			<key>other</key>
+			<string>%u résultats supplémentaires sont disponibles. Veuillez affiner votre recherche.</string>
+		</dict>
+	</dict>
+	<key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_MESSAGE</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Pour changer ce paramètre, vous devez accepter une invitation de groupe en attente.</string>
+			<key>other</key>
+			<string>Pour changer ce paramètre, vous devez accepter %u invitations de groupe en attente.</string>
+		</dict>
+	</dict>
+	<key>AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_ACCEPT_ACTION_TITLE</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>one</key>
+			<string>Accepter l&apos;invitation de groupe maintenant</string>
+			<key>other</key>
+			<string>Accepter les %u invitations de groupe maintenant</string>
+		</dict>
+	</dict>
+	<key>CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>choisir</string>
+			<key>one</key>
+			<string>une sélectionnée</string>
+			<key>other</key>
+			<string>%u sélectionnées</string>
+		</dict>
+	</dict>
+	<key>NUMBER_OF_ITEMS_SELECTED</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Sélectionner des éléments</string>
+			<key>one</key>
+			<string>1 élément sélectionné</string>
+			<key>other</key>
+			<string>%u éléments sélectionnés</string>
+		</dict>
+	</dict>
+	<key>NUMBER_OF_ELEMENTS</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>Aucun élément</string>
+			<key>one</key>
+			<string>1 élément</string>
+			<key>other</key>
+			<string>%u éléments</string>
+		</dict>
+	</dict>
+	<key>WITH_N_PARTICIPANTS</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@Variable@</string>
+		<key>Variable</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>u</string>
+			<key>zero</key>
+			<string>sans aucun participant</string>
+			<key>one</key>
+			<string>avec un participant</string>
+			<key>other</key>
+			<string>avec %u participants</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

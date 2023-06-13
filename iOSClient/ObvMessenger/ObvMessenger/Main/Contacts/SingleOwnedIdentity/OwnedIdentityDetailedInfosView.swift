@@ -21,6 +21,7 @@
 import SwiftUI
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 
 protocol OwnedIdentityDetailedInfosViewDelegate: AnyObject {
@@ -32,7 +33,7 @@ struct OwnedIdentityDetailedInfosView: View {
 
     @ObservedObject var ownedIdentity: PersistedObvOwnedIdentity
     weak var delegate: OwnedIdentityDetailedInfosViewDelegate?
-    @State private var signedContactDetails: SignedUserDetails? = nil
+    @State private var signedContactDetails: SignedObvKeycloakUserDetails? = nil
     
     private var titlePart1: String? {
         ownedIdentity.identityCoreDetails.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)

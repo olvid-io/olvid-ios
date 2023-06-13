@@ -1,0 +1,9 @@
+tuist/xcframeworks/*.xcframework/**/* filter=lfs diff=lfs merge=lfs -text
+tuist/xcframeworks/*.xcframework/**/*.h !filter !diff !merge text
+tuist/xcframeworks/*.xcframework/**/*.plist !filter !diff !merge text
+tuist/xcframeworks/*.xcframework/**/*.modulemap !filter !diff !merge text
+
+tuist/GMPSPM/*.xcframework/**/* filter=lfs diff=lfs merge=lfs -text
+tuist/GMPSPM/*.xcframework/**/*.h !filter !diff !merge text
+tuist/GMPSPM/*.xcframework/**/*.plist !filter !diff !merge text
+tuist/GMPSPM/*.xcframework/**/*.modulemap !filter !diff !merge text

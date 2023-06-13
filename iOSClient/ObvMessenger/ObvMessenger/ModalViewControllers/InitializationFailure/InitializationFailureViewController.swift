@@ -19,6 +19,7 @@
 
 import UIKit
 import MessageUI
+import ObvUI
 
 class InitializationFailureViewController: UIViewController {
 

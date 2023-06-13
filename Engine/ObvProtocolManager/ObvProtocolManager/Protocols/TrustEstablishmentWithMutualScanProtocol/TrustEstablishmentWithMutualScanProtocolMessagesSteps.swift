@@ -226,7 +226,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                     os_log("Contact is not active", log: log, type: .error)
                     return CancelledState()
                 }
-                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
@@ -335,7 +335,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Signature is valid and is fresh --> create the contact (if it does not already exists)
 
             if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
@@ -396,7 +396,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                     os_log("The identity is not active", log: log, type: .fault)
                     return CancelledState()
                 }
-                try identityDelegate.addTrustOrigin(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(bobIdentity, with: bobCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }

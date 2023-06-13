@@ -17,7 +17,9 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import ObvUICoreData
 import UIKit
+
 
 class OwnedIdentityIsNotActiveViewController: UIViewController {
 
@@ -27,6 +29,10 @@ class OwnedIdentityIsNotActiveViewController: UIViewController {
     @IBOutlet weak var reactivateButton: UIButton!
     
     private var notificationTokens = [NSObjectProtocol]()
+
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()

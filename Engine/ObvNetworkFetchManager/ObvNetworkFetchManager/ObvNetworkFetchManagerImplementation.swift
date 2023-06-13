@@ -52,13 +52,24 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
                 
         self.bootstrapWorker = BootstrapWorker(inbox: inbox)
         
+        let queueSharedAmongCoordinators = OperationQueue.createSerialQueue(name: "Queue shared among coordinators of ObvNetworkFetchManagerImplementation", qualityOfService: .userInteractive)
+        let queueForComposedOperations = {
+            let queue = OperationQueue()
+            queue.name = "Queue for composed operations"
+            queue.qualityOfService = .userInteractive
+            return queue
+        }()
+        
         let networkFetchFlowCoordinator = NetworkFetchFlowCoordinator(prng: prng)
         let getAndSolveChallengeCoordinator = GetAndSolveChallengeCoordinator()
         let getTokenCoordinator = GetTokenCoordinator()
         let downloadMessagesAndListAttachmentsCoordinator = MessagesCoordinator()
         let downloadAttachmentChunksCoordinator = DownloadAttachmentChunksCoordinator()
         let deleteMessageAndAttachmentsFromServerCoordinator = DeleteMessageAndAttachmentsFromServerCoordinator()
-        let processRegisteredPushNotificationsCoordinator = ProcessRegisteredPushNotificationsCoordinator(remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer)
+        let serverPushNotificationsCoordinator = ServerPushNotificationsCoordinator(
+            remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations)
         let getTurnCredentialsCoordinator = GetTurnCredentialsCoordinator()
         let queryApiKeyStatusCoordinator = QueryApiKeyStatusCoordinator()
         let freeTrialQueryCoordinator = FreeTrialQueryCoordinator()
@@ -77,7 +88,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
                                                          downloadMessagesAndListAttachmentsDelegate: downloadMessagesAndListAttachmentsCoordinator,
                                                          downloadAttachmentChunksDelegate: downloadAttachmentChunksCoordinator,
                                                          deleteMessageAndAttachmentsFromServerDelegate: deleteMessageAndAttachmentsFromServerCoordinator,
-                                                         processRegisteredPushNotificationsDelegate: processRegisteredPushNotificationsCoordinator,
+                                                         serverPushNotificationsDelegate: serverPushNotificationsCoordinator,
                                                          webSocketDelegate: webSocketCoordinator,
                                                          getTurnCredentialsDelegate: getTurnCredentialsCoordinator,
                                                          queryApiKeyStatusDelegate: queryApiKeyStatusCoordinator,
@@ -95,7 +106,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         downloadMessagesAndListAttachmentsCoordinator.delegateManager = delegateManager
         downloadAttachmentChunksCoordinator.delegateManager = delegateManager
         deleteMessageAndAttachmentsFromServerCoordinator.delegateManager = delegateManager
-        processRegisteredPushNotificationsCoordinator.delegateManager = delegateManager
+        serverPushNotificationsCoordinator.delegateManager = delegateManager
         getTurnCredentialsCoordinator.delegateManager = delegateManager
         queryApiKeyStatusCoordinator.delegateManager = delegateManager
         freeTrialQueryCoordinator.delegateManager = delegateManager
@@ -296,13 +307,13 @@ extension ObvNetworkFetchManagerImplementation {
 
     // MARK: Other methods for attachments
     
-    public func set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos attachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId messageId: MessageIdentifier, within obvContext: ObvContext) throws {
+    public func setRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos attachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId messageId: MessageIdentifier, within obvContext: ObvContext) throws {
         guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
             os_log("Message does not exist in InboxMessage", log: log, type: .error)
             assertionFailure()
             throw makeError(message: "Message does not exist in InboxMessage")
         }
-        try inboxMessage.set(fromCryptoIdentity: remoteCryptoIdentity, andMessagePayload: messagePayload, extendedMessagePayloadKey: extendedMessagePayloadKey, flowId: obvContext.flowId, delegateManager: delegateManager)
+        try inboxMessage.setFromCryptoIdentity(remoteCryptoIdentity, andMessagePayload: messagePayload, extendedMessagePayloadKey: extendedMessagePayloadKey, flowId: obvContext.flowId, delegateManager: delegateManager)
         guard inboxMessage.attachments.count == attachmentsInfos.count else {
             os_log("Message does not have an appropriate number of attachments", log: log, type: .error)
             assertionFailure()
@@ -402,7 +413,8 @@ extension ObvNetworkFetchManagerImplementation {
         
         let inboxMessages = try InboxMessage.getAll(forIdentity: ownedCryptoIdentity, within: obvContext)
         for inboxMessage in inboxMessages {
-            deleteMessageAndAttachments(messageId: inboxMessage.messageId, within: obvContext)
+            guard let inboxMessageId = inboxMessage.messageId else { assertionFailure(); continue }
+            deleteMessageAndAttachments(messageId: inboxMessageId, within: obvContext)
         }
         
         // Delete all pending deletes from server relating to the owned identity
@@ -415,7 +427,9 @@ extension ObvNetworkFetchManagerImplementation {
         
         // Delete all registered push notifications relating to the owned identity
         
-        try RegisteredPushNotification.deleteAllRegisteredPushNotificationForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+        try obvContext.addContextDidSaveCompletionHandler { [weak self] _ in
+            self?.delegateManager.serverPushNotificationsDelegate.deleteAllServerPushNotificationsOnOwnedIdentityDeletion(ownedCryptoId: ownedCryptoIdentity, flowId: obvContext.flowId)
+        }
         
         // Delete all server sessions of owned identity
         
@@ -482,8 +496,7 @@ extension ObvNetworkFetchManagerImplementation {
         guard let attachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
         attachment.markForDeletion()
         guard let message = attachment.message else { return }
-        let messageId = message.messageId
-        if message.canBeDeleted {
+        if let messageId = message.messageId, message.canBeDeleted {
             try? obvContext.addContextDidSaveCompletionHandler({ (error) in
                 guard error == nil else { return }
                 try? delegateManager.messagesDelegate.processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: messageId, flowId: flowId)
@@ -511,77 +524,23 @@ extension ObvNetworkFetchManagerImplementation {
 
 extension ObvNetworkFetchManagerImplementation {
         
-    public func register(pushNotificationType: ObvPushNotificationType, for identity: ObvCryptoIdentity, withDeviceUid deviceUid: UID, within obvContext: ObvContext) {
-        
-        _ = RegisteredPushNotification(identity: identity,
-                                       deviceUid: deviceUid,
-                                       pushNotificationType: pushNotificationType,
-                                       delegateManager: delegateManager,
-                                       within: obvContext)
-        
+    public func registerPushNotification(_ pushNotification: ObvPushNotificationType, flowId: FlowIdentifier) {
+        delegateManager.serverPushNotificationsDelegate.registerToPushNotification(pushNotification, flowId: flowId)
     }
     
-    /// This method registes the identity to the push notification, but only if not previous registration can be found for this identity. This is typically used by the identity manager at launch time.
-    public func registerIfRequired(pushNotificationType: ObvPushNotificationType, for identity: ObvCryptoIdentity, withDeviceUid deviceUid: UID, within obvContext: ObvContext) {
-        
-        if let previouslyRegisteredPushNotifications = RegisteredPushNotification.getAllSortedByCreationDate(for: identity, delegateManager: delegateManager, within: obvContext) {
-            if previouslyRegisteredPushNotifications.count == 0 {
-                register(pushNotificationType: pushNotificationType, for: identity, withDeviceUid: deviceUid, within: obvContext)
-            } else if previouslyRegisteredPushNotifications.count == 1 {
-                // If the new and previous push notifications are "polling", we compare the time intervals
-                let previouslyRegisteredPushNotification = previouslyRegisteredPushNotifications.first!
-                switch previouslyRegisteredPushNotification.pushNotificationType {
-                case .polling(pollingInterval: let previousTimeInterval):
-                    switch pushNotificationType {
-                    case .polling(pollingInterval: let newTimeInterval):
-                        if previousTimeInterval == newTimeInterval {
-                            break
-                        } else {
-                            // We update the time interval of the registered polling push notification
-                            os_log("Changing polling time from %f to %f", log: log, type: .info, previousTimeInterval, newTimeInterval)
-                            obvContext.delete(previouslyRegisteredPushNotification)
-                            register(pushNotificationType: pushNotificationType, for: identity, withDeviceUid: deviceUid, within: obvContext)
-                        }
-                    default:
-                        break
-                    }
-                default:
-                    break
-                }
-            }
-        } else {
-            register(pushNotificationType: pushNotificationType, for: identity, withDeviceUid: deviceUid, within: obvContext)
-        }
-        
-    }
     
-    public func unregisterPushNotification(for identity: ObvCryptoIdentity, within obvContext: ObvContext) {
-        os_log("unregisterPushNotification is not implemented", log: log, type: .fault)
-        if let registeredPushNotifications = RegisteredPushNotification.getAllSortedByCreationDate(for: identity, delegateManager: delegateManager, within: obvContext) {
-            registeredPushNotifications.forEach {
-                obvContext.delete($0)
-            }
-        } else {
-            os_log("Could not unregister from push notifications", log: log, type: .error)
-        }
-        
-    }
-     
-    
-    // For now, this method is used when new keyckloak push topics are available. This will have the effect to re-register to push notification, adding the push topics found within the identity manager.
-    public func forceRegisterToPushNotification(identity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            assertionFailure()
-            throw makeError(message: "The identity delegate is not set")
-        }
-        
-        try obvContext.performAndWaitOrThrow {
-            let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(identity, within: obvContext)
-            try delegateManager.networkFetchFlowDelegate.newRegisteredPushNotificationToProcess(for: identity, withDeviceUid: currentDeviceUid, flowId: obvContext.flowId)
-        }
-    }
+    public func getServerPushNotification(ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvPushNotificationType? {
 
+        if let serverPushNotification = try ServerPushNotification.getServerPushNotificationOfType(.remote, ownedCryptoId: ownedCryptoId, within: obvContext.context) {
+            return try serverPushNotification.pushNotification
+        } else if let serverPushNotification = try ServerPushNotification.getServerPushNotificationOfType(.registerDeviceUid, ownedCryptoId: ownedCryptoId, within: obvContext.context) {
+            return try serverPushNotification.pushNotification
+        } else {
+            return nil
+        }
+        
+    }
+    
 }
 
 

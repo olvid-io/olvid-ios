@@ -22,6 +22,7 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvTypes
+import ObvUICoreData
 
 
 final class UnhideOwnedIdentityOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

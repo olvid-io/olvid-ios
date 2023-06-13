@@ -43,7 +43,10 @@ actor WebSocketManager {
         await observeNotifications()
     }
     
-    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private func storeObservationTokens(observationTokens: [NSObjectProtocol]) {
         self.observationTokens += observationTokens
     }

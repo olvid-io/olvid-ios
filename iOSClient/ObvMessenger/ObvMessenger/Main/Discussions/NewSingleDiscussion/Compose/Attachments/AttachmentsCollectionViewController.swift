@@ -20,6 +20,7 @@
 import UIKit
 import CoreData
 import QuickLook
+import ObvUICoreData
 
 
 @available(iOS 14.0, *)

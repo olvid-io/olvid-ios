@@ -24,16 +24,12 @@ import ObvTypes
 import ObvMetaManager
 import OlvidUtils
 
+
 final class BootstrapWorker {
     
     private let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private let logCategory = "BootstrapWorker"
-    private let internalQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        queue.name = "BootstrapWorker internal Queue"
-        return queue
-    }()
+    private let internalQueue = OperationQueue.createSerialQueue(name: "BootstrapWorker internal Queue", qualityOfService: .background)
     private let queueForPostingNotifications: OperationQueue = {
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 5
@@ -41,7 +37,6 @@ final class BootstrapWorker {
         return queue
     }()
 
-    private var observationTokens = [NSObjectProtocol]()
     private let inbox: URL
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
@@ -59,6 +54,7 @@ final class BootstrapWorker {
             return
         }
         delegateManager.wellKnownCacheDelegate.initializateCache(flowId: flowId)
+        delegateManager.serverPushNotificationsDelegate.forceRegisteringOfServerPushNotificationsOnBootstrap(flowId: flowId)
     }
 
     
@@ -85,7 +81,6 @@ final class BootstrapWorker {
 
         // These operations used to be scheduled in the `finalizeInitialization` method. In order to speed up the boot process, we schedule them here instead
         internalQueue.addOperation { [weak self] in
-            self?.deleteAllRegisteredPushNotifications(flowId: flowId, log: log, contextCreator: contextCreator)
             self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
             self?.reschedulePendingDeleteFromServers(flowId: flowId, log: log, delegateManager: delegateManager, contextCreator: contextCreator)
             delegateManager.downloadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessions(flowId: flowId)
@@ -97,6 +92,8 @@ final class BootstrapWorker {
                 self?.rescheduleAllInboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
                 delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId)
                 self?.postAllPendingServerQuery(delegateManager: delegateManager, flowId: flowId)
+                self?.useExistingServerSessionTokenForWebsocketCoordinator(contextCreator: contextCreator, flowId: flowId)
+
             }
         }
         
@@ -122,6 +119,17 @@ final class BootstrapWorker {
 // MARK: - On init (finalizing the initialization)
 
 extension BootstrapWorker {
+    
+    /// If a server session (with a valid token) can be found in DB at first launch, we pass this token to the websocket coordinator.
+    private func useExistingServerSessionTokenForWebsocketCoordinator(contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) {
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            let ownedIdentitiesAndTokens = try? ServerSession.getAllTokens(within: obvContext)
+            ownedIdentitiesAndTokens?.forEach { (ownedCryptoId, token) in
+                Task { await delegateManager?.webSocketDelegate.setServerSessionToken(to: token, for: ownedCryptoId) }
+            }
+        }
+    }
+    
     
     private func deleteOrphanedInboxAttachmentChunk(flowId: FlowIdentifier, log: OSLog, contextCreator: ObvCreateContextDelegate) {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
@@ -172,7 +180,7 @@ extension BootstrapWorker {
                 return
             }
             
-            messageIdsWithPendingDeletes = allPendingDeleteFromServer.map({ $0.messageId })
+            messageIdsWithPendingDeletes = allPendingDeleteFromServer.compactMap({ $0.messageId })
                         
         }
         
@@ -204,7 +212,8 @@ extension BootstrapWorker {
                 let messagesToDelete = messages.filter({ $0.canBeDeleted })
                 messages.removeAll(where: { messagesToDelete.contains($0) })
                 for msg in messagesToDelete {
-                    try? delegateManager.messagesDelegate.processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: msg.messageId, flowId: flowId)
+                    guard let messageId = msg.messageId else { assertionFailure(); continue }
+                    try? delegateManager.messagesDelegate.processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: messageId, flowId: flowId)
                 }
             }
             
@@ -213,51 +222,26 @@ extension BootstrapWorker {
             do {
                 for msg in messages {
                     for attachment in msg.attachments {
+                        guard let attachmentId = attachment.attachmentId else { assertionFailure(); continue }
                         switch attachment.status {
                         case .paused:
                             break
                         case .resumeRequested:
-                            delegateManager.downloadAttachmentChunksDelegate.resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachment.attachmentId, flowId: flowId)
+                            delegateManager.downloadAttachmentChunksDelegate.resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachmentId, flowId: flowId)
                         case .downloaded:
-                            delegateManager.networkFetchFlowDelegate.attachmentWasDownloaded(attachmentId: attachment.attachmentId, flowId: flowId)
+                            delegateManager.networkFetchFlowDelegate.attachmentWasDownloaded(attachmentId: attachmentId, flowId: flowId)
                         case .cancelledByServer:
-                            delegateManager.networkFetchFlowDelegate.attachmentWasCancelledByServer(attachmentId: attachment.attachmentId, flowId: flowId)
+                            delegateManager.networkFetchFlowDelegate.attachmentWasCancelledByServer(attachmentId: attachmentId, flowId: flowId)
                         case .markedForDeletion:
                             continue
                         }
                     }
-                    delegateManager.networkFetchFlowDelegate.messagePayloadAndFromIdentityWereSet(messageId: msg.messageId, attachmentIds: msg.attachmentIds, hasEncryptedExtendedMessagePayload: msg.hasEncryptedExtendedMessagePayload, flowId: flowId)
+                    guard let messageId = msg.messageId else { assertionFailure(); continue }
+                    delegateManager.networkFetchFlowDelegate.messagePayloadAndFromIdentityWereSet(messageId: messageId, attachmentIds: msg.attachmentIds, hasEncryptedExtendedMessagePayload: msg.hasEncryptedExtendedMessagePayload, flowId: flowId)
                 }
             }
             
         }
-    }
-
-    
-    /// This method is called at launch. It deletes any previously registered push notification. We expect the app to register to push notifications at each launch, *after* this bootstrap.
-    private func deleteAllRegisteredPushNotifications(flowId: FlowIdentifier, log: OSLog, contextCreator: ObvCreateContextDelegate) {
-        
-        os_log("Bootstraping RegisteredPushNotifications: We will delete all previous RegisteredPushNotification", log: log, type: .info)
-
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            
-            do {
-                try RegisteredPushNotification.deleteAll(within: obvContext)
-            } catch let error {
-                os_log("Could not delete old registered push notifications at bootstrap: %{public}@", log: log, type: .fault, error.localizedDescription)
-            }
-            
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                os_log("Could not save context. The previous RegisteredPushNotification were *not* deleted: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return
-            }
-            
-        }
-        
-        os_log("Bootstraping RegisteredPushNotifications finished. All previous RegisteredPushNotification were deleted.", log: log, type: .info)
-
     }
 
 }
@@ -333,7 +317,7 @@ extension BootstrapWorker {
                 return
             }
 
-            let messageDirectoriesToKeep: Set<URL> = Set(existingMessages.map({ $0.getAttachmentDirectory(withinInbox: inbox) }) )
+            let messageDirectoriesToKeep: Set<URL> = Set(existingMessages.compactMap({ $0.getAttachmentDirectory(withinInbox: inbox) }) )
             
             messageDirectoriesToDelete = messageDirectories.subtracting(messageDirectoriesToKeep)
             

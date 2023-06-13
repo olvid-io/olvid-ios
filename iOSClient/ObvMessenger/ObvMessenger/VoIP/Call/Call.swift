@@ -25,6 +25,7 @@ import os.log
 import ObvTypes
 import WebRTC
 import ObvCrypto
+import ObvUICoreData
 
 
 actor Call: GenericCall, ObvErrorMaker {
@@ -281,6 +282,11 @@ actor Call: GenericCall, ObvErrorMaker {
         
         self.obvTurnCredentials = obvTurnCredentials
 
+    }
+    
+    
+    deinit {
+        tokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
 
@@ -1151,6 +1157,7 @@ extension Call {
         case .localUserRequest:
             switch direction {
             case .outgoing:
+                callReport = .uncompletedOutgoingCall(with: callParticipants.map({ $0.info }))
                 await setCallState(to: .hangedUp)
             case .incoming:
                 switch internalState {

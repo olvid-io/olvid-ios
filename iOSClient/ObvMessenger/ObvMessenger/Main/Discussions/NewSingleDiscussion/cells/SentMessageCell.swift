@@ -23,6 +23,7 @@ import LinkPresentation
 import CoreData
 import os.log
 import ObvUI
+import ObvUICoreData
 
 
 @available(iOS 14.0, *)
@@ -119,9 +120,15 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         content.textBubbleConfiguration = nil
         if let text = message.textBody, !message.isWiped {
             if let dataDetected = cacheDelegate?.getCachedDataDetection(text: text) {
-                content.textBubbleConfiguration = TextBubble.Configuration(text: text, dataDetectorTypes: dataDetected)
+                content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
+                                                                           text: text,
+                                                                           dataDetectorTypes: dataDetected,
+                                                                           mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
             } else {
-                content.textBubbleConfiguration = TextBubble.Configuration(text: text, dataDetectorTypes: [])
+                content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
+                                                                           text: text,
+                                                                           dataDetectorTypes: [],
+                                                                           mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
                 cacheDelegate?.requestDataDetection(text: text) { [weak self] dataDetected in
                     assert(Thread.isMainThread)
                     guard dataDetected else { return }
@@ -237,8 +244,11 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         if self.contentConfiguration as? SentMessageCellCustomContentConfiguration != content {
             self.contentConfiguration = content
         }
+
         registerDelegate()
-        
+
+        startAnimating()
+
     }
     
     
@@ -366,6 +376,11 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         return contentViewWithTappableStuff.tappedStuff(tapGestureRecognizer: tapGestureRecognizer)
     }
     
+    
+    private func startAnimating() {
+        (contentView as? SentMessageCellContentView)?.startAnimating()
+    }
+    
 }
 
 
@@ -377,7 +392,7 @@ extension SentMessageCell {
      
     var persistedMessage: PersistedMessage? { message }
     
-    var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
+    public var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
     
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { draftObjectID }
 
@@ -698,6 +713,9 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
         singleLinkView.prepareForReuse()
     }
 
+    fileprivate func startAnimating() {
+        singleGifView.startAnimating()
+    }
 
     fileprivate func refreshCellCountdown() {
         let viewsThatCanShowExpirationIndicator = mainStack.shownArrangedSubviews.compactMap({ $0 as? ViewWithExpirationIndicator })

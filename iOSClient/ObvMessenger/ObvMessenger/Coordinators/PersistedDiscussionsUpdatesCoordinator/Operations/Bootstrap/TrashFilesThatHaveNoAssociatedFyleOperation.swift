@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This method takes as an input a list of file names (expected to be in the Fyles directory) that are likely to have no associated `Fyle` entry in database.

@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvTypes
 import ObvMetaManager
 import ObvCrypto
+import JWS
 
 
 
@@ -91,17 +92,17 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     
     // MARK: - Initializer
     
-    private convenience init(member: GroupV2.IdentityAndPermissionsAndDetails, contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws {
+    private convenience init(identity: ObvCryptoIdentity, rawPermissions: Set<String>, serializedIdentityCoreDetails: Data, groupInvitationNonce: Data, contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws {
 
         guard let obvContext = contactGroup.obvContext else { assertionFailure(); throw Self.makeError(message: "Cannot find context") }
         
         let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
 
-        self.cryptoIdentity = member.identity
-        self.setRawPermissions(newRawPermissions: member.rawPermissions)
-        self.serializedIdentityCoreDetails = member.serializedIdentityCoreDetails
-        self.groupInvitationNonce = member.groupInvitationNonce
+        self.cryptoIdentity = identity
+        self.setRawPermissions(newRawPermissions: rawPermissions)
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+        self.groupInvitationNonce = groupInvitationNonce
         
         self.contactGroup = contactGroup
 
@@ -109,7 +110,7 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
         self.delegateManager = delegateManager
 
     }
-    
+
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
     fileprivate convenience init(backupItem: ContactGroupV2PendingMemberBackupItem, within obvContext: ObvContext) {
@@ -126,13 +127,39 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     
     static func createAllPendingMembers(from otherGroupMembers: Set<GroupV2.IdentityAndPermissionsAndDetails>, in contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroupV2PendingMember> {
         try Set(otherGroupMembers.map { member in
-            try ContactGroupV2PendingMember(member: member, contactGroup: contactGroup, delegateManager: delegateManager)
+            try ContactGroupV2PendingMember(identity: member.identity,
+                                            rawPermissions: member.rawPermissions,
+                                            serializedIdentityCoreDetails: member.serializedIdentityCoreDetails,
+                                            groupInvitationNonce: member.groupInvitationNonce,
+                                            contactGroup: contactGroup,
+                                            delegateManager: delegateManager)
         })
     }
 
     
     static func createPendingMember(from member: GroupV2.IdentityAndPermissionsAndDetails, in contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws {
-        _ = try Self.init(member: member, contactGroup: contactGroup, delegateManager: delegateManager)
+        _ = try Self.init(identity: member.identity,
+                          rawPermissions: member.rawPermissions,
+                          serializedIdentityCoreDetails: member.serializedIdentityCoreDetails,
+                          groupInvitationNonce: member.groupInvitationNonce,
+                          contactGroup: contactGroup,
+                          delegateManager: delegateManager)
+    }
+    
+    
+    static func createPendingMember(from member: GroupV2.KeycloakGroupMemberAndPermissions, in contactGroup: ContactGroupV2, validatingSignaturesWith jwks: ObvJWKSet, delegateManager: ObvIdentityDelegateManager) throws {
+
+        let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(member.signedUserDetails, with: jwks).signedUserDetails
+        let obvIdentityCoreDetails = try signedObvKeycloakUserDetails.toObvIdentityCoreDetails() // These details contain the signedUserDetails
+        let serializedIdentityCoreDetails = try obvIdentityCoreDetails.jsonEncode()
+
+        _ = try Self.init(identity: member.identity,
+                          rawPermissions: member.rawPermissions,
+                          serializedIdentityCoreDetails: serializedIdentityCoreDetails,
+                          groupInvitationNonce: member.groupInvitationNonce,
+                          contactGroup: contactGroup,
+                          delegateManager: delegateManager)
+        
     }
 
     
@@ -146,6 +173,20 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     func updatePermissionsAndDetails(newRawPermissions: Set<String>, newSerializedIdentityCoreDetails: Data) {
         self.setRawPermissions(newRawPermissions: newRawPermissions)
         self.serializedIdentityCoreDetails = newSerializedIdentityCoreDetails
+    }
+
+    
+    func updatePermissionsAndDetails(newRawPermissions: Set<String>, newsignedUserDetails: String, validatingSignaturesWith jwks: ObvJWKSet) throws {
+        
+        let signedObvKeycloakUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(newsignedUserDetails, with: jwks).signedUserDetails
+        let obvIdentityCoreDetails = try signedObvKeycloakUserDetails.toObvIdentityCoreDetails() // These details contain the signedUserDetails
+        let newSerializedIdentityCoreDetails = try obvIdentityCoreDetails.jsonEncode()
+        
+        self.setRawPermissions(newRawPermissions: newRawPermissions)
+        if self.serializedIdentityCoreDetails != newSerializedIdentityCoreDetails {
+            self.serializedIdentityCoreDetails = newSerializedIdentityCoreDetails
+        }
+        
     }
     
     func updateGroupInvitationNonce(with newGroupInvitationNonce: Data) {

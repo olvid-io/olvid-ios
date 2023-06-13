@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 /// This operation is typically executed when the user leaves a discussion. In that case, we may have read once messages that can be deleted or wiped.
 /// For outbound messages, we delete all readOnce messages that are marked as "sent".
@@ -104,15 +105,17 @@ final class WipeOrDeleteReadOnceMessagesOperation: ContextualOperationWithSpecif
             // We notify on context save
             
             do {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    // We wiped/deleted some persisted messages. We notify about that.
-
-                    InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
-
-                    // Refresh objects in the view context
-                    if let viewContext = self.viewContext {
-                        InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
+                if !infos.isEmpty {
+                    try obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        // We wiped/deleted some persisted messages. We notify about that.
+                        
+                        InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
+                        
+                        // Refresh objects in the view context
+                        if let viewContext = self.viewContext {
+                            InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
+                        }
                     }
                 }
             } catch {

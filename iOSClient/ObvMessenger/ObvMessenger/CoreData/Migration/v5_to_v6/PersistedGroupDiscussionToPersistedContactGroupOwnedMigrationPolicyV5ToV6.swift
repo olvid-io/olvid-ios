@@ -21,6 +21,9 @@ import Foundation
 import CoreData
 import ObvEngine
 import ObvEncoder
+import ObvUICoreData
+
+
 
 fileprivate let errorDomain = "MessengerMigrationV5ToV6"
 fileprivate let debugPrintPrefix = "[\(errorDomain)][PersistedGroupDiscussionToPersistedContactGroupOwnedMigrationPolicyV5ToV6]"

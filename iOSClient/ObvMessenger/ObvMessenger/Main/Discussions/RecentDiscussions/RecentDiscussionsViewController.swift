@@ -23,24 +23,13 @@ import os.log
 import ObvEngine
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 import UIKit
 
 
-final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
-
-    @IBOutlet weak var tableViewControllerPlaceholder: UIView!
-
-    private var cancellables = [AnyCancellable]()
+final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem, OlvidMenuProvider, DiscussionsTableViewControllerDelegate, NewDiscussionsViewControllerDelegate {
 
     weak var delegate: RecentDiscussionsViewControllerDelegate?
-    
-    private var discussionsListCoordinator: Coordinator?
-    
-    deinit {
-        cancellables.forEach({ $0.cancel() })
-        cancellables.removeAll()
-    }
-
     
     // MARK: - Switching current owned identity
 
@@ -48,7 +37,7 @@ final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewContro
     override func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
         await super.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
         if #available(iOS 16, *) {
-            children.compactMap({ $0 as? DiscussionsListViewController<PersistedDiscussion> }).forEach { discussionsViewController in
+            children.compactMap({ $0 as? NewDiscussionsViewController }).forEach { discussionsViewController in
                 Task { await discussionsViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId) }
             }
         } else {
@@ -67,7 +56,6 @@ extension RecentDiscussionsViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         addAndConfigureDiscussionsTableViewController()
-        observeUseOldListOfDiscussionsInterfaceInAppSettings()
         
         var rightBarButtonItems = [UIBarButtonItem]()
 
@@ -87,18 +75,6 @@ extension RecentDiscussionsViewController {
     }
     
     
-    private func observeUseOldListOfDiscussionsInterfaceInAppSettings() {
-        ObvMessengerSettingsObservableObject.shared.$useOldListOfDiscussionsInterface
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                assert(Thread.isMainThread)
-                self?.addAndConfigureDiscussionsTableViewController()
-            }
-            .store(in: &cancellables)
-    }
-
-    
     @available(iOS, introduced: 13.0, deprecated: 14.0, message: "Used because iOS 13 does not support UIMenu on UIBarButtonItem")
     @objc private func ellipsisButtonTappedSelector() {
         ellipsisButtonTapped(sourceBarButtonItem: navigationItem.rightBarButtonItem)
@@ -107,36 +83,40 @@ extension RecentDiscussionsViewController {
     
     #if DEBUG
     @objc private func insertDebugMessagesInAllExistingDiscussions() {
-        ObvMessengerInternalNotification.insertDebugMessagesInAllExistingDiscussions
+//        ObvMessengerInternalNotification.insertDebugMessagesInAllExistingDiscussions
+//            .postOnDispatchQueue()
+        ObvMessengerInternalNotification.betaUserWantsToDebugCoordinatorsQueue
             .postOnDispatchQueue()
     }
     #endif
-    
+
     private func addAndConfigureDiscussionsTableViewController() {
         removePreviousChildViewControllerIfAny()
 
         let vc: UIViewController
-        if #available(iOS 16.0, *), !ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface {
-            discussionsListCoordinator = DiscussionsListCoordinator(navigationController: navigationController,
-                                                                    ownedCryptoId: currentOwnedCryptoId,
-                                                                    parentVC: self,
-                                                                    tableViewControllerPlaceholder: tableViewControllerPlaceholder,
-                                                                    delegate: self)
-            discussionsListCoordinator?.start()
+        if #available(iOS 16.0, *) {
+            let viewModel = NewDiscussionsViewController.ViewModel(ownedCryptoId: currentOwnedCryptoId)
+            vc = NewDiscussionsViewController(viewModel: viewModel, delegate: self)
         } else {
-            let discussionsTVC = DiscussionsTableViewController(allowDeletion: true, withRefreshControl: true)
-            discussionsTVC.delegate = self
-            vc = discussionsTVC
-            vc.view.translatesAutoresizingMaskIntoConstraints = false
-            
-            vc.willMove(toParent: self)
-            self.addChild(vc)
+            vc = DiscussionsTableViewController(allowDeletion: true, withRefreshControl: true)
+            (vc as? DiscussionsTableViewController)?.delegate = self
             (vc as? DiscussionsTableViewController)?.setFetchRequestsAndImages(DiscussionsFetchRequests(ownedCryptoId: currentOwnedCryptoId).allRequestsAndImages)
-            vc.didMove(toParent: self)
-            
-            self.tableViewControllerPlaceholder.addSubview(vc.view)
-            self.tableViewControllerPlaceholder.pinAllSidesToSides(of: vc.view)
         }
+        
+        vc.willMove(toParent: self)
+        addChild(vc)
+        vc.didMove(toParent: self)
+        
+        view.addSubview(vc.view)
+        vc.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            vc.view.topAnchor.constraint(equalTo: view.topAnchor),
+            vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
     }
     
     
@@ -151,9 +131,9 @@ extension RecentDiscussionsViewController {
 }
 
 
-// MARK: - DiscussionsTableViewControllerDelegate
+// MARK: - DiscussionsTableViewControllerDelegate and NewDiscussionsViewControllerDelegate
 
-extension RecentDiscussionsViewController: DiscussionsTableViewControllerDelegate {
+extension RecentDiscussionsViewController {
     
     func userDidSelect(persistedDiscussion discussion: PersistedDiscussion) {
         assert(Thread.current == Thread.main)
@@ -178,5 +158,57 @@ extension RecentDiscussionsViewController: CanScrollToTop {
     
     func scrollToTop() {
         children.forEach({ ($0 as? CanScrollToTop)?.scrollToTop() })
+    }
+}
+
+
+// MARK: - OlvidMenuProvider
+
+extension RecentDiscussionsViewController {
+
+    private struct Strings {
+        static let toggleEditPinnedState = NSLocalizedString("TOGGLE_EDIT_PINNED_STATE", comment: "")
+    }
+    
+    func provideMenu() -> UIMenu {
+        
+        // Update the parents menu
+        var menuElements = [UIMenuElement]()
+        if let parentMenu = parent?.getFirstMenuAvailable() {
+            menuElements.append(contentsOf: parentMenu.children)
+        }
+        
+        // Under iOS16+, discussions can be pinned.
+        // We provide an action allowing to toggle edit mode
+        
+        if #available(iOS 16, *) {
+            
+            let togglePinAction = UIAction(title: Strings.toggleEditPinnedState, image: UIImage(systemIcon: .pinFill)) { [weak self] _ in
+                guard let self else { return }
+                guard let vc = self.children.compactMap({ $0 as? NewDiscussionsViewController }).first else { assertionFailure(); return }
+                vc.toggleIsReordering()
+            }
+            
+            menuElements.append(togglePinAction)
+            
+        }
+
+        let menu = UIMenu(title: "", children: menuElements)
+        return menu
+    }
+    
+    @available(iOS, introduced: 13, deprecated: 14, message: "Use provideMenu() instead")
+    func provideAlertActions() -> [UIAlertAction] {
+        
+        // Update the parents alerts
+        var alertActions = [UIAlertAction]()
+        if let parentAlertActions = parent?.getFirstAlertActionsAvailable() {
+            alertActions.append(contentsOf: parentAlertActions)
+        }
+
+        // We do not show the edit pinned discussions action since they are only supported in iOS16+
+        
+        return alertActions
+        
     }
 }

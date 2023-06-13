@@ -67,10 +67,22 @@ extension DownloadGroupV2PhotoProtocol {
 
             let groupIdentifier = receivedMessage.groupIdentifier
             let serverPhotoInfo = receivedMessage.serverPhotoInfo
-
+            
             let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ServerQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerGetPhotoMessage.init(coreProtocolMessage: coreMessage)
-            let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: receivedMessage.serverPhotoInfo.identity, label: receivedMessage.serverPhotoInfo.label)
+
+            let serverQueryType: ObvChannelServerQueryMessageToSend.QueryType
+            switch groupIdentifier.category {
+            case .server:
+                guard let serverPhotoInfoIdentity = serverPhotoInfo.identity else {
+                    assertionFailure()
+                    return CancelledState()
+                }
+                serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: serverPhotoInfoIdentity, label: receivedMessage.serverPhotoInfo.photoServerKeyAndLabel.label)
+            case .keycloak:
+                serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getKeycloakData(serverURL: groupIdentifier.serverURL, serverLabel: receivedMessage.serverPhotoInfo.photoServerKeyAndLabel.label)
+            }
+
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
             _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
 
@@ -110,7 +122,7 @@ extension DownloadGroupV2PhotoProtocol {
             }
             
             let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption()
-            let decryptedPhoto = try authEnc.decrypt(encryptedPhoto, with: serverPhotoInfo.key)
+            let decryptedPhoto = try authEnc.decrypt(encryptedPhoto, with: serverPhotoInfo.photoServerKeyAndLabel.key)
             
             try identityDelegate.setDownloadedPhotoOfGroupV2(withGroupWithIdentifier: groupIdentifier,
                                                              of: ownedIdentity,

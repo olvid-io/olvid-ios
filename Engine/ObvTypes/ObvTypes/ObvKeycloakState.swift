@@ -29,8 +29,9 @@ public struct ObvKeycloakState {
     public let rawAuthState: Data?
     public let signatureVerificationKey: ObvJWK?
     public let latestLocalRevocationListTimestamp: Date? // Server timestamp, only set at the engine level when informing the app of latest known (locally stored) revocation list timestamp
+    public let latestGroupUpdateTimestamp: Date? // Server timestamp, only set at the engine level when informing the app of latest known (locally stored) group update timestamp
 
-    public init(keycloakServer: URL, clientId: String, clientSecret: String?, jwks: ObvJWKSet, rawAuthState: Data?, signatureVerificationKey: ObvJWK?, latestLocalRevocationListTimestamp: Date?) {
+    public init(keycloakServer: URL, clientId: String, clientSecret: String?, jwks: ObvJWKSet, rawAuthState: Data?, signatureVerificationKey: ObvJWK?, latestLocalRevocationListTimestamp: Date?, latestGroupUpdateTimestamp: Date?) {
         self.keycloakServer = keycloakServer
         self.clientId = clientId
         self.clientSecret = clientSecret
@@ -38,6 +39,7 @@ public struct ObvKeycloakState {
         self.rawAuthState = rawAuthState
         self.signatureVerificationKey = signatureVerificationKey
         self.latestLocalRevocationListTimestamp = latestLocalRevocationListTimestamp
+        self.latestGroupUpdateTimestamp = latestGroupUpdateTimestamp
     }
 
 }

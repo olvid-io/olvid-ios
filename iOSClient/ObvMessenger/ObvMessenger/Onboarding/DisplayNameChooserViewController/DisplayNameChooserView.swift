@@ -19,6 +19,7 @@
 
 import SwiftUI
 import ObvTypes
+import ObvUICoreData
 
 
 protocol DisplayNameChooserViewControllerDelegate: AnyObject {
@@ -71,15 +72,19 @@ struct DisplayNameChooserView: View {
     var editionType: EditSingleOwnedIdentityView.EditionType = .creation
 
     var body: some View {
-        EditSingleOwnedIdentityView(editionType: editionType,
-                                    singleIdentity: singleIdentity,
-                                    userConfirmedPublishAction: {
-                                        if let userDetails = try? singleIdentity.keycloakDetails?.keycloakUserDetailsAndStuff.getObvIdentityCoreDetails() {
-                                            completionHandlerOnSave(userDetails, singleIdentity.photoURL)
-                                        } else if let unmanagedIdentityDetails = singleIdentity.unmanagedIdentityDetails {
-                                            completionHandlerOnSave(unmanagedIdentityDetails, singleIdentity.photoURL)
-                                        }
-                                    })
+        EditSingleOwnedIdentityView(
+            editionType: editionType,
+            singleIdentity: singleIdentity,
+            userConfirmedPublishAction: {
+                if let userDetails = try? singleIdentity.keycloakDetails?.keycloakUserDetailsAndStuff.getObvIdentityCoreDetails() {
+                    completionHandlerOnSave(userDetails, singleIdentity.photoURL)
+                } else if let unmanagedIdentityDetails = singleIdentity.unmanagedIdentityDetails {
+                    completionHandlerOnSave(unmanagedIdentityDetails, singleIdentity.photoURL)
+                }
+            },
+            userWantsToUnbindFromKeycloakServer: { _ in
+                assertionFailure("We do not expect any unbinding during an onboarding")
+            })
     }
 }
 

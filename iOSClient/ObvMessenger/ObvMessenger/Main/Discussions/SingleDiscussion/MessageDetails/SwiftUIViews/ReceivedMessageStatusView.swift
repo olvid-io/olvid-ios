@@ -18,7 +18,9 @@
  */
 
 import ObvUI
+import ObvUICoreData
 import SwiftUI
+import UI_SystemIcon
 
 
 struct ReceivedMessageStatusView: View {

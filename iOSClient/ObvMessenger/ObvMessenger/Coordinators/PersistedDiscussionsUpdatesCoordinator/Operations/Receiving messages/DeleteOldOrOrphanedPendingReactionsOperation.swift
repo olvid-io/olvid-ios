@@ -19,6 +19,8 @@
 
 import Foundation
 import OlvidUtils
+import ObvUICoreData
+
 
 final class DeleteOldOrOrphanedPendingReactionsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 

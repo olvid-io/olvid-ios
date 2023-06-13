@@ -23,6 +23,7 @@ import ObvTypes
 import ObvEngine
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?

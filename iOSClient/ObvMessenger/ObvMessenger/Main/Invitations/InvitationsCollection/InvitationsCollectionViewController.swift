@@ -23,6 +23,8 @@ import os.log
 import ObvTypes
 import ObvEngine
 import ObvUI
+import ObvUICoreData
+
 
 final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem {
 
@@ -86,6 +88,11 @@ final class InvitationsCollectionViewController: ShowOwnedIdentityButtonUIViewCo
         fatalError("init(coder:) has not been implemented")
     }
     
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     
     // MARK: - Switching current owned identity
 
@@ -179,8 +186,10 @@ extension InvitationsCollectionViewController {
     }
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.collectionView.reloadData()
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange {
+            DispatchQueue.main.async { [weak self] in
+                self?.collectionView.reloadData()
+            }
         }
         self.notificationTokens.append(token)
     }

@@ -23,6 +23,7 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import ObvUI
+import ObvUICoreData
 
 
 final class GroupEditionFlowViewController: UIViewController {
@@ -182,7 +183,7 @@ extension GroupEditionFlowViewController {
                 return
             }
             let circleConfig = group.circledInitialsConfiguration
-            let groupColors = (circleConfig.backgroundColor(appTheme: AppTheme.shared), circleConfig.foregroundColor(appTheme: AppTheme.shared))
+            let groupColors = (circleConfig.backgroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle), circleConfig.foregroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle))
 
             let contactGroup = ContactGroup(name: group.customName ?? "",
                                             description: "", // cannot be edited anyway in that case
@@ -214,7 +215,7 @@ extension GroupEditionFlowViewController {
                 return
             }
             let circleConfig = group.circledInitialsConfiguration
-            let groupColors = (circleConfig.backgroundColor(appTheme: AppTheme.shared), circleConfig.foregroundColor(appTheme: AppTheme.shared))
+            let groupColors = (circleConfig.backgroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle), circleConfig.foregroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle))
             
             guard group.ownedIdentityIsAdmin else { assertionFailure(); return }
             
@@ -485,10 +486,10 @@ extension GroupEditionFlowViewController {
         case .createGroupV2, .cloneGroup:
             
             let groupCoreDetails = GroupV2CoreDetails(groupName: self.groupName, groupDescription: self.groupDescription)
-            let ownPermissions = ObvMessengerConstants.defaultObvGroupV2PermissionsForAdmin
+            let ownPermissions = ObvUICoreDataConstants.defaultObvGroupV2PermissionsForAdmin
             let otherGroupMembers = Set(selectedGroupMembers
                 .map({ $0.cryptoId })
-                .map({ ObvGroupV2.IdentityAndPermissions(identity: $0, permissions: ObvMessengerConstants.defaultObvGroupV2PermissionsForNewGroupMembers) }))
+                .map({ ObvGroupV2.IdentityAndPermissions(identity: $0, permissions: ObvUICoreDataConstants.defaultObvGroupV2PermissionsForNewGroupMembers) }))
             let ownedCryptoId = self.ownedCryptoId
             let photoURL = self.photoURL
             

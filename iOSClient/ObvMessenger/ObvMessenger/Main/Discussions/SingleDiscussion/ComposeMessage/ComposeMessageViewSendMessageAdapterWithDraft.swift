@@ -19,6 +19,7 @@
 
 import Foundation
 import os.log
+import ObvUICoreData
 
 
 final class ComposeMessageViewSendMessageAdapterWithDraft: ComposeMessageViewSendMessageDelegate {
@@ -38,6 +39,10 @@ final class ComposeMessageViewSendMessageAdapterWithDraft: ComposeMessageViewSen
     init(draft: PersistedDraft) {
         self.draft = draft
         observeDraftWasSentNotifications()
+    }
+
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     
@@ -73,7 +78,7 @@ final class ComposeMessageViewSendMessageAdapterWithDraft: ComposeMessageViewSen
                 }
                 return
             }
-            writableDraft.setContent(with: textToSend)
+            writableDraft.replaceContentWith(newBody: textToSend, newMentions: Set<MessageJSON.UserMention>())
             writableDraft.send()
             do {
                 try context.save(logOnFailure: log)

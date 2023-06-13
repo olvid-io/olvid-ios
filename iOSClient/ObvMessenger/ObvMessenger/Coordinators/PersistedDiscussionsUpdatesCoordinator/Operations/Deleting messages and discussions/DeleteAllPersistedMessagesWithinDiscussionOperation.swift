@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
+
 
 /// This operation replaces the discussion (either one-to-one or group) by another empty discussion of the same type.
 /// Before saving the context, this operation deletes the old discussion, which cascade deletes its messages.
@@ -42,7 +44,10 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
     }
     
     private(set) var newDiscussionObjectID: NSManagedObjectID?
-    private(set) var atLeastOneMessageWasDeleted = false
+    private(set) var atLeastOneIllustrativeMessageWasDeleted = false
+    private(set) var contactRequesterIdentityObjectID: NSManagedObjectID?
+    
+    private var newCreatedDiscussion: PersistedDiscussion?
     
     override func main() {
         
@@ -58,7 +63,7 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                 // Deleting all messages is implemented as a deletion of a discussion.
                 // If the deleted discussion is active, it is replaced by a new one with the same configuration.
                 // In practice, this behavior allows to efficiently delete all messages.
-                atLeastOneMessageWasDeleted = !discussion.messages.isEmpty
+                atLeastOneIllustrativeMessageWasDeleted = discussion.illustrativeMessage != nil
                 switch discussion.status {
                 case .preDiscussion, .locked:
                     switch requester {
@@ -75,6 +80,9 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                     let sharedConfigurationToKeep = discussion.sharedConfiguration
                     let localConfigurationToKeep = discussion.localConfiguration
                     let permanentUUIDToKeep = discussion.permanentUUID
+                    let draftToKeep = discussion.draft
+                    let pinnedIndexToKeep = discussion.pinnedIndex
+                    let timestampOfLastMessageToKeep = discussion.timestampOfLastMessage
                     do {
                         switch try discussion.kind {
                         case .oneToOne(withContactIdentity: let contactIdentity):
@@ -87,13 +95,16 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                 let newDiscussion = try PersistedOneToOneDiscussion(
                                     contactIdentity: contactIdentity,
                                     status: .active,
-                                    insertDiscussionIsEndToEndEncryptedSystemMessage: false,
                                     sharedConfigurationToKeep: sharedConfigurationToKeep,
                                     localConfigurationToKeep: localConfigurationToKeep,
-                                    permanentUUIDToKeep: permanentUUIDToKeep)
+                                    permanentUUIDToKeep: permanentUUIDToKeep,
+                                    draftToKeep: draftToKeep,
+                                    pinnedIndexToKeep: pinnedIndexToKeep,
+                                    timestampOfLastMessageToKeep: timestampOfLastMessageToKeep)
                                 try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID
+                                newCreatedDiscussion = newDiscussion
                             }
                         case .groupV1(withContactGroup: let contactGroup):
                             if let contactGroup = contactGroup, let ownedIdentity = discussion.ownedIdentity {
@@ -108,13 +119,16 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                     groupName: groupName,
                                     ownedIdentity: ownedIdentity,
                                     status: .active,
-                                    insertDiscussionIsEndToEndEncryptedSystemMessage: false,
                                     sharedConfigurationToKeep: sharedConfigurationToKeep,
                                     localConfigurationToKeep: localConfigurationToKeep,
-                                    permanentUUIDToKeep: permanentUUIDToKeep)
+                                    permanentUUIDToKeep: permanentUUIDToKeep,
+                                    draftToKeep: draftToKeep,
+                                    pinnedIndexToKeep: pinnedIndexToKeep,
+                                    timestampOfLastMessageToKeep: timestampOfLastMessageToKeep)
                                 try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID
+                                newCreatedDiscussion = newDiscussion
                             }
                         case .groupV2(withGroup: let group):
                             if let group = group {
@@ -125,20 +139,45 @@ final class DeleteAllPersistedMessagesWithinDiscussionOperation: ContextualOpera
                                 }
                                 let newDiscussion = try PersistedGroupV2Discussion(
                                     persistedGroupV2: group,
-                                    insertDiscussionIsEndToEndEncryptedSystemMessage: false,
                                     shouldApplySharedConfigurationFromGlobalSettings: false,
                                     sharedConfigurationToKeep: sharedConfigurationToKeep,
                                     localConfigurationToKeep: localConfigurationToKeep,
-                                    permanentUUIDToKeep: permanentUUIDToKeep)
+                                    permanentUUIDToKeep: permanentUUIDToKeep,
+                                    draftToKeep: draftToKeep,
+                                    pinnedIndexToKeep: pinnedIndexToKeep,
+                                    timestampOfLastMessageToKeep: timestampOfLastMessageToKeep)
                                 try obvContext.context.obtainPermanentIDs(for: [newDiscussion])
                                 assert(newDiscussionObjectID == nil)
                                 newDiscussionObjectID = newDiscussion.objectID
+                                newCreatedDiscussion = newDiscussion
                             }
                         }
                     } catch {
                         return cancel(withReason: .unknownDiscussionType)
                     }
                 }
+                
+                // If the deletion was requested by a contact, find its objectID (so other operations can use it)
+                // If it was requested by us, archive the created discussion (if there is one) to remove it from the list of recent discussions
+                
+                switch requester {
+                case .ownedIdentity:
+                    try newCreatedDiscussion?.archive()
+                case .contact(let ownedCryptoId, let contactCryptoId, _):
+                    // This happens when this discussion was globally deleted by a contact.
+                    assert(newDiscussionObjectID != nil)
+                    if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: obvContext.context) {
+                        contactRequesterIdentityObjectID = contact.objectID
+                    }
+                }
+
+                // If no illustrative message was deleted from the previous discussion, we don't need to show the new one in the list of recent discussion.
+                // So we immediately archive it.
+                
+                if !atLeastOneIllustrativeMessageWasDeleted {
+                    try newCreatedDiscussion?.archive()
+                }
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

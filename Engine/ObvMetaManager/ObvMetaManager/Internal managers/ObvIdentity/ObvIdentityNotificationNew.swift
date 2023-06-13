@@ -60,6 +60,8 @@ public enum ObvIdentityNotificationNew {
 	case groupV2WasUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasDeleted(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data)
 	case ownedIdentityWasDeleted
+	case contactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsCertifiedByOwnKeycloak: Bool)
+	case pushTopicOfKeycloakGroupWasUpdated(ownedCryptoId: ObvCryptoIdentity)
 
 	private enum Name {
 		case contactIdentityIsNowTrusted
@@ -89,6 +91,8 @@ public enum ObvIdentityNotificationNew {
 		case groupV2WasUpdated
 		case groupV2WasDeleted
 		case ownedIdentityWasDeleted
+		case contactIsCertifiedByOwnKeycloakStatusChanged
+		case pushTopicOfKeycloakGroupWasUpdated
 
 		private var namePrefix: String { String(describing: ObvIdentityNotificationNew.self) }
 
@@ -128,6 +132,8 @@ public enum ObvIdentityNotificationNew {
 			case .groupV2WasUpdated: return Name.groupV2WasUpdated.name
 			case .groupV2WasDeleted: return Name.groupV2WasDeleted.name
 			case .ownedIdentityWasDeleted: return Name.ownedIdentityWasDeleted.name
+			case .contactIsCertifiedByOwnKeycloakStatusChanged: return Name.contactIsCertifiedByOwnKeycloakStatusChanged.name
+			case .pushTopicOfKeycloakGroupWasUpdated: return Name.pushTopicOfKeycloakGroupWasUpdated.name
 			}
 		}
 	}
@@ -280,6 +286,16 @@ public enum ObvIdentityNotificationNew {
 			]
 		case .ownedIdentityWasDeleted:
 			info = nil
+		case .contactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, newIsCertifiedByOwnKeycloak: let newIsCertifiedByOwnKeycloak):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"contactIdentity": contactIdentity,
+				"newIsCertifiedByOwnKeycloak": newIsCertifiedByOwnKeycloak,
+			]
+		case .pushTopicOfKeycloakGroupWasUpdated(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
 		}
 		return info
 	}
@@ -545,6 +561,24 @@ public enum ObvIdentityNotificationNew {
 		let name = Name.ownedIdentityWasDeleted.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			block()
+		}
+	}
+
+	public static func observeContactIsCertifiedByOwnKeycloakStatusChanged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, Bool) -> Void) -> NSObjectProtocol {
+		let name = Name.contactIsCertifiedByOwnKeycloakStatusChanged.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
+			let newIsCertifiedByOwnKeycloak = notification.userInfo!["newIsCertifiedByOwnKeycloak"] as! Bool
+			block(ownedIdentity, contactIdentity, newIsCertifiedByOwnKeycloak)
+		}
+	}
+
+	public static func observePushTopicOfKeycloakGroupWasUpdated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.pushTopicOfKeycloakGroupWasUpdated.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoIdentity
+			block(ownedCryptoId)
 		}
 	}
 

@@ -21,6 +21,7 @@
 import Foundation
 import OlvidUtils
 import ObvEngine
+import ObvUICoreData
 
 
 /// The operation processes received QuerySharedSettingsJSON requests for group v2 discussions.
@@ -98,9 +99,8 @@ final class RespondToQuerySharedSettingsOperation: ContextualOperationWithSpecif
                 
                 // If we reach this point, we must send our shared settings back
                 
-                ObvMessengerCoreDataNotification.anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: discussion.objectID)
-                    .postOnDispatchQueue()
-
+                discussion.sendNotificationIndicatingThatAnOldDiscussionSharedConfigurationWasReceived()
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }

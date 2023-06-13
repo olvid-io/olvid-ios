@@ -24,7 +24,8 @@ import ObvTypes
 import ObvUI
 import StoreKit
 import SwiftUI
-
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 final class AvailableSubscriptionPlans: ObservableObject {
     
@@ -70,6 +71,10 @@ final class AvailableSubscriptionPlans: ObservableObject {
         self.userWantsToRestorePurchases = {}
     }
     
+    deinit {
+        notificationsTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     var canShowPlans: Bool {
         freePlanIsAvailable != nil && (skProducts != nil || requestedListOfSKProductsError != nil)
     }

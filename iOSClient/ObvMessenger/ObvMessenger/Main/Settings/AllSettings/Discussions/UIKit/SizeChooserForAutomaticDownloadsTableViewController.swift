@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import ObvUICoreData
 
 class SizeChooserForAutomaticDownloadsTableViewController: UITableViewController {
 

@@ -21,6 +21,7 @@ import UIKit
 import QuickLookThumbnailing
 import CoreData
 import os.log
+import ObvUICoreData
 
 
 @available(iOS 14.0, *)

@@ -18,6 +18,7 @@
  */
   
 import ObvUI
+import ObvUICoreData
 import SwiftUI
 
 
@@ -35,100 +36,6 @@ final class DiskUsageViewController: UIHostingController<DiskUsageView> {
         fatalError("init(coder:) has not been implemented")
     }
 
-}
-
-fileprivate enum ContainerURL: CaseIterable {
-    case mainAppContainer
-    case mainEngineContainer
-    case forDatabase
-    case forFyles
-    case forDocuments
-    case forTempFiles
-    case forMessagesDecryptedWithinNotificationExtension
-    case forCache
-    case forTrash
-    case forDisplayableLogs
-    case forCustomContactProfilePictures
-    case forCustomGroupProfilePictures
-    case forProfilePicturesCache
-    case forFylesHardlinksWithinMainApp
-    case forFylesHardlinksWithinShareExtension
-    case forThumbnailsWithinMainApp
-
-    private var securityApplicationGroupURL: URL {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: ObvMessengerConstants.appGroupIdentifier)!
-    }
-
-    var url: URL {
-        switch self {
-        case .mainAppContainer:
-            return securityApplicationGroupURL.appendingPathComponent("Application", isDirectory: true)
-        case .mainEngineContainer:
-            return securityApplicationGroupURL.appendingPathComponent("Engine", isDirectory: true)
-        case .forDatabase:
-            return Self.mainAppContainer.url.appendingPathComponent("Database", isDirectory: true)
-        case .forFyles:
-            return Self.mainAppContainer.url.appendingPathComponent("Fyles", isDirectory: true)
-        case .forDocuments:
-            return try! FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        case .forTempFiles:
-            return FileManager.default.temporaryDirectory
-        case .forMessagesDecryptedWithinNotificationExtension:
-            return securityApplicationGroupURL.appendingPathComponent("MessagesDecryptedWithinNotificationExtension", isDirectory: true)
-        case .forCache:
-            return Self.mainAppContainer.url.appendingPathComponent("Cache", isDirectory: true)
-        case .forTrash:
-            return Self.mainAppContainer.url.appendingPathComponent("Trash", isDirectory: true)
-        case .forDisplayableLogs:
-            return Self.mainAppContainer.url.appendingPathComponent("DisplayableLogs", isDirectory: true)
-        case .forCustomContactProfilePictures:
-            return Self.mainAppContainer.url.appendingPathComponent("CustomContactProfilePictures", isDirectory: true)
-        case .forCustomGroupProfilePictures:
-            return Self.mainAppContainer.url.appendingPathComponent("CustomGroupProfilePictures", isDirectory: true)
-        case .forProfilePicturesCache:
-            return Self.forCache.url.appendingPathComponent("ProfilePicture", isDirectory: true)
-        case .forFylesHardlinksWithinMainApp:
-            return forFylesHardlinks(within: ObvMessengerConstants.AppType.mainApp)
-        case .forFylesHardlinksWithinShareExtension:
-            return forFylesHardlinks(within: ObvMessengerConstants.AppType.shareExtension)
-        case .forThumbnailsWithinMainApp:
-            return forThumbnails(within: ObvMessengerConstants.AppType.mainApp)
-        }
-    }
-}
-
-fileprivate extension ContainerURL {
-    func forFylesHardlinks(within appType: ObvMessengerConstants.AppType) -> URL {
-        return Self.mainAppContainer.url.appendingPathComponent("FylesHardLinks", isDirectory: true).appendingPathComponent(appType.pathComponent, isDirectory: true)
-    }
-
-    func forThumbnails(within appType: ObvMessengerConstants.AppType) -> URL {
-        return Self.mainAppContainer.url.appendingPathComponent("Thumbnails", isDirectory: true).appendingPathComponent(appType.pathComponent, isDirectory: true)
-    }
-}
-
-fileprivate extension ContainerURL {
-
-    var penultimateIsTitle: Bool {
-        switch self {
-        case .forFylesHardlinksWithinMainApp, .forFylesHardlinksWithinShareExtension:
-            return true
-        default: return false
-        }
-    }
-
-    var title: String {
-        if penultimateIsTitle {
-            return url.pathComponents.suffix(2).first ?? url.lastPathComponent
-        } else {
-            return url.lastPathComponent
-        }
-    }
-
-    var subtitle: String? {
-        guard penultimateIsTitle else { return nil }
-        return url.pathComponents.suffix(2).last
-    }
 }
 
 
@@ -166,7 +73,7 @@ fileprivate class DiskUsageModel: ObservableObject {
             }
         }
 
-        for containerURL in ContainerURL.allCases {
+        for containerURL in ObvUICoreDataConstants.ContainerURL.allCases {
             let url = containerURL.url
             let info = DirectoryInfo(title: containerURL.title, subtitle: containerURL.subtitle, computationStatus: .computing)
             appDirectoryInfos[url] = info
@@ -191,7 +98,7 @@ fileprivate class DiskUsageModel: ObservableObject {
                 
 
         for name in ["inbox", "outbox", "database", "identityPhotos", "downloadedUserData", "uploadingUserData"] {
-            let url = ContainerURL.mainEngineContainer.url.appendingPathComponent(name, isDirectory: true)
+            let url = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url.appendingPathComponent(name, isDirectory: true)
             let info = DirectoryInfo(title: name.capitalized, subtitle: nil, computationStatus: .computing)
             engineDirectoryInfos[url] = info
             backgroundQueue.addOperation {
@@ -364,9 +271,6 @@ fileprivate extension FileManager {
     func directoryCount(_ dir: URL) -> Int? {
         guard let contents = try? self.contentsOfDirectory(atPath: dir.path) else {
             return nil
-        }
-        for content in contents {
-            print(content)
         }
         return contents.count
 

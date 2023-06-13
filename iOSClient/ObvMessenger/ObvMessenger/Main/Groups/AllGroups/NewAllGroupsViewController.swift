@@ -21,8 +21,11 @@
 
 import CoreData
 import ObvUI
+import ObvUICoreData
 import ObvTypes
 import UIKit
+import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_SystemIcon
 
 
 /// We implement the list of groups using a plain collection view. Since we require this view controller to be used under iOS 13, we cannot use modern  techniques (such as list in collection views or UIContentConfiguration).
@@ -677,7 +680,7 @@ fileprivate final class ObvSubtitleCollectionViewCell: UICollectionViewCell {
             NSLayoutConstraint.deactivate(mandatoryConstrainsWhenShowingSublabel)
             NSLayoutConstraint.activate(mandatoryConstrainsWhenHidingSublabel)
         }
-        circledInitials.configureWith(configuration.circledInitialsConfiguration)
+        circledInitials.configure(with: configuration.circledInitialsConfiguration)
         switch configuration.badge {
         case .none:
             badgeContainerViewWidthAnchorConstraint.constant = 0

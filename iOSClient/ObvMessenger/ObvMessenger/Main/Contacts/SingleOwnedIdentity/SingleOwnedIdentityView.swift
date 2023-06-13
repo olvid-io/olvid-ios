@@ -22,6 +22,7 @@ import ObvTypes
 import ObvEngine
 import CoreData
 import ObvUI
+import ObvUICoreData
 
 
 final class APIKeyStatusAndExpiry: ObservableObject {
@@ -49,11 +50,9 @@ final class APIKeyStatusAndExpiry: ObservableObject {
     }
     
     deinit {
-        for token in observationTokens {
-            NotificationCenter.default.removeObserver(token)
-        }
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
-    
+
     private func observeViewContextDidChange() {
         let NotificationName = Notification.Name.NSManagedObjectContextObjectsDidChange
         observationTokens.append(NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { [weak self] (notification) in

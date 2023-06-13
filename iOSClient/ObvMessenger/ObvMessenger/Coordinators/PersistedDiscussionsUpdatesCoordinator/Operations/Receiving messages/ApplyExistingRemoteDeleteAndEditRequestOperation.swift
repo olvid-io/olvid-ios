@@ -22,6 +22,7 @@ import CoreData
 import OlvidUtils
 import ObvEngine
 import os.log
+import ObvUICoreData
 import ObvTypes
 
 
@@ -43,6 +44,8 @@ final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperatio
     override func main() {
         
         os_log("Executing an ApplyExistingRemoteDeleteAndEditRequestOperation for obvMessage %{public}@", log: log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
+        ObvDisplayableLogs.shared.log("🧨 Starting ApplyExistingRemoteDeleteAndEditRequestOperation")
+        defer { ObvDisplayableLogs.shared.log("🧨 Ending ApplyExistingRemoteDeleteAndEditRequestOperation") }
 
         guard let obvContext = self.obvContext else {
             return cancel(withReason: .contextIsNil)
@@ -122,7 +125,8 @@ final class ApplyExistingRemoteDeleteAndEditRequestOperation: ContextualOperatio
                                                                         groupIdentifier: messageJSON.groupIdentifier,
                                                                         receivedMessageToEdit: request.messageReferenceJSON,
                                                                         messageUploadTimestampFromServer: request.serverTimestamp,
-                                                                        saveRequestIfMessageCannotBeFound: false)
+                                                                        saveRequestIfMessageCannotBeFound: false,
+                                                                        newMentions: messageJSON.userMentions)
                         op.obvContext = obvContext
                         op.main()
                         guard !op.isCancelled else {

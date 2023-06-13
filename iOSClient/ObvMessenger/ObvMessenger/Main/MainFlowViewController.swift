@@ -26,6 +26,7 @@ import AVFoundation
 import LinkPresentation
 import SwiftUI
 import ObvCrypto
+import ObvUICoreData
 
 
 final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvFlowControllerDelegate {
@@ -39,8 +40,9 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     private weak var appBackupDelegate: AppBackupDelegate?
 
     fileprivate let mainTabBarController = ObvSubTabBarController()
+    fileprivate let navForDetailsView = UINavigationController(rootViewController: OlvidPlaceholderViewController())
 
-    private let discussionsFlowViewController: DiscussionsFlowViewController
+    fileprivate let discussionsFlowViewController: DiscussionsFlowViewController
     private let contactsFlowViewController: ContactsFlowViewController
     private let groupsFlowViewController: GroupsFlowViewController
     private let invitationsFlowViewController: InvitationsFlowViewController
@@ -61,6 +63,8 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     
     private var externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen: OlvidURL?
     
+    private var savedViewControllersForNavForDetailsView = [ObvCryptoId: [UIViewController]]()
+        
     struct ChildTypes {
         static let latestDiscussions = 0
         static let contacts = 1
@@ -101,7 +105,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         self.delegate = splitDelegate
         self.preferredDisplayMode = .allVisible
         
-        let navForDetailsView = UINavigationController()
         navForDetailsView.delegate = ObvUserActivitySingleton.shared
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
@@ -117,7 +120,9 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         
         // If the user has no contact, go to the contact tab
         
-        if let contactCount = try? PersistedObvContactIdentity.countContactsOfOwnedIdentity(ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: ObvStack.shared.viewContext), contactCount == 0 {
+        // If the user has no discussion to show in the latestDiscussions tab, show the contacts tab
+        
+        if let countOfUnarchivedDiscussions = try? PersistedDiscussion.countUnarchivedDiscussionsOfOwnedIdentity(ownedCryptoId: ownedCryptoId, within: ObvStack.shared.viewContext), countOfUnarchivedDiscussions == 0 {
             mainTabBarController.selectedIndex = ChildTypes.contacts
         }
                 
@@ -166,6 +171,15 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
             ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedIdentityButHasNotConfirmedYet { [weak self] ownedCryptoId in
                 Task { await self?.processUserWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ownedCryptoId) }
             },
+            ObvMessengerInternalNotification.observeBetaUserWantsToSeeLogString { [weak self] logString in
+                Task { await self?.processBetaUserWantsToSeeLogString(logString: logString) }
+            },
+            ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted { [weak self] discussionPermanentID, _ in
+                Task { await self?.processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: discussionPermanentID) }
+            },
+            ObvMessengerCoreDataNotification.observePersistedDiscussionWasArchived { [weak self] discussionPermanentID in
+                Task { await self?.processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: discussionPermanentID) }
+            },
         ])
     }
     
@@ -186,6 +200,17 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     func sceneWillResignActive(_ scene: UIScene) {
         // Called when the scene will move from an active state to an inactive state.
         airDroppedFileURLs.removeAll()
+    }
+
+    
+    @MainActor
+    private func processBetaUserWantsToSeeLogString(logString: String) async {
+        let vc = DebugLogStringViewerViewController(logString: logString)
+        if let presentedViewController {
+            presentedViewController.present(vc, animated: true)
+        } else {
+            present(vc, animated: true)
+        }
     }
 
     
@@ -218,9 +243,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
                     case .newerAppVersionAvailable:
                         guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
                         UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
-                    case .announceGroupsV2:
-                        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .allGroups(ownedCryptoId: ownedCryptoId))
-                            .postOnDispatchQueue()
                     }
                 }
             },
@@ -237,9 +259,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
                     case .newerAppVersionAvailable:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
-                    case .announceGroupsV2:
-                        ObvMessengerSettings.Alert.AnnouncingGroupsV2.wasShownAndPermanentlyDismissedByUser = true
-                        ObvMessengerInternalNotification.displayedSnackBarShouldBeRefreshed.postOnDispatchQueue()
                     }
                 }
             })
@@ -273,54 +292,13 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         }
     }
     
+    
+    fileprivate var allFlows: [ObvFlowController] {
+        mainTabBarController.viewControllers?.compactMap({ $0 as? ObvFlowController }) ?? []
+    }
+    
     private var alreadyPushingDiscussionViewController = false
     
-    override func showDetailViewController(_ vc: UIViewController, sender: Any?) {
-        guard !alreadyPushingDiscussionViewController else { return }
-        alreadyPushingDiscussionViewController = true
-        assert(Thread.isMainThread)
-        guard let singleDiscussionVC = vc as? DiscussionViewController else {
-            assertionFailure()
-            super.showDetailViewController(vc, sender: sender)
-            return
-        }
-        guard let flow = sender as? ObvFlowController else {
-            assertionFailure()
-            super.showDetailViewController(vc, sender: sender)
-            return
-        }
-        if isCollapsed {
-            // This is required to give time to the collection view to layout itself while scrolling to the bottom
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(33)) { [weak self] in
-                flow.pushViewController(vc, animated: true)
-                self?.alreadyPushingDiscussionViewController = false
-            }
-        } else {
-            defer { alreadyPushingDiscussionViewController = false }
-            guard viewControllers.count == 2 && viewControllers.last is UINavigationController else {
-                let detailsNav = UINavigationController(rootViewController: vc)
-                super.showDetailViewController(detailsNav, sender: sender)
-                return
-            }
-            let detailsNav = viewControllers.last as! UINavigationController
-            if flow is DiscussionsFlowViewController {
-                if (detailsNav.viewControllers.first as? SingleDiscussionViewController)?.discussion.typedObjectID == singleDiscussionVC.discussionObjectID {
-                    detailsNav.popToRootViewController(animated: true)
-                } else {
-                    detailsNav.setViewControllers([vc], animated: false)
-                }
-            } else {
-                for vc in detailsNav.viewControllers {
-                    if (vc as? SingleDiscussionViewController)?.discussion.typedObjectID == singleDiscussionVC.discussionObjectID {
-                        detailsNav.popToViewController(vc, animated: true)
-                        return
-                    }
-                }
-                detailsNav.pushViewController(singleDiscussionVC, animated: true)
-            }
-        }
-    }
-
 
     private func showSnackBarOnAllTabBarChildren(with category: OlvidSnackBarCategory, forOwnedIdentity ownedCryptoId: ObvCryptoId) {
         guard self.currentOwnedCryptoId == ownedCryptoId else { return }
@@ -341,11 +319,9 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
 
     deinit {
-        observationTokens.forEach {
-            NotificationCenter.default.removeObserver($0)
-        }
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
-    
+
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -486,18 +462,150 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
 }
 
 
+// MARK: - Dealing with deleted discussions
+
+extension MainFlowViewController {
+    
+    /// This methods makes sure the interface stays consistent when a `PersistedDiscussion` instance gets deleted.
+    ///
+    /// When a `PersistedDiscussion` instance gets deleted, we are in one of the two following cases:
+    /// - The user (or a contact) deleted all messages of the discussion. In that case, a new `PersistedDiscussion` instance has been created, with the same permanent ID, but with a different `objectID`.
+    ///   In that case:
+    ///   - If the new `PersistedDiscussion` instance, representing the same logical discussion (i.e., with the same permanent ID) is archived, we **remove** all `SomeSingleContactViewController` for that discussion from the view hierarchy.
+    ///   - If the new `PersistedDiscussion` instance is not archived, we **replace** any `SomeSingleContactViewController` instance by a new one, representing the same logical discussion.
+    /// - The user deleted all messages from a locked discussion. In that case, no new `PersistedDiscussion` instance was created. We remove all `SomeSingleContactViewController` instance from the view hierarchy.
+    ///
+    /// Moreover, we must deal with both situations, under iPad and iPhone (where the split view interface is collapsed).
+    @MainActor
+    func processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
+        
+        if let persistedDiscussion = try? PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: ObvStack.shared.viewContext), !persistedDiscussion.isDeleted {
+            
+            if persistedDiscussion.isArchived {
+                await removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+                await removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+            } else {
+                await refreshFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussion(persistedDiscussion)
+                await refreshTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussion(persistedDiscussion)
+            }
+            
+        } else {
+            
+            await removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+            await removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+            
+        }
+        
+    }
+    
+    
+    /// Helper method for `processPersistedDiscussionWasInserted()`
+    @MainActor
+    private func removeFromTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
+        var newStack = self.navForDetailsView.viewControllers.compactMap { viewController in
+            guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
+            return (someSingleDiscussionVC.discussionPermanentID == discussionPermanentID) ? nil : someSingleDiscussionVC
+        }
+        if newStack.isEmpty {
+            newStack = [OlvidPlaceholderViewController()]
+        }
+        self.navForDetailsView.setViewControllers(newStack, animated: false)
+    }
+    
+    
+    /// Helper method for `processPersistedDiscussionWasInserted()`
+    @MainActor
+    private func removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
+        let allFlowViewControllers = self.mainTabBarController.viewControllers?.compactMap { $0 as? ObvFlowController } ?? []
+        assert(!allFlowViewControllers.isEmpty)
+        for obvFlowController in allFlowViewControllers {
+            await obvFlowController.removeAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(discussionPermanentID)
+        }
+    }
+    
+    
+    /// Helper method for `processPersistedDiscussionWasInserted()`
+    @MainActor
+    private func refreshTheDetailsViewAllSomeSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async {
+        var newStack = self.navForDetailsView.viewControllers.compactMap { viewController in
+            guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
+            if someSingleDiscussionVC.discussionPermanentID != discussion.discussionPermanentID {
+                return someSingleDiscussionVC
+            } else {
+                if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
+                    do {
+                        return try currentFlow?.getNewSingleDiscussionViewController(for: discussion, initialScroll: .newMessageSystemOrLastMessage)
+                    } catch {
+                        assertionFailure(error.localizedDescription) // In production, continue anyway
+                        return nil
+                    }
+                } else {
+                    do {
+                        return try currentFlow?.getSingleDiscussionViewController(for: discussion)
+                    } catch {
+                        assertionFailure(error.localizedDescription) // In production, continue anyway
+                        return nil
+                    }
+                }
+            }
+        }
+        if newStack.isEmpty {
+            newStack = [OlvidPlaceholderViewController()]
+        }
+        self.navForDetailsView.setViewControllers(newStack, animated: false)
+    }
+    
+    
+    @MainActor
+    private func refreshFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussion(_ discussion: PersistedDiscussion) async {
+        let allFlowViewControllers = self.mainTabBarController.viewControllers?.compactMap { $0 as? ObvFlowController } ?? []
+        assert(!allFlowViewControllers.isEmpty)
+        for obvFlowController in allFlowViewControllers {
+            do {
+                try await obvFlowController.refreshAllSingleDiscussionViewControllerForDiscussion(discussion)
+            } catch {
+                assertionFailure(error.localizedDescription) // In production, continue anyway
+            }
+        }
+    }
+    
+}
+
+
 // MARK: - Switching current owned identity
 
 extension MainFlowViewController {
     
     @MainActor
     func switchCurrentOwnedCryptoId(to newOwnedCryptoId: ObvCryptoId) async {
+
         guard self.currentOwnedCryptoId != newOwnedCryptoId else { return }
+
+        let oldOwnedCryptoId = self.currentOwnedCryptoId
         self.currentOwnedCryptoId = newOwnedCryptoId
-        await discussionsFlowViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
-        await contactsFlowViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
-        await groupsFlowViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
-        await invitationsFlowViewController.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        
+        for flow in allFlows {
+            await flow.switchCurrentOwnedCryptoId(to: newOwnedCryptoId)
+        }
+        
+        if !isCollapsed {
+            // The split view controller shows a "details" view. We save its view controller's stack in order to restore it when the user switches back to that profile
+            savedViewControllersForNavForDetailsView[oldOwnedCryptoId] = navForDetailsView.viewControllers
+            if let viewControllersToRestore = savedViewControllersForNavForDetailsView.removeValue(forKey: newOwnedCryptoId), !viewControllersToRestore.isEmpty  {
+                // Make are about to restore view controllers showing discussions. We filter out
+                let updatedViewControllersToRestore = viewControllersToRestore.compactMap { viewController in
+                    guard let someSingleDiscussionVC = viewController as? SomeSingleDiscussionViewController else { return viewController }
+                    if (try? PersistedDiscussion.getManagedObject(withPermanentID: someSingleDiscussionVC.discussionPermanentID, within: ObvStack.shared.viewContext)) != nil {
+                        return viewController
+                    } else {
+                        return nil
+                    }
+                }
+                navForDetailsView.viewControllers = updatedViewControllersToRestore
+            } else {
+                navForDetailsView.viewControllers = [OlvidPlaceholderViewController()]
+            }
+        }
     }
     
 }
@@ -786,9 +894,8 @@ extension MainFlowViewController {
     }
     
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void) {
-        let NotificationType = MessengerInternalNotification.UserWantsToRefreshDiscussions.self
-        let userInfo = [NotificationType.Key.completionHandler: completionHandler]
-        NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
+        ObvMessengerInternalNotification.userWantsToRefreshDiscussions(completionHandler: completionHandler)
+            .postOnDispatchQueue()
     }
 
 }
@@ -1253,7 +1360,7 @@ extension MainFlowViewController {
     }
     
     
-    private func currentDiscussionViewControllerShownToUser() -> DiscussionViewController? {
+    private func currentDiscussionViewControllerShownToUser() -> SomeSingleDiscussionViewController? {
         let currentNavigation: UINavigationController?
         if self.isCollapsed {
             // Typical on iPhone
@@ -1272,7 +1379,7 @@ extension MainFlowViewController {
             guard self.viewControllers.count > 1 else { assertionFailure(); return nil }
             currentNavigation = self.viewControllers[1] as? UINavigationController
         }
-        guard let discussionVC = currentNavigation?.viewControllers.last as? DiscussionViewController else { return nil }
+        guard let discussionVC = currentNavigation?.viewControllers.last as? SomeSingleDiscussionViewController else { return nil }
         guard discussionVC.viewIfLoaded?.window != nil else { assertionFailure(); return nil }
         return discussionVC
     }
@@ -1516,24 +1623,14 @@ extension MainFlowViewController: ScannerHostingViewDelegate {
 }
 
 
-// MARK: - Processing external OlvidURLs
-
-extension MainFlowViewController {
-    
-    
-
-}
-
-
 // MARK: - SingleOwnedIdentityFlowViewControllerDelegate
 
 extension MainFlowViewController: SingleOwnedIdentityFlowViewControllerDelegate {
     
-    func userWantsToDismissSingleOwnedIdentityFlowViewController() {
+    func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController) {
         assert(Thread.isMainThread)
-        dismiss(animated: true)
+        viewController.dismiss(animated: true)
     }
-    
 }
 
 
@@ -1577,13 +1674,51 @@ final class ObvGenericIdentityForSharing: NSObject, UIActivityItemSource {
 
 private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDelegate {
     
+    
+    func splitViewController(_ splitViewController: UISplitViewController, showDetail vc: UIViewController, sender: Any?) -> Bool {
+        /* When its showDetailViewController(_:sender:) method is called, the split view controller calls this method to see if your delegate will handle the presentation of the specified view controller.
+         * If you implement this method and ultimately return true, your implementation is responsible for presenting the specified view controller in the secondary position of the split view interface.
+         */
+        assert(Thread.isMainThread)
+        guard let mainFlow = splitViewController as? MainFlowViewController else {
+            assertionFailure("We expect to be the delegate of MainFlowViewController")
+            return false
+        }
+        guard let singleDiscussionVC = vc as? SomeSingleDiscussionViewController else {
+            assertionFailure("The only VC that we may push on the detail view are expected to be instances of SomeSingleDiscussionViewController")
+            return false
+        }
+        guard let flow = sender as? ObvFlowController else {
+            assertionFailure()
+            return false
+        }
+        
+        if splitViewController.isCollapsed {
+            // iPhone case
+            if let singleDiscussionVCToShow = flow.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController }).first(where: { $0.discussionPermanentID == singleDiscussionVC.discussionPermanentID }) {
+                flow.popToViewController(singleDiscussionVCToShow, animated: true)
+            } else {
+                flow.pushViewController(singleDiscussionVC, animated: true)
+            }
+        } else {
+            // iPad case
+            if let singleDiscussionVCToShow = mainFlow.navForDetailsView.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController }).first(where: { $0.discussionPermanentID == singleDiscussionVC.discussionPermanentID }) {
+                mainFlow.navForDetailsView.popToViewController(singleDiscussionVCToShow, animated: true)
+            } else {
+                mainFlow.navForDetailsView.pushViewController(singleDiscussionVC, animated: true)
+            }
+        }
+        return true
+    }
+    
+    
     func splitViewController(_ splitViewController: UISplitViewController, separateSecondaryFrom primaryViewController: UIViewController) -> UIViewController? {
         /* This happens when transioning from compact to regular width.
-         * In case a SingleDiscussionViewController is on screen, we want to transfer this view controller from the main view controller
-         * of the split view controller to the detail view controller. We do this by looking for the *first* SingleDiscussionViewController
-         * within the navigation view controller of the main split view, pop this SingleViewController (as well as the next SingleViewControllers), embedd
-         * them in a UINavigationController, that we return. This new UINavigationController containing one or more SingleDiscussionViewControllers will
-         * then show in the detail view controller of the split view controller.
+         * In case a SingleDiscussionViewController is on screen, we want this vc to show on screen after the transition.
+         * In practice, we do two things:
+         * - We take all the SingleDiscussionViewController instances, embed them in the navigation controller of the secondary view controller
+         * - We remove all the SingleDiscussionViewController instances from the flows
+         * We then return the navigation controller of the secondary view controller.
          */
         
         // We expect to be the delegate of the MainFlowViewController (which is a UISplitViewController)
@@ -1594,54 +1729,30 @@ private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDe
                 
         // Find the current flow controller
         guard let currentFlow = mainFlowViewController.currentFlow else {
-            // This typically happens when showing the settings
-            return nil
-        }
-    
-        // Find the ViewController to pop to on the current flow. Its the last view controller that is not a SingleDiscussionViewController
-        guard !currentFlow.viewControllers.isEmpty else {
             assertionFailure()
-            return nil
+            mainFlowViewController.navForDetailsView.setViewControllers([OlvidPlaceholderViewController()], animated: false)
+            return mainFlowViewController.navForDetailsView
         }
-        var vcToPopTo: UIViewController?
-        for (index, vc) in currentFlow.viewControllers.enumerated() {
-            guard index > 0 else { continue }
-            if vc is SingleDiscussionViewController {
-                vcToPopTo = currentFlow.viewControllers[index-1]
-                break
-            }
-        }
-        guard vcToPopTo != nil else { return nil }
-                
-        
-        // Pop the single discussion view controllers from the flow
-        guard let singleDiscussionViewControllers = currentFlow.popToViewController(vcToPopTo!, animated: false) else { return nil }
-        guard !singleDiscussionViewControllers.isEmpty else { return nil }
-        
-        // We expect all the popped VC to be SingleDiscussionViewControllers. We check this
-        for vc in singleDiscussionViewControllers {
-            assert(vc is SingleDiscussionViewController)
-        }
-        
-        // We embedd the SingleDiscussionViewControllers in a new navigation stack
-        let nav = UINavigationController(rootViewController: singleDiscussionViewControllers.first!)
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        nav.navigationBar.standardAppearance = appearance
-        for (index, vc) in singleDiscussionViewControllers.enumerated() {
-            guard index > 0 else { continue }
-            nav.pushViewController(vc, animated: false)
-        }
-        
-        // We return the new navigation stack so that it is shown on the details side of the split view controller
-        return nav
 
+        // Get all the SomeSingleDiscussionViewController instances of the current flow and use them to set the stack of the navigation of the secondary view
+        let singleDiscussionViewControllers = currentFlow.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController })
+        mainFlowViewController.navForDetailsView.setViewControllers([OlvidPlaceholderViewController()] + singleDiscussionViewControllers, animated: false)
+        
+        // Remove all SomeSingleDiscussionViewController instances from all flows
+        mainFlowViewController.allFlows.forEach { obvFlowController in
+            let allVCsButDiscussionViewControllers = obvFlowController.viewControllers.filter({ !($0 is SomeSingleDiscussionViewController) })
+            obvFlowController.setViewControllers(allVCsButDiscussionViewControllers, animated: false)
+        }
+        
+        // We are done, we can return the navigation controller of the secondary view controller
+        return mainFlowViewController.navForDetailsView
+        
     }
         
     
     func splitViewController(_ splitViewController: UISplitViewController, collapseSecondary secondaryViewController: UIViewController, onto primaryViewController: UIViewController) -> Bool {
         /* This happens when transioning from regular to compact width.
-         * In case a SingleDiscussionViewController is on screen (or a stack of SingleDiscussionViewControllers),
+         * In case a SomeSingleDiscussionViewController is on screen (or a stack of SomeSingleDiscussionViewController),
          * we want to transfer this (or these) view controller(s) from the detail view controller
          * of the split view controller to the main view controller. To do so, we push this SingleDiscussionViewController onto the appropriate
          * flow, i.e., the flow corresponding to the select tab of the tab bar controller. In case the selected tab has no associated flow (e.g., for the
@@ -1651,61 +1762,52 @@ private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDe
         // We expect to be the delegate of the MainFlowViewController (which is a UISplitViewController)
         guard let mainFlowViewController = splitViewController as? MainFlowViewController else {
             assertionFailure()
-            return false
+            return false // Let the split view controller try to incorporate the secondary view controller’s content into the collapsed interface
         }
 
         // Perform a few sanity checks
         
         guard primaryViewController == mainFlowViewController.mainTabBarController else {
             assertionFailure()
-            return false
+            return false // Let the split view controller try to incorporate the secondary view controller’s content into the collapsed interface
         }
         
-        let mainTabBarController = mainFlowViewController.mainTabBarController
+        // Look for SomeSingleDiscussionViewController to keep
         
-        guard let secondaryNav = secondaryViewController as? UINavigationController else {
-            assertionFailure()
-            return false
+        let discussionsVCs = mainFlowViewController.navForDetailsView.viewControllers.compactMap({ $0 as? SomeSingleDiscussionViewController })
+        
+        // Remove all SomeSingleDiscussionViewController instances from all flows
+        mainFlowViewController.allFlows.forEach { obvFlowController in
+            let allVCsButDiscussionViewControllers = obvFlowController.viewControllers.filter({ !($0 is SomeSingleDiscussionViewController) })
+            obvFlowController.setViewControllers(allVCsButDiscussionViewControllers, animated: false)
+        }
+
+        // If we have no SomeSingleDiscussionViewController to keep, we are done
+        
+        guard !discussionsVCs.isEmpty else {
+            return false // Let the split view controller try to incorporate the secondary view controller’s content into the collapsed interface
         }
         
-        // Pop the stack of all discussions shown on the secondary nav
+        // If the selected tab corresponds to a flow, use this flow to preserve discussionsVCs. Otherwise, use the discussion flow
         
-        guard !secondaryNav.viewControllers.isEmpty else {
-            return false
-        }
-        guard secondaryNav.viewControllers is [SingleDiscussionViewController] else { assertionFailure(); return false }
-        var discussionViewControllers = secondaryNav.popToRootViewController(animated: false) as? [SingleDiscussionViewController] ?? [SingleDiscussionViewController]()
-        let rootVC = secondaryNav.viewControllers.first! as! SingleDiscussionViewController
-        rootVC.willMove(toParent: nil)
-        rootVC.view.removeFromSuperview()
-        rootVC.removeFromParent()
-        discussionViewControllers.insert(rootVC, at: 0)
-        
-        // If the array of discussion view controllers is empty, return false since we have nothing more to do in order to display an appropriate primary view controller
-        guard !discussionViewControllers.isEmpty else { return false }
-        
-        // If we reach this point, we have an non-empty array of discussions to push onto an appropriate flow.
-        // We look for this flow, and force the "latest discussions" tab if we cannot find an appropriate flow.
-        let currentFlow: ObvFlowController
-        if let cf = mainFlowViewController.currentFlow {
-            currentFlow = cf
+        let obvFlowViewController: ObvFlowController
+        if let obvFlow = mainFlowViewController.currentFlow {
+            obvFlowViewController = obvFlow
         } else {
-            mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.latestDiscussions
-            if let cf = mainFlowViewController.currentFlow {
-                currentFlow = cf
-            } else {
-                assertionFailure()
-                return false
-            }
+            obvFlowViewController = mainFlowViewController.discussionsFlowViewController
+            mainFlowViewController.mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.latestDiscussions
         }
         
-        // We push the discussion on the current flow
-        for vc in discussionViewControllers {
-            currentFlow.pushViewController(vc, animated: false)
-        }
+        // Push the discussionsVCs onto the stack of the flow
         
-        // We return false since we manually did the job of collapsing the secondary view controller onto the primary view controller
-        return false
+        for vc in discussionsVCs {
+            obvFlowViewController.pushViewController(vc, animated: false)
+        }
+                
+        // We dealt with the discussionsVCs, we do not want the split view controller to do anything with the secondary view controller so we return true
+        
+        return true
+        
     }
     
 }

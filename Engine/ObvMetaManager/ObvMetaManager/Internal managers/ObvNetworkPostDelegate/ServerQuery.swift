@@ -48,6 +48,7 @@ extension ServerQuery {
         case putGroupLog(groupIdentifier: GroupV2.Identifier, querySignature: Data)
         case requestGroupBlobLock(groupIdentifier: GroupV2.Identifier, lockNonce: Data, signature: Data)
         case updateGroupBlob(groupIdentifier: GroupV2.Identifier, encodedServerAdminPublicKey: ObvEncoded, encryptedBlob: EncryptedData, lockNonce: Data, signature: Data)
+        case getKeycloakData(serverURL: URL, serverLabel: UID)
 
 
         private var rawValue: Int {
@@ -72,6 +73,8 @@ extension ServerQuery {
                 return 8
             case .updateGroupBlob:
                 return 9
+            case .getKeycloakData:
+                return 10
             }
         }
         
@@ -97,6 +100,8 @@ extension ServerQuery {
                 return [rawValue, groupIdentifier, lockNonce, signature].obvEncode()
             case .updateGroupBlob(groupIdentifier: let groupIdentifier, encodedServerAdminPublicKey: let encodedServerAdminPublicKey, encryptedBlob: let encryptedBlob, lockNonce: let lockNonce, signature: let signature):
                 return [rawValue.obvEncode(), groupIdentifier.obvEncode(), encodedServerAdminPublicKey, encryptedBlob.obvEncode(), lockNonce.obvEncode(), signature.obvEncode()].obvEncode()
+            case .getKeycloakData(serverURL: let serverURL, serverLabel: let serverLabel):
+                return [rawValue, serverURL, serverLabel].obvEncode()
             }
         }
         
@@ -159,6 +164,11 @@ extension ServerQuery {
                 guard let lockNonce = Data(listOfEncoded[4]) else { return nil }
                 guard let signature = Data(listOfEncoded[5]) else { return nil }
                 self = .updateGroupBlob(groupIdentifier: groupIdentifier, encodedServerAdminPublicKey: encodedServerAdminPublicKey, encryptedBlob: encryptedBlob, lockNonce: lockNonce, signature: signature)
+            case 10:
+                guard listOfEncoded.count == 3 else { assertionFailure(); return nil }
+                guard let serverURL = URL(listOfEncoded[1]) else { assertionFailure(); return nil }
+                guard let serverLabel = UID(listOfEncoded[2]) else { assertionFailure(); return nil }
+                self = .getKeycloakData(serverURL: serverURL, serverLabel: serverLabel)
             default:
                 assertionFailure()
                 return nil

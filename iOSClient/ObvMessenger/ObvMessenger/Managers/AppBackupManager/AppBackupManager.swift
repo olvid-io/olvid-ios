@@ -24,13 +24,14 @@ import ObvTypes
 import CloudKit
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
 import CoreData
 
 
 
 final actor AppBackupManager: AppBackupDelegate, ObvErrorMaker {
 
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppBackupManager.self))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppBackupManager.self))
 
     static let errorDomain = "AppBackupManager"
     static let recordType = "EngineBackupRecord"
@@ -73,18 +74,21 @@ final actor AppBackupManager: AppBackupDelegate, ObvErrorMaker {
 
     init(obvEngine: ObvEngine) {
         self.obvEngine = obvEngine
-        let log = self.log
         Task {
             await observeNotifications()
         }
         do {
             try obvEngine.registerAppBackupableObject(self)
         } catch {
-            os_log("Could not register the app within the engine for performing App data backup", log: log, type: .fault, error.localizedDescription)
+            os_log("Could not register the app within the engine for performing App data backup", log: Self.log, type: .fault, error.localizedDescription)
             assertionFailure()
         }
     }
         
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private func observeNotifications() {
         
         // Internal notifications
@@ -154,19 +158,19 @@ extension AppBackupManager {
     
     private func performBackupToICloud(manuallyRequestByUser: Bool) async throws {
     
-        os_log("Call to performBackupToICloud with manuallyRequestByUser: %{public}@. The current background task identifier is %{public}@", log: self.log, type: .info, manuallyRequestByUser.description, backgroundTaskIdentifier.debugDescription)
+        os_log("Call to performBackupToICloud with manuallyRequestByUser: %{public}@. The current background task identifier is %{public}@", log: Self.log, type: .info, manuallyRequestByUser.description, backgroundTaskIdentifier.debugDescription)
         
         guard backgroundTaskIdentifier == nil else { return }
         
         // Check that automatic backups are requested or that the user explicitely requested the backup
         guard (ObvMessengerSettings.Backup.isAutomaticBackupEnabled && obvEngine.isBackupRequired) || manuallyRequestByUser else {
-            os_log("A backup key is available, but since automatic backup are not requested or backup was not required, and since we are not considering a manual backup, we do not perform an backup to the cloud", log: self.log, type: .info)
+            os_log("A backup key is available, but since automatic backup are not requested or backup was not required, and since we are not considering a manual backup, we do not perform an backup to the cloud", log: Self.log, type: .info)
             return
         }
 
         // Begin background task
         self.backgroundTaskIdentifier = await UIApplication.shared.beginBackgroundTask(withName: "Olvid Automatic Backup") {
-            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: self.log, type: .fault)
+            os_log("Could not perform automatic backup to CloudKit, could not begin background task", log: Self.log, type: .fault)
             return
         }
         guard let backgroundTaskIdentifier = self.backgroundTaskIdentifier else { assertionFailure(); return }
@@ -174,7 +178,7 @@ extension AppBackupManager {
             Task {
                 // End background task
                 self.backgroundTaskIdentifier = nil
-                os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: self.log, type: .info, backgroundTaskIdentifier.rawValue)
+                os_log("Ending flow created for uploadind backup for background task identifier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue)
                 await UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
             }
         }
@@ -182,7 +186,7 @@ extension AppBackupManager {
             ObvMessengerInternalNotification.backupForUploadFailedToUpload.postOnDispatchQueue()
             throw Self.makeError(message: "Could not perform automatic backup to CloudKit, running in the background isn't possible.")
         }
-        os_log("Starting background task for automatic backup with background task idenfier: %{public}d", log: self.log, type: .info, backgroundTaskIdentifier.rawValue)
+        os_log("Starting background task for automatic backup with background task idenfier: %{public}d", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue)
 
         // If we reach this point, we should try to perform a backup
         let backupRequestUuid = UUID()
@@ -202,12 +206,12 @@ extension AppBackupManager {
     
     
     private func newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: UID, backupVersion: Int, encryptedContent: Data, backupRequestUuid: UUID, manuallyRequestByUser: Bool) async throws {
-        os_log("New encrypted backup available for upload to CloudKit", log: log, type: .info)
-        let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: log)
+        os_log("New encrypted backup available for upload to CloudKit", log: Self.log, type: .info)
+        let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: Self.log)
         let container = CKContainer(identifier: ObvMessengerConstants.iCloudContainerIdentifierForEngineBackup)
         let accountStatus = try await container.accountStatus()
         guard accountStatus == .available else {
-            os_log("The iCloud account isn't available. We cannot perform automatic backup.", log: log, type: .fault)
+            os_log("The iCloud account isn't available. We cannot perform automatic backup.", log: Self.log, type: .fault)
             try? backupFile.deleteData()
             await self.markBackupAsFailed(backupFile: backupFile)
             return
@@ -225,7 +229,7 @@ extension AppBackupManager {
         do {
             try await obvEngine.markBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
         } catch let error {
-            os_log("Could mark the backup as uploaded: %{public}@", log: log, type: .error, error.localizedDescription)
+            os_log("Could mark the backup as uploaded: %{public}@", log: Self.log, type: .error, error.localizedDescription)
         }
     }
 
@@ -233,7 +237,7 @@ extension AppBackupManager {
         do {
             try await self.obvEngine.markBackupAsUploaded(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
         } catch let error {
-            os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: log, type: .error, error.localizedDescription)
+            os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: Self.log, type: .error, error.localizedDescription)
         }
     }
 
@@ -244,7 +248,7 @@ extension AppBackupManager {
             try? backupFile.deleteData()
         }
 
-        os_log("Will upload backup to CloudKit", log: log, type: .info)
+        os_log("Will upload backup to CloudKit", log: Self.log, type: .info)
 
         guard let identifierForVendor = await UIDevice.current.identifierForVendor else {
             await self.markBackupAsFailed(backupFile: backupFile)
@@ -263,7 +267,7 @@ extension AppBackupManager {
 
         // Last chance to check whether automatic backup are enabled or if the backup was manually requested (i.e., forced).
         guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled || manuallyRequestByUser else {
-            os_log("We cancel the backup upload to iCloud since automatic backups are disabled and since this backup was not manually requested.", log: log, type: .error)
+            os_log("We cancel the backup upload to iCloud since automatic backups are disabled and since this backup was not manually requested.", log: Self.log, type: .error)
             assertionFailure()
             return
         }
@@ -271,7 +275,7 @@ extension AppBackupManager {
         // Upload the record
         do {
             _ = try await privateDatabase.save(record)
-            os_log("Encrypted backup was uploaded to CloudKit", log: log, type: .info)
+            os_log("Encrypted backup was uploaded to CloudKit", log: Self.log, type: .info)
             await self.markBackupAsUploaded(backupFile: backupFile)
         } catch(let error) {
             await self.markBackupAsFailed(backupFile: backupFile)
@@ -382,7 +386,7 @@ extension AppBackupManager {
         defer {
             currentIncrementalClean = .none
         }
-        os_log("🧽 Start incremental backup clean", log: self.log, type: .info)
+        os_log("🧽 Start incremental backup clean", log: Self.log, type: .info)
 
         do {
             let identifierForVendor: UUID?
@@ -405,16 +409,16 @@ extension AppBackupManager {
             let error = error as? CloudKitError ?? .unknownError(error)
             switch error {
             case .accountError(let error):
-                os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                os_log("🧽 Clean previous backups error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             case .accountNotAvailable:
-                os_log("🧽 Clean previous backups error: account is not available", log: self.log, type: .fault)
+                os_log("🧽 Clean previous backups error: account is not available", log: Self.log, type: .fault)
             case .operationError(let error):
-                os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                os_log("🧽 Clean previous backups error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             case .unknownError(let error):
-                os_log("🧽 Clean previous backups error: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                os_log("🧽 Clean previous backups error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             case .internalError:
                 assertionFailure()
-                os_log("🧽 Clean previous backups internal error", log: self.log, type: .fault)
+                os_log("🧽 Clean previous backups internal error", log: Self.log, type: .fault)
             }
         }
     }
@@ -425,12 +429,12 @@ extension AppBackupManager {
         let iterator = CloudKitBackupRecordIterator(identifierForVendor: identifierForVendor, resultsLimit: 50, desiredKeys: [.deviceIdentifierForVendor])
 
         guard let records = try await iterator.next() else {
-            os_log("🧽 Clean previous backups is terminated (No record found (A))", log: self.log, type: .info)
+            os_log("🧽 Clean previous backups is terminated (No record found (A))", log: Self.log, type: .info)
             ObvMessengerInternalNotification.incrementalCleanBackupTerminates.postOnDispatchQueue()
             return
         }
         guard !records.isEmpty else {
-            os_log("🧽 Clean previous backups is terminated (No record found (B))", log: self.log, type: .info)
+            os_log("🧽 Clean previous backups is terminated (No record found (B))", log: Self.log, type: .info)
             ObvMessengerInternalNotification.incrementalCleanBackupTerminates.postOnDispatchQueue()
             return
         }
@@ -468,7 +472,7 @@ extension AppBackupManager {
 
         let recordIDsToDelete = recordsToDelete.map { $0.recordID }
         guard !recordIDsToDelete.isEmpty else {
-            os_log("🧽 Clean previous backup is terminated (No records to delete)", log: self.log, type: .info)
+            os_log("🧽 Clean previous backup is terminated (No records to delete)", log: Self.log, type: .info)
             ObvMessengerInternalNotification.incrementalCleanBackupTerminates.postOnDispatchQueue()
             return
         }
@@ -518,11 +522,10 @@ extension AppBackupManager {
 
         assert(Thread.isMainThread)
 
-        let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: log)
+        let backupFile = try BackupFile(encryptedContent: encryptedContent, backupKeyUid: backupKeyUid, backupVersion: backupVersion, log: Self.log)
 
         let ativityController = UIActivityViewController(activityItems: [backupFile], applicationActivities: nil)
         ativityController.popoverPresentationController?.sourceView = sourceView
-        let log = self.log
         return try await withCheckedThrowingContinuation { cont in
             ativityController.completionWithItemsHandler = { [weak self] (activityType, completed, returnedItems, error) in
                 guard completed else {
@@ -542,7 +545,7 @@ extension AppBackupManager {
                     do {
                         try backupFile.deleteData()
                     } catch let error {
-                        os_log("Could not delete the encrypted backup: %{public}@", log: log, type: .error, error.localizedDescription)
+                        os_log("Could not delete the encrypted backup: %{public}@", log: Self.log, type: .error, error.localizedDescription)
                     }
                     cont.resume(returning: true)
                 }
@@ -588,7 +591,7 @@ fileprivate final class BackupFile: UIActivityItemProvider {
         let nowAsString = dateFormaterForBackupFileName.string(from: Date())
         self.fileName = "Olvid backup \(nowAsString).olvidbackup"
         let randomDirectoryName = UUID().uuidString
-        self.tempLocation = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent("BackupFiles", isDirectory: true).appendingPathComponent(randomDirectoryName, isDirectory: true)
+        self.tempLocation = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent("BackupFiles", isDirectory: true).appendingPathComponent(randomDirectoryName, isDirectory: true)
         self.url = tempLocation.appendingPathComponent(fileName)
 
         super.init(placeholderItem: url)
@@ -681,7 +684,6 @@ extension AppBackupManager: ObvBackupable {
         // This is called when all the engine data have been restored. We can thus start the restore of app backuped data.
         
         // We first request a sync of all the engine database to make sure the app database is in sync
-        let log = self.log
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
          
@@ -725,14 +727,14 @@ extension AppBackupManager: ObvBackupable {
                                     do {
                                         try ownedIdentityBackupItem.updateExistingInstance(within: context)
                                     } catch {
-                                        os_log("One of the app backup item could not be fully restored: %{public}@", log: self.log, type: .fault, error.localizedDescription)
+                                        os_log("One of the app backup item could not be fully restored: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                                         assertionFailure()
                                         // Continue anyway
                                     }
                                 }
                                 
                                 do {
-                                    try context.save(logOnFailure: self.log)
+                                    try context.save(logOnFailure: Self.log)
                                 } catch {
                                     // Although we did not succeed to restore the app backup, we consider its ok (for now)
                                     assertionFailure(error.localizedDescription)
@@ -758,13 +760,13 @@ extension AppBackupManager: ObvBackupable {
                                 discussion.insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: true)
                             }
                         } catch {
-                            os_log("Cannot insert current discussion shared configuration system message: %{public}@", log: log, type: .fault, error.localizedDescription)
+                            os_log("Cannot insert current discussion shared configuration system message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                             assertionFailure()
                             // Continue anyway
                         }
 
                         do {
-                            try context.save(logOnFailure: log)
+                            try context.save(logOnFailure: Self.log)
                         } catch {
                             // Although we did not succeed to restore the app backup, we consider its ok (for now)
                             assertionFailure(error.localizedDescription)

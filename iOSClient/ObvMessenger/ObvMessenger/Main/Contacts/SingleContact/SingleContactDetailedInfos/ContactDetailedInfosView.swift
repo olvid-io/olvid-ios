@@ -20,13 +20,14 @@
 import SwiftUI
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 
 struct ContactDetailedInfosView: View {
 
     @ObservedObject var contact: PersistedObvContactIdentity
     let userWantsToSyncOneToOneStatusOfContact: () -> Void
-    @State private var signedContactDetails: SignedUserDetails? = nil
+    @State private var signedContactDetails: SignedObvKeycloakUserDetails? = nil
     
     @Environment(\.presentationMode) var presentationMode
 

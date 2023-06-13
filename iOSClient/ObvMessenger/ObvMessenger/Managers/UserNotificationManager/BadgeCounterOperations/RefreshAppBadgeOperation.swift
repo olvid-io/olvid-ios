@@ -20,6 +20,7 @@
 import Foundation
 import os.log
 import ObvEngine
+import ObvUICoreData
 
 
 final class RefreshAppBadgeOperation: Operation {
@@ -37,14 +38,14 @@ final class RefreshAppBadgeOperation: Operation {
     override func main() {
         guard !isCancelled else { return }
         
+        let userDefaults = self.userDefaults
+        
         ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
+            
             guard let _self = self else { return }
-            guard let newPersistedMessageReceivedCount = try? PersistedMessageReceived.countNewForAllOwnedIdentities(within: context) else { _self.cancel(); return }
-            guard let newPersistedMessageSystemCount = try? PersistedMessageSystem.countNewForAllOwnedIdentities(within: context) else { _self.cancel(); return }
-            guard let invitationCount = try? PersistedInvitation.countInvitationsRequiringActionOrWithNotOldStatusForAllOwnedIdentities(within: context) else { _self.cancel(); return }
-            guard !_self.isCancelled else { return }
+            
+            guard let newBadgeValue = try? PersistedObvOwnedIdentity.computeAppBadgeValue(within: context) else { _self.cancel(); return }
 
-            let newBadgeValue = newPersistedMessageReceivedCount + newPersistedMessageSystemCount + invitationCount
             userDefaults.set(newBadgeValue, forKey: UserDefaultsKeyForBadge.keyForAppBadgeCount)
 
             DispatchQueue.main.async {

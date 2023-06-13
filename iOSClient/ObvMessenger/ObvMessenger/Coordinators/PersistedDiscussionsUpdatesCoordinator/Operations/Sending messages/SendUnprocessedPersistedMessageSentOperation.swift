@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 
 protocol UnprocessedPersistedMessageSentProvider: Operation {
@@ -106,10 +107,6 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                     .filter({ $0.messageIdentifierFromEngine == nil })
                     .map({ $0.recipientCryptoId }))
 
-                guard !cryptoIdsWithoutMessageIdentifierFromEngine.isEmpty else {
-                    return
-                }
-                
                 guard let ownedCryptoId = persistedMessageSent.discussion.ownedIdentity?.cryptoId else {
                     return cancel(withReason: .couldNotDetermineOwnedCryptoId)
                 }
@@ -250,11 +247,6 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                     
                 }
                 
-                guard !contactCryptoIds.isEmpty else {
-                    // This can happen for contact group v2, when all members are pending
-                    return
-                }
-                
                 // Construct the return receipts, payload, etc.
                 
                 let returnReceiptElements: (nonce: Data, key: Data)
@@ -303,18 +295,23 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                 // Post the message
                 
                 let messageIdentifierForContactToWhichTheMessageWasSent: [ObvCryptoId: Data]
-                do {
-                    messageIdentifierForContactToWhichTheMessageWasSent =
-                    try obvEngine.post(messagePayload: messagePayload,
-                                       extendedPayload: extendedPayload,
-                                       withUserContent: true,
-                                       isVoipMessageForStartingCall: false,
-                                       attachmentsToSend: attachmentsToSend,
-                                       toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                       ofOwnedIdentityWithCryptoId: ownedCryptoId,
-                                       completionHandler: completionHandler)
-                } catch {
-                    return cancel(withReason: .couldNotPostMessageWithinEngine)
+                if !contactCryptoIds.isEmpty {
+                    do {
+                        messageIdentifierForContactToWhichTheMessageWasSent =
+                        try obvEngine.post(messagePayload: messagePayload,
+                                           extendedPayload: extendedPayload,
+                                           withUserContent: true,
+                                           isVoipMessageForStartingCall: false,
+                                           attachmentsToSend: attachmentsToSend,
+                                           toContactIdentitiesWithCryptoId: contactCryptoIds,
+                                           ofOwnedIdentityWithCryptoId: ownedCryptoId,
+                                           completionHandler: completionHandler)
+                    } catch {
+                        return cancel(withReason: .couldNotPostMessageWithinEngine)
+                    }
+                } else {
+                    messageIdentifierForContactToWhichTheMessageWasSent = [:]
+                    completionHandler?()
                 }
                 
                 // The engine returned a array containing all the contacts to which it could send the message.
@@ -324,6 +321,29 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                     if let messageIdentifierFromEngine = messageIdentifierForContactToWhichTheMessageWasSent[recipientInfos.recipientCryptoId] {
                         os_log("🆗 Setting messageIdentifierFromEngine %{public}@ within recipientInfos", log: log, type: .info, messageIdentifierFromEngine.hexString())
                         recipientInfos.setMessageIdentifierFromEngine(to: messageIdentifierFromEngine, andReturnReceiptElementsTo: returnReceiptElements)
+                    }
+                }
+
+                // Make a donation as soon as the message is saved
+
+                if #available(iOS 14.0, *) {
+                    do {
+                        let persistedMessageSentStruct = try persistedMessageSent.toStruct()
+                        let infos = SentMessageIntentInfos(messageSent: persistedMessageSentStruct,
+                                                           urlForStoringPNGThumbnail: nil,
+                                                           thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
+                        let intent = IntentManagerUtils.getSendMessageIntentForMessageSent(infos: infos)
+                        try obvContext.addContextDidSaveCompletionHandler { error in
+                            if let error { assertionFailure(error.localizedDescription); return }
+                            Task {
+                                await IntentManagerUtils.makeDonation(discussionKind: persistedMessageSentStruct.discussionKind,
+                                                                      intent: intent,
+                                                                      direction: .outgoing)
+                            }
+                        }
+                    } catch {
+                        // In production, this operation should not fail because we could not make a donation
+                        assertionFailure(error.localizedDescription)
                     }
                 }
                 

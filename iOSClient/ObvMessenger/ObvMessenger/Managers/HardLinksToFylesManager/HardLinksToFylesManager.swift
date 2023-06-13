@@ -22,6 +22,7 @@ import os.log
 import QuickLook
 import MobileCoreServices
 import CoreData
+import ObvUICoreData
 
 
 /// The purpose of this coordinator is to manage all the hard links to fyles within Olvid. It subscribes to `RequestHardLinkToFyle` notifications.
@@ -45,12 +46,20 @@ final class HardLinksToFylesManager {
     
     private var observationTokens = [NSObjectProtocol]()
 
-    private var appType: ObvMessengerConstants.AppType
-    
-    init(appType: ObvMessengerConstants.AppType) {
+    private var appType: ObvUICoreDataConstants.AppType
+
+    static func makeHardLinksToFylesManagerForMainApp() -> Self {
+        let url = ObvUICoreDataConstants.ContainerURL.forFylesHardlinksWithinMainApp.url
+        return Self(appType: .mainApp, url: url)
+    }
+
+    static func makeHardLinksToFylesManagerForShareExtension() -> Self {
+        let url = ObvUICoreDataConstants.ContainerURL.forFylesHardlinksWithinShareExtension.url
+        return Self(appType: .shareExtension, url: url)
+    }
+
+    private init(appType: ObvUICoreDataConstants.AppType, url: URL) {
         self.appType = appType
-        let url = ObvMessengerConstants.containerURL.forFylesHardlinks(within: appType)
-        try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         self.previousDirectories = try! FileManager.default.contentsOfDirectory(atPath: url.path).map { url.appendingPathComponent($0) }
         self.currentSessionDirectoryForHardlinks = url.appendingPathComponent(UUID().description)
         try! FileManager.default.createDirectory(at: self.currentSessionDirectoryForHardlinks, withIntermediateDirectories: true, attributes: nil)
@@ -64,19 +73,19 @@ final class HardLinksToFylesManager {
             ObvMessengerCoreDataNotification.observePersistedMessagesWereDeleted(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentIDs) in
                 self?.processPersistedMessagesWereWipedOrDeleted(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
             },
-            ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted(queue: queueForNotifications) { [weak self] discussionPermanentID in
+            ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted(queue: queueForNotifications) { [weak self] discussionPermanentID, _ in
                 self?.processPersistedDiscussionWasDeletedNotification(discussionPermanentID: discussionPermanentID)
             },
             ObvMessengerCoreDataNotification.observePersistedMessagesWereWiped(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentIDs) in
                 self?.processPersistedMessagesWereWipedOrDeleted(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
             },
-            ObvMessengerCoreDataNotification.observeDraftToSendWasReset(queue: queueForNotifications) { [weak self] (discussionPermanentID, draftPermanentID) in
+            ObvMessengerInternalNotification.observeDraftToSendWasReset(queue: queueForNotifications) { [weak self] (discussionPermanentID, draftPermanentID) in
                 self?.processDraftToSendWasResetNotification(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
             },
-            ObvMessengerCoreDataNotification.observeDraftFyleJoinWasDeleted(queue: queueForNotifications) { [weak self] (discussionPermanentID, draftPermanentID, draftFyleJoinPermanentID) in
+            ObvMessengerInternalNotification.observeDraftFyleJoinWasDeleted(queue: queueForNotifications) { [weak self] (discussionPermanentID, draftPermanentID, draftFyleJoinPermanentID) in
                 self?.processDraftFyleJoinWasDeletedNotification(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID, draftFyleJoinPermanentID: draftFyleJoinPermanentID)
             },
-            ObvMessengerCoreDataNotification.observeFyleMessageJoinWasWiped(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentID, fyleMessageJoinPermanentID) in
+            ObvMessengerInternalNotification.observeFyleMessageJoinWasWiped(queue: queueForNotifications) { [weak self] (discussionPermanentID, messagePermanentID, fyleMessageJoinPermanentID) in
                 self?.processFyleMessageJoinWasWiped(discussionPermanentID: discussionPermanentID, messagePermanentID: messagePermanentID, fyleMessageJoinPermanentID: fyleMessageJoinPermanentID)
             },
             HardLinksToFylesNotifications.observeRequestHardLinkToFyle() { [weak self] (fyleElement, completionHandler) in
@@ -90,6 +99,7 @@ final class HardLinksToFylesManager {
     
     
     deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
         self.deleteCurrentDirectory()
     }
     

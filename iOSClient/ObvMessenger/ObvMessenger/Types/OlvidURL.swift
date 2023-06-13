@@ -145,7 +145,15 @@ struct KeycloakConfiguration: Decodable, CodableOlvidURL, Equatable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let container = try values.nestedContainer(keyedBy: CodingKeys.self, forKey: .keycloak)
-        self.serverURL = try container.decode(URL.self, forKey: .serverURL)
+        do {
+            self.serverURL = try container.decode(URL.self, forKey: .serverURL)
+        } catch {
+            // It might be the case that the string describing the URL has spaces in it, or accents. We try to be resilient here.
+            let serverURLAsString = try container.decode(String.self, forKey: .serverURL)
+            guard let components = NSURLComponents(string: serverURLAsString) else { throw error }
+            guard let urlFromComponents = components.url else { throw error }
+            self.serverURL = urlFromComponents
+        }
         self.clientId = try container.decode(String.self, forKey: .clientId)
         self.clientSecret = try container.decodeIfPresent(String.self, forKey: .clientSecret)
     }

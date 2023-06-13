@@ -43,7 +43,7 @@ struct ServerUserDataInput: Hashable {
     let kind: ServerUserDataTaskKind
 }
 
-final class ServerUserDataCoordinator: NSObject {
+final class ServerUserDataCoordinator: NSObject, ObvErrorMaker {
 
     // MARK: - Instance variables
 
@@ -51,6 +51,8 @@ final class ServerUserDataCoordinator: NSObject {
     fileprivate let logCategory = "ServerUserDataCoordinator"
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
+    
+    public static let errorDomain = "ServerUserDataCoordinator"
 
     private lazy var session: URLSession! = {
         let sessionConfiguration = URLSessionConfiguration.ephemeral
@@ -77,6 +79,10 @@ final class ServerUserDataCoordinator: NSObject {
     init(prng: PRNGService, downloadedUserData: URL) {
         self.prng = prng
         self.downloadedUserData = downloadedUserData
+    }
+    
+    deinit {
+        notificationCenterTokens.forEach { delegateManager?.notificationDelegate?.removeObserver($0) }
     }
 
     func finalizeInitialization() {
@@ -410,6 +416,13 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                                 let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: userData.ownedIdentity, groupUid: groupUid, within: obvContext)
                                 dataURL = groupInformationWithPhoto.groupDetailsElementsWithPhoto.photoURL
                                 dataKey = groupInformationWithPhoto.groupDetailsElementsWithPhoto.photoServerKeyAndLabel?.key
+                            case .groupV2(groupIdentifier: let groupIdentifier):
+                                guard let photoURLAndServerPhotoInfo = try identityDelegate.getGroupV2PhotoURLAndServerPhotoInfofOwnedIdentityIsUploader(ownedIdentity: userData.ownedIdentity, groupIdentifier: groupIdentifier, within: obvContext) else {
+                                    assertionFailure()
+                                    throw Self.makeError(message: "Could not get photoURLAndServerPhotoInfo for group v2")
+                                }
+                                dataURL = photoURLAndServerPhotoInfo.photoURL
+                                dataKey = photoURLAndServerPhotoInfo.serverPhotoInfo.photoServerKeyAndLabel.key
                             }
                             if let dataURL = dataURL, let dataKey = dataKey {
                                 let serverQueryType: ServerQuery.QueryType = .putUserData(label: input.label, dataURL: dataURL, dataKey: dataKey)

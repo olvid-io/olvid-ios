@@ -47,23 +47,42 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     @NSManaged private var contactGroupInCaseTheDetailsAreTrusted: ContactGroupV2?
 
     // Accessors
-    
+
     var serverPhotoInfo: GroupV2.ServerPhotoInfo? {
         get {
-            guard let rawPhotoServerIdentity = rawPhotoServerIdentity,
-                  let photoServerIdentity = ObvCryptoIdentity(from: rawPhotoServerIdentity),
-                  let rawPhotoServerKeyEncoded = rawPhotoServerKeyEncoded,
-                  let photoServerKeyEncoded = ObvEncoded(withRawData: rawPhotoServerKeyEncoded),
-                  let photoServerKey = try? AuthenticatedEncryptionKeyDecoder.decode(photoServerKeyEncoded),
-                  let photoServerLabel = photoServerLabel else {
+            guard let group = contactGroupInCaseTheDetailsArePublished ?? contactGroupInCaseTheDetailsAreTrusted else {
+                assertionFailure()
                 return nil
             }
-            return GroupV2.ServerPhotoInfo(key: photoServerKey, label: photoServerLabel, identity: photoServerIdentity)
+            guard let groupIdentifier = group.groupIdentifier else {
+                assertionFailure()
+                return nil
+            }
+            switch groupIdentifier.category {
+            case .server:
+                guard let rawPhotoServerIdentity = rawPhotoServerIdentity,
+                      let photoServerIdentity = ObvCryptoIdentity(from: rawPhotoServerIdentity),
+                      let rawPhotoServerKeyEncoded = rawPhotoServerKeyEncoded,
+                      let photoServerKeyEncoded = ObvEncoded(withRawData: rawPhotoServerKeyEncoded),
+                      let photoServerKey = try? AuthenticatedEncryptionKeyDecoder.decode(photoServerKeyEncoded),
+                      let photoServerLabel = photoServerLabel else {
+                          return nil
+                      }
+                return GroupV2.ServerPhotoInfo(key: photoServerKey, label: photoServerLabel, identity: photoServerIdentity)
+            case .keycloak:
+                guard let rawPhotoServerKeyEncoded = rawPhotoServerKeyEncoded,
+                      let photoServerKeyEncoded = ObvEncoded(withRawData: rawPhotoServerKeyEncoded),
+                      let photoServerKey = try? AuthenticatedEncryptionKeyDecoder.decode(photoServerKeyEncoded),
+                      let photoServerLabel = photoServerLabel else {
+                          return nil
+                      }
+                return GroupV2.ServerPhotoInfo(key: photoServerKey, label: photoServerLabel, identity: nil)
+            }
         }
         set {
-            self.rawPhotoServerIdentity = newValue?.identity.getIdentity()
-            self.rawPhotoServerKeyEncoded = newValue?.key.obvEncode().rawData
-            self.photoServerLabel = newValue?.label
+            self.rawPhotoServerIdentity = newValue?.identity?.getIdentity()
+            self.rawPhotoServerKeyEncoded = newValue?.photoServerKeyAndLabel.key.obvEncode().rawData
+            self.photoServerLabel = newValue?.photoServerKeyAndLabel.label
         }
     }
     
@@ -137,6 +156,12 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     
     // MARK: - Photo
     
+    private func deletePhotoFilename() {
+        if self.photoFilename != nil {
+            self.photoFilename = nil
+        }
+    }
+    
     func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
         guard let photoFilename = photoFilename else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
@@ -151,6 +176,18 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
         guard let uploader = ObvCryptoIdentity(from: rawPhotoServerIdentity) else { assertionFailure(); return nil }
         return (url, uploader)
+    }
+
+    
+    func getPhotoURLAndServerPhotoInfo(identityPhotosDirectory: URL) throws -> (photoURL: URL, serverPhotoInfo: GroupV2.ServerPhotoInfo)? {
+        guard let photoFilename = photoFilename, let rawPhotoServerIdentity = rawPhotoServerIdentity, let rawPhotoServerKeyEncoded, let photoServerLabel else { return nil }
+        let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
+        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
+        guard let uploader = ObvCryptoIdentity(from: rawPhotoServerIdentity) else { assertionFailure(); return nil }
+        guard let encodedKey = ObvEncoded(withRawData: rawPhotoServerKeyEncoded) else { assertionFailure(); return nil }
+        let key = try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
+        let serverPhotoInfo = GroupV2.ServerPhotoInfo(key: key, label: photoServerLabel, identity: uploader)
+        return (url, serverPhotoInfo)
     }
 
     
@@ -264,6 +301,88 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         guard let photoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else { return false }
         guard FileManager.default.fileExists(atPath: photoURL.path) else { return false }
         return true
+    }
+    
+    
+    // MARK: - Creating or updating (trusted) details of a keycloak group
+    
+    /// Returns ServerPhotoInfo if a photo needs to be downloaded
+    static func createOrUpdateContactGroupV2Details(for contactGroupV2: ContactGroupV2, keycloakGroupBlob: KeycloakGroupBlob, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> GroupV2.ServerPhotoInfo? {
+        
+        let serverPhotoInfoIfPhotoNeedsToBeDownloaded: GroupV2.ServerPhotoInfo?
+
+        if let self = contactGroupV2.trustedDetails {
+            serverPhotoInfoIfPhotoNeedsToBeDownloaded = self.updateKeycloakContactGroupV2Details(
+                keycloakGroupBlob: keycloakGroupBlob,
+                delegateManager: delegateManager,
+                within: obvContext)
+        } else {
+            serverPhotoInfoIfPhotoNeedsToBeDownloaded = createKeycloakContactGroupV2Details(
+                for: contactGroupV2,
+                keycloakGroupBlob: keycloakGroupBlob,
+                delegateManager: delegateManager,
+                within: obvContext)
+        }
+        
+        return serverPhotoInfoIfPhotoNeedsToBeDownloaded
+        
+    }
+    
+    
+    /// Returns ServerPhotoInfo if a photo needs to be downloaded
+    private static func createKeycloakContactGroupV2Details(for contactGroupV2: ContactGroupV2, keycloakGroupBlob: KeycloakGroupBlob, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) ->  GroupV2.ServerPhotoInfo? {
+        
+        assert(contactGroupV2.trustedDetails == nil)
+        
+        let trustedDetails = ContactGroupV2Details(serverPhotoInfo: keycloakGroupBlob.serverPhotoInfo,
+                                                   serializedCoreDetails: keycloakGroupBlob.serializedGroupCoreDetails,
+                                                   photoURL: nil,
+                                                   delegateManager: delegateManager,
+                                                   within: obvContext)
+        
+        trustedDetails.contactGroupInCaseTheDetailsAreTrusted = contactGroupV2
+
+        return trustedDetails.serverPhotoInfo
+        
+    }
+    
+    
+    /// Returns ServerPhotoInfo if a photo needs to be downloaded
+    private func updateKeycloakContactGroupV2Details(keycloakGroupBlob: KeycloakGroupBlob, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) -> GroupV2.ServerPhotoInfo? {
+        
+        let serverPhotoInfoIfPhotoNeedsToBeDownloaded: GroupV2.ServerPhotoInfo?
+
+        // Deal with the photo
+        
+        if self.serverPhotoInfo != keycloakGroupBlob.serverPhotoInfo {
+            serverPhotoInfoIfPhotoNeedsToBeDownloaded = keycloakGroupBlob.serverPhotoInfo
+            // If there is a photo, delete it as a new one will be downloaded from the server
+            if let currentPhotoURL = self.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
+                try? obvContext.addContextDidSaveCompletionHandler({ error in
+                    guard error == nil else { return }
+                    if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
+                        try? FileManager.default.removeItem(at: currentPhotoURL)
+                    }
+                })
+            }
+            self.deletePhotoFilename()
+            // The new serverPhotoInfo
+            self.serverPhotoInfo = keycloakGroupBlob.serverPhotoInfo
+        } else if self.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) == nil {
+            // The server photo infos did not changed, but the photo is still not available. We need to download it.
+            serverPhotoInfoIfPhotoNeedsToBeDownloaded = keycloakGroupBlob.serverPhotoInfo
+        } else {
+            serverPhotoInfoIfPhotoNeedsToBeDownloaded = nil
+        }
+        
+        // Deal with the serializedCoreDetails
+        
+        if self.serializedCoreDetails != keycloakGroupBlob.serializedGroupCoreDetails {
+            self.serializedCoreDetails = keycloakGroupBlob.serializedGroupCoreDetails
+        }
+        
+        return serverPhotoInfoIfPhotoNeedsToBeDownloaded
+        
     }
 
     

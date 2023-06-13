@@ -89,7 +89,7 @@ extension KeycloakContactAdditionProtocol {
 
             // First verify the contact signature
             let keycloakState: ObvKeycloakState
-            let signedOwnedDetails: SignedUserDetails
+            let signedOwnedDetails: SignedObvKeycloakUserDetails
             do {
                 let (_keycloakState, _signedOwnedDetails) = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext)
                 guard let _keycloakState = _keycloakState else {
@@ -106,11 +106,11 @@ extension KeycloakContactAdditionProtocol {
             let jwks = keycloakState.jwks
             let keycloakServerUrl = keycloakState.keycloakServer
 
-            let signedContactUserDetails: SignedUserDetails
+            let signedContactUserDetails: SignedObvKeycloakUserDetails
             do {
-                signedContactUserDetails = try SignedUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails
+                signedContactUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails
             } catch {
-                os_log("Could not create SignedUserDetails: %{public}@", log: log, type: .error, error.localizedDescription)
+                os_log("Could not create SignedObvKeycloakUserDetails: %{public}@", log: log, type: .error, error.localizedDescription)
                 return FinishedState()
             }
             
@@ -199,7 +199,7 @@ extension KeycloakContactAdditionProtocol {
                 }
             } else {
                 contactCreated = false
-                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 // No need to add devices, they should be in sync already
             }
 
@@ -263,7 +263,7 @@ extension KeycloakContactAdditionProtocol {
                     try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 }
             } else {
-                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 // No need to add devices, they should be in sync already
             }
 
@@ -298,7 +298,7 @@ extension KeycloakContactAdditionProtocol {
             // To the contrary of the Android version, the iOS version assumes that we only trust our own keycloak server.
             
             guard let jwks = try identityDelegate.getOwnedIdentityKeycloakState(ownedIdentity: ownedIdentity, within: obvContext).obvKeycloakState?.jwks,
-                  let signedContactUserDetails = try? SignedUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails,
+                  let signedContactUserDetails = try? SignedObvKeycloakUserDetails.verifySignedUserDetails(signedContactDetails, with: jwks).signedUserDetails,
                   let userCoreDetails = try? signedContactUserDetails.getObvIdentityCoreDetails()
             else {
                 let coreMessage = self.getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: self.ownedIdentity))
@@ -369,7 +369,7 @@ extension KeycloakContactAdditionProtocol {
                     try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 }
             } else {
-                try identityDelegate.addTrustOrigin(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 // No need to add devices, they should be in sync already
             }
 

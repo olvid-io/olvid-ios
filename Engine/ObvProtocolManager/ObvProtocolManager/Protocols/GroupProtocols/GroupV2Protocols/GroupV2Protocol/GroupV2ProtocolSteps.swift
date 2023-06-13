@@ -53,6 +53,7 @@ extension GroupV2Protocol {
         case finalizeGroupDisband = 19
         case prepareBatchKeysMessage = 20
         case processBatchKeysMessage = 21
+        case processInitiateUpdateKeycloakGroupsMessage = 300
 
 
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
@@ -248,6 +249,10 @@ extension GroupV2Protocol {
             case .processBatchKeysMessage:
                 let step = ProcessBatchKeysMessageStep(from: concreteProtocol, and: receivedMessage)
                 return step
+                
+            case .processInitiateUpdateKeycloakGroupsMessage:
+                let step = ProcessInitiateUpdateKeycloakGroupsMessageStep(from: concreteProtocol, and: receivedMessage)
+                return step
 
             }
         }
@@ -304,7 +309,7 @@ extension GroupV2Protocol {
                 
                 let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = UploadGroupPhotoMessage(coreProtocolMessage: coreMessage)
-                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: serverPhotoInfo.label, dataURL: photoURLManagedByTheIdentityManager, dataKey: serverPhotoInfo.key)
+                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: serverPhotoInfo.photoServerKeyAndLabel.label, dataURL: photoURLManagedByTheIdentityManager, dataKey: serverPhotoInfo.photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 uploadingPhoto = true
@@ -765,13 +770,16 @@ extension GroupV2Protocol {
                     let otherMembers = Set(startState.serverBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map({ $0.toObvGroupV2IdentityAndPermissionsAndDetails(isPending: true) }))
                     
                     let trustedDetailsAndPhoto = ObvGroupV2.DetailsAndPhoto(serializedGroupCoreDetails: startState.serverBlob.serializedGroupCoreDetails, photoURLFromEngine: .none)
+                    assert(groupIdentifier.category == .server, "If we are dealing with anything else than .server, we cannot always set serializedSharedSettings to nil bellow")
                     let group = ObvGroupV2(groupIdentifier: groupIdentifier.toObvGroupV2Identifier,
                                            ownIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity),
                                            ownPermissions: ownPermissions,
                                            otherMembers: otherMembers,
                                            trustedDetailsAndPhoto: trustedDetailsAndPhoto,
                                            publishedDetailsAndPhoto: nil,
-                                           updateInProgress: false)
+                                           updateInProgress: false,
+                                           serializedSharedSettings: nil,
+                                           lastModificationTimestamp: nil)
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogFreezeGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
@@ -791,12 +799,39 @@ extension GroupV2Protocol {
             // If this is the case, we can continue and freeze the group
 
             if groupExistsInDB {
+                
                 let groupVersionInDB = try identityDelegate.getVersionOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
-                guard groupVersion > groupVersionInDB else {
+                
+                if groupVersion < groupVersionInDB {
+                    
                     // We already have a more recent version of this group, ignore the message
                     return returnedStateWhenDiscardingReceivedMessage
+                    
+                } else {
+                    
+                    // If the contact is pending on our side, we ping her so that, eventually, she becomes "not pending".
+                    if let inviter {
+                        let inviterIsPending = try identityDelegate.getPendingMembersAndPermissionsOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                            .map(\.identity)
+                            .contains(where: { $0 == inviter })
+                        if inviterIsPending {
+                            let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                            let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: inviter)
+                            let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: inviter, fromOwnedIdentity: ownedIdentity))
+                            let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
+                            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        }
+                    }
+                    
+                    guard groupVersion > groupVersionInDB else {
+                        return returnedStateWhenDiscardingReceivedMessage
+                    }
+
+                    try identityDelegate.freezeGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                    
                 }
-                try identityDelegate.freezeGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
             }
             
             // Recover what was already collected, and augment it with what we received and what we already have in db
@@ -1312,13 +1347,16 @@ extension GroupV2Protocol {
             do {
                 let trustedDetailsAndPhoto = ObvGroupV2.DetailsAndPhoto(serializedGroupCoreDetails: consolidatedServerBlob.serializedGroupCoreDetails, photoURLFromEngine: .none)
                 let otherMembers = Set(consolidatedServerBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map({ $0.toObvGroupV2IdentityAndPermissionsAndDetails(isPending: true) }))
+                assert(groupIdentifier.category == .server, "If we are dealing with anything else than .server, we cannot always set serializedSharedSettings to nil bellow")
                 let group = ObvGroupV2(groupIdentifier: groupIdentifier.toObvGroupV2Identifier,
                                        ownIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity),
                                        ownPermissions: ownPermissions,
                                        otherMembers: otherMembers,
                                        trustedDetailsAndPhoto: trustedDetailsAndPhoto,
                                        publishedDetailsAndPhoto: nil,
-                                       updateInProgress: false)
+                                       updateInProgress: false,
+                                       serializedSharedSettings: nil,
+                                       lastModificationTimestamp: nil)
                 let dialogType = ObvChannelDialogToSendType.acceptGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: inviterIdentity), group: group)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogAcceptGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
@@ -1468,6 +1506,7 @@ extension GroupV2Protocol {
             // Check that the received group identifier matches the protocol instance UID
             
             guard (try groupIdentifier.computeProtocolInstanceUid()) == protocolInstanceUid else {
+                assertionFailure("It is highly probable that the step computing the ping did not properly compute the protocol instance uid")
                 return FinalState()
             }
             
@@ -1823,7 +1862,7 @@ extension GroupV2Protocol {
                 }
             }
 
-            // Ping all the pending members of this group. All those that actually already accepted will ping us back.
+            // Ping all the members and pending members of this group. All those that actually already accepted will ping us back.
             // Note: we also send the ping in case we are dealing with a propagated accept, as we might have missed the ping response to the main device ping.
             
             do {
@@ -2090,16 +2129,20 @@ extension GroupV2Protocol {
             
             let groupIdentifier: GroupV2.Identifier
             let propagationNeeded: Bool
+            let pingAllOtherMembersIfInitialState: Bool
             switch receivedMessage {
             case .initiateGroupReDownload(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 propagationNeeded = true
+                pingAllOtherMembersIfInitialState = true
             case .invitationRejectedBroadcast(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 propagationNeeded = true
+                pingAllOtherMembersIfInitialState = false
             case .propagateInvitationRejected(let receivedMessage):
                 groupIdentifier = receivedMessage.groupIdentifier
                 propagationNeeded = false
+                pingAllOtherMembersIfInitialState = false
             }
             
             // Check that the protocol instance UID matches the group identifier
@@ -2119,6 +2162,13 @@ extension GroupV2Protocol {
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 }
+            }
+            
+            // Make sure we are considering a server group (otherwise, re-downloading the blob makes no sense)
+            
+            guard groupIdentifier.category == .server else {
+                assertionFailure()
+                return FinalState()
             }
             
             // If the start state is the initial state, we don't have any information at hand for re-downloading the blob.
@@ -2148,6 +2198,22 @@ extension GroupV2Protocol {
                 
                 lastKnownOwnInvitationNonceAndOtherMembers = nil
                                 
+                // Ping all the members and pending members of this group if required. This allows to make sure we are not indicated as "pending" anymore on other group member devices.
+                // All those that actually already accepted will ping us back.
+                
+                if pingAllOtherMembersIfInitialState {
+                    let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                    let identitiesToPing = try identityDelegate.getAllOtherMembersOrPendingMembersOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext).map(\.identity)
+                    for identity in identitiesToPing {
+                        let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identity)
+                        let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                        let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
+                        let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
+                        guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    }
+                }
+
             case .invitationReceived(let startState):
 
                 // Get the blob keys from the `InvitationReceivedState` (the group does not exist in DB yet)
@@ -2162,13 +2228,16 @@ extension GroupV2Protocol {
                     assert(ownPermissions.count == ownPermissions.count)
                     let otherMembers = Set(startState.serverBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map({ $0.toObvGroupV2IdentityAndPermissionsAndDetails(isPending: true) }))
                     let trustedDetailsAndPhoto = ObvGroupV2.DetailsAndPhoto(serializedGroupCoreDetails: startState.serverBlob.serializedGroupCoreDetails, photoURLFromEngine: .none)
+                    assert(groupIdentifier.category == .server, "If we are dealing with anything else than .server, we cannot always set serializedSharedSettings to nil bellow")
                     let group = ObvGroupV2(groupIdentifier: groupIdentifier.toObvGroupV2Identifier,
                                            ownIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity),
                                            ownPermissions: ownPermissions,
                                            otherMembers: otherMembers,
                                            trustedDetailsAndPhoto: trustedDetailsAndPhoto,
                                            publishedDetailsAndPhoto: nil,
-                                           updateInProgress: false)
+                                           updateInProgress: false,
+                                           serializedSharedSettings: nil,
+                                           lastModificationTimestamp: nil)
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogFreezeGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
@@ -2776,7 +2845,7 @@ extension GroupV2Protocol {
                 assert(groupPhotoURL.path.starts(with: delegateManager.uploadingUserData.path)) // At this point, we expect the URL to be managed by the protocol manager
                 let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = UploadGroupPhotoMessage(coreProtocolMessage: coreMessage)
-                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: serverPhotoInfo.label, dataURL: groupPhotoURL, dataKey: serverPhotoInfo.key)
+                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: serverPhotoInfo.photoServerKeyAndLabel.label, dataURL: groupPhotoURL, dataKey: serverPhotoInfo.photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
                 _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 serverPhotoInfoOfNewUploadedPhoto = serverPhotoInfo
@@ -3522,7 +3591,17 @@ extension GroupV2Protocol {
                 assertionFailure()
                 return stateToReturn
             }
-
+            
+            // We cannot leave the group if it is a keycloak group. Make sure this is not the case
+            
+            switch groupIdentifier.category {
+            case .keycloak:
+                assertionFailure("It is not possible to leave a keycloak group, so we prevent this here. Yet, the interface should not allow this call to be made.")
+                return stateToReturn
+            case .server:
+                break
+            }
+            
             // Check that we are indeed part of the group
 
             guard try identityDelegate.checkExistenceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext) else {
@@ -4165,4 +4244,149 @@ extension GroupV2Protocol {
         }
     }
 
+    
+    // MARK: - ProcessInitiateUpdateKeycloakGroupsMessageStep
+    
+    /// This steps is an "isolated" step as it starts from the initial state and finishes in a final state. Its protocol instance UID is a random one. It is called when the keycloak manager of the app receives new informations concerning keycloak groups.
+    /// This steps processes all this information and launches new protocol steps, e.g., one for each new signed group.
+    final class ProcessInitiateUpdateKeycloakGroupsMessageStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: InitiateUpdateKeycloakGroupsMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: GroupV2Protocol.InitiateUpdateKeycloakGroupsMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .Local,
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+
+            let signedGroupBlobs = receivedMessage.signedGroupBlobs
+            let signedGroupDeletions = receivedMessage.signedGroupDeletions
+            let signedGroupKicks = receivedMessage.signedGroupKicks // Contains kicks for our owned identity only
+            let keycloakCurrentTimestamp = receivedMessage.keycloakCurrentTimestamp
+
+            let keycloakGroupV2UpdateOutputs: [KeycloakGroupV2UpdateOutput]
+            do {
+                keycloakGroupV2UpdateOutputs = try identityDelegate.updateKeycloakGroups(
+                    ownedIdentity: ownedIdentity,
+                    signedGroupBlobs: signedGroupBlobs,
+                    signedGroupDeletions: signedGroupDeletions,
+                    signedGroupKicks: signedGroupKicks,
+                    keycloakCurrentTimestamp: keycloakCurrentTimestamp,
+                    within: obvContext)
+            } catch {
+                assertionFailure("Failed to update keycloak groups in the identity manager: \(error.localizedDescription)")
+                return FinalState()
+            }
+            
+            for output in keycloakGroupV2UpdateOutputs {
+                
+                let groupIdentifier = output.groupIdentifier
+                let ownGroupInvitationNonce = output.ownGroupInvitationNonce
+                
+                if let serverPhotoInfo = output.serverPhotoInfoIfPhotoNeedsToBeDownloaded {
+                    
+                    // Launch a child protocol instance for downloading the photo. To do so, we post an appropriate message on the loopback channel. In this particular case, we do not need to "link" this protocol to the current protocol.
+                    
+                    let childProtocolInstanceUid = UID.gen(with: prng)
+                    let coreMessage = getCoreMessageForOtherLocalProtocol(
+                        otherCryptoProtocolId: .DownloadGroupV2Photo,
+                        otherProtocolInstanceUid: childProtocolInstanceUid)
+                    let childProtocolInitialMessage = DownloadGroupV2PhotoProtocol.InitialMessage(
+                        coreProtocolMessage: coreMessage,
+                        groupIdentifier: output.groupIdentifier,
+                        serverPhotoInfo: serverPhotoInfo)
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw Self.makeError(message: "Could not generate child protocol message") }
+                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    
+                }
+                
+                // Send a ping to the identities returned by the identity manager. Doing so allow us to inform them that we agreed to be part of the group.
+                // This happens when the group was just created within the identity manager.
+
+                for identityToPing in output.insertedOrUpdatedIdentities {
+                    let otherProtocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
+                    let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: output.ownGroupInvitationNonce, recipientIdentity: identityToPing)
+                    let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+                    let coreMessage = getCoreMessageForSameProtocolButOtherProtocolInstanceUid(
+                        for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity),
+                        otherProtocolInstanceUid: otherProtocolInstanceUid)
+                    let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
+                    guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+
+
+            }
+            
+            return FinalState()
+            
+        }
+    }
+
+    
+    // MARK: - SendKeycloakGroupTargetedPingStep
+    
+    /// When a contact `isCertifiedByOwnKeycloak` status changes from `fase` to `true`, we want to ping this contact for all groups where she is pending. This loop is performed at the engine level, which leverage this protocol step to send the Ping message.
+    final class SendKeycloakGroupTargetedPingStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: InitiateTargetedPingMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: GroupV2Protocol.InitiateTargetedPingMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .Local,
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let groupIdentifier = receivedMessage.groupIdentifier
+            let pendingMemberIdentity = receivedMessage.pendingMemberIdentity
+
+            // Check that the protocol instance UID matches the group identifier
+
+            guard protocolInstanceUid == (try? groupIdentifier.computeProtocolInstanceUid()) else {
+                assertionFailure()
+                return FinalState()
+            }
+
+            // Check that the group exists in DB (which means we accepted to join it). If it does not, return immediately.
+            
+            let groupExistsInDB = try identityDelegate.checkExistenceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+            guard groupExistsInDB else {
+                return FinalState()
+            }
+
+            // Get the group own invitation nonce
+
+            let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+
+            // Sign the group invitation nonce and send a ping message to the pending member
+            
+            let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: pendingMemberIdentity)
+            let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
+            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: pendingMemberIdentity, fromOwnedIdentity: ownedIdentity))
+            let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
+            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+
+            // We are done
+            
+            return FinalState()
+        }
+        
+    }
 }

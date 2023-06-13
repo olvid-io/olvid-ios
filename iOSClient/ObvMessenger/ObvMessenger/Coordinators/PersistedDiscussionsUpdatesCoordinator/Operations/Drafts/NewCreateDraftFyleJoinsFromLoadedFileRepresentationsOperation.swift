@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvEngine
 import ObvCrypto
+import ObvUICoreData
 import OlvidUtils
 
 
@@ -41,15 +42,28 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
 
     private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     private let log: OSLog
-    private let loadedItemProviders: [LoadedItemProvider]
+    private let loadedItemProvidersType: LoadedItemProvidersType
     private let completionHandler: ((Bool) -> Void)?
+    
+    enum LoadedItemProvidersType {
+        case loadedItemProviders(loadedItemProviders: [LoadedItemProvider])
+        case operationsProvidingLoadedItemProvider(operations: [OperationProvidingLoadedItemProvider])
+    }
     
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { Self.makeError(message: message) }
 
     init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, loadedItemProviders: [LoadedItemProvider], completionHandler: ((Bool) -> Void)?, log: OSLog) {
         self.draftPermanentID = draftPermanentID
-        self.loadedItemProviders = loadedItemProviders
+        self.loadedItemProvidersType = .loadedItemProviders(loadedItemProviders: loadedItemProviders)
+        self.log = log
+        self.completionHandler = completionHandler
+        super.init()
+    }
+    
+    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, operationsProvidingLoadedItemProvider: [OperationProvidingLoadedItemProvider], completionHandler: ((Bool) -> Void)?, log: OSLog) {
+        self.draftPermanentID = draftPermanentID
+        self.loadedItemProvidersType = .operationsProvidingLoadedItemProvider(operations: operationsProvidingLoadedItemProvider)
         self.log = log
         self.completionHandler = completionHandler
         super.init()
@@ -61,6 +75,15 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
             assertionFailure()
             completionHandler?(false)
             return cancel(withReason: .contextIsNil)
+        }
+        
+        let loadedItemProviders: [LoadedItemProvider]
+        switch loadedItemProvidersType {
+        case .loadedItemProviders(loadedItemProviders: let providers):
+            loadedItemProviders = providers
+        case .operationsProvidingLoadedItemProvider(operations: let operations):
+            assert(operations.allSatisfy({$0.isFinished}))
+            loadedItemProviders = operations.compactMap({ $0.loadedItemProvider })
         }
 
         // We add as many attachments as we can
@@ -140,33 +163,39 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
                 try? urlToDelete.moveToTrash()
             }
 
-        }
-        
-        if isCancelled {
-            completionHandler?(false)
-        } else {
-            do {
-                let draftPermanentID = self.draftPermanentID
+            if isCancelled {
+                completionHandler?(false)
+            } else {
                 let localCompletionHandler = self.completionHandler
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else {
-                        localCompletionHandler?(false)
-                        return
-                    }
-                    ObvStack.shared.viewContext.perform {
-                        if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
-                            .filter({ !$0.isDeleted })
-                            .first(where: { ($0 as? PersistedDraft)?.objectPermanentID == draftPermanentID }) {
-                            ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: true)
+                if obvContext.context.hasChanges {
+                    do {
+                        let draftPermanentID = self.draftPermanentID
+                        try obvContext.addContextDidSaveCompletionHandler { error in
+                            guard error == nil else {
+                                localCompletionHandler?(false)
+                                return
+                            }
+                            ObvStack.shared.viewContext.perform {
+                                if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
+                                    .filter({ !$0.isDeleted })
+                                    .first(where: { ($0 as? PersistedDraft)?.objectPermanentID == draftPermanentID }) {
+                                    ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: true)
+                                }
+                                localCompletionHandler?(true)
+                            }
                         }
+                    } catch {
+                        localCompletionHandler?(false)
+                    }
+                } else {
+                    obvContext.addEndOfScopeCompletionHandler {
                         localCompletionHandler?(true)
                     }
                 }
-            } catch {
-                completionHandler?(false)
             }
+
         }
-                
+                        
     }
 
     

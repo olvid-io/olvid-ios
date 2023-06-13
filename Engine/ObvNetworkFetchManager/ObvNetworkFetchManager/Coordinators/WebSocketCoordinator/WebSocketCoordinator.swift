@@ -518,6 +518,13 @@ extension WebSocketCoordinator: WebSocketDelegate {
                 ObvNetworkFetchNotificationNew.pushTopicReceivedViaWebsocket(pushTopic: pushTopicMessage.topic)
                     .postOnBackgroundQueue(within: notificationDelegate)
             }
+        } else if let targetedKeycloakPushNotification = try? KeycloakTargetedPushNotification(string: string) {
+            os_log("🏓 The server sent a targeted keycloak push notification for identity: %{public}@", log: log, type: .info, targetedKeycloakPushNotification.identity.debugDescription)
+            assert(delegateManager?.notificationDelegate != nil)
+            if let notificationDelegate = delegateManager?.notificationDelegate {
+                ObvNetworkFetchNotificationNew.keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: targetedKeycloakPushNotification.identity)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+            }
         }
         
     }
@@ -1074,6 +1081,46 @@ fileprivate struct PushTopicMessage: Decodable, ObvErrorMaker {
     }
     
 }
+
+
+fileprivate struct KeycloakTargetedPushNotification: Decodable, ObvErrorMaker {
+    
+    static let errorDomain = "KeycloakTargetedPushNotification"
+    let identity: ObvCryptoIdentity
+
+    enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case identity = "identity"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let action = try values.decode(String.self, forKey: .action)
+        guard action == "keycloak" else {
+            throw Self.makeError(message: "Unexpected action. Expecting keycloak, got \(action)")
+        }
+        let identityAsString = try values.decode(String.self, forKey: .identity)
+        guard let identityAsData = Data(base64Encoded: identityAsString) else {
+            let message = "Could not parse the received identity"
+            let userInfo = [NSLocalizedFailureReasonErrorKey: message]
+            throw NSError(domain: KeycloakTargetedPushNotification.errorDomain, code: 0, userInfo: userInfo)
+        }
+        guard let identity = ObvCryptoIdentity(from: identityAsData) else {
+            let message = "Could not parse the received JSON"
+            let userInfo = [NSLocalizedFailureReasonErrorKey: message]
+            throw NSError(domain: KeycloakTargetedPushNotification.errorDomain, code: 0, userInfo: userInfo)
+        }
+        self.identity = identity
+    }
+
+    init(string: String) throws {
+        guard let data = string.data(using: .utf8) else { assertionFailure(); throw Self.makeError(message: "The received JSON is not UTF8 encoded") }
+        let decoder = JSONDecoder()
+        self = try decoder.decode(KeycloakTargetedPushNotification.self, from: data)
+    }
+    
+}
+
 
 
 // MARK: - Extending URLSessionWebSocketTask to adopt async/await

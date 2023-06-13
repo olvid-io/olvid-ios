@@ -38,7 +38,6 @@ final class BootstrapWorker {
     }()
     private let queueForPostingNotifications = DispatchQueue(label: "Queue for posting certain notifications from the BootstrapWorker")
 
-    private var observationTokens = [NSObjectProtocol]()
     private let appType: AppType
     private let outbox: URL
 
@@ -165,6 +164,8 @@ extension BootstrapWorker {
         
         guard appType == .mainApp else { assertionFailure(); return }
 
+        os_log("Rescheduling all outbox messages and attachmentds during bootstrap", log: log, type: .info)
+
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
             let outboxMessageIdentifiers: [MessageIdentifier]
@@ -177,6 +178,8 @@ extension BootstrapWorker {
                 return
             }
             
+            os_log("Number of outbox messages found during bootstrap: %{public}d", log: log, type: .info, outboxMessageIdentifiers.count)
+
             for messageId in outboxMessageIdentifiers {
                 delegateManager.networkSendFlowDelegate.newOutboxMessage(messageId: messageId, flowId: flowId)
             }
@@ -281,13 +284,15 @@ extension BootstrapWorker {
 
         let messageIdsAndTimestampsFromServer = deletedMessages.map() { ($0.messageId, $0.timestampFromServer) }
         guard !messageIdsAndTimestampsFromServer.isEmpty else { return }
-        ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer, flowId: obvContext.flowId)
+        ObvNetworkPostNotification.outboxMessagesAndAllTheirAttachmentsWereAcknowledged(
+            messageIdsAndTimestampsFromServer: messageIdsAndTimestampsFromServer,
+            flowId: obvContext.flowId)
             .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
 
     }
     
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: [MessageIdentifier], flowId: FlowIdentifier) {
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -304,18 +309,51 @@ extension BootstrapWorker {
             return
         }
 
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId, { (obvContext) in
-            
+        contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+
             do {
-                try DeletedOutboxMessage.batchDelete(messageIds: messageIdentifiers, within: obvContext)
+                try DeletedOutboxMessage.batchDelete(messageId: messageIdentifier, within: obvContext)
                 try obvContext.save(logOnFailure: log)
+                os_log("Just deleted one DeletedOutboxMessages with messageIdentifier: %{public}@", log: log, type: .info, messageIdentifier.debugDescription)
             } catch {
-                os_log("Could not batch delete DeletedOutboxMessages: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not delete DeletedOutboxMessages with messageIdentifier: %{public}@", log: log, type: .fault, messageIdentifier.debugDescription)
                 assertionFailure()
             }
             
-        })
+        }
         
+    }
+    
+
+    func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo referenceDate: Date, flowId: FlowIdentifier) async {
+        
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The Context Creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            
+            do {
+                try DeletedOutboxMessage.batchDelete(withTimestampFromServerEarlierOrEqualTo: referenceDate, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+                os_log("Just batch deleted all DeletedOutboxMessage entries inserted before %{public}@", log: log, type: .info, referenceDate.debugDescription)
+            } catch {
+                os_log("Could not batch delete DeletedOutboxMessages inserted before %{public}@: %{public}@", log: log, type: .fault, referenceDate.debugDescription, error.localizedDescription)
+                assertionFailure()
+            }
+
+        }
     }
     
 }

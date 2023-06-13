@@ -21,6 +21,7 @@ import UIKit
 import UniformTypeIdentifiers
 import QuickLookThumbnailing
 import MobileCoreServices
+import ObvUICoreData
 
 
 @available(iOS 14.0, *)

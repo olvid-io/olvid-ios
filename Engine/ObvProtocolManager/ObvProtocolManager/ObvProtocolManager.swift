@@ -488,6 +488,28 @@ extension ObvProtocolManager {
         
     }
     
+    // MARK: - Keycloak pushed groups
+
+    public func getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(
+            ownedIdentity: ownedIdentity,
+            signedGroupBlobs: signedGroupBlobs,
+            signedGroupDeletions: signedGroupDeletions,
+            signedGroupKicks: signedGroupKicks,
+            keycloakCurrentTimestamp: keycloakCurrentTimestamp,
+            flowId: flowId)
+    }
+    
+    
+    public func getInitiateTargetedPingMessageForKeycloakGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, pendingMemberIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateTargetedPingMessageForKeycloakGroupV2Protocol(
+            ownedIdentity: ownedIdentity,
+            groupIdentifier: groupIdentifier,
+            pendingMemberIdentity: pendingMemberIdentity,
+            flowId: flowId)
+    }
+    
+    
     // MARK: - Owned identities
     
     /// Called when an owned identity is about to be deleted.

@@ -20,6 +20,7 @@
 import ObvEngine
 import ObvUI
 import SwiftUI
+import ObvUICoreData
 
 
 protocol BackupRestoringWaitingScreenViewControllerDelegate: AnyObject {

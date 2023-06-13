@@ -19,13 +19,14 @@
 
 import UIKit
 import LinkPresentation
+import UniformTypeIdentifiers
 
 
 @available(iOS 14.0, *)
 final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
     
+
     private var currentConfiguration: SingleImageView.Configuration?
-    private var currentSetImageURL: URL?
 
     
     func setConfiguration(_ newConfiguration: SingleImageView.Configuration) {
@@ -34,10 +35,22 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
         refresh()
     }
 
-
+    
+    func startAnimating() {
+        // Calling imageView.startAnimating() does not always work here, for some reason.
+        // We force the animation by reseting the imageView.image completly
+        if let image = imageView.image {
+            imageView.image = nil
+            imageView.image = image
+            imageView.alpha = 1.0
+        }
+    }
+    
+    
     private var constraintsToActivate = Set<NSLayoutConstraint>()
     private var constraintsToDeactivate = Set<NSLayoutConstraint>()
-
+    
+    
     private func refresh() {
         currentRefreshId = UUID()
         switch currentConfiguration {
@@ -84,22 +97,38 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
 
     
     private func removeImageURL() {
-        currentSetImageURL = nil
+        currentGifURL = nil
         imageView.image = nil
+        imageView.alpha = 0.0
         setupWidthAndHeightConstraints(width: MessageCellConstants.defaultGifViewSize.width, height: MessageCellConstants.defaultGifViewSize.height)
     }
 
         
     private func setGifURL(_ url: URL?) {
-        let localRefreshId = self.currentRefreshId
-        currentGifURL = url
-        guard let url = url else {
-            imageView.image = nil
+        guard let url else {
             return
         }
+        if currentGifURL != url {
+            removeImageURL()
+        }
+        let localRefreshId = self.currentRefreshId
+        currentGifURL = url
+        if ProcessInfo.processInfo.isOperatingSystemAtLeast(.init(majorVersion: 16, minorVersion: 4, patchVersion: 0)) {
+            animateGif(localRefreshId: localRefreshId)
+        } else {
+            legacyAnimateGif(localRefreshId: localRefreshId)
+        }
+    }
+    
+    
+    /// This method animates the gif at the `currentGifURL`.
+    /// This method crashes under iOS 16.4.
+    @available(iOS, deprecated: 16.4, message: "Use animateGif instead")
+    private func legacyAnimateGif(localRefreshId: UUID) {
+        guard let url = currentGifURL else { return }
         guard let image = UIImage(contentsOfFile: url.path) else { assertionFailure(); return }
-        setupWidthAndHeightConstraints(width: imageMaxSize * min(1, CGFloat(image.size.width) / CGFloat(image.size.height)),
-                                       height: imageMaxSize * min(1, CGFloat(image.size.height) / CGFloat(image.size.width)))
+        setupWidthAndHeightConstraints(width: Self.imageMaxSize * min(1, CGFloat(image.size.width) / CGFloat(image.size.height)),
+                                       height: Self.imageMaxSize * min(1, CGFloat(image.size.height) / CGFloat(image.size.width)))
         CGAnimateImageAtURLWithBlock(url as CFURL, nil) { [weak self] (someInt, cgImage, stopAnimation) in
             guard let _self = self else {
                 stopAnimation.pointee = true
@@ -114,6 +143,53 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
                 return
             }
             _self.imageView.image = UIImage(cgImage: cgImage)
+            self?.imageView.alpha = 1.0
+        }
+    }
+    
+    
+    /// This method animates the gif at the `currentGifURL`.
+    /// It is used as a replacement of ``func legacyAnimateGif(localRefreshId: UUID)`` as this legacy method crashes under iOS 16.4.
+    private func animateGif(localRefreshId: UUID) {
+        guard let url = currentGifURL else { return }
+        guard let imageSourceOptions = [kCGImageSourceTypeIdentifierHint: UTType.gif.identifier] as? CFDictionary,
+              let cgImageSource = CGImageSourceCreateWithURL(url as CFURL, imageSourceOptions),
+              let cgImageSourceProperties = CGImageSourceCopyProperties(cgImageSource, nil) as? Dictionary<CFString, Any>,
+              let gifProperties = cgImageSourceProperties[kCGImagePropertyGIFDictionary] as? Dictionary<CFString, Any>,
+              let canvasPixelWidth = gifProperties[kCGImagePropertyGIFCanvasPixelWidth] as? NSNumber,
+              let canvasPixelHeight = gifProperties[kCGImagePropertyGIFCanvasPixelHeight] as? NSNumber
+        else {
+            assertionFailure()
+            return
+        }
+        setupWidthAndHeightConstraints(width: Self.imageMaxSize * min(1, CGFloat(truncating: canvasPixelWidth) / CGFloat(truncating: canvasPixelHeight)),
+                                       height: Self.imageMaxSize * min(1, CGFloat(truncating: canvasPixelHeight) / CGFloat(truncating: canvasPixelWidth)))
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let cgImageSourceCount = CGImageSourceGetCount(cgImageSource)
+            let thmbnailOptions = [kCGImageSourceThumbnailMaxPixelSize: Self.imageMaxSize as NSNumber, kCGImageSourceCreateThumbnailFromImageIfAbsent: kCFBooleanTrue] as CFDictionary
+            let cgImages = (0..<cgImageSourceCount).compactMap { CGImageSourceCreateThumbnailAtIndex(cgImageSource, $0, thmbnailOptions) }
+            let images = cgImages.map { UIImage(cgImage: $0) }
+            guard let gifFrameInfoArray = gifProperties[kCGImagePropertyGIFFrameInfoArray] as? [Dictionary<CFString, Any>],
+                  let gifDelayTimes = gifFrameInfoArray.map({ ($0[kCGImagePropertyGIFDelayTime] ) }) as? [NSNumber]
+            else {
+                assertionFailure()
+                return
+            }
+            let duration = gifDelayTimes.map({ $0.doubleValue }).reduce(0, +)
+            let animatedImage: UIImage?
+            if #available(iOS 15.0, *) {
+                animatedImage = await UIImage.animatedImage(with: images, duration: duration)?.byPreparingForDisplay()
+            } else {
+                animatedImage = UIImage.animatedImage(with: images, duration: duration)
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard localRefreshId == self?.currentRefreshId else { return }
+                self?.imageView.image = animatedImage
+                UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.2, delay: 0) { [weak self] in
+                    guard localRefreshId == self?.currentRefreshId else { return }
+                    self?.imageView.alpha = 1.0
+                }
+            }
         }
     }
 
@@ -139,7 +215,7 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
     private var currentRefreshId = UUID()
     private var currentGifURL: URL?
     private let bubble = BubbleView()
-    private let imageMaxSize = CGFloat(241)
+    private static let imageMaxSize = CGFloat(241)
     private let imageView = UIImageView()
     private let tapToReadView = TapToReadView(showText: false)
     private let fyleProgressView = FyleProgressView()
@@ -170,6 +246,7 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
         
         bubble.addSubview(imageView)
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.alpha = 0
 
         addSubview(tapToReadView)
         tapToReadView.translatesAutoresizingMaskIntoConstraints = false

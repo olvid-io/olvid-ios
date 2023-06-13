@@ -2,6 +2,7 @@ import:
   - Foundation
   - CoreData
   - PhotosUI
+  - ObvUICoreData
 notifications:
 - name: userWantsToReadReceivedMessagesThatRequiresUserAction
   params:
@@ -30,6 +31,7 @@ notifications:
   params:
   - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
   - {name: textBody, type: String}
+  - {name: mentions, type: Set<MessageJSON.UserMention>}
 - name: userWantsToSendDraftWithOneAttachment
   params:
   - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}
@@ -42,10 +44,11 @@ notifications:
   params:
   - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
   - {name: value, type: "PersistedDiscussionSharedConfigurationValue?"}
-- name: userWantsToUpdateDraftBody
+- name: userWantsToUpdateDraftBodyAndMentions
   params:
   - {name: draftObjectID, type: TypeSafeManagedObjectID<PersistedDraft>}
   - {name: body, type: String}
+  - {name: mentions, type: Set<MessageJSON.UserMention>}
 - name: draftCouldNotBeSent
   params:
   - {name: draftPermanentID, type: ObvManagedObjectPermanentID<PersistedDraft>}

@@ -23,6 +23,7 @@ import os.log
 import OlvidUtils
 import ObvTypes
 import ObvCrypto
+import ObvUICoreData
 
 
 final class NotificationService: UNNotificationServiceExtension {
@@ -63,7 +64,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
         // Initialize the engine
         if NotificationService.obvEngine == nil {
-            let mainEngineContainer = ObvMessengerConstants.containerURL.mainEngineContainer
+            let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
             ObvEngine.mainContainerURL = mainEngineContainer
             do {
                 NotificationService.obvEngine = try ObvEngine.startLimitedToDecrypting(sharedContainerIdentifier: ObvMessengerConstants.appGroupIdentifier, logPrefix: "DecryptingLimitedEngine", appType: .notificationExtension, runningLog: NotificationService.runningLog)
@@ -78,7 +79,7 @@ final class NotificationService: UNNotificationServiceExtension {
         // Initialize the CoreData Stack
         
         do {
-            try ObvStack.initSharedInstance(transactionAuthor: ObvMessengerConstants.AppType.notificationExtension.transactionAuthor, runningLog: NotificationService.runningLog, enableMigrations: false)
+            try ObvStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppType.notificationExtension.transactionAuthor, runningLog: NotificationService.runningLog, enableMigrations: false)
         } catch let error {
             os_log("Could initialize the ObvStack within the notification service extension: %{public}@", log: log, type: .fault, error.localizedDescription)
             cleanUserDefaults()
@@ -118,8 +119,8 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             
             // If we reach this point, we could not decrypt, we could not get the message from the app. We do not display a user notification.
-            // It might be the case that the app is in foreground and that we are receiving a message from a non-OntToOne contact or within an unknown group discussion.
-            // In those cases, we do not want to display a user notification, we we set the fullAttemptContent to nil.
+            // It might be the case that the app is in foreground and that we are receiving a message from a non-OneToOne contact or within an unknown group discussion.
+            // In those cases, we do not want to display a user notification, we set the fullAttemptContent to nil.
             
             self.fullAttemptContent = nil
             
@@ -131,9 +132,11 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     // Update the app badge value within user defaults. The actual app badge is updated using the User Notification badge content.
-    private func incrAndGetBadge() -> NSNumber {
+    // If the notification was creating by fetching a received message from the database, we do not increment the badge count as the app already did.
+    // Otherwise, we do increment the badge.
+    private func getBadge(afterIncrementingIt: Bool) -> NSNumber {
         let currentBadgeValue = self.userDefaults?.integer(forKey: UserDefaultsKeyForBadge.keyForAppBadgeCount) ?? 0
-        let newBadgeValue = currentBadgeValue + 1
+        let newBadgeValue = afterIncrementingIt ? currentBadgeValue + 1 : currentBadgeValue
         self.userDefaults?.set(newBadgeValue, forKey: UserDefaultsKeyForBadge.keyForAppBadgeCount)
         return newBadgeValue as NSNumber
     }
@@ -142,6 +145,7 @@ final class NotificationService: UNNotificationServiceExtension {
     private func tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
 
         var messageReceivedStructure: PersistedMessageReceived.Structure?
+        var messageRepliedToStructure: PersistedMessage.AbstractStructure?
         ObvStack.shared.performBackgroundTaskAndWait { context in
             let messageReceived: PersistedMessageReceived
             do {
@@ -155,6 +159,10 @@ final class NotificationService: UNNotificationServiceExtension {
                 os_log("Could not get any PersistedMessageReceived from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
+            guard messageReceived.contactIdentity?.ownedIdentity?.isHidden == false else {
+                // We never show notifications concerning hidden owned identities
+                return
+            }
             do {
                 messageReceivedStructure = try messageReceived.toStruct()
             } catch {
@@ -162,11 +170,16 @@ final class NotificationService: UNNotificationServiceExtension {
                 os_log("Could create PersistedMessageReceived.Structure: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
+            do {
+                messageRepliedToStructure = try messageReceived.messageRepliedTo?.toAbstractStructure()
+            } catch {
+                assertionFailure()
+                os_log("Could create PersistedMessage.Structure for message replied to: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
+            }
         }
 
         guard let messageReceivedStructure = messageReceivedStructure else {
-            assertionFailure()
-            os_log("Could create PersistedMessageReceived.Structure", log: log, type: .fault)
             return false
         }
         
@@ -185,15 +198,17 @@ final class NotificationService: UNNotificationServiceExtension {
         // Construct the notification content
         
         let discussion = messageReceivedStructure.discussionKind
-        if discussion.localConfiguration.shouldMuteNotifications {
+        if discussion.ownedIdentity.isHidden || discussion.localConfiguration.shouldMuteNotification(with: messageReceivedStructure.mentions,
+                                                                                                     messageRepliedToStructure: messageRepliedToStructure,
+                                                                                                     globalDiscussionNotificationOptions: ObvMessengerSettings.Discussions.notificationOptions) {
             self.fullAttemptContent = nil
         } else {
-            let badge = incrAndGetBadge()
+            let badge = getBadge(afterIncrementingIt: false)
             let urlForStoringPNGThumbnail = contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail()
             let infos = UserNotificationCreator.NewMessageNotificationInfos(messageReceived: messageReceivedStructure,
                                                                             attachmentLocation: .custom(request.identifier),
                                                                             urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge)
+            let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge, addNotificationSilently: false)
             self.fullAttemptContent = notificationContent
         }
 
@@ -206,7 +221,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
         let log = self.log
         
-        guard NotificationService.obvEngine != nil else {
+        guard let obvEngine = NotificationService.obvEngine else {
             os_log("Could not get the obvEngine", log: log, type: .error)
             return false
         }
@@ -215,7 +230,7 @@ final class NotificationService: UNNotificationServiceExtension {
         
         let obvMessage: ObvMessage
         do {
-            obvMessage = try NotificationService.obvEngine!.decrypt(encryptedPushNotification: encryptedPushNotification)
+            obvMessage = try obvEngine.decrypt(encryptedPushNotification: encryptedPushNotification)
         } catch {
             os_log("Could not decrypt information", log: log, type: .info)
             return false
@@ -241,12 +256,22 @@ final class NotificationService: UNNotificationServiceExtension {
 
         var contactStructure: PersistedObvContactIdentity.Structure?
         var discussionKind: PersistedDiscussion.StructureKind?
-        var shouldShowNotification = true
+        var messageRepliedToStructure: PersistedMessage.AbstractStructure?
         
         ObvStack.shared.performBackgroundTaskAndWait { context in
             
+            // Try to determine the contactStructure
+            
             guard let persistedContactIdentity = try? PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: context) else {
                 os_log("Could not recover the persisted contact identity", log: log, type: .fault)
+                return
+            }
+
+            do {
+                contactStructure = try persistedContactIdentity.toStruct()
+            } catch {
+                assertionFailure()
+                os_log("Could create PersistedObvContactIdentity.Structure: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
 
@@ -264,6 +289,8 @@ final class NotificationService: UNNotificationServiceExtension {
                 return
             }
             
+            // Try to determine the discussionKind
+
             let discussion: PersistedDiscussion
             do {
                 if let groupV1Identifier = groupV1Identifier {
@@ -292,7 +319,6 @@ final class NotificationService: UNNotificationServiceExtension {
                 } else {
                     os_log("Could not find an appropriate discussion where the received message could go.", log: log, type: .error)
                     // We are in a situation where we can decide that no user notification should be shown
-                    shouldShowNotification = false
                     return
                 }
             } catch {
@@ -300,52 +326,40 @@ final class NotificationService: UNNotificationServiceExtension {
                 os_log("Core data error: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
-            
+                        
             // If we reach this point, we found an appropriate discussion where the message can go
-
+            
             do {
-                contactStructure = try persistedContactIdentity.toStruct()
-            } catch {
-                assertionFailure()
-                os_log("Could create PersistedObvContactIdentity.Structure: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return
-            }
-
-            do {
-                discussionKind = try discussion.toStruct()
+                discussionKind = try discussion.toStructKind()
             } catch {
                 assertionFailure()
                 os_log("Could create PersistedDiscussion.StructureKind: %{public}@", log: log, type: .fault, error.localizedDescription)
                 return
             }
 
-        }
-
-        if let returnReceiptJSON = persistedItemJSON.returnReceipt {
+            // Try to determine if the repliedToMessage
+            
             do {
-                try NotificationService.obvEngine!.postReturnReceiptWithElements(
-                    returnReceiptJSON.elements,
-                    andStatus: ReturnReceiptJSON.Status.delivered.rawValue,
-                    forContactCryptoId: obvMessage.fromContactIdentity.cryptoId,
-                    ofOwnedIdentityCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
-                    messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
-                    attachmentNumber: nil)
+                if let replyTo = persistedItemJSON.message?.replyTo,
+                    let messageRepliedTo = try PersistedMessage.findMessageFrom(reference: replyTo, within: discussion) {
+                    messageRepliedToStructure = try messageRepliedTo.toAbstractStructure()
+                    // Note that we *know* the discussion corresponding to this messageRepliedToStructure corresponds to the discussionKind above
+                } else {
+                    messageRepliedToStructure = nil
+                }
             } catch {
-                os_log("The Return Receipt could not be posted", log: log, type: .fault)
-                // Continue anyway
+                assertionFailure()
+                os_log("Core data error or to struct error: %{public}@", log: log, type: .fault, error.localizedDescription)
+                return
             }
+
         }
         
-        guard shouldShowNotification else {
-            // Rare case where we could decide in the previous block that no
+        guard let contactStructure, let discussionKind else {
+            assertionFailure()
+            os_log("Could create PersistedDiscussion.StructureKind or PersistedObvContactIdentity.Structure although the encrypted was decrypted. We do not show any notification.", log: log, type: .error)
             self.fullAttemptContent = nil
             return true
-        }
-        
-        guard let contactStructure = contactStructure, let discussionKind = discussionKind else {
-            assertionFailure()
-            os_log("Could create PersistedDiscussion.StructureKind or PersistedObvContactIdentity.Structure", log: log, type: .error)
-            return false
         }
         
         // If we reach this point, we found an appropriate discussion where the message can go
@@ -361,7 +375,7 @@ final class NotificationService: UNNotificationServiceExtension {
         
         do {
             let jsonDecryptedMessage = try obvMessage.encodeToJson()
-            let directory = ObvMessengerConstants.containerURL.forMessagesDecryptedWithinNotificationExtension
+            let directory = ObvUICoreDataConstants.ContainerURL.forMessagesDecryptedWithinNotificationExtension.url
             let filename = [encryptedPushNotification.messageIdFromServerAsString, "json"].joined(separator: ".")
             let filepath = directory.appendingPathComponent(filename)
             try jsonDecryptedMessage.write(to: filepath)
@@ -371,10 +385,31 @@ final class NotificationService: UNNotificationServiceExtension {
             // Continue anyway
         }
 
-        // Depending on whether the discussion is muted or not, we construct the notification content
+        // Since we saved a serialized version of the message, we can send a return receipt
+        
+        if let returnReceiptJSON = persistedItemJSON.returnReceipt {
+            do {
+                try NotificationService.obvEngine!.postReturnReceiptWithElements(
+                    returnReceiptJSON.elements,
+                    andStatus: ReturnReceiptJSON.Status.delivered.rawValue,
+                    forContactCryptoId: obvMessage.fromContactIdentity.cryptoId,
+                    ofOwnedIdentityCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
+                    messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
+                    attachmentNumber: nil)
+            } catch {
+                os_log("The Return Receipt could not be posted", log: log, type: .fault)
+                // Continue anyway
+            }
+        }
 
-        if discussionKind.localConfiguration.shouldMuteNotifications {
+        // Depending on whether the discussion is muted or not, or if the owned identity is hidden, we construct the notification content
 
+        if contactStructure.ownedIdentity.isHidden || discussionKind.localConfiguration.shouldMuteNotification(with: persistedItemJSON.message,
+                                                                                                               messageRepliedToStructure: messageRepliedToStructure,
+                                                                                                               globalDiscussionNotificationOptions: ObvMessengerSettings.Discussions.notificationOptions) {
+
+            // Do not show a user notification in that case
+            
             self.fullAttemptContent = nil
             
         } else {
@@ -407,7 +442,7 @@ final class NotificationService: UNNotificationServiceExtension {
                     attachementImages = op.attachementImages
                 }
 
-                let badge = incrAndGetBadge()
+                let badge = getBadge(afterIncrementingIt: true)
 
                 let infos = await UserNotificationCreator.NewMessageNotificationInfos(
                     body: textBody ?? UserNotificationCreator.Strings.NewPersistedMessageReceivedMinimal.body,
@@ -419,7 +454,7 @@ final class NotificationService: UNNotificationServiceExtension {
                     attachementImages: attachementImages,
                     attachmentLocation: .custom(request.identifier),
                     urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail())
-                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge)
+                let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge, addNotificationSilently: false)
                 self.fullAttemptContent = notificationContent
                 
             } else if let reactionJSON = persistedItemJSON.reactionJSON {
@@ -488,7 +523,6 @@ final class NotificationService: UNNotificationServiceExtension {
             return false
         }
         contentHandler(silentAttemptContent)
-        notifyAppOfNewSilentNotification()
         return true
     }
     
@@ -507,10 +541,6 @@ final class NotificationService: UNNotificationServiceExtension {
             notificationRequestIdentifiersWithDates.append(newIdentifierWithDate)
             userDefaults.set(notificationRequestIdentifiersWithDates, forKey: key)
         }
-    }
-
-    private func notifyAppOfNewSilentNotification() {
-        notifyAppOfNotification(with: ObvMessengerConstants.requestIdentifiersOfSilentNotificationsAddedByExtension)
     }
 
     private func notifyAppOfNewFullNotification() {
@@ -532,7 +562,6 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     private func cleanUserDefaults() {
-        cleanNotifications(for: ObvMessengerConstants.requestIdentifiersOfSilentNotificationsAddedByExtension)
         cleanNotifications(for: ObvMessengerConstants.requestIdentifiersOfFullNotificationsAddedByExtension)
     }
 

@@ -47,8 +47,9 @@ struct ImageEditor: View {
             GeometryReader() { geo in
                 let isPortrait = geo.size.height > geo.size.width
                 let circleDiameter = (isPortrait ? geo.size.width : geo.size.height) * ImageEditor.widthScale
-                if let image = image {
+                if let image {
                     let geometry = Geometry(circleDiameter: circleDiameter, geo: geo, imageSize: image.size)
+
                     VStack(alignment: .center) {
                         Spacer()
                         HStack(alignment: .center) {

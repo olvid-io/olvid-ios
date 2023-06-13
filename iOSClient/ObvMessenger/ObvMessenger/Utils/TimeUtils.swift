@@ -85,19 +85,6 @@ final class DurationFormatter {
 
 extension TimeInterval {
 
-    static func optionalMin(_ val1: TimeInterval?, _ val2: TimeInterval?) -> TimeInterval? {
-        switch (val1, val2) {
-        case (.none, .none):
-            return nil
-        case (.some(let val), .none):
-            return val
-        case (.none, .some(let val)):
-            return val
-        case (.some(let v1), .some(let v2)):
-            return min(v1, v2)
-        }
-    }
-
     static func getUptime() -> TimeInterval {
         var uptime = timespec()
         if clock_gettime(CLOCK_MONOTONIC_RAW, &uptime) != 0 {

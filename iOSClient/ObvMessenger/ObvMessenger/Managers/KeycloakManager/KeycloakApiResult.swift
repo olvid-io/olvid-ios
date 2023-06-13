@@ -38,16 +38,68 @@ extension KeycloakManagerApiResult {
 }
 
 extension KeycloakManager {
+    
+    
+    struct APIQueryForGroupsPath: Encodable {
+    
+        let latestGetGroupsTimestamp: Date // Server timestamp, stored within the engine
+        
+        init(latestGetGroupsTimestamp: Date) {
+            let oneHour = TimeInterval(hours: 1)
+            self.latestGetGroupsTimestamp = latestGetGroupsTimestamp.addingTimeInterval(-oneHour)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case latestLocalRevocationListTimestamp = "timestamp"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(latestGetGroupsTimestamp.epochInMs, forKey: .latestLocalRevocationListTimestamp)
+        }
+
+        func jsonEncode() throws -> Data {
+            let encoder = JSONEncoder()
+            return try encoder.encode(self)
+        }
+
+    }
+    
+    
+    struct ApiResultForGroupsPath: Decodable, KeycloakManagerApiResult {
+
+        let signedGroupBlobs: Set<String>
+        let signedGroupDeletions: Set<String>
+        let signedGroupKicks: Set<String>
+        let currentServerTimestamp: Date
+        
+        enum CodingKeys: String, CodingKey {
+            case signedGroupBlobs = "signed_group_blobs"
+            case signedGroupDeletions = "signed_group_deletions"
+            case signedGroupKicks = "signed_group_kicks"
+            case currentServerTimestamp = "current_timestamp"
+        }
+
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            debugPrint(values.allKeys)
+            self.signedGroupBlobs = try values.decodeIfPresent(Set<String>.self, forKey: .signedGroupBlobs) ?? Set<String>()
+            self.signedGroupDeletions = try values.decodeIfPresent(Set<String>.self, forKey: .signedGroupDeletions) ?? Set<String>()
+            self.signedGroupKicks = try values.decodeIfPresent(Set<String>.self, forKey: .signedGroupKicks) ?? Set<String>()
+            let rawCurrentServerTimestamp = try values.decode(Int.self, forKey: .currentServerTimestamp)
+            self.currentServerTimestamp = Date(epochInMs: Int64(rawCurrentServerTimestamp))
+        }
+        
+    }
+    
 
     struct ApiQueryForMePath: Encodable {
 
-        let latestLocalRevocationListTimestamp: Date // Server timstamp, stored within the engine
+        let latestLocalRevocationListTimestamp: Date // Server timestamp, stored within the engine
 
         init(latestLocalRevocationListTimestamp: Date) {
             let oneHour = TimeInterval(hours: 1)
             self.latestLocalRevocationListTimestamp = latestLocalRevocationListTimestamp.addingTimeInterval(-oneHour)
-            debugPrint(latestLocalRevocationListTimestamp)
-            debugPrint(self.latestLocalRevocationListTimestamp)
         }
 
         enum CodingKeys: String, CodingKey {
@@ -122,7 +174,7 @@ extension KeycloakManager {
 
 
     struct ApiResultForSearchPath: Decodable, KeycloakManagerApiResult {
-        let userDetails: [UserDetails]?
+        let userDetails: [ObvKeycloakUserDetails]?
         let numberOfResultsOnServer: Int?
         let errorCode: Int?
 

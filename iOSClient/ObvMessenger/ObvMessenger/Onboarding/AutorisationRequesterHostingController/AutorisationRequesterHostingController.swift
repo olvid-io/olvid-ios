@@ -20,6 +20,7 @@
 import SwiftUI
 import ObvEngine
 import ObvUI
+import ObvUICoreData
 
 final class AutorisationRequesterHostingController: UIHostingController<AutorisationRequesterView> {
     

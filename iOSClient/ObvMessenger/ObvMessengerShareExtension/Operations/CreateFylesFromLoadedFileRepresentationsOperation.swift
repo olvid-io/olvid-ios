@@ -22,6 +22,7 @@ import Foundation
 import os.log
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
 
 protocol LoadedItemProviderProvider: Operation {
     var loadedItemProviders: [LoadedItemProvider]? { get }

@@ -37,7 +37,10 @@ final class InitializerViewController: UIViewController {
         }
     }
     
-    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -132,8 +135,10 @@ final class InitializerViewController: UIViewController {
     // MARK: - Progress bar for migrations
 
     private func observeDatabaseMigrationNotifications() {
-        observationTokens.append(DataMigrationManagerNotification.observeMigrationManagerWillMigrateStore(queue: .main) { [weak self] migrationProgress, storeName in
-            self?.createOrUpdateProgressView(migrationProgress: migrationProgress)
+        observationTokens.append(DataMigrationManagerNotification.observeMigrationManagerWillMigrateStore { [weak self] migrationProgress, storeName in
+            DispatchQueue.main.async {
+                self?.createOrUpdateProgressView(migrationProgress: migrationProgress)
+            }
         })
     }
     

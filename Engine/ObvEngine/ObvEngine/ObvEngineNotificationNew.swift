@@ -33,6 +33,16 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvEngineNotificationNew {
+	case contactGroupHasUpdatedPendingMembersAndGroupMembers(obvContactGroup: ObvContactGroup)
+	case newContactGroup(obvContactGroup: ObvContactGroup)
+	case newPendingGroupMemberDeclinedStatus(obvContactGroup: ObvContactGroup)
+	case contactGroupDeleted(ownedIdentity: ObvOwnedIdentity, groupOwner: ObvCryptoId, groupUid: UID)
+	case contactGroupHasUpdatedPublishedDetails(obvContactGroup: ObvContactGroup)
+	case contactGroupJoinedHasUpdatedTrustedDetails(obvContactGroup: ObvContactGroup)
+	case contactGroupOwnedDiscardedLatestDetails(obvContactGroup: ObvContactGroup)
+	case contactGroupOwnedHasUpdatedLatestDetails(obvContactGroup: ObvContactGroup)
+	case DeletedObliviousChannelWithContactDevice(obvContactDevice: ObvContactDevice)
+	case newTrustedContactIdentity(obvContactIdentity: ObvContactIdentity)
 	case newBackupKeyGenerated(backupKeyString: String, obvBackupKeyInformation: ObvBackupKeyInformation)
 	case ownedIdentityWasDeactivated(ownedIdentity: ObvCryptoId)
 	case ownedIdentityWasReactivated(ownedIdentity: ObvCryptoId)
@@ -46,7 +56,7 @@ public enum ObvEngineNotificationNew {
 	case callerTurnCredentialsServerDoesNotSupportCalls(ownedIdentity: ObvCryptoId, callUuid: UUID)
 	case messageWasAcknowledged(ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool)
 	case newMessageReceived(obvMessage: ObvMessage, completionHandler: (Set<ObvAttachment>) -> Void)
-	case attachmentWasAcknowledgedByServer(messageIdentifierFromEngine: Data, attachmentNumber: Int)
+	case attachmentWasAcknowledgedByServer(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
 	case attachmentDownloadCancelledByServer(obvAttachment: ObvAttachment)
 	case cannotReturnAnyProgressForMessageAttachments(messageIdentifierFromEngine: Data)
 	case attachmentDownloaded(obvAttachment: ObvAttachment)
@@ -90,8 +100,19 @@ public enum ObvEngineNotificationNew {
 	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data)
 	case aPushTopicWasReceivedViaWebsocket(pushTopic: String)
 	case ownedIdentityWasDeleted
+	case aKeycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoId)
 
 	private enum Name {
+		case contactGroupHasUpdatedPendingMembersAndGroupMembers
+		case newContactGroup
+		case newPendingGroupMemberDeclinedStatus
+		case contactGroupDeleted
+		case contactGroupHasUpdatedPublishedDetails
+		case contactGroupJoinedHasUpdatedTrustedDetails
+		case contactGroupOwnedDiscardedLatestDetails
+		case contactGroupOwnedHasUpdatedLatestDetails
+		case DeletedObliviousChannelWithContactDevice
+		case newTrustedContactIdentity
 		case newBackupKeyGenerated
 		case ownedIdentityWasDeactivated
 		case ownedIdentityWasReactivated
@@ -149,6 +170,7 @@ public enum ObvEngineNotificationNew {
 		case groupV2UpdateDidFail
 		case aPushTopicWasReceivedViaWebsocket
 		case ownedIdentityWasDeleted
+		case aKeycloakTargetedPushNotificationReceivedViaWebsocket
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
 
@@ -161,6 +183,16 @@ public enum ObvEngineNotificationNew {
 
 		static func forInternalNotification(_ notification: ObvEngineNotificationNew) -> NSNotification.Name {
 			switch notification {
+			case .contactGroupHasUpdatedPendingMembersAndGroupMembers: return Name.contactGroupHasUpdatedPendingMembersAndGroupMembers.name
+			case .newContactGroup: return Name.newContactGroup.name
+			case .newPendingGroupMemberDeclinedStatus: return Name.newPendingGroupMemberDeclinedStatus.name
+			case .contactGroupDeleted: return Name.contactGroupDeleted.name
+			case .contactGroupHasUpdatedPublishedDetails: return Name.contactGroupHasUpdatedPublishedDetails.name
+			case .contactGroupJoinedHasUpdatedTrustedDetails: return Name.contactGroupJoinedHasUpdatedTrustedDetails.name
+			case .contactGroupOwnedDiscardedLatestDetails: return Name.contactGroupOwnedDiscardedLatestDetails.name
+			case .contactGroupOwnedHasUpdatedLatestDetails: return Name.contactGroupOwnedHasUpdatedLatestDetails.name
+			case .DeletedObliviousChannelWithContactDevice: return Name.DeletedObliviousChannelWithContactDevice.name
+			case .newTrustedContactIdentity: return Name.newTrustedContactIdentity.name
 			case .newBackupKeyGenerated: return Name.newBackupKeyGenerated.name
 			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
@@ -218,12 +250,55 @@ public enum ObvEngineNotificationNew {
 			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
 			case .aPushTopicWasReceivedViaWebsocket: return Name.aPushTopicWasReceivedViaWebsocket.name
 			case .ownedIdentityWasDeleted: return Name.ownedIdentityWasDeleted.name
+			case .aKeycloakTargetedPushNotificationReceivedViaWebsocket: return Name.aKeycloakTargetedPushNotificationReceivedViaWebsocket.name
 			}
 		}
 	}
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
+		case .contactGroupHasUpdatedPendingMembersAndGroupMembers(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .newContactGroup(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .newPendingGroupMemberDeclinedStatus(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .contactGroupDeleted(ownedIdentity: let ownedIdentity, groupOwner: let groupOwner, groupUid: let groupUid):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"groupOwner": groupOwner,
+				"groupUid": groupUid,
+			]
+		case .contactGroupHasUpdatedPublishedDetails(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .contactGroupJoinedHasUpdatedTrustedDetails(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .contactGroupOwnedDiscardedLatestDetails(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .contactGroupOwnedHasUpdatedLatestDetails(obvContactGroup: let obvContactGroup):
+			info = [
+				"obvContactGroup": obvContactGroup,
+			]
+		case .DeletedObliviousChannelWithContactDevice(obvContactDevice: let obvContactDevice):
+			info = [
+				"obvContactDevice": obvContactDevice,
+			]
+		case .newTrustedContactIdentity(obvContactIdentity: let obvContactIdentity):
+			info = [
+				"obvContactIdentity": obvContactIdentity,
+			]
 		case .newBackupKeyGenerated(backupKeyString: let backupKeyString, obvBackupKeyInformation: let obvBackupKeyInformation):
 			info = [
 				"backupKeyString": backupKeyString,
@@ -288,8 +363,9 @@ public enum ObvEngineNotificationNew {
 				"obvMessage": obvMessage,
 				"completionHandler": completionHandler,
 			]
-		case .attachmentWasAcknowledgedByServer(messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
+		case .attachmentWasAcknowledgedByServer(ownedCryptoId: let ownedCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
 			info = [
+				"ownedCryptoId": ownedCryptoId,
 				"messageIdentifierFromEngine": messageIdentifierFromEngine,
 				"attachmentNumber": attachmentNumber,
 			]
@@ -490,6 +566,10 @@ public enum ObvEngineNotificationNew {
 			]
 		case .ownedIdentityWasDeleted:
 			info = nil
+		case .aKeycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: let ownedIdentity):
+			info = [
+				"ownedIdentity": ownedIdentity,
+			]
 		}
 		return info
 	}
@@ -500,6 +580,88 @@ public enum ObvEngineNotificationNew {
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
 		backgroundQueue.async {
 			appNotificationCenter.post(name: name, object: nil, userInfo: userInfo)
+		}
+	}
+
+	public static func observeContactGroupHasUpdatedPendingMembersAndGroupMembers(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.contactGroupHasUpdatedPendingMembersAndGroupMembers.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeNewContactGroup(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.newContactGroup.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeNewPendingGroupMemberDeclinedStatus(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.newPendingGroupMemberDeclinedStatus.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeContactGroupDeleted(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedIdentity, ObvCryptoId, UID) -> Void) -> NSObjectProtocol {
+		let name = Name.contactGroupDeleted.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvOwnedIdentity
+			let groupOwner = notification.userInfo!["groupOwner"] as! ObvCryptoId
+			let groupUid = notification.userInfo!["groupUid"] as! UID
+			block(ownedIdentity, groupOwner, groupUid)
+		}
+	}
+
+	public static func observeContactGroupHasUpdatedPublishedDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.contactGroupHasUpdatedPublishedDetails.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeContactGroupJoinedHasUpdatedTrustedDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.contactGroupJoinedHasUpdatedTrustedDetails.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeContactGroupOwnedDiscardedLatestDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.contactGroupOwnedDiscardedLatestDetails.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeContactGroupOwnedHasUpdatedLatestDetails(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactGroup) -> Void) -> NSObjectProtocol {
+		let name = Name.contactGroupOwnedHasUpdatedLatestDetails.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactGroup = notification.userInfo!["obvContactGroup"] as! ObvContactGroup
+			block(obvContactGroup)
+		}
+	}
+
+	public static func observeDeletedObliviousChannelWithContactDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactDevice) -> Void) -> NSObjectProtocol {
+		let name = Name.DeletedObliviousChannelWithContactDevice.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactDevice = notification.userInfo!["obvContactDevice"] as! ObvContactDevice
+			block(obvContactDevice)
+		}
+	}
+
+	public static func observeNewTrustedContactIdentity(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.newTrustedContactIdentity.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
+			block(obvContactIdentity)
 		}
 	}
 
@@ -619,12 +781,13 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeAttachmentWasAcknowledgedByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (Data, Int) -> Void) -> NSObjectProtocol {
+	public static func observeAttachmentWasAcknowledgedByServer(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, Int) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentWasAcknowledgedByServer.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
 			let attachmentNumber = notification.userInfo!["attachmentNumber"] as! Int
-			block(messageIdentifierFromEngine, attachmentNumber)
+			block(ownedCryptoId, messageIdentifierFromEngine, attachmentNumber)
 		}
 	}
 
@@ -995,6 +1158,14 @@ public enum ObvEngineNotificationNew {
 		let name = Name.ownedIdentityWasDeleted.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			block()
+		}
+	}
+
+	public static func observeAKeycloakTargetedPushNotificationReceivedViaWebsocket(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.aKeycloakTargetedPushNotificationReceivedViaWebsocket.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoId
+			block(ownedIdentity)
 		}
 	}
 

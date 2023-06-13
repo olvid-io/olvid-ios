@@ -18,12 +18,13 @@
  */
 
 import Foundation
+import ObvUICoreData
 
 extension URL {
     
     func moveToTrash() throws {
         guard FileManager.default.fileExists(atPath: self.path) else { return }
-        let trashURL = ObvMessengerConstants.containerURL.forTrash.appendingPathComponent(UUID().uuidString)
+        let trashURL = ObvUICoreDataConstants.ContainerURL.forTrash.appendingPathComponent(UUID().uuidString)
         try FileManager.default.moveItem(at: self, to: trashURL)
     }
     

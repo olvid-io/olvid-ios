@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation deletes all sent/received messages (and attachments) that were sent/received at a time that is longer than their time based retention time (if any).

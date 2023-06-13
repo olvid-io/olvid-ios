@@ -24,15 +24,17 @@ import ObvEngine
 import ObvTypes
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
+
 
 /// This operation looks for a persisted discussion (either one2one or for a group) that is the most appropriate given the parameters. In case the groupId is non nil, it looks for a group discussion and makes sure the contact identity is part of the group (but not necessarily owner).
 /// If this operation finishes without cancelling, the value of the `discussionObjectID` variable is guaranteed to be set.
-final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReasonForCancel<GetAppropriateDiscussionOperationReasonForCancel> {
+final class GetAppropriateActiveDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<GetAppropriateDiscussionOperationReasonForCancel>, OperationProvidingPersistedDiscussion {
 
     private let contact: ObvContactIdentity
     private let groupIdentifier: GroupIdentifier?
     
-    private(set) var discussionObjectID: NSManagedObjectID?
+    private(set) var persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: GetAppropriateActiveDiscussionOperation.self))
 
@@ -43,12 +45,16 @@ final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReason
     }
 
     override func main() {
+        
+        guard let obvContext else {
+            return cancel(withReason: .contextIsNil)
+        }
 
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
+        obvContext.performAndWait {
             
             do {
                 
-                guard let persistedContact = try PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else {
+                guard let persistedContact = try PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: obvContext.context) else {
                     return cancel(withReason: .couldNotFindContact)
                 }
                 
@@ -65,7 +71,7 @@ final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReason
                     }
                     assert(persistedContact.isOneToOne)
                     // If we reach this point, we found the appropriate one2one discussion
-                    self.discussionObjectID = discussion.objectID
+                    self.persistedDiscussionObjectID = discussion.typedObjectID.downcast
                     return
                     
                 case .groupV1(groupV1Identifier: let groupV1Identifier):
@@ -92,7 +98,7 @@ final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReason
                     guard contactGroup.discussion.status == .active else {
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
-                    self.discussionObjectID = contactGroup.discussion.objectID
+                    self.persistedDiscussionObjectID = contactGroup.discussion.typedObjectID.downcast
                     return
                     
                 case .groupV2(groupV2Identifier: let groupV2Identifier):
@@ -109,7 +115,7 @@ final class GetAppropriateActiveDiscussionOperation: OperationWithSpecificReason
                     guard let discussion = group.discussion, discussion.status == .active else {
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
-                    self.discussionObjectID = discussion.objectID
+                    self.persistedDiscussionObjectID = discussion.typedObjectID.downcast
                     return
                     
                 }
@@ -133,6 +139,7 @@ enum GetAppropriateDiscussionOperationReasonForCancel: LocalizedErrorWithLogType
     case contactIsNotPartOfGroup
     case unexpectedGroupSubclass
     case couldNotFindDiscussion
+    case contextIsNil
 
     var logType: OSLogType {
         switch self {
@@ -142,6 +149,7 @@ enum GetAppropriateDiscussionOperationReasonForCancel: LocalizedErrorWithLogType
              .contactIsNotPartOfGroup,
              .unexpectedGroupSubclass,
              .couldNotFindDiscussion,
+             .contextIsNil,
              .couldNotFindContact:
             return .fault
         }
@@ -163,6 +171,8 @@ enum GetAppropriateDiscussionOperationReasonForCancel: LocalizedErrorWithLogType
             return "Unexpected contact group subclass"
         case .couldNotFindDiscussion:
             return "Could not find discussion"
+        case .contextIsNil:
+            return "Context is nil"
         }
     }
 

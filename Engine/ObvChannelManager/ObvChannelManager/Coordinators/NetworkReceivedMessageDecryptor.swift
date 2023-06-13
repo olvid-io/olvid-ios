@@ -171,8 +171,8 @@ extension NetworkReceivedMessageDecryptor {
                         os_log("Invalid count of attachment infos", log: log, type: .fault)
                         throw Self.makeError(message: "Invalid count of attachment infos")
                     }
-                    try networkFetchDelegate.set(
-                        remoteCryptoIdentity: receivedApplicationMessage.remoteCryptoIdentity,
+                    try networkFetchDelegate.setRemoteCryptoIdentity(
+                        receivedApplicationMessage.remoteCryptoIdentity,
                         messagePayload: receivedApplicationMessage.messagePayload,
                         extendedMessagePayloadKey: receivedApplicationMessage.extendedMessagePayloadKey,
                         andAttachmentsInfos: receivedApplicationMessage.attachmentsInfos,

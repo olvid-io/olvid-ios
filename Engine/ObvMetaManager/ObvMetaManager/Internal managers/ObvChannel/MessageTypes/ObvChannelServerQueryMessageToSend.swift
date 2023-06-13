@@ -55,6 +55,7 @@ extension ObvChannelServerQueryMessageToSend {
         case putGroupLog(groupIdentifier: GroupV2.Identifier, querySignature: Data)
         case requestGroupBlobLock(groupIdentifier: GroupV2.Identifier, lockNonce: Data, signature: Data)
         case updateGroupBlob(groupIdentifier: GroupV2.Identifier, encodedServerAdminPublicKey: ObvEncoded, encryptedBlob: EncryptedData, lockNonce: Data, signature: Data)
+        case getKeycloakData(serverURL: URL, serverLabel: UID)
     }
     
 }

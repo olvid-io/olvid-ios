@@ -23,6 +23,7 @@ import ObvEngine
 import os.log
 import CoreData
 import ObvTypes
+import ObvUICoreData
 
 
 final class SyncPersistedObvContactIdentitiesWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

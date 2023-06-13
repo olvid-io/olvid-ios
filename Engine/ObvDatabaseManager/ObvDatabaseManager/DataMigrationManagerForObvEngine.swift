@@ -80,9 +80,13 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case version42 = "ObvEngineModel-v42"
         case version43 = "ObvEngineModel-v43"
         case version44 = "ObvEngineModel-v44"
+        case version45 = "ObvEngineModel-v45"
+        case version46 = "ObvEngineModel-v46"
+        case version47 = "ObvEngineModel-v47"
+        case version48 = "ObvEngineModel-v48"
 
         static var latest: ObvEngineModelVersion {
-            return .version44
+            return .version48
         }
         
         var identifier: String {
@@ -188,7 +192,11 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case .version41: migrationType = .heavyweight; destinationVersion = .version42
         case .version42: migrationType = .lightweight; destinationVersion = .version43
         case .version43: migrationType = .lightweight; destinationVersion = .version44
-        case .version44: migrationType = .heavyweight; destinationVersion = .version44
+        case .version44: migrationType = .lightweight; destinationVersion = .version45
+        case .version45: migrationType = .lightweight; destinationVersion = .version46
+        case .version46: migrationType = .lightweight; destinationVersion = .version47
+        case .version47: migrationType = .lightweight; destinationVersion = .version48
+        case .version48: migrationType = .heavyweight; destinationVersion = .version48
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

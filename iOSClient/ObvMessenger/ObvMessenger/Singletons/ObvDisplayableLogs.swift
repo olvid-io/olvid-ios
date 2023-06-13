@@ -18,7 +18,7 @@
  */
 
 import Foundation
-
+import ObvUICoreData
 
 final class ObvDisplayableLogs {
 
@@ -43,6 +43,7 @@ final class ObvDisplayableLogs {
     
     
     func log(_ string: String) {
+        guard ObvMessengerSettings.Advanced.enableRunningLogs else { return }
         let now = Date()
         let dateFormatterForLog = self.dateFormatterForLog
         let dateFormatterForFilename = self.dateFormatterForFilename
@@ -68,7 +69,7 @@ final class ObvDisplayableLogs {
     }
     
     func getLogNSURL(_ logFilename: String) -> NSURL? {
-        let logURL = ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+        let logURL = logURL(for: logFilename)
         let fm = FileManager.default
         guard fm.fileExists(atPath: logURL.path) else { return nil }
         return logURL as NSURL
@@ -78,31 +79,54 @@ final class ObvDisplayableLogs {
         "\(dateFormatterForFilename.string(from: Date()))-olvid.log"
     }
     
+    private func dateFromLogFilename(_ filename: String) -> Date? {
+        let dateAsString = filename.replacingOccurrences(of: "-olvid.log", with: "")
+        return dateFormatterForFilename.date(from: dateAsString)
+    }
+
+    private func logURL(for logFilename: String) -> URL {
+        return ObvUICoreDataConstants.ContainerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+    }
+    
     private var logURL: URL {
-        ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+        logURL(for: logFilename)
     }
     
     func getAvailableLogs() throws -> [String] {
         let fm = FileManager.default
-        let directory = ObvMessengerConstants.containerURL.forDisplayableLogs
+        let directory = ObvUICoreDataConstants.ContainerURL.forDisplayableLogs.url
         let items = try fm.contentsOfDirectory(atPath: directory.path).sorted().reversed() as [String]
         return items
     }
     
     func getContentOfLog(logFilename: String) throws -> String {
-        let logURL = ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+        let logURL = logURL(for: logFilename)
         return try String(contentsOf: logURL, encoding: .utf8)
     }
     
     func deleteLog(logFilename: String) throws {
         let fm = FileManager.default
-        let logURL = ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+        let logURL = logURL(for: logFilename)
         try fm.removeItem(at: logURL)
     }
 
     func getSizeOfLog(logFilename: String) throws -> Int64? {
-        let logURL = ObvMessengerConstants.containerURL.forDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
+        let logURL = logURL(for: logFilename)
         guard let fileAttributes = try? FileManager.default.attributesOfItem(atPath: logURL.path) else { return nil }
         return fileAttributes[FileAttributeKey.size] as? Int64
+    }
+    
+    func deleteLogsOlderThan(date: Date) throws {
+        let fm = FileManager.default
+        let directory = ObvUICoreDataConstants.ContainerURL.forDisplayableLogs.url
+        let availableLogNames = try getAvailableLogs()
+        for availableLogName in availableLogNames {
+            guard let logDate = dateFromLogFilename(availableLogName) else { continue }
+            if logDate < date {
+                let url = directory.appendingPathComponent(availableLogName)
+                guard fm.fileExists(atPath: url.path) else { assertionFailure(); continue }
+                try? fm.removeItem(at: url)
+            }
+        }
     }
 }

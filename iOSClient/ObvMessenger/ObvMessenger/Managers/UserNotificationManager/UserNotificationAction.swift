@@ -20,6 +20,8 @@
 import Foundation
 import ObvUI
 import UserNotifications
+import ObvUICoreData
+import UI_SystemIcon
 
 
 enum UserNotificationAction: String {

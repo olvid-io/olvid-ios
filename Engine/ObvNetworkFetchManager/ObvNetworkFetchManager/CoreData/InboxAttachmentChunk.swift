@@ -52,8 +52,8 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     @NSManaged private(set) var ciphertextChunkLength: Int
     @NSManaged private(set) var cleartextChunkWasWrittenToAttachmentFile: Bool
     @NSManaged private var rawCleartextChunkLength: NSNumber? // Known as soon as the decryption key is known
-    @NSManaged private var rawMessageIdOwnedIdentity: Data
-    @NSManaged private var rawMessageIdUid: Data
+    @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
+    @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged var signedURL: URL?
 
     // MARK: Relationships
@@ -70,23 +70,41 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
         set { rawCleartextChunkLength = newValue == nil ? nil : newValue! as NSNumber }
     }
 
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
-        set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
+    /// This identifier is expected to be non nil, unless this `InboxAttachmentChunk` was deleted on another thread.
+    private(set) var messageId: MessageIdentifier? {
+        get {
+            guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
+            guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
+            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+        }
+        set {
+            guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
+            self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity()
+            self.rawMessageIdUid = newValue.uid.raw
+        }
     }
 
-    private(set) var attachmentId: AttachmentIdentifier {
-        get { return AttachmentIdentifier(messageId: self.messageId, attachmentNumber: self.attachmentNumber) }
-        set { self.messageId = newValue.messageId; self.attachmentNumber = newValue.attachmentNumber }
+    /// This identifier is expected to be non nil, unless this `InboxAttachmentChunk` was deleted on another thread.
+    private(set) var attachmentId: AttachmentIdentifier? {
+        get {
+            guard let messageId = self.messageId else { return nil }
+            return AttachmentIdentifier(messageId: messageId, attachmentNumber: self.attachmentNumber)
+        }
+        set {
+            guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
+            self.messageId = newValue.messageId
+            self.attachmentNumber = newValue.attachmentNumber
+        }
     }
 
     // MARK: Initializer
 
     convenience init?(attachment: InboxAttachment, chunkNumber: Int, ciphertextChunkLength: Int) {
         guard let obvContext = attachment.obvContext else { return nil }
+        guard let attachmentId = attachment.attachmentId else { assertionFailure(); return nil }
         let entityDescription = NSEntityDescription.entity(forEntityName: InboxAttachmentChunk.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
-        self.attachmentId = attachment.attachmentId
+        self.attachmentId = attachmentId
         self.chunkNumber = chunkNumber
         self.cleartextChunkWasWrittenToAttachmentFile = false
         self.ciphertextChunkLength = ciphertextChunkLength

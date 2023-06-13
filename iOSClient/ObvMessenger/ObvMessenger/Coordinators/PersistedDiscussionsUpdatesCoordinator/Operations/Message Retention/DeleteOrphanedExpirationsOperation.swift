@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operations deletes all orphaned expirations, i.e., expirations that have no associated message.

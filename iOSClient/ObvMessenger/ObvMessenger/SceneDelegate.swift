@@ -23,6 +23,7 @@ import os.log
 import Intents
 import ObvEngine
 import OlvidUtils
+import ObvUICoreData
 
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, ObvErrorMaker {
@@ -59,6 +60,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
         
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SceneDelegate")
     
+
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
@@ -187,7 +192,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
 
         // If the user successfully authenticated, we want to reset reset the `uptimeAtTheTimeOfChangeoverToNotActiveState` for this scene.
         // Note that if the user successfully authenticated, it means that the app was initialized properly.
-        uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene] = TimeInterval.getUptime()
+        if userSuccessfullyPerformedLocalAuthentication {
+            uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene] = TimeInterval.getUptime()
+        }
 
         userSuccessfullyPerformedLocalAuthentication = false
         shouldAutomaticallyPerformLocalAuthentication = true
@@ -216,6 +223,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
                 await openOlvidURL(url)
             } else if let startCallIntent = userActivity.interaction?.intent as? INStartCallIntent {
                 processINStartCallIntent(startCallIntent: startCallIntent, obvEngine: obvEngine)
+            } else if let sendMessageIntent = userActivity.interaction?.intent as? INSendMessageIntent {
+                processINSendMessageIntent(sendMessageIntent: sendMessageIntent)
             } else {
                 assertionFailure()
             }
@@ -556,6 +565,29 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
                 os_log("📲 Could not parse INStartCallIntent", log: Self.log, type: .fault)
             }
             
+        }
+    }
+
+    
+    private func processINSendMessageIntent(sendMessageIntent: INSendMessageIntent) {
+        os_log("📲 Process INSendMessageIntent", log: Self.log, type: .info)
+
+        guard let handle = sendMessageIntent.recipients?.first?.personHandle?.value else {
+            os_log("📲 Could not get appropriate value of INSendMessageIntent", log: Self.log, type: .error)
+            assertionFailure()
+            return
+        }
+
+        guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(handle) else { assertionFailure(); return }
+
+        ObvStack.shared.performBackgroundTaskAndWait { (context) in
+            guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: objectPermanentID, within: context) else { assertionFailure(); return }
+            guard let ownedCryptoId = contact.ownedIdentity?.cryptoId else { assertionFailure(); return }
+            let deepLink: ObvDeepLink
+            if let oneToOneDiscussion = contact.oneToOneDiscussion {
+                deepLink = .singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: oneToOneDiscussion.discussionPermanentID)
+            } else { assertionFailure(); return }
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
         }
     }
 

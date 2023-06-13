@@ -22,6 +22,7 @@ import LocalAuthentication
 import OlvidUtils
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 
 final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
@@ -49,6 +50,10 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         super.init(style: Self.settingsTableStyle)
 
         observeNotifications()
+    }
+
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     private func observeNotifications() {

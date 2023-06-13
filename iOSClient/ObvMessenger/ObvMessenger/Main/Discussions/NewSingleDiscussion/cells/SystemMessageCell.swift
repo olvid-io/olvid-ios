@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import ObvUI
 import UIKit
+import ObvUICoreData
+import UI_SystemIcon
 
 
 @available(iOS 14.0, *)
@@ -180,7 +182,7 @@ extension SystemMessageCell {
     
     var persistedMessage: PersistedMessage? { message }
     
-    var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
+    public var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { nil }
     var viewForTargetedPreview: UIView { self.contentView }
 

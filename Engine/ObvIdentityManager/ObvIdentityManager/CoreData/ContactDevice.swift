@@ -154,17 +154,15 @@ extension ContactDevice {
 
 extension ContactDevice {
 
-    override func prepareForDeletion() {
-        super.prepareForDeletion()
-        if let contactIdentity = self.contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity {
-            self.contactCryptoIdentityOnDeletion = contactIdentity.cryptoIdentity
-            self.ownedCryptoIdentityOnDeletion = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
-        }
-    }
-    
-    
     override func willSave() {
         super.willSave()
+        
+        if isDeleted {
+            if let contactIdentity = self.contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity {
+                self.contactCryptoIdentityOnDeletion = contactIdentity.cryptoIdentity
+                self.ownedCryptoIdentityOnDeletion = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
+            }
+        }
         
         changedKeys = Set<String>(self.changedValues().keys)
 

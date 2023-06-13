@@ -90,6 +90,8 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
     
     public func replayTransactionsHistory(transactions: [NSPersistentHistoryTransaction], within: ObvContext) {}
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: [MessageIdentifier], flowId: FlowIdentifier) {}
-    
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async {}
+
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo referenceDate: Date, flowId: FlowIdentifier) async {}
+
 }

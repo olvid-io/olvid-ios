@@ -21,6 +21,9 @@ import UIKit
 import os.log
 import CoreData
 import ObvTypes
+import ObvUICoreData
+import ObvUI
+
 
 class ContactsTableViewController: UITableViewController {
     
@@ -135,6 +138,11 @@ class ContactsTableViewController: UITableViewController {
     }
     
     
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+    
     // MARK: Mapping between index paths
     
     private func tvIndexPathFromFrcIndexPath(_ frcIndexPath: IndexPath) -> IndexPath {
@@ -170,8 +178,10 @@ extension ContactsTableViewController {
 
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.tableView.reloadData()
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange {
+            DispatchQueue.main.async {  [weak self] in
+                self?.tableView.reloadData()
+            }
         }
         self.notificationTokens.append(token)
     }

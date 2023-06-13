@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvTypes
 import ObvEngine
 import os.log
+import ObvUICoreData
 
 /// Operation executed when the local user updates a group v2 (as an administrator)
 final class UpdateGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<UpdateGroupV2OperationReasonForCancel> {
@@ -53,7 +54,7 @@ final class UpdateGroupV2Operation: ContextualOperationWithSpecificReasonForCanc
                 // If the changeset contains no specific information about the owned identity, we add the default admin permissions for her
                 let updatedChangeSet: ObvGroupV2.Changeset
                 if !changeset.concernedMembers.contains(try group.ownCryptoId) && !changeset.isEmpty {
-                    updatedChangeSet = try changeset.adding(newChanges: Set([.ownPermissionsChanged(permissions: ObvMessengerConstants.defaultObvGroupV2PermissionsForAdmin)]))
+                    updatedChangeSet = try changeset.adding(newChanges: Set([.ownPermissionsChanged(permissions: ObvUICoreDataConstants.defaultObvGroupV2PermissionsForAdmin)]))
                 } else {
                     updatedChangeSet = changeset
                 }

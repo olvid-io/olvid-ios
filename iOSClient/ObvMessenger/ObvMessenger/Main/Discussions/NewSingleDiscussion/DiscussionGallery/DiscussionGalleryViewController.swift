@@ -22,11 +22,13 @@
 import CoreData
 import MobileCoreServices
 import ObvUI
+import ObvUICoreData
 import OlvidUtils
 import os.log
 import QuickLook
 import UIKit
 import UniformTypeIdentifiers
+import UI_SystemIcon
 
 
 fileprivate enum JoinKind: Int, CaseIterable {
@@ -250,6 +252,10 @@ final class JoinGalleryViewController: UIViewController, NSFetchedResultsControl
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
     
     private enum Section {

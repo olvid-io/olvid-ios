@@ -19,6 +19,8 @@
 
 import UIKit
 import ObvEngine
+import ObvUICoreData
+
 
 // 2020-09-30 Not used for now
 final class CircledInitialsBarButtonItem: UIBarButtonItem {

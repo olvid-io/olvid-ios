@@ -20,6 +20,7 @@
 import Foundation
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 final class ReportEndCallOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -44,6 +45,7 @@ final class ReportEndCallOperation: OperationWithSpecificReasonForCancel<CoreDat
                 if let _item = try PersistedCallLogItem.get(callUUID: callUUID, within: context) {
                     item = _item
                 } else {
+                    assertionFailure("Try to report an ending call that does not exist.")
                     return
                 }
             } catch(let error) {

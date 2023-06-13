@@ -22,13 +22,12 @@ import UserNotifications
 import os.log
 import CoreData
 import ObvTypes
+import ObvUICoreData
 
 
 final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationCenterDelegate.self))
-    
-    private var tokens = [NSObjectProtocol]()
     
     private var requestIdentifiersThatPlayedSound = Set<String>()
     
@@ -37,6 +36,11 @@ final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDe
     private var backgroundTaskIdForWaitingUntilApplicationIconBadgeNumberWasUpdatedNotification: UIBackgroundTaskIdentifier?
     private var notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification: NSObjectProtocol?
 
+    deinit {
+        if let notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification {
+            NotificationCenter.default.removeObserver(notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification)
+        }
+    }
     
 }
 
@@ -251,7 +255,7 @@ extension UserNotificationCenterDelegate {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let completionHandler = { continuation.resume() }
             ObvMessengerInternalNotification.userWantsToUpdateLocalConfigurationOfDiscussion(
-                value: .muteNotificationsDuration(.oneHour),
+                value: .muteNotificationsEndDate(MuteDurationOption.oneHour.endDateFromNow),
                 discussionPermanentID: discussionPermanentID,
                 completionHandler: completionHandler).postOnDispatchQueue()
         }

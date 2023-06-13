@@ -22,8 +22,9 @@ import ObvCrypto
 import ObvTypes
 import OlvidUtils
 
-protocol ProcessRegisteredPushNotificationsDelegate {
-        
-    func process(forIdentity: ObvCryptoIdentity, withDeviceUid: UID, flowId: FlowIdentifier) throws
-
+protocol ServerPushNotificationsDelegate {
+    func registerToPushNotification(_ pushNotification: ObvPushNotificationType, flowId: FlowIdentifier)
+    func processServerPushNotificationsToRegister(ownedCryptoId: ObvCryptoIdentity, pushNotificationType: ObvPushNotificationType.ByteId, flowId: FlowIdentifier) throws
+    func deleteAllServerPushNotificationsOnOwnedIdentityDeletion(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier)
+    func forceRegisteringOfServerPushNotificationsOnBootstrap(flowId: FlowIdentifier)
 }

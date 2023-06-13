@@ -18,6 +18,8 @@
  */
 
 import Foundation
+import ObvUICoreData
+
 
 final class RefreshBadgeForInvitationsOperation: BadgeCounterOperation {
     
@@ -25,10 +27,9 @@ final class RefreshBadgeForInvitationsOperation: BadgeCounterOperation {
         guard !isCancelled else { return }
         ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
             guard let _self = self else { return }
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { _self.cancel();  return }
-            guard let newCount = try? PersistedInvitation.countInvitationsRequiringActionOrWithNotOldStatus(for: persistedObvOwnedIdentity) else { _self.cancel(); return }
+            guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: _self.ownedCryptoId, within: context) else { _self.cancel();  return }
             guard !_self.isCancelled else { return }
-            _self.setCurrentCountForInvitationsBadge(to: newCount)
+            _self.setCurrentCountForInvitationsBadge(to: persistedOwnedIdentity.badgeCountForInvitationsTab)
         }
     }
     

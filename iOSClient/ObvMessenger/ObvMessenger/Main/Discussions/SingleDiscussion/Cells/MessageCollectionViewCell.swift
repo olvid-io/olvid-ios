@@ -21,6 +21,7 @@
 import MobileCoreServices
 import LinkPresentation
 import ObvUI
+import ObvUICoreData
 import UIKit
 
 
@@ -670,7 +671,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
                 } else {
                     replyToLabel.text = CommonString.deletedContact
                 }
-                replyToLabel.textColor = rcvMsg.contactIdentity?.cryptoId.textColor ?? appTheme.colorScheme.secondaryLabel
+                replyToLabel.textColor = rcvMsg.contactIdentity?.cryptoId.colors.text ?? appTheme.colorScheme.secondaryLabel
                 if !rcvMsg.fyleMessageJoinWithStatuses.isEmpty {
                     let numberOfAttachments = rcvMsg.fyleMessageJoinWithStatuses.count
                     replyToFylesLabel.isHidden = false
@@ -678,7 +679,7 @@ class MessageCollectionViewCell: UICollectionViewCell {
                 }
             } else if let sntMsg = repliedMessage as? PersistedMessageSent {
                 replyToLabel.text = sntMsg.discussion.ownedIdentity?.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
-                replyToLabel.textColor = sntMsg.discussion.ownedIdentity?.cryptoId.textColor
+                replyToLabel.textColor = sntMsg.discussion.ownedIdentity?.cryptoId.colors.text
                 if !sntMsg.fyleMessageJoinWithStatuses.isEmpty {
                     let numberOfAttachments = sntMsg.fyleMessageJoinWithStatuses.count
                     replyToFylesLabel.isHidden = false

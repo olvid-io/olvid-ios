@@ -34,6 +34,8 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     public let trustedDetailsAndPhoto: DetailsAndPhoto
     public let publishedDetailsAndPhoto: DetailsAndPhoto?
     public let updateInProgress: Bool
+    public let serializedSharedSettings: String? // non-nil only for keycloak groups
+    public let lastModificationTimestamp: Date? // non-nil only for keycloak groups
 
     public static let errorDomain = "ObvGroupV2"
 
@@ -45,10 +47,12 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         case trustedDetailsAndPhoto = "tdp"
         case publishedDetailsAndPhoto = "pdp"
         case updateInProgress = "uip"
+        case serializedSharedSettings = "sss"
+        case lastModificationTimestamp = "lmt"
         var key: Data { rawValue.data(using: .utf8)! }
     }
 
-    public init(groupIdentifier: Identifier, ownIdentity: ObvCryptoId, ownPermissions: Set<Permission>, otherMembers: Set<IdentityAndPermissionsAndDetails>, trustedDetailsAndPhoto: DetailsAndPhoto, publishedDetailsAndPhoto: DetailsAndPhoto?, updateInProgress: Bool) {
+    public init(groupIdentifier: Identifier, ownIdentity: ObvCryptoId, ownPermissions: Set<Permission>, otherMembers: Set<IdentityAndPermissionsAndDetails>, trustedDetailsAndPhoto: DetailsAndPhoto, publishedDetailsAndPhoto: DetailsAndPhoto?, updateInProgress: Bool, serializedSharedSettings: String?, lastModificationTimestamp: Date?) {
         self.groupIdentifier = groupIdentifier
         self.ownIdentity = ownIdentity
         self.ownPermissions = ownPermissions
@@ -56,10 +60,21 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         self.trustedDetailsAndPhoto = trustedDetailsAndPhoto
         self.publishedDetailsAndPhoto = publishedDetailsAndPhoto
         self.updateInProgress = updateInProgress
+        self.serializedSharedSettings = serializedSharedSettings
+        self.lastModificationTimestamp = lastModificationTimestamp
     }
     
     public var appGroupIdentifier: Data {
         groupIdentifier.appGroupIdentifier
+    }
+    
+    public var keycloakManaged: Bool {
+        switch groupIdentifier.category {
+        case .server:
+            return false
+        case .keycloak:
+            return true
+        }
     }
     
     // ObvCodable
@@ -82,6 +97,10 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                 try obvDict.obvEncodeIfPresent(publishedDetailsAndPhoto, forKey: codingKey)
             case .updateInProgress:
                 try obvDict.obvEncode(updateInProgress, forKey: codingKey)
+            case .serializedSharedSettings:
+                try obvDict.obvEncodeIfPresent(serializedSharedSettings, forKey: codingKey)
+            case .lastModificationTimestamp:
+                try obvDict.obvEncodeIfPresent(lastModificationTimestamp, forKey: codingKey)
             }
         }
         return obvDict.obvEncode()
@@ -98,13 +117,17 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             let trustedDetailsAndPhoto = try obvDict.obvDecode(DetailsAndPhoto.self, forKey: ObvCodingKeys.trustedDetailsAndPhoto)
             let publishedDetailsAndPhoto = try obvDict.obvDecodeIfPresent(DetailsAndPhoto.self, forKey: ObvCodingKeys.publishedDetailsAndPhoto)
             let updateInProgress = try obvDict.obvDecode(Bool.self, forKey: ObvCodingKeys.updateInProgress)
+            let serializedSharedSettings = try obvDict.obvDecodeIfPresent(String.self, forKey: ObvCodingKeys.serializedSharedSettings)
+            let lastModificationTimestamp = try obvDict.obvDecodeIfPresent(Date.self, forKey: ObvCodingKeys.lastModificationTimestamp)
             self.init(groupIdentifier: groupIdentifier,
                       ownIdentity: ownIdentity,
                       ownPermissions: ownPermissions,
                       otherMembers: otherMembers,
                       trustedDetailsAndPhoto: trustedDetailsAndPhoto,
                       publishedDetailsAndPhoto: publishedDetailsAndPhoto,
-                      updateInProgress: updateInProgress)
+                      updateInProgress: updateInProgress,
+                      serializedSharedSettings: serializedSharedSettings,
+                      lastModificationTimestamp: lastModificationTimestamp)
         } catch {
             assertionFailure(error.localizedDescription)
             return nil
@@ -308,6 +331,56 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
 
     }
     
+    
+    // MARK: - KeycloakGroupMemberAndPermissions
+
+    public struct KeycloakGroupMemberAndPermissions: Hashable, ObvCodable {
+            
+        private let identityAndPermissions: IdentityAndPermissions
+        private let signedUserDetails: String
+
+        public init(identity: ObvCryptoId, permissions: Set<Permission>, signedUserDetails: String) {
+            self.identityAndPermissions = IdentityAndPermissions(identity: identity, permissions: permissions)
+            self.signedUserDetails = signedUserDetails
+        }
+
+        private init(identityAndPermissions: IdentityAndPermissions, signedUserDetails: String) {
+            self.identityAndPermissions = identityAndPermissions
+            self.signedUserDetails = signedUserDetails
+        }
+
+        public var identity: ObvCryptoId {
+            identityAndPermissions.identity
+        }
+        
+        public var permissions: Set<Permission> {
+            identityAndPermissions.permissions
+        }
+        
+        // ObvCodable
+        
+        public func obvEncode() -> ObvEncoded {
+            let encodedIdentityAndPermissions = identityAndPermissions.obvEncode()
+            let encodedSignedUserDetails = signedUserDetails.obvEncode()
+            return [encodedIdentityAndPermissions, encodedSignedUserDetails].obvEncode()
+        }
+        
+        public init?(_ obvEncoded: ObvEncoded) {
+            guard let encodedValues = [ObvEncoded](obvEncoded, expectedCount: 2) else { assertionFailure(); return nil }
+            let encodedIdentityAndPermissions = encodedValues[0]
+            let encodedSignedUserDetails = encodedValues[1]
+            guard let identityAndPermissions = IdentityAndPermissions(encodedIdentityAndPermissions) else { assertionFailure(); return nil }
+            guard let signedUserDetails = String(encodedSignedUserDetails) else { assertionFailure(); return nil }
+            self.init(identityAndPermissions: identityAndPermissions, signedUserDetails: signedUserDetails)
+        }
+
+        // Hashable
+
+        // Although we only match the Identity in the (internal) GroupV2 structure, we don't do that here since we need to test a full equality at the ObvDialog level.
+        // We thus keep the synthetized implementation.
+
+    }
+
     
     // MARK: - DetailsAndPhoto
     

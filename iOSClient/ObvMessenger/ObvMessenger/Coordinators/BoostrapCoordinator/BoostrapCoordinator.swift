@@ -24,28 +24,31 @@ import ObvTypes
 import LinkPresentation
 import OlvidUtils
 import ObvEngine
+import ObvUICoreData
 
 
-final class BootstrapCoordinator {
+final class BootstrapCoordinator: ObvErrorMaker {
     
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BootstrapCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
-    private let internalQueue: OperationQueue
+    private let coordinatorsQueue: OperationQueue
+    private let queueForComposedOperations: OperationQueue
 
-    private static let errorDomain = "BootstrapCoordinator"
-    private func makeError(message: String) -> Error { NSError(domain: BootstrapCoordinator.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    static let errorDomain = "BootstrapCoordinator"
 
-    private var bootstrapOnIsInitializedAndActiveWasPerformed = false
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
 
-    init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
         self.obvEngine = obvEngine
-        self.internalQueue = operationQueue
+        self.coordinatorsQueue = coordinatorsQueue
+        self.queueForComposedOperations = queueForComposedOperations
         listenToNotifications()
     }
 
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         if let userDefaults = self.userDefaults {
@@ -73,10 +76,10 @@ final class BootstrapCoordinator {
         // Internal Notifications
 
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observePersistedContactWasInserted() { [weak self] contactPermanentID in
+            ObvMessengerCoreDataNotification.observePersistedContactWasInserted { [weak self] contactPermanentID in
                 self?.processPersistedContactWasInsertedNotification(contactPermanentID: contactPermanentID)
             },
-            ObvMessengerInternalNotification.observeRequestSyncAppDatabasesWithEngine() { [weak self] completion in
+            ObvMessengerInternalNotification.observeRequestSyncAppDatabasesWithEngine { [weak self] completion in
                 self?.processRequestSyncAppDatabasesWithEngine(completion: completion)
             },
         ])
@@ -92,19 +95,18 @@ extension BootstrapCoordinator {
     private func deleteOrphanedPersistedAttachmentSentRecipientInfosOperation() {
         assert(!Thread.isMainThread)
         let op1 = DeleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         composedOp.queuePriority = .veryLow
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func pruneObsoletePersistedInvitations() {
         assert(!Thread.isMainThread)
         let op1 = DeletePersistedInvitationTheCannotBeParsedAnymoreOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryLow
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
@@ -112,20 +114,21 @@ extension BootstrapCoordinator {
     private func autoAcceptPendingGroupInvitesIfPossible() {
         assert(!Thread.isMainThread)
         let op1 = AutoAcceptPendingGroupInvitesIfPossibleOperation(obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryLow
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func deleteOldPendingRepliedTo() {
         assert(!Thread.isMainThread)
         let op1 = DeleteOldPendingRepliedToOperation()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryLow
+        coordinatorsQueue.addOperation(composedOp)
     }
 
+    
     private func removeOldCachedURLMetadata() {
         let dateLimit = Date().addingTimeInterval(TimeInterval(integerLiteral: -ObvMessengerConstants.TTL.cachedURLMetadata))
         LPMetadataProvider.removeCachedURLMetadata(olderThan: dateLimit)
@@ -133,59 +136,50 @@ extension BootstrapCoordinator {
     
 
     private func resyncPersistedInvitationsWithEngine() {
-        assert(OperationQueue.current != internalQueue)
         Task(priority: .utility) {
             do {
                 let obvDialogsFromEngine = try await obvEngine.getAllDialogsWithinEngine()
                 let op1 = SyncPersistedInvitationsWithEngineOperation(obvDialogsFromEngine: obvDialogsFromEngine, obvEngine: obvEngine)
-                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-                composedOp.completionBlock = { composedOp.logReasonIfCancelled(log: Self.log) }
-                internalQueue.addOperation(composedOp)
+                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                composedOp.queuePriority = .veryLow
+                coordinatorsQueue.addOperation(composedOp)
             } catch {
-                os_log("Could not get all the dialog from engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+                os_log("Could not get all the dialog from engine: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             }
         }
     }
 
     
     private func sendUnsentDrafts() {
-        ObvStack.shared.performBackgroundTask { [weak self] context in
-
-            guard let _self = self else { return }
-            
-            let unsentDrafts: [PersistedDraft]
-            do {
-                let _unsentDrafts = try PersistedDraft.getAllUnsent(within: context)
-                unsentDrafts = _unsentDrafts
-            } catch {
-                os_log("Failed to query the Draft DB", log: _self.log, type: .fault)
-                return
-            }
-            
-            if !unsentDrafts.isEmpty {
-                os_log("There is/are %d unsent drafts to send", log: _self.log, type: .debug, unsentDrafts.count)
-                unsentDrafts.forEach { $0.forceResend() }
-            }
-        }
+        let op1 = SendUnsentDraftsOperation()
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryLow
+        coordinatorsQueue.addOperation(composedOp)
     }
 
 
-    private func processRequestSyncAppDatabasesWithEngine(completion: (Result<Void,Error>) -> Void) {
+    private func processRequestSyncAppDatabasesWithEngine(completion: @escaping (Result<Void,Error>) -> Void) {
         assert(!Thread.isMainThread)
         let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
         let op2 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
         let op3 = SyncPersistedContactGroupsWithEngineOperation(obvEngine: obvEngine)
         let op4 = SyncPersistedContactGroupsV2WithEngineOperation(obvEngine: obvEngine)
-        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            let reasonForCancel = composedOp.reasonForCancel ?? makeError(message: "Request sync of app database with engine did fail without specifying a proper reason. This is a bug")
-            assertionFailure()
-            completion(.failure(reasonForCancel))
-        } else {
-            completion(.success(()))
+        let composedOp = createCompositionOfFourContextualOperation(op1: op1, op2: op2, op3: op3, op4: op4)
+        composedOp.queuePriority = .veryLow
+        
+        let blockOp = BlockOperation()
+        blockOp.completionBlock = {
+            if composedOp.isCancelled {
+                let reasonForCancel = composedOp.reasonForCancel ?? Self.makeError(message: "Request sync of app database with engine did fail without specifying a proper reason. This is a bug")
+                assertionFailure()
+                completion(.failure(reasonForCancel))
+            } else {
+                completion(.success(()))
+            }
         }
+        
+        blockOp.addDependency(composedOp)
+        coordinatorsQueue.addOperations([composedOp, blockOp], waitUntilFinished: false)
     }
 
     
@@ -196,9 +190,9 @@ extension BootstrapCoordinator {
          * the list of group members.
          */
         let op1 = SyncPersistedContactGroupsWithEngineOperation(obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryLow
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
@@ -208,6 +202,42 @@ extension BootstrapCoordinator {
         } catch {
             assertionFailure("Could not set capabilities")
         }
+    }
+
+}
+
+
+// MARK: - Helpers
+
+extension BootstrapCoordinator {
+
+    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+
+    
+    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+
+    
+    private func createCompositionOfFourContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType, T4: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>, op4: ContextualOperationWithSpecificReasonForCancel<T4>) -> CompositionOfFourContextualOperations<T1, T2, T3, T4> {
+        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
     }
 
 }

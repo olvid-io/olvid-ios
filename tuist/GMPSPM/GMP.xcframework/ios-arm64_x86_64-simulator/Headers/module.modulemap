@@ -1,0 +1,4 @@
+module gmp [system][extern_c] {
+ header "gmp.h"
+ export *
+}

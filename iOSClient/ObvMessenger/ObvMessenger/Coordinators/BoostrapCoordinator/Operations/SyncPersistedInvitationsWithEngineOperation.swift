@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvEngine
 import os.log
 import ObvTypes
+import ObvUICoreData
 
 
 final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -50,7 +51,7 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
             return cancel(withReason: .contextIsNil)
         }
 
-        let uuidsWithinEngineForOwnedCryptoID: [ObvCryptoId: Set<UUID>] = obvDialogsFromEngine.reduce(into: [ObvCryptoId: Set<UUID>]()) { dict, obvDialog in
+        let uuidsWithinEngineForOwnedCryptoId: [ObvCryptoId: Set<UUID>] = obvDialogsFromEngine.reduce(into: [ObvCryptoId: Set<UUID>]()) { dict, obvDialog in
             if var existingSet = dict[obvDialog.ownedCryptoId] {
                 existingSet.insert(obvDialog.uuid)
                 dict[obvDialog.ownedCryptoId] = existingSet
@@ -61,7 +62,7 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
         
         obvContext.performAndWait {
             
-            for (ownedCryptoId, uuidsWithinEngine) in uuidsWithinEngineForOwnedCryptoID {
+            for (ownedCryptoId, uuidsWithinEngine) in uuidsWithinEngineForOwnedCryptoId {
             
                 // Get the persisted invitations within the app
                 

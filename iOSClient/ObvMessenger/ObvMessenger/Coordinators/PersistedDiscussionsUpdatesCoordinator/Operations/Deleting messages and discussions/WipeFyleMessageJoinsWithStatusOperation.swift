@@ -20,6 +20,7 @@
 
 import Foundation
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation is typically called when the user selects several "attachments" (more precisely, `FyleMessageJoinWithStatus` instances) in the gallery of a discussion, and then requests their deletion. In practice, these joins are wiped.
@@ -99,7 +100,7 @@ final class WipeFyleMessageJoinsWithStatusOperation: ContextualOperationWithSpec
                             let queueForPostingNotifications = self.queueForPostingNotifications
                             try obvContext.addContextDidSaveCompletionHandler { error in
                                 guard error == nil else { return }
-                                ObvMessengerCoreDataNotification.fyleMessageJoinWasWiped(discussionPermanentID: discussionPermanentID,
+                                ObvMessengerInternalNotification.fyleMessageJoinWasWiped(discussionPermanentID: discussionPermanentID,
                                                                                          messagePermanentID: messagePermanentID,
                                                                                          fyleMessageJoinPermanentID: fyleMessageJoinPermanentID)
                                 .postOnDispatchQueue(queueForPostingNotifications)

@@ -21,6 +21,8 @@ import UIKit
 import MobileCoreServices
 import CoreData
 import ObvUI
+import ObvUICoreData
+
 
 final class CollectionOfFylesView: ObvRoundedRectView {
 
@@ -29,7 +31,6 @@ final class CollectionOfFylesView: ObvRoundedRectView {
     let hideProgresses: Bool
 
     private var progressObservationTokens = Set<NSKeyValueObservation>()
-    private var observationTokens = [NSObjectProtocol]()
     
     private let byteCountFormatter = ByteCountFormatter()
     
@@ -61,6 +62,10 @@ final class CollectionOfFylesView: ObvRoundedRectView {
         }
         super.init(frame: CGRect.zero)
         setup()
+    }
+    
+    deinit {
+        progressObservationTokens.forEach({ $0.invalidate() })
     }
     
     private static func thumbnailTypeFor(attachment: FyleMessageJoinWithStatus) -> ThumbnailType {

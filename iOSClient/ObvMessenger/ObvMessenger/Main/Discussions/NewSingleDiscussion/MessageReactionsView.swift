@@ -21,8 +21,10 @@
 import CoreData
 import Foundation
 import ObvUI
+import ObvUICoreData
 import SwiftUI
-
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 final class MessageReactionsListHostingViewController: UIHostingController<MessageReactionsListView>, MessageReactionsListViewModelDelegate {
 
@@ -67,6 +69,10 @@ final fileprivate class MessageReactionsListViewModel: ObservableObject {
         self.messageInViewContext = messageInViewContext
         self.changed = true
         observeReactionsChanges()
+    }
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     var reactions: [MessageReaction] {

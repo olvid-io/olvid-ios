@@ -21,6 +21,7 @@ import Foundation
 import AVFoundation
 import os.log
 import WebRTC
+import ObvUICoreData
 
 enum AudioInputIcon {
     case sf(_: String)

@@ -20,6 +20,7 @@
 import UIKit
 import QuickLookThumbnailing
 import CoreData
+import ObvUICoreData
 
 @available(iOS 14.0, *)
 fileprivate extension AudioPlayerView.Configuration {

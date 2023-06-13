@@ -24,7 +24,8 @@ import ObvEngine
 import CoreData
 import Combine
 import ObvUI
-
+import ObvUICoreData
+import UI_CircledInitialsView_CircledInitialsConfiguration
 
 protocol OwnedIdentityChooserViewControllerDelegate: AnyObject {
     func userUsedTheOwnedIdentityChooserViewControllerToChoose(ownedCryptoId: ObvCryptoId) async
@@ -193,7 +194,7 @@ private struct OwnedIdentityItemView: View {
         let currentOwnedCryptoId: ObvCryptoId
         @Published var title: String
         @Published var subtitle: String
-        @Published var numberOfNewMessages: Int
+        @Published var badgeCountForDiscussionsTab: Int
         @Published var showGreenShield: Bool
         @Published var showRedShield: Bool
         @Published var showHiddenProfileIcon: Bool
@@ -203,12 +204,12 @@ private struct OwnedIdentityItemView: View {
         
         private var cancellable: AnyCancellable?
         
-        init(ownedCryptoId: ObvCryptoId, currentOwnedCryptoId: ObvCryptoId, title: String, subtitle: String, numberOfNewMessages: Int, showGreenShield: Bool, showRedShield: Bool, showHiddenProfileIcon: Bool, circledInitialsConfiguration: CircledInitialsConfiguration) {
+        init(ownedCryptoId: ObvCryptoId, currentOwnedCryptoId: ObvCryptoId, title: String, subtitle: String, badgeCountForDiscussionsTab: Int, showGreenShield: Bool, showRedShield: Bool, showHiddenProfileIcon: Bool, circledInitialsConfiguration: CircledInitialsConfiguration) {
             self.ownedCryptoId = ownedCryptoId
             self.currentOwnedCryptoId = currentOwnedCryptoId
             self.title = title
             self.subtitle = subtitle
-            self.numberOfNewMessages = numberOfNewMessages
+            self.badgeCountForDiscussionsTab = badgeCountForDiscussionsTab
             self.showGreenShield = showGreenShield
             self.showRedShield = showRedShield
             self.showHiddenProfileIcon = showHiddenProfileIcon
@@ -221,7 +222,7 @@ private struct OwnedIdentityItemView: View {
                       currentOwnedCryptoId: currentOwnedCryptoId,
                       title: "",
                       subtitle: "",
-                      numberOfNewMessages: 0,
+                      badgeCountForDiscussionsTab: 0,
                       showGreenShield: false,
                       showRedShield: false,
                       showHiddenProfileIcon: false,
@@ -247,7 +248,7 @@ private struct OwnedIdentityItemView: View {
                 self.title = ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName)
                 self.subtitle = ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.positionAtCompany)
             }
-            self.numberOfNewMessages = ownedIdentity.numberOfNewMessages
+            self.badgeCountForDiscussionsTab = ownedIdentity.badgeCountForDiscussionsTab
             self.showGreenShield = ownedIdentity.circledInitialsConfiguration.showGreenShield
             self.showRedShield = ownedIdentity.circledInitialsConfiguration.showRedShield
             self.showHiddenProfileIcon = ownedIdentity.isHidden
@@ -273,7 +274,7 @@ private struct OwnedIdentityItemView: View {
     
     var body: some View {
         HStack(alignment: .center, spacing: Self.kCircleToTextAreaPadding) {
-            CircledInitialsView(configuration: model.circledInitialsConfiguration, size: .medium)
+            CircledInitialsView(configuration: model.circledInitialsConfiguration, size: .medium, style: ObvMessengerSettings.Interface.identityColorStyle)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(model.title)
@@ -306,8 +307,8 @@ private struct OwnedIdentityItemView: View {
                 Image(systemIcon: .checkmarkCircleFill)
                     .imageScale(.large)
                     .foregroundColor(Color(AppTheme.shared.colorScheme.adaptiveOlvidBlue))
-            } else if model.numberOfNewMessages > 0 {
-                Text(String(model.numberOfNewMessages))
+            } else if model.badgeCountForDiscussionsTab > 0 {
+                Text(String(model.badgeCountForDiscussionsTab))
                     .foregroundColor(.white)
                     .font(.caption)
                     .lineLimit(1)
@@ -346,8 +347,8 @@ struct OwnedIdentityChooserInnerView_Previews: PreviewProvider {
     private static let ownedCryptoIds = identitiesAsURLs.map({ ObvURLIdentity(urlRepresentation: $0)!.cryptoId })
 
     private static let ownedCircledInitialsConfigurations = [
-        CircledInitialsConfiguration.contact(initial: "S", photoURL: nil, showGreenShield: false, showRedShield: false, colors: (UIColor.red, UIColor.blue)),
-        CircledInitialsConfiguration.contact(initial: "T", photoURL: nil, showGreenShield: false, showRedShield: false, colors: (UIColor.purple, UIColor.green)),
+        CircledInitialsConfiguration.contact(initial: "S", photoURL: nil, showGreenShield: false, showRedShield: false, cryptoId: ownedCryptoIds[0], tintAdjustementMode: .normal),
+        CircledInitialsConfiguration.contact(initial: "T", photoURL: nil, showGreenShield: false, showRedShield: false, cryptoId: ownedCryptoIds[1], tintAdjustementMode: .normal),
     ]
 
     private static let models = [
@@ -356,7 +357,7 @@ struct OwnedIdentityChooserInnerView_Previews: PreviewProvider {
             currentOwnedCryptoId: ownedCryptoIds[0],
             title: "Steve Jobs",
             subtitle: "CEO @ Apple",
-            numberOfNewMessages: 2,
+            badgeCountForDiscussionsTab: 2,
             showGreenShield: false,
             showRedShield: false,
             showHiddenProfileIcon: false,
@@ -366,7 +367,7 @@ struct OwnedIdentityChooserInnerView_Previews: PreviewProvider {
             currentOwnedCryptoId: ownedCryptoIds[0],
             title: "Tim Cooks",
             subtitle: "",
-            numberOfNewMessages: 2,
+            badgeCountForDiscussionsTab: 2,
             showGreenShield: false,
             showRedShield: false,
             showHiddenProfileIcon: false,

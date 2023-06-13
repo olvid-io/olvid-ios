@@ -19,8 +19,11 @@
 
 import CoreData
 import ObvUI
+import ObvUICoreData
 import ObvTypes
 import SwiftUI
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 struct MessageMetadatasSectionView: View {

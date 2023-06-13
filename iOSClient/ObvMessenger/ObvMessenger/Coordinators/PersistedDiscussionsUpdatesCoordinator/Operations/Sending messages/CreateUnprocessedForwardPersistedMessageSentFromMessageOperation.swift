@@ -22,6 +22,7 @@ import Foundation
 import os.log
 import CoreData
 import OlvidUtils
+import ObvUICoreData
 
 
 final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
@@ -71,7 +72,16 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
                 }
 
                 // Create message to send
-                let persistedMessageSent = try PersistedMessageSent(body: messageToForward.textBody, replyTo: nil, fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: forwarded)
+                let persistedMessageSent = try PersistedMessageSent(
+                    body: messageToForward.textBody,
+                    replyTo: nil,
+                    fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [],
+                    discussion: discussion,
+                    readOnce: false,
+                    visibilityDuration: nil,
+                    existenceDuration: nil,
+                    forwarded: forwarded,
+                    mentions: messageToForward.mentions.compactMap({ try? $0.userMention }))
 
                 self.messageSentPermanentID = persistedMessageSent.objectPermanentID
 

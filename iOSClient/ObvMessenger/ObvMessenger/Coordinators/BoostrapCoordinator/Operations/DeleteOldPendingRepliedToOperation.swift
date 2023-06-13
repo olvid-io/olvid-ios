@@ -21,6 +21,8 @@
 import Foundation
 import OlvidUtils
 import os.log
+import ObvUICoreData
+
 
 final class DeleteOldPendingRepliedToOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 

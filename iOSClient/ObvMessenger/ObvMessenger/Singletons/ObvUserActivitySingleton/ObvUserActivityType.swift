@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import ObvTypes
+import ObvUICoreData
 
 enum ObvUserActivityType: CustomDebugStringConvertible, Equatable {
         

@@ -64,6 +64,7 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
         case couldNotUpdateProtocolState
         case couldNotSaveContext
         case couldNotDetermineTheAssociatedOwnedIdentity
+        case couldNotDeleteReceivedMessage
         
         var description: String {
             switch self {
@@ -78,6 +79,7 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
             case .couldNotUpdateProtocolState: return "couldNotUpdateProtocolState"
             case .couldNotSaveContext: return "couldNotSaveContext"
             case .couldNotDetermineTheAssociatedOwnedIdentity: return "couldNotDetermineTheAssociatedOwnedIdentity"
+            case .couldNotDeleteReceivedMessage: return "Could not delete ReceivedMessage instance"
             }
         }
     }
@@ -179,9 +181,15 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
             }
             
             // MARK: Since the operation succesfully processed the protocol message, we can delete it
-            
-            obvContext.delete(message)
-            
+
+            do {
+                try message.deleteReceivedMessage()
+            } catch {
+                assertionFailure()
+                _self.cancelAndFinish(forReason: .couldNotSaveContext)
+                return
+            }
+
             // MARK: Saving the context
             
             do {

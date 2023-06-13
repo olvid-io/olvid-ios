@@ -21,12 +21,17 @@ import Foundation
 import UIKit
 import ObvTypes
 import ObvUI
+import ObvUICoreData
+import UI_SystemIcon
 
-struct ObvMessengerConstants {
+enum ObvMessengerConstants {
     
     static let logSubsystem = "io.olvid.messenger"
         
-    static let developmentMode = Bool(Bundle.main.infoDictionary!["OBV_DEVELOPMENT_MODE"]! as! String)!
+    static var developmentMode: Bool {
+        ObvUICoreDataConstants.developmentMode
+    }
+
     static let isTestFlight = Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
     
     static let appGroupIdentifier = Bundle.main.infoDictionary!["OBV_APP_GROUP_IDENTIFIER"]! as! String
@@ -76,8 +81,8 @@ struct ObvMessengerConstants {
     static let iTunesOlvidIdentifier = NSNumber(value: 1414865219) // Found via https://tools.applemediaservices.com
     static let shortLinkToOlvidAppIniTunes = URL(string: "https://apple.co/3lrdOUV")!
     
-    static let minimumLengthOfPasswordForHiddenProfiles = 4
-    static let seedLengthForHiddenProfiles = 8
+    static let minimumLengthOfPasswordForHiddenProfiles = ObvUICoreDataConstants.minimumLengthOfPasswordForHiddenProfiles
+    
 
     static var isRunningOnRealDevice: Bool {
         #if targetEnvironment(simulator)
@@ -87,85 +92,25 @@ struct ObvMessengerConstants {
         #endif
     }
 
-    enum AppType {
-        case mainApp
-        case shareExtension
-        case notificationExtension
-
-        var pathComponent: String {
-            switch self {
-            case .mainApp: return "MainApp"
-            case .shareExtension: return "ShareExtension"
-            case .notificationExtension: return "NotificationExtension"
-            }
-        }
-        
-        public var transactionAuthor: String {
-            switch self {
-            case .mainApp: return "mainApp"
-            case .shareExtension: return "shareExtension"
-            case .notificationExtension: return "notificationExtension"
-            }
-        }
-    }
+    /// Helper indicating if remote notifications are available or not
+    ///
+    /// Enabled for:
+    ///   - physical devices
+    ///   - Mx (i.e. Apple Silicon) Simulators
+    ///
+    /// - Remark: Intel Macs with T2 chips can receive push notifications, however there is no way to distinguish them at build time
+    static let areRemoteNotificationsAvailable: Bool = {
+        #if targetEnvironment(simulator) && arch(x86_64)
+            return false
+        #else
+            return true
+        #endif
+    }()
     
     struct TTL {
         static let cachedURLMetadata: Int64 = 60*60*24*2 // 2 days
     }
-    
-    // Any URL added to this struct will be automatically created at app launched using the `FileSystemService`
-    struct ContainerURL {
-        let mainAppContainer: URL
-        let mainEngineContainer: URL
-        let forDatabase: URL
-        let forFyles: URL
-        let forDocuments: URL
-        let forTempFiles: URL
-        let forMessagesDecryptedWithinNotificationExtension: URL
-        let forCache: URL
-        let forTrash: URL
-        let forDisplayableLogs: URL
-        let forCustomContactProfilePictures: URL
-        let forCustomGroupProfilePictures: URL
-        let forNotificationAttachments: URL
-        init() {
-            let securityApplicationGroupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)!
-            let mainAppContainer = securityApplicationGroupURL.appendingPathComponent("Application", isDirectory: true)
-            self.mainAppContainer = mainAppContainer
-            self.mainEngineContainer = securityApplicationGroupURL.appendingPathComponent("Engine", isDirectory: true)
-            self.forDatabase = mainAppContainer.appendingPathComponent("Database", isDirectory: true)
-            self.forFyles = mainAppContainer.appendingPathComponent("Fyles", isDirectory: true)
-            self.forDocuments = try! FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            self.forTempFiles = FileManager.default.temporaryDirectory
-            self.forMessagesDecryptedWithinNotificationExtension = securityApplicationGroupURL.appendingPathComponent("MessagesDecryptedWithinNotificationExtension", isDirectory: true)
-            self.forCache = mainAppContainer.appendingPathComponent("Cache", isDirectory: true)
-            self.forTrash = mainAppContainer.appendingPathComponent("Trash", isDirectory: true)
-            self.forDisplayableLogs = mainAppContainer.appendingPathComponent("DisplayableLogs", isDirectory: true)
-            self.forCustomContactProfilePictures = mainAppContainer.appendingPathComponent("CustomContactProfilePictures", isDirectory: true)
-            self.forCustomGroupProfilePictures = mainAppContainer.appendingPathComponent("CustomGroupProfilePictures", isDirectory: true)
-            self.forNotificationAttachments = securityApplicationGroupURL.appendingPathComponent("NotificationAttachments", isDirectory: true)
-        }
         
-        func forFylesHardlinks(within appType: AppType) -> URL {
-            return mainAppContainer.appendingPathComponent("FylesHardLinks", isDirectory: true).appendingPathComponent(appType.pathComponent, isDirectory: true)
-        }
-        
-        func forThumbnails(within appType: AppType) -> URL {
-            return mainAppContainer.appendingPathComponent("Thumbnails", isDirectory: true).appendingPathComponent(appType.pathComponent, isDirectory: true)
-        }
-        
-        func forLastPersistentHistoryToken(within appType: AppType) -> URL {
-            return mainAppContainer.appendingPathComponent("LastPersistentHistoryToken", isDirectory: true).appendingPathComponent(appType.pathComponent, isDirectory: true)
-        }
-
-        /// Used, in particular, to store group pictures during the creation process
-        var forProfilePicturesCache: URL {
-            ObvMessengerConstants.containerURL.forCache.appendingPathComponent("ProfilePicture", isDirectory: true)
-        }
-        
-    }
-    static let containerURL = ContainerURL()
-    
     // WebRTC
     
     struct ICEServerURLs {
@@ -214,16 +159,7 @@ struct ObvMessengerConstants {
 
     // Notifications
     
-    static let requestIdentifiersOfSilentNotificationsAddedByExtension = "requestIdentifiersOfSilentNotificationsAddedByExtension"
     static let requestIdentifiersOfFullNotificationsAddedByExtension = "requestIdentifiersOfFullNotificationsAddedByExtension"
-
-    // Keys of userDefault properties shared between app and extensions
-
-    enum SharedUserDefaultsKey: String {
-        case objectsModifiedByShareExtension = "objectsModifiedByShareExtension"
-        case extensionFailedToWipeAllEphemeralMessagesBeforeDate = "extensionFailedToWipeAllEphemeralMessagesBeforeDate"
-        case latestCurrentOwnedIdentity = "latestCurrentOwnedIdentity"
-    }
 
     // Capabilities
     
@@ -231,18 +167,4 @@ struct ObvMessengerConstants {
         [.webrtcContinuousICE, .oneToOneContacts, .groupsV2]
     }()
     
-    // Groups V2
-    
-    static let defaultObvGroupV2PermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
-        Set([
-            ObvGroupV2.Permission.sendMessage,
-            ObvGroupV2.Permission.remoteDeleteAnything,
-            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
-        ])
-    }()
-
-    static let defaultObvGroupV2PermissionsForAdmin: Set<ObvGroupV2.Permission> = {
-        Set(ObvGroupV2.Permission.allCases)
-    }()
-
 }

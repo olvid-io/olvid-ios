@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import ObvUI
 
 
 class LocalAuthenticationViewController: UIViewController {
@@ -40,7 +41,6 @@ class LocalAuthenticationViewController: UIViewController {
     }
     
     private var authenticationStatus = AuthenticationStatus.initial
-    private var observationTokens = [NSObjectProtocol]()
     private var explanationLabel = UILabel()
     private let authenticateButton = ObvImageButton()
     private var lockoutTimer: Timer?

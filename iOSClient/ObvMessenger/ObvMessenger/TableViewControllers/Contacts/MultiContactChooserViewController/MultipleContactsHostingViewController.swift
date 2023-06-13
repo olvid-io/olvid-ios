@@ -23,7 +23,10 @@ import os.log
 import ObvEngine
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 import SwiftUI
+import UI_SystemIcon
+import UI_SystemIcon_SwiftUI
 
 
 final class MultipleContactsHostingViewController: UIHostingController<ContactsView>, ContactsViewStoreDelegate {
@@ -456,11 +459,9 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     }
 
     deinit {
-        for token in notificationTokens {
-            NotificationCenter.default.removeObserver(token)
-        }
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
-    
+
     /// This method allows to make sure that the contacts are properly sorted. It is only required for long list of contacts.
     /// Indeed, when the list is short, the change on the sort key performed by the sorting operations forces the request to update
     /// the loaded contacts and thus to display these contacts in the appropriate order. But with a long list of contact this is not enough.
@@ -678,18 +679,17 @@ fileprivate struct ContactsScrollingView: View {
 
     
     var body: some View {
-        if fetchRequest.wrappedValue.isEmpty {
-            if let textAboveContactList {
-                List {
-                    TextAboveContactListView(textAboveContactList: textAboveContactList)
+        ZStack {
+            if fetchRequest.wrappedValue.isEmpty {
+                VStack {
+                    if let textAboveContactList {
+                        List {
+                            TextAboveContactListView(textAboveContactList: textAboveContactList)
+                        }
+                    }
+                    Spacer()
                 }
-            }
-            Spacer()
-            if let floatingButtonModel = floatingButtonModel {
-                FloatingButtonView(model: floatingButtonModel)
-            }
-        } else {
-            ZStack {
+            } else {
                 if #available(iOS 14.0, *) {
                     ScrollViewReader { scrollViewProxy in
                         innerView
@@ -711,9 +711,9 @@ fileprivate struct ContactsScrollingView: View {
                 } else {
                     innerView
                 }
-                if let floatingButtonModel = floatingButtonModel {
-                    FloatingButtonView(model: floatingButtonModel)
-                }
+            }
+            if let floatingButtonModel {
+                FloatingButtonView(model: floatingButtonModel)
             }
         }
     }

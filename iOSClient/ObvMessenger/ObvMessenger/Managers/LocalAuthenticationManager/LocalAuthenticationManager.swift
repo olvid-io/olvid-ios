@@ -21,6 +21,8 @@
 import Foundation
 import ObvCrypto
 import LocalAuthentication
+import UIKit
+import ObvUICoreData
 
 enum VerifyPasscodeResult {
     case valid
@@ -139,7 +141,7 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         if ObvMessengerSettings.Privacy.userHasBeenLockedOut {
             // The app or an extension has been locked, we want to be sure to restart authentification regardless of the grace period. UserHasBeenLockedOut holds util next authentication.
             userIsAlreadyAuthenticated = false
-        } else if let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveState {
+        } else if let uptimeAtTheTimeOfChangeoverToNotActiveState {
             let timeIntervalSinceLastChangeoverToNotActiveState = TimeInterval.getUptime() - uptimeAtTheTimeOfChangeoverToNotActiveState
             assert(0 <= timeIntervalSinceLastChangeoverToNotActiveState)
             userIsAlreadyAuthenticated = (timeIntervalSinceLastChangeoverToNotActiveState < ObvMessengerSettings.Privacy.lockScreenGracePeriod)

@@ -21,6 +21,7 @@ import UIKit
 import os.log
 import ObvEngine
 import ObvTypes
+import ObvUICoreData
 
 
 final class ContactsFlowViewController: UINavigationController, ObvFlowController {
@@ -56,6 +57,12 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
 
     }
     
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+    
+
     override var delegate: UINavigationControllerDelegate? {
         get {
             super.delegate
@@ -90,7 +97,7 @@ extension ContactsFlowViewController {
         appearance.configureWithOpaqueBackground()
         navigationBar.standardAppearance = appearance
         
-        observePersistedGroupV2WasDeletedNotifications()
+        observeNotificationsImpactingTheNavigationStack()
 
     }
     

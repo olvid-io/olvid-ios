@@ -20,6 +20,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import Combine
+import ObvUICoreData
+import ObvUI
 
 @available(iOS 15.0, *)
 final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerView>, EmojiPickerViewModelDelegate {
@@ -746,6 +748,7 @@ struct EmojiPickerInnerView: View {
                                                                                     emojisCount: variants.count + 1, // + 1 is for `emoji`
                                                                                     positions: positions) {
                         let emojisToShow = [emoji] + variants
+
                         ZStack {
                             /// Show a comics like arrow above the selected emojis
                             Rectangle()

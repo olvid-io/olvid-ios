@@ -24,6 +24,7 @@ import ObvEngine
 import ObvTypes
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
 
 
 /// This method is typically called when we receive a request to delete some messages by a contact willing to globally delete these messages
@@ -149,43 +150,37 @@ final class WipeMessagesOperation: ContextualOperationWithSpecificReasonForCance
             
             // Wipe each message and notify on context change
             
-            let discussionPermanentID = discussion.discussionPermanentID
-            var messagePermanentIDs = Set<ObvManagedObjectPermanentID<PersistedMessage>>()
-
-            var objectIDOfWipedMessages = Set<TypeSafeManagedObjectID<PersistedMessage>>()
+            var infos = [InfoAboutWipedOrDeletedPersistedMessage]()
             
             for message in sentMessagesToWipe {
-                messagePermanentIDs.insert(message.messagePermanentID)
                 let requesterOfDeletion = RequesterOfMessageDeletion.contact(ownedCryptoId: ownedIdentity.cryptoId,
                                                                              contactCryptoId: contact.cryptoId,
                                                                              messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                try? message.wipe(requester: requesterOfDeletion)
-                objectIDOfWipedMessages.insert(message.typedObjectID.downcast)
+                if let info = try? message.wipeOrDelete(requester: requesterOfDeletion) {
+                    infos.append(info)
+                }
             }
             
             for message in receivedMessagesToWipe {
-                messagePermanentIDs.insert(message.messagePermanentID)
-                try? message.wipeByContact(ownedCryptoId: ownedIdentity.cryptoId,
-                                           contactCryptoId: contact.cryptoId,
-                                           messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                objectIDOfWipedMessages.insert(message.typedObjectID.downcast)
+                if let info = try? message.wipeByContact(ownedCryptoId: ownedIdentity.cryptoId,
+                                                         contactCryptoId: contact.cryptoId,
+                                                         messageUploadTimestampFromServer: messageUploadTimestampFromServer) {
+                    infos.append(info)
+                }
             }
             
+            // We notify on context save
+            
             do {
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    ObvMessengerCoreDataNotification.persistedMessagesWereWiped(discussionPermanentID: discussionPermanentID, messagePermanentIDs: messagePermanentIDs)
-                        .postOnDispatchQueue()
-                    // The view context should refresh the wiped messages and the messages that are replies to these wiped messages
-                    DispatchQueue.main.async {
-                        let registeredMessages = ObvStack.shared.viewContext.registeredObjects.compactMap({ $0 as? PersistedMessage })
-                        for message in registeredMessages {
-                            if objectIDOfWipedMessages.contains(message.typedObjectID) {
-                                ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
-                            } else if let reply = message.rawMessageRepliedTo, objectIDOfWipedMessages.contains(reply.typedObjectID) {
-                                ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
-                            }
-                        }
+                if let viewContext, !infos.isEmpty {
+                    try obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        // We wiped/deleted some persisted messages. We notify about that.
+                        
+                        InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
+                        
+                        // Refresh objects in the view context
+                        InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
                     }
                 }
             } catch {

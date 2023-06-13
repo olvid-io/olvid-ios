@@ -43,7 +43,7 @@ public struct ObvGenericIdentity: ObvIdentity {
         self.currentIdentityDetails = ObvIdentityDetails(coreDetails: currentCoreIdentityDetails, photoURL: nil)
     }
     
-    init?(userDetails: UserDetails) {
+    init?(userDetails: ObvKeycloakUserDetails) {
         guard let identity = userDetails.identity else { return nil }
         guard let cryptoId = try? ObvCryptoId(identity: identity) else { return nil }
         guard let coreDetails = try? userDetails.getCoreDetails() else { return nil }

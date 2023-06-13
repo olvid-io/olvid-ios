@@ -21,6 +21,7 @@
 import Foundation
 import OlvidUtils
 import os.log
+import ObvUICoreData
 
 
 final class DeleteOrphanedPersistedAttachmentSentRecipientInfosOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

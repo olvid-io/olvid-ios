@@ -21,11 +21,16 @@ import Foundation
 import ObvEncoder
 import ObvCrypto
 
-public enum ObvPushNotificationType: CustomDebugStringConvertible, ObvEncodable {
+
+public enum ObvPushNotificationType: Equatable, CustomDebugStringConvertible {
     
-    case remote(pushToken: Data, voipToken: Data?, maskingUID: UID, parameters: ObvPushNotificationParameters)
-    case polling(pollingInterval: TimeInterval)
-    case registerDeviceUid(parameters: ObvPushNotificationParameters) // Used by the simulator
+    case remote(ownedCryptoId: ObvCryptoIdentity, currentDeviceUID: UID, pushToken: Data, voipToken: Data?, maskingUID: UID, parameters: ObvPushNotificationParameters)
+    case registerDeviceUid(ownedCryptoId: ObvCryptoIdentity, currentDeviceUID: UID, parameters: ObvPushNotificationParameters) // Used by the simulator
+    
+    public enum ByteId: UInt8, CaseIterable {
+        case remote = 0x00 // For iOS (the code is 0x01 for Android)
+        case registerDeviceUid = 0xff // Was 0x01 in earlier versions. This byte is changed to 0xff before being transmitted to the server
+    }
     
     // Server side: three types,
     // - push notification Android 0x01
@@ -33,164 +38,123 @@ public enum ObvPushNotificationType: CustomDebugStringConvertible, ObvEncodable 
     // - push notification iOS sandbox with extension 0x04
     // - push notification none 0xff
     // The bytes on the server side have nothing to do with the following bytes, which are only used internally.
-    public var byteId: UInt8 {
+    public var byteId: ByteId {
         switch self {
         case .remote:
-            return 0x00 // For iOS (the code is 0x01 for Android)
-        case .polling:
-            return 0xff
+            return ByteId.remote
         case .registerDeviceUid:
-            return 0x01 // This byte is changed to 0xff before being transmitted to the server
+            return ByteId.registerDeviceUid
         }
     }
-
-    public var isPolling: Bool {
-        return self.byteId == 0xff
+    
+    public var ownedCryptoId: ObvCryptoIdentity {
+        switch self {
+        case .remote(let ownedCryptoId, _, _, _, _, _):
+            return ownedCryptoId
+        case .registerDeviceUid(let ownedCryptoId, _, _):
+            return ownedCryptoId
+        }
+    }
+    
+    public var currentDeviceUID: UID {
+        switch self {
+        case .remote(_, let currentDeviceUID, _, _, _, _):
+            return currentDeviceUID
+        case .registerDeviceUid(_, let currentDeviceUID, _):
+            return currentDeviceUID
+        }
+    }
+    
+    public var kickOtherDevices: Bool {
+        switch self {
+        case .remote(_, _, _, _, _, let parameters):
+            return parameters.kickOtherDevices
+        case .registerDeviceUid(_, _, let parameters):
+            return parameters.kickOtherDevices
+        }
     }
 
     public func hasSameType(than other: ObvPushNotificationType) -> Bool {
         return self.byteId == other.byteId
     }
     
-    public func isEqual(to other: ObvPushNotificationType) -> Bool {
-        switch self {
-        case .remote(pushToken: let deviceToken, voipToken: let voipToken, maskingUID: _, parameters: let parameters):
-            switch other {
-            case .remote(pushToken: let otherDeviceToken, voipToken: let otherVoipToken, maskingUID: _, parameters: let otherParameters):
-                return deviceToken == otherDeviceToken && voipToken == otherVoipToken && parameters.useMultiDevice == otherParameters.useMultiDevice
+    
+    public static func == (lhs: ObvPushNotificationType, rhs: ObvPushNotificationType) -> Bool {
+        switch lhs {
+        case .remote(ownedCryptoId: let ownedCryptoId, currentDeviceUID: let currentDeviceUID, pushToken: let deviceToken, voipToken: let voipToken, maskingUID: let maskingUID, parameters: let parameters):
+            switch rhs {
+            case .remote(ownedCryptoId: let otherOwnedCryptoId, currentDeviceUID: let otherCurrentDeviceUID, pushToken: let otherDeviceToken, voipToken: let otherVoipToken, maskingUID: let otherMaskingUID, parameters: let otherParameters):
+                return ownedCryptoId == otherOwnedCryptoId && currentDeviceUID == otherCurrentDeviceUID && deviceToken == otherDeviceToken && voipToken == otherVoipToken && maskingUID == otherMaskingUID && parameters == otherParameters
             default:
                 return false
             }
-        case .polling(let selfInterval):
-            switch other {
-            case .polling(let otherInterval):
-                return selfInterval == otherInterval
+        case .registerDeviceUid(ownedCryptoId: let ownedCryptoId, currentDeviceUID: let currentDeviceUID, parameters: let parameters):
+            switch rhs {
+            case .registerDeviceUid(ownedCryptoId: let otherOwnedCryptoId, currentDeviceUID: let otherCurrentDeviceUID, parameters: let otherParameters):
+                return ownedCryptoId == otherOwnedCryptoId && currentDeviceUID == otherCurrentDeviceUID && parameters == otherParameters
             default:
                 return false
             }
-        case .registerDeviceUid(parameters: let parameters):
-            switch other {
-            case .registerDeviceUid(parameters: let otherParameters):
-                return parameters.useMultiDevice == otherParameters.useMultiDevice
-            default:
-                return false
-            }
-        }
-    }
-    
-    // ObvCodable
-    
-    public func obvEncode() -> ObvEncoded {
-        switch self {
-        case .remote(pushToken: let pushToken, voipToken: let voipToken, maskingUID: let maskingUID, parameters: let parameters):
-            if let _voipToken = voipToken {
-                return [Data([byteId]).obvEncode(), pushToken.obvEncode(), _voipToken.obvEncode(), maskingUID.obvEncode(), parameters.obvEncode()].obvEncode()
-            } else {
-                return [Data([byteId]).obvEncode(), pushToken.obvEncode(), maskingUID.obvEncode(), parameters.obvEncode()].obvEncode()
-            }
-        case .polling(let pollingInterval):
-            return [Data([byteId]).obvEncode(), Int(pollingInterval).obvEncode()].obvEncode()
-        case .registerDeviceUid(parameters: let parameters):
-            return [Data([byteId]).obvEncode(), parameters.obvEncode()].obvEncode()
-        }
-    }
-    
-    public static func decode(_ obvEncoded: ObvEncoded) -> ObvPushNotificationType? {
-        guard let decodedList = [ObvEncoded](obvEncoded) else {
-            assertionFailure()
-            return nil
-        }
-        guard let encodedByteId = decodedList.first else {
-            assertionFailure()
-            return nil
-        }
-        guard let byteIdAsData = Data(encodedByteId) else {
-            assertionFailure()
-            return nil
-        }
-        guard byteIdAsData.count == 1 else {
-            assertionFailure()
-            return nil
-        }
-        let byteId: UInt8 = byteIdAsData.first!
-        
-        switch byteId {
-        case 0x00:
-            if decodedList.count == 4 {
-                guard let pushToken = Data(decodedList[1]) else { assertionFailure(); return nil }
-                guard let maskingUID = UID(decodedList[2]) else { assertionFailure(); return nil }
-                guard let parameters = ObvPushNotificationParameters.decode(decodedList[3]) else { assertionFailure(); return nil }
-                return .remote(pushToken: pushToken, voipToken: nil, maskingUID: maskingUID, parameters: parameters)
-            } else if decodedList.count == 5 {
-                guard let pushToken = Data(decodedList[1]) else { assertionFailure(); return nil }
-                guard let voipToken = Data(decodedList[2]) else { assertionFailure(); return nil }
-                guard let maskingUID = UID(decodedList[3]) else { assertionFailure(); return nil }
-                guard let parameters = ObvPushNotificationParameters.decode(decodedList[4]) else { assertionFailure(); return nil }
-                return .remote(pushToken: pushToken, voipToken: voipToken, maskingUID: maskingUID, parameters: parameters)
-            } else {
-                return nil
-            }
-        case 0xff:
-            guard decodedList.count == 2 else { return nil }
-            guard let pollingInterval = Int(decodedList[1]) else { assertionFailure(); return nil }
-            return ObvPushNotificationType.polling(pollingInterval: TimeInterval(pollingInterval))
-        case 0x01:
-            guard decodedList.count == 2 else { return nil }
-            guard let parameters = ObvPushNotificationParameters.decode(decodedList[1]) else { assertionFailure(); return nil }
-            return ObvPushNotificationType.registerDeviceUid(parameters: parameters)
-        default:
-            assertionFailure()
-            return nil
         }
     }
 
     
+    public func withUpdatedKeycloakPushTopics(_ newKeycloakPushTopics: Set<String>) -> ObvPushNotificationType {
+        switch self {
+        case .remote(let ownedCryptoId, let currentDeviceUID, let pushToken, let voipToken, let maskingUID, let parameters):
+            return .remote(
+                ownedCryptoId: ownedCryptoId,
+                currentDeviceUID: currentDeviceUID,
+                pushToken: pushToken,
+                voipToken: voipToken,
+                maskingUID: maskingUID,
+                parameters: parameters.withUpdatedKeycloakPushTopics(newKeycloakPushTopics))
+        case .registerDeviceUid(let ownedCryptoId, let currentDeviceUID, let parameters):
+            return .registerDeviceUid(
+                ownedCryptoId: ownedCryptoId,
+                currentDeviceUID: currentDeviceUID,
+                parameters: parameters.withUpdatedKeycloakPushTopics(newKeycloakPushTopics))
+        }
+    }
+
 }
 
+
 // MARK: - CustomDebugStringConvertible
+
 public extension ObvPushNotificationType {
 
     var debugDescription: String {
         switch self {
-        case .polling(pollingInterval: let timeInterval):
-            return "ObvPushNotificationType<Polling, timeInterval: \(timeInterval)>"
-        case .remote(pushToken: let pushToken, voipToken: let voipToken, maskingUID: let maskingUID, parameters: let parameters):
-            return "ObvPushNotificationType<Remote, token: \(pushToken.hexString()), voipToken: \(String(describing: voipToken?.hexString())) maskingUID: \(maskingUID.hexString()), parameters: (\(parameters.debugDescription))>"
-        case .registerDeviceUid(parameters: let parameters):
-            return "ObvPushNotificationType<RegisterDeviceUid, parameters: (\(parameters.debugDescription))>"
+        case .remote(ownedCryptoId: let ownedCryptoId, currentDeviceUID: let currentDeviceUID, pushToken: let pushToken, voipToken: let voipToken, maskingUID: let maskingUID, parameters: let parameters):
+            return "ObvPushNotificationType<Remote, ownedCryptoId: \(ownedCryptoId.debugDescription), currentDeviceUID: \(currentDeviceUID.debugDescription), token: \(pushToken.hexString()), voipToken: \(String(describing: voipToken?.hexString())) maskingUID: \(maskingUID.hexString()), parameters: (\(parameters.debugDescription))>"
+        case .registerDeviceUid(ownedCryptoId: let ownedCryptoId, currentDeviceUID: let currentDeviceUID, parameters: let parameters):
+            return "ObvPushNotificationType<RegisterDeviceUid, ownedCryptoId: \(ownedCryptoId.debugDescription), currentDeviceUID: \(currentDeviceUID.debugDescription), parameters: (\(parameters.debugDescription))>"
         }
     }
 
 }
 
 
-public struct ObvPushNotificationParameters: CustomDebugStringConvertible, ObvEncodable {
+public struct ObvPushNotificationParameters: Equatable, CustomDebugStringConvertible {
 
     public let kickOtherDevices: Bool
     public let useMultiDevice: Bool
+    public let keycloakPushTopics: Set<String>
 
-    public init(kickOtherDevices: Bool, useMultiDevice: Bool) {
+    public init(kickOtherDevices: Bool, useMultiDevice: Bool, keycloakPushTopics: Set<String>) {
         self.kickOtherDevices = kickOtherDevices
         self.useMultiDevice = useMultiDevice
+        self.keycloakPushTopics = keycloakPushTopics
     }
 
 
     public var debugDescription: String {
-        return "kickOtherDevices: \(kickOtherDevices), useMultiDevice: \(useMultiDevice)"
-    }
-
-    // ObvCodable
-    
-    public func obvEncode() -> ObvEncoded {
-        return [kickOtherDevices, useMultiDevice].obvEncode()
+        return "kickOtherDevices: \(kickOtherDevices), useMultiDevice: \(useMultiDevice), keycloakPushTopics: \(keycloakPushTopics.joined(separator: ", "))"
     }
     
-    public static func decode(_ obvEncoded: ObvEncoded) -> ObvPushNotificationParameters? {
-        guard let decodedList = [ObvEncoded](obvEncoded) else { return nil }
-        guard decodedList.count == 2 else { assertionFailure(); return nil }
-        guard let kickOtherDevices = Bool(decodedList[0]) else { assertionFailure(); return nil }
-        guard let useMultiDevice = Bool(decodedList[1]) else { assertionFailure(); return nil }
-        return self.init(kickOtherDevices: kickOtherDevices, useMultiDevice: useMultiDevice)
+    func withUpdatedKeycloakPushTopics(_ newKeycloakPushTopics: Set<String>) -> ObvPushNotificationParameters {
+        return ObvPushNotificationParameters(kickOtherDevices: kickOtherDevices, useMultiDevice: useMultiDevice, keycloakPushTopics: newKeycloakPushTopics)
     }
 
 }

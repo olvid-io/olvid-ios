@@ -22,6 +22,7 @@ import Foundation
 import ObvEngine
 import os.log
 import CloudKit
+import ObvUICoreData
 
 
 final actor AppManagersHolder {
@@ -74,8 +75,8 @@ final actor AppManagersHolder {
         self.userNotificationsManager = userNotificationsManager
 
         self.userNotificationsBadgesManager = UserNotificationsBadgesManager()
-        self.hardLinksToFylesManager = HardLinksToFylesManager(appType: .mainApp)
-        self.thumbnailManager = ThumbnailManager(appType: .mainApp)
+        self.hardLinksToFylesManager = HardLinksToFylesManager.makeHardLinksToFylesManagerForMainApp()
+        self.thumbnailManager = ThumbnailManager.makeThumbnailManagerForMainApp()
         self.appBackupManager = AppBackupManager(obvEngine: obvEngine)
         self.expirationMessagesManager = ExpirationMessagesManager()
         self.retentionMessagesManager = RetentionMessagesManager()
@@ -94,6 +95,9 @@ final actor AppManagersHolder {
         
     }
     
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
     
     func performPostInitialization() async {
         // Observe app lifecycle events

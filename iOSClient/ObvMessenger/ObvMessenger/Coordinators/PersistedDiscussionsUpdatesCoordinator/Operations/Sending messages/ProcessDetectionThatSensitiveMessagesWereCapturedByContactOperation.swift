@@ -22,6 +22,7 @@ import Foundation
 import OlvidUtils
 import ObvEngine
 import ObvTypes
+import ObvUICoreData
 
 
 /// This operation allows to process a received message indicating that one of our contacts did take a screen capture of some sensitive (read-once of with limited visibility) messages within a discussion. If this happen, we want to show this to the owned identity by displaying an appropriate system message within the corresponding discussion.

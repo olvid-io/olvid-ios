@@ -21,6 +21,7 @@
 import Foundation
 import OlvidUtils
 import os.log
+import ObvUICoreData
 
 
 /// When a contact member from a group v2 turns from pending to non pending, or when a non pending member becomes a contact,

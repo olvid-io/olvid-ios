@@ -22,6 +22,7 @@ import UIKit
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvUICoreData
 
 
 final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewController, ObvErrorMaker {

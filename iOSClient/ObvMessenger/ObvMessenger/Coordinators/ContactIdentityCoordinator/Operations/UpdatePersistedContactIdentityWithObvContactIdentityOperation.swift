@@ -21,6 +21,7 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvEngine
+import ObvUICoreData
 
 
 final class UpdatePersistedContactIdentityWithObvContactIdentityOperation: ContextualOperationWithSpecificReasonForCancel<UpdatePersistedContactIdentityWithObvContactIdentityOperationReasonForCancel> {

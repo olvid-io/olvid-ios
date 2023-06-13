@@ -24,6 +24,7 @@ import Intents
 import os.log
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 
 protocol IntentDelegate: AnyObject {
@@ -36,42 +37,16 @@ protocol IntentDelegate: AnyObject {
 @available(iOS 14.0, *)
 final class IntentManager {
 
-    fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationCreator.self))
+    fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: IntentManager.self))
 
-    fileprivate static let thumbnailPhotoSide = CGFloat(300)
     private var observationTokens = [NSObjectProtocol]()
 
-    
     func performPostInitialization() {
         observeMessageInsertionToDonateINSendMessageIntent()
         observeDiscussionDeletionToDeleteAllAssociatedDonations()
         observeDiscussionLockToDeleteAllAssociatedDonations()
         observeDiscussionLocalConfigurationUpdatesToDeleteAllDonationsIfAppropriate()
         observeDiscussionGlobalConfigurationUpdatesToDeleteAllDonationsIfAppropriate()
-    }
-
-    
-    /// One-stop method called when this manager needs to donate an `INSendMessageIntent` object to the system.
-    ///
-    /// Systematically using this method allows to make sure that users preferences are always taken into account, i.e., that we only perform donations if the global or discussion local configuration lets us do so.
-    /// Moreover, we can make sure we *never* perform a donation concerning a hidden profile.
-    private static func makeDonation(discussionKind: PersistedDiscussion.StructureKind,
-                                     intent: INSendMessageIntent,
-                                     direction: INInteractionDirection) async {
-
-        guard discussionKind.localConfiguration.performInteractionDonation ?? ObvMessengerSettings.Discussions.performInteractionDonation else { return }
-        guard !discussionKind.ownedIdentity.isHidden else { return }
-
-        let interaction = INInteraction(intent: intent, response: nil)
-        interaction.direction = direction
-        interaction.groupIdentifier = discussionKind.interactionGroupIdentifier
-        do {
-            try await interaction.donate()
-            os_log("🎁 Successfully donated interaction", log: Self.log, type: .info)
-        } catch {
-            assertionFailure()
-            os_log("🎁 Interaction donation failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-        }
     }
 
     
@@ -83,6 +58,10 @@ final class IntentManager {
             assertionFailure()
             os_log("🎁 Interaction deletion failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
         }
+    }
+
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
 }
@@ -107,12 +86,16 @@ extension IntentManager {
 
             let newMessagesSent = insertedObjects
                 .compactMap({ $0 as? PersistedMessageSent })
-                .compactMap({ try? $0.toStruct() })
+                .compactMap({
+                    try? $0.toStruct()
+                })
             for messageSent in newMessagesSent {
-                let infos = SentMessageIntentInfos(messageSent: messageSent, urlForStoringPNGThumbnail: nil)
-                let intent = Self.getSendMessageIntentForMessageSent(infos: infos)
+                let infos = SentMessageIntentInfos(messageSent: messageSent,
+                                                   urlForStoringPNGThumbnail: nil,
+                                                   thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
+                let intent = IntentManagerUtils.getSendMessageIntentForMessageSent(infos: infos)
                 Task {
-                    await Self.makeDonation(discussionKind: messageSent.discussionKind,
+                    await IntentManagerUtils.makeDonation(discussionKind: messageSent.discussionKind,
                                             intent: intent,
                                             direction: .outgoing)
                 }
@@ -127,7 +110,7 @@ extension IntentManager {
                 let infos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: nil)
                 let intent = Self.getSendMessageIntentForMessageReceived(infos: infos, showGroupName: true)
                 Task {
-                    await Self.makeDonation(discussionKind: messageReceived.discussionKind,
+                    await IntentManagerUtils.makeDonation(discussionKind: messageReceived.discussionKind,
                                             intent: intent,
                                             direction: .incoming)
                 }
@@ -138,7 +121,7 @@ extension IntentManager {
     
 
     private func observeDiscussionDeletionToDeleteAllAssociatedDonations() {
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted { discussionPermanentID in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedDiscussionWasDeleted { discussionPermanentID, _ in
             Task {
                 await Self.deleteAllDonations(for: discussionPermanentID)
             }
@@ -157,7 +140,7 @@ extension IntentManager {
 
     
     private func observeDiscussionLocalConfigurationUpdatesToDeleteAllDonationsIfAppropriate() {
-        observationTokens.append(ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated { configValue, objectId in
+        observationTokens.append(ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { configValue, objectId in
             guard case .performInteractionDonation(let performInteractionDonation) = configValue else { return }
 
             // Check whether the user locally disabled interaction donations
@@ -219,145 +202,13 @@ extension IntentManager: IntentDelegate {
         }
         let sender = infos.contactINPerson
 
-        return getSendMessageIntent(recipients: recipients,
+        return IntentManagerUtils.getSendMessageIntent(recipients: recipients,
                                     sender: sender,
                                     speakableGroupName: speakableGroupName,
                                     groupINImage: infos.groupInfos?.groupINImage,
                                     conversationIdentifier: infos.conversationIdentifier)
     }
 
-
-    private static func getSendMessageIntentForMessageSent(infos: SentMessageIntentInfos) -> INSendMessageIntent {
-        let recipients = infos.recipients.persons
-        var speakableGroupName: INSpeakableString?
-        if let groupInfos = infos.recipients.groupInfos {
-            speakableGroupName = groupInfos.speakableGroupName
-        }
-        let sender = infos.ownedINPerson
-
-        return getSendMessageIntent(recipients: recipients,
-                                    sender: sender,
-                                    speakableGroupName: speakableGroupName,
-                                    groupINImage: infos.recipients.groupInfos?.groupINImage,
-                                    conversationIdentifier: infos.conversationIdentifier)
-    }
-
-
-    private static func getSendMessageIntent(recipients: [INPerson],
-                                             sender: INPerson,
-                                             speakableGroupName: INSpeakableString?,
-                                             groupINImage: INImage?,
-                                             conversationIdentifier: String) -> INSendMessageIntent {
-        let intent = INSendMessageIntent(
-            recipients: recipients,
-            outgoingMessageType: .outgoingMessageText,
-            content: nil, // Do not expose message body to intent
-            speakableGroupName: speakableGroupName,
-            conversationIdentifier: conversationIdentifier,
-            serviceName: nil,
-            sender: sender,
-            attachments: nil)
-        if let groupINImage {
-            intent.setImage(groupINImage, forParameterNamed: \.speakableGroupName)
-        }
-        return intent
-    }
-
-}
-
-
-// MARK: - INImage Utils
-
-@available(iOS 14.0, *)
-extension IntentManager {
-
-    fileprivate static func createINImage(photoURL: URL?, fallbackImage: UIImage?, storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
-
-        let pngData: Data?
-        if let url = photoURL,
-           let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
-           let _pngData = UIImage(cgImage: cgImage).pngData() {
-            pngData = _pngData
-        } else {
-            pngData = fallbackImage?.pngData()
-        }
-
-        let image: INImage?
-        if let pngData = pngData {
-            if let thumbnailURL = thumbnailURL {
-                do {
-                    try pngData.write(to: thumbnailURL)
-                    image = INImage(url: thumbnailURL)
-                } catch {
-                    os_log("Could not create PNG thumbnail file for contact", log: IntentManager.log, type: .fault)
-                    image = INImage(imageData: pngData)
-                }
-            } else {
-                image = INImage(imageData: pngData)
-            }
-        } else {
-            image = nil
-        }
-        return image
-    }
-    
-}
-
-
-// MARK: - Intents informations
-
-private enum SentMessageIntentInfosRecipients {
-    case oneToOne(_: INPerson)
-    case group(_: GroupInfos)
-
-    var persons: [INPerson] {
-        switch self {
-        case .oneToOne(let contact):
-            return [contact]
-        case .group(let groupInfos):
-            return groupInfos.groupRecipients
-        }
-    }
-
-    var groupInfos: GroupInfos? {
-        switch self {
-        case .oneToOne: return nil
-        case .group(let groupInfos): return groupInfos
-        }
-    }
-}
-
-
-// MARK: - SentMessageIntentInfos
-
-private struct SentMessageIntentInfos {
-    
-    let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
-    let ownedINPerson: INPerson
-    let recipients: SentMessageIntentInfosRecipients
-
-    var conversationIdentifier: String { discussionPermanentID.description }
-
-    @available(iOS 14.0, *)
-    init(messageSent: PersistedMessageSent.Structure, urlForStoringPNGThumbnail: URL?) {
-        self.discussionPermanentID = messageSent.discussionPermanentID
-        let discussionKind = messageSent.discussionKind
-        self.ownedINPerson = discussionKind.ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: IntentManager.thumbnailPhotoSide)
-
-        switch discussionKind {
-        case .oneToOneDiscussion(let structure):
-            let contactINPerson = structure.contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: IntentManager.thumbnailPhotoSide)
-            self.recipients = .oneToOne(contactINPerson)
-        case .groupDiscussion(let structure):
-            let groupInfos = GroupInfos(groupDiscussion: structure,
-                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            self.recipients = .group(groupInfos)
-        case .groupV2Discussion(let structure):
-            let groupInfos = GroupInfos(groupDiscussion: structure,
-                                        urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            self.recipients = .group(groupInfos)
-        }
-    }
 }
 
 
@@ -384,16 +235,18 @@ struct ReceivedMessageIntentInfos {
         self.discussionPermanentID = discussionKind.discussionPermanentID
         let ownedIdentity = contact.ownedIdentity
         self.ownedINPerson = ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                          thumbnailSide: IntentManager.thumbnailPhotoSide)
+                                                          thumbnailSide: IntentManagerUtils.thumbnailPhotoSide)
         self.contactINPerson = contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                      thumbnailSide: IntentManager.thumbnailPhotoSide)
+                                                      thumbnailSide: IntentManagerUtils.thumbnailPhotoSide)
         switch discussionKind {
         case .groupDiscussion(structure: let structure):
             self.groupInfos = GroupInfos(groupDiscussion: structure,
-                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail,
+                                         thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
         case .groupV2Discussion(structure: let structure):
             self.groupInfos = GroupInfos(groupDiscussion: structure,
-                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail,
+                                         thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
         case .oneToOneDiscussion:
             self.groupInfos = nil
         }
@@ -401,163 +254,10 @@ struct ReceivedMessageIntentInfos {
 }
 
 
-// MARK: - GroupInfos
-
-struct GroupInfos {
-    
-    let groupRecipients: [INPerson]
-    let speakableGroupName: INSpeakableString
-    let groupINImage: INImage?
-    
-    @available(iOS 14.0, *)
-    init(groupDiscussion: PersistedGroupDiscussion.Structure, urlForStoringPNGThumbnail: URL?) {
-        let contactGroup = groupDiscussion.contactGroup
-        let contactIdentities = contactGroup.contactIdentities
-        var groupRecipients = [INPerson]()
-        for contactIdentity in contactIdentities {
-            let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: IntentManager.thumbnailPhotoSide)
-            groupRecipients.append(inPerson)
-        }
-        self.groupRecipients = groupRecipients
-        self.speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
-        self.groupINImage = contactGroup.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                       thumbnailSide: IntentManager.thumbnailPhotoSide)
-    }
-
-    @available(iOS 14.0, *)
-    init(groupDiscussion: PersistedGroupV2Discussion.Structure, urlForStoringPNGThumbnail: URL?) {
-        let group = groupDiscussion.group
-        let contactIdentities = group.contactIdentities
-        var groupRecipients = [INPerson]()
-        for contactIdentity in contactIdentities {
-            let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: IntentManager.thumbnailPhotoSide)
-            groupRecipients.append(inPerson)
-        }
-        self.groupRecipients = groupRecipients
-        self.speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
-        self.groupINImage = group.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                thumbnailSide: IntentManager.thumbnailPhotoSide)
-    }
-    
-}
-
-// MARK: - Structures to INPerson helper
-
-@available(iOS 14.0, *)
-fileprivate extension PersistedObvOwnedIdentity.Structure {
-    
-    var personHandle: INPersonHandle {
-        INPersonHandle(value: self.objectPermanentID.description, type: .unknown, label: .other)
-    }
-
-    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
-
-        let fillColor = cryptoId.colors.background
-        let characterColor = cryptoId.colors.text
-        let circledCharacter = UIImage.makeCircledCharacter(fromString: fullDisplayName,
-                                                            circleDiameter: thumbnailSide,
-                                                            fillColor: fillColor,
-                                                            characterColor: characterColor)
-        let image = IntentManager.createINImage(photoURL: photoURL,
-                                                fallbackImage: circledCharacter,
-                                                storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                                thumbnailSide: thumbnailSide)
-
-        return INPerson(personHandle: personHandle,
-                        nameComponents: identityCoreDetails.personNameComponents,
-                        displayName: fullDisplayName,
-                        image: image,
-                        contactIdentifier: nil,
-                        customIdentifier: nil,
-                        isMe: true)
-    }
-}
-
-
-@available(iOS 14.0, *)
-fileprivate extension PersistedObvContactIdentity.Structure {
-    
-    var personHandle: INPersonHandle {
-        INPersonHandle(value: self.objectPermanentID.description, type: .unknown, label: .other)
-    }
-
-    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
-
-        let fillColor = cryptoId.colors.background
-        let characterColor = cryptoId.colors.text
-        let circledCharacter = UIImage.makeCircledCharacter(fromString: fullDisplayName,
-                                                            circleDiameter: thumbnailSide,
-                                                            fillColor: fillColor,
-                                                            characterColor: characterColor)
-        let image = IntentManager.createINImage(photoURL: displayPhotoURL,
-                                                fallbackImage: circledCharacter,
-                                                storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                                thumbnailSide: thumbnailSide)
-
-        return INPerson(personHandle: personHandle,
-                        nameComponents: personNameComponents,
-                        displayName: customOrFullDisplayName,
-                        image: image,
-                        contactIdentifier: nil,
-                        customIdentifier: nil,
-                        isMe: false)
-    }
-}
-
-@available(iOS 14.0, *)
-fileprivate extension PersistedContactGroup.Structure {
-
-    func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
-        let groupColor = AppTheme.shared.groupColors(forGroupUid: groupUid)
-        let circledSymbol = UIImage.makeCircledSymbol(from: SystemIcon.person3Fill.systemName,
-                                                      circleDiameter: thumbnailSide,
-                                                      fillColor: groupColor.background,
-                                                      symbolColor: groupColor.text)
-        return IntentManager.createINImage(photoURL: displayPhotoURL,
-                                           fallbackImage: circledSymbol,
-                                           storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                           thumbnailSide: thumbnailSide)
-    }
-}
-
-@available(iOS 14.0, *)
-fileprivate extension PersistedGroupV2.Structure {
-
-    func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
-        let groupColor = AppTheme.shared.groupV2Colors(forGroupIdentifier: groupIdentifier)
-        let circledSymbol = UIImage.makeCircledSymbol(from: SystemIcon.person3Fill.systemName,
-                                                      circleDiameter: thumbnailSide,
-                                                      fillColor: groupColor.background,
-                                                      symbolColor: groupColor.text)
-        return IntentManager.createINImage(photoURL: displayPhotoURL,
-                                           fallbackImage: circledSymbol,
-                                           storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                           thumbnailSide: thumbnailSide)
-    }
-}
-
-fileprivate extension PersistedDiscussion.StructureKind {
-
-    var interactionGroupIdentifier: String {
-        self.discussionPermanentID.interactionGroupIdentifier
-    }
-
-}
-
-
 fileprivate extension PersistedDiscussion {
     
     var interactionGroupIdentifier: String {
         self.discussionPermanentID.interactionGroupIdentifier
-    }
-    
-}
-
-
-fileprivate extension ObvManagedObjectPermanentID<PersistedDiscussion> {
-    
-    var interactionGroupIdentifier: String {
-        self.description
     }
     
 }

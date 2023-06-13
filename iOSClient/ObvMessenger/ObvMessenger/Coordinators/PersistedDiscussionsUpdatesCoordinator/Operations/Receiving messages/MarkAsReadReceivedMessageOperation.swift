@@ -22,6 +22,7 @@ import Foundation
 import os.log
 import CoreData
 import OlvidUtils
+import ObvUICoreData
 
 final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificReasonForCancel<MarkAsReadReceivedMessageOperationReasonForCancel> {
 

@@ -93,8 +93,11 @@ extension ContactIdentityDetailsTrusted {
     }
 
     // This method assumes that the signature on the signed details is valid. It replace the values of the trusted details with that found in the signed details
-    func update(with signedUserDetails: SignedUserDetails, delegateManager: ObvIdentityDelegateManager) throws {
-        self.serializedIdentityCoreDetails = try signedUserDetails.getObvIdentityCoreDetails().jsonEncode()
+    func update(with signedUserDetails: SignedObvKeycloakUserDetails, delegateManager: ObvIdentityDelegateManager) throws {
+        let newSerializedIdentityCoreDetails = try signedUserDetails.getObvIdentityCoreDetails().jsonEncode()
+        if self.serializedIdentityCoreDetails != newSerializedIdentityCoreDetails {
+            self.serializedIdentityCoreDetails = newSerializedIdentityCoreDetails
+        }
     }
     
     func resetVersionNumber() {

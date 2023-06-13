@@ -23,6 +23,7 @@ import SwiftUI
 import Combine
 import os.log
 import ObvUI
+import ObvUICoreData
 
 enum VerifyPasscodeViewResult {
     case succeed
@@ -50,6 +51,10 @@ final class VerifyPasscodeViewController: UIHostingController<VerifyPasscodeView
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     func getResult() async -> VerifyPasscodeViewResult {

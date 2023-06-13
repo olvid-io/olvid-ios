@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This operation is typically executed when requesting the download progresses of incomplete attachments that results being absent from the engine's inbox.

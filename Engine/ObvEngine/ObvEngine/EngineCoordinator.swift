@@ -110,6 +110,12 @@ final class EngineCoordinator {
                 }
                 self?.informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
             },
+            ObvIdentityNotificationNew.observeContactIsCertifiedByOwnKeycloakStatusChanged(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, newIsCertifiedByOwnKeycloak in
+                self?.processContactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, newIsCertifiedByOwnKeycloak: newIsCertifiedByOwnKeycloak)
+            },
+            ObvIdentityNotificationNew.observePushTopicOfKeycloakGroupWasUpdated(within: notificationDelegate) { [weak self] ownedCryptoId in
+                self?.processPushTopicOfKeycloakGroupWasUpdated(ownedCryptoId: ownedCryptoId)
+            },
         ])
 
     }
@@ -405,6 +411,60 @@ extension EngineCoordinator {
 // MARK: - Processing engine notifications
 
 extension EngineCoordinator {
+    
+    
+    /// When the `isCertifiedByOwnKeycloak` changes from `false` to `true`, we want to send a "ping" to her
+    private func processContactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsCertifiedByOwnKeycloak: Bool) {
+        
+        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
+        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
+        guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
+        guard let channelDelegate = delegateManager?.channelDelegate else { assertionFailure(); return }
+
+        guard newIsCertifiedByOwnKeycloak else { return }
+        let flowId = FlowIdentifier()
+        let prng = self.prng
+        
+        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+            
+            do {
+                let groupIdentifiers = try identityDelegate.getIdentifiersOfAllKeycloakGroupsWhereContactIsPending(ownedCryptoId: ownedIdentity, contactCryptoId: contactIdentity, within: obvContext)
+
+                try groupIdentifiers.forEach { groupIdentifier in
+                    let msg = try protocolDelegate.getInitiateTargetedPingMessageForKeycloakGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, pendingMemberIdentity: contactIdentity, flowId: flowId)
+                    _ = try channelDelegate.post(msg, randomizedWith: prng, within: obvContext)
+                }
+                
+            } catch {
+                assertionFailure(error.localizedDescription)
+                os_log("Could not ping contact in keycloak groups where she is pending", log: self.log, type: .fault)
+            }
+            
+        }
+    }
+
+    
+    /// When a the push topic of a keycloak group is created/updated, we want to re-register to push notification to make sure we inform the server we are interested by this new push topic.
+    private func processPushTopicOfKeycloakGroupWasUpdated(ownedCryptoId: ObvCryptoIdentity) {
+        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
+        guard let networkFetchDelegate = delegateManager?.networkFetchDelegate else { assertionFailure(); return }
+        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
+        let flowId = FlowIdentifier()
+        debugPrint("🏁 \(flowId.debugDescription.prefix(5)) processPushTopicOfKeycloakGroupWasUpdated")
+        let log = self.log
+        createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+            do {
+                let pushTopics = try identityDelegate.getKeycloakPushTopics(ownedCryptoIdentity: ownedCryptoId, within: obvContext)
+                if let pushNotification = try networkFetchDelegate.getServerPushNotification(ownedCryptoId: ownedCryptoId, within: obvContext) {
+                    let newPushNotification = pushNotification.withUpdatedKeycloakPushTopics(pushTopics)
+                    networkFetchDelegate.registerPushNotification(newPushNotification, flowId: obvContext.flowId)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
+                os_log("Could not register to push notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
+            }
+        }
+    }
     
     private func informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities() {
         

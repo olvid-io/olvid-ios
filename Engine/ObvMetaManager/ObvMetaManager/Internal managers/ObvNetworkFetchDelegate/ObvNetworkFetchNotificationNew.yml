@@ -157,3 +157,6 @@ notifications:
 - name: pushTopicReceivedViaWebsocket
   params:
   - {name: pushTopic, type: String}
+- name: keycloakTargetedPushNotificationReceivedViaWebsocket
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}

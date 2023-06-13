@@ -51,8 +51,13 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         self.log = OSLog(subsystem: ObvNetworkFetchManagerImplementationDummy.defaultLogSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
     
-    public func forceRegisterToPushNotification(identity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        os_log("forceRegisterToPushNotification does nothing in this dummy implementation", log: log, type: .error)
+    public func registerPushNotification(_ pushNotification: ObvPushNotificationType, flowId: FlowIdentifier) {
+        os_log("registerPushNotification does nothing in this dummy implementation", log: log, type: .error)
+    }
+
+    public func getServerPushNotification(ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvPushNotificationType? {
+        os_log("getServerPushNotification does nothing in this dummy implementation", log: log, type: .error)
+        return nil
     }
     
     public func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) {
@@ -125,7 +130,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         throw Self.makeError(message: "attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation")
     }
     
-    public func set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: MessageIdentifier, within obvContext: ObvContext) throws {
+    public func setRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: MessageIdentifier, within obvContext: ObvContext) throws {
         os_log("set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation")
     }
@@ -169,21 +174,8 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         throw Self.makeError(message: "requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
     }
     
-    public func register(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext) {
-        os_log("register(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-    }
-    
-    public func registerIfRequired(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext) {
-        os_log("registerIfRequired(pushNotificationType: ObvPushNotificationType, for: ObvCryptoIdentity, withDeviceUid: UID, within: ObvContext) does nothing in this dummy implementation", log: log, type: .debug)
-    }
-    
-    public func unregisterPushNotification(for: ObvCryptoIdentity, within: ObvContext) {
-        os_log("unregisterPushNotification(for: ObvCryptoIdentity, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-    }
-    
     public func connectWebSocket() {
         os_log("connectWebSocket() does nothing in this dummy implementation", log: log, type: .error)
-        
     }
     
     public func disconnectWebSocket() {

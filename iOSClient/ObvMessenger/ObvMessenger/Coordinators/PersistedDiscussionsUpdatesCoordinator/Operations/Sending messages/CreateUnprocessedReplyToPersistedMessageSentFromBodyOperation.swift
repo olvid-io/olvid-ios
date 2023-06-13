@@ -23,6 +23,8 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
+
 
 final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedReplyToPersistedMessageSentFromBodyOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
 
@@ -67,7 +69,7 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
                 let effectiveReplyTo = lastMessage == messageToReply ? nil : messageToReply
 
                 // Create message to send
-                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: effectiveReplyTo, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false)
+                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: effectiveReplyTo, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false, mentions: [])
 
                 do {
                     try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])

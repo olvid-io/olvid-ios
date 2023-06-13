@@ -1,0 +1,188 @@
+/*
+ *  Olvid for iOS
+ *  Copyright © 2019-2023 Olvid SAS
+ *
+ *  This file is part of Olvid for iOS.
+ *
+ *  Olvid is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License, version 3,
+ *  as published by the Free Software Foundation.
+ *
+ *  Olvid is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
+"No message yet." = "No message yet.";
+
+"Mark all as read" = "Mark all as read";
+
+"count attachments" = "count attachments";
+
+"Latest Discussions" = "Latest";
+
+"UNREAD_EPHEMERAL_MESSAGE" = "Unread ephemeral message";
+
+"MESSAGE_WAS_WIPED" = "Last message was wiped 🧹";
+
+"LAST_MESSAGE_WAS_REMOTELY_WIPED" = "Last message was remotely wiped";
+
+"Default" = "Default";
+
+"Unlimited" = "Unlimited";
+
+"SIX_HOUR" = "6 hours";
+
+"TWELVE_HOURS" = "12 hours";
+
+"ONE_DAY" = "1 day";
+
+"TWO_DAYS" = "2 days";
+
+"SEVEN_DAYS" = "7 days";
+
+"FIFTEEN_DAYS" = "15 days";
+
+"THIRTY_DAYS" = "30 days";
+
+"NINETY_DAYS" = "90 days";
+
+"ONE_HUNDRED_AND_HEIGHTY_DAYS" = "180 days";
+
+"ONE_YEAR" = "1 year";
+
+"THREE_YEAR" = "3 years";
+
+"FIVE_YEAR" = "5 years";
+
+"YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE" = "You took a screenshot of a sensitive message, other participants have been notified.";
+
+"CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@" = "%@ took a screenshot of a sensitive message.";
+
+"CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN" = "A participant took a screenshot of a sensitive message.";
+
+"YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" = "You are now a group administrator 😎.";
+
+"YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" = "You are no longer a group administrator.";
+
+"MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE" = "Group members have been updated. Tap to learn more.";
+
+/* System message displayed within a group discussion */
+"%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@" = "%@ has joined this group - %@";
+
+"%@_ACCEPTED_TO_JOIN_THIS_GROUP" = "%@ has joined this group";
+
+/* System message displayed within a group discussion */
+"%@_LEFT_THIS_GROUP_AT_%@" = "%@ left this group - %@";
+
+"%@_LEFT_THIS_GROUP" = "%@ left this group";
+
+/* System message displayed at the top of each conversation. */
+"Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography." = "🔒 Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography.";
+
+/* System message displayed within a group discussion */
+"This contact was deleted from your contacts, either because you did or because this contact deleted you." = "This contact was deleted from your Olvid contacts, either because you did or because this contact deleted you from their own contacts.";
+
+"FROM_%@" = "from %@";
+
+"WITH_%@" = "with %@";
+
+"AND_ONE_OTHER" = "and one other";
+
+"AND_%@_OTHERS" = "and %@ others";
+
+"MISSED_CALL" = "Missed Call";
+
+"MISSED_CALL_FILTERED" = "Missed call while you were in \"Focus\" mode.";
+
+"ACCEPTED_OUTGOING_CALL" = "Outgoing call";
+
+"ACCEPTED_INCOMING_CALL" = "Incoming call";
+
+"REJECTED_OUTGOING_CALL" = "Rejected outgoing call";
+
+"REJECTED_INCOMING_CALL" = "Rejected incoming call";
+
+"BUSY_OUTGOING_CALL" = "Busy outgoing call";
+
+"UNANSWERED_OUTGOING_CALL" = "Unanswered outgoing call";
+
+"UNCOMPLETED_OUTGOING_CALL" = "Uncompleted outgoing call";
+
+"ANY_INCOMING_CALL" = "Incoming call...";
+
+"ANY_OUTGOING_CALL" = "Outgoing call...";
+
+"CONTACT_REVOKED_BY_COMPANY_IDENTITY_PROVIDER" = "Contact revoked by your company's identity provider";
+
+"NOT_PART_OF_THE_GROUP_ANYMORE" = "You are not part of this group anymore, either because you left it, because an administrator removed you, or because the group was deleted 🥲.";
+
+"REJOINED_GROUP" = "You are again part of this group ✌️.";
+
+"CONTACT_%@_IS_ONE_TO_ONE_AGAIN" = "%@ is part of your contacts again, you can continue your discussion where you left off 🤗.";
+
+"REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED" = "The incoming call was rejected because Olvid is not allowed to access the microphone. Please tap on this message to allow Olvid to access the Microphone.";
+
+"REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_GRANTED" = "The incoming call was rejected because Olvid was not allowed to access the Microphone. Fortunately, since then, this autorisation was granted. You won't miss a call again 🥳!";
+
+"REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED" = "The incoming call was rejected because Olvid is not allowed to access the Microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone.";
+
+"REJECTED_INCOMING_CALL" = "Rejected incoming call";
+
+"DISCUSSION_SHARED_SETTINGS_WERE_UPDATED" = "Discussion shared settings were updated";
+
+"This discussion was remotely wiped by %@ on %@" = "This discussion was remotely wiped by %@ on %@";
+
+"This discussion was remotely wiped by %@" = "This discussion was remotely wiped by %@";
+
+"NO_SOUNDS" = "None";
+
+"SYSTEM_SOUND" = "System sound";
+
+"CALL_STATE_NEW" = "New call...";
+
+"CALL_STATE_GETTING_TURN_CREDENTIALS" = "Authentication...";
+
+"CALL_STATE_KICKED" = "Excluded";
+
+"CALL_STATE_INITIALIZING_CALL" = "Initializing call...";
+
+"CALL_STATE_RINGING" = "Ringing...";
+
+"CALL_STATE_CALL_REJECTED" = "Call rejected";
+
+"SECURE_CALL_IN_PROGRESS" = "Secure call in progress";
+
+"CALL_STATE_HANGED_UP" = "Hanged up";
+
+"CALL_STATE_PERMISSION_DENIED_BY_SERVER" = "Connection denied by the server";
+
+"UNANSWERED" = "Unanswered";
+
+"CALL_INITIALISATION_NOT_SUPPORTED" = "Secure calls are not supported";
+
+"CALL_FAILED" = "Call failed 😟";
+
+"ONE_HOUR" = "1 hour";
+
+"EIGHT_HOURS" = "8 hours";
+
+"SEVEN_DAYS" = "7 days";
+
+"INDEFINITELY" = "indefinitely";
+
+/* Can serve as a name in the sentence \"%@ accepted to join this group\" */
+"A (now deleted) contact" = "Deleted contact";
+
+"Read" = "Read";
+
+"Wiped" = "Wiped";
+
+"Remotely wiped" = "Remotely wiped";
+
+"Edited" = "Edited";

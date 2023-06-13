@@ -168,15 +168,3 @@ extension ResumeEncryptedChunkUploadTaskIfRequiredOperation {
     
 
 }
-
-
-private extension URL {
-    
-    func getFileSize() -> Int? {
-        guard FileManager.default.fileExists(atPath: self.path) else { return nil }
-        guard let fileAttributes = try? FileManager.default.attributesOfItem(atPath: self.path) else { return nil }
-        return fileAttributes[FileAttributeKey.size] as? Int
-    }
-
-    
-}

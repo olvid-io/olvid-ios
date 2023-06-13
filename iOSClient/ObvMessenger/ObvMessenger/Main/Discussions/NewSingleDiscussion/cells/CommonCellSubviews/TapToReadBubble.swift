@@ -19,6 +19,7 @@
 
 import UIKit
 import CoreData
+import ObvUICoreData
 
 @available(iOS 14.0, *)
 final class TapToReadBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {

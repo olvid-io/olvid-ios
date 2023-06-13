@@ -489,7 +489,7 @@ extension MessagesCoordinator {
             task.resume()
             
         case .cannotFindMessageInDatabase:
-            os_log("Could not find message in database -> Cannot download encrypted extended message payload for identity %@ with flow identifier %{public}@", log: log, type: .error, messageId.ownedCryptoIdentity.debugDescription, flowId.debugDescription)
+            os_log("Could not find message in database -> Cannot download encrypted extended message payload for identity %@ with flow identifier %{public}@. This also happens if the attachment was a duplicate of a previous attachment at the app level, in which the app immediately requested to delete the InboxMessage (reason why we cannot find it).", log: log, type: .error, messageId.ownedCryptoIdentity.debugDescription, flowId.debugDescription)
 
         case .extendedMessagePayloadKeyIsNotSet:
             os_log("Could not find the extended message payload decryption key -> We do NOT download the encrypted extended message payload for identity %@ with flow identifier %{public}@", log: log, type: .fault, messageId.ownedCryptoIdentity.debugDescription, flowId.debugDescription)

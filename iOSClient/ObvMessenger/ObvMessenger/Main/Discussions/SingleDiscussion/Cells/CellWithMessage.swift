@@ -19,6 +19,7 @@
 
 import UIKit
 import CoreData
+import ObvUICoreData
 
 protocol CellWithMessage: UICollectionViewCell {
 

@@ -21,7 +21,9 @@
 import ObvEngine
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 import SwiftUI
+import UI_SystemIcon
 
 
 struct SendInviteOrShowSecondQRCodeView: View {

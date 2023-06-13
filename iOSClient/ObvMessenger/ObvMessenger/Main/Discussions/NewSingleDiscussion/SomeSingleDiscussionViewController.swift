@@ -19,11 +19,13 @@
 
 import UIKit
 import ObvTypes
+import ObvUICoreData
 
 
 protocol SomeSingleDiscussionViewController: UIViewController {
-    
+    var discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion> { get }
     var discussionPermanentID: DiscussionPermanentID { get }
     var currentOwnedCryptoId: ObvCryptoId { get }
-
+    func addAttachmentFromAirDropFile(at url: URL)
+    func scrollTo(message: PersistedMessage)
 }

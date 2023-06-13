@@ -323,7 +323,7 @@ public struct GroupV2 {
     
     // MARK: - Identifier
 
-    public struct Identifier: ObvCodable, ObvErrorMaker, Equatable {
+    public struct Identifier: ObvCodable, ObvErrorMaker, Equatable, Hashable {
         
         public static let errorDomain = "GroupV2.Identifier"
 
@@ -402,6 +402,14 @@ public struct GroupV2 {
         public static func == (lhs: Identifier, rhs: Identifier) -> Bool {
             lhs.groupUID == rhs.groupUID && lhs.serverURL == rhs.serverURL && lhs.category == rhs.category
         }
+        
+        // Hashable
+        
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(groupUID)
+            hasher.combine(serverURL)
+            hasher.combine(category)
+        }
 
     }
 
@@ -445,48 +453,61 @@ public struct GroupV2 {
     
     public struct ServerPhotoInfo: Equatable, ObvCodable {
         
-        public let key: AuthenticatedEncryptionKey
-        public let label: UID
-        public let identity: ObvCryptoIdentity // The identity of the admin who uploaded the photo
+        public let photoServerKeyAndLabel: PhotoServerKeyAndLabel
+        public let identity: ObvCryptoIdentity? // The identity of the admin who uploaded the photo. Nil for a keycloak group.
         
-        public init(key: AuthenticatedEncryptionKey, label: UID, identity: ObvCryptoIdentity) {
-            self.key = key
-            self.label = label
+        public init(key: AuthenticatedEncryptionKey, label: UID, identity: ObvCryptoIdentity?) {
+            self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: label)
             self.identity = identity
         }
-        
+
+        public init(photoServerKeyAndLabel: PhotoServerKeyAndLabel, identity: ObvCryptoIdentity?) {
+            self.photoServerKeyAndLabel = photoServerKeyAndLabel
+            self.identity = identity
+        }
+
         public static func == (lhs: ServerPhotoInfo, rhs: ServerPhotoInfo) -> Bool {
-            guard lhs.label == rhs.label, lhs.identity == rhs.identity else { return false }
-            do {
-                guard try AuthenticatedEncryptionKeyComparator.areEqual(lhs.key, rhs.key) else { return false }
-            } catch {
-                assertionFailure()
-                return false
-            }
-            return true
+            return lhs.photoServerKeyAndLabel == rhs.photoServerKeyAndLabel && lhs.identity == rhs.identity
         }
         
 
         public static func generate(for identity: ObvCryptoIdentity, with prng: PRNGService) -> ServerPhotoInfo {
-            let label = UID.gen(with: prng)
-            let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption()
-            let key = authEnc.generateKey(with: prng)
-            return ServerPhotoInfo(key: key, label: label, identity: identity)
+            let keyAndLabel = PhotoServerKeyAndLabel.generate(with: prng)
+            return ServerPhotoInfo(photoServerKeyAndLabel: keyAndLabel, identity: identity)
         }
         
         
         public func obvEncode() -> ObvEncoded {
-            [identity.obvEncode(), label.obvEncode(), key.obvEncode()].obvEncode()
+            if let identity {
+                return [identity.obvEncode(), photoServerKeyAndLabel.label.obvEncode(), photoServerKeyAndLabel.key.obvEncode()].obvEncode()
+            } else {
+                return [photoServerKeyAndLabel.label.obvEncode(), photoServerKeyAndLabel.key.obvEncode()].obvEncode()
+            }
         }
         
         
         public init?(_ obvEncoded: ObvEncoded) {
-            guard let encodedElements = [ObvEncoded](obvEncoded, expectedCount: 3) else { assertionFailure(); return nil }
-            do {
-                self.identity = try encodedElements[0].obvDecode()
-                self.label = try encodedElements[1].obvDecode()
-                self.key = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[2])
-            } catch {
+            if let encodedElements = [ObvEncoded](obvEncoded, expectedCount: 3) {
+                do {
+                    self.identity = try encodedElements[0].obvDecode()
+                    let label: UID = try encodedElements[1].obvDecode()
+                    let key = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[2])
+                    self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: label)
+                } catch {
+                    assertionFailure()
+                    return nil
+                }
+            } else if let encodedElements = [ObvEncoded](obvEncoded, expectedCount: 2) {
+                do {
+                    self.identity = nil
+                    let label: UID = try encodedElements[0].obvDecode()
+                    let key = try AuthenticatedEncryptionKeyDecoder.decode(encodedElements[1])
+                    self.photoServerKeyAndLabel = PhotoServerKeyAndLabel(key: key, label: label)
+                } catch {
+                    assertionFailure()
+                    return nil
+                }
+            } else {
                 assertionFailure()
                 return nil
             }
@@ -563,6 +584,99 @@ public struct GroupV2 {
             hasher.combine(self.identity)
         }
 
+    }
+    
+    
+    // MARK: - KeycloakGroupMemberAndPermissions
+    
+    /// Signed Keycloak group blob contain informations about the group members. This information is structured as this KeycloakGroupMemberAndPermissions structure.
+    public struct KeycloakGroupMemberAndPermissions: Hashable, Decodable, ObvErrorMaker {
+        
+        public let keycloakUserId: String
+        public let identity: ObvCryptoIdentity
+        public let signedUserDetails: String // A JWT
+        public let rawPermissions: Set<String>
+        public let groupInvitationNonce: Data
+        
+        public static let errorDomain = "GroupV2.KeycloakGroupMemberAndPermissions"
+
+        public init(keycloakUserId: String, identity: ObvCryptoIdentity, signedUserDetails: String, rawPermissions: Set<String>, groupInvitationNonce: Data) {
+            self.keycloakUserId = keycloakUserId
+            self.identity = identity
+            self.signedUserDetails = signedUserDetails
+            self.rawPermissions = rawPermissions
+            self.groupInvitationNonce = groupInvitationNonce
+        }
+        
+        // ObvCodable
+        
+        public func obvEncode() -> ObvEncoded {
+            let encodedKeycloakUserId = keycloakUserId.obvEncode()
+            let encodedIdentity = identity.obvEncode()
+            let encodedSignedUserDetails = signedUserDetails.obvEncode()
+            let encodedPermissions = rawPermissions.map({ $0.obvEncode() }).obvEncode()
+            let encodedGroupInvitationNonce = groupInvitationNonce.obvEncode()
+            return [encodedKeycloakUserId, encodedIdentity, encodedSignedUserDetails, encodedPermissions, encodedGroupInvitationNonce].obvEncode()
+        }
+        
+        public init?(_ obvEncoded: ObvEncoded) {
+            guard let encodedValues = [ObvEncoded](obvEncoded, expectedCount: 5) else { assertionFailure(); return nil }
+            let encodedKeycloakUserId = encodedValues[0]
+            let encodedIdentity = encodedValues[1]
+            let encodedSignedUserDetails = encodedValues[2]
+            let encodedPermissions = encodedValues[3]
+            let encodedGroupInvitationNonce = encodedValues[4]
+            guard let keycloakUserId = String(encodedKeycloakUserId) else { assertionFailure(); return nil }
+            guard let identity = ObvCryptoIdentity(encodedIdentity) else { assertionFailure(); return nil }
+            guard let signedUserDetails = String(encodedSignedUserDetails) else { assertionFailure(); return nil }
+            guard let listOfEncodedPermissions = [ObvEncoded](encodedPermissions) else { assertionFailure(); return nil }
+            let rawPermissions: Set<String> = Set(listOfEncodedPermissions.compactMap({ String($0) }))
+            assert(rawPermissions.count == listOfEncodedPermissions.count)
+            guard let groupInvitationNonce: Data = try? encodedGroupInvitationNonce.obvDecode() else { return nil }
+            self.init(keycloakUserId: keycloakUserId, identity: identity, signedUserDetails: signedUserDetails, rawPermissions: rawPermissions, groupInvitationNonce: groupInvitationNonce)
+        }
+
+        public func toObvGroupV2KeycloakGroupMemberAndPermissions(isPending: Bool) -> ObvGroupV2.KeycloakGroupMemberAndPermissions {
+            let permissions = rawPermissions.compactMap({ Permission(rawValue: $0)?.toGroupV2Permission })
+            return ObvGroupV2.KeycloakGroupMemberAndPermissions(identity: ObvCryptoId(cryptoIdentity: identity),
+                                                                permissions: Set(permissions),
+                                                                signedUserDetails: signedUserDetails)
+        }
+
+        // Hashable
+            
+        /// We only match the Identity to avoid duplicate group members when building sets of IdentityAndGroupPermissions
+        public static func == (lhs: KeycloakGroupMemberAndPermissions, rhs: KeycloakGroupMemberAndPermissions) -> Bool {
+            return lhs.identity == rhs.identity
+        }
+        
+        // We only consider the Identity to avoid duplicate group members when building sets of IdentityAndGroupPermissions
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(self.identity)
+        }
+        
+        // Decodable
+        
+        enum CodingKeys: String, CodingKey {
+            case  keycloakUserId = "id"
+            case  identity = "identity"
+            case  signedUserDetails = "signature"
+            case  rawPermissions = "permissions"
+            case  groupInvitationNonce = "nonce"
+        }
+
+        
+        public init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            let keycloakUserId = try values.decode(String.self, forKey: .keycloakUserId)
+            let rawIdentity = try values.decode(Data.self, forKey: .identity)
+            guard let identity = ObvCryptoIdentity(from: rawIdentity) else { assertionFailure(); throw Self.makeError(message: "Could not decode identity") }
+            let signedUserDetails = try values.decode(String.self, forKey: .signedUserDetails)
+            let rawPermissions = try values.decode(Set<String>.self, forKey: .rawPermissions)
+            let groupInvitationNonce = try values.decode(Data.self, forKey: .groupInvitationNonce)
+            self.init(keycloakUserId: keycloakUserId, identity: identity, signedUserDetails: signedUserDetails, rawPermissions: rawPermissions, groupInvitationNonce: groupInvitationNonce)
+        }
+        
     }
 
     
@@ -1189,7 +1303,7 @@ public struct GroupV2 {
         public let groupVersion: Int
         public let blobKeys: BlobKeys
         
-        public static var errorDomain = "GroupV2.IdentifierVersionAndKeys"
+        public static let errorDomain = "GroupV2.IdentifierVersionAndKeys"
 
         public init(groupIdentifier: Identifier, groupVersion: Int, blobKeys: BlobKeys) {
             self.groupIdentifier = groupIdentifier

@@ -114,17 +114,17 @@ extension PersistedEngineDialog {
         return Set(values.map { $0.appNotificationCenter = appNotificationCenter; return $0 })
     }
 
-    class func get(uid: UUID, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) -> PersistedEngineDialog? {
+    class func get(uid: UUID, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) throws -> PersistedEngineDialog? {
         let request: NSFetchRequest<PersistedEngineDialog> = PersistedEngineDialog.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@", uuidKey, uid as CVarArg)
-        let item = (try? obvContext.fetch(request))?.first
+        let item = (try obvContext.fetch(request)).first
         item?.appNotificationCenter = appNotificationCenter
         return item
     }
  
-    static func deletePersistedDialog(uid: UUID, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) {
-        if let dialog = get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext) {
-            obvContext.delete(dialog)
+    static func deletePersistedDialog(uid: UUID, appNotificationCenter: NotificationCenter, within obvContext: ObvContext) throws {
+        if let dialog = try get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext) {
+            try dialog.delete()
         }
     }
 }
@@ -137,18 +137,23 @@ extension PersistedEngineDialog {
         static let obvDialog = NotificationRelatedChanges(rawValue: 1 << 1)
     }
     
-    override func prepareForDeletion() {
-        super.prepareForDeletion()
+    override func willSave() {
+        super.willSave()
         
-        guard let managedObjectContext else { assertionFailure(); return }
-        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
+        if isDeleted {
+            
+            guard let managedObjectContext else { assertionFailure(); return }
+            guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { assertionFailure(); return }
 
-        if self.uuidOnDeletion == nil {
-            self.uuidOnDeletion = self.uuid
+            if self.uuidOnDeletion == nil {
+                self.uuidOnDeletion = self.uuid
+            }
+            if self.ownedCryptoIdOnDeletion == nil {
+                self.ownedCryptoIdOnDeletion = self.obvDialog?.ownedCryptoId
+            }
+
         }
-        if self.ownedCryptoIdOnDeletion == nil {
-            self.ownedCryptoIdOnDeletion = self.obvDialog?.ownedCryptoId
-        }
+        
     }
 
     override func didSave() {

@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import PhotosUI
+import ObvUICoreData
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -38,11 +39,11 @@ enum NewSingleDiscussionNotification {
 	case userWantsToDeleteAllAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToReplyToMessage(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case userWantsToRemoveReplyToMessage(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
-	case userWantsToSendDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String)
+	case userWantsToSendDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>)
 	case userWantsToSendDraftWithOneAttachment(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, attachmentURL: URL)
 	case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool)
 	case userWantsToUpdateDraftExpiration(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?)
-	case userWantsToUpdateDraftBody(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String)
+	case userWantsToUpdateDraftBodyAndMentions(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>)
 	case draftCouldNotBeSent(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
 	case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
@@ -59,7 +60,7 @@ enum NewSingleDiscussionNotification {
 		case userWantsToSendDraftWithOneAttachment
 		case insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty
 		case userWantsToUpdateDraftExpiration
-		case userWantsToUpdateDraftBody
+		case userWantsToUpdateDraftBodyAndMentions
 		case draftCouldNotBeSent
 		case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus
 		case userWantsToDownloadReceivedFyleMessageJoinWithStatus
@@ -86,7 +87,7 @@ enum NewSingleDiscussionNotification {
 			case .userWantsToSendDraftWithOneAttachment: return Name.userWantsToSendDraftWithOneAttachment.name
 			case .insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty: return Name.insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty.name
 			case .userWantsToUpdateDraftExpiration: return Name.userWantsToUpdateDraftExpiration.name
-			case .userWantsToUpdateDraftBody: return Name.userWantsToUpdateDraftBody.name
+			case .userWantsToUpdateDraftBodyAndMentions: return Name.userWantsToUpdateDraftBodyAndMentions.name
 			case .draftCouldNotBeSent: return Name.draftCouldNotBeSent.name
 			case .userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus.name
 			case .userWantsToDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToDownloadReceivedFyleMessageJoinWithStatus.name
@@ -126,10 +127,11 @@ enum NewSingleDiscussionNotification {
 			info = [
 				"draftObjectID": draftObjectID,
 			]
-		case .userWantsToSendDraft(draftPermanentID: let draftPermanentID, textBody: let textBody):
+		case .userWantsToSendDraft(draftPermanentID: let draftPermanentID, textBody: let textBody, mentions: let mentions):
 			info = [
 				"draftPermanentID": draftPermanentID,
 				"textBody": textBody,
+				"mentions": mentions,
 			]
 		case .userWantsToSendDraftWithOneAttachment(draftPermanentID: let draftPermanentID, attachmentURL: let attachmentURL):
 			info = [
@@ -146,10 +148,11 @@ enum NewSingleDiscussionNotification {
 				"draftObjectID": draftObjectID,
 				"value": OptionalWrapper(value),
 			]
-		case .userWantsToUpdateDraftBody(draftObjectID: let draftObjectID, body: let body):
+		case .userWantsToUpdateDraftBodyAndMentions(draftObjectID: let draftObjectID, body: let body, mentions: let mentions):
 			info = [
 				"draftObjectID": draftObjectID,
 				"body": body,
+				"mentions": mentions,
 			]
 		case .draftCouldNotBeSent(draftPermanentID: let draftPermanentID):
 			info = [
@@ -250,12 +253,13 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUserWantsToSendDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>, String) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSendDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedDraft>, String, Set<MessageJSON.UserMention>) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSendDraft.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let draftPermanentID = notification.userInfo!["draftPermanentID"] as! ObvManagedObjectPermanentID<PersistedDraft>
 			let textBody = notification.userInfo!["textBody"] as! String
-			block(draftPermanentID, textBody)
+			let mentions = notification.userInfo!["mentions"] as! Set<MessageJSON.UserMention>
+			block(draftPermanentID, textBody, mentions)
 		}
 	}
 
@@ -287,12 +291,13 @@ enum NewSingleDiscussionNotification {
 		}
 	}
 
-	static func observeUserWantsToUpdateDraftBody(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, String) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToUpdateDraftBody.name
+	static func observeUserWantsToUpdateDraftBodyAndMentions(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>, String, Set<MessageJSON.UserMention>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdateDraftBodyAndMentions.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
 			let body = notification.userInfo!["body"] as! String
-			block(draftObjectID, body)
+			let mentions = notification.userInfo!["mentions"] as! Set<MessageJSON.UserMention>
+			block(draftObjectID, body, mentions)
 		}
 	}
 

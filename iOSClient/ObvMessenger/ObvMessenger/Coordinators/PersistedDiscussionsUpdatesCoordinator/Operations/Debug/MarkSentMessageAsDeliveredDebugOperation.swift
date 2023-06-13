@@ -22,6 +22,8 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvCrypto
+import ObvUICoreData
+
 
 final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpecificReasonForCancel<MarkSentMessageAsDeliveredDebugOperationReasonForCancel> {
     

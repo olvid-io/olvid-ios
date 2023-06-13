@@ -158,9 +158,14 @@ extension ObvNetworkSendManagerImplementation {
         bootstrapWorker.replayTransactionsHistory(transactions: transactions, within: obvContext)
     }
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: [MessageIdentifier], flowId: FlowIdentifier) {
-        bootstrapWorker.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: messageIdentifiers, flowId: flowId)
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async {
+        await bootstrapWorker.deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: messageIdentifier, flowId: flowId)
     }
+    
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo referenceDate: Date, flowId: FlowIdentifier) async {
+        await bootstrapWorker.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo: referenceDate, flowId: flowId)
+    }
+
     
     /// Called when an owned identity is about to be deleted.
     public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {

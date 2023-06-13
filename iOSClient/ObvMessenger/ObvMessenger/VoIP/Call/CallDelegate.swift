@@ -20,6 +20,7 @@
 
 import Foundation
 import ObvTypes
+import ObvUICoreData
 
 
 // MARK: - CallDelegate

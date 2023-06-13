@@ -26,6 +26,8 @@ import ObvTypes
 import SwiftUI
 import AVFAudio
 import ObvUI
+import ObvUICoreData
+
 
 @MainActor
 final class MetaFlowController: UIViewController, OlvidURLHandler {
@@ -59,7 +61,7 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     
     private var viewDidLoadWasCalled = false
 
-    private var viewDidAppearWasCalled = false
+    private var viewDidAppearWasCalledAtLeastOnce = false
     private var completionHandlersToCallOnViewDidAppear = [() -> Void]()
 
     // Shall only be accessed on the main thread
@@ -74,6 +76,8 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         self.appBackupDelegate = appBackupDelegate
 
         super.init(nibName: nil, bundle: nil)
+        
+        observeDidBecomeActiveNotifications()
         
         // Internal notifications
         
@@ -123,7 +127,7 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV2(queue: OperationQueue.main) { [weak self] (groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL) in
                 self?.processUserWantsToCreateNewGroupV2(groupCoreDetails: groupCoreDetails, ownPermissions: ownPermissions, otherGroupMembers: otherGroupMembers, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
             },
-            ObvMessengerGroupV2Notifications.observeDisplayedContactGroupWasJustCreated { permanentID in
+            ObvMessengerCoreDataNotification.observeDisplayedContactGroupWasJustCreated { permanentID in
                 OperationQueue.main.addOperation { [weak self] in
                     self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID)
                 }
@@ -146,6 +150,15 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             },
             ObvMessengerInternalNotification.observeCloseAnyOpenHiddenOwnedIdentity { [weak self] in
                 Task { await self?.switchToNonHiddenOwnedIdentityIfCurrentIsHidden() }
+            },
+            ObvMessengerCoreDataNotification.observePersistedContactWasUpdated { [weak self] contactObjectID in
+                Task { await self?.refreshViewContextsRegisteredObjectsOnUpdateOfPersistedObvContactIdentity(with: contactObjectID) }
+            },
+            ObvMessengerCoreDataNotification.observeFyleMessageJoinWithStatusWasInserted { [weak self] fyleMessageJoinObjectID in
+                Task { await self?.refreshViewContextsRegisteredObjectsOnUpdateOfFyleMessageJoinWithStatus(with: fyleMessageJoinObjectID) }
+            },
+            ObvMessengerCoreDataNotification.observeFyleMessageJoinWithStatusWasUpdated { [weak self] fyleMessageJoinObjectID in
+                Task { await self?.refreshViewContextsRegisteredObjectsOnUpdateOfFyleMessageJoinWithStatus(with: fyleMessageJoinObjectID) }
             },
         ])
         
@@ -304,7 +317,7 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
                         await _self.mainFlowViewController?.performCurrentDeepLinkInitialNavigation(deepLink: deepLink)
                     }
                 }
-                if _self.viewDidAppearWasCalled {
+                if _self.viewDidAppearWasCalledAtLeastOnce {
                     toExecuteAfterViewDidAppear()
                 } else {
                     _self.completionHandlersToCallOnViewDidAppear.append(toExecuteAfterViewDidAppear)
@@ -348,19 +361,15 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
-        // We send the metaFlowControllerViewDidAppear notification here.
-        // This notification is fundamental as it eventually triggers many bootstrap methods waiting for this view controller to appear.
-        // We need to register to the UIApplication.didBecomeActiveNotification so as to send the metaFlowControllerViewDidAppear when the app is launched while it still was in the background since, in that case, the viewDidAppear method is not called.
-        observationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            guard self?.viewDidAppearWasCalled == true else { return }
+
+        if !viewDidAppearWasCalledAtLeastOnce {
             ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
                 .postOnDispatchQueue()
-        })
-        ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
-            .postOnDispatchQueue()
+        } else {
+            // The notification is sent from the observeDidBecomeActiveNotifications()method
+        }
         
-        viewDidAppearWasCalled = true
+        viewDidAppearWasCalledAtLeastOnce = true
         
         while let completion = completionHandlersToCallOnViewDidAppear.popLast() {
             completion()
@@ -369,10 +378,26 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     }
     
     
+    // We send the metaFlowControllerViewDidAppear notification when the application becomes active, but only of viewDidAppearWasCalled is true.
+    //
+    // When the app is launched after a cold boot, the metaFlowControllerViewDidAppear notification is not called here, but in the viewDidAppear method.
+    // When the app is re-launched from the background, the viewDidAppear is not called, and the metaFlowControllerViewDidAppear notification is sent anyway, thanks to this method.
+    private func observeDidBecomeActiveNotifications() {
+        debugPrint("observeDidBecomeActiveNotifications")
+        observationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard self?.viewDidAppearWasCalledAtLeastOnce == true else { return }
+                ObvMessengerInternalNotification.metaFlowControllerViewDidAppear
+                    .postOnDispatchQueue()
+            }
+        })
+    }
+    
+    
     /// Called by the SceneDelegate
     @MainActor
     func sceneDidBecomeActive(_ scene: UIScene) {
-        assert(viewDidAppearWasCalled)
+        assert(viewDidAppearWasCalledAtLeastOnce)
         mainFlowViewController?.sceneDidBecomeActive(scene)
     }
     
@@ -380,7 +405,7 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     /// Called by the SceneDelegate
     @MainActor
     func sceneWillResignActive(_ scene: UIScene) {
-        assert(viewDidAppearWasCalled)
+        assert(viewDidAppearWasCalledAtLeastOnce)
         mainFlowViewController?.sceneWillResignActive(scene)
     }
     
@@ -975,14 +1000,23 @@ extension MetaFlowController {
 extension MetaFlowController {
     
     private func observeUserWantsToRefreshDiscussionsNotifications() {
-        let NotificationType = MessengerInternalNotification.UserWantsToRefreshDiscussions.self
-        let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let completionHandler = NotificationType.parse(notification) else { return }
-            _self.obvEngine.downloadAllMessagesForOwnedIdentities()
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToRefreshDiscussions { [weak self] completionHandler in
+            // Request the download of all messages to the engine
+            self?.obvEngine.downloadAllMessagesForOwnedIdentities()
+            // If one of the owned identities is keycloak managed, resync
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    guard let ownedIdentities = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context) else { return }
+                    let keycloakManagedOwnedIdentities = ownedIdentities.filter { $0.isKeycloakManaged }
+                    guard !keycloakManagedOwnedIdentities.isEmpty else { return }
+                    Task {
+                        try? await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+                    }
+                }
+            }
+            // Call the completion (yes, even if the other tasks are not over yet. This shall be improved)
             completionHandler()
-        }
-        observationTokens.append(token)
+        })
     }
     
 }
@@ -1207,4 +1241,31 @@ extension MetaFlowController {
         }
     }
 
+}
+
+
+// MARK: - Refreshing the view context on certain Core Data notifications
+
+
+extension MetaFlowController {
+    
+    @MainActor
+    private func refreshViewContextsRegisteredObjectsOnUpdateOfPersistedObvContactIdentity(with contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) async {
+        guard let contact = ObvStack.shared.viewContext.registeredObject(for: contactObjectID.objectID) as? PersistedObvContactIdentity else { return }
+        ObvStack.shared.viewContext.refresh(contact, mergeChanges: true)
+        guard let oneToOneDiscussionObjectID = contact.oneToOneDiscussion?.objectID else { return }
+        guard let oneToOneDiscussion = ObvStack.shared.viewContext.registeredObject(for: oneToOneDiscussionObjectID) as? PersistedOneToOneDiscussion else { return }
+        ObvStack.shared.viewContext.refresh(oneToOneDiscussion, mergeChanges: true)
+    }
+ 
+    
+    @MainActor
+    private func refreshViewContextsRegisteredObjectsOnUpdateOfFyleMessageJoinWithStatus(with fyleMessageJoinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) async {
+        guard let join = ObvStack.shared.viewContext.registeredObject(for: fyleMessageJoinObjectID.objectID) as? FyleMessageJoinWithStatus else { return }
+        ObvStack.shared.viewContext.refresh(join, mergeChanges: true)
+        guard let messageObjectID = join.message?.objectID else { return }
+        guard let message = ObvStack.shared.viewContext.registeredObject(for: messageObjectID) as? PersistedMessage else { return }
+        ObvStack.shared.viewContext.refresh(message, mergeChanges: true)
+    }
+    
 }

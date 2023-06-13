@@ -24,6 +24,8 @@ import ObvEngine
 import ObvTypes
 import OlvidUtils
 import ObvCrypto
+import ObvUICoreData
+
 
 final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpecificReasonForCancel<EditTextBodyOfReceivedMessageOperationReasonForCancel> {
     
@@ -33,14 +35,16 @@ final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpeci
     private let receivedMessageToEdit: MessageReferenceJSON
     private let messageUploadTimestampFromServer: Date
     private let saveRequestIfMessageCannotBeFound: Bool
+    private let newMentions: [MessageJSON.UserMention]
 
-    init(newTextBody: String?, requester: ObvContactIdentity, groupIdentifier: GroupIdentifier?, receivedMessageToEdit: MessageReferenceJSON, messageUploadTimestampFromServer: Date, saveRequestIfMessageCannotBeFound: Bool) {
+    init(newTextBody: String?, requester: ObvContactIdentity, groupIdentifier: GroupIdentifier?, receivedMessageToEdit: MessageReferenceJSON, messageUploadTimestampFromServer: Date, saveRequestIfMessageCannotBeFound: Bool, newMentions: [MessageJSON.UserMention]) {
         self.newTextBody = newTextBody
         self.groupIdentifier = groupIdentifier
         self.requester = requester
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
         self.receivedMessageToEdit = receivedMessageToEdit
         self.saveRequestIfMessageCannotBeFound = saveRequestIfMessageCannotBeFound
+        self.newMentions = newMentions
         super.init()
     }
 
@@ -111,8 +115,8 @@ final class EditTextBodyOfReceivedMessageOperation: ContextualOperationWithSpeci
                                                                           senderThreadIdentifier: receivedMessageToEdit.senderThreadIdentifier,
                                                                           contactIdentity: contact.cryptoId.getIdentity(),
                                                                           discussion: discussion) {
-                    try receivedMessage.editTextBody(newTextBody: newTextBody, requester: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                    
+                    try receivedMessage.replaceContentWith(newBody: newTextBody, newMentions: Set(newMentions), requester: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
                     // If the message appears as a reply-to in some other messages, we must refresh those messages in the view context
                     // Similarly, if a draft is replying to this message, we must refresh the draft in the view context
 

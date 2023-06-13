@@ -75,10 +75,13 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     }
 
     var delegateManager: ObvIdentityDelegateManager? {
-        return ownedIdentity?.delegateManager
+        return ownedIdentity?.delegateManager ?? delegateManagerOnDeletion
     }
 
     var obvContext: ObvContext?
+    
+    private var delegateManagerOnDeletion: ObvIdentityDelegateManager?
+    private var ownedCryptoIdOnDeletion: ObvCryptoIdentity?
 
     var photoServerKeyAndLabel: PhotoServerKeyAndLabel? {
         guard let photoServerKeyEncoded = self.photoServerKeyEncoded else { return nil }
@@ -134,8 +137,10 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     }
     
     
-    func delete(identityPhotosDirectory: URL, within obvContext: ObvContext) throws {
-        if let currentPhotoURL = self.getPhotoURL(identityPhotosDirectory: identityPhotosDirectory) {
+    func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+        self.delegateManagerOnDeletion = delegateManager
+        self.ownedCryptoIdOnDeletion = ownedIdentity?.cryptoIdentity
+        if let currentPhotoURL = self.getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
             try obvContext.addContextDidSaveCompletionHandler { error in
                 guard error == nil else { return }
                 if FileManager.default.fileExists(atPath: currentPhotoURL.path) {
@@ -332,6 +337,8 @@ extension OwnedIdentityDetailsPublished {
 
     override func prepareForDeletion() {
         super.prepareForDeletion()
+        guard let managedObjectContext else { assertionFailure(); return }
+        guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
         labelToDelete = self.photoServerLabel
     }
     
@@ -353,7 +360,7 @@ extension OwnedIdentityDetailsPublished {
         }
 
         if notificationRelatedChanges.contains(.photoServerLabel) || isDeleted {
-            if let labelToDelete = self.labelToDelete, let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity {
+            if let labelToDelete = self.labelToDelete, let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity ?? ownedCryptoIdOnDeletion {
                 let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoIdentity, label: labelToDelete)
                 notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             }

@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 
 final class BackupKeyVerifierViewHostingController: UIHostingController<BackupKeyVerifierView> {
@@ -92,6 +93,10 @@ fileprivate final class BackupKeyTester: NSObject, ObservableObject, UITextField
             let index = textField.tag
             self?.textFieldDidChange(atIndex: index)
         })
+    }
+    
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     enum KeyStatusReportType {

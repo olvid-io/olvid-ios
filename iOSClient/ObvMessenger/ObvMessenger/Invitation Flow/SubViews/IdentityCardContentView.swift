@@ -24,6 +24,7 @@ import ObvTypes
 import ObvMetaManager
 import Combine
 import ObvUI
+import ObvUICoreData
 
 
 class SingleIdentity: Identifiable, Hashable, ObservableObject {
@@ -54,10 +55,7 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
 
     /// This is set only when using the appropriate initializer.
     private let ownedIdentity: PersistedObvOwnedIdentity?
-    
-    var ownCryptoId: ObvCryptoId? {
-        ownedIdentity?.cryptoId
-    }
+    let ownCryptoId: ObvCryptoId?
     
     /// This is used when showing an identity we just scanned. In that case, there is not much we can do
     convenience init(urlIdentity: ObvURLIdentity) {
@@ -103,6 +101,7 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
         self.showRedShield = showRedShield
         self.identityColors = identityColors
         self.ownedIdentity = ownedIdentity
+        self.ownCryptoId = ownedIdentity?.cryptoId
         self.serverAndAPIKeyToShow = serverAndAPIKeyToShow
         self.keycloakDetails = keycloakDetails
 
@@ -801,7 +800,7 @@ final class ContactGroup: Identifiable, Hashable, ObservableObject {
                   description: "",
                   members: members,
                   photoURL: persistedContactGroup.displayPhotoURL,
-                  groupColors: AppTheme.shared.groupColors(forGroupUid: persistedContactGroup.groupUid))
+                  groupColors: AppTheme.shared.groupColors(forGroupUid: persistedContactGroup.groupUid, using: ObvMessengerSettings.Interface.identityColorStyle))
     }
 
     convenience init() {

@@ -1,0 +1,11 @@
+import:
+  - Foundation
+options:
+  - {key: visibility, value: public}
+notifications:
+- name: contactsSortOrderDidChange
+- name: preferredComposeMessageViewActionsDidChange
+- name: isCallKitEnabledSettingDidChange
+- name: isIncludesCallsInRecentsEnabledSettingDidChange
+- name: performInteractionDonationSettingDidChange
+- name: identityColorStyleDidChange

@@ -19,6 +19,7 @@
 
 import ObvUI
 import SwiftUI
+import ObvTypes
 
 
 struct EditSingleOwnedIdentityView: View {
@@ -31,6 +32,7 @@ struct EditSingleOwnedIdentityView: View {
     @ObservedObject var singleIdentity: SingleIdentity
     @State private var isPublishActionSheetShown = false
     let userConfirmedPublishAction: () -> Void
+    let userWantsToUnbindFromKeycloakServer: (ObvCryptoId) -> Void
     /// Used to prevent small screen settings when the keyboard appears on a large screen
     @State private var largeScreenUsedOnce = false
     @State private var newIdentityPublishingInProgress = false
@@ -85,21 +87,7 @@ struct EditSingleOwnedIdentityView: View {
     
     private func userWantsToUnbindFromKeycloak() {
         guard let ownCryptoId = singleIdentity.ownCryptoId else { assertionFailure(); return }
-        withAnimation {
-            hudViewCategory = .progress
-            disableAllButtons = true
-        }
-        ObvMessengerInternalNotification.userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ownCryptoId) { success in
-            DispatchQueue.main.async {
-                withAnimation {
-                    disableAllButtons = false
-                    hudViewCategory = success ? .checkmark : nil
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-                    withAnimation { hudViewCategory = nil }
-                }
-            }
-        }.postOnDispatchQueue()
+        userWantsToUnbindFromKeycloakServer(ownCryptoId)
     }
 
     var body: some View {
@@ -281,29 +269,35 @@ struct EditSingleOwnedIdentityView_Previews: PreviewProvider {
             ForEach(testData) {
                 EditSingleOwnedIdentityView(editionType: .edition,
                                             singleIdentity: $0,
-                                            userConfirmedPublishAction: {})
+                                            userConfirmedPublishAction: {},
+                                            userWantsToUnbindFromKeycloakServer: { _ in })
                 EditSingleOwnedIdentityView(editionType: .creation,
                                             singleIdentity: $0,
-                                            userConfirmedPublishAction: {})
+                                            userConfirmedPublishAction: {},
+                                            userWantsToUnbindFromKeycloakServer: { _ in })
             }
             ForEach(testData) {
                 EditSingleOwnedIdentityView(editionType: .edition,
                                             singleIdentity: $0,
-                                            userConfirmedPublishAction: {})
+                                            userConfirmedPublishAction: {},
+                                            userWantsToUnbindFromKeycloakServer: { _ in })
                     .environment(\.colorScheme, .dark)
                 EditSingleOwnedIdentityView(editionType: .creation,
                                             singleIdentity: $0,
-                                            userConfirmedPublishAction: {})
+                                            userConfirmedPublishAction: {},
+                                            userWantsToUnbindFromKeycloakServer: { _ in })
                     .environment(\.colorScheme, .dark)
             }
             EditSingleOwnedIdentityView(editionType: .edition,
                                         singleIdentity: testData[1],
-                                        userConfirmedPublishAction: {})
+                                        userConfirmedPublishAction: {},
+                                        userWantsToUnbindFromKeycloakServer: { _ in })
                 .environment(\.colorScheme, .dark)
                 .previewDevice(PreviewDevice(rawValue: "iPhone XS"))
             EditSingleOwnedIdentityView(editionType: .creation,
                                         singleIdentity: testData[1],
-                                        userConfirmedPublishAction: {})
+                                        userConfirmedPublishAction: {},
+                                        userWantsToUnbindFromKeycloakServer: { _ in })
                 .environment(\.colorScheme, .dark)
                 .previewDevice(PreviewDevice(rawValue: "iPhone XS"))
         }

@@ -23,6 +23,7 @@ import ObvTypes
 import ObvEngine
 import CoreData
 import OlvidUtils
+import ObvUICoreData
 
 
 protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {

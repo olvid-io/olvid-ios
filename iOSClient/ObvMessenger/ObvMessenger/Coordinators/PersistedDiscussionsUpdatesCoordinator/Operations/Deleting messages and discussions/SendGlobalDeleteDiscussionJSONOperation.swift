@@ -23,6 +23,8 @@ import os.log
 import ObvTypes
 import OlvidUtils
 import ObvEngine
+import ObvUICoreData
+
 
 final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReasonForCancel<SendGlobalDeleteDiscussionJSONOperationReasonForCancel> {
 

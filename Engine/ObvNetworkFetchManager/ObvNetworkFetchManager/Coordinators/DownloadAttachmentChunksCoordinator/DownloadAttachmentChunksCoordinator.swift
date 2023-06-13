@@ -154,7 +154,7 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
                 return
             }
                         
-            attachmentsRequiringSignedURLs = message.attachments.filter({ !$0.allChunksHaveSignedURLs }).map({ $0.attachmentId })
+            attachmentsRequiringSignedURLs = message.attachments.filter({ !$0.allChunksHaveSignedURLs }).compactMap({ $0.attachmentId })
 
         }
         
@@ -407,13 +407,16 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
                 os_log("👑 We found %{public}d attachment(s) to resume.", log: log, type: .info, attachmentsToResume.count)
 
                 attachmentsToResume.forEach {
-                    os_log("👑 Attachment %{public}@ has a total of %{public}d chunk(s), and %{public}d still need to be downloaded", log: log, type: .info, $0.attachmentId.debugDescription, $0.chunks.count, $0.chunks.filter({ !$0.cleartextChunkWasWrittenToAttachmentFile }).count)
+                    guard let attachmentId = $0.attachmentId else { assertionFailure(); return }
+                    os_log("👑 Attachment %{public}@ has a total of %{public}d chunk(s), and %{public}d still need to be downloaded", log: log, type: .info, attachmentId.debugDescription, $0.chunks.count, $0.chunks.filter({ !$0.cleartextChunkWasWrittenToAttachmentFile }).count)
                     let ops = _self.getOperationsForResumingAttachment($0, flowId: flowId, logSubsystem: delegateManager.logSubsystem, inbox: delegateManager.inbox, contextCreator: contextCreator, identityDelegate: identityDelegate)
-                    os_log("👑 We created %{public}d operations in order to download Attachment %{public}@", log: log, type: .info, ops.count, $0.attachmentId.debugDescription)
+                    os_log("👑 We created %{public}d operations in order to download Attachment %{public}@", log: log, type: .info, ops.count, attachmentId.debugDescription)
+                    guard !ops.isEmpty else { assertionFailure(); return }
                     operationsToQueue.append(contentsOf: ops)
+                    resumedAttachmentIds.append(attachmentId)
                 }
 
-                resumedAttachmentIds = attachmentsToResume.map({ $0.attachmentId })
+                resumedAttachmentIds = attachmentsToResume.compactMap({ $0.attachmentId })
 
             }
                         
@@ -1061,7 +1064,12 @@ extension DownloadAttachmentChunksCoordinator {
         
         var operations = [Operation]()
 
-        let firstOp = ReCreateURLSessionWithNewDelegateForAttachmentDownloadOperation(attachmentId: attachment.attachmentId,
+        guard let attachmentId = attachment.attachmentId else {
+            assertionFailure()
+            return operations
+        }
+        
+        let firstOp = ReCreateURLSessionWithNewDelegateForAttachmentDownloadOperation(attachmentId: attachmentId,
                                                                                       logSubsystem: logSubsystem,
                                                                                       flowId: flowId,
                                                                                       inbox: inbox,
@@ -1070,7 +1078,7 @@ extension DownloadAttachmentChunksCoordinator {
         
         operations.append(firstOp)
         
-        let secondOp = ResumeDownloadsOfMissingChunksOperation(attachmentId: attachment.attachmentId,
+        let secondOp = ResumeDownloadsOfMissingChunksOperation(attachmentId: attachmentId,
                                                                logSubsystem: logSubsystem,
                                                                flowId: flowId,
                                                                contextCreator: contextCreator,

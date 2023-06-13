@@ -19,6 +19,8 @@
 
 import UIKit
 import ObvTypes
+import ObvUICoreData
+
 
 class InterfaceSettingsTableViewController: UITableViewController {
 
@@ -93,14 +95,10 @@ class InterfaceSettingsTableViewController: UITableViewController {
     
     private enum InterfaceOptionsItem: CaseIterable {
         case useOldDiscussionInterface
-        case useOldListOfDiscussionsInterface
         static var shown: [InterfaceOptionsItem] {
             var result = [InterfaceOptionsItem]()
             if #available(iOS 15, *) {
                 result += [useOldDiscussionInterface]
-            }
-            if #available(iOS 16, *) {
-                result += [useOldListOfDiscussionsInterface]
             }
             return result
         }
@@ -110,7 +108,6 @@ class InterfaceSettingsTableViewController: UITableViewController {
         var cellIdentifier: String {
             switch self {
             case .useOldDiscussionInterface: return "useOldDiscussionInterface"
-            case .useOldListOfDiscussionsInterface: return "useOldListOfDiscussionsInterface"
             }
         }
     }
@@ -188,18 +185,6 @@ extension InterfaceSettingsTableViewController {
                     }
                 }
                 return cell
-            case .useOldListOfDiscussionsInterface:
-                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
-                cell.selectionStyle = .none
-                cell.title = Strings.useOldListOfDiscussionsInterface
-                cell.switchIsOn = ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface
-                cell.blockOnSwitchValueChanged = { (value) in
-                    ObvMessengerSettings.Interface.useOldListOfDiscussionsInterface = value
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
-                        tableView.reloadData()
-                    }
-                }
-                return cell
             }
         case .identityColorStyle:
             guard let item = IdentityColorStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
@@ -250,7 +235,7 @@ extension InterfaceSettingsTableViewController {
 
 
 extension ContactsSortOrder: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .byFirstName: return InterfaceSettingsTableViewController.Strings.firstNameThenLastName
         case .byLastName: return InterfaceSettingsTableViewController.Strings.lastNameThenFirstName
@@ -267,7 +252,6 @@ private extension InterfaceSettingsTableViewController {
         static let firstNameThenLastName = NSLocalizedString("FIRST_NAME_LAST_NAME", comment: "")
         static let lastNameThenFirstName = NSLocalizedString("LAST_NAME_FIRST_NAME", comment: "")
         static let useOldDiscussionInterface = NSLocalizedString("USE_OLD_DISCUSSION_INTERFACE", comment: "")
-        static let useOldListOfDiscussionsInterface = NSLocalizedString("USE_OLD_LIST_OF_DISCUSSIONS_INTERFACE", comment: "")
     }
     
 }

@@ -19,6 +19,8 @@
 
 import Foundation
 import os.log
+import ObvUICoreData
+
 
 final class MuteDiscussionManager {
 
@@ -41,6 +43,10 @@ final class MuteDiscussionManager {
         observeNewMuteExpirationNotifications()
     }
 
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+    
     private func observeNewMuteExpirationNotifications() {
         let log = MuteDiscussionManager.log
         observationTokens.append(ObvMessengerInternalNotification.observeNewMuteExpiration { [weak self] (_) in

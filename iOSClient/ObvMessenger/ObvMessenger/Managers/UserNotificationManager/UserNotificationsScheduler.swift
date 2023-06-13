@@ -20,33 +20,45 @@
 import Foundation
 import UserNotifications
 import os.log
+import ObvUICoreData
+
 
 final class UserNotificationsScheduler {
-    
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "UserNotificationsScheduler")
 
-    static func scheduleNotification(notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent, notificationCenter: UNUserNotificationCenter) {
-
+    static func scheduleNotification(notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent, notificationCenter: UNUserNotificationCenter, immediately: Bool) {
         assert(notificationContent.userInfo[UserNotificationKeys.id] != nil, "You must call setThreadAndCategory on notification creation")
         
         let identifier = notificationId.getIdentifier()
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        
-        let request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: trigger)
+
+        let request: UNNotificationRequest
+
+        if immediately {
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+
+            request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: trigger)
+        } else {
+            request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: nil)
+        }
+
         os_log("Adding user notification with identifier %{public}@", log: log, type: .info, identifier)
         notificationCenter.add(request)
         
     }
 
     /// One-stop method for scheduling a notification concerning a discussion. This allows to make sure notifications concerning a muted discussion are never shown. This also allows to make sure no message notification is shown for a hidden profile.
-    static func filteredScheduleNotification(discussionKind: PersistedDiscussion.StructureKind, notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent, notificationCenter: UNUserNotificationCenter) {
+    static func filteredScheduleNotification(discussionKind: PersistedDiscussion.StructureKind, notificationId: ObvUserNotificationIdentifier, notificationContent: UNNotificationContent, notificationCenter: UNUserNotificationCenter, mentions: [PersistedUserMention.Structure], messageRepliedToStructure: PersistedMessage.AbstractStructure?, immediately: Bool) {
         guard !discussionKind.ownedIdentity.isHidden else { return }
-        guard !discussionKind.localConfiguration.shouldMuteNotifications else { return }
+        guard !discussionKind.localConfiguration.shouldMuteNotification(
+            with: mentions,
+            messageRepliedToStructure: messageRepliedToStructure,
+            globalDiscussionNotificationOptions: ObvMessengerSettings.Discussions.notificationOptions) else {
+            return
+        }
 
-        scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter)
+        scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter, immediately: immediately)
     }
 
-    
     static func removeAllNotificationWithIdentifier(_ identifier: ObvUserNotificationIdentifier, notificationCenter: UNUserNotificationCenter) {
         notificationCenter.removePendingNotificationRequests(withIdentifiers: [identifier.getIdentifier()])
         notificationCenter.removeDeliveredNotifications(withIdentifiers: [identifier.getIdentifier()])

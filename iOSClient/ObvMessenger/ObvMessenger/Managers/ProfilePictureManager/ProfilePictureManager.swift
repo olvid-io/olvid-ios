@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import UIKit
 import os.log
+import ObvUICoreData
 
 
 final class ProfilePictureManager {
@@ -33,8 +34,8 @@ final class ProfilePictureManager {
     private var observationTokens = [NSObjectProtocol]()
 
     init() {
-        self.profilePicturesCacheDirectory = ObvMessengerConstants.containerURL.forProfilePicturesCache
-        self.customContactProfilePicturesDirectory = ObvMessengerConstants.containerURL.forCustomContactProfilePictures
+        self.profilePicturesCacheDirectory = ObvUICoreDataConstants.ContainerURL.forProfilePicturesCache.url
+        self.customContactProfilePicturesDirectory = ObvUICoreDataConstants.ContainerURL.forCustomContactProfilePictures.url
         clearThenCreateCacheDirectory()
         deleteUnusedCustomPictureIdentityPhotos()
         observeNewProfilePictureCandidateToCacheNotifications()
@@ -42,6 +43,7 @@ final class ProfilePictureManager {
     }
     
     deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
         clearThenCreateCacheDirectory()
     }
     

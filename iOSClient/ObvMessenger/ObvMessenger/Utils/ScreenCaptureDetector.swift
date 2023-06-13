@@ -20,6 +20,7 @@
 
 import UIKit
 import Combine
+import ObvUICoreData
 
 
 protocol ScreenCaptureDetectorDelegate: AnyObject {
@@ -73,6 +74,11 @@ final class ScreenCaptureDetector {
         }
     }
     
+    deinit {
+        if let token {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
     
     // MARK: - Detecting screenshots
     

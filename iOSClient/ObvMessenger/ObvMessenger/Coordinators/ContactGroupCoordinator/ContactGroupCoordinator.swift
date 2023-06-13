@@ -23,25 +23,32 @@ import CoreData
 import ObvEngine
 import CoreDataStack
 import ObvTypes
+import ObvUICoreData
 import ObvCrypto
 import OlvidUtils
 
-final class ContactGroupCoordinator {
+
+
+final class ContactGroupCoordinator: ObvErrorMaker {
     
     private let obvEngine: ObvEngine
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactGroupCoordinator.self))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactGroupCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
-    private let internalQueue: OperationQueue
-    
-    private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { Self.makeError(message: message) }
+    static let errorDomain = "ContactGroupCoordinator"
+    private let coordinatorsQueue: OperationQueue
+    private let queueForComposedOperations: OperationQueue
 
-    init(obvEngine: ObvEngine, operationQueue: OperationQueue) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
         self.obvEngine = obvEngine
-        self.internalQueue = operationQueue
+        self.coordinatorsQueue = coordinatorsQueue
+        self.queueForComposedOperations = queueForComposedOperations
         listenToNotifications()
     }
         
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {}
 
 }
@@ -62,105 +69,8 @@ extension ContactGroupCoordinator {
             ObvMessengerInternalNotification.observeRemoveContactsFromGroupOwned { [weak self] groupUid, ownedCryptoId, removedContacts in
                 self?.processRemoveContactsFromGroupOwnedNotification(groupUid: groupUid, ownedCryptoId: ownedCryptoId, removedContacts: removedContacts)
             },
-        ])
-        
-        // ObvEngine Notifications
-        
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupOwnedHasUpdatedLatestDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processContactGroupOwnedHasUpdatedLatestDetailsNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupOwnedDiscardedLatestDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processContactGroupOwnedDiscardedLatestDetailsNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupJoinedHasUpdatedTrustedDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processContactGroupJoinedHasUpdatedTrustedDetailsNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPublishedDetails.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processContactGroupHasUpdatedPublishedDetailsNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupDeleted.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let (obvOwnedIdentity, groupOwner, groupUid) = NotificationType.parse(notification) else { return }
-                self?.processContactGroupDeletedNotification(obvOwnedIdentity: obvOwnedIdentity, groupOwner: groupOwner, groupUid: groupUid)
-            }
-            observationTokens.append(token)
-        }
-
-        do {
-            let NotificationType = ObvEngineNotification.NewPendingGroupMemberDeclinedStatus.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processNewPendingGroupMemberDeclinedStatusNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-        
-        do {
-            let NotificationType = ObvEngineNotification.NewContactGroup.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processNewContactGroupNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-
-        do {
-            let NotificationType = ObvEngineNotification.ContactGroupHasUpdatedPendingMembersAndGroupMembers.self
-            let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: internalQueue) { [weak self] (notification) in
-                guard let obvContactGroup = NotificationType.parse(notification) else { return }
-                self?.processContactGroupHasUpdatedPendingMembersAndGroupMembersNotification(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-        
-        do {
-            // No need to sync this call on the internalQueue, there no concurrency issue here.
-            let token = ObvMessengerInternalNotification.observeUserWantsToRefreshContactGroupJoined { [weak self] (obvContactGroup) in
+            ObvMessengerInternalNotification.observeUserWantsToRefreshContactGroupJoined { [weak self] (obvContactGroup) in
                 self?.processUserWantsToRefreshContactGroupJoined(obvContactGroup: obvContactGroup)
-            }
-            observationTokens.append(token)
-        }
-
-        observationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeTrustedPhotoOfContactGroupJoinedHasBeenUpdated(within: NotificationCenter.default, queue: internalQueue) { [weak self] (obvContactGroup) in
-                self?.processTrustedPhotoOfContactGroupJoinedHasBeenUpdated(obvContactGroup: obvContactGroup)
-            },
-            ObvEngineNotificationNew.observePublishedPhotoOfContactGroupOwnedHasBeenUpdated(within: NotificationCenter.default, queue: internalQueue) { [weak self] (obvContactGroup) in
-                self?.processPublishedPhotoOfContactGroupOwnedHasBeenUpdated(obvContactGroup: obvContactGroup)
-            },
-            ObvEngineNotificationNew.observeGroupV2WasCreatedOrUpdated(within: NotificationCenter.default) { [weak self] obvGroupV2, initiator in
-                self?.processGroupV2WasCreatedOrUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
-            },
-            ObvEngineNotificationNew.observeGroupV2WasDeleted(within: NotificationCenter.default) { [weak self] (ownedIdentity, appGroupIdentifier) in
-                self?.processGroupV2WasDeleted(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
-            },
-            ObvEngineNotificationNew.observeGroupV2UpdateDidFail(within: NotificationCenter.default) { [weak self] ownedIdentity, appGroupIdentifier in
-                self?.processGroupV2UpdateDidFail(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
             },
             ObvMessengerInternalNotification.observeUserWantsToUpdateGroupV2() { [weak self] groupObjectID, changeset in
                 self?.processUserWantsToUpdateGroupV2(groupObjectID: groupObjectID, changeset: changeset)
@@ -171,7 +81,56 @@ extension ContactGroupCoordinator {
             ObvMessengerInternalNotification.observeUserHasSeenPublishedDetailsOfGroupV2() { [weak self] groupObjectID in
                 self?.processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: groupObjectID)
             },
-            ObvMessengerGroupV2Notifications.observeGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails { [weak self] ownCryptoId, groupIdentifier in
+        ])
+        
+        // ObvEngine Notifications
+        
+        observationTokens.append(contentsOf: [
+            ObvEngineNotificationNew.observeContactGroupOwnedHasUpdatedLatestDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processContactGroupOwnedHasUpdatedLatestDetailsNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeContactGroupOwnedDiscardedLatestDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processContactGroupOwnedDiscardedLatestDetailsNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeContactGroupJoinedHasUpdatedTrustedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processContactGroupJoinedHasUpdatedTrustedDetailsNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeContactGroupHasUpdatedPublishedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processContactGroupHasUpdatedPublishedDetailsNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeContactGroupDeleted(within: NotificationCenter.default) { [weak self] obvOwnedIdentity, groupOwner, groupUid in
+                self?.processContactGroupDeletedNotification(obvOwnedIdentity: obvOwnedIdentity, groupOwner: groupOwner, groupUid: groupUid)
+            },
+            ObvEngineNotificationNew.observeNewPendingGroupMemberDeclinedStatus(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processNewPendingGroupMemberDeclinedStatusNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeNewContactGroup(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processNewContactGroupNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeContactGroupHasUpdatedPendingMembersAndGroupMembers(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processContactGroupHasUpdatedPendingMembersAndGroupMembersNotification(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeTrustedPhotoOfContactGroupJoinedHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processTrustedPhotoOfContactGroupJoinedHasBeenUpdated(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observePublishedPhotoOfContactGroupOwnedHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.processPublishedPhotoOfContactGroupOwnedHasBeenUpdated(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeGroupV2WasCreatedOrUpdated(within: NotificationCenter.default) { [weak self] obvGroupV2, initiator in
+                self?.processGroupV2WasCreatedOrUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
+            },
+            ObvEngineNotificationNew.observeGroupV2WasDeleted(within: NotificationCenter.default) { [weak self] ownedIdentity, appGroupIdentifier in
+                self?.processGroupV2WasDeleted(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+            },
+            ObvEngineNotificationNew.observeGroupV2UpdateDidFail(within: NotificationCenter.default) { [weak self] ownedIdentity, appGroupIdentifier in
+                self?.processGroupV2UpdateDidFail(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
+            },
+        ])
+        
+        // ObvMessengerGroupV2Notifications Notifications
+
+        observationTokens.append(contentsOf: [
+            ObvMessengerCoreDataNotification.observeGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails { [weak self] ownCryptoId, groupIdentifier in
                 self?.processGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ownCryptoId, groupIdentifier: groupIdentifier)
             },
         ])
@@ -185,7 +144,7 @@ extension ContactGroupCoordinator {
         do {
             try obvEngine.refreshContactGroupJoined(ownedCryptoId: ownedCryptoId, groupUid: groupUid, groupOwner: groupOwned)
         } catch {
-            os_log("Could not refresh contact group joined", log: log, type: .fault)
+            os_log("Could not refresh contact group joined", log: Self.log, type: .fault)
             return
         }
     }
@@ -193,500 +152,141 @@ extension ContactGroupCoordinator {
     
     
     private func processInviteContactsToGroupOwnedNotification(groupUid: UID, ownedCryptoId: ObvCryptoId, newGroupMembers: Set<ObvCryptoId>) {
-        
         do {
             try obvEngine.inviteContactsToGroupOwned(groupUid: groupUid,
                                                      ownedCryptoId: ownedCryptoId,
                                                      newGroupMembers: newGroupMembers)
         } catch {
-            os_log("Could not invite contact to group owned", log: log, type: .error)
+            assertionFailure()
+            os_log("Could not invite contact to group owned", log: Self.log, type: .error)
         }
-        
     }
     
     
     private func processRemoveContactsFromGroupOwnedNotification(groupUid: UID, ownedCryptoId: ObvCryptoId, removedContacts: Set<ObvCryptoId>) {
-        
         do {
             try obvEngine.removeContactsFromGroupOwned(groupUid: groupUid,
                                                        ownedCryptoId: ownedCryptoId,
                                                        removedGroupMembers: removedContacts)
         } catch {
-            os_log("Could not invite contact to group owned", log: log, type: .error)
+            assertionFailure()
+            os_log("Could not invite contact to group owned", log: Self.log, type: .error)
         }
-        
     }
     
     
 
     private func processContactGroupOwnedHasUpdatedLatestDetailsNotification(obvContactGroup: ObvContactGroup) {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            context.name = "Context created in processContactGroupOwnedHasUpdatedLatestDetailsNotification"
-            
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-            
-            let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-            
-            guard let groupOwned = try? PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                os_log("Could not find group owned", log: log, type: .error)
-                return
-            }
-            
-            groupOwned.setStatus(to: .withLatestDetails)
-
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-
-        }
-        
+        let op1 = ProcessContactGroupOwnedHasUpdatedLatestDetailsOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processContactGroupOwnedDiscardedLatestDetailsNotification(obvContactGroup: ObvContactGroup) {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            context.name = "Context created in processContactGroupOwnedHasUpdatedLatestDetailsNotification"
-            
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-            
-            let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-            
-            guard let groupOwned = try? PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                os_log("Could not find group owned", log: log, type: .error)
-                return
-            }
-            
-            groupOwned.setStatus(to: .noLatestDetails)
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-            
-        }
-        
+        let op1 = ProcessContactGroupOwnedDiscardedLatestDetailsOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processContactGroupJoinedHasUpdatedTrustedDetailsNotification(obvContactGroup: ObvContactGroup) {
-        
         guard obvContactGroup.groupType == .joined else { return }
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            context.name = "Context created in processContactGroupJoinedHasUpdatedTrustedDetailsNotification"
-            
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-            
-            let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-            
-            guard let groupJoined = try? PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                os_log("Could not find group joined", log: log, type: .error)
-                return
-            }
-            
-            do {
-                try groupJoined.resetGroupName(to: obvContactGroup.trustedOrLatestCoreDetails.name)
-            } catch {
-                os_log("Could not reset joined group name", log: log, type: .error)
-                return
-            }
-            
-            groupJoined.setStatus(to: .noNewPublishedDetails)
-
-            groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
-
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-            
-        }
-
+        let op1 = ProcessContactGroupJoinedHasUpdatedTrustedDetailsOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processContactGroupHasUpdatedPublishedDetailsNotification(obvContactGroup: ObvContactGroup) {
-        
-        switch obvContactGroup.groupType {
-        case .owned:
-            
-            ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                
-                guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                    os_log("Could not find owned identity", log: log, type: .error)
-                    return
-                }
-                
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-                
-                guard let groupOwned = try? PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                    os_log("Could not find group joined", log: log, type: .error)
-                    return
-                }
-                
-                do {
-                    try groupOwned.resetGroupName(to: obvContactGroup.publishedCoreDetails.name)
-                } catch {
-                    os_log("Could not reset owned group name", log: log, type: .error)
-                    return
-                }
-                
-                groupOwned.setStatus(to: .noLatestDetails)
-
-                do {
-                    try context.save(logOnFailure: log)
-                } catch {
-                    os_log("Could not save context", log: log, type: .error)
-                    return
-                }
-                
-            }
-            
-        case .joined:
-            
-            ObvStack.shared.performBackgroundTaskAndWait { (context) in
-                context.name = "Context created in processContactGroupHasUpdatedPublishedDetailsNotification (joined)"
-                
-                guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                    os_log("Could not find owned identity", log: log, type: .error)
-                    return
-                }
-                
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-                
-                guard let groupJoined = try? PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                    os_log("Could not find group joined", log: log, type: .error)
-                    return
-                }
-                
-                groupJoined.setStatus(to: .unseenPublishedDetails)
-
-                do {
-                    try context.save(logOnFailure: log)
-                } catch {
-                    os_log("Could not save context", log: log, type: .error)
-                    return
-                }
-                
-            }
-
-            
-        }
-        
+        let op1 = ProcessContactGroupHasUpdatedPublishedDetailsOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processTrustedPhotoOfContactGroupJoinedHasBeenUpdated(obvContactGroup: ObvContactGroup) {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { context in
-
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-
-            let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-
-            guard let groupJoined = try? PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                os_log("Could not find group joined", log: log, type: .error)
-                return
-            }
-
-            groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
-
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-
-        }
-        
+        let op1 = ProcessTrustedPhotoOfContactGroupJoinedHasBeenUpdatedOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processPublishedPhotoOfContactGroupOwnedHasBeenUpdated(obvContactGroup: ObvContactGroup) {
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-            
-            let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-            
-            guard let groupOwned = try? PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                os_log("Could not find group joined", log: log, type: .error)
-                return
-            }
-            
-            groupOwned.updatePhoto(with: obvContactGroup.publishedPhotoURL)
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-            
-        }
+        let op1 = ProcessPublishedPhotoOfContactGroupOwnedHasBeenUpdatedOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processContactGroupDeletedNotification(obvOwnedIdentity: ObvOwnedIdentity, groupOwner: ObvCryptoId, groupUid: UID) {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            context.name = "Context created in processContactGroupDeletedNotification"
-            
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: obvOwnedIdentity.cryptoId, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-            
-            let groupId = (groupUid, groupOwner)
-            
-            guard let group = try? PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) else {
-                os_log("Could not find group", log: log, type: .error)
-                return
-            }
-            
-            let persistedGroupDiscussion = group.discussion
-            
-            do {
-                try persistedGroupDiscussion.setStatus(to: .locked)
-            } catch {
-                os_log("Could not lock the persisted group discussion", log: log, type: .error)
-                return
-            }
-            
-            context.delete(group)
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-            
-        }
-
+        let op1 = ProcessContactGroupDeletedOperation(obvOwnedIdentity: obvOwnedIdentity, groupOwner: groupOwner, groupUid: groupUid)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processNewPendingGroupMemberDeclinedStatusNotification(obvContactGroup: ObvContactGroup) {
-        
         guard obvContactGroup.groupType == .owned else { return }
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            context.name = "Context created in processPendingGroupMemberDeclinedInvitationNotification"
-            
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .error)
-                return
-            }
-            
-            let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-            
-            guard let groupOwned = try? PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                os_log("Could not find group owned", log: log, type: .error)
-                return
-            }
-
-            let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
-            for pendingMember in groupOwned.pendingMembers {
-                debugPrint(declinedMemberIdentites.contains(pendingMember.cryptoId))
-                pendingMember.declined = declinedMemberIdentites.contains(pendingMember.cryptoId)
-            }
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-            
-        }
-
+        let op1 = ProcessNewPendingGroupMemberDeclinedStatusOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processNewContactGroupNotification(obvContactGroup: ObvContactGroup) {
-        
-        assert(OperationQueue.current == internalQueue)
-
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            
-            context.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump // External changes trump changes made here
-            
-            // We create a new persisted contact group associated to this engine's contact group
-            
-            switch obvContactGroup.groupType {
-            case .owned:
-                guard (try? PersistedContactGroupOwned(contactGroup: obvContactGroup, within: context)) != nil else {
-                    os_log("Could not create a new contact group owned", log: log, type: .fault)
-                    return
-                }
-            case .joined:
-                guard (try? PersistedContactGroupJoined(contactGroup: obvContactGroup, within: context)) != nil else {
-                    os_log("Could not create a new contact group joined", log: log, type: .fault)
-                    return
-                }
-            }
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("We could not create the group discussion: %@", log: log, type: .fault, error.localizedDescription)
-                return
-            }
-            
-        }
-        
+        let op1 = ProcessNewContactGroupOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processContactGroupHasUpdatedPendingMembersAndGroupMembersNotification(obvContactGroup: ObvContactGroup) {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            guard let persistedObvOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: context) else {
-                os_log("Could not find owned identity", log: log, type: .fault)
-                return
-            }
-            
-            let persistedObvContactIdentities: Set<PersistedObvContactIdentity> = Set(obvContactGroup.groupMembers.compactMap {
-                guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: $0, whereOneToOneStatusIs: .any, within: context) else {
-                    os_log("One of the group members is not among our persisted contacts. The group members will be updated when this contact will be added to the persisted contact.", log: log, type: .info)
-                    return nil
-                }
-                return persistedContact
-            })
-            
-            let contactGroup: PersistedContactGroup
-            do {
-                let groupUid = obvContactGroup.groupUid
-                let groupOwner = obvContactGroup.groupOwner.cryptoId
-                let groupId = (groupUid, groupOwner)
-                guard let _contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) else {
-                    throw makeError(message: "Could not find contact group")
-                }
-                contactGroup = _contactGroup
-            } catch {
-                os_log("Could not find the contact group", log: log, type: .fault)
-                return
-            }
-            
-            contactGroup.set(persistedObvContactIdentities)
-            do {
-                try contactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
-            } catch {
-                assertionFailure()
-                os_log("Core data error: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return
-            }
-            
-            if let groupOwned = contactGroup as? PersistedContactGroupOwned {
-                if obvContactGroup.groupType == .owned {
-                    let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
-                    for pendingMember in groupOwned.pendingMembers {
-                        pendingMember.declined = declinedMemberIdentites.contains(pendingMember.cryptoId)
-                    }
-                }
-            }
-            
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                os_log("We could not update the group discussion contacts", log: log, type: .fault)
-                return
-            }
-            
-        }
-        
+        let op1 = ProcessContactGroupHasUpdatedPendingMembersAndGroupMembersOperation(obvContactGroup: obvContactGroup)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processGroupV2WasCreatedOrUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator) {
         let op1 = CreateOrUpdatePersistedGroupV2Operation(obvGroupV2: obvGroupV2, initiator: initiator, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure()
-        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processGroupV2WasDeleted(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data) {
         let op1 = DeletePersistedGroupV2Operation(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure()
-        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processGroupV2UpdateDidFail(ownedIdentity: ObvCryptoId, appGroupIdentifier: Data) {
         let op1 = RemoveUpdateInProgressForGroupV2Operation(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure()
-        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processUserWantsToUpdateGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) {
         let op1 = UpdateGroupV2Operation(groupObjectID: groupObjectID, changeset: changeset, obvEngine: obvEngine)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure()
-        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
     
     
     private func processUserWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, customName: String?, customPhotoURL: URL?) {
         let op1 = UpdateCustomNameAndGroupV2PhotoOperation(groupObjectID: groupObjectID, customName: customName, customPhotoURL: customPhotoURL)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure()
-        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
     private func processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>) {
         let op1 = MarkPublishedDetailsOfGroupV2AsSeenOperation(groupV2ObjectID: groupObjectID)
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, log: log, flowId: FlowIdentifier())
-        internalQueue.addOperations([composedOp], waitUntilFinished: true)
-        composedOp.logReasonIfCancelled(log: log)
-        if composedOp.isCancelled {
-            assertionFailure()
-        }
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
     }
 
     
@@ -698,5 +298,30 @@ extension ContactGroupCoordinator {
         }
     }
     
+}
+
+
+// MARK: - Helpers
+
+extension ContactGroupCoordinator {
+    
+    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
+
+    
+    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+    }
     
 }

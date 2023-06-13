@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import ObvEngine
+import ObvUICoreData
 
 
 /// This operation deletes all `PersistedMessageSentRecipientInfos` instances associated that have no `messageIdentifierFromEngine` and for which no `PersistedContactIdentity` can be found. It appropriately recompute the status of the associated messages.

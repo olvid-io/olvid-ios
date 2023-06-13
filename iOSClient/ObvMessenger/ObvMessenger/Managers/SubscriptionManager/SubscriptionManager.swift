@@ -22,6 +22,7 @@ import os.log
 import ObvEngine
 import StoreKit
 import ObvTypes
+import ObvUICoreData
 
 
 final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProductsRequestDelegate {
@@ -31,7 +32,6 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
     private let obvEngine: ObvEngine
     private var notificationTokens = [NSObjectProtocol]()
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SubscriptionManager.self))
-    private var observationTokens = [NSObjectProtocol]()
     private var currentProductRequest: SKProductsRequest?
     private var currentPurchaseTransactionsSentToEngine = [String: PurchaseTransactionForToEngine]()
     private var numberOfTransactionsToRestore = 0
@@ -48,6 +48,9 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
         observeNotifications()
     }
     
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
     
     struct PurchaseTransactionForToEngine {
         
@@ -104,8 +107,10 @@ final class SubscriptionManager: NSObject, SKPaymentTransactionObserver, SKProdu
     func listenToSKPaymentTransactions() {
         guard SKPaymentQueue.canMakePayments() else { return }
         SKPaymentQueue.default().add(self)
-        observationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: OperationQueue.main, using: { (_) in
-            SKPaymentQueue.default().remove(self)
+        notificationTokens.append(NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: nil, using: { (_) in
+            DispatchQueue.main.async {
+                SKPaymentQueue.default().remove(self)
+            }
         }))
         
     }

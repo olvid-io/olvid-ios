@@ -24,6 +24,7 @@ import ObvTypes
 import CloudKit
 import OlvidUtils
 import ObvUI
+import ObvUICoreData
 
 /// First table view controller shown when navigating to the backup settings.
 @MainActor
@@ -207,6 +208,9 @@ final class BackupTableViewController: UITableViewController, ObvErrorMaker {
         fatalError("init(coder:) has not been implemented")
     }
     
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()

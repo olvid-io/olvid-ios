@@ -53,6 +53,7 @@ extension ServerResponse {
         case putGroupLog
         case requestGroupBlobLock(result: RequestGroupBlobLockResult)
         case updateGroupBlob(uploadResult: UploadResult)
+        case getKeycloakData(result: GetUserDataResult)
 
         private var rawValue: Int {
             switch self {
@@ -76,6 +77,8 @@ extension ServerResponse {
                 return 8
             case .updateGroupBlob:
                 return 9
+            case .getKeycloakData:
+                return 10
             }
         }
         
@@ -102,6 +105,8 @@ extension ServerResponse {
                 return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
             case .updateGroupBlob(uploadResult: let uploadResult):
                 return [rawValue.obvEncode(), uploadResult.obvEncode()].obvEncode()
+            case .getKeycloakData(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
             }
         }
         
@@ -153,6 +158,10 @@ extension ServerResponse {
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let uploadResult = UploadResult(listOfEncoded[1]) else { return nil }
                 self = .updateGroupBlob(uploadResult: uploadResult)
+            case 10:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = GetUserDataResult(listOfEncoded[1]) else { return nil }
+                self = .getKeycloakData(result: result)
             default:
                 assertionFailure()
                 return nil

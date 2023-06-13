@@ -85,6 +85,14 @@ final class DisplayableLogsViewStore: ObservableObject {
     func shareLogAction(_ logFilename: String) {
         delegate?.shareLogAction(logFilename)
     }
+    
+    func getSingleDisplayableLogView(_ filename: String) -> SingleDisplayableLogView {
+        guard let logURL = ObvDisplayableLogs.shared.getLogNSURL(filename) else {
+            return SingleDisplayableLogView(logURL: nil)
+        }
+        return SingleDisplayableLogView(logURL: logURL)
+    }
+    
 }
 
 
@@ -99,6 +107,7 @@ struct DisplayableLogsListView: View {
                                      getSizeOfLogAction: store.getSizeOfLogAction,
                                      deleteLogAction: store.deleteLog,
                                      shareAction: store.shareLogAction,
+                                     getSingleDisplayableLogView: store.getSingleDisplayableLogView,
                                      changed: $store.changed)
     }
     
@@ -112,16 +121,16 @@ struct DisplayableLogsListInnerView: View {
     let getSizeOfLogAction: (String) -> String?
     let deleteLogAction: (String) -> Void
     let shareAction: (String) -> Void
+    let getSingleDisplayableLogView: ((String) -> SingleDisplayableLogView)?
     @Binding var changed: Bool
 
     var body: some View {
         NavigationView {
             List {
                 ForEach(logFilenames, id: \.self) { filename in
-                    let navigationLink = NavigationLink(destination:
-                                                            SingleDisplayableLogView(content: getLogContentAction(filename),
-                                                                                     shareAction: { shareAction(filename) },
-                                                                                     deleteLogAction: { deleteLogAction(filename) })) {
+                    let navigationLink = NavigationLink {
+                        getSingleDisplayableLogView?(filename)
+                    } label: {
                         VStack(alignment: .leading) {
                             Text(filename)
                                 .font(.body)
@@ -199,6 +208,7 @@ struct DisplayableLogsListInnerView_Previews: PreviewProvider {
                                      getSizeOfLogAction: { str in nil },
                                      deleteLogAction: { _ in },
                                      shareAction: { _ in },
+                                     getSingleDisplayableLogView: nil,
                                      changed: .constant(false))
     }
 }

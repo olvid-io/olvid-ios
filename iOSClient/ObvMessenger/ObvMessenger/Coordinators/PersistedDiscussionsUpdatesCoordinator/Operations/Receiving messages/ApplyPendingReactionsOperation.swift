@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvEngine
 import os.log
 import ObvTypes
+import ObvUICoreData
 
 
 /// This operation looks for an existing `PendingMessageReaction`. If one is found, this operation executes a `UpdateReactionsOfMessageOperation`.
@@ -42,6 +43,8 @@ final class ApplyPendingReactionsOperation: ContextualOperationWithSpecificReaso
     override func main() {
 
         os_log("Executing an ApplyPendingReactionsOperation for obvMessage %{public}@", log: log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
+        ObvDisplayableLogs.shared.log("🧨 Starting ApplyPendingReactionsOperation")
+        defer { ObvDisplayableLogs.shared.log("🧨 Ending ApplyPendingReactionsOperation") }
 
         guard let obvContext = self.obvContext else {
             return cancel(withReason: .contextIsNil)

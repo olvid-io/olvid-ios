@@ -24,6 +24,7 @@ import Intents
 import OlvidUtils
 import ObvTypes
 import ObvUI
+import ObvUICoreData
 
 
 final actor AppMainManager: ObvErrorMaker {
@@ -43,7 +44,10 @@ final actor AppMainManager: ObvErrorMaker {
 
     private(set) var currentAppState = NewAppState.initializationRequired
     
-    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     private func changeAppStateTo(_ newAppState: NewAppState) {
         os_log("Will change state from <%{public}@> to <%{public}@>", log: Self.log, type: .info, currentAppState.debugDescription, newAppState.debugDescription)
         guard newAppState.level != currentAppState.level else { return }
@@ -126,6 +130,9 @@ final actor AppMainManager: ObvErrorMaker {
             ObvEngineNotificationNew.observeAPushTopicWasReceivedViaWebsocket(within: NotificationCenter.default) { pushTopic in
                 Task { [weak self] in try await self?.transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic) }
             },
+            ObvEngineNotificationNew.observeAKeycloakTargetedPushNotificationReceivedViaWebsocket(within: NotificationCenter.default) { ownedCryptoId in
+                Task { [weak self] in try await self?.requestSyncOfOwnedIdentityToTheKeycloakManager() }
+            },
             ObvMessengerCoreDataNotification.observeOwnedIdentityHiddenStatusChanged { _, _ in
                 Task { await LatestCurrentOwnedIdentityStorage.shared.removeLatestCurrentOWnedIdentityStored() }
             },
@@ -179,7 +186,7 @@ final actor AppMainManager: ObvErrorMaker {
         // Initialize the CoreData Stack
         runningLog.addEvent(message: "Initializing the App Core Data stack")
         do {
-            try ObvStack.initSharedInstance(transactionAuthor: ObvMessengerConstants.AppType.mainApp.transactionAuthor,
+            try ObvStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppType.mainApp.transactionAuthor,
                                             runningLog: runningLog,
                                             enableMigrations: true)
         } catch let error {
@@ -197,7 +204,9 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV0_9_14()
         migrationToV0_9_17()
         migrationToV0_11_1()
-
+        migrationToV0_12_5()
+        migrationToV0_12_6()
+        migrationToV0_12_8()
     }
     
     
@@ -213,7 +222,7 @@ final actor AppMainManager: ObvErrorMaker {
         runningLog.addEvent(message: "Initializing the Engine")
         let obvEngine: ObvEngine
         do {
-            let mainEngineContainer = ObvMessengerConstants.containerURL.mainEngineContainer
+            let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
             ObvEngine.mainContainerURL = mainEngineContainer
             obvEngine = try ObvEngine.startFull(logPrefix: "FullEngine",
                                                 appNotificationCenter: NotificationCenter.default,
@@ -279,6 +288,14 @@ final actor AppMainManager: ObvErrorMaker {
         // Delete old files from the tmp directory
         deleteOldTemporaryFiles()
         
+        // Delete old displayable logs
+        do {
+            try ObvDisplayableLogs.shared.deleteLogsOlderThan(date: Date(timeIntervalSinceNow: -TimeInterval(days: 5)))
+        } catch {
+            assertionFailure(error.localizedDescription)
+            // In production, continue anyway
+        }
+        
         // Print a few logs on startup
         printInitialDebugLogs()
 
@@ -288,7 +305,7 @@ final actor AppMainManager: ObvErrorMaker {
     private func deleteOldTemporaryFiles() {
         DispatchQueue(label: "Internal queue for deleting old temporary files").async {
             do {
-                let urlForTempFiles = ObvMessengerConstants.containerURL.forTempFiles
+                let urlForTempFiles = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
                 var isDirectory: ObjCBool = false
                 guard FileManager.default.fileExists(atPath: urlForTempFiles.path, isDirectory: &isDirectory) else {
                     os_log("The temp directory %{public}@ does not exist", log: Self.log, type: .fault, urlForTempFiles.path)
@@ -338,7 +355,7 @@ extension AppMainManager {
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) async {
         os_log("🍎 Application failed to register for remote notifications: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
         _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
-        if ObvMessengerConstants.isRunningOnRealDevice == true {
+        if ObvMessengerConstants.areRemoteNotificationsAvailable == true {
             os_log("%@", log: Self.log, type: .error, error.localizedDescription)
         }
         Task { await ObvPushNotificationManager.shared.tryToRegisterToPushNotifications() }
@@ -356,6 +373,8 @@ extension AppMainManager {
         if let pushTopic = userInfo["topic"] as? String {
             // We are receiving a notification originated in the keycloak server
             
+            os_log("🧥 The received notification is keycloak push topic: %{public}@", log: Self.log, type: .debug, pushTopic)
+            
             do {
                 try await transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic)
             } catch {
@@ -367,7 +386,24 @@ extension AppMainManager {
             os_log("🌊 We sucessfully sync the appropriate identity with the keycloak server, calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, tag.uuidString)
             completionHandler(.newData)
             return
+            
+        } else if userInfo["keycloak"] != nil {
 
+            os_log("🧥 The received notification is keycloak notification targeted for our owned identity", log: Self.log, type: .debug)
+
+            do {
+                try await requestSyncOfOwnedIdentityToTheKeycloakManager()
+            } catch {
+                assertionFailure(error.localizedDescription)
+                os_log("🌊 The sync of all identities with the keycloak server failed: %{public}@. Calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, error.localizedDescription, tag.uuidString)
+                completionHandler(.failed)
+                return
+            }
+            
+            os_log("🌊 We sucessfully synced all managed identities with the keycloak server, calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, tag.uuidString)
+            completionHandler(.newData)
+            return
+            
         } else {
             
             // We are receiving a notification indicating new data is available on the server
@@ -393,6 +429,12 @@ extension AppMainManager {
     }
     
     
+    /// For now, we do not specify the owned identity although it is available in the notification
+    private func requestSyncOfOwnedIdentityToTheKeycloakManager() async throws {
+        try await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+    }
+    
+    
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
         // Typically called when a background URLSession was initiated from an extension, but that extension did not finish the job
         Task {
@@ -413,6 +455,22 @@ extension AppMainManager {
 // MARK: AppCoreDataStackInitialization utils
 
 extension AppMainManager {
+    
+    private func migrationToV0_12_8() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "requestIdentifiersOfSilentNotificationsAddedByExtension")
+    }
+    
+    private func migrationToV0_12_5() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "settings.interface.useOldListOfDiscussionsInterface")
+    }
+    
+    private func migrationToV0_12_6() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "settings.AnnouncingGroupsV2.wasShownAndPermanentlyDismissedByUser")
+        userDefaults.removeObject(forKey: "io.olvid.snackBarCoordinator.lastDisplayDate.announceGroupsV2")
+    }
     
     private func migrationToV0_9_0() {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
@@ -585,13 +643,13 @@ extension AppMainManager {
 extension AppMainManager {
     
     private func printInitialDebugLogs() {
-        
-        os_log("URL for Documents: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.containerURL.forDocuments.path)
-        os_log("URL for Temp files: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.containerURL.forTempFiles.path)
-        os_log("URL for hard links: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.containerURL.forFylesHardlinks(within: .mainApp).path)
-        os_log("URL for thumbnails: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.containerURL.forThumbnails(within: .mainApp).path)
-        os_log("URL for trash: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.containerURL.forTrash.path)
-        
+
+        for containerURL in ObvUICoreDataConstants.ContainerURL.allCases {
+            guard containerURL.printInitialDebugLogs else { continue }
+            os_log("URL for %{public}@: %{public}@", log: Self.log, type: .info,
+                   containerURL.title, containerURL.url.path)
+        }
+
         os_log("developmentMode: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.developmentMode.description)
         os_log("isTestFlight: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.isTestFlight.description)
         os_log("appGroupIdentifier: %{public}@", log: Self.log, type: .info, ObvMessengerConstants.appGroupIdentifier)

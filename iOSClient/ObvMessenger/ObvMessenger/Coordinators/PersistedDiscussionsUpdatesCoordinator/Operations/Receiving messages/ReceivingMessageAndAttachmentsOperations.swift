@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import ObvCrypto
 import OlvidUtils
+import ObvUICoreData
 
 
 final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageReceivedFromReceivedObvMessageOperationReasonForCancel> {
@@ -48,8 +49,11 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
     override func main() {
         
         os_log("Executing a CreatePersistedMessageReceivedFromReceivedObvMessageOperation for obvMessage %{public}@", log: log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
+        ObvDisplayableLogs.shared.log("🧨 Starting CreatePersistedMessageReceivedFromReceivedObvMessageOperation")
+        defer { ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation") }
 
         guard let obvContext = self.obvContext else {
+            ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (1)")
             return cancel(withReason: .contextIsNil)
         }
         
@@ -62,10 +66,12 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 // Grab the persisted contact and the appropriate discussion
                 
                 guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                    ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (2)")
                     return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
                 
                 guard let ownedIdentity = persistedContactIdentity.ownedIdentity else {
+                    ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (3)")
                     return cancel(withReason: .couldNotDetermineOwnedIdentity)
                 }
                 
@@ -76,9 +82,11 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 case .none:
                     
                     guard persistedContactIdentity.isOneToOne else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (4)")
                         return cancel(withReason: .cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact)
                     }
                     guard let oneToOneDiscussion = persistedContactIdentity.oneToOneDiscussion else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (5)")
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
                     discussion = oneToOneDiscussion
@@ -86,6 +94,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 case .groupV1(groupV1Identifier: let groupV1Identifier):
                     
                     guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (6)")
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     discussion = contactGroup.discussion
@@ -93,9 +102,11 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 case .groupV2(groupV2Identifier: let groupV2Identifier):
                     
                     guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (7)")
                         return cancel(withReason: .couldNotFindPersistedContactGroupInDatabase)
                     }
                     guard let groupDiscussion = group.discussion else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (8)")
                         return cancel(withReason: .couldNotFindDiscussion)
                     }
                     discussion = groupDiscussion
@@ -131,6 +142,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                         
                         guard !previousMessage.isWiped else {
                             os_log("Trying to update a wiped received message. We don't do that an return immediately.", log: log, type: .info)
+                            ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (9)")
                             return
                         }
                         
@@ -146,6 +158,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                                                        discussion: discussion)
                         } catch {
                             os_log("Could not update existing received message: %{public}@", log: log, type: .error, error.localizedDescription)
+                            // Continue anyway
                         }
                         
                     } else {
@@ -170,6 +183,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                                                              discussion: discussion,
                                                              obvMessageContainsAttachments: !obvMessage.attachments.isEmpty)) != nil
                         else {
+                            ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (10)")
                             return cancel(withReason: .couldNotCreatePersistedMessageReceived)
                         }
                         
@@ -195,12 +209,14 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     // Make sure the message does not already exists in DB
                     
                     guard try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContactIdentity) == nil else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (11)")
                         return
                     }
                     
                     // We make sure that message has a body (for now, this message comes from the notification extension, and there is no point in creating a `PersistedMessageReceived` if there is no body.
                     
                     guard messageJSON.body?.isEmpty == false else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (12)")
                         return
                     }
                     
@@ -224,6 +240,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                                                          discussion: discussion,
                                                          obvMessageContainsAttachments: !obvMessage.attachments.isEmpty)) != nil
                     else {
+                        ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (13)")
                         return cancel(withReason: .couldNotCreatePersistedMessageReceived)
                     }
                     
@@ -273,6 +290,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                 }
                 
             } catch {
+                ObvDisplayableLogs.shared.log("🧨 Ending CreatePersistedMessageReceivedFromReceivedObvMessageOperation (13)")
                 return cancel(withReason: .coreDataError(error: error))
             }
             

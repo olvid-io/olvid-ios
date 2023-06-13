@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvUICoreData
 import OlvidUtils
 
 
@@ -59,7 +60,10 @@ final class CompositionViewFreezeManager {
         observeNotifications()
     }
     
-    
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     /// Called by all `NewComposeMessageView` at init
     func register(_ composeView: NewComposeMessageView) -> (freezeId: UUID?, progress: Progress?) {
 
@@ -83,6 +87,14 @@ final class CompositionViewFreezeManager {
         }
         
         return (freezeId, progress)
+    }
+    
+    
+    func unregister(_ composeView: NewComposeMessageView) {
+        let draftPermanentID = composeView.draft.objectPermanentID
+        internalQueue.sync {
+            cleanCurrentFreezeIds(for: draftPermanentID)
+        }
     }
     
     
@@ -179,7 +191,7 @@ extension CompositionViewFreezeManager {
     
     private func observeNotifications() {
         notificationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeDraftToSendWasReset { [weak self] _, draftPermanentID in
+            ObvMessengerInternalNotification.observeDraftToSendWasReset { [weak self] _, draftPermanentID in
                 self?.processDraftToSendWasReset(draftPermanentID: draftPermanentID)
             },
             NewSingleDiscussionNotification.observeDraftCouldNotBeSent { [weak self] draftPermanentID in

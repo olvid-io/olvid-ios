@@ -46,23 +46,7 @@ struct MessengerInternalNotification {
         static let name = NSNotification.Name("MessengerInternalNotification.ApplicationIconBadgeNumberWasUpdated")
     }
 
-    
-    // MARK: - UserWantsToRefreshDiscussions {
-    struct UserWantsToRefreshDiscussions {
-        static let name = NSNotification.Name("MessengerInternalNotification.UserWantsToRefreshDiscussions")
-        struct Key {
-            static let completionHandler = "completionHandler"
-        }
-        static func parse(_ notification: Notification) -> (() -> Void)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let completionHandler = userInfo[Key.completionHandler] as? () -> Void else { return nil }
-            return completionHandler
-        }
-
-    }
-    
-    
+        
     // MARK: - TextFieldDidBeginEditing
     struct TextFieldDidBeginEditing {
         static let name = NSNotification.Name("MessengerInternalNotification.TextFieldDidBeginEditing")

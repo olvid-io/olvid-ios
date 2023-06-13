@@ -129,3 +129,11 @@ notifications:
   - {name: ownedIdentity, type: ObvCryptoIdentity}
   - {name: appGroupIdentifier, type: Data}
 - name: ownedIdentityWasDeleted
+- name: contactIsCertifiedByOwnKeycloakStatusChanged
+  params:
+  - {name: ownedIdentity, type: ObvCryptoIdentity}
+  - {name: contactIdentity, type: ObvCryptoIdentity}
+  - {name: newIsCertifiedByOwnKeycloak, type: Bool}
+- name: pushTopicOfKeycloakGroupWasUpdated
+  params:
+  - {name: ownedCryptoId, type: ObvCryptoIdentity}

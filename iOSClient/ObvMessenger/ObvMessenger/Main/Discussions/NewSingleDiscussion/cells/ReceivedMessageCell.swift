@@ -22,7 +22,8 @@ import UniformTypeIdentifiers
 import CoreData
 import os.log
 import ObvUI
-
+import ObvUICoreData
+import UI_CircledInitialsView_CircledInitialsConfiguration
 
 @available(iOS 14.0, *)
 final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff, CellWithPersistedMessageReceived {
@@ -127,7 +128,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
 
         if let contact = message.contactIdentity {
             content.contactPictureAndNameViewConfiguration =
-            ContactPictureAndNameView.Configuration(foregroundColor: contact.cryptoId.textColor,
+            ContactPictureAndNameView.Configuration(foregroundColor: contact.cryptoId.colors.text,
                                                     contactName: contact.nameForContactNameInGroupDiscussion,
                                                     contactObjectID: contact.typedObjectID,
                                                     circledInitialsConfiguration: contact.circledInitialsConfiguration)
@@ -223,9 +224,9 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             content.textBubbleConfiguration = nil
             if let text = message.textBody, !message.isWiped {
                 if let dataDetected = cacheDelegate?.getCachedDataDetection(text: text) {
-                    content.textBubbleConfiguration = TextBubble.Configuration(text: text, dataDetectorTypes: dataDetected)
+                    content.textBubbleConfiguration = TextBubble.Configuration(kind: .received, text: text, dataDetectorTypes: dataDetected, mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
                 } else {
-                    content.textBubbleConfiguration = TextBubble.Configuration(text: text, dataDetectorTypes: [])
+                    content.textBubbleConfiguration = TextBubble.Configuration(kind: .received, text: text, dataDetectorTypes: [], mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
                     cacheDelegate?.requestDataDetection(text: text) { [weak self] dataDetected in
                         guard dataDetected else { return }
                         self?.setNeedsUpdateConfiguration()
@@ -475,7 +476,7 @@ extension ReceivedMessageCell {
      
     var persistedMessage: PersistedMessage? { message }
     
-    var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
+    public var persistedMessageObjectID: TypeSafeManagedObjectID<PersistedMessage>? { persistedMessage?.typedObjectID }
     
     var persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>? { draftObjectID }
 
@@ -1214,7 +1215,7 @@ fileprivate final class ContactPictureAndNameView: UIView, UIViewWithTappableStu
         currentConfiguration = newConfiguration
         contactNameView.name = newConfiguration.contactName
         contactNameView.color = newConfiguration.foregroundColor
-        circledInitialsView.configureWith(newConfiguration.circledInitialsConfiguration)
+        circledInitialsView.configure(with: newConfiguration.circledInitialsConfiguration)
     }
 
 

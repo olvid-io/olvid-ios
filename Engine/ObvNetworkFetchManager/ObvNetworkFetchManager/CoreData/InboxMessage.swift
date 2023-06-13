@@ -60,8 +60,8 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     @NSManaged private(set) var localDownloadTimestamp: Date
     @NSManaged private(set) var markedForDeletion: Bool // If true, a message will be deleted asap (i.e., when all its attachments are also marked for deletion)
     @NSManaged private(set) var messagePayload: Data? // Not set at download time, but at the same time than the attachments' infos
-    @NSManaged private var rawMessageIdOwnedIdentity: Data
-    @NSManaged private var rawMessageIdUid: Data
+    @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
+    @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged private(set) var messageUploadTimestampFromServer: Date
     @NSManaged private var rawExtendedMessagePayloadKey: Data?
     @NSManaged private(set) var wrappedKey: EncryptedData
@@ -82,7 +82,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
     
     var attachmentIds: [AttachmentIdentifier] {
-        return attachments.map { $0.attachmentId }
+        return attachments.compactMap { $0.attachmentId }
     }
 
     // MARK: Other variables
@@ -99,9 +99,18 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         }
     }
     
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
-        set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
+    /// This identifier is expected to be non nil, unless this `InboxMessage` was deleted on another thread.
+    private(set) var messageId: MessageIdentifier? {
+        get {
+            guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
+            guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
+            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+        }
+        set {
+            guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
+            self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity()
+            self.rawMessageIdUid = newValue.uid.raw
+        }
     }
     
     var obvContext: ObvContext?
@@ -118,7 +127,9 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         return true
     }
     
-    func getAttachmentDirectory(withinInbox inbox: URL) -> URL {
+    /// We expect to return a non-nil URL, unless this `InboxMessage` was deleted on another thread.
+    func getAttachmentDirectory(withinInbox inbox: URL) -> URL? {
+        guard let messageId else { return nil }
         let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
         let directoryName = sha256.hash(messageId.rawValue).hexString()
         return inbox.appendingPathComponent(directoryName, isDirectory: true)
@@ -204,17 +215,23 @@ extension InboxMessage {
         
     func createAttachmentsDirectoryIfRequired(withinInbox inbox: URL) throws {
         let attachmentsDirectory = getAttachmentDirectory(withinInbox: inbox)
+        guard let attachmentsDirectory else {
+            throw Self.makeError(message: "Could not create the attachments directory for this InboxMessage. This happens if this message was deleted on another thread")
+        }
         guard !FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
         try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: false)
     }
     
     func deleteAttachmentsDirectory(fromInbox inbox: URL) throws {
         let attachmentsDirectory = getAttachmentDirectory(withinInbox: inbox)
+        guard let attachmentsDirectory else {
+            throw Self.makeError(message: "Could not delete the attachments directory for this InboxMessage. This happens if this message was deleted on another thread")
+        }
         guard FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
         try FileManager.default.removeItem(at: attachmentsDirectory)
     }
     
-    func set(fromCryptoIdentity: ObvCryptoIdentity, andMessagePayload messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, flowId: FlowIdentifier, delegateManager: ObvNetworkFetchDelegateManager) throws {
+    func setFromCryptoIdentity(_ fromCryptoIdentity: ObvCryptoIdentity, andMessagePayload messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, flowId: FlowIdentifier, delegateManager: ObvNetworkFetchDelegateManager) throws {
         os_log("🔑 Setting fromCryptoIdentity and messagePayload of message %{public}@", log: Self.log, type: .info, messageId.debugDescription)
         if self.fromCryptoIdentity == nil {
            self.fromCryptoIdentity = fromCryptoIdentity
@@ -238,6 +255,7 @@ extension InboxMessage {
         let hasEncryptedExtendedMessagePayload = self.hasEncryptedExtendedMessagePayload && (extendedMessagePayloadKey != nil)
         try obvContext?.addContextDidSaveCompletionHandler({ (error) in
             guard error == nil else { return }
+            guard let messageId else { return }
             delegateManager.networkFetchFlowDelegate.messagePayloadAndFromIdentityWereSet(messageId: messageId, attachmentIds: attachmentIds, hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload, flowId: flowId)
         })
     }
@@ -321,6 +339,11 @@ extension InboxMessage {
         if let cryptoIdentity = cryptoIdentity {
             request.predicate = Predicate.withMessageIdOwnedCryptoId(cryptoIdentity)
         }
+        // Make sure we fetch the properties requires to compute the messageId. This ensure we don't crash if the message gets deleted concurrently.
+        request.propertiesToFetch = [
+            Predicate.Key.rawMessageIdUidKey.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
+        ]
         return try obvContext.fetch(request)
     }
     
@@ -371,7 +394,8 @@ extension InboxMessage {
         
         assert(managedObjectContext?.concurrencyType != .mainQueueConcurrencyType)
         if isDeleted, self.managedObjectContext?.concurrencyType != .mainQueueConcurrencyType {
-            Self.trackRecentlyDeletedMessage(messageId: self.messageId)
+            guard let messageId else { return }
+            Self.trackRecentlyDeletedMessage(messageId: messageId)
         }
 
     }

@@ -27,18 +27,107 @@ import VisionKit
 import PDFKit
 import SwiftUI
 import ObvUI
+import Platform_Base
+import ObvUICoreData
+import Components_TextInputShortcutsResultView
+import UI_CircledInitialsView_CircledInitialsConfiguration
+import Discussions_Mentions_ComposeMessageBuilder
 
+/// Namespace for everything `NewComposeMessageView` related
+enum NewComposeMessageViewTypes {
+    /// Represents a text shortcut
+    ///
+    /// - mention: A user mention, prefixed with `@`
+    enum TextShortcut {
+        /// A user mention, prefixed with `@`
+        case mention
+    }
+
+    /// Represents a shortcut item
+    /// A shortcut item is something invoked when the user enters a special keystroke (i.e. `@` for mentions, `:` for emojis, etc.)
+    struct TextShortcutItem: Hashable {
+        /// Available accessories for text shortcuts
+        ///
+        /// - `circledInitialsView`: Represents the configuration for ``NewCircledInitialsView``. See also ``CircledInitialsConfiguration``
+        enum Accessory: Hashable {
+            /// Represents the configuration for ``NewCircledInitialsView``. See also ``CircledInitialsConfiguration``
+            case circledInitialsView(configuration: CircledInitialsConfiguration)
+        }
+
+        /// A string to be used against searching
+        let searchMatcher: String
+
+        /// The user-facing visible title that will be presented from a dropdown menu
+        let title: String
+
+        /// A user-facing subtitle that will be presented from a dropdown menu
+        let subtitle: String?
+
+        /// An optional accessory associated with ``title``
+        let accessory: Accessory?
+
+        /// The actual value that will be rendered within the text
+        /// An instance of `NSAttributedString` is exposed as such to pass special attributes
+        ///
+        /// - SeeAlso: `NSAttributedString.Key`
+        let value: NSAttributedString
+     }
+}
 
 @available(iOS 15.0, *)
 protocol NewComposeMessageViewDelegate: UIViewController {
-    func newComposeMessageView(_ newComposeMessageView: NewComposeMessageView, newFrame frame: CGRect)
+
+    /// Method called when the shortcuts view will be displayed, used in conjunction with ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerGeometryPlacementSiblingView(_:)`` and ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerSuperview(_:)``
+    ///
+    /// - Parameter newComposeMessageView: The compose view responsible for this call
+    /// - Returns: The view for which the shortcuts view will be placed directly above. Must have the value returned by ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerSuperview(_:)`` as its superview
+    func newComposeMessageViewShortcutPickerAboveSiblingView(_ newComposeMessageView: NewComposeMessageView) -> UIView
+
+    /// Method called when the shortcuts view will be displayed, used in conjunction with ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerAboveSiblingView(_:)`` and ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerSuperview(_:)``
+    /// - Parameter newComposeMessageView: The compose view responsible for this call
+    /// - Returns: The view for which to perform geometrical placements
+    func newComposeMessageViewShortcutPickerGeometryPlacementSiblingView(_ newComposeMessageView: NewComposeMessageView) -> UIView
+
+    /// Method returning the superview for which to add the shortcuts view as a subview, used in conjunction with ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerAboveSiblingView(_:)`` and ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerGeometryPlacementSiblingView(_:)``
+    /// - Parameter newComposeMessageView: The compose view responsible for this call
+    /// - Returns: The superview to add the picker view to, same superview as ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerAboveSiblingView(_:)``
+    func newComposeMessageViewShortcutPickerSuperview(_ newComposeMessageView: NewComposeMessageView) -> UIView
+    
+}
+
+/// Protocol that acts as the datsource for an instance of ``NewComposeMessageView``
+@available(iOS 15.0, *)
+protocol NewComposeMessageViewDatasource: AnyObject {
+    func newComposeMessageView(_ newComposeMessageView: NewComposeMessageView, itemsForTextShortcut shortcut: NewComposeMessageViewTypes.TextShortcut, text: String) -> [NewComposeMessageViewTypes.TextShortcutItem]
 }
 
 @available(iOS 15.0, *)
 final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLinks {
     
+    private enum Constants {
+        static let defaultTypingAttributes: [NSAttributedString.Key: Any] = [.font: UIFont.preferredFont(forTextStyle: .body),
+                                                                             .foregroundColor: UIColor.label]
+    }
+
+    private let backgroundBlurVisualEffect = UIBlurEffect(style: .regular)
+    private lazy var backgroundVisualEffectView = UIVisualEffectView(effect: backgroundBlurVisualEffect)
+
+    /// Helper boolean to defer the initial cal to ``_insertShortcutsViewIntoHierachy()``, called from `didMoveToSuperview()`
+    private var hasDoneInitialSetupOfShortcutsView = false
+
+    private lazy var shortcutsView = TextInputShortcutsResultView(blurEffect: backgroundBlurVisualEffect)..{
+        $0.delegate = self
+    }
+
+    /// These constraints are those that we add when inserting ``shortcutsView`` to its superview
+    private var shortcutsViewSuperviewConstraints: [NSLayoutConstraint] = []
+
+    /// This view will contain all of the subviews, except for ``shortcutsView``.
+    private(set) lazy var mainContentView = UIView()
+    private var mainContentViewHeight: CGFloat?
+
     private let multipleButtonsStackView = UIStackView()
-    private let textViewForTyping = AutoGrowingTextView()
+    let textViewForTyping: AutoGrowingTextView
     private let padding = CGFloat(8)
     private let textFieldBubble = BubbleView()
     private var flameFillButton: UIButton!
@@ -60,7 +149,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private let textPlaceholder = UILabel()
     private let durationLabel = UILabel()
     private let replyToView: ReplyToView
-    
+
     private var lastScreenWidthConsideredForMultipleButtonsStackView = CGFloat.zero
     private var lastButtonWidthConsideredForMultipleButtonsStackView = CGFloat.zero
 
@@ -101,7 +190,16 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private var recordDurationTimer: Timer?
     private let durationFormatter = AudioDurationFormatter()
 
-    weak var delegate: NewComposeMessageViewDelegate?
+    weak var delegate: NewComposeMessageViewDelegate? {
+        didSet {
+            _insertShortcutsViewIntoHierachy()
+        }
+    }
+
+    /// Publishes the latest frame of the main content view. This is used by the new single discussion view controller to adapt the insets of the collection view of messages.
+    @Published private(set) var mainContentViewFrame: CGRect = .zero
+
+    weak var datasource: NewComposeMessageViewDatasource?
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewComposeMessageView.self))
 
@@ -118,12 +216,21 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         let body: String
         let id: UUID
     }
-    
+
     var preventTextViewFromEditing = false
 
     private let textSubject = PassthroughSubject<DraftBodyWithId, Never>()
     private var textPublisher: AnyPublisher<DraftBodyWithId, Never> {
         textSubject.eraseToAnyPublisher()
+    }
+
+    private let mentionsSubject: CurrentValueSubject<Set<MessageJSON.UserMention>, Never>
+
+    private let mentionsPublisher: AnyPublisher<Set<MessageJSON.UserMention>, Never>
+
+    private let saveDraftImmediatelySubject = PassthroughSubject<Void, Never>()
+    private var saveDraftImmediatelyPublisher: AnyPublisher<Void, Never> {
+        return saveDraftImmediatelySubject.eraseToAnyPublisher()
     }
     private var currentDraftId = UUID()
     private let internalQueue = DispatchQueue(label: "NewComposeMessageView internal queue")
@@ -174,6 +281,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     }
 
     private func isActionAvailable(for action: NewComposeMessageViewAction) -> Bool {
+        guard !draft.isDeleted else { return false }
         switch action {
         case .oneTimeEphemeralMessage,
                 .scanDocument,
@@ -218,7 +326,9 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     }
     
     
-    init(draft: PersistedDraft, viewShowingHardLinksDelegate: ViewShowingHardLinksDelegate, cacheDelegate: DiscussionCacheDelegate?, delegate: NewComposeMessageViewDelegate?) {
+    init(draft: PersistedDraft, viewShowingHardLinksDelegate: ViewShowingHardLinksDelegate, cacheDelegate: DiscussionCacheDelegate?, delegate: NewComposeMessageViewDelegate?, datasource: NewComposeMessageViewDatasource?) {
+        textViewForTyping = AutoGrowingTextView(defaultTypingAttributes: Constants.defaultTypingAttributes)
+
         assert(draft.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
         self.replyToView = ReplyToView(draftObjectID: draft.typedObjectID, cacheDelegate: cacheDelegate)
         self.draft = draft
@@ -226,6 +336,15 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
                                                                                        delegate: viewShowingHardLinksDelegate,
                                                                                        cacheDelegate: cacheDelegate)
         self.delegate = delegate
+        self.datasource = datasource
+
+        let userMentions = Set(draft.mentions.compactMap({ try? $0.userMention }))
+        
+        mentionsSubject = .init(userMentions)
+
+        mentionsPublisher = mentionsSubject
+            .eraseToAnyPublisher()
+
         super.init(frame: .zero)
 
         (currentFreezeId, currentFreezeProgress) = CompositionViewFreezeManager.shared.register(self)
@@ -247,13 +366,40 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     deinit {
         notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
         cancellables.forEach({ $0.cancel() })
+        CompositionViewFreezeManager.shared.unregister(self)
     }
+
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        delegate?.newComposeMessageView(self, newFrame: frame)
+        unhideSelf()
         hideOrShowButtonsForAvailableWidth()
+        updateMainContentViewFramePublisher()
     }
+    
+    
+    /// When entering a discussion, this view's alpha is set to 0 until the current state is not `.initial` anymore and ``layoutSubviews()`` is called.
+    /// This allows to hide early animation glitches of this view when entering the discussion.
+    private func unhideSelf() {
+        if currentState != .initial && self.alpha != 1.0 {
+            UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.2, delay: 0) { [weak self] in
+                self?.alpha = 1.0
+            }
+        }
+    }
+    
+    
+    /// Called from ``func layoutSubviews()``
+    private func updateMainContentViewFramePublisher() {
+        if let superview {
+            let mainContentViewBounds = mainContentView.bounds
+            let newMainContentViewFrame = superview.convert(mainContentViewBounds, from: mainContentView)
+            if self.mainContentViewFrame != newMainContentViewFrame {
+                self.mainContentViewFrame = newMainContentViewFrame
+            }
+        }
+    }
+    
 
     private func observeNotifications() {
         notificationTokens.append(
@@ -263,16 +409,66 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         NotificationCenter.default.addObserver(self, selector: #selector(handleAudioInterruption), name: AVAudioSession.interruptionNotification, object: nil)
     }
 
+    private func _insertShortcutsViewIntoHierachy() {
+        shortcutsView.removeFromSuperview()
+
+        NSLayoutConstraint.deactivate(shortcutsViewSuperviewConstraints)
+
+        shortcutsViewSuperviewConstraints.removeAll()
+
+        guard let delegate else {
+            assertionFailure("we're missing our delegate…")
+            return
+        }
+
+        let shortcutsViewSuperview = delegate.newComposeMessageViewShortcutPickerSuperview(self)
+
+        let shortcutsSiblingView = delegate.newComposeMessageViewShortcutPickerAboveSiblingView(self)
+
+        let shortcutsGeometricalPlacementView = delegate.newComposeMessageViewShortcutPickerGeometryPlacementSiblingView(self)
+
+        #if DEBUG
+        if let shortcutsSiblingViewSuperview = shortcutsSiblingView.superview,
+           let shortcutsGeometricalPlacementViewSuperView = shortcutsGeometricalPlacementView.superview {
+            assert(shortcutsSiblingViewSuperview.isDescendant(of: shortcutsViewSuperview), "expected sibling to belong to same superview")
+            assert(shortcutsGeometricalPlacementViewSuperView.isDescendant(of: shortcutsViewSuperview), "expected sibling to belong to same superview")
+        } else {
+            assertionFailure("expected shortcutsSiblingView to have a superview…")
+        }
+        #endif
+
+        shortcutsViewSuperview.insertSubview(shortcutsView, aboveSubview: shortcutsSiblingView)
+
+        let pendingShortcutsViewSuperviewConstraints = [
+            shortcutsView.placementLayoutGuide.leadingAnchor.constraint(equalTo: shortcutsViewSuperview.leadingAnchor),
+            shortcutsView.placementLayoutGuide.trailingAnchor.constraint(equalTo: shortcutsViewSuperview.trailingAnchor),
+
+            shortcutsView.placementLayoutGuide.topAnchor.constraint(equalTo: shortcutsGeometricalPlacementView.topAnchor)
+        ]
+
+        shortcutsViewSuperviewConstraints = pendingShortcutsViewSuperviewConstraints
+
+        NSLayoutConstraint.activate(pendingShortcutsViewSuperviewConstraints)
+    }
+
     private func setupInternalViews() {
         
-        autoresizingMask = [.flexibleHeight]
-        
-        addSubview(replyToView)
+        self.alpha = 0 // Set to 1 in layoutSubviews()
+
+        addSubview(backgroundVisualEffectView)
+        backgroundVisualEffectView.translatesAutoresizingMaskIntoConstraints = false
+        backgroundVisualEffectView.contentView.isUserInteractionEnabled = true
+
+        addSubview(mainContentView) // f u UIVisualEffectView; its contentView isn't propagating the bounds change when we need it
+        mainContentView.isUserInteractionEnabled = true
+        mainContentView.translatesAutoresizingMaskIntoConstraints = false
+
+        mainContentView.addSubview(replyToView)
         replyToView.translatesAutoresizingMaskIntoConstraints = false
         
         // Configure the multiple buttons stack and all its buttons
         
-        addSubview(multipleButtonsStackView)
+        mainContentView.addSubview(multipleButtonsStackView)
         multipleButtonsStackView.translatesAutoresizingMaskIntoConstraints = false
         multipleButtonsStackView.axis = .horizontal
         multipleButtonsStackView.distribution = .fill
@@ -317,7 +513,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         let chevron = UIImage(systemIcon: .chevronRightCircle, withConfiguration: symbolConfig)!
         chevronButton = UIButton.systemButton(with: chevron, target: self, action: #selector(chevronButtonTapped))
         chevronButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(chevronButton)
+        mainContentView.addSubview(chevronButton)
         freezableButtons.append(chevronButton)
         constrainSizeOfButton(chevronButton)
 
@@ -325,14 +521,14 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         
         let trashCircle = UIImage(systemIcon: .trashCircle, withConfiguration: symbolConfig)!
         trashCircleButton = UIButton.systemButton(with: trashCircle, target: self, action: #selector(cancelRecordButtonTapped))
-        addSubview(trashCircleButton)
+        mainContentView.addSubview(trashCircleButton)
         trashCircleButton.translatesAutoresizingMaskIntoConstraints = false
         freezableButtons.append(trashCircleButton)
         constrainSizeOfButton(trashCircleButton)
 
         // Configure the text fields bubble, all its label and text views, and the microphone button
         
-        addSubview(textFieldBubble)
+        mainContentView.addSubview(textFieldBubble)
         textFieldBubble.translatesAutoresizingMaskIntoConstraints = false
         textFieldBubble.backgroundColor = .systemFill
         
@@ -366,7 +562,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         
         // Configure the send buttons holder, and the emoji and send buttons
         
-        addSubview(sendButtonsHolder)
+        mainContentView.addSubview(sendButtonsHolder)
         sendButtonsHolder.translatesAutoresizingMaskIntoConstraints = false
 
         let paperplane = UIImage(systemIcon: .paperplaneFill, withConfiguration: symbolConfig)!
@@ -400,7 +596,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         attachmentsCollectionViewController.willMove(toParent: delegate)
         delegate?.addChild(attachmentsCollectionViewController)
         attachmentsCollectionViewController.didMove(toParent: delegate)
-        addSubview(attachmentsCollectionViewController.view)
+        mainContentView.addSubview(attachmentsCollectionViewController.view)
         attachmentsCollectionViewController.view.translatesAutoresizingMaskIntoConstraints = false
         
         // Setup constraints
@@ -412,10 +608,27 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         let newState: State
         if let body = draft.body, !body.isEmpty {
             newState = .multipleButtonsWithText
-            textPlaceholder.text = body
-            textViewForTyping.text = body
+
+            let mentionedUsers = draft
+                .mentions
+                .mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT
+
+            let attributedText = ComposeMessageViewAttributedStringBuilder.createInitialMessageAttributedString(
+                for: body,
+                mentionedUsers: mentionedUsers,
+                typingAttributes: Constants.defaultTypingAttributes
+            )
+
+            textPlaceholder.attributedText = attributedText
+
+            textViewForTyping.attributedText = attributedText
+
+            textViewForTyping.resetTypingAttributesToDefaults()
+
         } else {
             newState = .multipleButtonsWithoutText
+
+            textViewForTyping.resetTextInput()
         }
 
         switchToState(newState: newState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: nil, completionForSendButton: nil)
@@ -460,6 +673,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
 
     private func hideOrShowButtonsForAvailableWidth(forceUpdate: Bool = false) {
 
+        guard !draft.isDeleted else { return }
         guard !multipleButtonsStackView.isHidden else { return }
 
         let currentAvailableWidth = frame.width - safeAreaInsets.left - safeAreaInsets.right
@@ -535,16 +749,24 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private func setupConstraints() {
         
         // Configure the set of constrains required to show or hide the reply-to view (and hide to reply-to view)
-        
+
+        NSLayoutConstraint.activate([
+            mainContentView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            mainContentView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            mainContentView.topAnchor.constraint(equalTo: topAnchor),
+            mainContentView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor)
+        ])
+
         constraintsWhenShowingReplyTo = [
-            replyToView.topAnchor.constraint(equalTo: self.topAnchor, constant: padding),
+            replyToView.topAnchor.constraint(equalTo: topAnchor, constant: padding),
             replyToView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             replyToView.bottomAnchor.constraint(equalTo: textFieldBubble.topAnchor, constant: -padding),
             replyToView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
         ]
         
         constraintsWhenHidingReplyTo = [
-            textFieldBubble.topAnchor.constraint(equalTo: self.topAnchor, constant: padding),
+            textFieldBubble.topAnchor.constraint(equalTo: topAnchor, constant: padding),
         ]
         
         hideReplyToView()
@@ -552,6 +774,11 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         // Configure the constraints that are common to all states (note that the button sizes are already set in `setupInternalViews()`)
         
         let constraints = [
+            backgroundVisualEffectView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            backgroundVisualEffectView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            backgroundVisualEffectView.topAnchor.constraint(equalTo: topAnchor),
+            backgroundVisualEffectView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             chevronButton.leadingAnchor.constraint(equalTo: self.safeAreaLayoutGuide.leadingAnchor, constant: padding),
             
@@ -575,7 +802,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             emojiButton.leadingAnchor.constraint(equalTo: sendButtonsHolder.leadingAnchor),
 
             attachmentsCollectionViewController.view.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            attachmentsCollectionViewController.view.bottomAnchor.constraint(equalTo: self.safeAreaLayoutGuide.bottomAnchor),
+            attachmentsCollectionViewController.view.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor),
             attachmentsCollectionViewController.view.leadingAnchor.constraint(equalTo: self.leadingAnchor),
             
         ]
@@ -648,10 +875,10 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             switch attachmentsState {
             case .noAttachment:
                 constraintsForAttachmentsState[attachmentsState] = [
-                    chevronButton.bottomAnchor.constraint(equalTo: self.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
-                    multipleButtonsStackView.bottomAnchor.constraint(equalTo: self.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
-                    textFieldBubble.bottomAnchor.constraint(equalTo: self.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
-                    sendButtonsHolder.bottomAnchor.constraint(equalTo: self.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
+                    chevronButton.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
+                    multipleButtonsStackView.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
+                    textFieldBubble.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
+                    sendButtonsHolder.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor, constant: -padding),
                 ]
                 viewsToShowForAttachmentsState[attachmentsState] = []
             case .hasAttachments:
@@ -698,8 +925,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     }
 
     func discussionViewWillDisappear() {
-        NewSingleDiscussionNotification.userWantsToUpdateDraftBody(draftObjectID: draft.typedObjectID, body: textViewForTyping.text)
-            .postOnDispatchQueue(self.internalQueue)
+        saveDraftImmediatelySubject.send()
+
         if ObvAudioRecorder.shared.isRecording {
             ObvAudioRecorder.shared.cancelRecording()
         }
@@ -712,20 +939,31 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         switchToState(newState: currentState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
     }
 
-
     private func continuouslySaveDraftText() {
         let draftObjectID = draft.typedObjectID
-        self.textPublisher
-            .debounce(for: 0.5, scheduler: RunLoop.main)
-            .removeDuplicates()
-            .filter { [weak self] in
-                $0.id == self?.currentDraftId
-            }
-            .sink(receiveValue: { [weak self] (value) in
-                guard let _self = self else { return }
-                NewSingleDiscussionNotification.userWantsToUpdateDraftBody(draftObjectID: draftObjectID, body: value.body).postOnDispatchQueue(_self.internalQueue)
-            })
-            .store(in: &cancellables)
+
+        Publishers.CombineLatest3(
+            textPublisher
+                .removeDuplicates(),
+            mentionsPublisher
+                .removeDuplicates(),
+            saveDraftImmediatelyPublisher
+                .prepend(()))
+        .map { draftBody, mentions, _ -> (DraftBodyWithId, Set<MessageJSON.UserMention>) in
+            return (draftBody, mentions)
+        }
+        .debounce(for: 0.5, scheduler: RunLoop.main)
+        .filter { [weak self] in
+            $0.0.id == self?.currentDraftId
+        }
+        .sink(receiveValue: { [weak self] (body, mentions) in
+            guard let _self = self else { return }
+            NewSingleDiscussionNotification.userWantsToUpdateDraftBodyAndMentions(draftObjectID: draftObjectID,
+                                                                                  body: body.body,
+                                                                                  mentions: mentions)
+            .postOnDispatchQueue(_self.internalQueue)
+        })
+        .store(in: &cancellables)
     }
 
     private func processPreferredComposeMessageViewActionsDidChange() {
@@ -792,7 +1030,8 @@ extension NewComposeMessageView {
     func unfreezeAfterDraftToSendWasReset(_ sentDraftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, freezeId: UUID) {
         assert(Thread.isMainThread)
         guard draft.objectPermanentID == sentDraftPermanentID else { return }
-        textViewForTyping.text.removeAll()
+        textViewForTyping.attributedText = nil
+        textViewForTyping.resetTextInput()
         textPlaceholder.isHidden = false
         unfreeze(withFreezeId: freezeId, success: true)
     }
@@ -942,7 +1181,7 @@ extension NewComposeMessageView {
                 guard let fileExtention = ObvUTIUtils.preferredTagWithClass(inUTI: uti, inTagClass: .FilenameExtension) else { return }
                 let name = "Recording @ \(_self.dateFormatter.string(from: Date()))"
                 let tempFileName = [name, fileExtention].joined(separator: ".")
-                let url = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(tempFileName)
+                let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
 
                 let settings = [
                     AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
@@ -1122,8 +1361,8 @@ extension NewComposeMessageView {
                 }
             }
         case .typing, .multipleButtonsWithoutText, .multipleButtonsWithText:
-            let textBody = textViewForTyping.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            sendUserWantsToSendDraftNotification(with: textBody)
+            let textBody = textViewForTyping.textStorage.string
+            sendUserWantsToSendDraftNotification(with: textBody, mentions: mentionsSubject.value)
         }
     }
     
@@ -1141,19 +1380,21 @@ extension NewComposeMessageView {
     }
 
     private func emojiButtonTapped(numberOfTimes: Int) {
-        guard textViewForTyping.text.trimmingWhitespacesAndNewlines().isEmpty else { return } // This happens if the user is really fast
+        guard textViewForTyping.textStorage.string.trimmingWhitespacesAndNewlines().isEmpty else { return } // This happens if the user is really fast
         guard let buttonTitle = emojiButton.title(for: .normal) else { return }
         guard buttonTitle.isSingleEmoji else { return }
         let textBody = String(repeating: buttonTitle, count: numberOfTimes)
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        sendUserWantsToSendDraftNotification(with: textBody)
+        sendUserWantsToSendDraftNotification(with: textBody, mentions: mentionsSubject.value)
     }
 
-    private func sendUserWantsToSendDraftNotification(with textBody: String) {
+    private func sendUserWantsToSendDraftNotification(with textBody: String, mentions: Set<MessageJSON.UserMention>) {
+        shortcutsView.configure(with: [], animated: true)
         currentDraftId = UUID()
-        NewSingleDiscussionNotification.userWantsToSendDraft(draftPermanentID: draft.objectPermanentID, textBody: textBody)
+        NewSingleDiscussionNotification.userWantsToSendDraft(draftPermanentID: draft.objectPermanentID,
+                                                             textBody: textBody,
+                                                             mentions: Set(mentions))
             .postOnDispatchQueue()
-
     }
 
 }
@@ -1283,9 +1524,22 @@ extension NewComposeMessageView {
 
         let animatedLayoutIsNeeded = adjustConstraintsForState(newState: newState, newAttachmentsState: newAttachmentsState)
         unhideViewsForState(newState: newState)
-        textViewForTyping.setNeedsLayout()
 
-        UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) { [weak self] in
+        textViewForTyping.setNeedsLayout() // this is needed due to height issues, see comment within ``NewComposeMessageView.atomicSwitchToState(newState:newAttachmentsState:completionForSendButton:)``
+
+        textViewForTyping.layoutIfNeeded()
+
+        let finalAnimationOptions: UIView.AnimationOptions = {
+            var _value = animationValues.options
+
+            _value.insert(.beginFromCurrentState)
+
+            _value.insert(.layoutSubviews)
+
+            return _value
+        }()
+
+        UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: finalAnimationOptions) { [weak self] in
             
             self?.configureViewsContentAndStyleForState(newState: newState)
             self?.textViewForTyping.layoutIfNeeded()
@@ -1340,6 +1594,8 @@ extension NewComposeMessageView {
         currentState = newState
         currentAttachmentsState = newAttachmentsState
         switchToAppropriateSendButton(animate: true, completion: completionForSendButton)
+        textViewForTyping.setNeedsLayout() //the call to dirty `textViewForTyping`'s layout is required despite teh call below to `layoutIfNeeded()` due to height issues with the actual textview's content 🤷
+        textViewForTyping.layoutIfNeeded()
     }
 
 
@@ -1401,7 +1657,7 @@ extension NewComposeMessageView {
             textFieldBubble.backgroundColor = .systemFill
         case .multipleButtonsWithText:
             textPlaceholder.textColor = .label
-            textPlaceholder.text = textViewForTyping.text
+            textPlaceholder.attributedText = textViewForTyping.textStorage
             textFieldBubble.backgroundColor = .systemFill
         case .typing:
             textFieldBubble.backgroundColor = .systemFill
@@ -1565,7 +1821,22 @@ extension NewComposeMessageView {
             newState = textViewForTyping.hasText ? .multipleButtonsWithText : .multipleButtonsWithoutText
         }
         switchToState(newState: newState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: animationValues, completionForSendButton: nil)
-        
+
+        shortcutsView.configure(with: [], animated: true)
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+
+        guard superview != nil else {
+            return
+        }
+
+        if !hasDoneInitialSetupOfShortcutsView {
+            _insertShortcutsViewIntoHierachy()
+
+            hasDoneInitialSetupOfShortcutsView = true
+        }
     }
 }
 
@@ -1583,8 +1854,57 @@ extension NewComposeMessageView {
     
     
     func textViewDidChange(_ textView: UITextView) {
-        switchToState(newState: .typing, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
-        textSubject.send(DraftBodyWithId(body: textView.text, id: currentDraftId))
+        if textView.hasText {
+            switchToState(newState: .typing, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
+        }
+        let attributedText = textView.attributedText!
+        let mentions = Self.extractMentionsFromAttributedText(attributedText)
+        textSubject.send(DraftBodyWithId(body: attributedText.string, id: currentDraftId))
+        mentionsSubject.send(mentions)
+    }
+    
+    
+    private static func extractMentionsFromAttributedText(_ attributedText: NSAttributedString) -> Set<MessageJSON.UserMention> {
+        
+        var userMentions = Set<MessageJSON.UserMention>()
+        
+        let attributedTextString = attributedText.string
+
+        let range = NSRange(location: 0, length: attributedText.length)
+                
+        attributedText.enumerateAttribute(.mentionableIdentity, in: range) { value, effectiveRange, _ in
+            guard let value else {
+                return
+            }
+
+            guard effectiveRange.location != NSNotFound else {
+                assert(false, "effective range is invalid")
+                return
+            }
+
+            guard let value = value as? MentionableIdentity else {
+                assert(false, "expected \(value) to be of kind MentionableIdentity")
+                return
+            }
+            
+            guard let mentionedCryptoId = value.mentionnedCryptoId else {
+                assert(false, "unexpected nil mentionnedCryptoId within the MentionableIdentity")
+                return
+            }
+
+            guard let convertedRange = Range<String.Index>(effectiveRange, in: attributedTextString) else {
+                assert(false, "unable to convert range \(effectiveRange) into \(attributedTextString)")
+                return
+            }
+
+            let userMention = MessageJSON.UserMention(mentionedCryptoId: mentionedCryptoId, range: convertedRange)
+            
+            userMentions.insert(userMention)
+            
+        }
+
+        return userMentions
+        
     }
 
     
@@ -1603,18 +1923,13 @@ extension NewComposeMessageView {
 
 @available(iOS 15.0, *)
 extension NewComposeMessageView: AutoGrowingTextViewDelegate {
+    
     func userPastedItemProviders(in autoGrowingTextView: AutoGrowingTextView, itemProviders: [NSItemProvider]) {
         guard autoGrowingTextView == self.textViewForTyping else { assertionFailure(); return }
-        let draftPermanentID = draft.objectPermanentID
-        delegateViewController?.showHUD(type: .spinner)
-        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID, itemProviders: itemProviders) { success in
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
-        }
-        .postOnDispatchQueue(self.internalQueue)
+        addAttachments(from: itemProviders)
     }
 
-    func autoGrowingTextView(_ textView: AutoGrowingTextView, perform action: AutoGrowingTextViewDelegateTypes.Action) {
+    func autoGrowingTextView(_ textView: AutoGrowingTextView, perform action: AutoGrowingTextViewTypes.DelegateTypes.Action) {
         switch action {
         case .keyboardPerformReturn:
             // Make sure that we actually have text to submit, since we're creating a temp draft
@@ -1624,6 +1939,30 @@ extension NewComposeMessageView: AutoGrowingTextViewDelegate {
 
             paperplaneButtonTapped()
         }
+    }
+
+    func autogrowingTextViewUserClearedShortcut(_ textView: AutoGrowingTextView) {
+        shortcutsView.configure(with: [], animated: true)
+    }
+
+    func autogrowingTextView(_ textView: AutoGrowingTextView, userEnteredShortcut shortcut: AutoGrowingTextViewTypes.TextShortcut, result: String, within range: NSRange) {
+        guard let datasource else {
+            return
+        }
+
+        let shortcuts = datasource
+            .newComposeMessageView(self,
+                                   itemsForTextShortcut: .init(shortcut),
+                                   text: result)
+            .map { shortcut -> TextInputShortcutsResultView.TextShortcutItem in
+                return .init(title: shortcut.title,
+                             subtitle: shortcut.subtitle,
+                             accessory: .init(shortcut.accessory),
+                             value: shortcut.value,
+                             range: range)
+            }
+
+        shortcutsView.configure(with: shortcuts, animated: true)
     }
 }
 
@@ -1655,9 +1994,11 @@ extension NewComposeMessageView {
     }
 
     private func observeDiscussionLocalConfigurationHasBeenUpdatedNotifications() {
-        let token = ObvMessengerInternalNotification.observeDiscussionLocalConfigurationHasBeenUpdated(queue: OperationQueue.main) { [weak self] value, objectId in
-            guard case .defaultEmoji = value else { return }
-            self?.configureEmojiButton()
+        let token = ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
+            DispatchQueue.main.async {
+                guard case .defaultEmoji = value else { return }
+                self?.configureEmojiButton()
+            }
         }
         self.notificationTokens.append(token)
     }
@@ -1671,7 +2012,9 @@ extension NewComposeMessageView {
             }
             .store(in: &cancellables)
     }
-    
+
+
+
     private func evaluateNewAttachmentState() -> AttachmentsState {
         assert(Thread.isMainThread)
         self.numberOfAttachments = draft.fyleJoins.count
@@ -1743,16 +2086,79 @@ extension NewComposeMessageView: PHPickerViewControllerDelegate {
 extension NewComposeMessageView: UIDocumentPickerDelegate {
     
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        let draftPermanentID = draft.objectPermanentID
-        NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraftFromURLs(draftPermanentID: draftPermanentID, urls: urls) { success in
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
-        }
-        .postOnDispatchQueue()
+        addAttachments(from: urls)
     }
     
 }
 
+// MARK: - Append attachments
+@available(iOS 15.0, *)
+extension NewComposeMessageView {
+    /// Appends an array of [file] `URL`s to the current draft
+    /// - Parameters:
+    ///   - fileURLs: An array of attachments to append
+    func addAttachments(from fileURLs: [URL]) {
+        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        delegateViewController?.showHUD(type: .spinner)
+        let draftPermanentID = draft.objectPermanentID
+        NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraftFromURLs(draftPermanentID: draftPermanentID, urls: fileURLs) { success in
+            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
+        }
+        .postOnDispatchQueue()
+    }
+
+    /// Appends an array of `NSItemProvider`s to the current draft, either as text pasted in the text view, or as attachments.
+    /// - Parameters:
+    ///   - itemProviders: An array of item providers to append
+    func addAttachments(from itemProviders: [NSItemProvider]) {
+
+        let draftPermanentID = draft.objectPermanentID
+
+        // Split the received itemProviders in two lists:
+        // - One for the items we want to paste as text in the text view
+        // - One for the items we want to add as attachments
+        
+        let itemProvidersToPaste = itemProviders.filter({ $0.registeredTypeIdentifiers.contains(where: { $0.utiConformsTo(kUTTypeText) } ) })
+        let itemProvidersToAttach = itemProviders.filter({ !itemProvidersToPaste.contains($0) })
+
+        // Process the item providers that we want to paste as text (i.e. Strings and URLs)
+        
+        itemProvidersToPaste.forEach { itemProviderToPaste in
+            let textViewForTyping = self.textViewForTyping
+            itemProviderToPaste.loadItem(forTypeIdentifier: String(kUTTypeText)) { item, error in
+                if let error {
+                    assertionFailure(error.localizedDescription)
+                    return
+                }
+                if let text = item as? String {
+                    DispatchQueue.main.async {
+                        if let selectedTextRange = textViewForTyping.selectedTextRange {
+                            textViewForTyping.replace(selectedTextRange, withText: text)
+                        } else {
+                            textViewForTyping.text.append(contentsOf: text)
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        textViewForTyping.paste(itemProviders: [itemProviderToPaste])
+                    }
+                }
+            }
+        }
+        
+        // Process the item providers we want to add as attachments
+  
+        guard !itemProvidersToAttach.isEmpty else { return }
+        
+        delegateViewController?.showHUD(type: .spinner)
+        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
+        NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID, itemProviders: itemProvidersToAttach) { success in
+            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
+        }
+        .postOnDispatchQueue(self.internalQueue)
+        
+    }
+}
 
 // MARK: - AirDrop files
 
@@ -1761,13 +2167,7 @@ extension NewComposeMessageView: UIDocumentPickerDelegate {
 extension NewComposeMessageView {
 
     func addAttachmentFromAirDropFile(at fileURL: URL) {
-        do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        delegateViewController?.showHUD(type: .spinner)
-        let draftPermanentID = draft.objectPermanentID
-        NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraftFromURLs(draftPermanentID: draftPermanentID, urls: [fileURL]) { success in
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
-        }
-        .postOnDispatchQueue()
+        addAttachments(from: [fileURL])
     }
     
 }
@@ -1817,7 +2217,7 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
                 // Copy the file to a temporary location. This does not seems to be required the pickerURL comes from an info[.imageURL], but this seems to be required when it comes from a info[.mediaURL]. Nevertheless, we do it for both, since the filename provided by the picker is terrible in both cases.
                 let fileExtension = url.pathExtension.lowercased()
                 let filename = ["Media @ \(dateFormatter.string(from: Date()))", fileExtension].joined(separator: ".")
-                let localURL = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(filename)
+                let localURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(filename)
                 do {
                     try FileManager.default.copyItem(at: url, to: localURL)
                 } catch {
@@ -1839,7 +2239,7 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
                 }
                 let name = "Photo @ \(dateFormatter.string(from: Date()))"
                 let tempFileName = [name, fileExtention].joined(separator: ".")
-                let url = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(tempFileName)
+                let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
                 guard let pickedImageJpegData = originalImage.jpegData(compressionQuality: 1.0) else {
                     do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                     return
@@ -1903,7 +2303,7 @@ extension NewComposeMessageView: VNDocumentCameraViewControllerDelegate {
             // Write the pdf to a temporary location
             let name = "Scan @ \(dateFormatter.string(from: Date()))"
             let tempFileName = [name, String(kUTTypePDF)].joined(separator: ".")
-            let url = ObvMessengerConstants.containerURL.forTempFiles.appendingPathComponent(tempFileName)
+            let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
             guard pdfDocument.write(to: url) else {
                 do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                 return
@@ -1927,8 +2327,6 @@ extension NewComposeMessageView: VNDocumentCameraViewControllerDelegate {
     func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) {
         controller.dismiss(animated: true)
     }
-
-    
 }
 
 
@@ -1941,4 +2339,51 @@ extension NewComposeMessageView {
         attachmentsCollectionViewController.getAllShownHardLink()
     }
 
+}
+
+
+@available(iOS 15.0, *)
+extension NewComposeMessageView: TextInputShortcutsResultViewDelegate {
+    func textInputShortcutsResultView(_ view: TextInputShortcutsResultView, didSelect item: TextInputShortcutsResultView.TextShortcutItem) {
+        textViewForTyping.apply(item)
+
+        view.configure(with: [], animated: true)
+    }
+}
+
+extension NewComposeMessageViewTypes.TextShortcut {
+    init(_ value: AutoGrowingTextViewTypes.TextShortcut) {
+        switch value {
+        case .mention:
+            self = .mention
+        }
+    }
+}
+
+@available(iOSApplicationExtension 14, *)
+extension TextInputShortcutsResultView.TextShortcutItem.Accessory {
+    init(_ accessory: NewComposeMessageViewTypes.TextShortcutItem.Accessory) {
+        switch accessory {
+        case .circledInitialsView(configuration: let configuration):
+            self = .circledInitialsView(configuration: configuration)
+        }
+    }
+}
+
+@available(iOSApplicationExtension 14, *)
+extension Optional where Wrapped == TextInputShortcutsResultView.TextShortcutItem.Accessory {
+    init(_ accessory: NewComposeMessageViewTypes.TextShortcutItem.Accessory?) {
+        if let accessory {
+            self = .some(.init(accessory))
+        } else {
+            self = .none
+        }
+    }
+}
+
+
+fileprivate extension String {
+    func utiConformsTo(_ otherUTI: CFString) -> Bool {
+        UTTypeConformsTo(self as CFString, otherUTI)
+    }
 }

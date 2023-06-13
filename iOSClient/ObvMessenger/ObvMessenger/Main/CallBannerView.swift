@@ -20,6 +20,7 @@
 import Foundation
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 final class CallBannerView: UIView {
 

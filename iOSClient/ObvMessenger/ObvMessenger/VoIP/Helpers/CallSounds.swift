@@ -20,6 +20,8 @@
 import Foundation
 import UIKit
 import AVFoundation
+import ObvUICoreData
+
 
 enum CallSound: Sound, CaseIterable {
 

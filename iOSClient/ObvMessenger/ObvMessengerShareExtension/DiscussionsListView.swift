@@ -19,45 +19,38 @@
   
 import CoreData
 import Foundation
-import ObvUI
 import ObvTypes
+import ObvUI
+import ObvUICoreData
+import OlvidUtils
+import os.log
 import SwiftUI
 
 
 @available(iOS 16.0, *)
-struct DiscussionsListView: UIViewControllerRepresentable {
-    typealias UIViewControllerType = DiscussionsListViewController<PersistedDiscussion>
+struct NewDiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
+    static let errorDomain: String = "NewDiscussionsListView"
     
-    private let viewModel: DiscussionsListViewModel
+    typealias UIViewControllerType = NewDiscussionsSelectionViewController
+
+    private let viewModel: NewDiscussionsListViewModel
     
     init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
-        self.viewModel = DiscussionsListViewModel(ownedCryptoId: ownedCryptoId, discussionsViewModel: discussionsViewModel)
+        self.viewModel = NewDiscussionsListViewModel(ownedCryptoId: ownedCryptoId, discussionsViewModel: discussionsViewModel)
     }
     
     func makeUIViewController(context: Context) -> UIViewControllerType {
-        let frcsCreationClosure = { (ownedCryptoId: ObvCryptoId) -> DiscussionsListViewControllerViewModel.Frcs in
-            let frcForNonEmpty = PersistedDiscussion.getFetchRequestForNonEmptyRecentDiscussionsForOwnedIdentity(with: ownedCryptoId)
-            let frcForAllActive = PersistedOneToOneDiscussion.getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId)
-            let forAllGroup = PersistedGroupDiscussion.getFetchRequestForAllGroupDiscussionsSortedByTitleForOwnedIdentity(with: ownedCryptoId)
-            
-            return DiscussionsListViewControllerViewModel.Frcs(frcForNonEmpty: frcForNonEmpty,
-                                                               frcForAllActive: frcForAllActive,
-                                                               frcForAllGroup: forAllGroup)
-        }
-        let selectedObjectIds = viewModel.selectedObjectIds
         
-        let vcViewModel = DiscussionsListViewControllerViewModel<PersistedDiscussion>(
-            frcCreationClosure: frcsCreationClosure,
-            cryptoId: viewModel.ownedCryptoId,
-            context: ObvStack.shared.viewContext,
-            coordinator: nil,
-            discussionsListCellType: .short,
-            selectedObjectIds: selectedObjectIds,
-            withRefreshControl: false,
-            startInEditMode: true)
+        let vcViewModel = NewDiscussionsSelectionViewController.ViewModel(
+            viewContext: ObvStack.shared.viewContext,
+            preselectedDiscussions: viewModel.selectedObjectIds,
+            ownedCryptoId: viewModel.ownedCryptoId,
+            attachSearchControllerToParent: true,
+            buttonTitle: CommonString.Word.Choose,
+            buttonSystemIcon: .checkmarkCircleFill)
         
-        let vc = DiscussionsListViewController<PersistedDiscussion>(viewModel: vcViewModel)
-        viewModel.listenToSelectedDiscussions(on: vc)
+        let vc = NewDiscussionsSelectionViewController(viewModel: vcViewModel, delegate: viewModel)
+
         return vc
     }
     
@@ -66,5 +59,31 @@ struct DiscussionsListView: UIViewControllerRepresentable {
     }
 }
 
-@available(iOS 16.0, *)
-extension PersistedDiscussion: DiscussionsListViewControllerPersistedObjectRetrieving {}
+
+@available(iOS 15.0, *)
+struct DiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
+    static let errorDomain: String = "DiscussionsListView"
+    
+    typealias UIViewControllerType = DiscussionsSelectionViewController
+
+    private let viewModel: DiscussionsListViewModel
+    
+    init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
+        self.viewModel = DiscussionsListViewModel(ownedCryptoId: ownedCryptoId, discussionsViewModel: discussionsViewModel)
+    }
+    
+    func makeUIViewController(context: Context) -> UIViewControllerType {
+        
+        let vc = DiscussionsSelectionViewController(ownedCryptoId: viewModel.ownedCryptoId,
+                                                    within: ObvStack.shared.viewContext,
+                                                    preselectedDiscussions: viewModel.preselectedDiscussions,
+                                                    delegate: viewModel,
+                                                    acceptButtonTitle: CommonString.Word.Choose)
+
+        return vc
+    }
+    
+    func updateUIViewController(_ uiViewController: UIViewControllerType, context: Context) {
+        // Updates the state of the specified view controller with new information from SwiftUI.
+    }
+}

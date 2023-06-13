@@ -19,6 +19,7 @@
 
 import ObvUI
 import UIKit
+import ObvUICoreData
 
 class TwoColumnsView: UIView {
 

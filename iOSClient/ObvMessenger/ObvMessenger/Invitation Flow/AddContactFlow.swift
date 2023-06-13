@@ -23,6 +23,8 @@ import ObvEngine
 import AVFoundation
 import ObvTypes
 import ObvUI
+import ObvUICoreData
+
 
 final class AddContactHostingViewController: UIHostingController<AddContactMainView>, AddContactHostingViewStoreDelegate, KeycloakSearchViewControllerDelegate {
     
@@ -45,6 +47,10 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
         super.init(rootView: rootView)
         store.delegate = self
         observeNotifications()
+    }
+    
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
     
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -114,7 +120,7 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
         presentedViewController?.dismiss(animated: true)
     }
     
-    func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: UserDetails) {
+    func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails) {
         assert(Thread.isMainThread)
         presentedViewController?.dismiss(animated: true)
         store.newKeycloakContactToConfirm(userDetails)
@@ -132,7 +138,7 @@ protocol AddContactHostingViewStoreDelegate: UIViewController {
 final class AddContactHostingViewStore: ObservableObject {
     
     @Published var singleOwnedIdentity: SingleIdentity
-    @Published var userDetailsOfKeycloakContact: UserDetails? = nil
+    @Published var userDetailsOfKeycloakContact: ObvKeycloakUserDetails? = nil
     @Published var isConfirmAddingKeycloakViewPushed: Bool = false
     @Published var addingKeycloakContactFailedAlertIsPresented: Bool = false
     let ownedCryptoId: ObvCryptoId
@@ -176,7 +182,7 @@ final class AddContactHostingViewStore: ObservableObject {
         delegate?.userWantsToSearchWithinKeycloak()
     }
 
-    func newKeycloakContactToConfirm(_ userDetailsOfKeycloakContact: UserDetails) {
+    func newKeycloakContactToConfirm(_ userDetailsOfKeycloakContact: ObvKeycloakUserDetails) {
         assert(Thread.isMainThread)
         self.userDetailsOfKeycloakContact = userDetailsOfKeycloakContact
         guard let contactIdentity = userDetailsOfKeycloakContact.identity else { assertionFailure(); return }
@@ -335,7 +341,7 @@ fileprivate struct AddContactMainInnerView: View {
     let checkSignatureMutualScanUrl: (ObvMutualScanUrl) -> Bool
     let confirmInviteAction: (ObvURLIdentity) -> Void
     let alreadyScannedOrTappedURL: OlvidURL? /// Instead of setting the `scannedUrlIdentity`, we use this intermediary variable as workaround of an Xcode12/SwiftUI bug. See FB7823148.
-    let userDetailsOfKeycloakContact: UserDetails? /// Only set if the user to invite is a keycloak user
+    let userDetailsOfKeycloakContact: ObvKeycloakUserDetails? /// Only set if the user to invite is a keycloak user
     let contactIdentity: PersistedObvContactIdentity? /// Set when trying to add a contact that is already present in the local contacts directory
     @Binding var isConfirmAddingKeycloakViewPushed: Bool
     @Binding var addingKeycloakContactFailedAlertIsPresented: Bool
@@ -410,7 +416,7 @@ fileprivate struct AddContactMainInnerView: View {
         DispatchQueue.main.async { isAlertPresented = true }
     }
     
-    init(contact: SingleIdentity, ownedCryptoId: ObvCryptoId, urlIdentityRepresentation: URL, alreadyScannedOrTappedURL: OlvidURL?, viewForSharingIdentity: AnyView, confirmInviteAction: @escaping (ObvURLIdentity) -> Void, dismissAction: @escaping () -> Void, installedOlvidAppIsOutdated: @escaping () -> Void, checkSignatureMutualScanUrl: @escaping (ObvMutualScanUrl) -> Bool, requestNewAvailableApiKeyElements: @escaping (UUID) -> Void, userRequestedNewAPIKeyActivation: @escaping (UUID) -> Void, newAvailableApiKeyElements: APIKeyElements, userWantsToSearchWithinKeycloak: @escaping () -> Void, userDetailsOfKeycloakContact: UserDetails?, contactIdentity: PersistedObvContactIdentity?, isConfirmAddingKeycloakViewPushed: Binding<Bool>, addingKeycloakContactFailedAlertIsPresented: Binding<Bool>, confirmAddingKeycloakContactViewAction: @escaping () -> Void) {
+    init(contact: SingleIdentity, ownedCryptoId: ObvCryptoId, urlIdentityRepresentation: URL, alreadyScannedOrTappedURL: OlvidURL?, viewForSharingIdentity: AnyView, confirmInviteAction: @escaping (ObvURLIdentity) -> Void, dismissAction: @escaping () -> Void, installedOlvidAppIsOutdated: @escaping () -> Void, checkSignatureMutualScanUrl: @escaping (ObvMutualScanUrl) -> Bool, requestNewAvailableApiKeyElements: @escaping (UUID) -> Void, userRequestedNewAPIKeyActivation: @escaping (UUID) -> Void, newAvailableApiKeyElements: APIKeyElements, userWantsToSearchWithinKeycloak: @escaping () -> Void, userDetailsOfKeycloakContact: ObvKeycloakUserDetails?, contactIdentity: PersistedObvContactIdentity?, isConfirmAddingKeycloakViewPushed: Binding<Bool>, addingKeycloakContactFailedAlertIsPresented: Binding<Bool>, confirmAddingKeycloakContactViewAction: @escaping () -> Void) {
         self.ownedCryptoId = ownedCryptoId
         self.singleIdentity = contact
         self.urlIdentityRepresentation = urlIdentityRepresentation
@@ -768,7 +774,7 @@ fileprivate struct AddContactMainInnerViewNavigationLinks: View {
     let serverAndAPIKey: ServerAndAPIKey?
     let betaConfiguration: BetaConfiguration?
     let keycloakConfig: KeycloakConfiguration?
-    let userDetailsOfKeycloakContact: UserDetails? /// Only set if the user to invite is a keycloak user
+    let userDetailsOfKeycloakContact: ObvKeycloakUserDetails? /// Only set if the user to invite is a keycloak user
     let contactIdentity: PersistedObvContactIdentity? /// Set when trying to add a keycloak contact that is already present in the local contacts directory
     let requestNewAvailableApiKeyElements: (UUID) -> Void
     let userRequestedNewAPIKeyActivation: (UUID) -> Void

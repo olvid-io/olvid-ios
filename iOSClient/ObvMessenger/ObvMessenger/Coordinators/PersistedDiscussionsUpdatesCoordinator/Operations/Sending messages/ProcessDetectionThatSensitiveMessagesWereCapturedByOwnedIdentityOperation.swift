@@ -22,6 +22,7 @@ import Foundation
 import OlvidUtils
 import ObvEngine
 import ObvTypes
+import ObvUICoreData
 
 
 /// When the `ScreenCaptureDetector` detects that messages with limited visibility were screenshoted or captured (e.g. with a video capture of the screen), this operation gets called.

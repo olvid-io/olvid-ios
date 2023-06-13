@@ -21,6 +21,7 @@
 import Foundation
 import ObvTypes
 import OlvidUtils
+import ObvUICoreData
 
 
 /// This singleton allows to store and fetch a `LatestCurrentOWnedIdentityStored` to and from the user defaults shared between the app and the app extensions.
@@ -33,7 +34,7 @@ actor LatestCurrentOwnedIdentityStorage {
     
     private init() {}
     
-    private let sharedUserDefaultsKey = ObvMessengerConstants.SharedUserDefaultsKey.latestCurrentOwnedIdentity.rawValue
+    private let sharedUserDefaultsKey = ObvUICoreDataConstants.SharedUserDefaultsKey.latestCurrentOwnedIdentity.rawValue
 
     
     /// Returns the currently stored `LatestCurrentOWnedIdentityStored` if one is found. This structure contains at least the lates non hidden current owned identity and, if it exists, the latest hidden current owned identity.
@@ -47,7 +48,18 @@ actor LatestCurrentOwnedIdentityStorage {
         }
         return latestCurrentOWnedIdentityStored
     }
+    
 
+    /// Returns the currently stored `LatestCurrentOWnedIdentityStored` if one is found. This structure contains at least the lates non hidden current owned identity and, if it exists, the latest hidden current owned identity.
+    ///
+    /// The difference with `getLatestCurrentOwnedIdentityStored()` is that this method does not delete the content of the user defaults if the json cannot be decoded.
+    nonisolated
+    func getLatestCurrentOwnedIdentityStoredSynchronously() -> LatestCurrentOWnedIdentityStored? {
+        guard let sharedUserDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { assertionFailure(); return nil }
+        guard let serializedLatestCurrentOWnedIdentityStored = sharedUserDefaults.data(forKey: sharedUserDefaultsKey) else { return nil }
+        guard let latestCurrentOWnedIdentityStored = try? LatestCurrentOWnedIdentityStored.jsonDecode(serializedLatestCurrentOWnedIdentityStored) else { return nil }
+        return latestCurrentOWnedIdentityStored
+    }
     
     func storeLatestCurrentOwnedCryptoId(_ currentOwnedCryptoId: ObvCryptoId, isHidden: Bool) {
         if isHidden {

@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import ObvUICoreData
 
 
 protocol NewAllGroupsViewControllerDelegate: AnyObject {

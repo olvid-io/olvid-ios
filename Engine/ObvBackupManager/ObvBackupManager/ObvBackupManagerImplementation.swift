@@ -271,11 +271,11 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
                 
         // Create and compress the full backup
         
-        let compressedFullBackupData = try fullBackup.computeCompressedData(flowId: backupRequestIdentifier, log: log)
+        let possiblyCompressedFullBackupData = try fullBackup.computeData(flowId: backupRequestIdentifier, doCompressData: ObvConstants.compressBackupedData, log: log)
         
-        os_log("The compressed full backup is made of %d bytes within flow %{public}@", log: log, type: .info, compressedFullBackupData.count, backupRequestIdentifier.description)
-
-        return try await createPersistedBackup(forExport: forExport, backupRequestIdentifier: backupRequestIdentifier, compressedFullBackupData: compressedFullBackupData)
+        os_log("The compressed full backup is made of %d bytes within flow %{public}@", log: log, type: .info, possiblyCompressedFullBackupData.count, backupRequestIdentifier.description)
+        
+        return try await createPersistedBackup(forExport: forExport, backupRequestIdentifier: backupRequestIdentifier, possiblyCompressedFullBackupData: possiblyCompressedFullBackupData)
         
     }
     
@@ -430,7 +430,8 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
             os_log("The private key for decryption is nil, which is unexpected", log: log, type: .fault)
             throw BackupRestoreError.internalError(code: 2)
         }
-        guard let compressedFullBackupData = PublicKeyEncryption.decrypt(EncryptedData(data: encryptedBackup), using: privateKey) else {
+        // The full backup data obtained after decryption is either compressed (if it was created with an old version of Olvid) or not (better).
+        guard let possiblyCompressedFullBackupData = PublicKeyEncryption.decrypt(EncryptedData(data: encryptedBackup), using: privateKey) else {
             os_log("We failed to decrypt the encrypted backup", log: log, type: .error)
             throw BackupRestoreError.backupDataDecryptionFailed
         }
@@ -439,7 +440,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
 
         let fullBackup: FullBackup
         do {
-            fullBackup = try await FullBackup(compressedFullBackupData: compressedFullBackupData)
+            fullBackup = try await FullBackup(possiblyCompressedFullBackupData: possiblyCompressedFullBackupData)
         } catch {
             throw BackupRestoreError.internalError(code: 3)
         }
@@ -578,7 +579,7 @@ extension ObvBackupManagerImplementation: ObvBackupDelegate {
 extension ObvBackupManagerImplementation {
     
     
-    private func createPersistedBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier, compressedFullBackupData: Data) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
+    private func createPersistedBackup(forExport: Bool, backupRequestIdentifier: FlowIdentifier, possiblyCompressedFullBackupData: Data) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
         
         assert(!Thread.isMainThread)
         
@@ -608,7 +609,7 @@ extension ObvBackupManagerImplementation {
 
                     os_log("Encrypting the compressed full backup for backupRequestIdentifier %{public}@", log: log, type: .info, backupRequestIdentifier.description)
                     
-                    let encryptedBackup = PublicKeyEncryption.encrypt(compressedFullBackupData, using: derivedKeysForBackup.publicKeyForEncryption, and: prng)
+                    let encryptedBackup = PublicKeyEncryption.encrypt(possiblyCompressedFullBackupData, using: derivedKeysForBackup.publicKeyForEncryption, and: prng)
                     let macOfEncryptedBackup = try MAC.compute(forData: encryptedBackup, withKey: derivedKeysForBackup.macKey)
                     let authenticatedEncryptedBackup = EncryptedData(data: encryptedBackup.raw + macOfEncryptedBackup)
                     
@@ -899,13 +900,19 @@ fileprivate struct FullBackup: Codable {
     }
     
     
-    init(compressedFullBackupData: Data) async throws {
-        let fullBackupData = try await Self.decompressCompressedBackupContent(compressedFullBackupData)
+    init(possiblyCompressedFullBackupData: Data) async throws {
         let jsonEncoder = JSONDecoder()
-        self = try jsonEncoder.decode(FullBackup.self, from: fullBackupData)
+        do {
+            // We first assume that the data is not compressed
+            self = try jsonEncoder.decode(FullBackup.self, from: possiblyCompressedFullBackupData)
+        } catch {
+            // We could not parse the data, it may have been created with an old version of Olvid that used to compress backups
+            let fullBackupData = try await Self.decompressCompressedBackupContent(possiblyCompressedFullBackupData)
+            self = try jsonEncoder.decode(FullBackup.self, from: fullBackupData)
+        }
     }
-    
-    
+
+
     var allInternalJsonAndIdentifier: [ObvBackupableObjectSource: [String: String]] {
         var result = [ObvBackupableObjectSource: [String: String]]()
         if let appBackup = appBackup {
@@ -915,7 +922,7 @@ fileprivate struct FullBackup: Codable {
         return result
     }
  
-    func computeCompressedData(flowId: FlowIdentifier, log: OSLog) throws -> Data {
+    func computeData(flowId: FlowIdentifier, doCompressData: Bool, log: OSLog) throws -> Data {
         
         // Create the full backup content
         
@@ -924,13 +931,21 @@ fileprivate struct FullBackup: Codable {
         let jsonEncoder = JSONEncoder()
         let fullBackupData = try jsonEncoder.encode(self)
 
-        // Compress the full backup content
-
-        os_log("Compressing the %d bytes full backup content within flow %{public}@", log: log, type: .info, fullBackupData.count, flowId.description)
-
-        let compressedFullBackupData = try compressFullBackupContent(fullBackupData)
-        
-        return compressedFullBackupData
+        if doCompressData {
+            
+            // Compress the full backup content
+            
+            os_log("Compressing the %d bytes full backup content within flow %{public}@", log: log, type: .info, fullBackupData.count, flowId.description)
+            
+            let compressedFullBackupData = try compressFullBackupContent(fullBackupData)
+            
+            return compressedFullBackupData
+            
+        } else {
+            
+            return fullBackupData
+            
+        }
 
     }
     

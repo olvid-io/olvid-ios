@@ -23,6 +23,8 @@ import os.log
 import ObvTypes
 import ObvCrypto
 import ObvEngine
+import ObvUICoreData
+
 
 final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSpecificReasonForCancel<CreateRandomMessageReceivedDebugOperationReasonForCancel> {
 
@@ -51,23 +53,55 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                 guard let persistedContactIdentity = chooseRandomContact(from: discussion) else {
                     return cancel(withReason: .internalError)
                 }
-                
+
                 try? PersistedDiscussion.insertSystemMessagesIfDiscussionIsEmpty(discussionObjectID: discussion.objectID, markAsRead: true, within: obvContext.context)
 
                 let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
-                let randomBody = CreateRandomMessageReceivedDebugOperation.randomString(length: randomBodySize)
+
+                let bodyHasMention = Bool.random()
+
+                let mentionedContactIdentity: PersistedObvContactIdentity? = try {
+                    switch try discussion.kind {
+                    case .oneToOne:
+                        return .none
+
+                    case .groupV1(withContactGroup: let contactGroup):
+                        guard let contactGroup else {
+                            return nil
+                        }
+
+                        return contactGroup.contactIdentities.randomElement()
+
+                    case .groupV2(withGroup: let group):
+                        guard let group else {
+                            return nil
+                        }
+
+                        return group.otherMembers.randomElement()?.contact
+                    }
+                }()
+
+                let (randomBody, mentions): (String, [MessageJSON.UserMention]) = {
+                    guard bodyHasMention,
+                          let mentionedContactIdentity else {
+                        return CreateRandomMessageReceivedDebugOperation.randomString(length: randomBodySize, mentionedContactIdentity: nil)
+                    }
+
+                    return CreateRandomMessageReceivedDebugOperation.randomString(length: randomBodySize, mentionedContactIdentity: mentionedContactIdentity)
+                }()
 
                 let messageJSON: MessageJSON
                 
                 switch try discussion.kind {
                 case .oneToOne:
-                    
+
                     messageJSON = MessageJSON(senderSequenceNumber: 0,
                                               senderThreadIdentifier: UUID(),
                                               body: randomBody,
                                               replyTo: nil,
                                               expiration: nil,
-                                              forwarded: false)
+                                              forwarded: false,
+                                              userMentions: mentions)
 
                 case .groupV1(withContactGroup: let contactGroup):
                     guard let contactGroup = contactGroup else {
@@ -83,7 +117,8 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                                               groupV1Identifier: groupV1Identifier,
                                               replyTo: nil,
                                               expiration: nil,
-                                              forwarded: false)
+                                              forwarded: false,
+                                              userMentions: mentions)
                     
                 case .groupV2(withGroup: let group):
                     guard let groupV2Identifier = group?.groupIdentifier else {
@@ -96,9 +131,9 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
                                               replyTo: nil,
                                               expiration: nil,
                                               forwarded: false,
-                                              originalServerTimestamp: nil)
+                                              originalServerTimestamp: nil,
+                                              userMentions: mentions)
                 }
-                
                 
                 let randomMessageIdentifierFromEngine = UID.gen(with: prng).raw
 
@@ -138,11 +173,28 @@ final class CreateRandomMessageReceivedDebugOperation: ContextualOperationWithSp
     }
     
     
-    static func randomString(length: Int) -> String {
+    static func randomString(length: Int, mentionedContactIdentity: PersistedObvContactIdentity?) -> (String, [MessageJSON.UserMention]) {
         let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789                  "
-        return String((0...length-1).map { _ in letters.randomElement()! })
-    }
 
+        let randomBody = String((0...length-1).map { _ in letters.randomElement()! })
+
+        guard let mentionedContactIdentity else {
+            return (randomBody, [])
+        }
+
+        let mentionedName = mentionedContactIdentity.fullDisplayName
+
+        let mentionedBody = "\n\nmention: @\(mentionedName)"
+
+        let finalBody = randomBody + mentionedBody
+
+        let mentionedUserRange = finalBody.range(of: "@\(mentionedName)")!
+
+        let userMention = MessageJSON.UserMention(mentionedCryptoId: mentionedContactIdentity.cryptoId,
+                                                  range: mentionedUserRange)
+
+        return (finalBody, [userMention])
+    }
 }
 
 

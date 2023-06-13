@@ -45,7 +45,7 @@ public final class ObvEngine: ObvManager {
     
     private let delegateManager: ObvMetaManager
     private let engineCoordinator: EngineCoordinator
-    private let prng: PRNGService
+    let prng: PRNGService
     let appNotificationCenter: NotificationCenter
     let returnReceiptSender: ReturnReceiptSender
     private let transactionsHistoryReplayer: TransactionsHistoryReplayer
@@ -451,13 +451,23 @@ extension ObvEngine: ObvErrorMaker {
     }
     
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(_ arg: [(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)]) {
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo referenceDate: Date) async {
         assert(!Thread.isMainThread)
         guard let networkPostDelegate = networkPostDelegate else { assertionFailure(); return  }
         let flowId = FlowIdentifier()
-        let messageIdentifiers = arg.compactMap { MessageIdentifier(rawOwnedCryptoIdentity: $0.ownedIdentity.cryptoIdentity.getIdentity(), rawUid: $0.messageIdentifierFromEngine) }
-        guard !messageIdentifiers.isEmpty else { return }
-        networkPostDelegate.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(messageIdentifiers: messageIdentifiers, flowId: flowId)
+        await networkPostDelegate.deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo: referenceDate, flowId: flowId)
+    }
+
+
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId) async {
+        assert(!Thread.isMainThread)
+        guard let networkPostDelegate = networkPostDelegate else { assertionFailure(); return  }
+        let flowId = FlowIdentifier()
+        guard let messageIdentifier = MessageIdentifier(rawOwnedCryptoIdentity: ownedIdentity.cryptoIdentity.getIdentity(), rawUid: messageIdentifierFromEngine) else {
+            assertionFailure()
+            return
+        }
+        await networkPostDelegate.deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: messageIdentifier, flowId: flowId)
     }
     
 }
@@ -583,7 +593,7 @@ extension ObvEngine {
                 let obvDialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
                 for obvDialog in obvDialogs {
                     guard obvDialog.obvDialog?.ownedCryptoId == ownedCryptoId else { continue }
-                    deleteDialog(with: obvDialog.uuid, within: obvContext)
+                    try? deleteDialog(with: obvDialog.uuid, within: obvContext)
                 }
             }
             
@@ -755,25 +765,34 @@ extension ObvEngine {
 
                 ownedIdentities.forEach { (ownedIdentity) in
                     if let currentDeviceUid = try? identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext),
-                        let maskingUID = try? identityDelegate.getFreshMaskingUIDForPushNotifications(for: ownedIdentity, within: obvContext) {
+                       let maskingUID = try? identityDelegate.getFreshMaskingUIDForPushNotifications(for: ownedIdentity, within: obvContext),
+                       let keycloakPushTopics = try? identityDelegate.getKeycloakPushTopics(ownedCryptoIdentity: ownedIdentity, within: obvContext) {
                         let remotePushNotification: ObvPushNotificationType
-                        let parameters = ObvPushNotificationParameters(kickOtherDevices: kickOtherDevices, useMultiDevice: useMultiDevice)
+                        let parameters = ObvPushNotificationParameters(kickOtherDevices: kickOtherDevices, useMultiDevice: useMultiDevice, keycloakPushTopics: keycloakPushTopics)
                         if let tokens = deviceTokens {
-                            remotePushNotification = ObvPushNotificationType.remote(pushToken: tokens.pushToken, voipToken: tokens.voipToken, maskingUID: maskingUID, parameters: parameters)
+                            remotePushNotification = ObvPushNotificationType.remote(
+                                ownedCryptoId: ownedIdentity,
+                                currentDeviceUID: currentDeviceUid,
+                                pushToken: tokens.pushToken,
+                                voipToken: tokens.voipToken,
+                                maskingUID: maskingUID,
+                                parameters: parameters)
                         } else {
-                            remotePushNotification = ObvPushNotificationType.registerDeviceUid(parameters: parameters)
+                            remotePushNotification = ObvPushNotificationType.registerDeviceUid(
+                                ownedCryptoId: ownedIdentity,
+                                currentDeviceUID: currentDeviceUid,
+                                parameters: parameters)
                         }
-                        networkFetchDelegate.register(pushNotificationType: remotePushNotification, for: ownedIdentity, withDeviceUid: currentDeviceUid, within: obvContext)
+                        networkFetchDelegate.registerPushNotification(remotePushNotification, flowId: obvContext.flowId)
                     }
                 }
                 
                 do {
-                    try obvContext.save(logOnFailure: log)
+                    if obvContext.context.hasChanges {
+                        try obvContext.save(logOnFailure: log)
+                    }
                 } catch {
-                    os_log("Could not register to push notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
                     assertionFailure()
-                    completion(.failure(error))
-                    return
                 }
                 
                 completion(.success(()))
@@ -809,13 +828,13 @@ extension ObvEngine {
         networkFetchDelegate.queryServerWellKnown(serverURL: serverURL, flowId: flowId)
     }
 
-    public func getOwnedIdentityKeycloakState(with ownedCryptoId: ObvCryptoId) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedUserDetails?) {
+    public func getOwnedIdentityKeycloakState(with ownedCryptoId: ObvCryptoId) throws -> (obvKeycloakState: ObvKeycloakState?, signedOwnedDetails: SignedObvKeycloakUserDetails?) {
 
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
 
         var keyCloakState: ObvKeycloakState?
-        var signedOwnedDetails: SignedUserDetails?
+        var signedOwnedDetails: SignedObvKeycloakUserDetails?
         let flowId = FlowIdentifier()
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
             (keyCloakState, signedOwnedDetails) = try identityDelegate.getOwnedIdentityKeycloakState(
@@ -826,7 +845,7 @@ extension ObvEngine {
     }
     
     
-    public func getSignedContactDetails(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId, completion: @escaping (Result<SignedUserDetails?,Error>) -> Void) throws {
+    public func getSignedContactDetails(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId, completion: @escaping (Result<SignedObvKeycloakUserDetails?,Error>) -> Void) throws {
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
         let flowId = FlowIdentifier()
@@ -897,7 +916,7 @@ extension ObvEngine {
         }
     }
 
-    public func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedUserDetails) throws {
+    public func addKeycloakContact(with ownedCryptoId: ObvCryptoId, signedContactDetails: SignedObvKeycloakUserDetails) throws {
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let protocolDelegate = protocolDelegate else { throw ObvEngine.makeError(message: "The protocol delegate is not set") }
         guard let flowDelegate = flowDelegate else { return }
@@ -979,7 +998,7 @@ extension ObvEngine {
 
         let flowId = FlowIdentifier()
         queueForSynchronizingCallsToManagers.async {
-            createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] obvContext in
+            createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { [weak self] obvContext in
                 guard let _self = self else {
                     completion(.failure(ObvEngine.makeError(message: "Engine was deallocated")))
                     assertionFailure()
@@ -1124,14 +1143,17 @@ extension ObvEngine {
         let flowId = FlowIdentifier()
         let log = self.log
         os_log("Updating the keycloak push topics within the engine", log: log, type: .info)
-        try queueForSynchronizingCallsToManagers.sync {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                let storedPushTopicsUpdated = try identityDelegate.updateKeycloakPushTopicsIfNeeded(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, pushTopics: pushTopics, within: obvContext)
-                if storedPushTopicsUpdated {
-                    try networkFetchDelegate.forceRegisterToPushNotification(identity: ownedCryptoId.cryptoIdentity, within: obvContext)
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            let storedPushTopicsUpdated = try identityDelegate.updateKeycloakPushTopicsIfNeeded(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, pushTopics: pushTopics, within: obvContext)
+            if storedPushTopicsUpdated {
+                if let pushNotification = try networkFetchDelegate.getServerPushNotification(ownedCryptoId: ownedCryptoId.cryptoIdentity, within: obvContext) {
+                    // Make sure we register all push topics (including those concerning keycloak groups, which are not included in the pushTopics received)
+                    let allPushTopics = try identityDelegate.getKeycloakPushTopics(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, within: obvContext)
+                    let newPushNotification = pushNotification.withUpdatedKeycloakPushTopics(allPushTopics)
+                    networkFetchDelegate.registerPushNotification(newPushNotification, flowId: obvContext.flowId)
                 }
-                try obvContext.save(logOnFailure: log)
             }
+            try obvContext.save(logOnFailure: log)
         }
 
     }
@@ -1155,7 +1177,7 @@ extension ObvEngine {
     }
 
     
-    public func getSignedOwnedDetails(ownedIdentity: ObvCryptoId, completion: @escaping (Result<SignedUserDetails?,Error>) -> Void) throws {
+    public func getSignedOwnedDetails(ownedIdentity: ObvCryptoId, completion: @escaping (Result<SignedObvKeycloakUserDetails?,Error>) -> Void) throws {
         guard let createContextDelegate = createContextDelegate else { throw ObvEngine.makeError(message: "Create Context Delegate is not set") }
         guard let identityDelegate = identityDelegate else { throw ObvEngine.makeError(message: "Identity Delegate is not set") }
         let flowId = FlowIdentifier()
@@ -1602,18 +1624,10 @@ extension ObvEngine {
     
     public func deleteDialog(with uuid: UUID) throws {
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
-        var error: Error?
         let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            deleteDialog(with: uuid, within: obvContext)
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
-            }
-        }
-        guard error == nil else {
-            throw error!
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
+            try deleteDialog(with: uuid, within: obvContext)
+            try obvContext.save(logOnFailure: log)
         }
     }
     
@@ -1633,26 +1647,18 @@ extension ObvEngine {
         try protocolDelegate.abortProtocol(withProtocolInstanceUid: protocolInstanceUid,
                                            forOwnedIdentity: obvDialog.ownedCryptoId.cryptoIdentity)
         
-        var error: Error?
         let randomFlowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            deleteDialog(with: obvDialog.uuid, within: obvContext)
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
-            }
-        }
-        guard error == nil else {
-            throw error!
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
+            try deleteDialog(with: obvDialog.uuid, within: obvContext)
+            try obvContext.save(logOnFailure: log)
         }
         
     }
     
     
-    private func deleteDialog(with uid: UUID, within obvContext: ObvContext) {
-        guard let persistedDialog = PersistedEngineDialog.get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext) else { return }
-        obvContext.delete(persistedDialog)
+    private func deleteDialog(with uid: UUID, within obvContext: ObvContext) throws {
+        guard let persistedDialog = try PersistedEngineDialog.get(uid: uid, appNotificationCenter: appNotificationCenter, within: obvContext) else { return }
+        try persistedDialog.delete()
     }
     
     
@@ -2338,6 +2344,50 @@ extension ObvEngine {
 }
 
 
+// MARK: - Public API for keycloak pushed groups
+
+extension ObvEngine {
+    
+    public func updateKeycloakGroups(ownedCryptoId: ObvCryptoId, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date) throws {
+
+        assert(!Thread.isMainThread)
+
+        guard let flowDelegate = flowDelegate else { throw makeError(message: "The flow delegate is not set") }
+        guard let protocolDelegate = protocolDelegate else { throw makeError(message: "The protocol delegate is not set") }
+        guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        guard let channelDelegate = channelDelegate else { throw makeError(message: "The channel delegate is not set") }
+
+        let log = self.log
+
+        guard !signedGroupBlobs.isEmpty || !signedGroupDeletions.isEmpty || !signedGroupKicks.isEmpty else {
+            // Nothing to do, we return early
+            return
+        }
+        
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        let message = try protocolDelegate.getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(ownedIdentity: ownedCryptoId.cryptoIdentity,
+                                                                                                    signedGroupBlobs: signedGroupBlobs,
+                                                                                                    signedGroupDeletions: signedGroupDeletions,
+                                                                                                    signedGroupKicks: signedGroupKicks,
+                                                                                                    keycloakCurrentTimestamp: keycloakCurrentTimestamp,
+                                                                                                    flowId: flowId)
+        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
+            _ = try channelDelegate.post(message, randomizedWith: prng, within: obvContext)
+            try obvContext.save(logOnFailure: log)
+        }
+
+
+    }
+    
+    
+    public func getOwnedIdentityFromMaskingUid() -> ObvCryptoId? {
+        assertionFailure("Not implemented at this time since, when synchronizing a keycloak identity, we sync all keycloak identities")
+        return nil
+    }
+    
+}
+
 // MARK: - Public API for managing groups
 
 extension ObvEngine {
@@ -2729,19 +2779,17 @@ extension ObvEngine {
         
         guard let identityDelegate = identityDelegate else { throw makeError(message: "The identity delegate is not set") }
         guard let createContextDelegate = createContextDelegate else { throw makeError(message: "The context delegate is not set") }
+        let log = self.log
 
-        do {
-            var error: Error?
-            let randomFlowId = FlowIdentifier()
-            createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-                do {
-                    try identityDelegate.deleteContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, deleteEvenIfGroupMembersStillExist: false, within: obvContext)
-                    try obvContext.save(logOnFailure: log)
-                } catch let _error {
-                    error = _error
-                }
+        let randomFlowId = FlowIdentifier()
+        createContextDelegate.performBackgroundTask(flowId: randomFlowId) { (obvContext) in
+            do {
+                try identityDelegate.deleteContactGroupOwned(ownedIdentity: ownedCryptoId.cryptoIdentity, groupUid: groupUid, deleteEvenIfGroupMembersStillExist: false, within: obvContext)
+                try obvContext.save(logOnFailure: log)
+            } catch {
+                os_log("Could not delete owned contact group: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure(error.localizedDescription)
             }
-            guard error == nil else { throw error! }
         }
     }
     
@@ -3348,8 +3396,8 @@ extension ObvEngine {
         for manager in delegateManager.registeredManagers {
             await manager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
         }
+        replayTransactionsHistory() // 2022-02-24: Used to be called only if forTheFirstTime. We now want to empty the history as soon as possible.
         if forTheFirstTime {
-            replayTransactionsHistory()
             downloadAllMessagesForOwnedIdentities()
         }
     }
@@ -3538,6 +3586,9 @@ extension ObvEngine {
             let allOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
             for identity in allOwnedIdentities {
                 allGroupsV2[identity] = try identityDelegate.getAllObvGroupV2(of: identity, within: obvContext)
+                    .filter { obvGroupV2 in
+                        !obvGroupV2.keycloakManaged // We restrict to non-keycloak groups
+                    }
             }
         }
         
@@ -3811,7 +3862,7 @@ extension ObvEngine: ObvUserInterfaceChannelDelegate {
 
                     case .delete:
                         // This is a special case: we simply delete any existing realated PersistedEngineDialog and return
-                        PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext)
+                        try PersistedEngineDialog.deletePersistedDialog(uid: uuid, appNotificationCenter: appNotificationCenter, within: obvContext)
                         return
                     }
                     
@@ -3830,7 +3881,7 @@ extension ObvEngine: ObvUserInterfaceChannelDelegate {
         }
         
         // We have a dialog to present to the user, we persist it in the `PersistedEngineDialog` database. If another `PersistedEngineDialog` exist with the same UUID, it is part of the same protocol and we simply update this instance.
-        if let previousDialog = PersistedEngineDialog.get(uid: obvDialog.uuid, appNotificationCenter: appNotificationCenter, within: obvContext) {
+        if let previousDialog = try PersistedEngineDialog.get(uid: obvDialog.uuid, appNotificationCenter: appNotificationCenter, within: obvContext) {
             do {
                 try previousDialog.update(with: obvDialog)
             } catch {

@@ -974,7 +974,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "If you wish, you can help the development team by tapping the button below. This will share (only) the above message with them." = "If you wish, you can help the development team by tapping the button below. This will share (only) the following message with them.";
 
-"Please report this error to %1$@ so we can fix this issue as fast as possible." = "Please report this error to %1$@ so we can fix this issue as fast as possible.";
+"Please report this error to %1$@ so we can fix this issue as fast as possible." = "Restarting your device may fix this issue. If it does not, please report this error to %1$@ so we can fix this issue as fast as possible.";
 
 "Please fix this serious issue with Olvid" = "Please fix this serious issue with Olvid";
 
@@ -1034,7 +1034,7 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "If you are a new Olvid user, simply click Continue as a new user below." = "If you are a new Olvid user, simply click \"Continue as a new user\" below.";
 
-"If you already used Olvid and want to restore your identity and contacts from a backup, click Restore a backup" = "If you already used Olvid and want to restore your identity and contacts from a backup, click \"Restore a backup\"";
+"If you already used Olvid and want to restore your identity and contacts from a backup, click Restore a backup" = "If you already used Olvid and want to restore your identity and contacts from a backup, click \"Restore a backup\".";
 
 "Continue as a new user" = "Continue as a new user";
 
@@ -1950,8 +1950,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "USE_OLD_DISCUSSION_INTERFACE" = "Use old discussion interface";
 
-"USE_OLD_LIST_OF_DISCUSSIONS_INTERFACE" = "Use old list of discussions interface";
-
 "TAP_TO_CANCEL" = "Tap to cancel";
 
 "PLEASE_UPDATE_OLVID_FROM_MAIN_APP" = "Please launch the Olvid App in order to finalize its update 🚀. You will be able to share content once this is done 😉.";
@@ -1977,6 +1975,8 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "SHOW_BACKUP_SCREEN" = "Backup settings";
 
 "SHOW_SETTINGS_SCREEN" = "All settings";
+
+"TOGGLE_EDIT_PINNED_STATE" = "Edit pinned discussions";
 
 "CONTACT_SORT_ORDER" = "Contact sort order...";
 
@@ -2592,12 +2592,6 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 
 "EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2" = "This group does not support more than one administrator. But you can clone this group into a new one that will 🚀!";
 
-"SNACK_BAR_TITLE_ANNOUNCE_GROUPS_V2" = "More";
-"SNACK_BAR_BODY_ANNOUNCE_GROUPS_V2" = "Introducing new groups!";
-"SNACK_BAR_DETAILS_TITLE_ANNOUNCE_GROUPS_V2" = "Introducing new groups!";
-"SNACK_BAR_DETAILS_BODY_ANNOUNCE_GROUPS_V2" = "Olvid now supports new groups with multiple administrators 👑! This does not change anything to your existing \"old groups\" but applies to all groups you create from now on. To benefit from this, your contacts need to use the latest version of Olvid.\n\nWant to try this out? Tap on the group tab and create a new group. Once created, you may edit it to grant administrator privilege to as many members as you wish!";
-"ANNOUNCE_GROUPS_V2_BUTTON_TITLE" = "Go to groups";
-
 "TITLE_NEVER_MISS_A_MESSAGE" = "Never miss a message";
 
 "TITLE_NEVER_MISS_A_SECURE_CALL" = "Never miss a call";
@@ -2728,3 +2722,43 @@ Olvid's security policy requires you to re-validate the identity of %2@ by excha
 "Message" = "Message";
 
 "ANOTHER_PROFILE_HAS_VALID_API_KEY" = "This profile benefits from the license of another profile.";
+
+"Stored" = "Stored";
+
+"ENABLE_RUNNING_LOGS" = "Enable in-app logs";
+
+"IN_APP_LOGS" = "In-app logs";
+
+"NO_OTHER_MEMBER_FOR_NOW" = "No other group member for now.";
+
+"SHOW_CURRENT_COORDINATORS_OPS" = "Show current coordinators operations";
+
+"SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_TITLE" = "You cannot leave the group";
+
+"SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_MESSAGE" = "Since this group a managed by your company's server, you cannot leave it.";
+
+"ARCHIVE" = "Archive";
+
+"UNARCHIVE" = "Unarchive";
+
+"PERFORM_CONTACT_INTRODUCTION" = "Perform contact introduction";
+
+/* Picker title for the mention notification mode */
+"discussion-expiration-settings-view.body.section.mention-notification-mode.picker.title" = "Mention Notification Mode";
+/* Display title for the `default` value for mention notification mode. Takes one argument, the global discussion notification mode */
+"discussion-mention-notification-mode.display-title.default" = "Default (%1$@)";
+/* Display title for the `always` value for mention notification mode */
+"discussion-mention-notification-mode.display-title.always" = "Always";
+/* Display title for the `never` value for mention notification mode */
+"discussion-mention-notification-mode.display-title.never" = "Never";
+/* Picker footer for the mention notification mode */
+"discussion-expiration-settings-view.body.section.mention-notification-mode.picker.footer.title" = "Setting to be notified when being mentioned within this Discussion";
+
+/* Picker title for the default mention notification mode */
+"discussion-default-settings-view.mention-notification-mode.picker.title" = "Mention Notification Mode";
+/* Display title for the `always` value for mention notification mode */
+"discussion-default-settings-view.mention-notification-mode.picker.mode.always" = "Always";
+/* Display title for the `never` value for mention notification mode */
+"discussion-default-settings-view.mention-notification-mode.picker.mode.never" = "Never";
+/* Picker footer for the default mention notification mode */
+"discussion-default-settings-view.mention-notification-mode.picker.footer.title" = "Global Setting to be notified when being mentioned within a Discussion";

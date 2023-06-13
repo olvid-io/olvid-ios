@@ -27,6 +27,8 @@ import os.log
 import QuickLookThumbnailing
 import SwiftUI
 import CoreData
+import ObvUICoreData
+import UI_SystemIcon
 
 
 final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDelegate, ObvErrorMaker {
@@ -74,8 +76,13 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
         self.viewContext = context
         self.allOwnedIdentities = allOwnedIdentities
         // Select an appropriate owned identity
-        if let selectedOwnedIdentity = allOwnedIdentities.first {
-            self.selectedOwnedIdentity = selectedOwnedIdentity
+        if let firstOwnedIdentity = allOwnedIdentities.first {
+            let nonHiddenCryptoId = LatestCurrentOwnedIdentityStorage.shared.getLatestCurrentOwnedIdentityStoredSynchronously()?.nonHiddenCryptoId
+            if let nonHiddenCryptoId {
+                self.selectedOwnedIdentity = allOwnedIdentities.first(where: { $0.cryptoId == nonHiddenCryptoId }) ?? firstOwnedIdentity
+            } else {
+                self.selectedOwnedIdentity = firstOwnedIdentity
+            }
         } else {
             throw Self.makeError(message: "The array of owned identities cannot be empty")
         }
@@ -148,12 +155,13 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
     }
 
     var discussionsModel: DiscussionsViewModel {
-        let fetchRequest = PersistedDiscussion.getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with: selectedOwnedIdentity.cryptoId)
-        let discussions = (try? viewContext.fetch(fetchRequest)) ?? []
+        let frcModel = PersistedDiscussion.getFetchRequestForAllActiveRecentDiscussionsForOwnedIdentity(with: selectedOwnedIdentity.cryptoId)
+        let discussions = (try? viewContext.fetch(frcModel.fetchRequest)) ?? []
         let allDiscussionViewModels: [DiscussionViewModel] = discussions.compactMap { discussion in
-            guard let discussionUI = discussion as? PersistedDiscussionUI else { assertionFailure(); return nil }
             let isSelected = selectedDiscussions.contains(discussion)
-            return DiscussionViewModel(discussionUI: discussionUI, selected: isSelected)
+            return DiscussionViewModel(persistedDiscussion: discussion,
+                                       selected: isSelected,
+                                       style: ObvMessengerSettings.Interface.identityColorStyle)
         }
         let discussionsViewModel = DiscussionsViewModel(discussions: allDiscussionViewModels)
         discussionsViewModel.delegate = self

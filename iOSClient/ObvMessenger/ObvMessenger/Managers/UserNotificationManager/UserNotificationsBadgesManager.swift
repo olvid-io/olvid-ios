@@ -22,6 +22,7 @@ import CoreData
 import os.log
 import ObvTypes
 import UserNotifications
+import ObvUICoreData
 
 actor UserNotificationsBadgesManager {
     
@@ -64,6 +65,10 @@ actor UserNotificationsBadgesManager {
         }
     }
     
+    deinit {
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
     
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         recomputeAllBadges(completion: { _ in })
@@ -83,8 +88,7 @@ actor UserNotificationsBadgesManager {
         refreshAppBadgeOperation.completionBlock = {
             completion(true)
         }
-    }
-    
+    }    
 }
 
 
@@ -108,7 +112,7 @@ extension UserNotificationsBadgesManager {
             ObvMessengerInternalNotification.observeMetaFlowControllerDidSwitchToOwnedIdentity { ownedCryptoId in
                 Task { [weak self] in await self?.switchCurrentOwnedCryptoId(to: ownedCryptoId) }
             },
-            ObvMessengerCoreDataNotification.observeNumberOfNewMessagesChangedForOwnedIdentity { _, _ in
+            ObvMessengerCoreDataNotification.observeBadgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity { _ in
                 Task { [weak self] in await self?.recomputeAllBadges(completion: { _ in }) }
             },
         ])

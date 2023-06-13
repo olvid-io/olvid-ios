@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvTypes
+import ObvUICoreData
 
 
 final class MarkReceivedJoinAsResumedOrPausedOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {

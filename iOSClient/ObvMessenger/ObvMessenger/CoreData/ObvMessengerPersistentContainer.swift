@@ -19,14 +19,16 @@
 
 import Foundation
 import CoreData
+import ObvUICoreData
 
 final class ObvMessengerPersistentContainer: NSPersistentContainer {
     
     override class func defaultDirectoryURL() -> URL {
-        if !FileManager.default.fileExists(atPath: ObvMessengerConstants.containerURL.forDatabase.absoluteString) {
-            try! FileManager.default.createDirectory(at: ObvMessengerConstants.containerURL.forDatabase, withIntermediateDirectories: true)
+        let url = ObvUICoreDataConstants.ContainerURL.forDatabase.url
+        if !FileManager.default.fileExists(atPath: url.absoluteString) {
+            try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
-        return ObvMessengerConstants.containerURL.forDatabase
+        return url
     }
     
     override var persistentStoreDescriptions: [NSPersistentStoreDescription] {

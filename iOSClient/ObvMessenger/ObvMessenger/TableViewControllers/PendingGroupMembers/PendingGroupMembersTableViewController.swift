@@ -21,6 +21,8 @@ import UIKit
 import os.log
 import CoreData
 import ObvEngine
+import ObvUICoreData
+import ObvUI
 
 
 class PendingGroupMembersTableViewController: UITableViewController {
@@ -60,6 +62,7 @@ class PendingGroupMembersTableViewController: UITableViewController {
 
     deinit {
         kvObservations.removeAll()
+        notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 }
 
@@ -89,8 +92,10 @@ extension PendingGroupMembersTableViewController {
     
     
     private func observeIdentityColorStyleDidChangeNotifications() {
-        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange(queue: OperationQueue.main) { [weak self] in
-            self?.tableView.reloadData()
+        let token = ObvMessengerSettingsNotifications.observeIdentityColorStyleDidChange {
+            DispatchQueue.main.async { [weak self] in
+                self?.tableView.reloadData()
+            }
         }
         self.notificationTokens.append(token)
     }
